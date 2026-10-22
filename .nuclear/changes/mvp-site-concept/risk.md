@@ -31,7 +31,8 @@
 |---|---|
 | What could this change quietly get wrong? | An agent or the daemon reaching a human decision, a decision applied to content other than what the person saw, a pre-check run with the author's context, a record that can be edited after the fact, or a site package that states a number nobody computed. Each has a check below. |
 | What did testing find that we did not expect? | Browser page loads at paths the API also serves (`/office`, `/packages/:id`) got JSON; the server now returns the app for HTML requests. The embedded Postgres Linux binary needs `libicu60`, so the test harness starts a throwaway cluster from a system PostgreSQL instead. While writing this packet, the site pack's county registry file turned out to be ignored by the root `.gitignore` (`data/`) and never committed, so one parcel test failed on a fresh checkout. The ignore rule now exempts data shipped inside a pack, and the file is committed in `3f640a1`. |
-| What is assumed rather than shown? | That real Claude Code and Codex runs behave like the scripted agents used here. The first real run is on the owner's Mac. |
+| What is assumed rather than shown? | That real Claude Code and Codex runs behave like the scripted agents used here. The first real run is on the owner's Mac. Codex launch flags were checked by reading its help, not by a real run. |
+| What did the Kandev review find? | Confirmed gaps in our own code (build plan N1 to N8): Codex could not write, a dead daemon left runs running, a retried completion could not tell success from refusal, an empty author run advanced, the pre-check fell back to the author's runtime, no stop, outputs served unchecked, no origin check, and the trace did not say what ran. Each is fixed and tested in this change. |
 
 ## Affected configuration items
 

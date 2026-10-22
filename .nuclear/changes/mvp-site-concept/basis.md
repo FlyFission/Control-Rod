@@ -27,11 +27,12 @@ The owner wants to hand a parcel and a facility type (first case: a 50 MW data c
 |---|---|---|
 | Only a human with a verified passkey over the matching subject digest can release, accept, return or reject. | Agents and the daemon must never sign off work, and a decision must bind to what the person saw. | Kernel transition tests; API refusals for missing, replayed, wrong-kind, foreign-origin and forged assertions; acceptance bound to the digest. |
 | Agents can only claim, submit output, submit a pre-check or revise. | Keeps agent authority inside the floors. | Kernel tests for `NotHuman` and `WrongState`. |
-| The pre-check is independent of the author. | A check written with the author's context repeats the author's mistakes. | Kernel `NotIndependent`; API test that the pre-checker's baseline differs and it gets no author log. |
+| The pre-check is independent of the author. | A check written with the author's context repeats the author's mistakes. | Kernel `NotIndependent` on the same baseline or the same runtime identity (provider and model) without a recorded owner override; API tests that a pre-check is held rather than run on the author's runtime, that it gets no author log, and that an override shows on the verification record. |
 | Acceptance needs a pre-check, and a non-pass pre-check needs a written reason. | No package is accepted unchecked or over an unexplained finding. | Kernel `MissingPreCheck` and `ReasonRequired`. |
 | The record is append-only and verifiable. | Lets anyone confirm nothing was rewritten. | Hash chain verifies; update and delete on events are refused. |
 | Site numbers come from tools with recorded inputs. | AGENTS.md rule 5: no engineering number is typed by a model. | `cr-site` tool tests; live run with real public sources and a passing `cr-site check`. |
 | Only permissive licenses ship. | Open-core license plan. | License gate passes; `Unlicense` addition signed by the owner. |
+| A run's custody is never ambiguous. | A dead daemon, a lost reply or a refused completion must not leave work looking busy, applied twice or quietly dropped. | Claim token and lease; lost runs swept and shown; idempotent completion with a stored receipt; refusals recorded as failed runs with the reason; daemon outbox; owner-only requeue and stop. |
 
 ## Unacceptable outcomes
 
@@ -41,6 +42,8 @@ The owner wants to hand a parcel and a facility type (first case: a 50 MW data c
 | A decision applies to a newer revision than the one reviewed. | The owner approves content he never saw. | Assertion challenge binds digest, kind, revision and a nonce; acceptance checks the digest. |
 | An event is edited or deleted. | The record lies. | Database trigger refuses update and delete; chain verify route. |
 | A site package states a setback, area or capacity no tool produced. | A wrong number reaches a siting decision. | Role briefs require `cr-site` outputs; holds are written as holds; owner review. |
+| A pre-check runs on the author's runtime without anyone choosing that. | The check shares the author's blind spots and the record overstates independence. | Pre-check held with a plain reason; kernel refuses a shared runtime without an owner override; the override is an event and sits on the verification record. |
+| A run whose daemon died stays "running" forever, or a retried completion is applied twice. | The owner waits on work nobody is doing, or a package moves on a duplicate. | Lease and sweep to `lost`; completion keyed and idempotent; stale or foreign token refused. |
 | A fresh checkout misses files a builder had locally. | The owner's first run fails or behaves differently. | Run every suite from the committed tree; the ignored county registry is the current case. |
 
 ## Assumptions, constraints, and invalidation triggers
@@ -61,6 +64,7 @@ The owner wants to hand a parcel and a facility type (first case: a 50 MW data c
 | Passkey verification | `@simplewebauthn/server` 14.0.3 with a software authenticator in tests and a Chromium virtual authenticator live | pass |
 | Public data sources | Live queries on 2026-10-22 | pass |
 | Real agent runtimes | none yet | planned |
+| Codex launch flags | `codex exec --help` on Codex 0.163.0, read by the orchestrating agent on 2026-10-22; argument lists tested in the daemon | pass by reading; no real Codex run yet |
 
 ## Interfaces and trust boundaries
 
@@ -86,7 +90,7 @@ The owner wants to hand a parcel and a facility type (first case: a 50 MW data c
 |---|---|---|---|---|
 | C-001 | Only a human with a verified passkey over the matching subject digest can release, accept, return or reject. | Protected outcome 1 | Kernel decision rules; signed challenge over digest, kind, revision and nonce | Kernel tests; API tests |
 | C-002 | Agents can only claim, submit output, submit a pre-check or revise. | Protected outcome 2 | Kernel transition table | Kernel tests |
-| C-003 | The pre-checker runs on a different baseline from the author and never receives the author's log. | Protected outcome 3 | Kernel `NotIndependent`; claim payload | Kernel and API tests |
+| C-003 | The pre-checker runs on a different baseline and a different runtime identity from the author, or on the same runtime only after a recorded owner override, and never receives the author's log. | Protected outcome 3 | Kernel `NotIndependent` with runtime identity; claim hold; claim payload | Kernel and API tests |
 | C-004 | Acceptance needs a pre-check, and a non-pass pre-check needs a written reason. | Protected outcome 4 | Kernel `MissingPreCheck`, `ReasonRequired` | Kernel tests |
 | C-005 | People and the daemon cannot use each other's routes, and nothing acts without a session. | Protected outcome 1 | Route guards in `app.ts` | API tests |
 | C-006 | The event log is hash-chained and refuses update and delete. | Protected outcome 5 | Chain in `events.ts`; database trigger | API test |
@@ -98,6 +102,15 @@ The owner wants to hand a parcel and a facility type (first case: a 50 MW data c
 | C-012 | Real Claude Code and Codex runs follow the same floors. | Assumption 1 | Same runner path | First run on the owner's Mac |
 | C-013 | The daemon claims eligible jobs, runs the role's runtime in a workspace and reports the trace; the fake runtime runs only with `CONTROLROD_ALLOW_FAKE=1`. | Protected outcome 2 | `daemon/internal/runner` | Daemon tests |
 | C-014 | The web app lets the owner sign in, capture, review packages and decide with a passkey. | Protected outcome 1 | `apps/web` | Web tests; live browser run |
+| C-015 | Codex runs start with a workspace-write sandbox rooted at the run workspace and skip the repository check; network inside the sandbox only for author runs of roles whose tools ask for it. | Assumption 1 | `CodexArgs`, `network: on` directive, site role tools files | Daemon and API tests |
+| C-016 | Each claimed run carries a claim token and a lease renewed by log posts; a lapsed lease marks the run lost with the reason, shown in the office and package view; only the owner can requeue it. | Protected outcome 8 | `startRun`, `runLog`, `sweepLost`, `requeueRun`; daemon heartbeat | API, daemon and web tests |
+| C-017 | Completion presents the claim token and an idempotency key: a repeat returns the stored receipt, a stale or foreign token is refused, a refusal while applying leaves the run failed with the reason, an invalid trace is refused with a reason, and the daemon keeps completions in an outbox and retries with backoff. | Protected outcome 8 | `complete`, `recordRefused`; daemon `Outbox`, `Handle` | API and daemon tests |
+| C-018 | An author run with no output is recorded failed with a reason and never advances the package. | Protected outcome 4 | `applyCompletion` | API test |
+| C-019 | A pre-check whose only available runtime is the author's is held with a plain reason; the owner may proceed with a written override that is recorded and shown on the verification record. | Protected outcome 3 | `pickChecker`, `overrideIndependence`, verification `independence` block, `pnpm cr doctor` text | Kernel, API and web tests |
+| C-020 | The owner can stop a run: recorded first, the daemon told in its log reply and kills the process, shown as stopping until confirmed, and repeating is harmless. | Protected outcome 8 | `stopRun`; daemon `flushLoop` | API, daemon and web tests |
+| C-021 | Outputs are re-hashed when served; a mismatch is refused and logged. | Protected outcome 5 | `packageOutput` | API test |
+| C-022 | Cookie-authenticated state changes need an allowed Origin, or a same-origin or none Sec-Fetch-Site; runner routes are left to the token. | Protected outcome 1 | `onRequest` hook in `app.ts` | API tests |
+| C-023 | The trace records runtime mode, requested and reported model, permission mode, tool list and sandbox; a model the run did not ask for raises an event; ADR 0020 records print mode with ACP deferred. | Protected outcome 5 | `LaunchFor`, `ReportedModel`, `modelMismatch`, ADR 0020 | Daemon and API tests |
 
 ## Design outline
 
@@ -110,7 +123,7 @@ The owner captures a request in the web app. Intake turns it into packages with 
 
 ## Exit criteria
 
-- Builder and reviewer can say what must stay true.
+- Builder and reviewer can say what must stay true, including the custody and independence fixes from build plan items N1 to N8.
 - Every assumption has an invalidation trigger.
 - Evidence needs flow into `verification.md`.
 

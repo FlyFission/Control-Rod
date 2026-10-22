@@ -816,6 +816,53 @@ describe("log batches", () => {
   });
 });
 
+describe("pre-check evidence custody", () => {
+  it.each([
+    { key: "EVIDBAD1", evidence: "not an array" },
+    { key: "EVIDBAD2", evidence: [{ claim: "Missing custody and status" }] },
+  ])("refuses malformed evidence in $key rather than replacing it", async ({ key, evidence }) => {
+    const id = await releasedPackage(key);
+    const author = await claim();
+    if (!author) throw new Error("no author job");
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, {
+      status: "succeeded", outputs: [{ name: "report.md", content_base64: b64("# Report") }],
+    });
+    const checker = await claim(["codex"]);
+    if (!checker) throw new Error("no checker job");
+    const result = await asDaemon(`/runner/runs/${checker.run.id}/complete`, {
+      status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [], evidence },
+    });
+    expect(result.json().refusal?.code).toBe("invalid");
+    expect((await asOwner("GET", `/packages/${id}`)).json().pre_check).toBeUndefined();
+  });
+
+  it("retains the tool evidence and its shared-mechanism qualification", async () => {
+    const id = await releasedPackage("EVIDENCE1");
+    const author = await claim();
+    if (!author) throw new Error("no author job");
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, {
+      status: "succeeded", outputs: [{ name: "report.md", content_base64: b64("# Report") }],
+    });
+    const checker = await claim(["codex"]);
+    if (!checker) throw new Error("no checker job");
+    const evidence = [{
+      claim: "Program dimensions and geometry checked by cr-site",
+      status: "pass",
+      custody: {
+        generated_by: "cr-site/0.1.0", selected_by: "cr-site/0.1.0", presented_by: "pre-check agent",
+        coupling: { actor: "independent", context: "independent", mechanism: "shared", authority: "independent", resource: "shared" },
+      },
+    }];
+    const result = await asDaemon(`/runner/runs/${checker.run.id}/complete`, {
+      status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [], evidence },
+    });
+    expect(result.statusCode, result.body).toBeLessThan(300);
+    const view = (await asOwner("GET", `/packages/${id}`)).json();
+    expect(view.pre_check.evidence).toEqual(evidence);
+    expect(view.pre_check.independence.runtime).toBe("independent");
+  });
+});
+
 describe("stranded intake", () => {
   it("shows a failed intake on its capture and lets the owner retry it", async () => {
     const c = await asOwner("POST", "/captures", { text: "Intake will fail" });

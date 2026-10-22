@@ -89,3 +89,18 @@ cases:
     expected: Rejected by contract validation with HTTP 400
     requirements: [REQ-API-001]
     status: active
+  - id: RT-016
+    title: Client sets its own org in a session setting
+    attempt: From an application connection, run SET app.org_id to another org and read its rows
+    expected: Zero rows; org identity comes from the login role, not a settable value
+    status: pending
+  - id: RT-017
+    title: Listening on another org's notification channel
+    attempt: LISTEN on a channel name belonging to another org
+    expected: Payloads carry only opaque IDs; fetching the row through RLS returns nothing
+    status: pending
+  - id: RT-018
+    title: Code change strands or corrupts a waiting workflow
+    attempt: Change a workflow body without a patch or version bump while a run is in flight
+    expected: CI refuses the change; no workflow waits on a human, so approvals survive
+    status: pending

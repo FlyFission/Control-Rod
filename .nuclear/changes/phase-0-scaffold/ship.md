@@ -45,7 +45,7 @@
 | Local evidence is coupled to the agent that wrote the code. | A shared mistake could produce both a defect and a passing test. | Accept for a reversible scaffold; GitHub CI and owner review add separation. | Ben Huffer | Any kernel decision function (Phase 1 nuclear subset). |
 | One shared digest vector. | Edge cases in escaping or large integers could differ by language. | Mitigate in Phase 1 with RFC 8785 suite vectors. | Ben Huffer | Phase 1 start. |
 | No TypeScript digest. | The control plane cannot digest records yet. | Defer to Phase 1. | Ben Huffer | First endpoint that stores a digest. |
-| Three spikes and the Flows reuse findings not yet folded into ADRs. | ADRs 0006, 0007, 0009, 0011 and 0016 may change. | Update ADRs before Phase 1. | Ben Huffer | Spike results arriving. |
+| Contracts-kernel and evidence-ACP spikes not yet folded into ADRs. | ADRs 0005, 0009 and 0011 may change. Postgres, DBOS and Flows results are folded into ADRs 0006, 0007 and 0016. | Update ADRs before Phase 1. | Ben Huffer | Spike results arriving. |
 | Edges defined on both producer and consumer in `records.tsp`. | The two lists can drift. | Fix in the Flows contract work; edges move to the Flow record and deadband becomes typed. | Ben Huffer | Flows spec v0. |
 | No vulnerability scan gate. | Known-vulnerable dependencies could merge. | Add in Phase 1. | Ben Huffer | Phase 1 start. |
 

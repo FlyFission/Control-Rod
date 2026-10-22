@@ -115,9 +115,10 @@ def canonical_sha256(json_text: str) -> str:
         raise
     except (ValueError, RecursionError) as err:
         raise InvalidJSONError(f"invalid JSON: {err}") from err
-    canonical = _canonical(_check(parsed, "", 0))
+    checked = _check(parsed, "", 0)
     try:
-        data = canonical.encode("utf-8")
-    except UnicodeEncodeError as err:  # a lone surrogate such as "\ud800"
+        # Key sorting and the final encode both reach every string, keys included.
+        data = _canonical(checked).encode("utf-8")
+    except UnicodeEncodeError as err:  # a lone surrogate such as "\ud800", in a key or value
         raise InvalidJSONError(f"invalid JSON string: {err}") from err
     return hashlib.sha256(data).hexdigest()

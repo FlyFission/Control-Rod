@@ -1,0 +1,78 @@
+# Generic example. Document IDs are placeholders.
+schema_version: "0.1.0"
+id: WP-HVAC-0012
+revision: 2
+title: Process building HVAC heat load calculation
+project: PRJ-EXAMPLE-01
+mode: capital-projects
+discipline: mechanical-hvac
+status: released
+rigor_mode: standard
+data_lane: proprietary
+objective: Determine design cooling and heating loads for rooms in scope to support equipment selection.
+deliverables:
+  - id: CALC-M-0034
+    type: calculation
+    format: [pdf, py]
+exclusions:
+  - Smoke control and exhaust (see WP-HVAC-0015)
+design_inputs:
+  - doc: BOD-001
+    revision: "2"
+    title: Basis of design
+    use: Indoor and outdoor design conditions
+  - doc: DWG-A-201
+    revision: C
+    title: Architectural floor plan
+    use: Room areas and envelope
+assumptions:
+  - id: A1
+    statement: Lighting power density per basis of design
+    basis: BOD-001 rev 2
+    requires_confirmation: false
+    owner: hvac-lead
+  - id: A2
+    statement: Pump skid heat gain from vendor preliminary data
+    basis: Vendor correspondence, not yet controlled
+    requires_confirmation: true
+    owner: hvac-lead
+codes_and_standards:
+  - code: ASHRAE Handbook, Fundamentals
+    edition: "2025"
+    sections: [Ch. 18]
+methodology:
+  method: Heat balance per room, design-day conditions
+  tools:
+    - name: load_calc.py
+      qualification: required-before-use
+  status: approved
+  approved_by: hvac-lead
+interfaces:
+  consumes:
+    - parameter: electrical_equipment_heat_rejection
+      from: WP-ELEC-0007
+  exports:
+    - parameter: peak_cooling_load_per_room
+      value: { value: "42.5", unit: kW }
+      deadband: "5%"
+      consumers: [WP-ELEC-0009, WP-STRUC-0004]
+agent_assignment:
+  - role: preparer
+    agent_baseline: AGT-HVAC-CALC
+    baseline_revision: 3
+acceptance_criteria:
+  - Every room in scope has peak cooling and heating loads
+  - Every input traces to a design input or a listed assumption
+  - Every value traces to an execution trace
+  - The calculation script reruns from committed inputs with identical results
+verification:
+  method: alternate-calculation
+  verifier: qualified mechanical engineer
+  verifier_receives: [design_inputs, deliverable, artifacts]
+  required_custody:
+    decisive_evidence_generated_by: verifier
+    preparer_may_present: false
+revalidation_triggers:
+  - Any design input revision
+  - Code edition change
+  - Consumed parameter change beyond its source deadband

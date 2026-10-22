@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "SkillRef.json",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string"
+        },
+        "version": {
+            "type": "string"
+        },
+        "digest": {
+            "$ref": "Digest.json"
+        }
+    },
+    "required": [
+        "name",
+        "version",
+        "digest"
+    ],
+    "unevaluatedProperties": false
+}

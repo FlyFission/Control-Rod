@@ -1,0 +1,24 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AgentAssignment.json",
+    "type": "object",
+    "properties": {
+        "role": {
+            "type": "string"
+        },
+        "agent_baseline": {
+            "type": "string"
+        },
+        "baseline_revision": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "role",
+        "agent_baseline",
+        "baseline_revision"
+    ],
+    "unevaluatedProperties": false
+}

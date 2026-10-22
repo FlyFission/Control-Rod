@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Methodology.json",
+    "type": "object",
+    "properties": {
+        "method": {
+            "type": "string"
+        },
+        "tools": {
+            "type": "array",
+            "items": {
+                "$ref": "ToolRef.json"
+            }
+        },
+        "status": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "proposed"
+                },
+                {
+                    "type": "string",
+                    "const": "approved"
+                }
+            ]
+        },
+        "approved_by": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "method",
+        "status"
+    ],
+    "unevaluatedProperties": false
+}

@@ -1,0 +1,29 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Digest.json",
+    "type": "object",
+    "properties": {
+        "algorithm": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "sha256"
+                },
+                {
+                    "type": "string",
+                    "const": "sha384"
+                }
+            ]
+        },
+        "value": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}([0-9a-f]{32})?$"
+        }
+    },
+    "required": [
+        "algorithm",
+        "value"
+    ],
+    "description": "A content digest.",
+    "unevaluatedProperties": false
+}

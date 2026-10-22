@@ -1,0 +1,130 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "WorkPackage.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "id": {
+            "type": "string"
+        },
+        "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "title": {
+            "type": "string"
+        },
+        "project": {
+            "type": "string"
+        },
+        "mode": {
+            "$ref": "Mode.json"
+        },
+        "discipline": {
+            "type": "string"
+        },
+        "status": {
+            "$ref": "PackageStatus.json"
+        },
+        "rigor_mode": {
+            "$ref": "RigorMode.json"
+        },
+        "data_lane": {
+            "$ref": "DataLane.json"
+        },
+        "overlays": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "objective": {
+            "type": "string"
+        },
+        "deliverables": {
+            "type": "array",
+            "items": {
+                "$ref": "Deliverable.json"
+            },
+            "minItems": 1
+        },
+        "exclusions": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "design_inputs": {
+            "type": "array",
+            "items": {
+                "$ref": "DesignInput.json"
+            }
+        },
+        "assumptions": {
+            "type": "array",
+            "items": {
+                "$ref": "Assumption.json"
+            }
+        },
+        "codes_and_standards": {
+            "type": "array",
+            "items": {
+                "$ref": "CodeOrStandard.json"
+            }
+        },
+        "methodology": {
+            "$ref": "Methodology.json"
+        },
+        "interfaces": {
+            "$ref": "Interfaces.json"
+        },
+        "agent_assignment": {
+            "type": "array",
+            "items": {
+                "$ref": "AgentAssignment.json"
+            },
+            "minItems": 1
+        },
+        "acceptance_criteria": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1,
+            "description": "Protected trust surface."
+        },
+        "verification": {
+            "$ref": "VerificationPlan.json",
+            "description": "Protected trust surface."
+        },
+        "revalidation_triggers": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "schema_version",
+        "id",
+        "revision",
+        "title",
+        "project",
+        "mode",
+        "status",
+        "rigor_mode",
+        "data_lane",
+        "objective",
+        "deliverables",
+        "design_inputs",
+        "agent_assignment",
+        "acceptance_criteria",
+        "verification"
+    ],
+    "description": "The only unit of work an agent may start.",
+    "unevaluatedProperties": false
+}

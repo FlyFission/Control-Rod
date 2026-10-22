@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Artifact.json",
+    "type": "object",
+    "properties": {
+        "path": {
+            "type": "string"
+        },
+        "digest": {
+            "$ref": "Digest.json"
+        }
+    },
+    "required": [
+        "path",
+        "digest"
+    ],
+    "description": "A file and its digest.",
+    "unevaluatedProperties": false
+}

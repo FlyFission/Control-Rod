@@ -149,6 +149,38 @@ func RequestedModel(run Run) string {
 	return m
 }
 
+// Launch describes how a run was started, for the execution trace.
+type Launch struct {
+	Mode           string
+	RequestedModel string
+	PermissionMode string
+	AllowedTools   []string
+	Sandbox        string
+}
+
+// LaunchFor describes the launch Command builds for a runtime.
+func LaunchFor(runtime string, run Run, ws *Workspace) Launch {
+	l := Launch{Mode: "print", RequestedModel: RequestedModel(run)}
+	if l.RequestedModel == "" {
+		l.RequestedModel = "default"
+	}
+	switch runtime {
+	case RuntimeClaude:
+		l.PermissionMode = ClaudePermissionMode
+		l.AllowedTools = strings.Split(allowedTools(ws), ",")
+		l.Sandbox = "none"
+	case RuntimeCodex:
+		l.Sandbox = "workspace-write"
+		if NeedsNetwork(ws) {
+			l.Sandbox = "workspace-write+network"
+		}
+	case RuntimeFake:
+		l.Mode = "fake"
+		l.Sandbox = "none"
+	}
+	return l
+}
+
 // Command builds the process for a runtime, or nil for the fake runtime's copy mode.
 func Command(runtime string, run Run, ws *Workspace) (*exec.Cmd, error) {
 	model := RequestedModel(run)

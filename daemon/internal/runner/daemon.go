@@ -160,6 +160,7 @@ type logBuffer struct {
 	mu    sync.Mutex
 	lines []string
 	label string
+	model string
 	dirty bool
 }
 
@@ -170,7 +171,16 @@ func (b *logBuffer) add(line string) {
 	if l := LabelFor(line); l != "" {
 		b.label = l
 	}
+	if b.model == "" {
+		b.model = ReportedModel(line)
+	}
 	b.dirty = true
+}
+
+func (b *logBuffer) reportedModel() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.model
 }
 
 func (b *logBuffer) take() (LogBatch, bool) {
@@ -257,6 +267,7 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 
 	runCtx, cancel := context.WithTimeoutCause(ctx, d.cfg.Timeout, ErrTimeout)
 	defer cancel()
+	launch := LaunchFor(runtime, job.Run, ws)
 	cmd, err := Command(runtime, job.Run, ws)
 	if err == nil {
 		if cmd == nil {
@@ -321,6 +332,12 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 		Outputs:         outArts,
 		StartedAt:       started.Format(time.RFC3339),
 		FinishedAt:      time.Now().UTC().Format(time.RFC3339),
+		RuntimeMode:     launch.Mode,
+		RequestedModel:  launch.RequestedModel,
+		ReportedModel:   buf.reportedModel(),
+		PermissionMode:  launch.PermissionMode,
+		AllowedTools:    launch.AllowedTools,
+		Sandbox:         launch.Sandbox,
 	}
 	return comp
 }

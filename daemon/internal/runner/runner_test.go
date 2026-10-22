@@ -331,6 +331,7 @@ func completionKeys(t *testing.T) (props map[string]bool, required []string) {
 // --- end to end ------------------------------------------------------------------------------
 
 const fakeScript = `set -eu
+echo '{"type":"system","subtype":"init","model":"fake-model-1"}'
 echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"out/report.md"}}]}}'
 printf '# Report\n\nok\n' > out/report.md
 mkdir -p out/maps
@@ -400,6 +401,9 @@ func TestDaemonRunsAFakeJobEndToEnd(t *testing.T) {
 	}
 	if tr.RunID != "run-e2e" || tr.PackageRevision != 2 || tr.AgentBaseline != "precheck-general" || tr.Tool.Name != RuntimeFake {
 		t.Errorf("trace identity %+v", tr)
+	}
+	if tr.RuntimeMode != "fake" || tr.RequestedModel != "default" || tr.ReportedModel != "fake-model-1" || tr.Sandbox != "none" {
+		t.Errorf("trace launch %+v", tr)
 	}
 
 	props, required := completionKeys(t)

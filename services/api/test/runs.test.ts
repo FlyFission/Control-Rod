@@ -110,3 +110,52 @@ describe("launch inputs", () => {
     expect(input(plain as Job, "TOOLS.txt")).not.toMatch(/^\s*network\s*:/im);
   });
 });
+
+function trace(job: Job, extra: object = {}) {
+  const at = new Date().toISOString();
+  return {
+    schema_version: "0.1.0",
+    run_id: job.run.id,
+    package_id: job.run.package_id,
+    package_revision: 0,
+    agent_baseline: "intake-fake",
+    baseline_revision: 0,
+    tool: { name: "fake", version: "test" },
+    inputs: [],
+    outputs: [],
+    started_at: at,
+    finished_at: at,
+    ...extra,
+  };
+}
+
+async function eventsOf(subject: string) {
+  const all = (await asOwner("GET", "/events")).json() as { type: string; subject: string; data?: Record<string, unknown> }[];
+  return all.filter((e) => e.subject === subject);
+}
+
+describe("what actually ran", () => {
+  it("keeps runtime mode and models in the trace and flags a model the run did not ask for", async () => {
+    await asOwner("POST", "/captures", { text: "Which model ran?" });
+    const job = (await claim()) as Job;
+    expect(job.run.role).toBe("intake");
+    const t = trace(job, {
+      runtime_mode: "print",
+      requested_model: "claude-opus-4-1",
+      reported_model: "claude-haiku-4",
+      permission_mode: "acceptEdits",
+      allowed_tools: ["Read", "Write"],
+      sandbox: "none",
+    });
+    const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
+      status: "succeeded",
+      trace: t,
+      outputs: [{ name: "answer.md", content_base64: b64("Opus was asked for.") }],
+    });
+    expect(r.statusCode, r.body).toBeLessThan(300);
+    const stored = await h.db.query<{ body: { trace?: Record<string, unknown> } }>("select body from runs where id = $1", [job.run.id]);
+    expect(stored.rows[0]?.body.trace).toMatchObject({ runtime_mode: "print", requested_model: "claude-opus-4-1", reported_model: "claude-haiku-4" });
+    const mismatch = (await eventsOf(job.run.id)).find((e) => e.type === "run.model-mismatch");
+    expect(mismatch?.data).toMatchObject({ requested: "claude-opus-4-1", reported: "claude-haiku-4" });
+  });
+});

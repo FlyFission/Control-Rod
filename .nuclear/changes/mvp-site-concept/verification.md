@@ -15,7 +15,7 @@
 - **Related basis:** `basis.md`
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
-- **Verification scope:** claims C-001 to C-014 in `trace.md`, at commit `3f640a1` on `mvp/site-concept`; claims C-015 to C-023 and the revised C-003 (build plan items N1 to N8) at commit `4f7274d`; the owner's two decisions on C-019, and C-024 and C-025 (N9 and the N2 addition), at commit `ed707de`.
+- **Verification scope:** claims C-001 to C-014 in `trace.md`, at commit `3f640a1` on `mvp/site-concept`; claims C-015 to C-023 and the revised C-003 (build plan items N1 to N8) at commit `4f7274d`; the owner's two decisions on C-019, and C-024 and C-025 (N9 and the N2 addition), at commit `ed707de`; C-026 (pack files and brief paths, from Codex's third review) at commit `d9cc6dd`.
 
 ## Evidence status legend
 
@@ -50,6 +50,7 @@ Use: `pass`, `fail`, `gap`, `deferred`, `not applicable`, `planned`.
 | C-023 | Daemon and API tests | Trace carries mode, models, tools and sandbox and passes the schema; reported model read only from the runtime's own fields; mismatch event | pass | `daemon/internal/runner/launch_test.go`, `services/api/test/runs.test.ts` | None. |
 | C-024 | Daemon, API and web tests | Broken `--version` not ready; Codex logged out not ready; no status subcommand reported as not checked; probe runs only `--version`, `login --help` and `login status`; daemon offers only ready runtimes and reports all; control plane drops a runtime reported not ready; office shows it with the reason | pass | `daemon/internal/runner/probe_test.go`, `services/api/test/runs.test.ts`, `apps/web/src/components/components.test.tsx` | Real Codex CLI not checked here. |
 | C-025 | API test | Duplicate live run insert refused by `runs_one_live`; a requeue in a race window gets the live run back and queues nothing new | pass | `services/api/test/runs.test.ts` | None. |
+| C-026 | API tests; pack tests; scripted author | A site-charter author job carries `inputs/pack/templates/charter.md` and `inputs/pack/typicals/data-center-50mw.json`, and the scripted author fills `out/charter.md` from them on the real job layout; a site-parcel pre-check gets the stage brief and a site-plan pre-check the full check; the brief lint finds no `in/` path, no missing `inputs/pack/` file and no author reading a dependency from `out/` | pass | `services/api/test/runs.test.ts`, `packs/capital-projects/site-concept/tests/test_briefs.py`, `tests/e2e/fake/author.sh` | Confirm on the first real site run. |
 
 ## Verification type guide
 
@@ -85,6 +86,7 @@ The contracts, kernel, control plane, daemon, web app, site pack, tests and this
 | E-015 | C-019 / C-024 | yes | `pnpm --filter @control-rod/web test` at `ed707de`: 2 files, 23 passed; `pnpm -r typecheck` clean; `cargo deny check licenses bans sources` ok | AI agent (Claude) under owner direction | same agent | same agent | same agent | same agent | git branch `mvp/site-concept` (tests) | same agent | owner review planned |
 | E-016 | C-014 | yes | Fixes for four Codex review findings on PR #3 (stale page could sign newer draft content; reject had no reason prompt; intake draft inserted twice; outputs in subfolders unreachable). Control plane suite: 34 passed, including 3 new cases; web: 26 passed, including 3 new cases; `pnpm -r typecheck` clean | AI agent (Claude) under owner direction | Codex review bot found the defects; the orchestrating agent wrote fixes and tests | orchestrating agent | orchestrating agent | orchestrating agent | git branch `mvp/site-concept` (tests) | orchestrating agent | an outside reviewer (Codex) found the defects |
 | E-017 | C-010 / C-014 | yes | Fixes for the second Codex review of PR #3: agent outputs served in a script-free sandbox (and output links now open the file, where they used to open the app); site pre-check role writes `out/verification.json`, the file the completion path reads; the setback check measures against the whole parcel boundary so multipart parcels work; a major layout finding fails the check. Site pack: 41 passed, 1 skipped (the two new tests fail on the old code); control plane: 35 passed; web: 26 passed | AI agent (Claude) under owner direction | Codex review bot found the defects; the orchestrating agent wrote fixes and tests | orchestrating agent | orchestrating agent | orchestrating agent | git branch `mvp/site-concept` (tests) | orchestrating agent | an outside reviewer (Codex) found the defects |
+| E-018 | C-026 | yes | At `d9cc6dd`: control plane suite 37 passed (system PostgreSQL, non-root user); site pack `uv run pytest -q` 63 passed, 1 skipped, `ruff check` and `ruff format --check` clean; web 27 passed; kernel 19, daemon 29, typecheck and deny clean | Codex (third review) found the gap; the coordinator traced it in the code; AI agent (Claude) fixed it under owner direction | the fixing agent wrote the code and tests | the coordinator chose what to test from Codex's findings | the fixing agent | the fixing agent | git branch `mvp/site-concept` (tests) | the fixing agent | Codex's review is a separate model family; owner review and the first real run planned |
 
 ### Coupling profile
 
@@ -107,12 +109,13 @@ The contracts, kernel, control plane, daemon, web app, site pack, tests and this
 | E-015 | coupled: the change actor wrote the app changes and tests | coupled: same session | partially separated: deterministic tests | partially separated: owner holds merge | coupled: one workspace | self-check | Admitted, per `ship.md#residual-risks-and-gaps`. |
 | E-016 | partially separated: a different vendor's reviewer found the defects; the fixes and tests are ours | coupled: same session | partially separated: deterministic tests | partially separated: owner holds merge | coupled: one workspace | self-check | Admitted, per `ship.md#residual-risks-and-gaps`. |
 | E-017 | partially separated: a different vendor's reviewer found the defects; the fixes and tests are ours | coupled: same session | partially separated: deterministic tests | partially separated: owner holds merge | coupled: one workspace | self-check | Admitted, per `ship.md#residual-risks-and-gaps`. |
+| E-018 | partially separated: Codex, a different model family, found the gap; Claude wrote the fix and its tests | partially separated: the coordinator traced the findings in a separate context from the fixing agent | partially separated: deterministic tests, a brief lint and the scripted author run on the real job layout | partially separated: owner holds merge | coupled: one workspace | self-check | Admitted; the first real site run on the owner's Mac is the further check, per `ship.md#residual-risks-and-gaps`. |
 
 - **Evidence pattern used:** agent-written deterministic suites, a real database and WebAuthn library, live public services, and a browser run with a virtual authenticator.
 - **Verdict owner:** Ben Huffer.
 - **Apply-clearance owner:** Ben Huffer, by signing and merging.
 - **Minimum profile required by the consequence:** disclosure, reproducibility from the committed tree, owner signature on trust surfaces, and a first real run by the owner.
-- **Unmet separation carried into `ship.md`:** actor, context and resource axes are coupled for E-001 to E-015; E-016 and E-017 are partially separated on the actor axis.
+- **Unmet separation carried into `ship.md`:** actor, context and resource axes are coupled for E-001 to E-015; E-016, E-017 and E-018 are partially separated on the actor axis.
 
 ## Commands, evals, and reviews
 
@@ -131,6 +134,7 @@ The contracts, kernel, control plane, daemon, web app, site pack, tests and this
 | Owner decisions, N9, N2 addition | kernel, control plane, daemon, web, typecheck and deny as above | Linux container | kernel 19; control plane 31; daemon 29; web 22 then 23; all clean | E-012, E-013, E-014, E-015 |
 | Codex review findings on PR #3 | control plane and web suites, typecheck | Linux container | control plane 34; web 26; clean | E-016 |
 | Second Codex review on PR #3 | site pack, control plane and web suites, typecheck, ruff | Linux container | site 41 + 1 skipped; control plane 35; web 26; clean | E-017 |
+| Pack files and brief paths | control plane suite; `uv run pytest -q`, `uv run ruff check .`, `uv run ruff format --check .` in the site pack; web; kernel; daemon; typecheck; deny | Linux container | 37; 63 passed, 1 skipped, clean; 27; 19; 29; clean | E-018 |
 | Packet | `ng.py validate --strict-custody` | Python 3.13 | pass | this packet |
 
 ## Negative / failure-mode checks
@@ -163,7 +167,7 @@ The contracts, kernel, control plane, daemon, web app, site pack, tests and this
 - **Model/tool used:** Claude in a cloud workspace, with parallel builder agents on separate branches.
 - **Permissions/actions allowed:** local edits, builds, tests, a local browser and local commits. No push or merge.
 - **Independent checks performed:** real Postgres, a real WebAuthn library, Chromium's virtual authenticator and live public services; owner review planned.
-- **Hallucination/slop screening:** test counts above were copied from command output on 2026-10-22, except E-002 and E-005, which come from the builder's runs in the same session. E-008 to E-011 were copied from the fixer's own runs at `4f7274d`, and E-012 to E-015 at `ed707de`.
+- **Hallucination/slop screening:** test counts above were copied from command output on 2026-10-22, except E-002 and E-005, which come from the builder's runs in the same session. E-008 to E-011 were copied from the fixer's own runs at `4f7274d`, E-012 to E-015 at `ed707de`, and E-018 at `d9cc6dd`.
 - **Human approval gates exercised:** the owner chose General first, the Mac Studio target, core floors only, and the BaseMark site job; the owner holds signature and merge.
 
 ## Security / dependency / supply-chain checks

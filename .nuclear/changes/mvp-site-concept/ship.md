@@ -30,7 +30,7 @@
 | Risk classification | pass | `risk.md` | Standard mode |
 | Basis | pass | `basis.md` | Eight protected outcomes |
 | Trace | pass | `trace.md` | C-012 planned; C-015 passes by test, real Codex run planned |
-| Verification | pass | `verification.md` | E-008 to E-015 cover N1 to N9 and the owner's decisions; E-016 and E-017 cover the Codex review fixes |
+| Verification | pass | `verification.md` | E-008 to E-015 cover N1 to N9 and the owner's decisions; E-016 and E-017 cover the Codex review fixes; E-018 covers the pack file paths |
 | Dependency / supply chain | pass | `verification.md` | Vulnerability review is a gap |
 | AI-assisted work checks | pass | `verification.md` | Scope and actions recorded |
 | Evidence custody / coupling | gap | `verification.md` | Coupled on actor, context and resource |
@@ -49,6 +49,7 @@
 | Codex launch flags checked by reading `codex exec --help` (0.163.0), not by a real run; the owner's own Codex config is loaded. | A Codex run could still fail to write `out/` or reach public GIS. | Run one real Codex author and pre-check on the Mac before trusting Codex with real work. | Ben Huffer | First Codex run. |
 | Without Codex every pre-check is held, and another Claude model does not count. | Each pre-check needs the owner's passkey-signed override with a reason; scripted fake-only runs need it too. | Accept: no silent fallback. `pnpm cr doctor` says so; the record shows a shared runtime with the signed override. | Ben Huffer | Codex installed and ready. |
 | The Codex login check was built without the real Codex 0.163.0 CLI. | If the CLI has no `codex login status`, a signed-out Codex passes the probe and its first run fails. | The probe reads the help text and reports `login_checked: false`; check the office and `pnpm cr doctor` on the Mac. | Ben Huffer | First Codex run. |
+| Site briefs and pack paths were checked by tests and a scripted author, not by a real agent. | A real agent could still misread a path or a stage check. | Fixed paths are linted on every pack test run; confirm on the first real site run. | Ben Huffer | First real site run. |
 | The new unique index `runs_one_live` is created at start. | An existing local database with two live runs for one assignment would fail to start. | None expected (no real runs yet); delete `~/.controlrod` to reset if it happens. | Ben Huffer | First start after merge. |
 | A lease of 90 seconds can lapse if the Mac sleeps during a run. | The run is marked lost and its late completion refused; the owner requeues. | Accept for MVP; keeping the Mac awake while runs are active is a Next item. | Ben Huffer | First long run. |
 | Stop reaches the daemon on its next log post or heartbeat. | A stop can take up to 30 seconds to land; the UI shows stopping meanwhile. | Accept for MVP. | Ben Huffer | Owner feedback. |

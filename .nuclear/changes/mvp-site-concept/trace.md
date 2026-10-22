@@ -14,7 +14,7 @@
 - **Related records:** `basis.md`, `verification.md`
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
-- **Requirements cross-reference:** `basis.md#derived-requirements-or-claims`, C-001 to C-025
+- **Requirements cross-reference:** `basis.md#derived-requirements-or-claims`, C-001 to C-026
 
 ## Trace summary
 
@@ -45,6 +45,7 @@
 | C-023 | The trace records runtime mode, requested and reported model, tools and sandbox; model mismatch raises an event; ADR 0020. | `basis.md#protected-outcomes` | `LaunchFor`, `ReportedModel`, `modelMismatch` | E-009, E-010 | Merge | pass |
 | C-024 | Runtimes are probed before they are offered; only ready ones are picked; the office shows the rest. | `basis.md#protected-outcomes` | `Probe`; `recordRuntimeStatus`; office notice | E-013, E-014, E-015 | Merge; check the real Codex CLI on the Mac | pass by test |
 | C-025 | One live run per package revision, role and round, enforced by the database. | `basis.md#protected-outcomes` | `runs_one_live` index; conflict-safe `queueRun` | E-013 | Merge | pass |
+| C-026 | Pack files and earlier results reach the agent at the paths every site brief names; stage pre-checks fit their stage. | `basis.md#protected-outcomes` | `packFiles`; site briefs; `site-pre-check.md` | E-018 | Merge; confirm on the first real site run | pass |
 
 ## Evidence chain
 
@@ -65,6 +66,7 @@ Risk: agents author and check engineering work; a self-approved or rewritten pac
 | Codex flags checked by reading `codex exec --help`, not by a real run | The owner's own Codex configuration could change sandbox or network behavior. | One real Codex author and pre-check on the Mac before trusting Codex. |
 | Kernel runtime-identity rule edited in `kernel/src/transition.rs` | A trust surface changed in an unsigned PR. | Owner signs the final version before merge. |
 | Codex 0.163.0 was not installed where the probe was built | Whether it offers `codex login status` was not checked; the probe reads `codex login --help` at run time and reports `login_checked: false` when it cannot tell. | Check `pnpm cr doctor` and the office on the Mac. |
+| Scripted end-to-end agents read pack files the way they once did by hand (`$SITE_PACK`) | The browser run passed while real agents would not have found the pack files or dependency paths. | Fixed in `d9cc6dd`: scripted agents read `inputs/pack/`, and a pack test lints every brief. |
 | Fake-only end-to-end runs now hold every pre-check | The scripted run needs the owner override (or a second runtime) at each pre-check. | Accepted: no silent fallback, even for the fake runtime. |
 | Site pack and end-to-end not in CI | Regressions could land unseen. | CI jobs need the owner's signature on `.github/workflows`. |
 | Live run script not committed | The browser run cannot be repeated from the tree. | Commit it with the CI work. |

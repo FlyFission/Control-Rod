@@ -113,6 +113,7 @@ The owner wants to hand a parcel and a facility type (first case: a 50 MW data c
 | C-023 | The trace records runtime mode, requested and reported model, permission mode, tool list and sandbox; a model the run did not ask for raises an event; ADR 0020 records print mode with ACP deferred. | Protected outcome 5 | `LaunchFor`, `ReportedModel`, `modelMismatch`, ADR 0020 | Daemon and API tests |
 | C-024 | An installed runtime is offered only after its version command answers and, for Codex where the CLI can tell, a login is present; the probe never signs in; the control plane picks only ready runtimes and the office shows the rest with the reason. | Protected outcome 8 | `Probe`, `ReadyRuntimes`; `recordRuntimeStatus`; `GET /runtimes`; office notice | Daemon, API and web tests |
 | C-025 | At most one queued or running run exists per package revision, role and round, enforced by the database. | Protected outcome 8 | Partial unique index `runs_one_live`; conflict-safe `queueRun` | API test |
+| C-026 | Agents get the files their briefs name: the role's pack templates, typicals and examples as `inputs/pack/`, earlier results as `inputs/deps/<id>/`, and for a pre-check the deliverables as `inputs/deliverables/`; every site brief names those paths; early site stages get a stage pre-check and the site plan the full `cr-site check`. | Protected outcome 6 | `findRoleIn`, `packFiles`; rewritten site briefs; `site-pre-check.md`, `site-plan-pre-check.md` | API tests; pack brief lint; scripted author on a real job layout |
 
 ## Design outline
 

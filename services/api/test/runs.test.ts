@@ -502,3 +502,33 @@ describe("pre-check independence", () => {
     await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
   });
 });
+
+describe("one live run per assignment", () => {
+  it("lets the database hold at most one queued or running run per package revision, role and round", async () => {
+    const id = await releasedPackage("ONCE");
+    const live = (await asOwner("GET", `/packages/${id}`)).json().runs[0];
+    expect(live.status).toBe("queued");
+    const dup = h.db.query(
+      "insert into runs (id, package_id, package_revision, role, round, status, body) values ('R-dup', $1, 0, 'author', 1, 'running', $2)",
+      [id, { ...live, id: "R-dup", status: "running" }],
+    );
+    await expect(dup).rejects.toThrow(/runs_one_live/);
+
+    // A finished run does not block a new one; a second requeue in a race window gets the live one back.
+    const job = (await claim()) as Job;
+    await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
+    const first = await asOwner("POST", `/packages/${id}/runs/${job.run.id}/requeue`);
+    expect(first.statusCode).toBe(201);
+    await h.db.query("update runs set body = body - 'requeued_as' where id = $1", [job.run.id]);
+    const second = await asOwner("POST", `/packages/${id}/runs/${job.run.id}/requeue`);
+    expect(second.json().id).toBe(first.json().id);
+    const counts = await h.db.query<{ n: string }>(
+      "select count(*) as n from runs where package_id = $1 and role = 'author' and round = 1 and status in ('queued', 'running')",
+      [id],
+    );
+    expect(Number(counts.rows[0]?.n)).toBe(1);
+    expect((await eventsOf(first.json().id)).filter((e) => e.type === "run.queued")).toHaveLength(1);
+    const again = (await claim()) as Job;
+    await asDaemon(`/runner/runs/${again.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
+  });
+});

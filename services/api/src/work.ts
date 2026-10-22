@@ -240,10 +240,21 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
     ...(requeueOf ? { requeue_of: requeueOf } : {}),
   };
   validate(cfg, "Run.json", run);
-  await c.query(
-    "insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, $3, $4, $5, 'queued', $6)",
+  const ins = await c.query(
+    `insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, $3, $4, $5, 'queued', $6)
+     on conflict (package_id, package_revision, role, round) where status in ('queued', 'running') do nothing`,
     [run.id, packageId, revision, role, round, run],
   );
+  if (ins.rowCount === 0) {
+    // A live run for this assignment already exists: hand that one back, never a second.
+    const live = await c.query<{ body: Json; status: string }>(
+      "select body, status from runs where package_id = $1 and package_revision = $2 and role = $3 and round = $4 and status in ('queued', 'running')",
+      [packageId, revision, role, round],
+    );
+    const existing = live.rows[0];
+    if (!existing) throw new Error("live run vanished");
+    return { ...existing.body, status: existing.status };
+  }
   await appendEvent(c, "run.queued", run.id, SYSTEM, { package: packageId, role, round });
   return run;
 }

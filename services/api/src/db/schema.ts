@@ -68,6 +68,11 @@ alter table runs add column if not exists lease_expires_at timestamptz;
 alter table runs add column if not exists completion_key text;
 alter table runs add column if not exists receipt jsonb;
 
+-- At most one live (queued or running) run per package revision, role and round, so one
+-- assignment can never be worked twice.
+create unique index if not exists runs_one_live on runs (package_id, package_revision, role, round)
+  where status in ('queued', 'running');
+
 create table if not exists outputs (
   run_id text not null references runs(id),
   package_id text not null,

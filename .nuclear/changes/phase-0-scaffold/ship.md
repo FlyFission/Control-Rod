@@ -29,12 +29,12 @@
 |---|---|---|---|
 | Risk classification | pass | `risk.md` | Standard mode |
 | Basis | pass | `basis.md` | Five protected outcomes |
-| Trace | pass | `trace.md` | C-006 and C-007 planned; C-008 deferred |
+| Trace | pass | `trace.md` | C-008 deferred |
 | Verification | pass | `verification.md` | Local suites green; RT-015 shown red then green |
 | Dependency / supply chain | pass | `verification.md` | Three license gates pass |
 | AI-assisted work checks | pass | `verification.md` | Scope and actions recorded |
 | Evidence custody / coupling | gap | `verification.md` | Local evidence coupled on actor, context and resource |
-| GitHub CI | planned | pull request checks | Blocks merge |
+| GitHub CI | pass | pull request checks | GitHub Actions run 39791194504 on commit 3b2d868: all 7 jobs succeeded |
 | Owner review | planned | pull request | Blocks merge |
 | Validator | pass | `verification.md#commands-evals-and-reviews` | Packet validates |
 
@@ -74,7 +74,7 @@
 
 ## Release decision
 
-- **Decision:** merge with residual risk once GitHub CI is green and the owner approves.
+- **Decision:** merge with residual risk once the owner approves.
 - **Decision maker:** Ben Huffer.
 - **Rationale:** every local check passes, the one real defect found (open schemas) is fixed and tested, and the change is fully reversible.
 - **Conditions attached:** do not describe the kernel as making decisions; do not claim qualification or compliance.

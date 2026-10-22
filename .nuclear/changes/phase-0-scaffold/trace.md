@@ -25,8 +25,8 @@
 | C-003 | Non-integer numbers are refused by the API and all three digests. | REQ-KRN-005; RT-002 | Decimal-string `Quantity`; float checks with JSON pointer | E-001, E-002 | Merge | pass |
 | C-004 | The kernel decision type refuses by default. | `basis.md#protected-outcomes` | `Decision::undecided()` denies; crate-private `allow` | E-003 | Merge | pass |
 | C-005 | Shipped dependencies carry permissive licenses only. | ADR 0002 | Three license gates | E-004 | Merge | pass |
-| C-006 | Generated contracts match the TypeSpec source. | ADR 0005 | CI regenerate-and-diff | E-005 | Merge after CI | planned |
-| C-007 | All checks run on every pull request on GitHub. | `basis.md#assumptions-constraints-and-invalidation-triggers` | `.github/workflows/ci.yml` | E-005 | Merge after CI | planned |
+| C-006 | Generated contracts match the TypeSpec source. | ADR 0005 | CI regenerate-and-diff | E-005 | Merge | pass |
+| C-007 | All checks run on every pull request on GitHub. | `basis.md#assumptions-constraints-and-invalidation-triggers` | `.github/workflows/ci.yml` | E-005 | Merge | pass |
 | C-008 | Sixteen pending red-team cases are enforced. | `tests/redteam/catalog.yaml` | Components in later phases | none yet | Do not claim | deferred |
 
 ## Evidence chain
@@ -35,8 +35,8 @@
 Risk: records and digests set patterns every later phase inherits.
   -> Basis: refuse bad records, agree on digests, no floats, refuse by default, permissive licenses.
   -> Control: closed schemas + Ajv; RFC 8785 in three languages; fail-closed Decision; three license gates.
-  -> Verification: 7 API tests, 6 kernel tests, Go and Python digest tests, gate output; CI pending.
-  -> Ship: merge after GitHub CI is green and the owner approves.
+  -> Verification: 7 API tests, 6 kernel tests, Go and Python digest tests, gate output; all 7 CI jobs green on GitHub.
+  -> Ship: merge once the owner approves.
 ```
 
 ## Open trace gaps

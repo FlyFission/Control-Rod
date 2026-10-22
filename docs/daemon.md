@@ -47,7 +47,7 @@ The agent's environment has every `CONTROLROD_` variable removed, so it never se
 ## What it reports
 
 - **Log:** raw stdout and stderr lines (stderr prefixed `[stderr] `) about once a second, with a label the daemon derives from event types only, such as `Edit: report.md`, `Run: cr-site`, `Fetch: hazards.fema.gov`, `Search` or `Finishing`. Labels are built from tool names and short plain tokens (a file basename, a host, a command's first word, at most 120 characters), never from model prose.
-- **Completion:** every regular file under `out/` (20 MB per file, 100 MB in total; symlinks fail the run), an `ExecutionTrace` with SHA-256 digests of every input and output, the runtime name and its `--version`, and start and finish times. An intake run attaches `out/package.json`; a pre-check run attaches `out/verification.json`.
+- **Completion:** every regular file under `out/` (20 MB per file, 100 MB in total; symlinks fail the run), an `ExecutionTrace` with SHA-256 digests of every input and output, the runtime name and its `--version`, start and finish times, and what ran: `runtime_mode` (`print` for every real run today, see ADR 0020), the requested model (`default` when the run names none), the model the runtime reported in its own stream, the permission mode, the tool allowlist and the sandbox. When a run names a model the daemon passes it (`--model` for Claude Code, `-m` for Codex). The control plane names `default` today, so the runtime's own default is used and the reported model is the record of what ran. An intake run attaches `out/package.json`; a pre-check run attaches `out/verification.json`.
 
 ## Tests
 

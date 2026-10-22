@@ -69,6 +69,12 @@ type ExecutionTrace struct {
 	Outputs          []Artifact `json:"outputs"`
 	StartedAt        string     `json:"started_at"`
 	FinishedAt       string     `json:"finished_at"`
+	RuntimeMode      string     `json:"runtime_mode,omitempty"`
+	RequestedModel   string     `json:"requested_model,omitempty"`
+	ReportedModel    string     `json:"reported_model,omitempty"`
+	PermissionMode   string     `json:"permission_mode,omitempty"`
+	AllowedTools     []string   `json:"allowed_tools,omitempty"`
+	Sandbox          string     `json:"sandbox,omitempty"`
 }
 
 // Completion is the body of POST /runner/runs/{id}/complete.

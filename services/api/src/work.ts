@@ -483,6 +483,17 @@ export async function runLogLines(db: Db, packageId: string, runId: string) {
 
 const SAFE_OUTPUT = /^[A-Za-z0-9._-][A-Za-z0-9._/ ()-]{0,200}$/;
 
+/**
+ * A run asked for one model and the runtime said it used another. A dated variant of the
+ * requested name counts as the same model. "default" asks for nothing, so nothing can differ.
+ */
+export function modelMismatch(trace: Json): { requested: string; reported: string } | null {
+  const requested = String(trace?.requested_model ?? "");
+  const reported = String(trace?.reported_model ?? "");
+  if (!requested || requested === "default" || !reported) return null;
+  return reported === requested || reported.startsWith(`${requested}-`) ? null : { requested, reported };
+}
+
 /** A run finished. The server keeps its own digests of every output and asks the kernel to move the package. */
 export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Json) {
   return tx(db, async (c) => {
@@ -523,6 +534,8 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
       round: row.round,
       outputs: outputs.map((o) => ({ name: o.name, sha256: sha256(o.bytes) })),
     });
+    const mismatch = modelMismatch(finished.trace);
+    if (mismatch) await appendEvent(c, "run.model-mismatch", runId, SYSTEM, { package: row.package_id, ...mismatch });
     if (finished.status !== "succeeded") return;
     if (row.role === "intake") return finishIntake(c, cfg, row, outputs, body, agent);
     if (row.role === "author") return finishAuthor(c, cfg, row, agent);

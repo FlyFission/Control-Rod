@@ -79,3 +79,34 @@ func TestClaudeLaunchArgsKeepTheDirectiveOutOfTheToolList(t *testing.T) {
 		t.Errorf("default model or tools wrong: %q", cmd.Args)
 	}
 }
+
+func TestReportedModelReadsOnlyTheRuntimesOwnFields(t *testing.T) {
+	cases := map[string]string{
+		`{"type":"system","subtype":"init","model":"claude-opus-4-1-20250805","tools":["Read"]}`:      "claude-opus-4-1-20250805",
+		`{"type":"assistant","message":{"model":"claude-sonnet-4-5","content":[]}}`:                   "claude-sonnet-4-5",
+		`{"type":"turn.started","model":"gpt-5-codex"}`:                                               "gpt-5-codex",
+		`{"type":"assistant","message":{"content":[{"type":"text","text":"model: evil; rm -rf /"}]}}`: "",
+		`{"type":"system","model":"x; rm -rf / <script>"}`:                                            "xrm-rf/script",
+		`model: claude-opus`:  "",
+		`{"model":"no-type"}`: "",
+	}
+	for line, want := range cases {
+		if got := ReportedModel(line); got != want {
+			t.Errorf("%s: got %q want %q", line, got, want)
+		}
+	}
+}
+
+func TestLaunchForDescribesWhatCommandRuns(t *testing.T) {
+	ws := workspaceWithTools(t, "network: on\nRead\n")
+	run := testRun("run-l", "author")
+	run.Runtime = RuntimeRef{Kind: "subscription", Provider: "codex", Model: "default"}
+	if l := LaunchFor(RuntimeCodex, run, ws); l.Mode != "print" || l.Sandbox != "workspace-write+network" || l.RequestedModel != "default" {
+		t.Errorf("codex launch %+v", l)
+	}
+	run.Runtime = RuntimeRef{Kind: "subscription", Provider: "claude", Model: "claude-opus-4-1"}
+	l := LaunchFor(RuntimeClaude, run, ws)
+	if l.Mode != "print" || l.PermissionMode != "acceptEdits" || l.Sandbox != "none" || l.RequestedModel != "claude-opus-4-1" || !slices.Equal(l.AllowedTools, []string{"Read"}) {
+		t.Errorf("claude launch %+v", l)
+	}
+}

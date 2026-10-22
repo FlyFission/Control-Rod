@@ -336,7 +336,8 @@ func (b *logBuffer) reportedModel() string {
 
 // The API records at most 500 lines per request. Keep a byte budget as well so a
 // retry cannot accumulate an upload too large for the request body limit.
-const maxLogBatchLines = 500
+// MaxLogBatch is the API limit on the number of lines accepted per upload.
+const MaxLogBatch = 500
 const maxLogBatchBytes = 1 << 20
 
 func (b *logBuffer) take() (LogBatch, bool) {
@@ -346,7 +347,7 @@ func (b *logBuffer) take() (LogBatch, bool) {
 		return LogBatch{}, false
 	}
 	n, size := 0, 0
-	for n < len(b.lines) && n < maxLogBatchLines {
+	for n < len(b.lines) && n < MaxLogBatch {
 		// Always allow one line: Execute already limits a runtime line to 16 MiB,
 		// below the API's 150 MiB body limit even after JSON escaping.
 		if n > 0 && size+len(b.lines[n]) > maxLogBatchBytes {

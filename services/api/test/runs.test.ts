@@ -801,3 +801,17 @@ describe("capture provenance", () => {
     expect(new Set(packages.map((p) => p.id)).size).toBe(2);
   });
 });
+
+describe("log batches", () => {
+  it("refuses more than 500 lines in one batch instead of dropping the rest", async () => {
+    await releasedPackage("LOG500");
+    const job = await claim();
+    if (!job) throw new Error("no author job");
+    const big = await asDaemon(`/runner/runs/${job.run.id}/log`, { lines: Array.from({ length: 501 }, (_, i) => `l${i}`) });
+    expect(big.statusCode).toBe(400);
+    expect(big.json().code).toBe("too-many-lines");
+    const ok = await asDaemon(`/runner/runs/${job.run.id}/log`, { lines: Array.from({ length: 500 }, (_, i) => `l${i}`) });
+    expect(ok.statusCode, ok.body).toBeLessThan(300);
+    await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
+  });
+});

@@ -117,7 +117,12 @@ def check_record(tpl: dict, rec: dict) -> None:
     headers = [c["header"] for c in tpl["revisionBlock"]["columns"]]
     for i, rev in enumerate(rec["revisions"]):
         # Every column needs a value; a pending approval is written as "-", never left blank.
-        blank = [h for h in headers if not isinstance(rev, dict) or not str(rev.get(h, "")).strip()]
+        blank = [
+            h for h in headers
+            if not isinstance(rev, dict)
+            or not isinstance(rev.get(h), str)
+            or not rev[h].strip()
+        ]
         if blank:
             raise SheetError(f"revision {i + 1} is missing {blank}")
     keys = [s["key"] for s in tpl["notes"]["sections"]]

@@ -58,6 +58,14 @@ class RecordTests(unittest.TestCase):
     def test_valid_record_is_accepted(self):
         rs.check_record(self.tpl, self.rec)
 
+    def test_revision_fields_require_text(self):
+        for value in (None, False, 0, [], {}):
+            with self.subTest(value=value):
+                rec = copy.deepcopy(self.rec)
+                rec["revisions"][0]["DATE"] = value
+                with self.assertRaises(rs.SheetError):
+                    rs.check_record(self.tpl, rec)
+
     def test_blank_or_incomplete_revision_rows_are_refused(self):
         header = self.tpl["revisionBlock"]["columns"][0]["header"]
         for rev in ({}, {header: "  "}, None):

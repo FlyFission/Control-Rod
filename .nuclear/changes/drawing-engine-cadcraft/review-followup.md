@@ -67,3 +67,11 @@ The refreshed audit reports zero known advisories. Baseline typechecking and all
 seven API tests pass; TypeSpec regeneration has no tracked drift. The Node license
 gate passes for 48 packages. The six drawing-record tests and packet validator pass.
 These are local checks; remote CI is verified after publication.
+
+## Revision value follow-up
+
+Independent recheck found that null, boolean, numeric and structured revision values
+were stringified rather than refused. Every revision cell now requires nonblank text;
+write a numeric revision as a string and a pending approval as "-". The added malformed
+value regression failed before the guard and passes afterward. All nine drawing
+test methods pass with fontconfig and Pillow available.

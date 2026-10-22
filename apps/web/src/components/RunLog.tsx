@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Run } from "../api/types.js";
@@ -31,6 +32,8 @@ export function runStatusText(run: Run): string {
       return "Failed";
     case "stopped":
       return "Stopped";
+    case "queued":
+      return run.waiting_reason !== undefined ? "Held: waiting for an independent runtime" : (run.label ?? run.status);
     case "running":
       return run.stop_requested_at !== undefined ? "Stopping: waiting for the daemon to confirm" : (run.label ?? run.status);
     default:
@@ -41,6 +44,37 @@ export function runStatusText(run: Run): string {
 /** A lost, failed or stopped run can be queued again by the owner, once. */
 export function canRequeue(run: Run): boolean {
   return (run.status === "lost" || run.status === "failed" || run.status === "stopped") && run.requeued_as === undefined;
+}
+
+/**
+ * A held pre-check: the only runtime available is the author's. The owner can proceed with a
+ * written reason, which is recorded and shows on the pre-check record as a shared runtime.
+ */
+function IndependenceOverride({ packageId, run }: { packageId: string; run: Run }) {
+  const qc = useQueryClient();
+  const [reason, setReason] = useState("");
+  const go = useMutation({
+    mutationFn: () => api.overrideIndependence(packageId, run.id, reason.trim()),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["package", packageId] }),
+  });
+  if (run.role !== "pre-check" || run.status !== "queued" || run.waiting_reason === undefined) return null;
+  return (
+    <div className="run-hold">
+      <p className="error">{run.waiting_reason}</p>
+      <label className="small" htmlFor={`why-${run.id}`}>
+        Why may this pre-check run on the author&apos;s runtime?
+      </label>
+      <textarea id={`why-${run.id}`} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
+      <button type="button" className="btn small" disabled={reason.trim().length === 0 || go.isPending} onClick={() => go.mutate()}>
+        Proceed with owner override
+      </button>
+      {go.isError && (
+        <p className="error" role="alert">
+          {go.error.message}
+        </p>
+      )}
+    </div>
+  );
 }
 
 /** A queued run, or a running one nobody has asked to stop yet, can be stopped by the owner. */
@@ -104,6 +138,12 @@ export function RunCard({ packageId, run }: { packageId: string; run: Run }) {
           </p>
         )}
         {run.requeued_as !== undefined && <p className="muted small">Requeued as {run.requeued_as}</p>}
+        {run.independence_override !== undefined && (
+          <p className="muted small">
+            Owner override by {run.independence_override.by}: {run.independence_override.reason}
+          </p>
+        )}
+        <IndependenceOverride packageId={packageId} run={run} />
         <RunActions packageId={packageId} run={run} />
         <pre className="log" aria-label={`${ROLE_LABEL[run.role]} log`}>
           {lines.length === 0 ? "No log lines yet." : lines.slice(-400).join("\n")}

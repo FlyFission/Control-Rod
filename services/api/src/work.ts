@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { Ajv2020 } from "ajv/dist/2020.js";
 import { type Db, type Tx, tx } from "./db/index.js";
 import { type Actor, appendEvent } from "./events.js";
-import { type Action, type KernelOutcome, type Status, decide, digest } from "./kernel.js";
+import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
 type Json = any;
@@ -248,13 +248,45 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
   return run;
 }
 
-/** Picks the runtime a role should use from what the daemon has. The checker avoids the author's. */
-function pickRuntime(role: string, have: string[], authorRuntime?: string): string | null {
-  const order =
-    role === "pre-check"
-      ? ["codex", "claude", "fake"].sort((a, b) => Number(a === authorRuntime) - Number(b === authorRuntime))
-      : ["claude", "codex", "fake"];
-  return order.find((r) => have.includes(r)) ?? null;
+/** Runtime name for a provider, as the daemon names them. */
+function runtimeName(provider: unknown): string {
+  const p = String(provider ?? "").toLowerCase();
+  if (p === "anthropic" || p === "claude" || p === "claude-code") return "claude";
+  if (p === "openai" || p === "codex") return "codex";
+  return p;
+}
+
+/** Picks the runtime an author or intake run should use from what the daemon has. */
+function pickRuntime(have: string[]): string | null {
+  return ["claude", "codex", "fake"].find((r) => have.includes(r)) ?? null;
+}
+
+/**
+ * Picks the runtime for a pre-check: never the author's, unless the owner recorded an override.
+ * Nothing falls back to the author's runtime on its own.
+ */
+function pickChecker(have: string[], authorRuntime: string, override: boolean): string | null {
+  const other = ["codex", "claude", "fake"].find((r) => have.includes(r) && r !== authorRuntime);
+  if (other) return other;
+  return override && have.includes(authorRuntime) ? authorRuntime : null;
+}
+
+export const WAITING_FOR_INDEPENDENT_RUNTIME =
+  "Waiting for an independent runtime: install Codex, or proceed with a recorded owner override.";
+
+/** Provider and model that ran a run: the model the runtime reported, else the one asked for. */
+function identityOf(run: Json, trace?: Json): RuntimeIdentity {
+  return {
+    provider: runtimeName(run?.runtime?.provider),
+    model: String(trace?.reported_model || run?.runtime?.model || "default"),
+  };
+}
+
+const openModel = (m: string) => ["", "default", "any"].includes(m.trim().toLowerCase());
+
+/** Same rule as the kernel's: same provider, and models equal or not pinned down. For the record only. */
+function mayBeSameRuntime(a: RuntimeIdentity, b: RuntimeIdentity): boolean {
+  return a.provider === b.provider && (openModel(a.model) || openModel(b.model) || a.model.toLowerCase() === b.model.toLowerCase());
 }
 
 function runtimeRef(name: string) {
@@ -422,7 +454,6 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
       "select * from runs where status = 'queued' order by created_at for update skip locked limit 50",
     );
     for (const row of queued.rows) {
-      let authorRuntime: string | undefined;
       if (row.role !== "intake") {
         const pkg = await currentPackage(c, row.package_id, true);
         if (!pkg || pkg.revision !== row.package_revision) {
@@ -434,12 +465,22 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
             if (!(await dependenciesReady(c, pkg.body)).ready) continue;
           } else if (pkg.status !== "in-work") continue;
         }
+        let runtime: string | null;
         if (row.role === "pre-check") {
           if (pkg.status !== "in-verification") continue;
           const a = await latestAuthorRun(c, pkg.id, pkg.revision);
-          authorRuntime = a?.body.runtime?.provider;
+          const authorRuntime = runtimeName(a?.body.runtime?.provider);
+          runtime = pickChecker(runtimes, authorRuntime, Boolean(row.body.independence_override));
+          if (!runtime && runtimes.includes(authorRuntime) && !row.body.waiting_reason) {
+            // Held, not skipped silently: say why on the run and in the office, once.
+            const held = { ...row.body, waiting_reason: WAITING_FOR_INDEPENDENT_RUNTIME };
+            validate(cfg, "Run.json", held);
+            await c.query("update runs set body = $2 where id = $1", [row.id, held]);
+            await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: pkg.id, role: row.role, reason: held.waiting_reason, author_runtime: authorRuntime });
+          }
+        } else {
+          runtime = pickRuntime(runtimes);
         }
-        const runtime = pickRuntime(row.role, runtimes, authorRuntime);
         if (!runtime) continue;
         const baseline = `${row.role === "pre-check" ? "checker" : "author"}-${runtime}`;
         if (row.role === "author" && pkg.status === "released") {
@@ -452,7 +493,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
         }
         return startRun(c, cfg, row, runtime, baseline);
       }
-      const runtime = pickRuntime("intake", runtimes);
+      const runtime = pickRuntime(runtimes);
       if (!runtime) continue;
       return startRun(c, cfg, row, runtime, `intake-${runtime}`);
     }
@@ -488,6 +529,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     label: "Starting",
     lease_expires_at: lease,
   };
+  delete body.waiting_reason;
   validate(cfg, "Run.json", body);
   await c.query("update runs set status = 'running', body = $2, claim_token_hash = $3, lease_expires_at = $4 where id = $1", [
     row.id,
@@ -625,6 +667,29 @@ export async function stopRun(db: Db, cfg: WorkConfig, user: string, packageId: 
     await c.query("update runs set body = $2 where id = $1", [runId, body]);
     await appendEvent(c, "run.stop-requested", runId, human, { package: row.package_id, role: row.role, round: row.round });
     return body;
+  });
+}
+
+/**
+ * The owner lets a held pre-check run on the author's runtime. Recorded before the pre-check runs,
+ * as an event and on the run; the verification record carries it. Repeating changes nothing.
+ */
+export async function overrideIndependence(db: Db, cfg: WorkConfig, user: string, packageId: string, runId: string, reason: unknown) {
+  const why = typeof reason === "string" ? reason.trim() : "";
+  if (!why) throw new Refusal(400, "reason-required", "Say why the pre-check may share the author's runtime");
+  return tx(db, async (c) => {
+    const row = await lockRun(c, runId);
+    if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+    if (row.role !== "pre-check") throw new Refusal(409, "wrong-state", "Only a pre-check can be overridden");
+    if (row.body.independence_override) return { ...row.body, status: row.status };
+    if (row.status !== "queued") throw new Refusal(409, "wrong-state", `The pre-check is ${row.status}`);
+    const override = { by: user, at: now(), reason: why.slice(0, 2000) };
+    const body = { ...row.body, independence_override: override };
+    delete body.waiting_reason;
+    validate(cfg, "Run.json", body);
+    await c.query("update runs set body = $2 where id = $1", [runId, body]);
+    await appendEvent(c, "run.independence-override", runId, { kind: "human", id: user }, { package: row.package_id, reason: override.reason });
+    return { ...body, status: row.status };
   });
 }
 
@@ -895,7 +960,11 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
     throw new Refusal(400, "invalid", "Pre-check produced no outcome");
   }
   const authorOutputs = author ? await outputsOf(c, author.id) : [];
-  const sharedRuntime = author?.body.runtime?.provider === row.body.runtime?.provider;
+  const authorRuntime = identityOf(author?.body, author?.body.trace);
+  const checkerRuntime = identityOf(row.body, body.trace);
+  const sharedRuntime = mayBeSameRuntime(authorRuntime, checkerRuntime);
+  const override = row.body.independence_override;
+  const asRef = (r: Json, id: RuntimeIdentity) => ({ kind: String(r?.runtime?.kind ?? "local"), provider: id.provider || "unknown", model: id.model });
   const record = {
     schema_version: "0.1.0",
     package_id: pkg.id,
@@ -930,6 +999,12 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       text: String(f.text ?? "").slice(0, 4000) || "(no text)",
     })),
     outcome: raw.outcome,
+    independence: {
+      runtime: sharedRuntime ? "shared" : "independent",
+      author_runtime: asRef(author?.body, authorRuntime),
+      checker_runtime: asRef(row.body, checkerRuntime),
+      ...(sharedRuntime && override ? { owner_override: override } : {}),
+    },
   };
   validate(cfg, "VerificationRecord.json", record);
   kernel(
@@ -940,6 +1015,9 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       actor_id: agent.id,
       author_baseline: author?.body.agent_baseline,
       checker_baseline: agent.id,
+      author_runtime: authorRuntime,
+      checker_runtime: checkerRuntime,
+      owner_override: Boolean(override),
     }),
     "pre-check",
   );
@@ -953,6 +1031,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
     outcome: record.outcome,
     findings: record.findings.length,
     shared_runtime: sharedRuntime,
+    owner_override: Boolean(sharedRuntime && override),
   });
   if (record.outcome !== "pass" && row.round < MAX_ROUNDS) {
     const next = kernel(
@@ -1083,8 +1162,9 @@ export async function office(db: Db) {
     if (p.status === "in-verification") {
       const author = await latestAuthorRun(db, p.id, p.revision);
       const ver = author ? await latestVerification(db, p.id, p.revision, author.round) : null;
-      if (!ver) continue;
-      if (ver.body.outcome === "pass") {
+      if (!ver) {
+        // No pre-check yet: nothing to accept, but a held, lost or failed pre-check still shows below.
+      } else if (ver.body.outcome === "pass") {
         items.push({ kind: "accept", package_id: p.id, package_revision: p.revision, title, detail: "Pre-check passed. Review and accept.", since: ver.created_at.toISOString() });
       } else if (author && author.round >= MAX_ROUNDS) {
         items.push({
@@ -1107,7 +1187,16 @@ export async function office(db: Db) {
         [p.id, p.revision],
       );
       const last = latest.rows[0];
-      if (last?.status === "stopped") {
+      if (last?.status === "queued" && last.body.waiting_reason) {
+        items.push({
+          kind: "permission",
+          package_id: p.id,
+          package_revision: p.revision,
+          title,
+          detail: String(last.body.waiting_reason),
+          since: String(last.body.queued_at ?? new Date().toISOString()),
+        });
+      } else if (last?.status === "stopped") {
         items.push({
           kind: "dispute",
           package_id: p.id,

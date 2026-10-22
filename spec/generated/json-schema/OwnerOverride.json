@@ -1,0 +1,26 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "OwnerOverride.json",
+    "type": "object",
+    "properties": {
+        "by": {
+            "type": "string"
+        },
+        "at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+        }
+    },
+    "required": [
+        "by",
+        "at",
+        "reason"
+    ],
+    "description": "A person's recorded choice to proceed past a hold, with who, when and why.",
+    "unevaluatedProperties": false
+}

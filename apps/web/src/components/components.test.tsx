@@ -9,6 +9,7 @@ import { CaptureBox, CAPTURE_LIMIT } from "./CaptureBox.js";
 import { DecisionBar } from "./DecisionBar.js";
 import { Office } from "../pages/Office.js";
 import { RunCard, canRequeue, canStop, runStatusText } from "./RunLog.js";
+import { independenceText } from "../lib/format.js";
 import type { Run } from "../api/types.js";
 import type { Passkeys } from "../lib/decide.js";
 
@@ -311,5 +312,75 @@ describe("runs that need the owner", () => {
     await screen.findByText("Lost WP-9");
     expect(screen.getAllByText(/^(Lost|Dispute) WP-\d$/).map((n) => n.textContent)).toEqual(["Lost WP-9", "Dispute WP-4"]);
     expect(screen.getByText("Lost run")).toBeTruthy();
+  });
+});
+
+describe("pre-check independence", () => {
+  const held: Run = {
+    schema_version: "0.1.0",
+    id: "R-chk",
+    package_id: "WP-7",
+    package_revision: 0,
+    role: "pre-check",
+    agent_baseline: "unassigned",
+    runtime: { kind: "local", provider: "any", model: "any" },
+    round: 1,
+    status: "queued",
+    queued_at: "2026-10-22T10:00:00Z",
+    waiting_reason: "Waiting for an independent runtime: install Codex, or proceed with a recorded owner override.",
+  };
+
+  it("shows why a pre-check is held and sends the owner's override with a reason", async () => {
+    let body: unknown;
+    server.use(
+      http.get("*/packages/WP-7/runs/R-chk/log", () => HttpResponse.json({ lines: [] })),
+      http.post("*/packages/WP-7/runs/R-chk/override-independence", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...held, independence_override: { by: "ben", at: "2026-10-22T11:00:00Z", reason: "No Codex yet" } });
+      }),
+    );
+    await renderPage(<RunCard packageId="WP-7" run={held} />);
+    expect(screen.getByText(held.waiting_reason as string)).toBeTruthy();
+    const button = screen.getByRole("button", { name: "Proceed with owner override" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Why may this pre-check run on the author's runtime?"), "No Codex yet");
+    await user.click(button);
+    await waitFor(() => expect(body).toEqual({ reason: "No Codex yet" }));
+  });
+
+  it("says plainly when a pre-check shared the author's runtime under an override", () => {
+    const base = {
+      schema_version: "0.1.0" as const,
+      package_id: "WP-7",
+      package_revision: 0,
+      output: { path: "r.md", digest: DIGEST },
+      method: "agent-pre-check" as const,
+      verifier: "checker-claude",
+      evidence: [],
+      findings: [],
+      outcome: "pass" as const,
+    };
+    expect(
+      independenceText({
+        ...base,
+        independence: {
+          runtime: "shared",
+          author_runtime: { kind: "subscription", provider: "claude", model: "default" },
+          checker_runtime: { kind: "subscription", provider: "claude", model: "default" },
+          owner_override: { by: "ben", at: "2026-10-22T11:00:00Z", reason: "No Codex yet" },
+        },
+      }),
+    ).toBe("Shared runtime: the author and the pre-check both ran on claude, in separate sessions. Owner override by ben: No Codex yet");
+    expect(
+      independenceText({
+        ...base,
+        independence: {
+          runtime: "independent",
+          author_runtime: { kind: "subscription", provider: "claude", model: "default" },
+          checker_runtime: { kind: "subscription", provider: "codex", model: "gpt-5-codex" },
+        },
+      }),
+    ).toBe("Independent runtime: the author ran on claude, the pre-check on codex gpt-5-codex.");
   });
 });

@@ -24,7 +24,7 @@ const asDaemon = (url: string, payload: unknown) =>
   h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: withClaim(url, payload as Record<string, unknown>) });
 
 interface Job {
-  run: { id: string; role: string; package_id: string; round: number; runtime: { provider: string; model: string } };
+  run: { id: string; role: string; package_id: string; round: number; agent_baseline: string; runtime: { provider: string; model: string } };
   inputs: { name: string; content_base64: string }[];
   claim: { token: string; lease_expires_at: string; heartbeat_seconds: number };
 }
@@ -102,7 +102,7 @@ describe("launch inputs", () => {
       status: "succeeded",
       outputs: [{ name: "constraints.md", content_base64: b64("# Constraints") }],
     });
-    const check = await claim();
+    const check = await claim(["codex"]);
     expect(check?.run.role).toBe("pre-check");
     expect(check?.run.package_id).toBe(id);
     const tools = input(check as Job, "TOOLS.txt") ?? "";
@@ -268,7 +268,7 @@ describe("run custody", () => {
     const other = await complete(job, { ...body, idempotency_key: "key-lease-0002" });
     expect(other.statusCode).toBe(409);
     expect(other.json().code).toBe("already-complete");
-    pendingCheck = (await claim()) as Job;
+    pendingCheck = (await claim(["codex"])) as Job;
     expect(pendingCheck.run.role).toBe("pre-check");
   });
 
@@ -407,5 +407,76 @@ describe("stopping a run", () => {
     const job = (await claim()) as Job;
     const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "stopped", outputs: [] });
     expect(r.json().status).toBe("failed");
+  });
+});
+
+describe("pre-check independence", () => {
+  it("holds a pre-check that could only run on the author's runtime, with the reason in plain words", async () => {
+    const id = await releasedPackage("INDEP");
+    const author = (await claim()) as Job;
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("ok") }] });
+    expect(await claim(["fake"])).toBeNull();
+    const view = (await asOwner("GET", `/packages/${id}`)).json();
+    const held = view.runs.find((r: { role: string }) => r.role === "pre-check");
+    expect(held.status).toBe("queued");
+    expect(held.waiting_reason).toBe("Waiting for an independent runtime: install Codex, or proceed with a recorded owner override.");
+    const item = ((await asOwner("GET", "/office")).json() as { kind: string; package_id: string; detail: string }[]).find((o) => o.package_id === id);
+    expect(item).toMatchObject({ kind: "permission", detail: held.waiting_reason });
+    expect(await claim(["fake"])).toBeNull();
+    expect((await eventsOf(held.id)).filter((e) => e.type === "run.waiting")).toHaveLength(1);
+
+    const noReason = await asOwner("POST", `/packages/${id}/runs/${held.id}/override-independence`, { reason: " " });
+    expect(noReason.statusCode).toBe(400);
+    const byDaemon = await h.app.inject({
+      method: "POST",
+      url: `/packages/${id}/runs/${held.id}/override-independence`,
+      headers: daemonHeaders,
+      payload: { reason: "agent wants it" },
+    });
+    expect(byDaemon.statusCode).toBe(403);
+    const ok = await asOwner("POST", `/packages/${id}/runs/${held.id}/override-independence`, { reason: "No Codex on this Mac yet" });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json().independence_override).toMatchObject({ by: "ben", reason: "No Codex on this Mac yet" });
+    expect((await eventsOf(held.id)).some((e) => e.type === "run.independence-override")).toBe(true);
+
+    const check = (await claim(["fake"])) as Job;
+    expect(check.run.id).toBe(held.id);
+    expect(check.run.runtime.provider).toBe("fake");
+    expect(check.run.agent_baseline).not.toBe(author.run.agent_baseline);
+    const done = await asDaemon(`/runner/runs/${check.run.id}/complete`, {
+      status: "succeeded",
+      outputs: [],
+      verification: { outcome: "pass", findings: [] },
+    });
+    expect(done.json().status).toBe("succeeded");
+    const after = (await asOwner("GET", `/packages/${id}`)).json();
+    expect(after.pre_check.independence).toMatchObject({
+      runtime: "shared",
+      author_runtime: { provider: "fake" },
+      checker_runtime: { provider: "fake" },
+      owner_override: { by: "ben", reason: "No Codex on this Mac yet" },
+    });
+    expect(after.pre_check.evidence[0].custody.coupling.mechanism).toBe("shared");
+  });
+
+  it("records a pre-check on another runtime as independent, with no override", async () => {
+    const id = await releasedPackage("INDEP2");
+    const author = (await claim()) as Job;
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("ok") }] });
+    const check = (await claim(["fake", "codex"])) as Job;
+    expect(check.run.runtime.provider).toBe("codex");
+    await asDaemon(`/runner/runs/${check.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+    const ind = (await asOwner("GET", `/packages/${id}`)).json().pre_check.independence;
+    expect(ind.runtime).toBe("independent");
+    expect(ind.owner_override).toBeUndefined();
+  });
+
+  it("refuses an override for anything but a queued pre-check", async () => {
+    const id = await releasedPackage("INDEP3");
+    const queued = (await asOwner("GET", `/packages/${id}`)).json().runs[0];
+    const r = await asOwner("POST", `/packages/${id}/runs/${queued.id}/override-independence`, { reason: "x" });
+    expect(r.statusCode).toBe(409);
+    const job = (await claim()) as Job;
+    await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
   });
 });

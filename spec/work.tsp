@@ -101,6 +101,24 @@ model Run {
   stop_requested_at?: utcDateTime;
 
   stop_requested_by?: string;
+
+  /** Why a queued run is not being handed out, in plain words. */
+  @maxLength(300)
+  waiting_reason?: string;
+
+  /** The owner let this pre-check run on the author's runtime. Recorded before it ran. */
+  independence_override?: OwnerOverride;
+}
+
+/** A person's recorded choice to proceed past a hold, with who, when and why. */
+@extension("unevaluatedProperties", false)
+model OwnerOverride {
+  by: string;
+  at: utcDateTime;
+
+  @minLength(1)
+  @maxLength(2000)
+  reason: string;
 }
 
 /** A WebAuthn assertion over the decision digest, made by the person's own authenticator. */

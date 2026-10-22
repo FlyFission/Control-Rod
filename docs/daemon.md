@@ -36,6 +36,10 @@ The control plane writes the line only for author runs of roles whose tools file
 
 Codex loads the owner's own Codex configuration (the agent keeps `HOME`), which can change these defaults. Run one real Codex author and pre-check on the Mac before trusting Codex with real work.
 
+### Pre-check runtime
+
+The control plane never hands a pre-check to the runtime that authored the work. When the daemon offers only the author's runtime, the pre-check stays queued with the reason "Waiting for an independent runtime: install Codex, or proceed with a recorded owner override." and shows in the office. The owner can proceed with a written reason; the override is recorded as an event, and the pre-check record shows a shared runtime with that override. Runtime identity is the provider and the model (the model the runtime reported, else the one asked for); a model of `default` may be any model, so it counts as the same. The kernel refuses a pre-check on the same identity without the override.
+
 A run's provider picks the runtime (`anthropic` or `claude`, `openai` or `codex`, `fake`). A job for a runtime this machine lacks fails at once without creating a workspace.
 
 ## Workspace

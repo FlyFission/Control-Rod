@@ -79,6 +79,15 @@
         },
         "stop_requested_by": {
             "type": "string"
+        },
+        "waiting_reason": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why a queued run is not being handed out, in plain words."
+        },
+        "independence_override": {
+            "$ref": "OwnerOverride.json",
+            "description": "The owner let this pre-check run on the author's runtime. Recorded before it ran."
         }
     },
     "required": [

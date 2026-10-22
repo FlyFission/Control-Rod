@@ -1098,6 +1098,13 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   if (!raw || !["pass", "fail", "inconclusive"].includes(raw.outcome)) {
     throw new Refusal(400, "invalid", "Pre-check produced no outcome");
   }
+  const suppliedEvidence = raw.evidence;
+  if (suppliedEvidence !== undefined && !Array.isArray(suppliedEvidence)) {
+    throw new Refusal(400, "invalid", "Pre-check evidence must be an array");
+  }
+  if (Array.isArray(suppliedEvidence)) {
+    for (const item of suppliedEvidence) validate(cfg, "EvidenceItem.json", item);
+  }
   const authorOutputs = author ? await outputsOf(c, author.id) : [];
   const authorRuntime = identityOf(author?.body, author?.body.trace);
   const checkerRuntime = identityOf(row.body, body.trace);
@@ -1114,7 +1121,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
     },
     method: "agent-pre-check",
     verifier: agent.id,
-    evidence: [
+    evidence: suppliedEvidence?.length ? suppliedEvidence : [
       {
         claim: "Deliverables checked against the acceptance criteria",
         status: raw.outcome === "pass" ? "pass" : "open",

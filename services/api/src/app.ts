@@ -264,6 +264,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   if (opts.webDir && existsSync(opts.webDir)) {
+    // The app's pages share paths with the API (/office, /packages/:id). A browser navigation asks
+    // for HTML first; it gets the app, and the app's own fetches get JSON.
+    app.addHook("onRequest", async (req, reply) => {
+      const accept = req.headers.accept ?? "";
+      if (req.method === "GET" && accept.startsWith("text/html") && req.url !== "/health") {
+        return reply.type("text/html").sendFile("index.html");
+      }
+    });
     app.register(fastifyStatic, { root: opts.webDir, prefix: "/", wildcard: false });
     app.setNotFoundHandler((req, reply) => {
       if (req.method === "GET" && req.headers.accept?.includes("text/html")) return reply.sendFile("index.html");

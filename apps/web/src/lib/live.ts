@@ -28,6 +28,9 @@ export function useLiveEvents(enabled: boolean): void {
       try {
         const ev = JSON.parse(msg.data) as CrEvent;
         if (typeof ev.subject === "string") subjects.add(ev.subject.split("/")[0] ?? ev.subject);
+        // Run events name the run as their subject and carry the package in their data.
+        const pkg = (ev.data as { package?: unknown } | undefined)?.package;
+        if (typeof pkg === "string") subjects.add(pkg);
       } catch {
         // A message that is not an event still means something changed.
       }

@@ -104,6 +104,13 @@ def from_shapefile_zip(data: bytes) -> BaseGeometry:
             raise ParcelError("zip holds no .shp file")
         if ".prj" in names:
             prj = z.read(names[".prj"]).decode("utf-8", "replace")
+            # A projected system (UTM, state plane) still names its WGS 84 datum inside, so the
+            # datum alone does not make coordinates longitude and latitude.
+            if "PROJCS" in prj.upper() or "PROJCRS" in prj.upper():
+                raise ParcelError(
+                    "shapefile uses a projected coordinate system; reproject it to WGS 84 "
+                    f"longitude and latitude first (projection: {prj[:80]})"
+                )
             if "GCS_WGS_1984" not in prj and "WGS 84" not in prj and "WGS_1984" not in prj:
                 raise ParcelError(
                     "shapefile is not in WGS 84 longitude and latitude; reproject it first "

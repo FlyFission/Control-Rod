@@ -115,3 +115,22 @@ def test_plat_pdf_points_to_closure(tmp_path):
 def test_geojson_text():
     f = resolve(json.dumps(parcel_geojson()))
     assert f["properties"]["derivation"] == "exact"
+
+
+def test_projected_shapefile_is_refused():
+    import io
+    import zipfile
+
+    from cr_site.parcel import ParcelError, from_shapefile_zip
+
+    prj = (
+        'PROJCS["WGS_1984_UTM_Zone_17N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",'
+        'SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],'
+        'UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"]]'
+    )
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("p.shp", b"")
+        z.writestr("p.prj", prj)
+    with pytest.raises(ParcelError, match="projected"):
+        from_shapefile_zip(buf.getvalue())

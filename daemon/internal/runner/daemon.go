@@ -340,13 +340,19 @@ func (b *logBuffer) take() (LogBatch, bool) {
 	if !b.dirty {
 		return LogBatch{}, false
 	}
-	batch := LogBatch{Lines: b.lines, Label: b.label}
-	if batch.Lines == nil {
-		batch.Lines = []string{}
+	// At most MaxLogBatch lines go per upload; the rest stay for the next one.
+	n := min(len(b.lines), MaxLogBatch)
+	batch := LogBatch{Lines: append([]string{}, b.lines[:n]...), Label: b.label}
+	b.lines = b.lines[n:]
+	b.dirty = len(b.lines) > 0
+	if !b.dirty {
+		b.lines = nil
 	}
-	b.lines, b.dirty = nil, false
 	return batch, true
 }
+
+// MaxLogBatch is the most lines the control plane accepts in one log upload.
+const MaxLogBatch = 500
 
 // maxHeldLines bounds how many unsent lines the daemon keeps while uploads fail.
 const maxHeldLines = 20000

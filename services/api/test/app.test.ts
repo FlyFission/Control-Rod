@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Harness, VirtualAuthenticator, b64, daemonHeaders, signIn, startHarness } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, b64, daemonHeaders, signIn, startHarness } from "./harness.js";
 
 let h: Harness;
 let cookie: string;
@@ -12,7 +12,12 @@ beforeAll(async () => {
 afterAll(async () => h?.stop());
 
 const asOwner = (method: "GET" | "POST" | "PUT", url: string, payload?: unknown) =>
-  h.app.inject({ method, url, headers: { cookie }, ...(payload !== undefined ? { payload: payload as object } : {}) });
+  h.app.inject({
+    method,
+    url,
+    headers: { cookie, ...(method === "GET" ? {} : { origin: ORIGIN }) },
+    ...(payload !== undefined ? { payload: payload as object } : {}),
+  });
 const asDaemon = (url: string, payload: unknown) => h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: payload as object });
 
 async function claim(runtimes = ["fake"]) {
@@ -72,8 +77,9 @@ describe("access", () => {
   });
 
   it("refuses a second passkey registration from someone signed out", async () => {
-    const r = await h.app.inject({ method: "POST", url: "/auth/register/options", payload: { name: "intruder" } });
+    const r = await h.app.inject({ method: "POST", url: "/auth/register/options", headers: { origin: ORIGIN }, payload: { name: "intruder" } });
     expect(r.statusCode).toBe(403);
+    expect(r.json().code).toBe("forbidden");
   });
 });
 

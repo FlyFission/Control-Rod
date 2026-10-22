@@ -111,6 +111,16 @@ describe("launch inputs", () => {
   });
 });
 
+/** Answers every queued intake, so later claims see only the runs a test made. */
+async function drainIntake() {
+  for (;;) {
+    const job = await claim();
+    if (!job) return;
+    expect(job.run.role).toBe("intake");
+    await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "succeeded", outputs: [{ name: "answer.md", content_base64: b64("ok") }] });
+  }
+}
+
 function trace(job: Job, extra: object = {}) {
   const at = new Date().toISOString();
   return {
@@ -157,5 +167,63 @@ describe("what actually ran", () => {
     expect(stored.rows[0]?.body.trace).toMatchObject({ runtime_mode: "print", requested_model: "claude-opus-4-1", reported_model: "claude-haiku-4" });
     const mismatch = (await eventsOf(job.run.id)).find((e) => e.type === "run.model-mismatch");
     expect(mismatch?.data).toMatchObject({ requested: "claude-opus-4-1", reported: "claude-haiku-4" });
+  });
+});
+
+describe("serving outputs", () => {
+  it("re-hashes stored bytes and refuses, on the record, an output that changed", async () => {
+    const pkgs = (await asOwner("GET", "/packages")).json() as { id: string }[];
+    const id = pkgs.find((p) => p.id.endsWith("-NET"))?.id as string;
+    const ok = await asOwner("GET", `/packages/${id}/outputs/constraints.md`);
+    expect(ok.statusCode).toBe(200);
+    expect(ok.body).toBe("# Constraints");
+    await h.db.query("update outputs set bytes = $1 where package_id = $2 and name = 'constraints.md'", [Buffer.from("# Edited"), id]);
+    const bad = await asOwner("GET", `/packages/${id}/outputs/constraints.md`);
+    expect(bad.statusCode).toBe(409);
+    expect(bad.json().code).toBe("output-changed");
+    expect(bad.body).not.toContain("Edited");
+    const ev = (await eventsOf(id)).find((e) => e.type === "output.mismatch");
+    expect(ev?.data).toMatchObject({ name: "constraints.md" });
+  });
+});
+
+describe("same-origin check on cookie routes", () => {
+  const post = (headers: Record<string, string>) =>
+    h.app.inject({ method: "POST", url: "/captures", headers: { cookie, ...headers }, payload: { text: "Origin check" } });
+
+  it("refuses state changes from another origin, another local port, a cross-site fetch or no browser marks", async () => {
+    for (const headers of [
+      { origin: "http://evil.example" },
+      { origin: "http://localhost:9999" },
+      { origin: "null" },
+      { "sec-fetch-site": "cross-site" },
+      { "sec-fetch-site": "same-site" },
+      {},
+    ]) {
+      const r = await post(headers);
+      expect(r.statusCode, JSON.stringify(headers)).toBe(403);
+      expect(r.json().code).toBe("cross-origin");
+    }
+    const decide = await h.app.inject({
+      method: "POST",
+      url: "/packages/X/decisions",
+      headers: { cookie, origin: "http://evil.example" },
+      payload: { kind: "release", package_revision: 0 },
+    });
+    expect(decide.statusCode).toBe(403);
+  });
+
+  it("accepts the app's own origin, or a same-origin fetch with no origin, and leaves runner routes to the token", async () => {
+    expect((await post({ origin: ORIGIN })).statusCode).toBe(201);
+    expect((await post({ "sec-fetch-site": "same-origin" })).statusCode).toBe(201);
+    const runner = await h.app.inject({
+      method: "POST",
+      url: "/runner/claim",
+      headers: { ...daemonHeaders, origin: "http://evil.example" },
+      payload: { runtimes: [] },
+    });
+    expect(runner.statusCode).toBe(204);
+    expect((await h.app.inject({ method: "GET", url: "/office", headers: { cookie, origin: "http://evil.example" } })).statusCode).toBe(200);
+    await drainIntake();
   });
 });

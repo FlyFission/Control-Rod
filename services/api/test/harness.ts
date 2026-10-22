@@ -202,8 +202,9 @@ export class VirtualAuthenticator {
 
 /** Registers the owner and returns a cookie header for the session. */
 export async function signIn(app: FastifyInstance, auth: VirtualAuthenticator): Promise<string> {
-  const o = await app.inject({ method: "POST", url: "/auth/register/options", payload: { name: "ben" } });
-  const reg = await app.inject({ method: "POST", url: "/auth/register/verify", payload: auth.register(o.json().options) });
+  const headers = { origin: ORIGIN };
+  const o = await app.inject({ method: "POST", url: "/auth/register/options", headers, payload: { name: "ben" } });
+  const reg = await app.inject({ method: "POST", url: "/auth/register/verify", headers, payload: auth.register(o.json().options) });
   if (reg.statusCode !== 200) throw new Error(`register failed: ${reg.body}`);
   const cookie = reg.cookies.find((c) => c.name === "cr_session");
   if (!cookie) throw new Error("no session cookie");

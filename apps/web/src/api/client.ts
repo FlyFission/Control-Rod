@@ -10,6 +10,7 @@ import type {
   NewCapture,
   OfficeItem,
   PackageView,
+  Run,
   Session,
   WorkPackage,
 } from "./types.js";
@@ -64,6 +65,7 @@ export const api = {
   updatePackage: (pkg: WorkPackage) => call<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg),
   runLog: (id: string, runId: string) =>
     call<{ lines: string[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/log`),
+  requeueRun: (id: string, runId: string) => call<Run>("POST", `/packages/${enc(id)}/runs/${enc(runId)}/requeue`),
   outputUrl: (id: string, name: string) => url(`/packages/${enc(id)}/outputs/${enc(name)}`),
   decisionOptions: (id: string, req: DecisionRequest) =>
     call<{ subject_digest: Digest; options: Record<string, unknown> }>(

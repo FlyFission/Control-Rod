@@ -2,6 +2,8 @@ package runner
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +30,15 @@ type Config struct {
 	Runtimes     []string
 	Version      string
 	Logger       *slog.Logger
+
+	// Heartbeat overrides the control plane's heartbeat interval (tests only).
+	Heartbeat time.Duration
+	// CompleteRetries is how many times a completion is tried before it waits in the outbox.
+	CompleteRetries int
+	// RetryBase is the first wait between completion attempts; it doubles up to 30 seconds.
+	RetryBase time.Duration
+	// OutboxInterval is how often completions waiting in the outbox are tried again.
+	OutboxInterval time.Duration
 }
 
 // Home returns CONTROLROD_HOME, or ~/.controlrod.
@@ -63,6 +74,9 @@ type Daemon struct {
 	cfg    Config
 	client *Client
 	log    *slog.Logger
+	outbox *Outbox
+	// quit ends when Run is asked to stop; completion retries stop waiting then.
+	quit context.Context
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -85,10 +99,22 @@ func New(cfg Config) *Daemon {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
-	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger}
+	if cfg.CompleteRetries < 1 {
+		cfg.CompleteRetries = 6
+	}
+	if cfg.RetryBase <= 0 {
+		cfg.RetryBase = time.Second
+	}
+	if cfg.OutboxInterval <= 0 {
+		cfg.OutboxInterval = 30 * time.Second
+	}
+	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger, outbox: NewOutbox(cfg.Home), quit: context.Background()}
 }
 
-var errShutdown = errors.New("daemon shutdown")
+var (
+	errShutdown = errors.New("daemon shutdown")
+	errLost     = errors.New("the control plane no longer holds this run for this daemon")
+)
 
 func sleepCtx(ctx context.Context, d time.Duration) {
 	t := time.NewTimer(d)
@@ -106,6 +132,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return errors.New("no agent runtime found: install Claude Code or Codex")
 	}
 	d.log.Info("daemon started", "api", d.cfg.API, "runtimes", strings.Join(d.cfg.Runtimes, ","), "parallel", d.cfg.Parallel)
+	d.quit = ctx
+	outboxDone := make(chan struct{})
+	go func() { d.outboxLoop(ctx); close(outboxDone) }()
 	jobsCtx, cancelJobs := context.WithCancelCause(context.Background())
 	defer cancelJobs(nil)
 	slots := make(chan struct{}, d.cfg.Parallel)
@@ -151,8 +180,69 @@ claim:
 		cancelJobs(errShutdown)
 		<-done
 	}
+	<-outboxDone
+	d.drainOutbox(context.Background())
 	d.log.Info("daemon stopped")
 	return nil
+}
+
+// outboxLoop sends completions left from an earlier run at once, then retries any still
+// waiting every OutboxInterval until ctx ends.
+func (d *Daemon) outboxLoop(ctx context.Context) {
+	t := time.NewTicker(d.cfg.OutboxInterval)
+	defer t.Stop()
+	for {
+		d.drainOutbox(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+// drainOutbox tries each waiting completion once.
+func (d *Daemon) drainOutbox(ctx context.Context) {
+	entries, err := d.outbox.List()
+	if err != nil {
+		d.log.Warn("outbox", "err", err)
+	}
+	for _, e := range entries {
+		if ctx.Err() != nil {
+			return
+		}
+		d.deliver(e)
+	}
+}
+
+// deliver sends one completion. It returns true when the control plane recorded it or refused
+// it for good; either way the entry leaves the outbox.
+func (d *Daemon) deliver(e OutboxEntry) bool {
+	if !d.outbox.take(e.RunID) {
+		return false
+	}
+	defer d.outbox.release(e.RunID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	receipt, err := d.client.Complete(ctx, e.RunID, e.Completion)
+	var refused *RefusedError
+	switch {
+	case err == nil:
+		d.outbox.Remove(e.RunID)
+		if receipt.Refusal != nil {
+			d.log.Warn("run recorded failed: completion refused", "run", e.RunID, "code", receipt.Refusal.Code, "reason", receipt.Refusal.Message)
+		} else {
+			d.log.Info("run finished", "run", e.RunID, "status", receipt.Status)
+		}
+		return true
+	case errors.As(err, &refused):
+		d.outbox.Refused(e.RunID)
+		d.log.Error("completion refused", "run", e.RunID, "err", err)
+		return true
+	default:
+		d.log.Warn("completion upload failed; will retry", "run", e.RunID, "err", err)
+		return false
+	}
 }
 
 // logBuffer collects raw lines and the latest label between flushes.
@@ -197,18 +287,42 @@ func (b *logBuffer) take() (LogBatch, bool) {
 	return batch, true
 }
 
-func (d *Daemon) flushLoop(ctx context.Context, runID string, buf *logBuffer) {
+// flushLoop posts log batches about once a LogInterval. With nothing to send it still posts an
+// empty batch every heartbeat, which renews the run's lease. If the control plane no longer holds
+// the run, it ends the run through stop.
+func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop context.CancelCauseFunc) {
 	t := time.NewTicker(d.cfg.LogInterval)
 	defer t.Stop()
+	hb := time.Duration(job.Claim.HeartbeatSeconds) * time.Second
+	if d.cfg.Heartbeat > 0 {
+		hb = d.cfg.Heartbeat
+	}
+	if hb <= 0 {
+		hb = 30 * time.Second
+	}
+	last := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if batch, ok := buf.take(); ok {
-				if err := d.client.Log(context.Background(), runID, batch); err != nil {
-					d.log.Warn("log upload failed", "run", runID, "err", err)
+			batch, ok := buf.take()
+			if !ok {
+				if time.Since(last) < hb {
+					continue
 				}
+				batch = LogBatch{Lines: []string{}}
+			}
+			batch.ClaimToken = job.Claim.Token
+			_, err := d.client.Log(context.Background(), job.Run.ID, batch)
+			switch {
+			case errors.Is(err, ErrRunGone):
+				d.log.Warn("run no longer held; stopping it", "run", job.Run.ID, "err", err)
+				stop(errLost)
+			case err != nil:
+				d.log.Warn("log upload failed", "run", job.Run.ID, "err", err)
+			default:
+				last = time.Now()
 			}
 		}
 	}
@@ -221,6 +335,8 @@ func failText(err error) string {
 		return "timeout"
 	case errors.Is(err, errShutdown):
 		return "daemon shutdown"
+	case errors.Is(err, errLost):
+		return "run lost: " + errLost.Error()
 	case errors.As(err, &exit):
 		return fmt.Sprintf("agent exited with status %d", exit.ExitCode())
 	}
@@ -228,16 +344,34 @@ func failText(err error) string {
 }
 
 // Handle runs one job and reports its completion. It never returns an error: every failure
-// becomes a failed completion.
+// becomes a failed completion. The completion is written to the outbox first and kept there
+// until the control plane confirms or refuses it.
 func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	comp := d.Execute(ctx, job)
-	cctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-	if err := d.client.Complete(cctx, job.Run.ID, comp); err != nil {
-		d.log.Error("completion upload failed", "run", job.Run.ID, "err", err)
-		return
+	comp.ClaimToken = job.Claim.Token
+	comp.IdempotencyKey = newKey()
+	e := OutboxEntry{RunID: job.Run.ID, Completion: comp}
+	if err := d.outbox.Put(e); err != nil {
+		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", err)
 	}
-	d.log.Info("run finished", "run", job.Run.ID, "role", job.Run.Role, "status", comp.Status)
+	wait := d.cfg.RetryBase
+	for attempt := 1; ; attempt++ {
+		if d.deliver(e) {
+			return
+		}
+		if attempt >= d.cfg.CompleteRetries || d.quit.Err() != nil {
+			d.log.Warn("completion kept in the outbox for a later retry", "run", job.Run.ID, "attempts", attempt)
+			return
+		}
+		sleepCtx(d.quit, wait)
+		wait = min(wait*2, 30*time.Second)
+	}
+}
+
+func newKey() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 // Execute runs one job and returns its completion without sending it.
@@ -261,12 +395,14 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 	d.log.Info("run started", "run", job.Run.ID, "role", job.Run.Role, "runtime", runtime, "workspace", ws.Dir)
 
 	buf := &logBuffer{}
+	held, release := context.WithCancelCause(ctx)
+	defer release(nil)
+	runCtx, cancel := context.WithTimeoutCause(held, d.cfg.Timeout, ErrTimeout)
+	defer cancel()
 	flushCtx, stopFlush := context.WithCancel(context.Background())
 	flushed := make(chan struct{})
-	go func() { d.flushLoop(flushCtx, job.Run.ID, buf); close(flushed) }()
+	go func() { d.flushLoop(flushCtx, job, buf, release); close(flushed) }()
 
-	runCtx, cancel := context.WithTimeoutCause(ctx, d.cfg.Timeout, ErrTimeout)
-	defer cancel()
 	launch := LaunchFor(runtime, job.Run, ws)
 	cmd, err := Command(runtime, job.Run, ws)
 	if err == nil {
@@ -280,7 +416,8 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 	stopFlush()
 	<-flushed
 	if batch, ok := buf.take(); ok {
-		if lerr := d.client.Log(context.Background(), job.Run.ID, batch); lerr != nil {
+		batch.ClaimToken = job.Claim.Token
+		if _, lerr := d.client.Log(context.Background(), job.Run.ID, batch); lerr != nil {
 			d.log.Warn("log upload failed", "run", job.Run.ID, "err", lerr)
 		}
 	}

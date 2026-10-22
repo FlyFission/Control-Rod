@@ -53,6 +53,9 @@ enum RunStatus {
   succeeded: "succeeded",
   failed: "failed",
   stopped: "stopped",
+
+  /** The daemon stopped renewing its lease. Terminal; only the owner can requeue the work. */
+  lost: "lost",
 }
 
 /** One agent session working on one package revision in one role. */
@@ -84,6 +87,15 @@ model Run {
 
   error?: string;
   trace?: ExecutionTrace;
+
+  /** While running: when the claim lapses unless the daemon renews it with a log post. */
+  lease_expires_at?: utcDateTime;
+
+  /** The run this one was requeued from, after it was lost, failed or stopped. */
+  requeue_of?: string;
+
+  /** The run the owner queued to replace this one. */
+  requeued_as?: string;
 }
 
 /** A WebAuthn assertion over the decision digest, made by the person's own authenticator. */

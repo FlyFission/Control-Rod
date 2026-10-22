@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Harness, ORIGIN, VirtualAuthenticator, b64, daemonHeaders, signIn, startHarness } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
 let h: Harness;
 let cookie: string;
@@ -18,11 +18,15 @@ const asOwner = (method: "GET" | "POST" | "PUT", url: string, payload?: unknown)
     headers: { cookie, ...(method === "GET" ? {} : { origin: ORIGIN }) },
     ...(payload !== undefined ? { payload: payload as object } : {}),
   });
-const asDaemon = (url: string, payload: unknown) => h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: payload as object });
+const asDaemon = (url: string, payload: unknown) =>
+  h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: withClaim(url, payload as Record<string, unknown>) });
 
 async function claim(runtimes = ["fake"]) {
   const r = await asDaemon("/runner/claim", { runtimes });
-  return r.statusCode === 204 ? null : r.json();
+  if (r.statusCode === 204) return null;
+  const job = r.json();
+  claims.set(job.run.id, job.claim.token);
+  return job;
 }
 
 function draft(id: string, extra: object = {}) {
@@ -94,7 +98,7 @@ describe("a quick question is answered without a package", () => {
       status: "succeeded",
       outputs: [{ name: "answer.md", content_base64: b64("Issued for design.") }],
     });
-    expect(done.statusCode, done.body).toBe(204);
+    expect(done.statusCode, done.body).toBe(200);
     const caps = (await asOwner("GET", "/captures")).json();
     const cap = caps.find((x: { id: string }) => x.id === c.json().id);
     expect(cap.disposition).toBe("answered");
@@ -124,7 +128,7 @@ describe("a site job runs end to end under the floors", () => {
         { name: "packages/PLAN.json", content_base64: b64(JSON.stringify(plan)) },
       ],
     });
-    expect(r.statusCode, r.body).toBe(204);
+    expect(r.statusCode, r.body).toBe(200);
     const pkgs = (await asOwner("GET", "/packages")).json();
     parcelId = pkgs.find((p: { id: string }) => p.id.endsWith("-PARCEL")).id;
     planId = pkgs.find((p: { id: string }) => p.id.endsWith("-PLAN")).id;

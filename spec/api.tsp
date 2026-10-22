@@ -102,6 +102,17 @@ namespace Packages {
     lines: string[];
   } | Refused;
 
+  /**
+   * The owner queues a new run in place of one that was lost, failed or stopped. The old run
+   * keeps its record. Repeating returns the run already queued.
+   */
+  @route("/{id}/runs/{runId}/requeue")
+  @post
+  op requeue(@path id: string, @path runId: string): {
+    @statusCode _: 201;
+    @body run: Run;
+  } | Refused;
+
   model DecisionRequest {
     kind: DecisionKind;
 
@@ -133,7 +144,7 @@ namespace Packages {
 
 /** One entry in your office: something that needs a person. */
 model OfficeItem {
-  kind: "release" | "accept" | "dispute" | "permission";
+  kind: "release" | "accept" | "dispute" | "permission" | "lost";
   package_id: string;
   package_revision: int32;
   title: string;
@@ -204,6 +215,30 @@ namespace Runner {
     }[];
 
     findings?: Finding[];
+
+    /** Custody of this run: present the token on every log and completion. */
+    claim: RunClaim;
+  }
+
+  /** A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost. */
+  model RunClaim {
+    token: string;
+    lease_expires_at: utcDateTime;
+
+    /** Post a log batch, even an empty one, at least this often. */
+    heartbeat_seconds: int32;
+  }
+
+  /** What the control plane recorded for a completion. A repeat with the same key returns it again. */
+  model CompletionReceipt {
+    run_id: string;
+    idempotency_key: string;
+    status: RunStatus;
+    outputs: Artifact[];
+    received_at: utcDateTime;
+
+    /** Set when the completion could not be applied; the run is then recorded failed with this reason. */
+    refusal?: ApiError;
   }
 
   @route("/claim") @post op claim(@body body: {
@@ -213,13 +248,24 @@ namespace Runner {
   } | Refused;
 
   @route("/runs/{id}/log") @post op log(@path id: string, @body body: {
+    claim_token: string;
     lines: string[];
     label?: string;
   }): {
-    @statusCode _: 204;
+    /** The owner asked to stop this run: end the process and complete it as stopped. */
+    stop: boolean;
+
+    lease_expires_at: utcDateTime;
   } | Refused;
 
   model Completion {
+    claim_token: string;
+
+    /** Chosen by the daemon once per completion and kept across retries. */
+    @minLength(8)
+    @maxLength(100)
+    idempotency_key: string;
+
     status: "succeeded" | "failed";
     error?: string;
     trace?: ExecutionTrace;
@@ -231,7 +277,5 @@ namespace Runner {
     verification?: VerificationRecord;
   }
 
-  @route("/runs/{id}/complete") @post op complete(@path id: string, @body body: Completion): {
-    @statusCode _: 204;
-  } | Refused;
+  @route("/runs/{id}/complete") @post op complete(@path id: string, @body body: Completion): CompletionReceipt | Refused;
 }

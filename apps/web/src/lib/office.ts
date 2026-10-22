@@ -1,15 +1,17 @@
 import type { OfficeItem } from "../api/types.js";
 
-/** Things that hold an agent come first, then disputes, then work to accept, then releases. */
+/** Things that hold an agent come first, then lost runs, disputes, work to accept and releases. */
 const KIND_ORDER: Record<OfficeItem["kind"], number> = {
   permission: 0,
-  dispute: 1,
-  accept: 2,
-  release: 3,
+  lost: 1,
+  dispute: 2,
+  accept: 3,
+  release: 4,
 };
 
 export const KIND_LABEL: Record<OfficeItem["kind"], string> = {
   permission: "Permission",
+  lost: "Lost run",
   dispute: "Dispute",
   accept: "Accept",
   release: "Release",

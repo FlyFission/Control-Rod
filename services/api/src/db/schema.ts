@@ -62,6 +62,12 @@ create table if not exists runs (
   created_at timestamptz not null default now()
 );
 
+-- Run custody: the claim token (hashed), its lease, and the completion receipt.
+alter table runs add column if not exists claim_token_hash text;
+alter table runs add column if not exists lease_expires_at timestamptz;
+alter table runs add column if not exists completion_key text;
+alter table runs add column if not exists receipt jsonb;
+
 create table if not exists outputs (
   run_id text not null references runs(id),
   package_id text not null,

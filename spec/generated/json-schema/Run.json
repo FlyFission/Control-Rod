@@ -58,6 +58,19 @@
         },
         "trace": {
             "$ref": "ExecutionTrace.json"
+        },
+        "lease_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "While running: when the claim lapses unless the daemon renews it with a log post."
+        },
+        "requeue_of": {
+            "type": "string",
+            "description": "The run this one was requeued from, after it was lost, failed or stopped."
+        },
+        "requeued_as": {
+            "type": "string",
+            "description": "The run the owner queued to replace this one."
         }
     },
     "required": [

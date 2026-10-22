@@ -56,7 +56,8 @@ Control Rod's value rests on records that every component reads the same way and
 | Stack choices | Reuse survey of about 130 repositories, adversarial review, ADRs 0003 to 0017 | pass |
 | Sandbox and gateway choices | Spike results in the research workspace | pass with conditions recorded in ADRs 0010 and 0014 |
 | Postgres and DBOS choices | Spike results; conditions recorded in ADRs 0006 and 0007 | pass with conditions |
-| Contracts, evidence and ACP choices | Spikes still running | planned |
+| Evidence and ACP choices | Spike results; conditions recorded in ADRs 0009 and 0011 | pass with conditions |
+| Contracts and kernel WASM choices | Spike still running | planned |
 
 ## Interfaces and trust boundaries
 

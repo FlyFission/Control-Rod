@@ -49,7 +49,13 @@ function doctor() {
   }
   if (!which("claude")) console.log("\nInstall Claude Code and sign in so agents can run on your subscription.");
   if (!cadcraft()) console.log("\nDrawings need CADCraft: run `pnpm cr setup-cadcraft` (needs Rust; builds the pinned version).");
-  if (!which("codex")) console.log("\nWithout Codex the pre-check uses a fresh Claude session; the record marks the runtime as shared.");
+  if (!which("codex")) {
+    console.log(
+      "\nWithout Codex, every pre-check waits for an independent runtime. It never runs on the author's runtime on its own." +
+        "\nTo go ahead with Claude alone, open each held pre-check and choose \"Proceed with owner override\" with a reason." +
+        "\nThat override is recorded, and the pre-check record shows a shared runtime with your override.",
+    );
+  }
   return ok;
 }
 

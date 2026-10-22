@@ -19,6 +19,12 @@ export type Action =
   | "return"
   | "reject";
 
+/** Provider and model that ran an agent. A model of "default" may be any model. */
+export interface RuntimeIdentity {
+  provider: string;
+  model: string;
+}
+
 export interface KernelRequest {
   status: Status;
   action: Action;
@@ -26,6 +32,9 @@ export interface KernelRequest {
   actor_id: string;
   author_baseline?: string;
   checker_baseline?: string;
+  author_runtime?: RuntimeIdentity;
+  checker_runtime?: RuntimeIdentity;
+  owner_override?: boolean;
   pre_check?: "pass" | "fail" | "inconclusive";
   assertion_verified?: boolean;
   digest_matches?: boolean;

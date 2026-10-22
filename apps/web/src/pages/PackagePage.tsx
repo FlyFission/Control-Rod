@@ -5,7 +5,7 @@ import type { PackageView, VerificationRecord, WorkPackage } from "../api/types.
 import { DecisionBar } from "../components/DecisionBar.js";
 import { OutputItem } from "../components/OutputPreview.js";
 import { RunCard } from "../components/RunLog.js";
-import { STATUS_LABEL, shortDigest, time } from "../lib/format.js";
+import { STATUS_LABEL, independenceText, shortDigest, time } from "../lib/format.js";
 import { DECISION_LABEL } from "../lib/decide.js";
 
 const RUNGS: WorkPackage["status"][] = ["draft", "released", "in-work", "in-verification", "accepted"];
@@ -187,6 +187,9 @@ function PreCheck({ record }: { record: VerificationRecord | undefined }) {
               by {record.verifier} · {record.method}
             </span>
           </p>
+          {independenceText(record) !== null && (
+            <p className={record.independence?.runtime === "shared" ? "error small" : "muted small"}>{independenceText(record)}</p>
+          )}
           {record.findings.length === 0 ? (
             <p className="muted">No findings.</p>
           ) : (

@@ -1172,6 +1172,112 @@
         }
       }
     },
+    "/packages/{id}/runs/{runId}/override-independence": {
+      "post": {
+        "operationId": "Packages_overrideIndependence",
+        "description": "The owner lets a held pre-check run on the author's runtime. Needs a reason; recorded as an\nevent and carried into the verification record. Repeating returns the run unchanged.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/runs/{runId}/requeue": {
       "post": {
         "operationId": "Packages_requeue",
@@ -2397,6 +2503,29 @@
         ],
         "description": "Kind of work a project does. General is the base layer with no domain pack."
       },
+      "ControlRod.Records.OwnerOverride": {
+        "type": "object",
+        "required": [
+          "by",
+          "at",
+          "reason"
+        ],
+        "properties": {
+          "by": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "description": "A person's recorded choice to proceed past a hold, with who, when and why."
+      },
       "ControlRod.Records.PackageStatus": {
         "type": "string",
         "enum": [
@@ -2431,6 +2560,33 @@
           }
         },
         "description": "A WebAuthn assertion over the decision digest, made by the person's own authenticator."
+      },
+      "ControlRod.Records.PreCheckIndependence": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "author_runtime",
+          "checker_runtime"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string",
+            "enum": [
+              "independent",
+              "shared"
+            ]
+          },
+          "author_runtime": {
+            "$ref": "#/components/schemas/ControlRod.Records.RuntimeRef"
+          },
+          "checker_runtime": {
+            "$ref": "#/components/schemas/ControlRod.Records.RuntimeRef"
+          },
+          "owner_override": {
+            "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride"
+          }
+        },
+        "description": "Runtime identity of author and checker, and whether they could be the same."
       },
       "ControlRod.Records.Quantity": {
         "type": "object",
@@ -2573,6 +2729,15 @@
           },
           "stop_requested_by": {
             "type": "string"
+          },
+          "waiting_reason": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why a queued run is not being handed out, in plain words."
+          },
+          "independence_override": {
+            "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride",
+            "description": "The owner let this pre-check run on the author's runtime. Recorded before it ran."
           }
         },
         "description": "One agent session working on one package revision in one role."
@@ -2740,6 +2905,10 @@
               "fail",
               "inconclusive"
             ]
+          },
+          "independence": {
+            "$ref": "#/components/schemas/ControlRod.Records.PreCheckIndependence",
+            "description": "Whether the checker ran on a runtime other than the author's, and any owner override."
           }
         },
         "description": "Evidence that a result met its criteria. Inconclusive never counts as a pass."

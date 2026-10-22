@@ -186,9 +186,12 @@ describe("a site job runs end to end under the floors", () => {
       status: "succeeded",
       outputs: [{ name: "parcel.json", content_base64: b64('{"acres":"40.0"}') }],
     });
-    const check = await claim();
+    // The daemon here has only the author's runtime: the pre-check is held, never run on it.
+    expect(await claim()).toBeNull();
+    const check = await claim(["codex"]);
     expect(check.run.role).toBe("pre-check");
     expect(check.run.agent_baseline).not.toBe(job.run.agent_baseline);
+    expect(check.run.runtime.provider).not.toBe(job.run.runtime.provider);
     const delivered = check.inputs.map((i: { name: string }) => i.name);
     expect(delivered).toContain("deliverables/parcel.json");
     expect(delivered.some((n: string) => n.includes("log"))).toBe(false);
@@ -208,7 +211,7 @@ describe("a site job runs end to end under the floors", () => {
       status: "succeeded",
       outputs: [{ name: "parcel.json", content_base64: b64('{"acres":"40.02","method":"computed"}') }],
     });
-    const check2 = await claim();
+    const check2 = await claim(["codex"]);
     await asDaemon(`/runner/runs/${check2.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
 
     const office = (await asOwner("GET", "/office")).json();

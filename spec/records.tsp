@@ -344,4 +344,16 @@ model VerificationRecord {
   evidence: EvidenceItem[];
   findings: Finding[];
   outcome: "pass" | "fail" | "inconclusive";
+
+  /** Whether the checker ran on a runtime other than the author's, and any owner override. */
+  independence?: PreCheckIndependence;
+}
+
+/** Runtime identity of author and checker, and whether they could be the same. */
+@extension("unevaluatedProperties", false)
+model PreCheckIndependence {
+  runtime: "independent" | "shared";
+  author_runtime: RuntimeRef;
+  checker_runtime: RuntimeRef;
+  owner_override?: OwnerOverride;
 }

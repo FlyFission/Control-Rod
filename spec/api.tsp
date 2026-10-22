@@ -115,6 +115,18 @@ namespace Packages {
   @post
   op stop(@path id: string, @path runId: string): Run | Refused;
 
+  /**
+   * The owner lets a held pre-check run on the author's runtime. Needs a reason; recorded as an
+   * event and carried into the verification record. Repeating returns the run unchanged.
+   */
+  @route("/{id}/runs/{runId}/override-independence")
+  @post
+  op overrideIndependence(@path id: string, @path runId: string, @body body: {
+    @minLength(1)
+    @maxLength(2000)
+    reason: string;
+  }): Run | Refused;
+
   @route("/{id}/runs/{runId}/requeue")
   @post
   op requeue(@path id: string, @path runId: string): {

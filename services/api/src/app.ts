@@ -32,6 +32,7 @@ import {
   listPackages,
   metrics,
   office,
+  overrideIndependence,
   packageOutput,
   packageView,
   requeueRun,
@@ -245,6 +246,13 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const user = await person(req);
     return stopRun(db, cfg, user, req.params.id, req.params.runId);
   });
+  app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>(
+    "/packages/:id/runs/:runId/override-independence",
+    async (req) => {
+      const user = await person(req);
+      return overrideIndependence(db, cfg, user, req.params.id, req.params.runId, req.body?.reason);
+    },
+  );
   app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/requeue", async (req, reply) => {
     const user = await person(req);
     return reply.code(201).send(await requeueRun(db, cfg, user, req.params.id, req.params.runId));

@@ -1,4 +1,4 @@
-import type { Digest } from "../api/types.js";
+import type { Digest, VerificationRecord } from "../api/types.js";
 
 /** The short form a person compares before signing: algorithm and first 12 hex digits. */
 export function shortDigest(d: Digest | undefined): string {
@@ -55,3 +55,17 @@ export const STATUS_LABEL: Record<string, string> = {
   accepted: "Accepted",
   closed: "Closed",
 };
+
+/** How independent a pre-check was of the author, in plain words. */
+export function independenceText(record: VerificationRecord): string | null {
+  const ind = record.independence;
+  if (ind === undefined) return null;
+  const rt = (r: { provider: string; model: string }) => (r.model === "default" ? r.provider : `${r.provider} ${r.model}`);
+  if (ind.runtime === "independent") {
+    return `Independent runtime: the author ran on ${rt(ind.author_runtime)}, the pre-check on ${rt(ind.checker_runtime)}.`;
+  }
+  const base = `Shared runtime: the author and the pre-check both ran on ${rt(ind.checker_runtime)}, in separate sessions.`;
+  return ind.owner_override === undefined
+    ? base
+    : `${base} Owner override by ${ind.owner_override.by}: ${ind.owner_override.reason}`;
+}

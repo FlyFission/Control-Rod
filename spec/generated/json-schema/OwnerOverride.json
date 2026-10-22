@@ -14,13 +14,21 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 2000
+        },
+        "subject_digest": {
+            "$ref": "Digest.json"
+        },
+        "assertion": {
+            "$ref": "PasskeyAssertion.json"
         }
     },
     "required": [
         "by",
         "at",
-        "reason"
+        "reason",
+        "subject_digest",
+        "assertion"
     ],
-    "description": "A person's recorded choice to proceed past a hold, with who, when and why.",
+    "description": "A person's choice to proceed past a hold, with who, when and why, signed with their passkey\nover the digest of (package, revision, run, the act and the reason).",
     "unevaluatedProperties": false
 }

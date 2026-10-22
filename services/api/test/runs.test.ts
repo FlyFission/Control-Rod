@@ -425,19 +425,39 @@ describe("pre-check independence", () => {
     expect(await claim(["fake"])).toBeNull();
     expect((await eventsOf(held.id)).filter((e) => e.type === "run.waiting")).toHaveLength(1);
 
-    const noReason = await asOwner("POST", `/packages/${id}/runs/${held.id}/override-independence`, { reason: " " });
-    expect(noReason.statusCode).toBe(400);
-    const byDaemon = await h.app.inject({
-      method: "POST",
-      url: `/packages/${id}/runs/${held.id}/override-independence`,
-      headers: daemonHeaders,
-      payload: { reason: "agent wants it" },
-    });
+    const url = `/packages/${id}/runs/${held.id}/override-independence`;
+    expect((await asOwner("POST", `${url}/options`, { reason: " " })).statusCode).toBe(400);
+    const daemonOptions = await h.app.inject({ method: "POST", url: `${url}/options`, headers: daemonHeaders, payload: { reason: "agent wants it" } });
+    expect(daemonOptions.statusCode).toBe(403);
+
+    // No assertion: the kernel refuses an unsigned override.
+    const bare = await asOwner("POST", url, { reason: "No Codex on this Mac yet" });
+    expect(bare.statusCode).toBe(403);
+    expect(bare.json().code).toBe("unsigned");
+
+    // An assertion over one reason cannot carry another.
+    const o1 = await asOwner("POST", `${url}/options`, { reason: "No Codex on this Mac yet" });
+    expect(o1.statusCode, o1.body).toBe(200);
+    const swapped = await asOwner("POST", url, { reason: "Something else", assertion: passkey.assert(o1.json().options) });
+    expect(swapped.statusCode).toBe(403);
+
+    const o2 = await asOwner("POST", `${url}/options`, { reason: "No Codex on this Mac yet" });
+    const assertion = passkey.assert(o2.json().options);
+    const byDaemon = await h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: { reason: "No Codex on this Mac yet", assertion } });
     expect(byDaemon.statusCode).toBe(403);
-    const ok = await asOwner("POST", `/packages/${id}/runs/${held.id}/override-independence`, { reason: "No Codex on this Mac yet" });
+    expect((await claim(["fake"]))).toBeNull();
+    const ok = await asOwner("POST", url, { reason: "No Codex on this Mac yet", assertion });
     expect(ok.statusCode, ok.body).toBe(200);
-    expect(ok.json().independence_override).toMatchObject({ by: "ben", reason: "No Codex on this Mac yet" });
-    expect((await eventsOf(held.id)).some((e) => e.type === "run.independence-override")).toBe(true);
+    expect(ok.json().independence_override).toMatchObject({
+      by: "ben",
+      reason: "No Codex on this Mac yet",
+      subject_digest: o2.json().subject_digest,
+      assertion: { credential_id: assertion.id },
+    });
+    const replay = await asOwner("POST", url, { reason: "No Codex on this Mac yet", assertion });
+    expect(replay.statusCode).toBe(403);
+    const ev = (await eventsOf(held.id)).find((e) => e.type === "run.independence-override");
+    expect(ev?.data).toMatchObject({ reason: "No Codex on this Mac yet", assertion: { credential_id: assertion.id } });
 
     const check = (await claim(["fake"])) as Job;
     expect(check.run.id).toBe(held.id);
@@ -476,7 +496,7 @@ describe("pre-check independence", () => {
   it("refuses an override for anything but a queued pre-check", async () => {
     const id = await releasedPackage("INDEP3");
     const queued = (await asOwner("GET", `/packages/${id}`)).json().runs[0];
-    const r = await asOwner("POST", `/packages/${id}/runs/${queued.id}/override-independence`, { reason: "x" });
+    const r = await asOwner("POST", `/packages/${id}/runs/${queued.id}/override-independence/options`, { reason: "x" });
     expect(r.statusCode).toBe(409);
     const job = (await claim()) as Job;
     await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });

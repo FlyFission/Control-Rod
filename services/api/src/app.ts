@@ -32,7 +32,9 @@ import {
   listPackages,
   metrics,
   office,
+  overrideChallenge,
   overrideIndependence,
+  overrideSubject,
   packageOutput,
   packageView,
   requeueRun,
@@ -247,10 +249,34 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return stopRun(db, cfg, user, req.params.id, req.params.runId);
   });
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>(
+    "/packages/:id/runs/:runId/override-independence/options",
+    async (req) => {
+      await person(req);
+      const s = await overrideSubject(db, req.params.id, req.params.runId, req.body?.reason);
+      const nonce = randomBytes(16).toString("hex");
+      const options = await assertionOptions(
+        db,
+        auth,
+        "override",
+        { package_id: req.params.id, run_id: req.params.runId, revision: s.revision, reason: s.reason, subject_digest: s.digest },
+        overrideChallenge(s.digest, s.revision, req.params.runId, nonce),
+      );
+      return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
+    },
+  );
+  app.post<{ Params: { id: string; runId: string }; Body: { reason?: string; assertion?: Record<string, unknown> } }>(
     "/packages/:id/runs/:runId/override-independence",
     async (req) => {
       const user = await person(req);
-      return overrideIndependence(db, cfg, user, req.params.id, req.params.runId, req.body?.reason);
+      const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+      let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
+      if (req.body?.assertion) {
+        const ok = await assertionVerify(db, auth, "override", req.body.assertion as never);
+        if (ok && ok.user === user && ok.data.package_id === req.params.id && ok.data.run_id === req.params.runId && ok.data.reason === reason) {
+          signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
+        }
+      }
+      return overrideIndependence(db, cfg, user, req.params.id, req.params.runId, reason, signed);
     },
   );
   app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/requeue", async (req, reply) => {

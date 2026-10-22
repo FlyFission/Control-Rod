@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Run } from "../api/types.js";
 import { isVisible } from "../lib/live.js";
+import { type Passkeys, browserPasskeys, signOverride } from "../lib/decide.js";
 import { time } from "../lib/format.js";
 import { StateMark, type StateKind } from "./StateMark.js";
 
@@ -48,13 +49,14 @@ export function canRequeue(run: Run): boolean {
 
 /**
  * A held pre-check: the only runtime available is the author's. The owner can proceed with a
- * written reason, which is recorded and shows on the pre-check record as a shared runtime.
+ * written reason, signed with the passkey; it is recorded and shows on the pre-check record as a
+ * shared runtime.
  */
-function IndependenceOverride({ packageId, run }: { packageId: string; run: Run }) {
+function IndependenceOverride({ packageId, run, passkeys }: { packageId: string; run: Run; passkeys: Passkeys }) {
   const qc = useQueryClient();
   const [reason, setReason] = useState("");
   const go = useMutation({
-    mutationFn: () => api.overrideIndependence(packageId, run.id, reason.trim()),
+    mutationFn: () => signOverride({ packageId, runId: run.id, reason }, passkeys),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["package", packageId] }),
   });
   if (run.role !== "pre-check" || run.status !== "queued" || run.waiting_reason === undefined) return null;
@@ -66,7 +68,7 @@ function IndependenceOverride({ packageId, run }: { packageId: string; run: Run 
       </label>
       <textarea id={`why-${run.id}`} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
       <button type="button" className="btn small" disabled={reason.trim().length === 0 || go.isPending} onClick={() => go.mutate()}>
-        Proceed with owner override
+        Sign with passkey and proceed
       </button>
       {go.isError && (
         <p className="error" role="alert">
@@ -110,7 +112,7 @@ function RunActions({ packageId, run }: { packageId: string; run: Run }) {
   );
 }
 
-export function RunCard({ packageId, run }: { packageId: string; run: Run }) {
+export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packageId: string; run: Run; passkeys?: Passkeys }) {
   const live = run.status === "running" || run.status === "queued";
   const log = useQuery({
     queryKey: ["runlog", packageId, run.id],
@@ -143,7 +145,7 @@ export function RunCard({ packageId, run }: { packageId: string; run: Run }) {
             Owner override by {run.independence_override.by}: {run.independence_override.reason}
           </p>
         )}
-        <IndependenceOverride packageId={packageId} run={run} />
+        <IndependenceOverride packageId={packageId} run={run} passkeys={passkeys} />
         <RunActions packageId={packageId} run={run} />
         <pre className="log" aria-label={`${ROLE_LABEL[run.role]} log`}>
           {lines.length === 0 ? "No log lines yet." : lines.slice(-400).join("\n")}

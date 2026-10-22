@@ -330,23 +330,40 @@ describe("pre-check independence", () => {
     waiting_reason: "Waiting for an independent runtime: install Codex, or proceed with a recorded owner override.",
   };
 
-  it("shows why a pre-check is held and sends the owner's override with a reason", async () => {
-    let body: unknown;
+  it("shows why a pre-check is held and signs the owner's override with the passkey", async () => {
+    const sent: unknown[] = [];
+    const signed: unknown[] = [];
+    const passkeys: Passkeys = {
+      async get(options) {
+        signed.push(options);
+        return { id: "cred-1", response: { signature: "sig" }, type: "public-key" };
+      },
+      async create() {
+        return {};
+      },
+    };
     server.use(
       http.get("*/packages/WP-7/runs/R-chk/log", () => HttpResponse.json({ lines: [] })),
+      http.post("*/packages/WP-7/runs/R-chk/override-independence/options", async ({ request }) => {
+        sent.push(["options", await request.json()]);
+        return HttpResponse.json({ subject_digest: DIGEST, options: { challenge: "xyz", rpId: "localhost" } });
+      }),
       http.post("*/packages/WP-7/runs/R-chk/override-independence", async ({ request }) => {
-        body = await request.json();
+        sent.push(["override", await request.json()]);
         return HttpResponse.json({ ...held, independence_override: { by: "ben", at: "2026-10-22T11:00:00Z", reason: "No Codex yet" } });
       }),
     );
-    await renderPage(<RunCard packageId="WP-7" run={held} />);
+    await renderPage(<RunCard packageId="WP-7" run={held} passkeys={passkeys} />);
     expect(screen.getByText(held.waiting_reason as string)).toBeTruthy();
-    const button = screen.getByRole("button", { name: "Proceed with owner override" });
+    const button = screen.getByRole("button", { name: "Sign with passkey and proceed" });
     expect((button as HTMLButtonElement).disabled).toBe(true);
     const user = userEvent.setup();
     await user.type(screen.getByLabelText("Why may this pre-check run on the author's runtime?"), "No Codex yet");
     await user.click(button);
-    await waitFor(() => expect(body).toEqual({ reason: "No Codex yet" }));
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[0]).toEqual(["options", { reason: "No Codex yet" }]);
+    expect(signed).toEqual([{ challenge: "xyz", rpId: "localhost" }]);
+    expect(sent[1]).toEqual(["override", { reason: "No Codex yet", assertion: { id: "cred-1", response: { signature: "sig" }, type: "public-key" } }]);
   });
 
   it("says plainly when a pre-check shared the author's runtime under an override", () => {
@@ -368,7 +385,7 @@ describe("pre-check independence", () => {
           runtime: "shared",
           author_runtime: { kind: "subscription", provider: "claude", model: "default" },
           checker_runtime: { kind: "subscription", provider: "claude", model: "default" },
-          owner_override: { by: "ben", at: "2026-10-22T11:00:00Z", reason: "No Codex yet" },
+          owner_override: { by: "ben", at: "2026-10-22T11:00:00Z", reason: "No Codex yet", subject_digest: DIGEST, assertion: { credential_id: "c", authenticator_data: "a", client_data_json: "j", signature: "s" } },
         },
       }),
     ).toBe("Shared runtime: the author and the pre-check both ran on claude, in separate sessions. Owner override by ben: No Codex yet");

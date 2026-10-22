@@ -1175,7 +1175,7 @@
     "/packages/{id}/runs/{runId}/override-independence": {
       "post": {
         "operationId": "Packages_overrideIndependence",
-        "description": "The owner lets a held pre-check run on the author's runtime. Needs a reason; recorded as an\nevent and carried into the verification record. Repeating returns the run unchanged.",
+        "description": "Step 2: the signed override. The challenge is consumed once; the kernel allows it only as a\nsigned human act with a reason. Recorded as an event with the assertion, carried into the\nverification record, and only then may the pre-check run on the author's provider.",
         "parameters": [
           {
             "name": "id",
@@ -1267,11 +1267,125 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 2000
+                  },
+                  "assertion": {
+                    "type": "object",
+                    "additionalProperties": {}
                   }
                 },
                 "required": [
-                  "reason"
+                  "reason",
+                  "assertion"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/runs/{runId}/override-independence/options": {
+      "post": {
+        "operationId": "Packages_overrideIndependenceOptions",
+        "description": "Step 1 of the owner's override: the server returns the digest of (package id, revision, run\nid, \"override-independence\", reason) and a WebAuthn challenge derived from it.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subject_digest": {
+                      "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "subject_digest",
+                    "options"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Packages.OverrideRequest"
               }
             }
           }
@@ -2508,7 +2622,9 @@
         "required": [
           "by",
           "at",
-          "reason"
+          "reason",
+          "subject_digest",
+          "assertion"
         ],
         "properties": {
           "by": {
@@ -2522,9 +2638,15 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 2000
+          },
+          "subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
           }
         },
-        "description": "A person's recorded choice to proceed past a hold, with who, when and why."
+        "description": "A person's choice to proceed past a hold, with who, when and why, signed with their passkey\nover the digest of (package, revision, run, the act and the reason)."
       },
       "ControlRod.Records.PackageStatus": {
         "type": "string",
@@ -3196,6 +3318,19 @@
           },
           "reason": {
             "type": "string"
+          }
+        }
+      },
+      "Packages.OverrideRequest": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
           }
         }
       },

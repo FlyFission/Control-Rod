@@ -115,16 +115,33 @@ namespace Packages {
   @post
   op stop(@path id: string, @path runId: string): Run | Refused;
 
+  model OverrideRequest {
+    @minLength(1)
+    @maxLength(2000)
+    reason: string;
+  }
+
   /**
-   * The owner lets a held pre-check run on the author's runtime. Needs a reason; recorded as an
-   * event and carried into the verification record. Repeating returns the run unchanged.
+   * Step 1 of the owner's override: the server returns the digest of (package id, revision, run
+   * id, "override-independence", reason) and a WebAuthn challenge derived from it.
+   */
+  @route("/{id}/runs/{runId}/override-independence/options")
+  @post
+  op overrideIndependenceOptions(@path id: string, @path runId: string, @body body: OverrideRequest): {
+    subject_digest: Digest;
+    options: Record<unknown>;
+  } | Refused;
+
+  /**
+   * Step 2: the signed override. The challenge is consumed once; the kernel allows it only as a
+   * signed human act with a reason. Recorded as an event with the assertion, carried into the
+   * verification record, and only then may the pre-check run on the author's provider.
    */
   @route("/{id}/runs/{runId}/override-independence")
   @post
   op overrideIndependence(@path id: string, @path runId: string, @body body: {
-    @minLength(1)
-    @maxLength(2000)
-    reason: string;
+    ...OverrideRequest;
+    assertion: Record<unknown>;
   }): Run | Refused;
 
   @route("/{id}/runs/{runId}/requeue")

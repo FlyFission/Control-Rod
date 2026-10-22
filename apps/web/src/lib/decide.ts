@@ -93,3 +93,20 @@ export function availableDecisions(status: string, hasPreCheck: boolean, outcome
       return [];
   }
 }
+
+/**
+ * The owner's override for a held pre-check: ask for the digest of the run and the reason, sign
+ * it with the passkey, send the signed override. The kernel on the server decides.
+ */
+export async function signOverride(
+  input: { packageId: string; runId: string; reason: string },
+  passkeys: Passkeys = browserPasskeys,
+  client: Api = api,
+): Promise<{ signed: Digest }> {
+  const reason = input.reason.trim();
+  if (reason.length === 0) throw new Error("Say why the pre-check may share the author's runtime.");
+  const opts = await client.overrideOptions(input.packageId, input.runId, reason);
+  const assertion = await passkeys.get(opts.options);
+  await client.overrideIndependence(input.packageId, input.runId, { reason, assertion });
+  return { signed: opts.subject_digest };
+}

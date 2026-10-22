@@ -17,5 +17,12 @@ Rules:
 - Every title block, revision and notes value comes from the record. Agents supply records; they never draw borders or type title blocks.
 - A record missing a title block field, a value too long for its cell, or notes that overflow the notes column is refused before anything is written.
 - The notes column holds general notes, reference drawings, design inputs, holds, assumptions and the preparation record.
+- Supply every notes section explicitly; use an empty list when there are no notes in a section. An omitted section is refused.
+- Drawing numbers must be filenames without path separators, control characters or characters reserved by Windows filenames. Output filenames are derived from this field.
 
 Conformance checks live in `tests/conformance/cad/run.py`.
+Record refusals can also be checked without CADCraft:
+
+```sh
+python3 -m unittest discover -s tests/conformance/cad -p test_record.py -v
+```

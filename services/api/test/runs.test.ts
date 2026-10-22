@@ -532,3 +532,33 @@ describe("one live run per assignment", () => {
     await asDaemon(`/runner/runs/${again.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
   });
 });
+
+describe("runtime readiness", () => {
+  it("picks only runtimes the daemon found ready and shows the rest to the owner", async () => {
+    const id = await releasedPackage("READY");
+    const author = (await claim()) as Job;
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("ok") }] });
+    const notReady = {
+      runtime: "codex",
+      ready: false,
+      version: "codex-cli 0.163.0",
+      reason: "codex is installed but not signed in (`codex login status` exit 1). Sign in yourself with `codex login`; Control Rod never does.",
+      login_checked: true,
+    };
+    const status = [{ runtime: "fake", ready: true, login_checked: false }, notReady];
+    const r = await asDaemon("/runner/claim", { runtimes: ["fake", "codex"], runtime_status: status });
+    expect(r.statusCode).toBe(204);
+    const shown = (await asOwner("GET", "/runtimes")).json();
+    expect(shown.runtimes).toContainEqual(notReady);
+    expect(shown.reported_at).toBeTruthy();
+    const held = (await asOwner("GET", `/packages/${id}`)).json().runs.find((x: { role: string }) => x.role === "pre-check");
+    expect(held.status).toBe("queued");
+    expect(held.waiting_reason).toMatch(/independent runtime/);
+
+    const ready = await asDaemon("/runner/claim", { runtimes: ["fake", "codex"], runtime_status: [status[0], { ...notReady, ready: true, reason: undefined }] });
+    expect(ready.statusCode).toBe(200);
+    expect(ready.json().run.runtime.provider).toBe("codex");
+    claims.set(ready.json().run.id, ready.json().claim.token);
+    await asDaemon(`/runner/runs/${ready.json().run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+  });
+});

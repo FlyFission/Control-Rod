@@ -37,9 +37,11 @@ import {
   overrideSubject,
   packageOutput,
   packageView,
+  recordRuntimeStatus,
   requeueRun,
   runLog,
   runLogLines,
+  runtimeStatus,
   stopRun,
   sweepLost,
   updateDraft,
@@ -289,6 +291,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await sweep();
     return office(db);
   });
+  app.get("/runtimes", async (req) => {
+    await person(req);
+    return runtimeStatus(db);
+  });
   app.get("/runs", async (req) => {
     await person(req);
     return activeRuns(db);
@@ -323,9 +329,15 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[] } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
-    const runtimes = (req.body?.runtimes ?? []).filter((r) => ["claude", "codex", "fake"].includes(r));
+    // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
+    // left out even if it is also listed.
+    const status = await recordRuntimeStatus(db, req.body?.runtime_status);
+    const notReady = new Set(status.filter((s) => !s.ready).map((s) => s.runtime));
+    const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])
+      .map(String)
+      .filter((r) => ["claude", "codex", "fake"].includes(r) && !notReady.has(r));
     await sweep();
     const job = await claim(db, cfg, runtimes);
     if (!job) return reply.code(204).send();

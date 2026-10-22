@@ -1361,3 +1361,41 @@ export async function listCaptures(db: Db) {
   const r = await db.query<{ body: Json }>("select body from captures order by created_at desc limit 200");
   return r.rows.map((x) => x.body);
 }
+
+/* ---------- runtime readiness ---------- */
+
+const KNOWN_RUNTIMES = ["claude", "codex", "fake"];
+
+export interface RuntimeStatus {
+  runtime: string;
+  ready: boolean;
+  version?: string;
+  reason?: string;
+  login_checked: boolean;
+}
+
+/** Keeps the daemon's latest probe of each runtime, cleaned to plain short fields. */
+export async function recordRuntimeStatus(db: Db, raw: unknown): Promise<RuntimeStatus[]> {
+  if (!Array.isArray(raw)) return [];
+  const list: RuntimeStatus[] = [];
+  for (const r of raw.slice(0, 10)) {
+    if (!r || typeof r !== "object" || !KNOWN_RUNTIMES.includes(String((r as Json).runtime))) continue;
+    const x = r as Json;
+    list.push({
+      runtime: String(x.runtime),
+      ready: x.ready === true,
+      ...(typeof x.version === "string" && x.version ? { version: x.version.slice(0, 200) } : {}),
+      ...(typeof x.reason === "string" && x.reason ? { reason: x.reason.slice(0, 300) } : {}),
+      login_checked: x.login_checked === true,
+    });
+  }
+  const value = JSON.stringify({ reported_at: now(), runtimes: list });
+  await db.query("insert into settings (key, value) values ('runtime_status', $1) on conflict (key) do update set value = excluded.value", [value]);
+  return list;
+}
+
+export async function runtimeStatus(db: Db): Promise<{ reported_at?: string; runtimes: RuntimeStatus[] }> {
+  const r = await db.query<{ value: string }>("select value from settings where key = 'runtime_status'");
+  if (!r.rows[0]) return { runtimes: [] };
+  return JSON.parse(r.rows[0].value) as { reported_at?: string; runtimes: RuntimeStatus[] };
+}

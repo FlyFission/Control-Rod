@@ -21,3 +21,4 @@ export type OfficeItem = S["OfficeItem"];
 export type CrEvent = S["ControlRod.Records.Event"];
 export type Metrics = S["Metrics"];
 export type ApiErrorBody = S["ApiError"];
+export type RuntimeStatus = S["Runner.RuntimeStatus"];

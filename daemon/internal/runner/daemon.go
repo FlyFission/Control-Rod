@@ -39,6 +39,10 @@ type Config struct {
 	RetryBase time.Duration
 	// OutboxInterval is how often completions waiting in the outbox are tried again.
 	OutboxInterval time.Duration
+	// ProbeInterval is how often each runtime is probed again. Default 5 minutes.
+	ProbeInterval time.Duration
+	// Probe runs the probe commands; nil means ExecRunner.
+	Probe CommandRunner
 }
 
 // Home returns CONTROLROD_HOME, or ~/.controlrod.
@@ -77,6 +81,9 @@ type Daemon struct {
 	outbox *Outbox
 	// quit ends when Run is asked to stop; completion retries stop waiting then.
 	quit context.Context
+
+	probeMu sync.Mutex
+	status  []RuntimeStatus
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -108,6 +115,12 @@ func New(cfg Config) *Daemon {
 	if cfg.OutboxInterval <= 0 {
 		cfg.OutboxInterval = 30 * time.Second
 	}
+	if cfg.ProbeInterval <= 0 {
+		cfg.ProbeInterval = 5 * time.Minute
+	}
+	if cfg.Probe == nil {
+		cfg.Probe = ExecRunner
+	}
 	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger, outbox: NewOutbox(cfg.Home), quit: context.Background()}
 }
 
@@ -134,6 +147,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	d.log.Info("daemon started", "api", d.cfg.API, "runtimes", strings.Join(d.cfg.Runtimes, ","), "parallel", d.cfg.Parallel)
 	d.quit = ctx
+	d.probe(ctx)
+	go d.probeLoop(ctx)
 	outboxDone := make(chan struct{})
 	go func() { d.outboxLoop(ctx); close(outboxDone) }()
 	jobsCtx, cancelJobs := context.WithCancelCause(context.Background())
@@ -148,7 +163,8 @@ claim:
 			break claim
 		case slots <- struct{}{}:
 		}
-		job, err := d.client.Claim(ctx, d.cfg.Runtimes)
+		status := d.runtimeStatus()
+		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status)
 		if err != nil {
 			<-slots
 			if ctx.Err() != nil {
@@ -185,6 +201,50 @@ claim:
 	d.drainOutbox(context.Background())
 	d.log.Info("daemon stopped")
 	return nil
+}
+
+// probe checks every runtime found on PATH and logs, in one plain sentence each, any that is
+// not ready or has become ready again. Only ready runtimes are offered for work.
+func (d *Daemon) probe(ctx context.Context) {
+	next := make([]RuntimeStatus, 0, len(d.cfg.Runtimes))
+	for _, rt := range d.cfg.Runtimes {
+		next = append(next, Probe(ctx, rt, d.cfg.Version, d.cfg.Probe))
+	}
+	d.probeMu.Lock()
+	prev := map[string]bool{}
+	for _, s := range d.status {
+		prev[s.Runtime] = s.Ready
+	}
+	d.status = next
+	d.probeMu.Unlock()
+	for _, s := range next {
+		was, seen := prev[s.Runtime]
+		switch {
+		case !s.Ready && (!seen || was):
+			d.log.Warn(s.Reason+". It is not offered for work.", "runtime", s.Runtime)
+		case s.Ready && seen && !was:
+			d.log.Info(s.Runtime+" is ready again and offered for work.", "runtime", s.Runtime, "version", s.Version)
+		}
+	}
+}
+
+func (d *Daemon) probeLoop(ctx context.Context) {
+	t := time.NewTicker(d.cfg.ProbeInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			d.probe(ctx)
+		}
+	}
+}
+
+func (d *Daemon) runtimeStatus() []RuntimeStatus {
+	d.probeMu.Lock()
+	defer d.probeMu.Unlock()
+	return append([]RuntimeStatus(nil), d.status...)
 }
 
 // outboxLoop sends completions left from an earlier run at once, then retries any still

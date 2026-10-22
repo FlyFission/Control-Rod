@@ -14,7 +14,7 @@
 - **Related records:** `basis.md`, `verification.md`
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
-- **Requirements cross-reference:** `basis.md#derived-requirements-or-claims`, C-001 to C-023
+- **Requirements cross-reference:** `basis.md#derived-requirements-or-claims`, C-001 to C-025
 
 ## Trace summary
 
@@ -38,11 +38,13 @@
 | C-016 | Claim token and lease; lapsed lease marks the run lost; owner-only requeue. | `basis.md#protected-outcomes` | `startRun`, `runLog`, `sweepLost`, `requeueRun`; daemon heartbeat | E-009, E-010, E-011 | Merge | pass |
 | C-017 | Idempotent completion with a stored receipt; stale or foreign token refused; refusals recorded as failed runs; invalid trace refused with a reason; daemon outbox with backoff. | `basis.md#protected-outcomes` | `complete`, `recordRefused`; daemon `Outbox` | E-009, E-010 | Merge | pass |
 | C-018 | An author run with no output fails with a reason and never advances the package. | `basis.md#protected-outcomes` | `applyCompletion` | E-009 | Merge | pass |
-| C-019 | A pre-check that could only share the author's runtime is held; the owner may proceed with a recorded override shown on the verification record. | `basis.md#protected-outcomes` | `pickChecker`, `overrideIndependence`, `independence` block | E-008, E-009, E-011 | Merge after owner signature on `kernel/src/transition.rs` | pass |
+| C-019 | A pre-check that could only share the author's provider is held; same provider is the same runtime whatever the models; the owner may proceed only with a passkey-signed override with a reason, recorded and shown on the verification record. | `basis.md#protected-outcomes` | `pickChecker`; kernel `OverrideIndependence`, `owner_override_verified`; override routes; `independence` block | E-008, E-009, E-011, E-012, E-013, E-015 | Merge after owner signature on `kernel/src/transition.rs` | pass |
 | C-020 | The owner can stop a run; recorded first; shown as stopping until the daemon confirms; repeating is harmless. | `basis.md#protected-outcomes` | `stopRun`; daemon stop handling | E-009, E-010, E-011 | Merge | pass |
 | C-021 | Outputs are re-hashed when served; a mismatch is refused and logged. | `basis.md#protected-outcomes` | `packageOutput` | E-009 | Merge | pass |
 | C-022 | Cookie-authenticated state changes need a same-origin mark; runner routes use the token. | `basis.md#protected-outcomes` | `onRequest` hook | E-009 | Merge | pass |
 | C-023 | The trace records runtime mode, requested and reported model, tools and sandbox; model mismatch raises an event; ADR 0020. | `basis.md#protected-outcomes` | `LaunchFor`, `ReportedModel`, `modelMismatch` | E-009, E-010 | Merge | pass |
+| C-024 | Runtimes are probed before they are offered; only ready ones are picked; the office shows the rest. | `basis.md#protected-outcomes` | `Probe`; `recordRuntimeStatus`; office notice | E-013, E-014, E-015 | Merge; check the real Codex CLI on the Mac | pass by test |
+| C-025 | One live run per package revision, role and round, enforced by the database. | `basis.md#protected-outcomes` | `runs_one_live` index; conflict-safe `queueRun` | E-013 | Merge | pass |
 
 ## Evidence chain
 
@@ -62,6 +64,7 @@ Risk: agents author and check engineering work; a self-approved or rewritten pac
 | No real agent runtime run | Scripted agents may hide prompt or tool issues. | First run on the owner's Mac. |
 | Codex flags checked by reading `codex exec --help`, not by a real run | The owner's own Codex configuration could change sandbox or network behavior. | One real Codex author and pre-check on the Mac before trusting Codex. |
 | Kernel runtime-identity rule edited in `kernel/src/transition.rs` | A trust surface changed in an unsigned PR. | Owner signs the final version before merge. |
+| Codex 0.163.0 was not installed where the probe was built | Whether it offers `codex login status` was not checked; the probe reads `codex login --help` at run time and reports `login_checked: false` when it cannot tell. | Check `pnpm cr doctor` and the office on the Mac. |
 | Fake-only end-to-end runs now hold every pre-check | The scripted run needs the owner override (or a second runtime) at each pre-check. | Accepted: no silent fallback, even for the fake runtime. |
 | Site pack and end-to-end not in CI | Regressions could land unseen. | CI jobs need the owner's signature on `.github/workflows`. |
 | Live run script not committed | The browser run cannot be repeated from the tree. | Commit it with the CI work. |

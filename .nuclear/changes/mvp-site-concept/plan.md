@@ -37,6 +37,7 @@
 9. Run every suite, then a live browser run with a virtual passkey.
 10. Write this packet and validate.
 11. Close build plan items N1 to N8 from the Kandev pattern notes before the first real run: Codex launch flags, run custody, empty author runs, pre-check independence by runtime identity, stop, output re-hash, same-origin check, and recording what ran (ADR 0020).
+12. Apply the owner's two decisions on the pre-check rule (same provider is the same runtime; the override is passkey-signed), add the runtime probe (N9) and one live run per assignment (N2 addition).
 
 ## Two-speed work plan
 
@@ -103,6 +104,7 @@ AI agents work on the `mvp/*` branches only, may build and run local tests and a
 | Live browser run | five packages released and accepted | pass |
 | Packet validates | `ng validate --strict-custody` passes | pass |
 | Build plan N1 to N8 | all suites pass at `4f7274d` | pass |
+| Owner decisions, N9, N2 addition | all suites pass at `ed707de` | pass |
 | Owner signature | kernel decision functions (including the pre-check runtime rule) and license gate | planned |
 | First Codex run | one real Codex author and pre-check on the owner's Mac | planned |
 | First real run | Claude Code on the owner's Mac | planned |

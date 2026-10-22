@@ -12,7 +12,7 @@
 
 - **Change slug:** `mvp-site-concept`
 - **Version / release / baseline:** control plane 0.1.0; CADCraft `e4214f7`
-- **PR / commit / artifact:** branch `mvp/site-concept` (PR #3); first build at `35e604a`, build plan fixes N1 to N8 in `d757a0a` to `4f7274d`, plus this packet
+- **PR / commit / artifact:** branch `mvp/site-concept` (PR #3); first build at `35e604a`, build plan fixes N1 to N8 in `d757a0a` to `4f7274d`, the owner's two pre-check decisions, N9 and the N2 addition in `bd9cdf1` to `ed707de`, plus this packet
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
 - **Intended release window:** merge after the owner's signatures and the owner's review.
@@ -30,7 +30,7 @@
 | Risk classification | pass | `risk.md` | Standard mode |
 | Basis | pass | `basis.md` | Eight protected outcomes |
 | Trace | pass | `trace.md` | C-012 planned; C-015 passes by test, real Codex run planned |
-| Verification | pass | `verification.md` | E-008 to E-011 cover N1 to N8 |
+| Verification | pass | `verification.md` | E-008 to E-015 cover N1 to N9 and the owner's decisions |
 | Dependency / supply chain | pass | `verification.md` | Vulnerability review is a gap |
 | AI-assisted work checks | pass | `verification.md` | Scope and actions recorded |
 | Evidence custody / coupling | gap | `verification.md` | Coupled on actor, context and resource |
@@ -47,7 +47,9 @@
 | Control plane count not rerun by the packet writer. | E-002 rests on the builder's run. | Resolved: rerun on 2026-10-22 against a throwaway system PostgreSQL cluster, 14 passed. CI or the owner can rerun with `TEST_DATABASE_URL`. | Ben Huffer | Before merge. |
 | Real Claude Code and Codex untested. | Prompts or tool use may differ from scripted agents. | First run on the owner's Mac. | Ben Huffer | First run. |
 | Codex launch flags checked by reading `codex exec --help` (0.163.0), not by a real run; the owner's own Codex config is loaded. | A Codex run could still fail to write `out/` or reach public GIS. | Run one real Codex author and pre-check on the Mac before trusting Codex with real work. | Ben Huffer | First Codex run. |
-| Without Codex every pre-check is held. | Each pre-check needs the owner's override with a reason; scripted fake-only runs need it too. | Accept: no silent fallback. `pnpm cr doctor` says so; the record shows a shared runtime with the override. | Ben Huffer | Codex installed. |
+| Without Codex every pre-check is held, and another Claude model does not count. | Each pre-check needs the owner's passkey-signed override with a reason; scripted fake-only runs need it too. | Accept: no silent fallback. `pnpm cr doctor` says so; the record shows a shared runtime with the signed override. | Ben Huffer | Codex installed and ready. |
+| The Codex login check was built without the real Codex 0.163.0 CLI. | If the CLI has no `codex login status`, a signed-out Codex passes the probe and its first run fails. | The probe reads the help text and reports `login_checked: false`; check the office and `pnpm cr doctor` on the Mac. | Ben Huffer | First Codex run. |
+| The new unique index `runs_one_live` is created at start. | An existing local database with two live runs for one assignment would fail to start. | None expected (no real runs yet); delete `~/.controlrod` to reset if it happens. | Ben Huffer | First start after merge. |
 | A lease of 90 seconds can lapse if the Mac sleeps during a run. | The run is marked lost and its late completion refused; the owner requeues. | Accept for MVP; keeping the Mac awake while runs are active is a Next item. | Ben Huffer | First long run. |
 | Stop reaches the daemon on its next log post or heartbeat. | A stop can take up to 30 seconds to land; the UI shows stopping meanwhile. | Accept for MVP. | Ben Huffer | Owner feedback. |
 | Claude Code runs have no sandbox from the daemon; print mode has no ACP permission binding (ADR 0020). | The tool allowlist and timeout are the only fences for Claude runs. | Accept for one user on his own Mac; sandbox driver and ACP later. | Ben Huffer | Sandbox driver work. |
@@ -87,7 +89,7 @@
 - **Decision:** merge with residual risk after the owner signs the trust-surface edits and completes review.
 - **Decision maker:** Ben Huffer.
 - **Rationale:** the floors and record are tested and the live run passed; build plan items N1 to N8 close the custody, independence, serving and origin gaps found before the first real run; kernel and license gate edits need a signature.
-- **Conditions attached:** owner signature on `kernel/src/transition.rs` (including the runtime-identity rule for the pre-check), `kernel/src/decision.rs` and the `Unlicense` addition; one real Codex author and pre-check on the Mac before Codex is trusted; no site package issued without the owner's engineering review.
+- **Conditions attached:** owner signature on `kernel/src/transition.rs` (including the same-provider rule for the pre-check and the signed `OverrideIndependence` act), `kernel/src/decision.rs` and the `Unlicense` addition; one real Codex author and pre-check on the Mac before Codex is trusted; no site package issued without the owner's engineering review.
 
 ## Apply clearance
 

@@ -348,6 +348,25 @@ func (b *logBuffer) take() (LogBatch, bool) {
 	return batch, true
 }
 
+// maxHeldLines bounds how many unsent lines the daemon keeps while uploads fail.
+const maxHeldLines = 20000
+
+// putBack returns a batch whose upload failed to the front of the buffer, so it is sent again
+// with the next upload. After an ambiguous failure the server may see a line twice; a missing line
+// is worse. The oldest lines are dropped only past maxHeldLines.
+func (b *logBuffer) putBack(lines []string) {
+	if len(lines) == 0 {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	merged := append(append(make([]string, 0, len(lines)+len(b.lines)), lines...), b.lines...)
+	if len(merged) > maxHeldLines {
+		merged = merged[len(merged)-maxHeldLines:]
+	}
+	b.lines, b.dirty = merged, true
+}
+
 // flushLoop posts log batches about once a LogInterval. With nothing to send it still posts an
 // empty batch every heartbeat, which renews the run's lease. If the control plane no longer holds
 // the run, it ends the run through stop.
@@ -381,7 +400,8 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 				d.log.Warn("run no longer held; stopping it", "run", job.Run.ID, "err", err)
 				stop(errLost)
 			case err != nil:
-				d.log.Warn("log upload failed", "run", job.Run.ID, "err", err)
+				d.log.Warn("log upload failed; keeping the lines for the next upload", "run", job.Run.ID, "err", err)
+				buf.putBack(batch.Lines)
 			case reply.Stop:
 				last = time.Now()
 				d.log.Info("owner asked to stop the run", "run", job.Run.ID)

@@ -343,3 +343,23 @@ describe("run custody", () => {
     expect(next.run.id).toBe(rq.json().id);
   });
 });
+
+describe("an author run with no output", () => {
+  it("is recorded as failed with a reason and never advances the package", async () => {
+    const id = await releasedPackage("EMPTY");
+    const job = (await claim()) as Job;
+    const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "succeeded", outputs: [] });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().status).toBe("failed");
+    const view = (await asOwner("GET", `/packages/${id}`)).json();
+    expect(view.package.status).toBe("in-work");
+    const run = view.runs.find((x: { id: string }) => x.id === job.run.id);
+    expect(run.status).toBe("failed");
+    expect(run.error).toMatch(/without writing anything to out/);
+    expect(view.runs.some((x: { role: string }) => x.role === "pre-check")).toBe(false);
+    const item = ((await asOwner("GET", "/office")).json() as { kind: string; package_id: string; detail: string }[]).find((o) => o.package_id === id);
+    expect(item?.kind).toBe("dispute");
+    expect(item?.detail).toMatch(/without writing anything/);
+    expect((await asOwner("POST", `/packages/${id}/runs/${job.run.id}/requeue`)).statusCode).toBe(201);
+  });
+});

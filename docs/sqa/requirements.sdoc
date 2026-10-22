@@ -24,7 +24,12 @@ STATEMENT: Record digests shall be SHA-256 over the RFC 8785 canonical form, ide
 [REQUIREMENT]
 UID: REQ-KRN-005
 TITLE: No floating-point engineering values
-STATEMENT: Record digest functions shall refuse non-integer JSON numbers and report their JSON pointer.
+STATEMENT: Record digest functions shall refuse any JSON number that is not an integer within +/-(2^53 - 1), including fractions, exponents and negative zero, and report its JSON pointer.
+
+[REQUIREMENT]
+UID: REQ-KRN-006
+TITLE: One validity rule across languages
+STATEMENT: Every record digest implementation shall refuse duplicate object keys, nesting deeper than 64, unpaired UTF-16 surrogates and trailing data, and shall pass every case in spec/vectors/canonical-digest.json.
 
 [REQUIREMENT]
 UID: REQ-API-001

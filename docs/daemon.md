@@ -22,11 +22,20 @@ SIGINT or SIGTERM stops claiming, gives running jobs 30 seconds, then kills them
 
 ## Runtimes
 
-The daemon offers the runtimes it finds on `PATH`:
+The daemon finds runtimes on `PATH` and offers those that pass the probe below:
 
 - `claude`: Claude Code, run as `claude -p <prompt> --output-format stream-json --verbose --permission-mode acceptEdits --allowedTools <list>`. The tool list comes from `inputs/TOOLS.txt`, one per line, or defaults to `Read,Write,Edit,Glob,Grep,Bash(cr-example:*),WebSearch,WebFetch`.
 - `codex`: `codex exec --json -s workspace-write --skip-git-repo-check -C <workspace> [-m <model>] <prompt>`. Codex runs read-only by default and refuses to start outside a Git repository; run workspaces are not repositories, so the daemon asks for a sandbox that may write only inside the run workspace and skips the repository check. Checked against `codex exec --help` on Codex 0.163.0.
 - `fake`: test runtime. Runs `inputs/FAKE.sh` with bash, or copies `inputs/FAKE_OUT/*` into `out/`.
+
+### Runtime probe
+
+Finding a binary on `PATH` is not enough. At start and every 5 minutes the daemon probes each runtime it found, without signing in and without any credential:
+
+- `<runtime> --version` must answer with exit 0;
+- for Codex, when `codex login --help` lists a `status` subcommand, `codex login status` must exit 0. If the CLI has no such subcommand the login is not checked, and the report says so (`login_checked: false`). The daemon never runs `codex login` or any other sign-in.
+
+A runtime that fails is not offered for work, and the daemon logs why in one plain sentence. Every claim carries the probe result for each runtime, the control plane picks only runtimes reported ready, and the office lists any runtime that is not ready with its reason. Codex 0.163.0 was not installed where this was built, so whether it has `codex login status` was not checked against the real CLI; the probe reads the help text at run time instead of assuming.
 
 ### Network inside the Codex sandbox
 

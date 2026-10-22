@@ -66,9 +66,19 @@ func statusError(path string, resp *http.Response) error {
 	return fmt.Errorf("POST %s: HTTP %d: %s", path, resp.StatusCode, strings.TrimSpace(string(msg)))
 }
 
-// Claim asks for one job. It returns ErrNoWork on HTTP 204.
-func (c *Client) Claim(ctx context.Context, runtimes []string) (*Job, error) {
-	resp, err := c.post(ctx, "/runner/claim", map[string][]string{"runtimes": runtimes}, 30*time.Second)
+// ClaimRequest is the body of POST /runner/claim: the runtimes ready for work and the probe
+// result for every runtime found.
+type ClaimRequest struct {
+	Runtimes      []string        `json:"runtimes"`
+	RuntimeStatus []RuntimeStatus `json:"runtime_status,omitempty"`
+}
+
+// Claim asks for one job, offering only ready runtimes. It returns ErrNoWork on HTTP 204.
+func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeStatus) (*Job, error) {
+	if runtimes == nil {
+		runtimes = []string{}
+	}
+	resp, err := c.post(ctx, "/runner/claim", ClaimRequest{Runtimes: runtimes, RuntimeStatus: status}, 30*time.Second)
 	if err != nil {
 		return nil, err
 	}

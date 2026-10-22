@@ -215,6 +215,14 @@ op metrics(): Metrics;
 @get
 op office(): OfficeItem[];
 
+/** What the daemon last reported about each runtime it found, for the office. */
+@route("/runtimes")
+@get
+op runtimes(): {
+  reported_at?: utcDateTime;
+  runtimes: Runner.RuntimeStatus[];
+};
+
 /** Runs that are queued or running, across every package, for the floor and board. */
 @route("/runs")
 @get
@@ -279,8 +287,24 @@ namespace Runner {
     refusal?: ApiError;
   }
 
+  /** The daemon's probe of one runtime it found: whether it is ready for work, and why not. */
+  model RuntimeStatus {
+    runtime: string;
+    ready: boolean;
+    version?: string;
+
+    @maxLength(300)
+    reason?: string;
+
+    /** The CLI could say whether a login is present. The probe never signs in. */
+    login_checked: boolean;
+  }
+
   @route("/claim") @post op claim(@body body: {
+    /** Runtimes ready for work. The control plane picks only from these. */
     runtimes: string[];
+
+    runtime_status?: RuntimeStatus[];
   }): Job | {
     @statusCode _: 204;
   } | Refused;

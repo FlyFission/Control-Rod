@@ -1643,6 +1643,13 @@
                     "type": "array",
                     "items": {
                       "type": "string"
+                    },
+                    "description": "Runtimes ready for work. The control plane picks only from these."
+                  },
+                  "runtime_status": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Runner.RuntimeStatus"
                     }
                   }
                 },
@@ -1876,6 +1883,40 @@
                   "items": {
                     "$ref": "#/components/schemas/ControlRod.Records.Run"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runtimes": {
+      "get": {
+        "operationId": "runtimes",
+        "description": "What the daemon last reported about each runtime it found, for the office.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reported_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "runtimes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Runner.RuntimeStatus"
+                      }
+                    }
+                  },
+                  "required": [
+                    "runtimes"
+                  ]
                 }
               }
             }
@@ -3499,6 +3540,34 @@
           }
         },
         "description": "A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost."
+      },
+      "Runner.RuntimeStatus": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "ready",
+          "login_checked"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "login_checked": {
+            "type": "boolean",
+            "description": "The CLI could say whether a login is present. The probe never signs in."
+          }
+        },
+        "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not."
       }
     }
   },

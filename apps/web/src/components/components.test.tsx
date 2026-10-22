@@ -401,3 +401,24 @@ describe("pre-check independence", () => {
     ).toBe("Independent runtime: the author ran on claude, the pre-check on codex gpt-5-codex.");
   });
 });
+
+describe("runtime readiness in the office", () => {
+  it("shows a runtime the daemon found not ready, with its reason", async () => {
+    server.use(
+      http.get("*/office", () => HttpResponse.json([])),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          reported_at: "2026-10-22T12:00:00Z",
+          runtimes: [
+            { runtime: "claude", ready: true, version: "2.1.0", login_checked: false },
+            { runtime: "codex", ready: false, reason: "codex is installed but not signed in.", login_checked: true },
+          ],
+        }),
+      ),
+    );
+    await renderPage(<Office />);
+    expect(await screen.findByText("codex is not ready and is not offered for work.")).toBeTruthy();
+    expect(screen.getByText(/not signed in/)).toBeTruthy();
+    expect(screen.queryByText(/claude is not ready/)).toBeNull();
+  });
+});

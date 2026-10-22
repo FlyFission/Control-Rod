@@ -11,6 +11,7 @@ import type {
   OfficeItem,
   PackageView,
   Run,
+  RuntimeStatus,
   Session,
   WorkPackage,
 } from "./types.js";
@@ -86,6 +87,7 @@ export const api = {
     call<Decision>("POST", `/packages/${enc(id)}/decisions`, body),
 
   office: () => call<OfficeItem[]>("GET", "/office"),
+  runtimes: () => call<{ reported_at?: string; runtimes: RuntimeStatus[] }>("GET", "/runtimes"),
   metrics: () => call<Metrics>("GET", "/metrics"),
   events: (after?: number) => call<CrEvent[]>("GET", after === undefined ? "/events" : `/events?after=${after}`),
   verifyEvents: () => call<{ ok: boolean; count: number; broken_at?: number }>("GET", "/events/verify"),

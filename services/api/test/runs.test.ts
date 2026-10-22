@@ -620,4 +620,32 @@ describe("review findings on #3", () => {
     const encoded = await asOwner("GET", `/packages/${id}/outputs/${encodeURIComponent("reports")}/${encodeURIComponent("summary.md")}`);
     expect(encoded.body).toBe("# Nested");
   });
+
+  it("serves agent outputs in a script-free sandbox, except PDFs, and downloads unknown types", async () => {
+    const id = await releasedPackage("SVG1");
+    const job = await claim();
+    if (!job) throw new Error("no author job");
+    expect(job.run.package_id).toBe(id);
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg"><script>fetch("/captures",{method:"POST"})</script></svg>';
+    const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
+      status: "succeeded",
+      outputs: [
+        { name: "site.svg", content_base64: b64(svg) },
+        { name: "plan.pdf", content_base64: b64("%PDF-1.4") },
+        { name: "model.step", content_base64: b64("ISO-10303-21;") },
+      ],
+    });
+    expect(r.statusCode, r.body).toBeLessThan(300);
+    const s = await asOwner("GET", `/packages/${id}/outputs/site.svg`);
+    expect(s.statusCode).toBe(200);
+    expect(s.headers["content-security-policy"]).toMatch(/^sandbox;/);
+    expect(s.headers["content-security-policy"]).toContain("default-src 'none'");
+    expect(s.headers["x-content-type-options"]).toBe("nosniff");
+    const p = await asOwner("GET", `/packages/${id}/outputs/plan.pdf`);
+    expect(p.headers["content-type"]).toBe("application/pdf");
+    expect(p.headers["content-security-policy"]).toBeUndefined();
+    const u = await asOwner("GET", `/packages/${id}/outputs/model.step`);
+    expect(u.headers["content-disposition"]).toBe("attachment");
+    expect(u.headers["content-security-policy"]).toMatch(/^sandbox;/);
+  });
 });

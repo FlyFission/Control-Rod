@@ -61,6 +61,11 @@ export interface AppOptions {
   sweepSeconds?: number;
 }
 
+const OUTPUT_PATH = /^\/packages\/[^/?#]+\/outputs\//;
+
+/** Policy for agent outputs: sandboxed, no script, images and inline styles only. */
+export const OUTPUT_CSP = "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'";
+
 const MIME: Record<string, string> = {
   ".md": "text/markdown; charset=utf-8",
   ".json": "application/json",
@@ -195,7 +200,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const name = req.params["*"];
     const bytes = await packageOutput(db, req.params.id, name);
     const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-    return reply.header("content-type", MIME[ext] ?? "application/octet-stream").header("x-content-type-options", "nosniff").send(bytes);
+    const type = MIME[ext];
+    reply.header("content-type", type ?? "application/octet-stream").header("x-content-type-options", "nosniff");
+    // Agent outputs are untrusted. Anything a browser could run as a document (SVG, HTML, XML)
+    // is served in a sandbox with an opaque origin and no script, so it can never act with the
+    // owner's session. PDFs open in the browser's own viewer, which has no access to this origin.
+    if (ext !== ".pdf") reply.header("content-security-policy", OUTPUT_CSP);
+    if (type === undefined) reply.header("content-disposition", "attachment");
+    return reply.send(bytes);
   });
   app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/log", async (req) => {
     await person(req);
@@ -363,7 +375,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     // for HTML first; it gets the app, and the app's own fetches get JSON.
     app.addHook("onRequest", async (req, reply) => {
       const accept = req.headers.accept ?? "";
-      if (req.method === "GET" && accept.startsWith("text/html") && req.url !== "/health") {
+      // Output links open the file itself, never the app.
+      if (req.method === "GET" && accept.startsWith("text/html") && req.url !== "/health" && !OUTPUT_PATH.test(req.url)) {
         return reply.type("text/html").sendFile("index.html");
       }
     });

@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "DecisionKind.json",
+    "type": "string",
+    "enum": [
+        "release",
+        "accept",
+        "accept-with-findings",
+        "return",
+        "reject"
+    ]
+}

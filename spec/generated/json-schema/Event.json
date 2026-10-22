@@ -1,0 +1,51 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Event.json",
+    "type": "object",
+    "properties": {
+        "seq": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "type": {
+            "type": "string"
+        },
+        "subject": {
+            "type": "string"
+        },
+        "actor": {
+            "$ref": "Actor.json"
+        },
+        "data": {
+            "$ref": "#/$defs/RecordUnknown"
+        },
+        "prev": {
+            "$ref": "Digest.json"
+        },
+        "digest": {
+            "$ref": "Digest.json"
+        }
+    },
+    "required": [
+        "seq",
+        "at",
+        "type",
+        "subject",
+        "actor",
+        "digest"
+    ],
+    "description": "One entry in the append-only event log. Each entry carries the digest of the one before.",
+    "unevaluatedProperties": false,
+    "$defs": {
+        "RecordUnknown": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {}
+        }
+    }
+}

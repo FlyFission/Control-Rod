@@ -1,0 +1,77 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Run.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "id": {
+            "type": "string"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "role": {
+            "$ref": "RunRole.json"
+        },
+        "agent_baseline": {
+            "type": "string"
+        },
+        "runtime": {
+            "$ref": "RuntimeRef.json"
+        },
+        "round": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Author and pre-check rounds start at 1; round 3 escalates a dispute to a person."
+        },
+        "status": {
+            "$ref": "RunStatus.json"
+        },
+        "queued_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "started_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "finished_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "label": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Short label the runner writes for the office view. Never raw model text."
+        },
+        "error": {
+            "type": "string"
+        },
+        "trace": {
+            "$ref": "ExecutionTrace.json"
+        }
+    },
+    "required": [
+        "schema_version",
+        "id",
+        "package_id",
+        "package_revision",
+        "role",
+        "agent_baseline",
+        "runtime",
+        "round",
+        "status",
+        "queued_at"
+    ],
+    "description": "One agent session working on one package revision in one role.",
+    "unevaluatedProperties": false
+}

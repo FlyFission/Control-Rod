@@ -1,7 +1,14 @@
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
 /** Run custody, launch inputs and serving: what the daemon and the owner see around a run. */
+const repo = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
+const sitePack = join(repo, "packs", "capital-projects", "site-concept");
 let h: Harness;
 let cookie: string;
 const passkey = new VirtualAuthenticator();
@@ -647,5 +654,67 @@ describe("review findings on #3", () => {
     const u = await asOwner("GET", `/packages/${id}/outputs/model.step`);
     expect(u.headers["content-disposition"]).toBe("attachment");
     expect(u.headers["content-security-policy"]).toMatch(/^sandbox;/);
+  });
+});
+
+describe("pack files and site briefs", () => {
+  const names = (job: Job) => job.inputs.map((i) => i.name);
+  /** Claims until a job for this package comes up, failing any earlier test's leftovers on the way. */
+  async function claimFor(id: string, runtimes = ["fake"]): Promise<Job> {
+    for (let i = 0; i < 20; i++) {
+      const job = await claim(runtimes);
+      if (!job) break;
+      if (job.run.package_id === id) return job;
+      await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "left over from another test", outputs: [] });
+    }
+    throw new Error(`no job for ${id}`);
+  }
+
+  it("ships the role's pack templates, typicals and examples to the author, and the scripted author finds them", async () => {
+    const id = await releasedPackage("CHARTER", "site-charter");
+    const job = await claimFor(id);
+    expect(names(job)).toEqual(
+      expect.arrayContaining(["pack/templates/charter.md", "pack/templates/basis-of-design.md", "pack/typicals/data-center-50mw.json", "pack/examples/plan-meta.example.json"]),
+    );
+    expect(input(job, "pack/templates/charter.md")).toBe(readFileSync(join(sitePack, "templates", "charter.md"), "utf8"));
+    expect(input(job, "BRIEF.md")).toContain("inputs/pack/templates/charter.md");
+
+    // Lay the job out the way the daemon does and run the scripted author on it.
+    const ws = mkdtempSync(join(tmpdir(), "cr-ws-"));
+    try {
+      for (const i of job.inputs) {
+        const p = join(ws, "inputs", i.name);
+        mkdirSync(dirname(p), { recursive: true });
+        writeFileSync(p, Buffer.from(i.content_base64, "base64"));
+      }
+      execFileSync("bash", [join(repo, "tests", "e2e", "fake", "author.sh")], { cwd: ws, env: { PATH: process.env.PATH ?? "" } });
+      expect(readFileSync(join(ws, "out", "charter.md"), "utf8")).toBe(input(job, "pack/templates/charter.md"));
+      expect(existsSync(join(ws, "out", "program.json"))).toBe(true);
+    } finally {
+      rmSync(ws, { recursive: true, force: true });
+    }
+    await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
+  });
+
+  it("gives an early site stage the stage pre-check and the site plan the full cr-site check", async () => {
+    const parcel = await releasedPackage("PARCEL2", "site-parcel");
+    const author = await claimFor(parcel);
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "parcel.json", content_base64: b64("{}") }] });
+    const check = await claimFor(parcel, ["codex"]);
+    expect(check.run.role).toBe("pre-check");
+    const brief = input(check, "BRIEF.md") ?? "";
+    expect(brief).toContain("Role: pre-check, site concept stages");
+    expect(brief).not.toContain("Role: pre-check, site plan");
+    expect(names(check)).toContain("pack/typicals/data-center-50mw.json");
+    await asDaemon(`/runner/runs/${check.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
+
+    const plan = await releasedPackage("PLAN2", "site-plan");
+    const planAuthor = await claimFor(plan);
+    await asDaemon(`/runner/runs/${planAuthor.run.id}/complete`, { status: "succeeded", outputs: [{ name: "layout.json", content_base64: b64("{}") }] });
+    const planCheck = await claimFor(plan, ["codex"]);
+    const planBrief = input(planCheck, "BRIEF.md") ?? "";
+    expect(planBrief).toContain("Role: pre-check, site plan");
+    expect(planBrief).toContain("inputs/deliverables/layout.json");
+    await asDaemon(`/runner/runs/${planCheck.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
   });
 });

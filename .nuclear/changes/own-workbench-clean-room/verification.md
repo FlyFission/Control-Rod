@@ -134,7 +134,7 @@ Verification and custody structure follow nuclear-grade context engineering; pub
 ## Stack refresh after independent review
 
 The owner's instruction to double-check and continue authorized publication. The
-documentation branch is aligned with reviewed MVP commit `dc7d40d`, preserving its
+documentation branch is aligned with reviewed MVP commit `8a54ff4`, preserving its
 ancestor history and the drawing fixes. This refresh does not rewrite pattern claims
 anchored to `87d0f79` or assert a new clean-room wording or legal review.
 

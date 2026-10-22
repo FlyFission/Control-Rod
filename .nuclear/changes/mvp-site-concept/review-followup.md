@@ -95,3 +95,21 @@ a warning; raw logs do not have a durable outbox. The completion's existing dura
 outbox is separate. This change does not promise lossless log delivery after an
 outage or an ambiguous server reply. The preexisting 20000-line retry-buffer cap
 and server per-line truncation also remain.
+
+## Preserve deterministic pre-check evidence
+
+The independent review found that completion replaced supplied deterministic evidence
+and its disclosed shared-mechanism custody with a generic runtime-derived statement.
+Supplied evidence is now validated as an array of closed generated EvidenceItem
+records and retained unchanged. Only absent or empty evidence gets the generic
+fallback. Runtime independence remains a separate control-plane-computed field.
+
+The three new regressions failed on the old behavior: one valid shared-mechanism
+record was lost, and two malformed evidence payloads were silently ignored. The
+complete API suite now passes 49 tests, and workspace typechecking passes.
+
+The drawing branch's title-text and before-first-save conformance fixes are inherited.
+A fresh build of pinned CADCraft now passes all nine drawing conformance checks;
+this supersedes the earlier lack of a local CAD run. CAD records and rendered
+artifacts remain in the retained evidence directory. AutoCAD compatibility, real
+agent jobs and macOS startup remain unverified.

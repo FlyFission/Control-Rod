@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
 import type { Ajv2020 } from "ajv/dist/2020.js";
 import { type Db, type Tx, tx } from "./db/index.js";
 import { type Actor, appendEvent } from "./events.js";
@@ -320,12 +320,12 @@ async function dependenciesReady(c: Tx, pkg: Json): Promise<{ ready: boolean; de
 
 /**
  * Finds a role brief by name. General roles win; a job's own intake.md is read only as job
- * guidance, never as the role named "intake".
+ * guidance, never as the role named "intake". Returns the brief and the pack it came from.
  */
-function findRole(cfg: WorkConfig, name: string): string | null {
+function findRoleIn(cfg: WorkConfig, name: string): { text: string; packDir: string } | null {
   const safe = name.replace(/[^a-z0-9.-]/gi, "");
   const general = join(cfg.root, "packs", "general", "roles", `${safe}.md`);
-  if (existsSync(general)) return readFileSync(general, "utf8");
+  if (existsSync(general)) return { text: readFileSync(general, "utf8"), packDir: join(cfg.root, "packs", "general") };
   const stack = [join(cfg.root, "packs")];
   while (stack.length) {
     const dir = stack.pop() as string;
@@ -333,10 +333,47 @@ function findRole(cfg: WorkConfig, name: string): string | null {
     for (const entry of readdirSync(dir).sort()) {
       const p = join(dir, entry);
       if (statSync(p).isDirectory()) stack.push(p);
-      else if (entry === `${safe}.md` && entry !== "intake.md" && dir.endsWith("roles")) return readFileSync(p, "utf8");
+      else if (entry === `${safe}.md` && entry !== "intake.md" && dir.endsWith("roles")) {
+        return { text: readFileSync(p, "utf8"), packDir: dirname(dir) };
+      }
     }
   }
   return null;
+}
+
+function findRole(cfg: WorkConfig, name: string): string | null {
+  return findRoleIn(cfg, name)?.text ?? null;
+}
+
+/** Pack support files an agent may be told to read, served as inputs/pack/<relative path>. */
+const PACK_DIRS = ["templates", "typicals", "examples"];
+const PACK_FILE_MAX = 256 * 1024;
+const PACK_TOTAL_MAX = 2 * 1024 * 1024;
+
+function packFiles(packDir: string): Input[] {
+  const out: Input[] = [];
+  let total = 0;
+  for (const sub of PACK_DIRS) {
+    const stack = [join(packDir, sub)];
+    const found: string[] = [];
+    while (stack.length) {
+      const dir = stack.pop() as string;
+      if (!existsSync(dir) || !lstatSync(dir).isDirectory()) continue;
+      for (const entry of readdirSync(dir)) {
+        const p = join(dir, entry);
+        const st = lstatSync(p);
+        if (st.isDirectory()) stack.push(p);
+        else if (st.isFile() && st.size <= PACK_FILE_MAX) found.push(p);
+      }
+    }
+    for (const p of found.sort()) {
+      const bytes = readFileSync(p);
+      if (total + bytes.length > PACK_TOTAL_MAX) return out;
+      total += bytes.length;
+      out.push(file(`pack/${relative(packDir, p).split(sep).join("/")}`, bytes));
+    }
+  }
+  return out;
 }
 
 /** Pre-check brief: the role's own, then its family's (site-plan to site), then the general one. */
@@ -421,10 +458,10 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   }
   inputs.push(...(await attachmentsFor(c, pkg.capture_id)));
   inputs.push(file("PACKAGE.json", JSON.stringify({ ...pkg.body, status: pkg.status }, null, 2)));
-  const roleText =
-    run.role === "pre-check"
-      ? preCheckRole(cfg, role)
-      : (findRole(cfg, role) ?? findRole(cfg, "general-author") ?? "");
+  const own = findRoleIn(cfg, role) ?? findRoleIn(cfg, "general-author");
+  // The role's own pack ships its templates, typicals and examples to author and pre-check alike.
+  if (own) inputs.push(...packFiles(own.packDir));
+  const roleText = run.role === "pre-check" ? preCheckRole(cfg, role) : (own?.text ?? "");
   const extra: string[] = [];
   let findings: Json[] | undefined;
   if (run.role === "pre-check") {

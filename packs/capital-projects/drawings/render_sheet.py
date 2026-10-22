@@ -100,7 +100,7 @@ def sha256(path: Path) -> str:
 def check_record(tpl: dict, rec: dict) -> None:
     tags = [c["tag"] for row in tpl["titleBlock"]["rows"] for c in row["cells"]]
     tb = rec.get("titleBlock", {})
-    missing = [t for t in tags if not str(tb.get(t, "")).strip()]
+    missing = [t for t in tags if not isinstance(tb.get(t), str) or not tb[t].strip()]
     unknown = [t for t in tb if t not in tags]
     if missing or unknown:
         raise SheetError(f"title block fields missing {missing} or unknown {unknown}")

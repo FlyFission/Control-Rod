@@ -58,6 +58,15 @@ class RecordTests(unittest.TestCase):
     def test_valid_record_is_accepted(self):
         rs.check_record(self.tpl, self.rec)
 
+    def test_title_block_fields_require_text(self):
+        for tag in self.rec["titleBlock"]:
+            for value in (None, False, 0, [], {}):
+                with self.subTest(tag=tag, value=value):
+                    rec = copy.deepcopy(self.rec)
+                    rec["titleBlock"][tag] = value
+                    with self.assertRaises(rs.SheetError):
+                        rs.check_record(self.tpl, rec)
+
     def test_revision_fields_require_text(self):
         for value in (None, False, 0, [], {}):
             with self.subTest(value=value):

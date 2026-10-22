@@ -19,6 +19,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "packs" / "capital-projects" / "drawings"))
@@ -33,8 +34,9 @@ def sha(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
-def census(cad: rs.Cad, path: Path) -> tuple[dict, list[str]]:
-    cad.tool("open", {"path": str(path)})
+def census(cad: rs.Cad, path: Path | None = None) -> tuple[dict, list[str]]:
+    if path is not None:
+        cad.tool("open", {"path": str(path)})
     counts = cad.tool("inspect_drawing", {})["counts"]
     found = cad.tool("find_text", {"limit": 1000})
     texts = sorted(t["text"] for t in (found["texts"] if isinstance(found, dict) else found))
@@ -55,8 +57,22 @@ def main() -> int:
         checks.append({"id": cid, "claim": claim, "pass": bool(ok), "detail": detail})
         print(("PASS " if ok else "FAIL ") + cid + ": " + detail)
 
+    # Capture the live drawing before any writer serializes it. Reopening an already
+    # saved DXF as the baseline would hide content lost by the first save.
+    base: tuple[dict, list[str]] | None = None
+
+    class BeforeSaveCad(rs.Cad):
+        def tool(self, name: str, args: dict):
+            nonlocal base
+            if name == "save" and base is None:
+                base = census(self)
+            return super().tool(name, args)
+
     # CAD-01 render from template and record.
-    res = rs.render(cli, tpl, rec, out / "sheet")
+    with patch.object(rs, "Cad", BeforeSaveCad):
+        res = rs.render(cli, tpl, rec, out / "sheet")
+    if base is None:
+        raise AssertionError("renderer never reached its first save")
     files = {k: out / "sheet" / v["path"] for k, v in res["outputs"].items()}
     check(
         "CAD-01",
@@ -84,7 +100,6 @@ def main() -> int:
     )
 
     # CAD-03 and CAD-04 round trips of our own sheet.
-    base = census(rs.Cad(cli), files["dxf"])
     for cid, src in (("CAD-03", files["dxf"]), ("CAD-04", files["dwg"])):
         got = census(rs.Cad(cli), src)
         check(

@@ -96,6 +96,11 @@ model Run {
 
   /** The run the owner queued to replace this one. */
   requeued_as?: string;
+
+  /** The owner asked to stop this run. It shows as stopping until the daemon confirms. */
+  stop_requested_at?: utcDateTime;
+
+  stop_requested_by?: string;
 }
 
 /** A WebAuthn assertion over the decision digest, made by the person's own authenticator. */

@@ -159,3 +159,19 @@ func TestARunTheControlPlaneNoLongerHoldsIsEnded(t *testing.T) {
 		t.Errorf("claim token missing from completion")
 	}
 }
+
+func TestAStopFromTheOwnerEndsTheProcessAndCompletesAsStopped(t *testing.T) {
+	job := claimedJob("run-stop", "echo working; sleep 30")
+	api, srv := newFakeAPI(t, job)
+	api.stop["run-stop"] = true
+	start := time.Now()
+	runUntil(t, custodyDaemon(t, srv, t.TempDir(), io.Discard), api, 1)
+	if time.Since(start) > 10*time.Second {
+		t.Fatal("the agent kept running after the owner stopped it")
+	}
+	api.mu.Lock()
+	defer api.mu.Unlock()
+	if c := api.done["run-stop"]; c.Status != "stopped" || c.Error != "stopped by the owner" {
+		t.Errorf("completion %+v", c)
+	}
+}

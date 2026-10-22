@@ -39,7 +39,7 @@
 | Track | Work | Status |
 |---|---|---|
 | Fast | README, docs index line, packet | pass |
-| Careful | Code claim checks; clean-room wording; ADR license wording | pass for claims; wording check planned |
+| Careful | Code claim checks; clean-room wording; ADR license wording | pass for claims; wording check passed after fixes |
 
 ## HPI task preview
 
@@ -85,7 +85,7 @@ The AI agent works only in the worktree on `docs/kandev-patterns`, reads the not
 | Style | No em dashes; contrast constructions rewritten | pass |
 | Trust surfaces | Only docs and packet paths changed | pass |
 | Packet validates | `ng.py validate --strict-custody` passes | pass |
-| Independent wording check | Someone who did not write the file compares it with Kandev's docs | planned |
+| Independent wording check | Someone who did not write the file compares it with Kandev's docs | pass after fixes (E-006) |
 | Owner review | Ben approves | planned |
 
 ## Rollback approach
@@ -110,7 +110,7 @@ python3 -I /root/refs/nuclear-grade-context-engineering/tools/ng.py validate --s
 
 - A reviewer can repeat every result from the proof commands and the cited lines.
 - Every claim has a status label.
-- The planned wording check is visible and blocks merge.
+- The wording check ran (E-006); its findings are fixed and rechecked.
 
 ## Source-lineage note
 

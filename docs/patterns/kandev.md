@@ -1,6 +1,6 @@
 # Pattern notes: Kandev
 
-> **Provenance.** Written on 2026-10-22 from clean-room notes of Kandev's public documentation (Kandev and its docs are AGPL-3.0). Four readers studied the public docs and wrote notes in their own words; the builder who wrote this file worked from those notes only and never opened Kandev's docs or source. This file records ideas only. No Kandev code, configuration, schema or documentation text is copied. Short phrases in quotation marks are Kandev UI labels or feature names. See `docs/patterns/README.md` for the clean-room rule and ADR 0019 for the decision this supports.
+> **Provenance.** Written on 2026-10-22 from clean-room notes of Kandev's public documentation (Kandev and its docs are AGPL-3.0). Four readers studied the public docs and wrote notes in their own words; the builder who wrote this file worked from those notes only and never opened Kandev's docs or source. This file records ideas only. No Kandev code, configuration, schema or documentation text is copied. Short phrases in quotation marks are Kandev UI labels or feature names, or labels proposed for Control Rod. See `docs/patterns/README.md` for the clean-room rule and ADR 0019 for the decision this supports.
 
 Kandev is an open workbench for running coding agents on a board of tasks. Control Rod will build its own workbench (ADR 0019) and borrow ideas from it. This file merges the four note files, removes duplicates, and sorts every idea by the Control Rod area it would change.
 
@@ -33,13 +33,13 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - Fit: Already have (wake reason: Adopt) · Effort: S · Priority: Next · Notes: A, B
 
 ### P02 Dependencies resolve only on acceptance
-- **What it does:** a task may wait on others. Links form a graph and a link that would close a cycle is refused with the path shown. Nothing automatic starts a blocked task. A task created with a start request records an intent and starts when every predecessor succeeds. Only success resolves a link; failed, cancelled or archived predecessors keep dependents blocked with a named reason; deleting a predecessor unblocks without starting. A manual start is an explicit override. One Kandev mode treats failure as terminal and lets dependents proceed, which its docs flag as a trap.
+- **What it does:** a task may wait on others. Links form a graph; Kandev checks each new link for a loop and, if it finds one, refuses it and names the chain of tasks involved. Nothing automatic starts a blocked task. A task created with a start request records an intent and starts when every predecessor succeeds. A link clears only when the upstream task succeeds; failed, cancelled or archived predecessors keep dependents blocked with a named reason; deleting a predecessor unblocks without starting. A person can still start a blocked task by hand, which the docs treat as a deliberate override. One Kandev mode treats failure as terminal and lets dependents proceed, which its docs flag as a trap.
 - **Why it matters:** this matches engineering design-input practice and gives a clear answer to "why is this not moving".
 - **Our version:** we already require each upstream package named in design inputs to be accepted before an author run is claimed (`services/api/src/work.ts:251-262`, checked at claim at line 409). Add: a cycle check at intake and draft edit that shows the path; a two-way chip on the package view (waits on, waited on by) with the upstream status; a refusal when a design input names a package id that does not exist (today it is skipped and counts as ready, line 255-259); and a manual override that is a signed owner decision recording an Assumption, as ADR 0016's tear-edge rule asks.
 - Fit: Already have (core), Adapt (rest) · Effort: M · Priority: Next · Notes: A, B
 
 ### P03 The plan document with guarded writes
-- **What it does:** each task has one editable plan with history. Writers must present the version they read; a stale version is refused before anything changes. A rewrite that shrinks the plan sharply is refused unless the writer says the cut is meant, and the old copy is kept. Large plans are read in pages tagged with the version. People can anchor comments to plan text.
+- **What it does:** each task has one editable plan with history. Writers must present the version they read; a write that names an out-of-date version is turned away with no change made. A rewrite that shrinks the plan sharply is refused unless the writer says the cut is meant, and the old copy is kept. Large plans are read in pages tagged with the version. People can anchor comments to plan text.
 - **Why it matters:** the plan is the contract between person and agent, and these rules stop careless or truncated rewrites.
 - **Our version:** our plan is the package draft. (a) Draft update carries the revision and last-updated time it was read at; a mismatch returns the current draft (today `updateDraft` is last writer wins, `work.ts:196-208`). (b) When intake regenerates a draft, warn if criteria or deliverables shrink. (c) Keep one event per saved edit; Kandev merges edits within a window, and our log is the record. (d) Anchored comments on draft fields that Ben can send to an intake re-run.
 - Fit: Adapt · Effort: S for (a), M for the rest · Priority: Next · Notes: A, B, D
@@ -95,19 +95,19 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 ## 2. Review and decisions
 
 ### P11 Reviewed marks bound to the output digest
-- **What it does:** a reviewer can mark each changed file reviewed. The mark stores the diff hash; if the file changes later, the mark clears and the file shows stale. By default scrolling past a file marks it, which can be turned off.
+- **What it does:** a reviewer can mark each changed file reviewed. Each mark is tied to a fingerprint of the diff, so a later edit to that file drops the mark and flags the file for another look. Out of the box a mark is also set when the reviewer scrolls past a file; a toolbar setting turns that off.
 - **Why it matters:** a person sees exactly what they have looked at, and a late change cannot ride on an earlier review.
 - **Our version:** on the package view, each output carries a "reviewed" mark stored on the server with the output digest and the reviewer. A new round with a different digest clears it. Marking is a deliberate tick for engineering deliverables, with no mark on scroll. The accept panel shows unreviewed outputs (P13). Text outputs show a diff against the previous round; PDFs, drawings and map layers show previous and current renders side by side.
 - Fit: Adopt · Effort: M · Priority: Next · Notes: A
 
 ### P12 Anchored review notes sent as one bundle
-- **What it does:** a reviewer attaches comments to a line or a whole file, or to a region of a rendered preview or screenshot. One action sends all pending notes to the agent; while delivery is pending the button is disabled, and on acknowledgment only unchanged notes are cleared. Uncertain delivery is never resent automatically. Kandev keeps pending review notes only in one browser's storage, which its docs list as a gap.
+- **What it does:** a reviewer attaches comments to a line or a whole file, or to a region of a rendered preview or screenshot. One action sends every pending note to the agent at once. The send control stays locked until the backend confirms receipt, and notes edited in the meantime stay behind for the next send. When the outcome is unclear, nothing goes out again unless the person chooses to send it. Kandev keeps pending review notes only in one browser's storage, which its docs state plainly.
 - **Why it matters:** precise, batched feedback is how a person steers rework.
 - **Our version:** owner notes anchored to an output (line range for text, page and region for PDF, sheet and region for drawings, feature id for maps) stored on the server against the package revision and the artifact digest. A Return decision bundles all open notes, and the signed subject covers the notes. Notes made against an older digest are tagged as such. The next author round receives the notes and answers each one in `RESPONSE.md`. For visual outputs, store the rendered snapshot with the note so the record shows what Ben saw.
 - Fit: Adopt (server-side from day one) · Effort: M to L · Priority: Next · Notes: A, B
 
 ### P13 Accept checklist computed from records
-- **What it does:** Kandev lists what to confirm before Done: every change layer inspected, checks run, comments resolved, generated text reviewed, required approval kept outside the agent loop. A completion signal from an agent only proves the agent said so. Completion criteria are rechecked at the final transition, so stale evidence still blocks.
+- **What it does:** Kandev lists what to confirm before Done: every change layer inspected, checks run, comments resolved, generated text reviewed, required approval kept outside the agent loop. A completion signal from an agent only proves the agent said so. The criteria are evaluated again at the moment of the last move, so evidence that has gone out of date cannot close the task.
 - **Why it matters:** makes the human gate concrete.
 - **Our version:** the accept panel shows a checklist built from records: each output reviewed at its current digest, pre-check outcome and open findings, open review notes, assumptions still needing confirmation, and design inputs all accepted. Unmet items block "accept" and allow "accept with findings" only with each gap named in the reason. The recheck at decision time is already in place: `applyDecision` recomputes the subject from stored rows inside the transaction and passes the digest comparison to the kernel (`work.ts:703-719`).
 - Fit: Adopt (panel), Already have (recheck) · Effort: S to M · Priority: Next · Notes: A, B, D
@@ -119,7 +119,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - Fit: Adapt · Effort: M · Priority: Next · Notes: A, D
 
 ### P15 Rework loops with per-finding outcomes and fixed instructions
-- **What it does:** automatic fixing of failed checks and review comments is capped (ten rounds per pull request), each feedback state is snapshotted so the same failure never triggers twice, and the agent must report an outcome per attempt: acted, not actionable, or blocked. Kandev appends the outcome instructions outside the editable prompt so prompt edits cannot remove them. Server notices use fixed templates whose only variable is a link.
+- **What it does:** automatic fixing of failed checks and review comments is capped (ten rounds per pull request), each feedback state is snapshotted so the same failure never triggers twice, and the agent must report an outcome per attempt: acted, not actionable, or blocked. The rule demanding an outcome report lives in host text that users cannot edit, so it holds whatever the saved prompt says. Server notices use fixed templates whose only variable is a link.
 - **Why it matters:** iteration on outside feedback without loops or injected instructions.
 - **Our version:** our capped loop exists (three rounds, then a dispute). Add a per-finding outcome in `RESPONSE.md` (fixed, not actionable with reason, blocked with reason) that the control plane parses; findings marked not actionable go straight to Ben and skip a further round. Our fixed rules block is already appended after the role brief by the control plane (`work.ts:387`, rules at `:305-310`); keep any system text we insert as a fixed template with ids and digests as the only variables.
 - Fit: Adapt · Effort: S to M · Priority: Next · Notes: A, B
@@ -131,7 +131,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - Fit: Adopt · Effort: M · Priority: Now (runner complete, via P20), Next (the rest) · Notes: A, B, D
 
 ### P17 Human-only acts stay outside every extension
-- **What it does:** some acts are reserved for a person in the native UI: bulk deletes need a one-use preview bound to the person and a snapshot that expires in five minutes; answering an agent's permission or question through an extension needs a single-use receipt issued after a person chooses. Extensions cannot weaken completion criteria. Kandev relies on configuration to create human gates, so a configuration mistake can remove one.
+- **What it does:** some acts are reserved for a person in the native UI: deleting a task tree needs a single-use preview tied to that person and a snapshot that expires in five minutes; answering an agent's permission or question through an extension needs a single-use receipt issued after a person chooses. Extensions cannot weaken completion criteria. Kandev relies on configuration to create human gates, so a configuration mistake can remove one.
 - **Why it matters:** a confused or compromised extension cannot manufacture a human decision.
 - **Our version:** our kernel and passkey already make this structural. Write the rule into the pack contract and the threat model: no pack UI, chat text or tool result counts as consent, and a pack action that leads to a decision can only open the host DecisionBar. Destructive acts use the same challenge-and-passkey path with a short expiry.
 - Fit: Already have (write it down) · Effort: S · Priority: Next · Notes: B, D
@@ -147,7 +147,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 ## 3. Runs and the daemon
 
 ### P19 Claim lease, fencing token and an expiry sweep
-- **What it does:** a run that cannot confirm the provider accepted its start stays pending and holds its slot; it is never sent again automatically and is never freed silently. Each management claim carries a generation number that every later write must present, so a former owner's late writes are refused at the point of effect. A periodic sweep finds sessions with no live process and no activity for a threshold, warns, and later returns them to waiting without ever reporting success or moving the workflow on.
+- **What it does:** a run that cannot confirm the provider accepted its start stays pending and holds its slot; it is never sent again automatically and is never freed silently. Each management claim carries a generation number that every later write must present, so a former owner's late writes are refused at the point of effect. When Kandev confirms a run's owning process is gone, it marks the open work ended and never reports that as success or moves the workflow on.
 - **Why it matters:** crashed work stops looking busy forever, and a slow worker can never write over a run it no longer owns.
 - **Our version:** the claim returns a claim token and sets a lease expiry. Log posts renew the lease; the daemon sends an empty heartbeat batch when quiet. A sweep in the API retires runs whose lease expired as failed with cause "runner lost" (or a new terminal status), appends an event, and raises an office item; it never re-queues by itself when the agent produced output. Log and complete must present the claim token; mismatches are refused before the body is read and logged.
 - Fit: Adopt · Effort: M · Priority: **Now** (build plan N2) · Notes: B, C, D
@@ -171,7 +171,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - Fit: Adopt · Effort: M · Priority: **Now** for stop run (N5), Next for stop the floor · Notes: A, B, C
 
 ### P23 Runtime health and login probe
-- **What it does:** each agent CLI counts as installed only when its executable is found and answers a version check. Probes classify auth required, not installed, not configured or failed, and a manual rescan refreshes without a restart. The status page warns that a CLI that works in the person's shell can be invisible to a service with a different PATH or user. An agent that is paused or errored is returned to service by a deliberate act, and the docs warn that this fixes nothing by itself.
+- **What it does:** each agent CLI counts as installed only when its executable is found and answers a version check. Probes sort each CLI into one of five outcomes (failed, unsupported, missing settings, missing binary, or needing sign-in), and a manual rescan refreshes without a restart. The status page warns that a CLI that works in the person's shell can be invisible to a service with a different PATH or user. An agent that is paused or errored is returned to service by a deliberate act, and the docs warn that this fixes nothing by itself.
 - **Why it matters:** a clear "needs login" or "missing" state removes the most common first-day failure.
 - **Our version:** the daemon probes each runtime at start and every few minutes (found on PATH, version answers, login looks present where the CLI can tell) and reports a runtime status with its claim or heartbeat. The office shows ready, missing, needs login, untested version or unknown per runtime, and unknown is never shown as fine. Queued runs whose runtime is unavailable show that reason. Today `Detect` only looks the binary up on PATH (`daemon/internal/runner/runtime.go:46-58`).
 - Fit: Adapt · Effort: M · Priority: Next · Notes: B, C, D
@@ -213,7 +213,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - Fit: Adapt · Effort: M · Priority: Next · Notes: B, C
 
 ### P30 Workspace ownership marker and retention
-- **What it does:** cleanup deletes only resources whose full recorded identity and a per-create random nonce match; anything else is left alone and cleanup fails closed. Archive in Kandev deletes worktree files including uncommitted ones, which its docs warn about repeatedly. Orphans go to a quarantine with a delete-after date. Two versions of a package are kept for rollback; a past release leaked old versions forever.
+- **What it does:** cleanup deletes only resources whose full recorded identity and a per-create random nonce match; anything it cannot prove it made is kept, and the cleanup stops with an error instead of guessing. Archive in Kandev deletes worktree files including uncommitted ones, which its docs warn about repeatedly. Orphans go to a quarantine with a delete-after date. Two versions of a package are kept for rollback; a past release leaked old versions forever.
 - **Why it matters:** laptops fill up, and cleanup must never destroy evidence or someone else's files.
 - **Our version:** each run directory gets an owner marker (run id plus random nonce, also in the trace). A retention job moves directories of accepted or closed revisions to a quarantine after N days and deletes them after M more, only when the marker matches and no open finding refers to them. Packages are never deleted; closed is a state. A disk-use warning at 80 percent.
 - Fit: Adapt · Effort: M · Priority: Next · Notes: A, C, D
@@ -329,7 +329,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - Fit: Adapt · Effort: M · Priority: Later · Notes: D
 
 ### P48 Pack tools with schemas, deadlines and host-supplied identity
-- **What it does:** each extension tool has a host-derived name, a required input schema and optional output schema, hints (read-only, destructive, idempotent), a 30-second deadline, a 1 MiB result limit and no retry. The host supplies task, session and workspace identity; arguments cannot set them. Every MCP call is checked against the live schema first, and missing-field errors name fields without echoing values. A surface that no provider has passed tests for is refused.
+- **What it does:** the host names each extension tool. A tool must describe what it accepts, may describe what it returns, and can carry hints such as read-only or destructive. Each call has a 30-second limit and a 1 MiB cap on its result, and a failed call is not repeated. Which task, session and workspace a call belongs to comes from the host's own records; nothing in the arguments can change it. Every MCP call is checked against the live schema first, and missing-field errors name fields without echoing values. A surface that no provider has passed tests for is refused.
 - **Why it matters:** "agents never type a number" depends on tools being called correctly.
 - **Our version:** declare `cr-example` subcommands as pack tools with input and output schemas generated from `spec/`. The daemon injects package, revision and run id, enforces a per-call deadline and output size, and records each call and its digest in the trace; validation failures become findings. Refusals name the field without echoing the value (today a bad output name is echoed, `work.ts:492`).
 - Fit: Adopt · Effort: M · Priority: Next · Notes: B, D
@@ -347,7 +347,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - Fit: Adapt · Effort: L (first step S) · Priority: Next · Notes: B, D
 
 ### P51 Verify artifact bytes before serving them
-- **What it does:** release files live outside the database; at start, and before serving or running anything, the host checks the stored digest and path. A changed file is marked unavailable and is never served or silently removed.
+- **What it does:** release files live outside the database; on startup, and again before anything is served or run, the host confirms that the recorded fingerprint and location still match. A changed file is marked unavailable and is never served or silently removed.
 - **Why it matters:** a restore or disk problem can never make the host show something other than what was recorded.
 - **Our version:** in `packageOutput` and any viewer route, hash the bytes and compare with the stored sha256; on mismatch refuse with "output changed since it was recorded" and append an event. Today the bytes are returned unchecked (`work.ts:185-193`, served at `app.ts:157-159`).
 - Fit: Adopt · Effort: S · Priority: **Now** (N6) · Notes: D
@@ -377,7 +377,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - Fit: Adopt · Effort: S to M · Priority: Later · Notes: B, D
 
 ### P56 Packs synced from a repository, failing closed
-- **What it does:** a repository folder can be the source of truth for definitions. Each run reconciles fully; identity comes from kind and declared name; only records the sync created are ever changed or deleted; a file that fails to parse freezes its previous record; caps on files and sizes fail the whole run so a truncated fetch never looks like mass deletion; an existing but empty folder deletes unused synced items (a trap); runs are not pinned to a commit; one owner at a time (UI, files or repo). Import is not one transaction and drops unknown fields.
+- **What it does:** a repository folder can be the source of truth for definitions. Each run reconciles fully; identity comes from kind and declared name; the sync touches only records it created itself; a file it cannot parse leaves the earlier record as it was; going over the file-count or size limits aborts the whole run, because a partial download read as complete would remove records wholesale; an existing but empty folder deletes unused synced items (a trap); runs are not pinned to a commit; one owner at a time (UI, files or repo). Import is not one transaction and drops unknown fields.
 - **Why it matters:** config as code that cannot destroy data on a partial read.
 - **Our version:** packs load from the repository at a pinned commit, all or nothing; an empty or unreadable source changes nothing; safety settings and policies never come from a pack; a sync that changes a role brief produces a pending change that needs Ben's signature. Later, a private pack index built in CI from tagged releases that keeps the last good record when a new build fails.
 - Fit: Adapt · Effort: M · Priority: Later · Notes: A, B, D
@@ -387,7 +387,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 ## 6. Operations on the Mac
 
 ### P57 One launcher and a user launch agent
-- **What it does:** one command starts the backend, picks ports, probes health with a per-launch secret so it knows it reached its own process, waits for readiness while printing the startup phase, and on failure prints a short classified summary (binds tried, last outcome per target, config used, log path, one next step). The CLI installs a user or system service with an absolute binary path, a small fixed environment, restart on failure and a stop timeout; uninstall keeps data. Documented service pitfalls: a port flag that has no effect, contradictory macOS job flags, services installed from a temporary cache that break later, and a reinstall from a root shell that flips the account.
+- **What it does:** one command starts the backend, picks ports, probes health with a per-launch secret so it knows it reached its own process, waits for readiness while printing the startup phase, and on failure prints a short classified summary (binds tried, last outcome per target, config used, log path, one next step). The CLI installs a user or system service with an absolute binary path, a small fixed environment, restart on failure and a stop timeout; uninstall keeps data. Documented service pitfalls: a port flag that has no effect, contradictory macOS job flags, services installed from a temporary cache that break later, and a first system install from a root shell that must name its service account explicitly.
 - **Why it matters:** Control Rod should be running whenever Ben opens the laptop, without a terminal.
 - **Our version:** `controlrod up` checks Postgres, starts the API with a per-launch health token, waits for readiness, runs the daemon loop, prints the URL, and on failure prints the same kind of summary; `controlrod down` drains. `controlrod service install|uninstall|start|stop|status|logs` writes a launch agent in Ben's user session (subscription logins live there), never a system daemon. Refuse to install from a temporary or cache path; test the generated plist; status says "reinstall needed" after an upgrade.
 - Fit: Adapt · Effort: M · Priority: Next · Notes: C
@@ -405,7 +405,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - Fit: Adapt · Effort: S · Priority: Next · Notes: C
 
 ### P60 One home, one owner
-- **What it does:** everything lives under one home folder with a fixed layout, created owner-only; one backend owns a home at a time and a second gets a clear conflict naming the owner; uninstall never deletes it.
+- **What it does:** everything lives under one home folder with a fixed layout, created owner-only; only one backend may hold a home folder at once and a second gets a clear conflict naming the owner; uninstall never deletes it.
 - **Why it matters:** one place to back up, and no two processes corrupting each other.
 - **Our version:** document the `~/.controlrod` layout (token, config, work, logs, backups, run outboxes). The daemon takes an exclusive file lock at start and a second daemon exits with the owner's PID; create the home 0700. Today nothing locks it (`daemon/internal/runner/daemon.go:33-43`).
 - Fit: Adopt · Effort: S · Priority: Next · Notes: C, D
@@ -429,7 +429,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - Fit: Adopt · Effort: M · Priority: Next · Notes: C, D
 
 ### P64 One config file and one validation rule
-- **What it does:** defaults, then the first config file found, then environment variables; an unreadable or invalid file stops startup and names it. The notes list several settings that are parsed but do nothing and mixed rules for bad values (silent fallback for some, failure for others).
+- **What it does:** defaults, then the first config file found, then environment variables; a settings file that cannot be read or parsed halts the launch, and the error says which file. The notes list several settings that are parsed but do nothing and mixed rules for bad values (silent fallback for some, failure for others).
 - **Why it matters:** operators can predict what a typo does.
 - **Our version:** `~/.controlrod/config` read once by the daemon and API launcher, environment overrides, one schema, any invalid value stops startup naming the key and source, no accepted-but-ignored fields. Print the resolved config source at start.
 - Fit: Adopt · Effort: S · Priority: Next · Notes: C
@@ -459,19 +459,19 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 ## 7. Engineering practice
 
 ### P68 Honest feature status
-- **What it does:** each capability is labelled Supported, Dependency-bound, Limited, Experimental, In progress or Internal, and counts as shipped only when backend behaviour, a user path and tests agree. A schema field, a hidden route or a design note does not count. Declared contract surfaces that no provider can use yet are marked unusable.
+- **What it does:** each capability is labelled Supported, Dependency-bound, Limited, Experimental, In progress or Internal, and a feature is called shipped only after three things line up: the server does it, a user can reach it, and tests cover it. A stored field or an unlinked route on its own leaves it unshipped. Declared contract surfaces that no provider can use yet are marked unusable.
 - **Why it matters:** roadmap items are not read as product.
 - **Our version:** a feature status page in `docs/sqa` using the same rule (contract, route and test before "supported").
 - Fit: Adopt · Effort: S · Priority: Next · Notes: A, D
 
 ### P69 Acceptance checklists for packs and runtime adapters
-- **What it does:** an extension is complete only when discovery, durable state, runtime, recovery, security, tests, packaging and docs agree. A new agent integration must prove detection (installed, missing, ambiguous), exact arguments, required and stripped variables, start, cancel, resume, shutdown, missing login and missing credential paths; real-agent tests run apart because they cost money. A toggle that only changes the UI is forbidden.
+- **What it does:** an extension counts as finished only after it is checked end to end: it can be found and set up, keeps its state, runs and recovers, meets the security rules, and has tests, a package and user docs. A new agent integration must prove detection (installed, missing, ambiguous), exact arguments, required and stripped variables, start, cancel, resume, shutdown, missing login and missing credential paths; real-agent tests run apart because they cost money. A toggle that only changes the UI is forbidden.
 - **Why it matters:** a pack that registers but cannot recover is not done.
 - **Our version:** a pack checklist and a runtime adapter checklist in `docs/sqa` (adding our own items: token never in the environment, trust files unwritable, version and model recorded). A separately tagged real-runtime suite Ben runs by hand on his Mac. Change records that add or change a pack tick the checklist with evidence.
 - Fit: Adopt · Effort: S · Priority: Next · Notes: C, D
 
 ### P70 Evidence of what was run, in every change record
-- **What it does:** use the narrowest test that proves a rule, then test the real boundary; browser tests each get their own backend, home and database; never sleep for fixed times; contributors record exact commands, results and the suites they skipped.
+- **What it does:** prove each rule with the smallest test that can show it, and add a test at the real process or database edge when behaviour crosses one; browser tests each get their own backend, home and database; never sleep for fixed times; contributors write down what they ran, what came back, and which suites they left out and why.
 - **Why it matters:** reviewers see what was actually proven.
 - **Our version:** our change records already carry commands and results. Make "suites skipped and why" a required line in `verification.md`, and keep the no-fixed-sleeps rule in daemon and web tests.
 - Fit: Already have (mostly) · Effort: S · Priority: Next · Notes: D
@@ -511,7 +511,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 | 7 | Walkthrough anchors are never checked and drift. | Check anchors against output digests; label author claims as claims. | A |
 | 8 | Plan history merges edits within five minutes. | One event per change. | A |
 | 9 | Archive deletes uncommitted and ignored files; uninstall deletes all state with no grace period; watch "Reset" deletes every created task. | Never delete unreported work; packages are never deleted; no destructive reset on records. | A, B, C, D |
-| 10 | A worktree isolates files only; app permissions do not sandbox the shell; all users share the OS user's CLI logins. | State exactly what the MVP daemon isolates (P29). | A, B, C |
+| 10 | A worktree isolates files only; app permissions do not sandbox the shell; every person on the server works through the same operating-system account, so they all use its agent sign-ins. | State exactly what the MVP daemon isolates (P29). | A, B, C |
 | 11 | Auto-approve picks the first option when no allow option exists; remote MCP policy inherits allow-all when blank. | Unattended answers default to deny; defaults set in one place and tested. | A, C |
 | 12 | An agent that reaches the main API can try settings edits; the per-boot token is replayable. | No control-plane path from agent processes; red-team it (P72). | B |
 | 13 | Requiring the completion signal can hang a step forever. | A completion record plus a timeout (P21). | A |
@@ -519,17 +519,17 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 | 15 | Agent-written summaries can drop constraints. | Never feed a summary as a design input; inputs are files with digests. | A |
 | 16 | Import is not one transaction; unknown fields are silently dropped; several settings are parsed but do nothing; validation rules are mixed. | Transactional, strict loads; a field in a schema must do something; one rule that fails loudly. | A, C, D |
 | 17 | An existing but empty sync folder deletes unused items; force sync reports errors inside a success body; config sync is not pinned to a commit. | Treat empty as suspicious; real error codes; always pin a commit. | A, B |
-| 18 | Provider watches read only the first page; "All repos" on one trigger evaluates nothing; schedule and PR conditions on one automation fire independently. | Page or keep a cursor; no option that looks broader than it acts; validate combinations at save. | B |
+| 18 | Watching an outside provider only looks at its newest page of results; "All repos" on one trigger evaluates nothing; schedule and PR conditions on one automation fire independently. | Page or keep a cursor; no option that looks broader than it acts; validate combinations at save. | B |
 | 19 | Automation creation is not idempotent; a routine can save while its trigger failed to arm. | Idempotency keys on retriable creates; report arming apart from saving. | B |
 | 20 | Budget admission is checked before launch so a run can overshoot; unknown spend shows as unknown. | Ledger before dispatch; unknown counts against caps. | B |
 | 21 | No complete security audit log. | Our hash-chained log is an advantage; keep every human and system act in it. | B |
-| 22 | Webhook secrets are revealable by settings users; MCP credentials can land in process arguments; shared MCP auth matches by server name only. | Keychain for secrets; no secrets in arguments; bind credential reuse to issuer and endpoint. | B, C |
+| 22 | Webhook secrets are revealable by settings users; MCP credentials can land in process arguments; stored sign-ins for MCP servers are looked up by the server's name alone. | Keychain for secrets; no secrets in arguments; bind credential reuse to issuer and endpoint. | B, C |
 | 23 | Sandbox provider network policy is applied after bootstrap. | Egress policy is in force before the first agent byte (ADR 0010 already says so). | C |
 | 24 | A reset can report success while the remote resource survives. | A teardown that cannot prove deletion reports "unconfirmed". | C |
 | 25 | Prepare scripts behave differently per executor, with two silent skips. | One hook contract everywhere. | C |
-| 26 | Service port flag has no effect; macOS job flags contradict; cache-path installs break; root reinstall flips the account. | Test the generated plist; refuse temp-path installs; never change the service user implicitly. | C |
+| 26 | Service port flag has no effect; macOS job flags contradict; cache-path installs break; a first install from a root shell must name the service account. | Test the generated plist; refuse temp-path installs; never change the service user implicitly. | C |
 | 27 | Stopping a Linux service can leave agents running. | The daemon accounts for every process group it started. | C |
-| 28 | Notification fan-out falls back to global delivery when access lookup fails. | On an authorization lookup error, deliver nothing. | B, C |
+| 28 | If the server cannot work out who may see an event, it sends the event to everyone connected. | On an authorization lookup error, deliver nothing. | B, C |
 | 29 | Database backups leave out the key file, worktrees and CLI logins; deleting an organization does not reach backups. | Backup manifests list what they exclude; state retention for backups and the permanent log. | B, C |
 | 30 | Package signing is not wired, and every package shows unsigned. | No "signed" badge until verification is real. | D |
 | 31 | Canvas frames share the host origin and the viewer's session. | Pack viewers on a separate origin (P50). | B, D |

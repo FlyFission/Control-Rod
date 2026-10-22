@@ -31,7 +31,7 @@
 |---|---|
 | What could this change quietly get wrong? | Copied wording from AGPL docs could reach an Apache-2.0 repository through the notes. A build plan could rest on a false claim about our own code. The ADR could read as a legal conclusion. |
 | What did checking find that we did not expect? | Codex runs as launched today cannot write `out/` (read-only default, and the run workspace is not a Git repository). An empty pre-check then makes `complete` refuse and roll back, which leaves the run "running" for good. Pre-check independence holds only by baseline name, so a one-runtime Mac runs the pre-check on the author's runtime. One note claim was wrong: decision challenges are already single use. |
-| What is assumed and not yet shown? | That the notes contain no copied wording (independent check planned, `trace.md` C-002). The license facts reported by the readers (not re-checked under the clean-room rule). Codex's behaviour on Ben's Mac (read from OpenAI's docs; no run on the Mac yet). |
+| What is assumed and not yet shown? | That no copied wording remains (checked by E-006 after fixes; residual risk is paraphrase below the similarity threshold). The license facts reported by the readers (not re-checked under the clean-room rule). Codex's behaviour on Ben's Mac (read from OpenAI's docs; no run on the Mac yet). |
 
 ## Affected configuration items
 

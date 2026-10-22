@@ -20,6 +20,8 @@ bin/
 *.pem
 *.key
 data/
+# Data that ships inside a pack's Python package is source.
+!packs/**/src/**/data/
 .pgdata/
 
 # Editors and OS

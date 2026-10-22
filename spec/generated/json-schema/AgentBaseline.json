@@ -1,0 +1,67 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AgentBaseline.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "id": {
+            "type": "string"
+        },
+        "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "role": {
+            "type": "string"
+        },
+        "runtime": {
+            "$ref": "RuntimeRef.json"
+        },
+        "prompt_digest": {
+            "$ref": "Digest.json"
+        },
+        "skills": {
+            "type": "array",
+            "items": {
+                "$ref": "SkillRef.json"
+            }
+        },
+        "tools": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "permission_profile": {
+            "type": "string"
+        },
+        "allowed_lanes": {
+            "type": "array",
+            "items": {
+                "$ref": "DataLane.json"
+            },
+            "minItems": 1
+        },
+        "approved_by": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "schema_version",
+        "id",
+        "revision",
+        "role",
+        "runtime",
+        "prompt_digest",
+        "skills",
+        "tools",
+        "permission_profile",
+        "allowed_lanes"
+    ],
+    "description": "A hired agent role bound to a runtime. A controlled item.",
+    "unevaluatedProperties": false
+}

@@ -1,0 +1,26 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Custody.json",
+    "type": "object",
+    "properties": {
+        "generated_by": {
+            "type": "string"
+        },
+        "selected_by": {
+            "type": "string"
+        },
+        "presented_by": {
+            "type": "string"
+        },
+        "coupling": {
+            "$ref": "CouplingProfile.json"
+        }
+    },
+    "required": [
+        "generated_by",
+        "selected_by",
+        "presented_by",
+        "coupling"
+    ],
+    "unevaluatedProperties": false
+}

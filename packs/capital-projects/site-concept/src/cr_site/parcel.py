@@ -104,6 +104,13 @@ def from_shapefile_zip(data: bytes) -> BaseGeometry:
             raise ParcelError("zip holds no .shp file")
         if ".prj" in names:
             prj = z.read(names[".prj"]).decode("utf-8", "replace")
+            # A projected system (UTM, state plane) still names its WGS 84 datum inside, so the
+            # datum alone does not make coordinates longitude and latitude.
+            if "PROJCS" in prj.upper() or "PROJCRS" in prj.upper():
+                raise ParcelError(
+                    "shapefile uses a projected coordinate system; reproject it to WGS 84 "
+                    f"longitude and latitude first (projection: {prj[:80]})"
+                )
             if "GCS_WGS_1984" not in prj and "WGS 84" not in prj and "WGS_1984" not in prj:
                 raise ParcelError(
                     "shapefile is not in WGS 84 longitude and latitude; reproject it first "
@@ -153,7 +160,12 @@ def resolve(inp: str, *, acres_hint: float | None = None, fetcher: Fetcher | Non
     """Resolves any supported input to a GeoJSON Feature with provenance and holds."""
     fetcher = fetcher or Fetcher()
     path = Path(inp)
-    if len(inp) < 4096 and path.exists() and path.is_file():
+    try:
+        # Inline WKT or GeoJSON can be longer than a file name may be; that is text, not a path.
+        is_file = len(inp) < 4096 and path.is_file()
+    except OSError:
+        is_file = False
+    if is_file:
         data = path.read_bytes()
         suffix = path.suffix.lower()
         src = {"kind": "file", "name": path.name}

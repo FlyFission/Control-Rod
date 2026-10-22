@@ -7,6 +7,7 @@ import { composeCapture, splitAttachments } from "./attachments.js";
 import { sortOffice } from "./office.js";
 import { layoutFloor } from "./floor.js";
 import { view } from "../test/fixtures.js";
+import { api } from "../api/client.js";
 
 describe("board mapping", () => {
   it("maps each status to its work step", () => {
@@ -141,5 +142,33 @@ describe("floor layout", () => {
       ["run:r3", "bench"],
       ["office:accept:WP-0002:0", "office"],
     ]);
+  });
+});
+
+describe("output links", () => {
+  it("keeps the folders of an output's path and encodes each part", () => {
+    expect(api.outputUrl("WP-1", "reports/summary 1.md")).toMatch(/\/packages\/WP-1\/outputs\/reports\/summary%201\.md$/);
+  });
+});
+
+describe("records", () => {
+  it("follows the event cursor past the first page", async () => {
+    const { server } = await import("../test/server.js");
+    const { http, HttpResponse } = await import("msw/http");
+    const ev = (seq: number) => ({ seq, at: "2026-10-22T10:00:00Z", type: "t", subject: "s", actor: { kind: "system", id: "x" }, digest: { algorithm: "sha256", value: "0".repeat(64) } });
+    const seen: string[] = [];
+    server.use(
+      http.get("*/events", ({ request }) => {
+        const after = Number(new URL(request.url).searchParams.get("after") ?? 0);
+        seen.push(String(after));
+        const start = after + 1;
+        const n = after === 0 ? 500 : 3;
+        return HttpResponse.json(Array.from({ length: n }, (_, i) => ev(start + i)));
+      }),
+    );
+    const all = await api.allEvents();
+    expect(all).toHaveLength(503);
+    expect(all.at(-1)?.seq).toBe(503);
+    expect(seen).toEqual(["0", "500"]);
   });
 });

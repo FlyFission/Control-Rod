@@ -36,6 +36,8 @@
 8. Wire the site job (named site roles, role lookup order, scripted site agents that call `cr-site`).
 9. Run every suite, then a live browser run with a virtual passkey.
 10. Write this packet and validate.
+11. Close build plan items N1 to N8 from the Kandev pattern notes before the first real run: Codex launch flags, run custody, empty author runs, pre-check independence by runtime identity, stop, output re-hash, same-origin check, and recording what ran (ADR 0020).
+12. Apply the owner's two decisions on the pre-check rule (same provider is the same runtime; the override is passkey-signed), add the runtime probe (N9) and one live run per assignment (N2 addition).
 
 ## Two-speed work plan
 
@@ -68,6 +70,8 @@ AI agents work on the `mvp/*` branches only, may build and run local tests and a
 | Web | `apps/web` |
 | Packs | `packs/general/roles`, `packs/capital-projects/site-concept` |
 | Start and test tools | `scripts/cr.mjs`, `tests/e2e/fake`, `tools/license-gate.mjs` |
+| Decisions | `docs/adr/0011-agent-sessions-acp.md` (amendment), `docs/adr/0020-mvp-print-mode-runs.md` |
+| Daemon docs | `docs/daemon.md` |
 | Records | `.nuclear/changes/mvp-site-concept/` |
 
 ## Non-goals
@@ -99,7 +103,10 @@ AI agents work on the `mvp/*` branches only, may build and run local tests and a
 | Site pack tests | all pass on a fresh checkout | pass after `3f640a1`: 39 passed, 1 skipped |
 | Live browser run | five packages released and accepted | pass |
 | Packet validates | `ng validate --strict-custody` passes | pass |
-| Owner signature | kernel decision functions and license gate | planned |
+| Build plan N1 to N8 | all suites pass at `4f7274d` | pass |
+| Owner decisions, N9, N2 addition | all suites pass at `ed707de` | pass |
+| Owner signature | kernel decision functions (including the pre-check runtime rule) and license gate | planned |
+| First Codex run | one real Codex author and pre-check on the owner's Mac | planned |
 | First real run | Claude Code on the owner's Mac | planned |
 
 ## Rollback approach
@@ -111,6 +118,10 @@ Do not merge, or revert the merge commit on `main`. Local state lives in `~/.con
 ```bash
 cargo test -p controlrod-kernel
 TEST_DATABASE_URL=postgres://USER@127.0.0.1:5432/postgres pnpm --filter @control-rod/api test
+# or, with a system PostgreSQL and a non-root user: su postgres -s /bin/bash -c "cd services/api && HOME=<empty dir> npx vitest run"
+cargo clippy --all-targets --locked -- -D warnings
+cargo deny check licenses bans sources
+pnpm -r typecheck
 (cd daemon && go test ./...)
 pnpm --filter @control-rod/web test
 (cd packs/capital-projects/site-concept && uv run pytest -q)

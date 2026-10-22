@@ -117,11 +117,27 @@ def run_check(
                 overlaps.append(f"{rects[i][0]} and {rects[j][0]}")
     ev("No two blocks overlap", not overlaps, "; ".join(overlaps))
     close = [
-        f"{n} at {ft(r.distance(pm.exterior)):.1f} ft"
+        f"{n} at {ft(r.distance(pm.boundary)):.1f} ft"
         for n, r, _ in rects
-        if ft(r.distance(pm.exterior)) < setback_ft - 0.01
+        if ft(r.distance(pm.boundary)) < setback_ft - 0.01
     ]
     ev(f"Every block respects the {setback_ft:g} ft property setback", not close, "; ".join(close))
+
+    # The layout tool is deterministic, so the checker reruns it on the same inputs. A layout made
+    # for an earlier program, or edited by hand, does not match and cannot pass.
+    from .layout import layout as run_layout
+
+    fresh = run_layout(parcel, constraints, program)
+    differs = [
+        k
+        for k in ("blocks", "unplaced")
+        if json.dumps(fresh.get(k), sort_keys=True) != json.dumps(layout.get(k), sort_keys=True)
+    ]
+    ev(
+        "The layout matches a fresh run of cr-site layout on these inputs",
+        not differs,
+        ("differs in " + ", ".join(differs)) if differs else "",
+    )
 
     bad_area = []
     for n, r, b in rects:
@@ -175,6 +191,10 @@ def run_check(
         findings.append({"id": h["id"], "severity": "minor", "text": f"Open hold: {h['text']}"})
     for f in layout.get("findings") or []:
         findings.append({"id": f["id"], "severity": f["severity"], "text": f["text"]})
+        # A major or critical layout finding (a block that did not fit, say) means the program
+        # is not met, so the check cannot pass.
+        if f.get("severity") in ("major", "critical"):
+            failed = True
 
     unconfirmed = bool(parcel["properties"].get("confirmation_required"))
     ev(

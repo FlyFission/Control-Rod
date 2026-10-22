@@ -202,8 +202,9 @@ export class VirtualAuthenticator {
 
 /** Registers the owner and returns a cookie header for the session. */
 export async function signIn(app: FastifyInstance, auth: VirtualAuthenticator): Promise<string> {
-  const o = await app.inject({ method: "POST", url: "/auth/register/options", payload: { name: "ben" } });
-  const reg = await app.inject({ method: "POST", url: "/auth/register/verify", payload: auth.register(o.json().options) });
+  const headers = { origin: ORIGIN };
+  const o = await app.inject({ method: "POST", url: "/auth/register/options", headers, payload: { name: "ben" } });
+  const reg = await app.inject({ method: "POST", url: "/auth/register/verify", headers, payload: auth.register(o.json().options) });
   if (reg.statusCode !== 200) throw new Error(`register failed: ${reg.body}`);
   const cookie = reg.cookies.find((c) => c.name === "cr_session");
   if (!cookie) throw new Error("no session cookie");
@@ -212,3 +213,18 @@ export async function signIn(app: FastifyInstance, auth: VirtualAuthenticator): 
 
 export const daemonHeaders = { authorization: `Bearer ${DAEMON_TOKEN}` };
 export const b64 = (s: string | Buffer) => Buffer.from(s).toString("base64");
+
+/** Claim tokens the tests' daemon holds, by run id. */
+export const claims = new Map<string, string>();
+
+/**
+ * Adds what the daemon always sends: the run's claim token on log and completion posts, and an
+ * idempotency key on a completion. A payload that sets either keeps its own value.
+ */
+export function withClaim(url: string, payload: Record<string, unknown>): Record<string, unknown> {
+  const m = /^\/runner\/runs\/([^/]+)\/(log|complete)$/.exec(url);
+  if (!m) return payload;
+  const out: Record<string, unknown> = { claim_token: claims.get(m[1] ?? "") ?? "", ...payload };
+  if (m[2] === "complete" && out.idempotency_key === undefined) out.idempotency_key = randomBytes(12).toString("hex");
+  return out;
+}

@@ -99,3 +99,61 @@ def test_one_retry_recovers_a_transient_failure(parcel):
 
     r = screen(parcel, fetcher=Fetcher(transport=flaky))
     assert "flood" in {f["topic"] for f in r["facts"]}
+
+
+def test_truncated_road_query_is_a_hold_and_names_no_road(parcel_file):
+    from datetime import UTC, datetime
+
+    def transport(url, params, timeout):
+        body = fixture_transport(url, params, timeout)
+        if "Transportation/MapServer/8" in url:
+            data = json.loads(body)
+            data["exceededTransferLimit"] = True
+            return json.dumps(data).encode()
+        return body
+
+    f = Fetcher(transport=transport, clock=lambda: datetime(2026, 10, 22, 16, 0, tzinfo=UTC))
+    out = screen(resolve(str(parcel_file)), fetcher=f)
+    assert any(h["topic"] == "road" and "record limit" in h["text"] for h in out["holds"])
+    assert not any(x["topic"] == "road" for x in out["facts"])
+
+
+def test_failed_local_road_layer_names_no_road(parcel_file):
+    from datetime import UTC, datetime
+
+    def transport(url, params, timeout):
+        if "Transportation/MapServer/8" in url:
+            return failing_transport(url, params, timeout)
+        return fixture_transport(url, params, timeout)
+
+    f = Fetcher(transport=transport, clock=lambda: datetime(2026, 10, 22, 16, 0, tzinfo=UTC))
+    out = screen(resolve(str(parcel_file)), fetcher=f)
+    assert any(h["topic"] == "road" and "failed" in h["text"] for h in out["holds"])
+    assert not any(x["topic"] == "road" for x in out["facts"])
+
+
+@pytest.mark.parametrize("location", ["top", "properties"])
+def test_truncated_roads_do_not_claim_a_nearest_road(parcel, location):
+    def truncated(url, params, timeout):
+        data = json.loads(fixture_transport(url, params, timeout))
+        if "tigerweb" in url.lower():
+            target = data if location == "top" else data.setdefault("properties", {})
+            target["exceededTransferLimit"] = True
+        return json.dumps(data).encode()
+
+    r = screen(parcel, fetcher=Fetcher(transport=truncated))
+    assert "road" not in r["nearest"]
+    assert "road" not in {f["topic"] for f in r["facts"]}
+    assert any(h["topic"] == "road" and "record limit" in h["text"] for h in r["holds"])
+
+
+def test_one_failed_road_layer_does_not_certify_the_others(parcel):
+    def incomplete(url, params, timeout):
+        if "tigerweb" in url.lower() and "/2/query" in url:
+            raise TimeoutError("one road layer unavailable")
+        return fixture_transport(url, params, timeout)
+
+    r = screen(parcel, fetcher=Fetcher(transport=incomplete))
+    assert any(h["topic"] == "road" for h in r["holds"])
+    assert "road" not in r["nearest"]
+    assert "road" not in {f["topic"] for f in r["facts"]}

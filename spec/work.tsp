@@ -53,6 +53,9 @@ enum RunStatus {
   succeeded: "succeeded",
   failed: "failed",
   stopped: "stopped",
+
+  /** The daemon stopped renewing its lease. Terminal; only the owner can requeue the work. */
+  lost: "lost",
 }
 
 /** One agent session working on one package revision in one role. */
@@ -84,6 +87,44 @@ model Run {
 
   error?: string;
   trace?: ExecutionTrace;
+
+  /** While running: when the claim lapses unless the daemon renews it with a log post. */
+  lease_expires_at?: utcDateTime;
+
+  /** The run this one was requeued from, after it was lost, failed or stopped. */
+  requeue_of?: string;
+
+  /** The run the owner queued to replace this one. */
+  requeued_as?: string;
+
+  /** The owner asked to stop this run. It shows as stopping until the daemon confirms. */
+  stop_requested_at?: utcDateTime;
+
+  stop_requested_by?: string;
+
+  /** Why a queued run is not being handed out, in plain words. */
+  @maxLength(300)
+  waiting_reason?: string;
+
+  /** The owner let this pre-check run on the author's runtime. Recorded before it ran. */
+  independence_override?: OwnerOverride;
+}
+
+/**
+ * A person's choice to proceed past a hold, with who, when and why, signed with their passkey
+ * over the digest of (package, revision, run, the act and the reason).
+ */
+@extension("unevaluatedProperties", false)
+model OwnerOverride {
+  by: string;
+  at: utcDateTime;
+
+  @minLength(1)
+  @maxLength(2000)
+  reason: string;
+
+  subject_digest: Digest;
+  assertion: PasskeyAssertion;
 }
 
 /** A WebAuthn assertion over the decision digest, made by the person's own authenticator. */

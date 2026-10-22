@@ -1,0 +1,35 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreCheckIndependence.json",
+    "type": "object",
+    "properties": {
+        "runtime": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "independent"
+                },
+                {
+                    "type": "string",
+                    "const": "shared"
+                }
+            ]
+        },
+        "author_runtime": {
+            "$ref": "RuntimeRef.json"
+        },
+        "checker_runtime": {
+            "$ref": "RuntimeRef.json"
+        },
+        "owner_override": {
+            "$ref": "OwnerOverride.json"
+        }
+    },
+    "required": [
+        "runtime",
+        "author_runtime",
+        "checker_runtime"
+    ],
+    "description": "Runtime identity of author and checker, and whether they could be the same.",
+    "unevaluatedProperties": false
+}

@@ -2,6 +2,7 @@
 // the API serves this app at the same origin, so every path is relative to it.
 import type {
   Capture,
+  CaptureView,
   CrEvent,
   Decision,
   DecisionRequest,
@@ -10,6 +11,8 @@ import type {
   NewCapture,
   OfficeItem,
   PackageView,
+  Run,
+  RuntimeStatus,
   Session,
   WorkPackage,
 } from "./types.js";
@@ -56,7 +59,7 @@ export const api = {
   loginVerify: (body: unknown) => call<Session>("POST", "/auth/login/verify", body),
   logout: () => call<Session>("POST", "/auth/logout"),
 
-  captures: () => call<Capture[]>("GET", "/captures"),
+  captures: () => call<CaptureView[]>("GET", "/captures"),
   capture: (body: NewCapture) => call<Capture>("POST", "/captures", body),
 
   packages: () => call<WorkPackage[]>("GET", "/packages"),
@@ -64,7 +67,17 @@ export const api = {
   updatePackage: (pkg: WorkPackage) => call<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg),
   runLog: (id: string, runId: string) =>
     call<{ lines: string[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/log`),
-  outputUrl: (id: string, name: string) => url(`/packages/${enc(id)}/outputs/${enc(name)}`),
+  stopRun: (id: string, runId: string) => call<Run>("POST", `/packages/${enc(id)}/runs/${enc(runId)}/stop`),
+  overrideOptions: (id: string, runId: string, reason: string) =>
+    call<{ subject_digest: Digest; options: Record<string, unknown> }>(
+      "POST",
+      `/packages/${enc(id)}/runs/${enc(runId)}/override-independence/options`,
+      { reason },
+    ),
+  overrideIndependence: (id: string, runId: string, body: { reason: string; assertion: Record<string, unknown> }) =>
+    call<Run>("POST", `/packages/${enc(id)}/runs/${enc(runId)}/override-independence`, body),
+  requeueRun: (id: string, runId: string) => call<Run>("POST", `/packages/${enc(id)}/runs/${enc(runId)}/requeue`),
+  outputUrl: (id: string, path: string) => url(`/packages/${enc(id)}/outputs/${path.split("/").map(enc).join("/")}`),
   decisionOptions: (id: string, req: DecisionRequest) =>
     call<{ subject_digest: Digest; options: Record<string, unknown> }>(
       "POST",
@@ -75,8 +88,21 @@ export const api = {
     call<Decision>("POST", `/packages/${enc(id)}/decisions`, body),
 
   office: () => call<OfficeItem[]>("GET", "/office"),
+  runtimes: () => call<{ reported_at?: string; runtimes: RuntimeStatus[] }>("GET", "/runtimes"),
   metrics: () => call<Metrics>("GET", "/metrics"),
   events: (after?: number) => call<CrEvent[]>("GET", after === undefined ? "/events" : `/events?after=${after}`),
+  /** Every event, following the server's `after` cursor page by page (500 per page, capped). */
+  allEvents: async (maxPages = 200): Promise<CrEvent[]> => {
+    const out: CrEvent[] = [];
+    let after = 0;
+    for (let i = 0; i < maxPages; i++) {
+      const page = await call<CrEvent[]>("GET", after === 0 ? "/events" : `/events?after=${after}`);
+      out.push(...page);
+      if (page.length < 500) break;
+      after = page[page.length - 1]?.seq ?? after;
+    }
+    return out;
+  },
   verifyEvents: () => call<{ ok: boolean; count: number; broken_at?: number }>("GET", "/events/verify"),
   streamUrl: () => url("/events/stream"),
 };

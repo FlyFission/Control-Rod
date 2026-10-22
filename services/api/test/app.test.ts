@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Harness, VirtualAuthenticator, b64, daemonHeaders, signIn, startHarness } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
 let h: Harness;
 let cookie: string;
@@ -12,12 +12,21 @@ beforeAll(async () => {
 afterAll(async () => h?.stop());
 
 const asOwner = (method: "GET" | "POST" | "PUT", url: string, payload?: unknown) =>
-  h.app.inject({ method, url, headers: { cookie }, ...(payload !== undefined ? { payload: payload as object } : {}) });
-const asDaemon = (url: string, payload: unknown) => h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: payload as object });
+  h.app.inject({
+    method,
+    url,
+    headers: { cookie, ...(method === "GET" ? {} : { origin: ORIGIN }) },
+    ...(payload !== undefined ? { payload: payload as object } : {}),
+  });
+const asDaemon = (url: string, payload: unknown) =>
+  h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: withClaim(url, payload as Record<string, unknown>) });
 
 async function claim(runtimes = ["fake"]) {
   const r = await asDaemon("/runner/claim", { runtimes });
-  return r.statusCode === 204 ? null : r.json();
+  if (r.statusCode === 204) return null;
+  const job = r.json();
+  claims.set(job.run.id, job.claim.token);
+  return job;
 }
 
 function draft(id: string, extra: object = {}) {
@@ -72,8 +81,9 @@ describe("access", () => {
   });
 
   it("refuses a second passkey registration from someone signed out", async () => {
-    const r = await h.app.inject({ method: "POST", url: "/auth/register/options", payload: { name: "intruder" } });
+    const r = await h.app.inject({ method: "POST", url: "/auth/register/options", headers: { origin: ORIGIN }, payload: { name: "intruder" } });
     expect(r.statusCode).toBe(403);
+    expect(r.json().code).toBe("forbidden");
   });
 });
 
@@ -88,7 +98,7 @@ describe("a quick question is answered without a package", () => {
       status: "succeeded",
       outputs: [{ name: "answer.md", content_base64: b64("Issued for design.") }],
     });
-    expect(done.statusCode, done.body).toBe(204);
+    expect(done.statusCode, done.body).toBe(200);
     const caps = (await asOwner("GET", "/captures")).json();
     const cap = caps.find((x: { id: string }) => x.id === c.json().id);
     expect(cap.disposition).toBe("answered");
@@ -118,7 +128,7 @@ describe("a site job runs end to end under the floors", () => {
         { name: "packages/PLAN.json", content_base64: b64(JSON.stringify(plan)) },
       ],
     });
-    expect(r.statusCode, r.body).toBe(204);
+    expect(r.statusCode, r.body).toBe(200);
     const pkgs = (await asOwner("GET", "/packages")).json();
     parcelId = pkgs.find((p: { id: string }) => p.id.endsWith("-PARCEL")).id;
     planId = pkgs.find((p: { id: string }) => p.id.endsWith("-PLAN")).id;
@@ -176,9 +186,12 @@ describe("a site job runs end to end under the floors", () => {
       status: "succeeded",
       outputs: [{ name: "parcel.json", content_base64: b64('{"acres":"40.0"}') }],
     });
-    const check = await claim();
+    // The daemon here has only the author's runtime: the pre-check is held, never run on it.
+    expect(await claim()).toBeNull();
+    const check = await claim(["codex"]);
     expect(check.run.role).toBe("pre-check");
     expect(check.run.agent_baseline).not.toBe(job.run.agent_baseline);
+    expect(check.run.runtime.provider).not.toBe(job.run.runtime.provider);
     const delivered = check.inputs.map((i: { name: string }) => i.name);
     expect(delivered).toContain("deliverables/parcel.json");
     expect(delivered.some((n: string) => n.includes("log"))).toBe(false);
@@ -198,7 +211,7 @@ describe("a site job runs end to end under the floors", () => {
       status: "succeeded",
       outputs: [{ name: "parcel.json", content_base64: b64('{"acres":"40.02","method":"computed"}') }],
     });
-    const check2 = await claim();
+    const check2 = await claim(["codex"]);
     await asDaemon(`/runner/runs/${check2.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
 
     const office = (await asOwner("GET", "/office")).json();

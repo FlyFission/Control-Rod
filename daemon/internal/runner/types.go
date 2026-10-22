@@ -29,6 +29,14 @@ type Run struct {
 	Round           int        `json:"round"`
 }
 
+// RunClaim is the daemon's custody of one run: a token to present on every log and completion,
+// and a lease that each log post renews.
+type RunClaim struct {
+	Token            string `json:"token"`
+	LeaseExpiresAt   string `json:"lease_expires_at"`
+	HeartbeatSeconds int    `json:"heartbeat_seconds"`
+}
+
 // Job is what the control plane hands the daemon from POST /runner/claim.
 type Job struct {
 	Run      Run             `json:"run"`
@@ -36,6 +44,7 @@ type Job struct {
 	Capture  json.RawMessage `json:"capture,omitempty"`
 	Inputs   []NamedFile     `json:"inputs"`
 	Findings json.RawMessage `json:"findings,omitempty"`
+	Claim    RunClaim        `json:"claim"`
 }
 
 // Digest is a content digest.
@@ -69,20 +78,46 @@ type ExecutionTrace struct {
 	Outputs          []Artifact `json:"outputs"`
 	StartedAt        string     `json:"started_at"`
 	FinishedAt       string     `json:"finished_at"`
+	RuntimeMode      string     `json:"runtime_mode,omitempty"`
+	RequestedModel   string     `json:"requested_model,omitempty"`
+	ReportedModel    string     `json:"reported_model,omitempty"`
+	PermissionMode   string     `json:"permission_mode,omitempty"`
+	AllowedTools     []string   `json:"allowed_tools,omitempty"`
+	Sandbox          string     `json:"sandbox,omitempty"`
 }
 
 // Completion is the body of POST /runner/runs/{id}/complete.
 type Completion struct {
-	Status       string          `json:"status"`
-	Error        string          `json:"error,omitempty"`
-	Trace        *ExecutionTrace `json:"trace,omitempty"`
-	Outputs      []NamedFile     `json:"outputs"`
-	Package      json.RawMessage `json:"package,omitempty"`
-	Verification json.RawMessage `json:"verification,omitempty"`
+	ClaimToken     string          `json:"claim_token"`
+	IdempotencyKey string          `json:"idempotency_key"`
+	Status         string          `json:"status"`
+	Error          string          `json:"error,omitempty"`
+	Trace          *ExecutionTrace `json:"trace,omitempty"`
+	Outputs        []NamedFile     `json:"outputs"`
+	Package        json.RawMessage `json:"package,omitempty"`
+	Verification   json.RawMessage `json:"verification,omitempty"`
 }
 
 // LogBatch is the body of POST /runner/runs/{id}/log.
 type LogBatch struct {
-	Lines []string `json:"lines"`
-	Label string   `json:"label,omitempty"`
+	ClaimToken string   `json:"claim_token"`
+	Lines      []string `json:"lines"`
+	Label      string   `json:"label,omitempty"`
+}
+
+// LogReply is the control plane's answer to a log post.
+type LogReply struct {
+	Stop           bool   `json:"stop"`
+	LeaseExpiresAt string `json:"lease_expires_at"`
+}
+
+// Receipt is what the control plane recorded for a completion.
+type Receipt struct {
+	RunID          string `json:"run_id"`
+	IdempotencyKey string `json:"idempotency_key"`
+	Status         string `json:"status"`
+	Refusal        *struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	} `json:"refusal,omitempty"`
 }

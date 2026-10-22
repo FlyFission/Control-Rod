@@ -7,12 +7,23 @@ import { KIND_LABEL, age, sortOffice } from "../lib/office.js";
 export function Office() {
   const q = useQuery({ queryKey: ["office"], queryFn: api.office });
   const items = sortOffice(q.data ?? []);
+  const rt = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
+  const notReady = (rt.data?.runtimes ?? []).filter((r) => !r.ready);
   return (
     <section className="panel office" aria-labelledby="office-title">
       <div className="panel-head">
         <h1 id="office-title">Your office</h1>
         <span className="muted small">Holds on agents first, then disputes, work to accept and releases; oldest first.</span>
       </div>
+      {notReady.length > 0 && (
+        <ul className="runtime-alerts" aria-label="Runtimes not ready">
+          {notReady.map((r) => (
+            <li key={r.runtime} className="error">
+              <strong>{r.runtime} is not ready and is not offered for work.</strong> {r.reason ?? "The daemon gave no reason."}
+            </li>
+          ))}
+        </ul>
+      )}
       {q.isLoading && <p className="muted">Loading</p>}
       {!q.isLoading && items.length === 0 && (
         <p className="muted">Nobody is waiting on you. Work that needs a decision comes in here.</p>

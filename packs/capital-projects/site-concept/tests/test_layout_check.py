@@ -122,3 +122,62 @@ def test_unconfirmed_boundary_is_inconclusive(fetcher):
     cons = screen(parcel, fetcher=fetcher)
     lay = layout(parcel, cons, EXAMPLE)
     assert _check(parcel, lay, cons, EXAMPLE)["outcome"] == "inconclusive"
+
+
+def test_major_layout_finding_fails_the_check(inputs):
+    parcel, cons = inputs
+    lay = layout(parcel, cons, EXAMPLE)
+    bad = copy.deepcopy(lay)
+    bad.setdefault("findings", []).append(
+        {"id": "LAYOUT-UNPLACED-TEST", "severity": "major", "text": "DATA HALL 3 did not fit"}
+    )
+    rec = _check(parcel, bad, cons, EXAMPLE)
+    assert rec["outcome"] == "fail"
+    assert any(f["id"] == "LAYOUT-UNPLACED-TEST" for f in rec["findings"])
+
+
+def test_setback_check_handles_a_multipart_parcel(inputs):
+    parcel, cons = inputs
+    lay = layout(parcel, cons, EXAMPLE)
+    g = shape(parcel["geometry"])
+    minx, miny, maxx, maxy = g.bounds
+    far = [
+        [maxx + 0.01, maxy + 0.01],
+        [maxx + 0.011, maxy + 0.01],
+        [maxx + 0.011, maxy + 0.011],
+        [maxx + 0.01, maxy + 0.011],
+        [maxx + 0.01, maxy + 0.01],
+    ]
+    multi = copy.deepcopy(parcel)
+    polys = (
+        [parcel["geometry"]["coordinates"]]
+        if parcel["geometry"]["type"] == "Polygon"
+        else parcel["geometry"]["coordinates"]
+    )
+    multi["geometry"] = {"type": "MultiPolygon", "coordinates": [*polys, [far]]}
+    rec = _check(multi, lay, cons, EXAMPLE)
+    setback = [e for e in rec["evidence"] if "setback" in e["claim"]]
+    assert setback
+    assert setback[0]["status"] == "pass"
+
+
+def test_layout_made_for_an_earlier_program_fails(inputs):
+    parcel, cons = inputs
+    lay = layout(parcel, cons, EXAMPLE)
+    smaller = copy.deepcopy(EXAMPLE)
+    old = layout(parcel, cons, smaller)
+    # A layout that no longer matches the program (one placed block missing).
+    old["blocks"] = old["blocks"][1:]
+    rec = _check(parcel, old, cons, EXAMPLE)
+    assert rec["outcome"] == "fail"
+    assert any("fresh run" in f["text"] for f in rec["findings"])
+    assert _check(parcel, lay, cons, EXAMPLE)["outcome"] == "pass"
+
+
+def test_long_inline_wkt_is_parsed_as_text():
+    ring = ", ".join(f"{-82.30 + i * 1e-6:.6f} {34.75 + (i % 2) * 1e-6:.6f}" for i in range(40))
+    first = ring.split(", ")[0]
+    wkt = f"POLYGON(({ring}, -82.29 34.76, {first}))"
+    assert len(wkt) > 600
+    feat = resolve(wkt)
+    assert feat["geometry"]["type"] in ("Polygon", "MultiPolygon")

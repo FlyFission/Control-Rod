@@ -62,7 +62,19 @@ namespace Captures {
     source?: "web" | "cli" | "voice" | "chat";
   }
 
-  @get op list(): Capture[];
+  /** The latest intake run for a capture still pending, so a failed intake is never stranded. */
+  model IntakeState {
+    run_id: string;
+    status: RunStatus;
+    error?: string;
+  }
+
+  model CaptureView {
+    ...Capture;
+    intake?: IntakeState;
+  }
+
+  @get op list(): CaptureView[];
   @post op create(@body body: NewCapture): {
     @statusCode _: 201;
     @body capture: Capture;
@@ -102,6 +114,55 @@ namespace Packages {
     lines: string[];
   } | Refused;
 
+  /**
+   * The owner queues a new run in place of one that was lost, failed or stopped. The old run
+   * keeps its record. Repeating returns the run already queued.
+   */
+  /**
+   * The owner stops a run. A queued run stops at once. For a running run the request is
+   * recorded first, then the daemon is told in its next log reply and ends the process; the run
+   * shows as stopping until the daemon confirms. Repeating is harmless.
+   */
+  @route("/{id}/runs/{runId}/stop")
+  @post
+  op stop(@path id: string, @path runId: string): Run | Refused;
+
+  model OverrideRequest {
+    @minLength(1)
+    @maxLength(2000)
+    reason: string;
+  }
+
+  /**
+   * Step 1 of the owner's override: the server returns the digest of (package id, revision, run
+   * id, "override-independence", reason) and a WebAuthn challenge derived from it.
+   */
+  @route("/{id}/runs/{runId}/override-independence/options")
+  @post
+  op overrideIndependenceOptions(@path id: string, @path runId: string, @body body: OverrideRequest): {
+    subject_digest: Digest;
+    options: Record<unknown>;
+  } | Refused;
+
+  /**
+   * Step 2: the signed override. The challenge is consumed once; the kernel allows it only as a
+   * signed human act with a reason. Recorded as an event with the assertion, carried into the
+   * verification record, and only then may the pre-check run on the author's provider.
+   */
+  @route("/{id}/runs/{runId}/override-independence")
+  @post
+  op overrideIndependence(@path id: string, @path runId: string, @body body: {
+    ...OverrideRequest;
+    assertion: Record<unknown>;
+  }): Run | Refused;
+
+  @route("/{id}/runs/{runId}/requeue")
+  @post
+  op requeue(@path id: string, @path runId: string): {
+    @statusCode _: 201;
+    @body run: Run;
+  } | Refused;
+
   model DecisionRequest {
     kind: DecisionKind;
 
@@ -109,6 +170,12 @@ namespace Packages {
     package_revision: int32;
 
     reason?: string;
+
+    /**
+     * The subject digest the person was shown. The server refuses the options request when the
+     * package has changed since, so a person never signs content they did not see.
+     */
+    expected_subject_digest?: Digest;
   }
 
   /** Step 1: the server returns the digest to sign and a WebAuthn challenge derived from it. */
@@ -133,7 +200,7 @@ namespace Packages {
 
 /** One entry in your office: something that needs a person. */
 model OfficeItem {
-  kind: "release" | "accept" | "dispute" | "permission";
+  kind: "release" | "accept" | "dispute" | "permission" | "lost";
   package_id: string;
   package_revision: int32;
   title: string;
@@ -165,6 +232,14 @@ op metrics(): Metrics;
 @route("/office")
 @get
 op office(): OfficeItem[];
+
+/** What the daemon last reported about each runtime it found, for the office. */
+@route("/runtimes")
+@get
+op runtimes(): {
+  reported_at?: utcDateTime;
+  runtimes: Runner.RuntimeStatus[];
+};
 
 /** Runs that are queued or running, across every package, for the floor and board. */
 @route("/runs")
@@ -204,23 +279,75 @@ namespace Runner {
     }[];
 
     findings?: Finding[];
+
+    /** Custody of this run: present the token on every log and completion. */
+    claim: RunClaim;
+  }
+
+  /** A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost. */
+  model RunClaim {
+    token: string;
+    lease_expires_at: utcDateTime;
+
+    /** Post a log batch, even an empty one, at least this often. */
+    heartbeat_seconds: int32;
+  }
+
+  /** What the control plane recorded for a completion. A repeat with the same key returns it again. */
+  model CompletionReceipt {
+    run_id: string;
+    idempotency_key: string;
+    status: RunStatus;
+    outputs: Artifact[];
+    received_at: utcDateTime;
+
+    /** Set when the completion could not be applied; the run is then recorded failed with this reason. */
+    refusal?: ApiError;
+  }
+
+  /** The daemon's probe of one runtime it found: whether it is ready for work, and why not. */
+  model RuntimeStatus {
+    runtime: string;
+    ready: boolean;
+    version?: string;
+
+    @maxLength(300)
+    reason?: string;
+
+    /** The CLI could say whether a login is present. The probe never signs in. */
+    login_checked: boolean;
   }
 
   @route("/claim") @post op claim(@body body: {
+    /** Runtimes ready for work. The control plane picks only from these. */
     runtimes: string[];
+
+    runtime_status?: RuntimeStatus[];
   }): Job | {
     @statusCode _: 204;
   } | Refused;
 
   @route("/runs/{id}/log") @post op log(@path id: string, @body body: {
+    claim_token: string;
     lines: string[];
     label?: string;
   }): {
-    @statusCode _: 204;
+    /** The owner asked to stop this run: end the process and complete it as stopped. */
+    stop: boolean;
+
+    lease_expires_at: utcDateTime;
   } | Refused;
 
   model Completion {
-    status: "succeeded" | "failed";
+    claim_token: string;
+
+    /** Chosen by the daemon once per completion and kept across retries. */
+    @minLength(8)
+    @maxLength(100)
+    idempotency_key: string;
+
+    /** "stopped" only after the owner asked to stop the run. */
+    status: "succeeded" | "failed" | "stopped";
     error?: string;
     trace?: ExecutionTrace;
     outputs: {
@@ -231,7 +358,5 @@ namespace Runner {
     verification?: VerificationRecord;
   }
 
-  @route("/runs/{id}/complete") @post op complete(@path id: string, @body body: Completion): {
-    @statusCode _: 204;
-  } | Refused;
+  @route("/runs/{id}/complete") @post op complete(@path id: string, @body body: Completion): CompletionReceipt | Refused;
 }

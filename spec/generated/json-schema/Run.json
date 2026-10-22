@@ -58,6 +58,36 @@
         },
         "trace": {
             "$ref": "ExecutionTrace.json"
+        },
+        "lease_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "While running: when the claim lapses unless the daemon renews it with a log post."
+        },
+        "requeue_of": {
+            "type": "string",
+            "description": "The run this one was requeued from, after it was lost, failed or stopped."
+        },
+        "requeued_as": {
+            "type": "string",
+            "description": "The run the owner queued to replace this one."
+        },
+        "stop_requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The owner asked to stop this run. It shows as stopping until the daemon confirms."
+        },
+        "stop_requested_by": {
+            "type": "string"
+        },
+        "waiting_reason": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why a queued run is not being handed out, in plain words."
+        },
+        "independence_override": {
+            "$ref": "OwnerOverride.json",
+            "description": "The owner let this pre-check run on the author's runtime. Recorded before it ran."
         }
     },
     "required": [

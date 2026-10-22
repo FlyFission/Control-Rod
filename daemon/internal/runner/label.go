@@ -130,3 +130,33 @@ func LabelFor(line string) string {
 	}
 	return ""
 }
+
+var modelChars = regexp.MustCompile(`[^A-Za-z0-9._:/@-]`)
+
+// ReportedModel returns the model a runtime says it is using, from one stream line, or "". It
+// reads only a top-level "model" field or, for Claude Code, the assistant message's "model",
+// and keeps a short run of plain characters.
+func ReportedModel(line string) string {
+	if !strings.HasPrefix(strings.TrimSpace(line), "{") {
+		return ""
+	}
+	var ev struct {
+		Type    string `json:"type"`
+		Model   string `json:"model"`
+		Message struct {
+			Model string `json:"model"`
+		} `json:"message"`
+	}
+	if json.Unmarshal([]byte(line), &ev) != nil || ev.Type == "" {
+		return ""
+	}
+	m := ev.Model
+	if m == "" && ev.Type == "assistant" {
+		m = ev.Message.Model
+	}
+	m = modelChars.ReplaceAllString(m, "")
+	if len(m) > 200 {
+		m = m[:200]
+	}
+	return m
+}

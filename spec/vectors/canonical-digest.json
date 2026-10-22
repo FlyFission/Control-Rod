@@ -134,6 +134,12 @@
       "pointer": "/a"
     },
     {
+      "name": "duplicate key hiding a fraction (first error in document order wins)",
+      "input": "{\"value\":42.5,\"value\":1}",
+      "error": "number",
+      "pointer": "/value"
+    },
+    {
       "name": "nesting past the depth limit",
       "input": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
       "error": "depth",

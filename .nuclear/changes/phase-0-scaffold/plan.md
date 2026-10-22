@@ -90,8 +90,8 @@ The AI agent works on branch `phase-0/scaffold` only, may run local builds and t
 |---|---|---|
 | Contracts compile | `tsp compile .` succeeds | pass |
 | API tests | 7 passed | pass |
-| Kernel tests and clippy | 5 passed (vector tests loop over all 29 cases); clippy clean with warnings as errors | pass |
-| Go and Python digests | 4 Go tests pass; 31 Python tests pass; ruff clean | pass |
+| Kernel tests and clippy | 5 passed (vector tests loop over all 30 cases); clippy clean with warnings as errors | pass |
+| Go and Python digests | 4 Go tests pass; 32 Python tests pass; ruff clean | pass |
 | License gates | Node, Rust and Go gates pass | pass |
 | Red-team catalog | Checker passes | pass |
 | Packet validates | `ng validate` passes | pass |

@@ -708,6 +708,12 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   const finished = { ...row.body, status: body.status === "succeeded" ? "succeeded" : "failed", finished_at: now(), label: "Done" };
   delete finished.lease_expires_at;
   if (body.error) finished.error = String(body.error).slice(0, 2000);
+  // A clean exit is not a deliverable. An author run that wrote nothing fails, and the package
+  // stays where it is.
+  if (finished.status === "succeeded" && row.role === "author" && outputs.length === 0) {
+    finished.status = "failed";
+    finished.error = "The author run ended without writing anything to out/, so the package does not move. Requeue the run, or return or reject the package.";
+  }
   if (body.trace) finished.trace = body.trace;
   validate(cfg, "Run.json", finished);
   await c.query("update runs set status = $2, body = $3 where id = $1", [runId, finished.status, finished]);

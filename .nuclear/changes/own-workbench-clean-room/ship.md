@@ -12,7 +12,7 @@
 
 - **Change slug:** `own-workbench-clean-room`
 - **Version / release / baseline:** ADR 0019 (Proposed); `docs/patterns/kandev.md` as of 2026-10-22
-- **PR / commit / artifact:** branch `docs/kandev-patterns` from `mvp/example-package` at `87d0f79`; not pushed
+- **PR / commit / artifact:** branch `docs/kandev-patterns` from `mvp/example-package` at `87d0f79`; pushed, pull request #4
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
 - **Intended release window:** merge after the owner's review.
@@ -29,12 +29,13 @@
 |---|---|---|---|
 | Risk classification | pass | `risk.md` | Standard mode |
 | Basis | pass | `basis.md` | Six protected outcomes |
-| Trace | gap | `trace.md` | C-002 passed after fixes (E-006) |
+| Trace | pass | `trace.md` | C-002 passed after fixes (E-006) and on rerun (E-007); C-007 added for note E |
 | Verification | pass | `verification.md` | Scans and validator pass; 24 code claims cited |
 | Dependency / supply chain | pass | `verification.md` | No dependency added |
 | AI-assisted work checks | pass | `verification.md` | Scope and actions recorded |
 | Evidence custody / coupling | gap | `verification.md` | Coupled on actor, context and resource for E-001 to E-005; E-006 partially separated |
-| Independent wording check | pass | `verification.md` E-006 | Findings fixed and rechecked |
+| Independent wording check | pass | `verification.md` E-006, E-007 | Findings fixed and rechecked; rerun clean after note E |
+| Observed behaviour (note E) | pass | `docs/patterns/kandev.md` section 10; `verification.md` E-008 | Folded in; N9 added, N2 extended |
 | Legal review of license reading | planned | ADR 0019 condition 6 | Blocks any commercial release; this merge can proceed without it |
 | Owner review | planned | pull request | Blocks merge |
 | Validator | pass | `verification.md#commands-evals-and-reviews` | Packet validates |
@@ -47,7 +48,8 @@
 | The wording check was run by an agent of the same family, and paraphrase below the 0.55 similarity threshold is not caught by the scripts. | Copied AGPL wording could slip in through the notes. | Rerun the check on any new note; owner skims section headings against the source on review. | Ben Huffer | On any new note. |
 | License facts are the readers' report. | The ADR's context could be wrong in detail. | Lawyer's review before any commercial release or integration. | Ben Huffer | Commercial release planning. |
 | Codex behaviour read from docs only. | N1 may need different flags on Ben's Mac. | Confirm with one real Codex run under N1's change record. | Ben Huffer | First Codex run. |
-| Observed-behaviour notes not folded in. | Documented behaviour may differ from real behaviour. | Section 10 marked pending; fold in on arrival. | Ben Huffer | E arrives. |
+| Observations came from a stand-in agent with no model. | Streaming, timing and output details may differ with real agents. | Accept; section 10.1 states the coverage and the gaps. Closed item: note E has arrived and is folded in. | Ben Huffer | A later observation with a real provider. |
+| The E-007 rerun was run by the agent that wrote section 10. | A paraphrase under the threshold could pass its own check. | Accept for a reversible doc change; the scripts are the E-006 reviewer's; owner skims section 10 on review. | Ben Huffer | Any change to section 10. |
 | Cited line numbers drift. | Later readers may find different lines. | Claims name commit `87d0f79`. | Ben Huffer | Any change to cited files. |
 
 ## Rollback / restore plan

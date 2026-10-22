@@ -15,7 +15,7 @@
 - **Related basis:** `basis.md`
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
-- **Verification scope:** claims C-001 to C-006 in `trace.md`.
+- **Verification scope:** claims C-001 to C-007 in `trace.md`.
 
 ## Evidence status legend
 
@@ -26,11 +26,12 @@ Use: `pass`, `fail`, `gap`, `deferred`, `not applicable`, `planned`.
 | Claim / requirement ID | Verification method | Acceptance criteria | Result status | Evidence link | Gap / follow-up |
 |---|---|---|---|---|---|
 | C-001 | Content review of ADR 0019 against the brief | Decision, six options with consequences, conditions for readers, builders and wording check, Ben's personal use, lawyer's review | pass | `docs/adr/0019-own-workbench-clean-room.md` | Ben's review. |
-| C-002 | Code-block scan; builder attestation; independent wording check | Zero code fences; builder never opened Kandev docs or source; independent check finds no copied wording | pass | `plan.md#proof-commands` | E-006 run; findings fixed and rechecked. |
-| C-003 | Read each cited line at `87d0f79` | Each claim has file and line and a status | pass | `docs/patterns/kandev.md` section 11.1 | Line numbers drift with later commits. |
-| C-004 | Cross-check Now against the claims table | Each Now item closes only claims marked confirmed; each names files and a trust-surface flag | pass | `docs/patterns/kandev.md` section 11.2 | None. |
+| C-002 | Code-block scan; builder attestation; independent wording check | Zero code fences; builder never opened Kandev docs or source; independent check finds no copied wording | pass | `plan.md#proof-commands` | E-006 run; findings fixed and rechecked; E-007 rerun after E was folded in. |
+| C-003 | Read each cited line at `87d0f79` | Each claim has file and line and a status | pass | `docs/patterns/kandev.md` section 11.1, K01 to K29 | Line numbers drift with later commits. |
+| C-004 | Cross-check Now against the claims table | Each Now item closes only claims marked confirmed; each names files and a trust-surface flag | pass | `docs/patterns/kandev.md` section 11.2 | N9 closes K08; the N2 addition closes K28; both confirmed. |
 | C-005 | Changed-path listing | Only `docs/` and this packet | pass | `git status --short` output below | None. |
 | C-006 | Text scan and read-through | No U+2014 or U+2013; contrast constructions rewritten | pass | `plan.md#proof-commands` | Read-through is the agent's own. |
+| C-007 | Content review of section 10 against note E; cited lines for K25 to K29 | Coverage and gaps stated; each observation names a pattern; new patterns in the file's format with source E; problems listed with lessons; each priority change has a reason | pass | `docs/patterns/kandev.md` sections 9, 10, 11 | Owner review. |
 
 ## Verification type guide
 
@@ -39,7 +40,7 @@ Use: `pass`, `fail`, `gap`, `deferred`, `not applicable`, `planned`.
 | Document review | C-001, C-004 |
 | Source inspection at file and line | C-003 |
 | Deterministic scans | C-002 (code blocks), C-005, C-006 |
-| Independent check | C-002 (E-006) |
+| Independent check | C-002 (E-006; E-007 reruns its scripts) |
 | Human review | Owner review |
 
 ## Evidence custody and coupling
@@ -55,6 +56,8 @@ One AI agent wrote every file, checked the code claims and ran the scans. This r
 | E-003 | C-003 | yes | Claims K01 to K24 with file and line at `87d0f79`, read with Read and grep in this session; Codex defaults from OpenAI's non-interactive docs fetched 2026-10-22 | AI agent (Claude) under owner direction | same agent | same agent chose which lines prove each claim | same agent summarized in the claims table | same agent read the sources | git branch `docs/kandev-patterns` | same agent | anyone can reread the cited lines; owner review planned |
 | E-004 | C-004 | yes | Now table N1 to N8 maps to K01 to K13 and K23, all confirmed | AI agent (Claude) under owner direction | same agent | same agent | same agent | same agent | git branch `docs/kandev-patterns` | same agent | owner review planned |
 | E-005 | C-005 / C-006 | yes | `git status --short` before commit: `M docs/README.md`, new `.nuclear/changes/own-workbench-clean-room/`, `docs/adr/0019-own-workbench-clean-room.md`, `docs/patterns/`; dash scan count 0 in all three new docs | AI agent (Claude) under owner direction | same agent | same agent | same agent | same agent ran the scans | this packet | same agent | owner review planned |
+| E-007 | C-002, C-006 | yes | After note E was folded in, the builder agent reran the reviewer's two scripts on `docs/patterns/kandev.md` against the source docs folder, which the builder did not open. `ngram.py`: "TOTAL RUNS: 0". `fuzzy.py` at the 0.55 threshold: 11 lines flagged, all outside section 10 (lines 174 to 539) and the same 11 short factual lines accepted under E-006; at a 0.45 threshold the highest section 10 line scores 0.49. No rewording was needed. The fuzzy script prints the matched source sentence beside each flagged line: the first baseline run, before E was folded in, showed the tail of that output (source sentences for already-accepted lines outside section 10); every later run was filtered to show line numbers and scores only. Dash and code-fence counts 0 and 0. | AI agent (Claude) under owner direction | builder agent | builder agent | none; outputs quoted as printed | builder agent ran the scripts | scratchpad `wordcheck/`; not committed | builder agent | not independent; scripts written by the E-006 reviewer |
+| E-008 | C-003, C-004, C-007 | yes | Note E read in full; section 10 written; five UX ideas merged into section 9; claims K25 to K29 read at `87d0f79` (`RunLog.tsx:15`, `api.tsp:136`, `office.ts:5`, `work.ts:111`, `:213-233`, `:803-821`, `:824`, `schema.ts:53-63`, `daemon.go:82-83`, `:190-199`, `live.ts:34`); N9 added and N2 extended, each with its reason in section 11.2. No screenshot was copied; none was opened. | AI agent (Claude) under owner direction | same agent | same agent | same agent | same agent | git branch `docs/kandev-patterns` | same agent | anyone can reread the cited lines; owner review planned |
 | E-006 | C-002 | yes | On 2026-10-22 a separate agent (Claude, own brief, did not write the file) compared all four files with Kandev's docs: 3 real 8-word runs and 7 close paraphrases in `kandev.md`, two factual errors (service account on reinstall; page count in ADR 0019), none in the ADR wording, README or this record. The orchestrating agent applied the reviewer's rewrites, reworded 9 further lines above 0.55 similarity, and reran the reviewer's scripts: 0 shared runs of 8 or more words; 11 lines between 0.55 and 0.58, all short factual statements judged acceptable; 13 of 13 code citations matched. | AI agent (Claude) under owner direction | separate reviewer agent (Claude) | reviewer agent | reviewer agent; rewrites applied by the orchestrating agent | reviewer's scripts rerun by the orchestrating agent | scratchpad `wordcheck/` (ngram.py, fuzzy.py); not committed | reviewer agent | did not write the pattern file; same model family |
 
 ### Coupling profile
@@ -67,12 +70,14 @@ One AI agent wrote every file, checked the code claims and ran the scans. This r
 | E-004 | coupled: the change actor wrote both tables | coupled: same session | coupled: document cross-check | partially separated: the owner holds merge | coupled: one workspace | self-check | Admitted with owner review, per `ship.md#residual-risks-and-gaps`. |
 | E-005 | coupled: the change actor ran the scans | coupled: same session | partially separated: deterministic commands | partially separated: the owner holds merge | coupled: one workspace | self-check | Admitted, per `ship.md#residual-risks-and-gaps`. |
 | E-006 | partially separated: a different agent of the same family | separated: separate brief | separated: comparison with the source docs | partially separated: the owner holds merge | partially separated: same machine, separate scratch folder | independent reproduction | Run and passed after fixes; owner review remains. |
+| E-007 | coupled: the builder ran the scripts on its own text | coupled: same session | partially separated: deterministic scripts written by the E-006 reviewer | partially separated: the owner holds merge | coupled: one workspace | self-check | Admitted for the new section; paraphrase below the threshold is not caught, per `ship.md#residual-risks-and-gaps`. |
+| E-008 | coupled: the change actor wrote section 10 and chose the lines | coupled: same session | partially separated: claims cite lines in code the agent did not write | partially separated: the owner holds merge | coupled: one workspace | self-check | Admitted; reproducible at `87d0f79`, per `ship.md#residual-risks-and-gaps`. |
 
 - **Evidence pattern used:** source inspection at cited lines, deterministic scans, and a planned independent wording check.
 - **Verdict owner:** Ben Huffer.
 - **Apply-clearance owner:** Ben Huffer, by merging.
 - **Minimum profile required by the consequence:** disclosure plus reproducible citations plus an independent wording check plus owner review.
-- **Unmet separation carried into `ship.md`:** actor, context and resource axes are coupled for E-001 to E-005; E-006 is partially separated (same model family).
+- **Unmet separation carried into `ship.md`:** actor, context and resource axes are coupled for E-001 to E-005, E-007 and E-008; E-006 is partially separated (same model family).
 
 ## Commands, evals, and reviews
 
@@ -82,6 +87,8 @@ One AI agent wrote every file, checked the code claims and ran the scans. This r
 | Dashes | `grep -c` for U+2014 and U+2013 in the three new docs | Linux container | 0, 0, 0 | `plan.md#proof-commands` |
 | Changed paths | `git status --short` | git worktree `control-rod-patterns` | docs and packet only | E-005 |
 | Packet | `ng.py validate --strict-custody .nuclear/changes/own-workbench-clean-room` | Python 3 | `OK: .nuclear/changes/own-workbench-clean-room` | this packet |
+| Wording rerun, shared runs | `ngram.py <docs> docs/patterns/kandev.md` | Python 3, isolated mode | `TOTAL RUNS: 0` | E-007 |
+| Wording rerun, similarity | `fuzzy.py <docs> docs/patterns/kandev.md` | Python 3, isolated mode | 11 lines at 0.55 to 0.58, none in section 10; section 10 maximum 0.49 | E-007 |
 | Codex defaults | OpenAI non-interactive mode page | web, 2026-10-22 | `codex exec` read-only by default; Git repository required unless the check is skipped; `--sandbox workspace-write` allows edits | `docs/patterns/kandev.md` K07 |
 
 ## Negative / failure-mode checks
@@ -91,13 +98,14 @@ One AI agent wrote every file, checked the code claims and ran the scans. This r
 | A note claim about our code is false | Each claim read at file and line | One wrong (K14, challenges already single use), three partly true (K09, K12, K18) | `docs/patterns/kandev.md` section 11.1 |
 | A Now item rests on an unconfirmed claim | Cross-check | none found | E-004 |
 | Trust surface edited | Changed-path listing | none | E-005 |
+| The observer's claims about our code are false | Each read at file and line | One wrong (K25, the run log has no stop control), one partly true (K26, permission kind exists but is never raised), one already in place (K27) | E-008 |
 
 ## AI-assisted work checks
 
 - **AI scope:** the agent merged the notes, checked the code claims, and wrote the ADR, the pattern files and this packet under the owner's direction.
 - **Model/tool used:** Claude in a cloud workspace.
-- **Permissions/actions allowed:** read the note files and the repository; write in the worktree; fetch OpenAI's Codex docs; commit locally. No push, no Kandev docs or source.
-- **Independent checks performed:** E-006, the wording and accuracy check by a separate agent; its findings were fixed and its scripts rerun clean.
+- **Permissions/actions allowed:** read the note files and the repository; write in the worktree; fetch OpenAI's Codex docs; commit; push the branch to pull request #4 on the owner's instruction. No Kandev docs or source; observer screenshots stay out of the repository.
+- **Independent checks performed:** E-006, the wording and accuracy check by a separate agent; its findings were fixed and its scripts rerun clean, and rerun again after note E was folded in (E-007).
 - **Hallucination/slop screening:** every file and line cited in the claims table was read in this session.
 - **Human approval gates exercised:** the owner set the brief and holds merge.
 
@@ -106,7 +114,7 @@ One AI agent wrote every file, checked the code claims and ran the scans. This r
 - **Dependency review:** no dependency added. Kandev is used for ideas only.
 - **SBOM/provenance/build evidence:** not applicable; documentation only.
 - **Vulnerability/security review:** not applicable to this change; the build plan names security gaps (K04, K05) for their own change records.
-- **Revalidation trigger:** E-observed-behaviour arriving; any revision of the notes; a lawyer's advice; a Kandev license change.
+- **Revalidation trigger:** any revision of the notes or a new note; a lawyer's advice; a Kandev license change.
 
 ## Required links
 

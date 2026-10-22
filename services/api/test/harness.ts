@@ -1,5 +1,6 @@
 import { createHash, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -21,6 +22,14 @@ export const ORIGIN = "http://localhost:7300";
 export const RP_ID = "localhost";
 export const DAEMON_TOKEN = "test-daemon-token-0123456789";
 const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
+
+/** Directory of a system PostgreSQL's server binaries, if one is installed. */
+function systemPostgres(): string | null {
+  const base = "/usr/lib/postgresql";
+  if (!existsSync(base)) return null;
+  const versions = readdirSync(base).filter((v) => existsSync(join(base, v, "bin", "initdb"))).sort((a, b) => Number(b) - Number(a));
+  return versions[0] ? join(base, versions[0], "bin") : null;
+}
 
 export interface Harness {
   app: FastifyInstance;
@@ -55,6 +64,31 @@ export async function startHarness(): Promise<Harness> {
         const a = await openDbRaw(external);
         await a.query(`drop database if exists ${name}`);
         await a.end();
+      },
+    };
+  }
+  const system = systemPostgres();
+  if (system && process.getuid?.() !== 0) {
+    // CI runners ship PostgreSQL binaries; start a throwaway cluster with them.
+    const dir = mkdtempSync(join(tmpdir(), "cr-pg-"));
+    const port = 20000 + Math.floor(Math.random() * 20000);
+    execFileSync(join(system, "initdb"), ["-D", dir, "-U", "controlrod", "--auth=trust", "-E", "UTF8"], { stdio: "ignore" });
+    execFileSync(join(system, "pg_ctl"), ["-D", dir, "-o", `-p ${port} -k ${dir} -c listen_addresses=127.0.0.1`, "-w", "start"], { stdio: "ignore" });
+    const db = await openDb(`postgres://controlrod@127.0.0.1:${port}/postgres`);
+    const app = buildApp({
+      db,
+      root,
+      auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN) },
+    });
+    await app.ready();
+    return {
+      app,
+      db,
+      async stop() {
+        await app.close();
+        await db.end();
+        execFileSync(join(system, "pg_ctl"), ["-D", dir, "-m", "fast", "-w", "stop"], { stdio: "ignore" });
+        rmSync(dir, { recursive: true, force: true });
       },
     };
   }

@@ -145,12 +145,12 @@ class Metrics:
     def wrap(self, text: str, height: float, width: float, indent: str = "") -> list[str]:
         lines, cur = [], ""
         for word in text.split():
-            trial = f"{cur} {word}".strip()
+            trial = f"{cur} {word}" if cur else word
             if cur and self.width(trial, height) > width:
                 lines.append(cur)
                 cur = indent + word
             else:
-                cur = trial if not cur else f"{cur} {word}"
+                cur = trial
         if cur:
             lines.append(cur)
         if any(self.width(line, height) > width for line in lines):
@@ -183,7 +183,9 @@ def measure(cli: str, font: str, text: str, height: float, width: float) -> floa
         cad.close()
 
 
-def render(cli: str, tpl: dict, rec: dict, outdir: Path) -> dict:
+def render(cli: str, tpl: dict, rec: dict, outdir: Path, draw=None) -> dict:
+    """Renders the sheet. `draw(cad, area)` may add content to the drawing area, where
+    area is (x0, y0, x1, y1) in sheet inches left of the right-hand column."""
     check_record(tpl, rec)
     W, H, m = (d(tpl["sheet"][k]) for k in ("width", "height", "margin"))
     cw = d(tpl["rightColumn"]["width"])
@@ -355,6 +357,9 @@ def render(cli: str, tpl: dict, rec: dict, outdir: Path) -> dict:
             y -= hh * 1.6
             cad.ex("mtext", {"at": [cx + pad, y], "text": body, "height": th, "width": width * 2})
             y -= bh + gap
+
+        if draw is not None:
+            draw(cad, (m, m, cx, H - m))
 
         outdir.mkdir(parents=True, exist_ok=True)
         stem = rec["titleBlock"]["DWGNO"]

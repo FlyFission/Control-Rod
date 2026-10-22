@@ -493,55 +493,70 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   return { run, package: { ...pkg.body, status: pkg.status }, inputs, ...(findings ? { findings } : {}) };
 }
 
+const CLAIM_PAGE = 50;
+
 /** The daemon asks for work. Only runs whose package is ready are handed out. */
 export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
   return tx(db, async (c) => {
-    const queued = await c.query<{ id: string; role: string; package_id: string; package_revision: number; round: number; body: Json }>(
-      "select * from runs where status = 'queued' order by created_at for update skip locked limit 50",
-    );
-    for (const row of queued.rows) {
-      if (row.role !== "intake") {
-        const pkg = await currentPackage(c, row.package_id, true);
-        if (!pkg || pkg.revision !== row.package_revision) {
-          await c.query("update runs set status = 'stopped' where id = $1", [row.id]);
-          continue;
-        }
-        if (row.role === "author") {
-          if (pkg.status === "released") {
-            if (!(await dependenciesReady(c, pkg.body)).ready) continue;
-          } else if (pkg.status !== "in-work") continue;
-        }
-        let runtime: string | null;
-        if (row.role === "pre-check") {
-          if (pkg.status !== "in-verification") continue;
-          const a = await latestAuthorRun(c, pkg.id, pkg.revision);
-          const authorRuntime = runtimeName(a?.body.runtime?.provider);
-          runtime = pickChecker(runtimes, authorRuntime, verifiedOverride(row.body));
-          if (!runtime && runtimes.includes(authorRuntime) && !row.body.waiting_reason) {
-            // Held, not skipped silently: say why on the run and in the office, once.
-            const held = { ...row.body, waiting_reason: WAITING_FOR_INDEPENDENT_RUNTIME };
-            validate(cfg, "Run.json", held);
-            await c.query("update runs set body = $2 where id = $1", [row.id, held]);
-            await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: pkg.id, role: row.role, reason: held.waiting_reason, author_runtime: authorRuntime });
+    // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
+    // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
+    let cursor: { at: string; id: string } | null = null;
+    for (;;) {
+      const queued: { rows: { id: string; role: string; package_id: string; package_revision: number; round: number; body: Json; created_key: string }[] } =
+        await c.query(
+          cursor
+            ? "select *, created_at::text as created_key from runs where status = 'queued' and (created_at, id) > ($2::timestamptz, $3) order by created_at, id for update skip locked limit $1"
+            : "select *, created_at::text as created_key from runs where status = 'queued' order by created_at, id for update skip locked limit $1",
+          cursor ? [CLAIM_PAGE, cursor.at, cursor.id] : [CLAIM_PAGE],
+        );
+      if (queued.rows.length === 0) break;
+      const last = queued.rows[queued.rows.length - 1];
+      // The key is the timestamp as text, at full microsecond precision; a JS Date would round it.
+      if (last) cursor = { at: last.created_key, id: last.id };
+      for (const row of queued.rows) {
+        if (row.role !== "intake") {
+          const pkg = await currentPackage(c, row.package_id, true);
+          if (!pkg || pkg.revision !== row.package_revision) {
+            await c.query("update runs set status = 'stopped' where id = $1", [row.id]);
+            continue;
           }
-        } else {
-          runtime = pickRuntime(runtimes);
+          if (row.role === "author") {
+            if (pkg.status === "released") {
+              if (!(await dependenciesReady(c, pkg.body)).ready) continue;
+            } else if (pkg.status !== "in-work") continue;
+          }
+          let runtime: string | null;
+          if (row.role === "pre-check") {
+            if (pkg.status !== "in-verification") continue;
+            const a = await latestAuthorRun(c, pkg.id, pkg.revision);
+            const authorRuntime = runtimeName(a?.body.runtime?.provider);
+            runtime = pickChecker(runtimes, authorRuntime, verifiedOverride(row.body));
+            if (!runtime && runtimes.includes(authorRuntime) && !row.body.waiting_reason) {
+              // Held, not skipped silently: say why on the run and in the office, once.
+              const held = { ...row.body, waiting_reason: WAITING_FOR_INDEPENDENT_RUNTIME };
+              validate(cfg, "Run.json", held);
+              await c.query("update runs set body = $2 where id = $1", [row.id, held]);
+              await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: pkg.id, role: row.role, reason: held.waiting_reason, author_runtime: authorRuntime });
+            }
+          } else {
+            runtime = pickRuntime(runtimes);
+          }
+          if (!runtime) continue;
+          const baseline = `${row.role === "pre-check" ? "checker" : "author"}-${runtime}`;
+          if (row.role === "author" && pkg.status === "released") {
+            const next = kernel(
+              decide({ status: pkg.status, action: "claim", actor_kind: "agent", actor_id: baseline }),
+              "claim",
+            );
+            await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
+            await appendEvent(c, "package.claimed", pkg.id, { kind: "agent", id: baseline }, { revision: pkg.revision, status: next });
+          }
+          return startRun(c, cfg, row, runtime, baseline);
         }
+        const runtime = pickRuntime(runtimes);
         if (!runtime) continue;
-        const baseline = `${row.role === "pre-check" ? "checker" : "author"}-${runtime}`;
-        if (row.role === "author" && pkg.status === "released") {
-          const next = kernel(
-            decide({ status: pkg.status, action: "claim", actor_kind: "agent", actor_id: baseline }),
-            "claim",
-          );
-          await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
-          await appendEvent(c, "package.claimed", pkg.id, { kind: "agent", id: baseline }, { revision: pkg.revision, status: next });
-        }
-        return startRun(c, cfg, row, runtime, baseline);
+        return startRun(c, cfg, row, runtime, `intake-${runtime}`);
       }
-      const runtime = pickRuntime(runtimes);
-      if (!runtime) continue;
-      return startRun(c, cfg, row, runtime, `intake-${runtime}`);
     }
     return null;
   });

@@ -23,7 +23,7 @@ export function OutputItem({ packageId, artifact }: { packageId: string; artifac
         </a>
         <span className="muted small mono">{shortDigest(artifact.digest)}</span>
       </div>
-      {open && <Preview href={href} name={name} />}
+      {open && <Preview href={`${href}?d=${artifact.digest.value}`} name={name} />}
     </li>
   );
 }

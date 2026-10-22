@@ -457,6 +457,12 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
     for (const o of ar ? await outputsOf(c, ar.id) : []) inputs.push(file(`deps/${dep}/${o.name}`, o.bytes));
   }
   inputs.push(...(await attachmentsFor(c, pkg.capture_id)));
+  // The person's own words, so authors use them and pre-checkers can trace values to them.
+  if (pkg.capture_id) {
+    const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [pkg.capture_id]);
+    const text = cap.rows[0]?.body?.text;
+    if (typeof text === "string") inputs.push(file("CAPTURE.md", text));
+  }
   inputs.push(file("PACKAGE.json", JSON.stringify({ ...pkg.body, status: pkg.status }, null, 2)));
   const own = findRoleIn(cfg, role) ?? findRoleIn(cfg, "general-author");
   // The role's own pack ships its templates, typicals and examples to author and pre-check alike.
@@ -1029,7 +1035,8 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
     await appendEvent(c, "capture.answered", capture.id, agent);
     return;
   }
-  const prefix = capture.id.slice(2, 6).toUpperCase();
+  // The whole capture id, so two requests never map a stable local id to the same package.
+  const prefix = capture.id.slice(2).toUpperCase();
   const idMap = new Map<string, string>();
   for (const d of drafts) idMap.set(String(d.id), `${prefix}-${String(d.id).replace(/[^A-Za-z0-9-]/g, "").slice(0, 40)}`);
   const created: string[] = [];

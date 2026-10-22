@@ -746,3 +746,16 @@ describe("claim scan", () => {
     if (job) await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
   });
 });
+
+describe("package run inputs", () => {
+  it("gives authors the person's own words and keeps package ids distinct across captures", async () => {
+    const id = await releasedPackage("WORDS1");
+    const job = await claim();
+    if (!job) throw new Error("no author job");
+    expect(job.run.package_id).toBe(id);
+    expect(input(job, "CAPTURE.md")).toBe("Make WORDS1");
+    // The whole capture id is the namespace: C-xxxxxxxx gives an 8-character prefix.
+    expect(id).toMatch(/^[0-9A-F]{8}-WORDS1$/);
+    await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
+  });
+});

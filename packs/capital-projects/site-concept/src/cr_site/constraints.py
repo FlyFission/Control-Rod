@@ -359,6 +359,7 @@ class Screen:
     def roads(self) -> None:
         s = SOURCES["census_roads"]
         found = []
+        truncated = False
         for name, layer in s["layers"].items():
             url = f"{s['url']}/{layer}/query"
             data, cite = self.fetcher.get_json(
@@ -367,9 +368,20 @@ class Screen:
             if data is None:
                 self.hold("road", f"TIGERweb {name} roads query failed", cite)
                 continue
+            if _truncated(data):
+                # A first page only: the nearest road could be on a page not returned.
+                self.hold(
+                    "road",
+                    f"TIGERweb {name} roads hit its record limit; nearest road not certain",
+                    cite,
+                )
+                truncated = True
+                continue
             for geom, attrs in features(data):
                 gm = self.frame.to_m(geom)
                 found.append((gm.distance(self.parcel_m), gm, attrs, cite, name))
+        if truncated:
+            return
         if not found:
             if not any(h["topic"] == "road" for h in self.holds):
                 self.hold(

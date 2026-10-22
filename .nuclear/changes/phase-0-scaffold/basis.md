@@ -26,7 +26,7 @@ Control Rod's value rests on records that every component reads the same way and
 | Protected outcome | Why it matters | Evidence needed |
 |---|---|---|
 | A record that breaks the contract is refused at the API boundary. | Malformed or padded records would carry unchecked claims into the system. | API tests for missing required fields, floats, bad enums and unknown fields at the top level and nested. |
-| The same record gives the same digest in Rust, Go and Python. | Signatures and evidence bind to digests; a cross-language mismatch breaks verification. | All 30 shared vectors in `spec/vectors/canonical-digest.json` passing in all three languages. |
+| The same record gives the same digest in Rust, Go and Python. | Signatures and evidence bind to digests; a cross-language mismatch breaks verification. | All 31 shared vectors in `spec/vectors/canonical-digest.json` passing in all three languages. |
 | Engineering values are never floats. | Floats lose precision silently; Control Rod requires decimal strings with units. | Float refusal tests in the API and in all three digests. |
 | The kernel refuses by default. | A decision type that allows by default would make every later bug an approval. | Kernel tests: undecided requests deny; denials never allow; `allow` is crate-private. |
 | Shipped code carries permissive licenses only. | Copyleft or source-available code would break the open-core license plan. | Node, Rust and Go license gates passing. |

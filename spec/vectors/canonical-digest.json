@@ -161,8 +161,13 @@
       "error": "invalid_json"
     },
     {
-      "name": "lone surrogate",
+      "name": "lone surrogate in a value",
       "input": "{\"s\":\"\\ud800\"}",
+      "error": "invalid_json"
+    },
+    {
+      "name": "lone surrogate in a key",
+      "input": "{\"\\ud800\":1}",
       "error": "invalid_json"
     },
     {

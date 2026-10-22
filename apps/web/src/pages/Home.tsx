@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { api } from "../api/client.js";
-import type { Capture, CrEvent, Metrics } from "../api/types.js";
+import type { CaptureView, CrEvent, Metrics } from "../api/types.js";
 import { CaptureBox } from "../components/CaptureBox.js";
 import { StateMark } from "../components/StateMark.js";
 import { LAST_SEEN_KEY, readNumber, writeNumber } from "../lib/storage.js";
@@ -56,9 +56,26 @@ function RecentCaptures() {
   );
 }
 
-function CaptureRow({ c }: { c: Capture }) {
+/** Intake states the owner can recover from with a retry. */
+const RETRYABLE = new Set(["failed", "lost", "stopped"]);
+
+function CaptureRow({ c }: { c: CaptureView }) {
   const disposition = c.disposition ?? "pending";
   const shown = splitAttachments(c.text);
+  const qc = useQueryClient();
+  const [retry, setRetry] = useState<"idle" | "busy" | "error">("idle");
+  const intake = c.intake;
+  async function requeue() {
+    if (!intake) return;
+    setRetry("busy");
+    try {
+      await api.requeueRun(c.id, intake.run_id);
+      setRetry("idle");
+      void qc.invalidateQueries({ queryKey: ["captures"] });
+    } catch {
+      setRetry("error");
+    }
+  }
   return (
     <li className="capture-row">
       <div className="capture-head">
@@ -66,6 +83,18 @@ function CaptureRow({ c }: { c: Capture }) {
         <span className="muted small">{time(c.created_at)}</span>
       </div>
       {shown.text.length > 0 && <p className="capture-text">{shown.text}</p>}
+      {disposition === "pending" && intake !== undefined && RETRYABLE.has(intake.status) && (
+        <div className="capture-intake" role="alert">
+          <span>
+            Intake {intake.status}
+            {intake.error ? `: ${intake.error}` : ""}
+          </span>{" "}
+          <button type="button" className="btn small" onClick={() => void requeue()} disabled={retry === "busy"}>
+            Retry intake
+          </button>
+          {retry === "error" && <span className="error small"> Could not retry.</span>}
+        </div>
+      )}
       {shown.files.length > 0 && (
         <p className="capture-files">
           {shown.files.map((f) => (

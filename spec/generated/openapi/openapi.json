@@ -7,6 +7,538 @@
   },
   "tags": [],
   "paths": {
+    "/auth/login/options": {
+      "post": {
+        "operationId": "Auth_loginOptions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Auth.Options"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login/verify": {
+      "post": {
+        "operationId": "Auth_loginVerify",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Auth.Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "Auth_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Auth.Session"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register/options": {
+      "post": {
+        "operationId": "Auth_registerOptions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Auth.Options"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register/verify": {
+      "post": {
+        "operationId": "Auth_registerVerify",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Auth.Session"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/session": {
+      "get": {
+        "operationId": "Auth_session",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Auth.Session"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/captures": {
+      "get": {
+        "operationId": "Captures_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ControlRod.Records.Capture"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "Captures_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Capture"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Captures.NewCapture"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "operationId": "Events_list",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ControlRod.Records.Event"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/stream": {
+      "get": {
+        "operationId": "Events_stream",
+        "description": "Server-sent events: one `event` message per appended entry.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/verify": {
+      "get": {
+        "operationId": "Events_verify",
+        "description": "Recomputes the hash chain and reports the first broken link, if any.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "broken_at": {
+                      "type": "integer",
+                      "format": "int32"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "count"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "operationId": "health",
@@ -18,6 +550,45 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "metrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Metrics"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/office": {
+      "get": {
+        "operationId": "office",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OfficeItem"
+                  }
                 }
               }
             }
@@ -44,42 +615,6 @@
             }
           }
         }
-      },
-      "post": {
-        "operationId": "Packages_create",
-        "parameters": [],
-        "responses": {
-          "201": {
-            "description": "The request has succeeded and a new resource has been created as a result.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The server could not understand the request due to invalid syntax.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
-              }
-            }
-          }
-        }
       }
     },
     "/packages/{id}": {
@@ -101,7 +636,37 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
+                  "$ref": "#/components/schemas/PackageView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -113,6 +678,760 @@
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
                 }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "Packages_update",
+        "description": "Edit a draft. Released revisions are never edited; return them to make a new draft.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/decisions": {
+      "post": {
+        "operationId": "Packages_decide",
+        "description": "Step 2: the signed decision. The kernel decides whether it is allowed.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "$ref": "#/components/schemas/ControlRod.Records.DecisionKind"
+                  },
+                  "package_revision": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "assertion": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "kind",
+                  "package_revision",
+                  "assertion"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/decisions/options": {
+      "post": {
+        "operationId": "Packages_decisionOptions",
+        "description": "Step 1: the server returns the digest to sign and a WebAuthn challenge derived from it.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subject_digest": {
+                      "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "subject_digest",
+                    "options"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Packages.DecisionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/outputs/{name}": {
+      "get": {
+        "operationId": "Packages_output",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "contentMediaType": "*/*"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/runs/{runId}/log": {
+      "get": {
+        "operationId": "Packages_runLog",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "lines"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runner/claim": {
+      "post": {
+        "operationId": "Runner_claim",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Runner.Job"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "There is no content to send for this request, but the headers may be useful. "
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "runtimes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "runtimes"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runner/runs/{id}/complete": {
+      "post": {
+        "operationId": "Runner_complete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "There is no content to send for this request, but the headers may be useful. "
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Runner.Completion"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runner/runs/{id}/log": {
+      "post": {
+        "operationId": "Runner_log",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "There is no content to send for this request, but the headers may be useful. "
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "lines"
+                ]
               }
             }
           }
@@ -137,6 +1456,80 @@
           }
         }
       },
+      "Auth.Options": {
+        "type": "object",
+        "required": [
+          "options"
+        ],
+        "properties": {
+          "options": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "description": "WebAuthn options as JSON, passed straight to the browser API."
+      },
+      "Auth.Session": {
+        "type": "object",
+        "required": [
+          "registered",
+          "signed_in"
+        ],
+        "properties": {
+          "registered": {
+            "type": "boolean"
+          },
+          "signed_in": {
+            "type": "boolean"
+          },
+          "user": {
+            "type": "string"
+          }
+        }
+      },
+      "Captures.NewCapture": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "web",
+              "cli",
+              "voice",
+              "chat"
+            ]
+          }
+        }
+      },
+      "ControlRod.Records.Actor": {
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "human",
+              "agent",
+              "system"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "description": "Who acted. Agents and the system can never hold a human decision right."
+      },
       "ControlRod.Records.AgentAssignment": {
         "type": "object",
         "required": [
@@ -156,6 +1549,22 @@
             "format": "int32"
           }
         }
+      },
+      "ControlRod.Records.Artifact": {
+        "type": "object",
+        "required": [
+          "path",
+          "digest"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        },
+        "description": "A file and its digest."
       },
       "ControlRod.Records.Assumption": {
         "type": "object",
@@ -184,6 +1593,63 @@
           }
         }
       },
+      "ControlRod.Records.Capture": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "id",
+          "text",
+          "source",
+          "created_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "web",
+              "cli",
+              "voice",
+              "chat"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "answered",
+              "package"
+            ],
+            "description": "Intake either answers a quick question directly or drafts a work package."
+          },
+          "answer": {
+            "type": "string",
+            "maxLength": 20000,
+            "description": "The direct answer for a quick question. No package, check or approval."
+          },
+          "package_id": {
+            "type": "string"
+          }
+        },
+        "description": "Something a person said they want done, before intake turns it into a package."
+      },
       "ControlRod.Records.CodeOrStandard": {
         "type": "object",
         "required": [
@@ -205,6 +1671,66 @@
           }
         }
       },
+      "ControlRod.Records.Coupling": {
+        "type": "string",
+        "enum": [
+          "independent",
+          "shared",
+          "coupled",
+          "unknown"
+        ],
+        "description": "Independence of one axis of the actor and evidence coupling profile."
+      },
+      "ControlRod.Records.CouplingProfile": {
+        "type": "object",
+        "required": [
+          "actor",
+          "context",
+          "mechanism",
+          "authority",
+          "resource"
+        ],
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/ControlRod.Records.Coupling"
+          },
+          "context": {
+            "$ref": "#/components/schemas/ControlRod.Records.Coupling"
+          },
+          "mechanism": {
+            "$ref": "#/components/schemas/ControlRod.Records.Coupling"
+          },
+          "authority": {
+            "$ref": "#/components/schemas/ControlRod.Records.Coupling"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ControlRod.Records.Coupling"
+          }
+        }
+      },
+      "ControlRod.Records.Custody": {
+        "type": "object",
+        "required": [
+          "generated_by",
+          "selected_by",
+          "presented_by",
+          "coupling"
+        ],
+        "properties": {
+          "generated_by": {
+            "type": "string"
+          },
+          "selected_by": {
+            "type": "string"
+          },
+          "presented_by": {
+            "type": "string"
+          },
+          "coupling": {
+            "$ref": "#/components/schemas/ControlRod.Records.CouplingProfile"
+          }
+        }
+      },
       "ControlRod.Records.DataLane": {
         "type": "string",
         "enum": [
@@ -215,6 +1741,71 @@
           "restricted"
         ],
         "description": "Data handling class. Decides runtimes, egress, storage and transcription."
+      },
+      "ControlRod.Records.Decision": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "id",
+          "package_id",
+          "package_revision",
+          "kind",
+          "actor",
+          "subject_digest",
+          "assertion",
+          "decided_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ControlRod.Records.DecisionKind"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/ControlRod.Records.Actor"
+          },
+          "subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Digest of the package revision, output and pre-check record the person reviewed."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "A person's decision on one package revision. Bound to the digest of what they saw."
+      },
+      "ControlRod.Records.DecisionKind": {
+        "type": "string",
+        "enum": [
+          "release",
+          "accept",
+          "accept-with-findings",
+          "return",
+          "reject"
+        ]
       },
       "ControlRod.Records.Deliverable": {
         "type": "object",
@@ -259,6 +1850,195 @@
           }
         },
         "description": "A controlled document this package relies on, by reference and revision."
+      },
+      "ControlRod.Records.Digest": {
+        "type": "object",
+        "required": [
+          "algorithm",
+          "value"
+        ],
+        "properties": {
+          "algorithm": {
+            "type": "string",
+            "enum": [
+              "sha256",
+              "sha384"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}([0-9a-f]{32})?$"
+          }
+        },
+        "description": "A content digest."
+      },
+      "ControlRod.Records.Event": {
+        "type": "object",
+        "required": [
+          "seq",
+          "at",
+          "type",
+          "subject",
+          "actor",
+          "digest"
+        ],
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/ControlRod.Records.Actor"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "prev": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        },
+        "description": "One entry in the append-only event log. Each entry carries the digest of the one before."
+      },
+      "ControlRod.Records.EvidenceItem": {
+        "type": "object",
+        "required": [
+          "claim",
+          "status",
+          "custody"
+        ],
+        "properties": {
+          "claim": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "deferred",
+              "open"
+            ]
+          },
+          "artifact": {
+            "$ref": "#/components/schemas/ControlRod.Records.Artifact"
+          },
+          "custody": {
+            "$ref": "#/components/schemas/ControlRod.Records.Custody"
+          }
+        }
+      },
+      "ControlRod.Records.ExecutionTrace": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "run_id",
+          "package_id",
+          "package_revision",
+          "agent_baseline",
+          "baseline_revision",
+          "tool",
+          "inputs",
+          "outputs",
+          "started_at",
+          "finished_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "agent_baseline": {
+            "type": "string"
+          },
+          "baseline_revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tool": {
+            "$ref": "#/components/schemas/ControlRod.Records.ToolRef"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Artifact"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Artifact"
+            }
+          },
+          "environment": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "Proof of where outputs came from. Recorded by the runner, never by the agent."
+      },
+      "ControlRod.Records.Finding": {
+        "type": "object",
+        "required": [
+          "id",
+          "severity",
+          "text"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "minor",
+              "major",
+              "critical"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "resolution": {
+            "type": "string"
+          }
+        }
       },
       "ControlRod.Records.InterfaceConsume": {
         "type": "object",
@@ -349,10 +2129,11 @@
       "ControlRod.Records.Mode": {
         "type": "string",
         "enum": [
+          "general",
           "software",
           "capital-projects"
         ],
-        "description": "Kind of work a project does."
+        "description": "Kind of work a project does. General is the base layer with no domain pack."
       },
       "ControlRod.Records.PackageStatus": {
         "type": "string",
@@ -364,6 +2145,30 @@
           "accepted",
           "closed"
         ]
+      },
+      "ControlRod.Records.PasskeyAssertion": {
+        "type": "object",
+        "required": [
+          "credential_id",
+          "authenticator_data",
+          "client_data_json",
+          "signature"
+        ],
+        "properties": {
+          "credential_id": {
+            "type": "string"
+          },
+          "authenticator_data": {
+            "type": "string"
+          },
+          "client_data_json": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        },
+        "description": "A WebAuthn assertion over the decision digest, made by the person's own authenticator."
       },
       "ControlRod.Records.Quantity": {
         "type": "object",
@@ -413,6 +2218,124 @@
         ],
         "description": "Graded rigor: how much control a package requires."
       },
+      "ControlRod.Records.Run": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "id",
+          "package_id",
+          "package_revision",
+          "role",
+          "agent_baseline",
+          "runtime",
+          "round",
+          "status",
+          "queued_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "role": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunRole"
+          },
+          "agent_baseline": {
+            "type": "string"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/ControlRod.Records.RuntimeRef"
+          },
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "description": "Author and pre-check rounds start at 1; round 3 escalates a dispute to a person."
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunStatus"
+          },
+          "queued_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Short label the runner writes for the office view. Never raw model text."
+          },
+          "error": {
+            "type": "string"
+          },
+          "trace": {
+            "$ref": "#/components/schemas/ControlRod.Records.ExecutionTrace"
+          }
+        },
+        "description": "One agent session working on one package revision in one role."
+      },
+      "ControlRod.Records.RunRole": {
+        "type": "string",
+        "enum": [
+          "intake",
+          "author",
+          "pre-check"
+        ]
+      },
+      "ControlRod.Records.RunStatus": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed",
+          "stopped"
+        ]
+      },
+      "ControlRod.Records.RuntimeRef": {
+        "type": "object",
+        "required": [
+          "kind",
+          "provider",
+          "model"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "subscription",
+              "account",
+              "local"
+            ]
+          },
+          "provider": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          }
+        }
+      },
       "ControlRod.Records.ToolRef": {
         "type": "object",
         "required": [
@@ -448,6 +2371,7 @@
             "type": "string",
             "enum": [
               "test-suite",
+              "agent-pre-check",
               "independent-review",
               "design-review",
               "alternate-calculation",
@@ -468,6 +2392,73 @@
             "$ref": "#/components/schemas/ControlRod.Records.RequiredCustody"
           }
         }
+      },
+      "ControlRod.Records.VerificationRecord": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "package_id",
+          "package_revision",
+          "output",
+          "method",
+          "verifier",
+          "evidence",
+          "findings",
+          "outcome"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "output": {
+            "$ref": "#/components/schemas/ControlRod.Records.Artifact"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "test-suite",
+              "agent-pre-check",
+              "independent-review",
+              "design-review",
+              "alternate-calculation",
+              "qualification-test"
+            ]
+          },
+          "verifier": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.EvidenceItem"
+            }
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Finding"
+            }
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive"
+            ]
+          }
+        },
+        "description": "Evidence that a result met its criteria. Inconclusive never counts as a pass."
       },
       "ControlRod.Records.WorkPackage": {
         "type": "object",
@@ -613,6 +2604,233 @@
           },
           "version": {
             "type": "string"
+          }
+        }
+      },
+      "Metrics": {
+        "type": "object",
+        "required": [
+          "packages_accepted",
+          "first_pass_accepted",
+          "findings_caught_before_review",
+          "quick_answers"
+        ],
+        "properties": {
+          "packages_accepted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "first_pass_accepted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "findings_caught_before_review": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Findings the pre-checker raised that the author fixed before you saw the work."
+          },
+          "median_review_minutes": {
+            "type": "string",
+            "description": "Median minutes from the work reaching your office to your decision."
+          },
+          "median_minutes_to_done": {
+            "type": "string",
+            "description": "Median minutes from capture to acceptance."
+          },
+          "quick_answers": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "Whether Control Rod earns its place: measured per accepted package."
+      },
+      "OfficeItem": {
+        "type": "object",
+        "required": [
+          "kind",
+          "package_id",
+          "package_revision",
+          "title",
+          "detail",
+          "since"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "release",
+              "accept",
+              "dispute",
+              "permission"
+            ]
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "title": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "One entry in your office: something that needs a person."
+      },
+      "PackageView": {
+        "type": "object",
+        "required": [
+          "package",
+          "runs",
+          "outputs",
+          "decisions",
+          "subject_digest"
+        ],
+        "properties": {
+          "package": {
+            "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Run"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Artifact"
+            }
+          },
+          "pre_check": {
+            "$ref": "#/components/schemas/ControlRod.Records.VerificationRecord"
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Decision"
+            }
+          },
+          "subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Digest a decision on this revision must be bound to."
+          }
+        },
+        "description": "What the web app shows for one package: the revision, its runs, output and decisions."
+      },
+      "Packages.DecisionRequest": {
+        "type": "object",
+        "required": [
+          "kind",
+          "package_revision"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ControlRod.Records.DecisionKind"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "Runner.Completion": {
+        "type": "object",
+        "required": [
+          "status",
+          "outputs"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "succeeded",
+              "failed"
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "trace": {
+            "$ref": "#/components/schemas/ControlRod.Records.ExecutionTrace"
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "content_base64": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "content_base64"
+              ]
+            }
+          },
+          "package": {
+            "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/ControlRod.Records.VerificationRecord"
+          }
+        }
+      },
+      "Runner.Job": {
+        "type": "object",
+        "required": [
+          "run",
+          "inputs"
+        ],
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/ControlRod.Records.Run"
+          },
+          "package": {
+            "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
+          },
+          "capture": {
+            "$ref": "#/components/schemas/ControlRod.Records.Capture"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "content_base64": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "content_base64"
+              ]
+            },
+            "description": "For a pre-check: only the deliverable and criteria, never the author's transcript."
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Finding"
+            }
           }
         }
       }

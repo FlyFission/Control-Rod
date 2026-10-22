@@ -3,8 +3,9 @@
     "$id": "Mode.json",
     "type": "string",
     "enum": [
+        "general",
         "software",
         "capital-projects"
     ],
-    "description": "Kind of work a project does."
+    "description": "Kind of work a project does. General is the base layer with no domain pack."
 }

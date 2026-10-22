@@ -11,8 +11,9 @@ using JsonSchema;
 @id("https://controlrod.dev/schemas/v0")
 namespace ControlRod.Records;
 
-/** Kind of work a project does. */
+/** Kind of work a project does. General is the base layer with no domain pack. */
 enum Mode {
+  general: "general",
   software: "software",
   capital_projects: "capital-projects",
 }
@@ -156,6 +157,7 @@ model RequiredCustody {
 model VerificationPlan {
   method:
     | "test-suite"
+    | "agent-pre-check"
     | "independent-review"
     | "design-review"
     | "alternate-calculation"

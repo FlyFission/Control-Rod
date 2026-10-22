@@ -1,0 +1,116 @@
+package runner
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+)
+
+// ErrNoWork means the control plane had nothing to hand out (HTTP 204).
+var ErrNoWork = errors.New("no work")
+
+// Client talks to the control plane runner API. The token is sent only in the Authorization
+// header and is never formatted into an error or a log line.
+type Client struct {
+	base  string
+	token string
+	http  *http.Client
+}
+
+// NewClient returns a client for the control plane at base.
+func NewClient(base, token string) *Client {
+	return &Client{base: strings.TrimRight(base, "/"), token: token, http: &http.Client{}}
+}
+
+func (c *Client) post(ctx context.Context, path string, body any, timeout time.Duration) (*http.Response, error) {
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("encode %s: %w", path, err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(buf))
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("request %s: %w", path, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("POST %s: %w", path, err)
+	}
+	resp.Body = &cancelOnClose{ReadCloser: resp.Body, cancel: cancel}
+	return resp, nil
+}
+
+type cancelOnClose struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (c *cancelOnClose) Close() error {
+	err := c.ReadCloser.Close()
+	c.cancel()
+	return err
+}
+
+func statusError(path string, resp *http.Response) error {
+	msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+	return fmt.Errorf("POST %s: HTTP %d: %s", path, resp.StatusCode, strings.TrimSpace(string(msg)))
+}
+
+// Claim asks for one job. It returns ErrNoWork on HTTP 204.
+func (c *Client) Claim(ctx context.Context, runtimes []string) (*Job, error) {
+	resp, err := c.post(ctx, "/runner/claim", map[string][]string{"runtimes": runtimes}, 30*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusNoContent:
+		return nil, ErrNoWork
+	case http.StatusOK, http.StatusCreated:
+		var job Job
+		if err := json.NewDecoder(resp.Body).Decode(&job); err != nil {
+			return nil, fmt.Errorf("decode job: %w", err)
+		}
+		return &job, nil
+	default:
+		return nil, statusError("/runner/claim", resp)
+	}
+}
+
+// Log sends a batch of raw log lines and the daemon's own label.
+func (c *Client) Log(ctx context.Context, runID string, batch LogBatch) error {
+	path := "/runner/runs/" + runID + "/log"
+	resp, err := c.post(ctx, path, batch, 30*time.Second)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return statusError(path, resp)
+	}
+	return nil
+}
+
+// Complete reports the end of a run with its outputs and trace.
+func (c *Client) Complete(ctx context.Context, runID string, comp Completion) error {
+	path := "/runner/runs/" + runID + "/complete"
+	resp, err := c.post(ctx, path, comp, 5*time.Minute)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode/100 != 2 {
+		return statusError(path, resp)
+	}
+	return nil
+}

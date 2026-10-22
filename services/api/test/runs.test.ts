@@ -718,3 +718,31 @@ describe("pack files and site briefs", () => {
     await asDaemon(`/runner/runs/${planCheck.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
   });
 });
+
+describe("claim scan", () => {
+  it("finds work queued behind more than a page of held runs", async () => {
+    const c = await asOwner("POST", "/captures", { text: "Make HELD1" });
+    expect(c.statusCode, c.body).toBe(201);
+    const intake = await claim();
+    if (!intake) throw new Error("no intake job");
+    await asDaemon(`/runner/runs/${intake.run.id}/complete`, {
+      status: "succeeded",
+      outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(draft("HELD1"))) }],
+    });
+    const id = ((await asOwner("GET", "/packages")).json() as { id: string }[]).find((p) => p.id.endsWith("-HELD1"))?.id;
+    if (!id) throw new Error("package not drafted");
+    // 60 pre-checks on a draft package: each is skipped (held), never claimed, and they are oldest.
+    for (let round = 1; round <= 60; round++) {
+      await h.db.query(
+        "insert into runs (id, package_id, package_revision, role, round, status, body, created_at) values ($1, $2, 0, 'pre-check', $3, 'queued', '{}'::jsonb, now() - interval '1 hour')",
+        [`R-held-${round}`, id, round],
+      );
+    }
+    const fresh = await asOwner("POST", "/captures", { text: "Answer after the held ones" });
+    expect(fresh.statusCode, fresh.body).toBe(201);
+    const job = await claim();
+    expect(job?.run.role).toBe("intake");
+    await h.db.query("update runs set status = 'stopped' where id like 'R-held-%'");
+    if (job) await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
+  });
+});

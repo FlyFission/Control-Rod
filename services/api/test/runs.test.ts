@@ -562,3 +562,62 @@ describe("runtime readiness", () => {
     await asDaemon(`/runner/runs/${ready.json().run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
   });
 });
+
+describe("review findings on #3", () => {
+  it("refuses decision options when the package changed after the person opened it", async () => {
+    const c = await asOwner("POST", "/captures", { text: "Make STALE1" });
+    expect(c.statusCode, c.body).toBe(201);
+    const job = await claim();
+    if (!job) throw new Error("no intake job");
+    await asDaemon(`/runner/runs/${job.run.id}/complete`, {
+      status: "succeeded",
+      outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(draft("STALE1"))) }],
+    });
+    const id = ((await asOwner("GET", "/packages")).json() as { id: string }[]).find((p) => p.id.endsWith("-STALE1"))?.id;
+    if (!id) throw new Error("package not drafted");
+    const shown = (await asOwner("GET", `/packages/${id}`)).json().subject_digest;
+    const stale = { algorithm: "sha256", value: "0".repeat(64) };
+    const refused = await asOwner("POST", `/packages/${id}/decisions/options`, { kind: "release", package_revision: 0, expected_subject_digest: stale });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().code).toBe("changed");
+    const ok = await asOwner("POST", `/packages/${id}/decisions/options`, { kind: "release", package_revision: 0, expected_subject_digest: shown });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json().subject_digest.value).toBe(shown.value);
+  });
+
+  it("drafts one package when intake sends the same draft as a file and as the package field", async () => {
+    const c = await asOwner("POST", "/captures", { text: "Make DUP1" });
+    expect(c.statusCode, c.body).toBe(201);
+    const job = await claim();
+    if (!job) throw new Error("no intake job");
+    const d = draft("DUP1");
+    const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
+      status: "succeeded",
+      outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(d)) }],
+      package: d,
+    });
+    expect(r.statusCode, r.body).toBeLessThan(300);
+    const matches = ((await asOwner("GET", "/packages")).json() as { id: string }[]).filter((p) => p.id.endsWith("-DUP1"));
+    expect(matches).toHaveLength(1);
+  });
+
+  it("serves an output stored under a subfolder by its full name", async () => {
+    const id = await releasedPackage("SUBDIR1");
+    const job = await claim();
+    if (!job) throw new Error("no author job");
+    expect(job.run.package_id).toBe(id);
+    const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
+      status: "succeeded",
+      outputs: [
+        { name: "reports/summary.md", content_base64: b64("# Nested") },
+        { name: "summary.md", content_base64: b64("# Root") },
+      ],
+    });
+    expect(r.statusCode, r.body).toBeLessThan(300);
+    const nested = await asOwner("GET", `/packages/${id}/outputs/reports/summary.md`);
+    expect(nested.statusCode, nested.body).toBe(200);
+    expect(nested.body).toBe("# Nested");
+    const encoded = await asOwner("GET", `/packages/${id}/outputs/${encodeURIComponent("reports")}/${encodeURIComponent("summary.md")}`);
+    expect(encoded.body).toBe("# Nested");
+  });
+});

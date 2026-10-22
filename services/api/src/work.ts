@@ -966,7 +966,9 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
       }
     }
   }
-  if (body.package) drafts.push(body.package);
+  // The daemon also sends out/package.json as body.package; use it only when no output file
+  // already carried a draft, so one draft is never inserted twice.
+  if (body.package && drafts.length === 0) drafts.push(body.package);
   if (drafts.length === 0) {
     if (!answer) throw new Refusal(400, "invalid", "Intake produced neither an answer nor a package");
     const updated = { ...capture, disposition: "answered", answer: answer.bytes.toString("utf8").slice(0, 20000) };

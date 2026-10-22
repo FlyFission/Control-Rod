@@ -35,7 +35,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
     setDone(null);
     try {
       const { decision } = await decide(
-        { packageId: pkg.id, revision: pkg.revision, kind, ...(reason.trim().length > 0 ? { reason } : {}) },
+        { packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, ...(reason.trim().length > 0 ? { reason } : {}) },
         passkeys,
       );
       setDone(`${label(decision.kind)} recorded.`);
@@ -83,7 +83,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
       {pending !== null && (
         <div className="reason">
           <label className="field">
-            <span>{pending === "return" ? "Direction for the next revision" : "Why accept with these findings"}</span>
+            <span>{pending === "return" ? "Direction for the next revision" : pending === "reject" ? "Why reject this package" : "Why accept with these findings"}</span>
             <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
           <div className="decide-buttons">

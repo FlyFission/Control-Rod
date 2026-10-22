@@ -83,6 +83,7 @@ The contracts, kernel, control plane, daemon, web app, site pack, tests and this
 | E-013 | C-019 / C-024 / C-025 | yes | Control plane suite at `ed707de` against a throwaway system PostgreSQL cluster run as a non-root user: 2 files, 31 passed, with the virtual authenticator for the override | AI agent (Claude) under owner direction | same agent | same agent | same agent | same agent | git branch `mvp/site-concept` (tests) | same agent | real Postgres and a real WebAuthn library; owner review planned |
 | E-014 | C-024 | yes | `go test -count=1 -v ./...` in `daemon/` at `ed707de`: 29 passed; `gofmt` and `go vet` clean | AI agent (Claude) under owner direction | same agent | same agent | same agent | same agent | git branch `mvp/site-concept` (tests) | same agent | real Codex CLI check on the Mac planned |
 | E-015 | C-019 / C-024 | yes | `pnpm --filter @control-rod/web test` at `ed707de`: 2 files, 23 passed; `pnpm -r typecheck` clean; `cargo deny check licenses bans sources` ok | AI agent (Claude) under owner direction | same agent | same agent | same agent | same agent | git branch `mvp/site-concept` (tests) | same agent | owner review planned |
+| E-016 | C-014 | yes | Fixes for four Codex review findings on PR #3 (stale page could sign newer draft content; reject had no reason prompt; intake draft inserted twice; outputs in subfolders unreachable). Control plane suite: 34 passed, including 3 new cases; web: 26 passed, including 3 new cases; `pnpm -r typecheck` clean | AI agent (Claude) under owner direction | Codex review bot found the defects; the orchestrating agent wrote fixes and tests | orchestrating agent | orchestrating agent | orchestrating agent | git branch `mvp/site-concept` (tests) | orchestrating agent | an outside reviewer (Codex) found the defects |
 
 ### Coupling profile
 
@@ -103,12 +104,13 @@ The contracts, kernel, control plane, daemon, web app, site pack, tests and this
 | E-013 | coupled: the change actor wrote the routes and tests | coupled: same session | partially separated: real Postgres and a real WebAuthn library | partially separated: owner holds merge | coupled: one workspace | self-check | Admitted, per `ship.md#residual-risks-and-gaps`. |
 | E-014 | coupled: the change actor wrote the probe and its tests | coupled: same session | partially separated: deterministic Go tests with scripted CLI answers | partially separated: owner holds merge | coupled: one workspace | self-check | Admitted; the real Codex CLI is checked on the Mac, per `ship.md#residual-risks-and-gaps`. |
 | E-015 | coupled: the change actor wrote the app changes and tests | coupled: same session | partially separated: deterministic tests | partially separated: owner holds merge | coupled: one workspace | self-check | Admitted, per `ship.md#residual-risks-and-gaps`. |
+| E-016 | partially separated: a different vendor's reviewer found the defects; the fixes and tests are ours | coupled: same session | partially separated: deterministic tests | partially separated: owner holds merge | coupled: one workspace | self-check | Admitted, per `ship.md#residual-risks-and-gaps`. |
 
 - **Evidence pattern used:** agent-written deterministic suites, a real database and WebAuthn library, live public services, and a browser run with a virtual authenticator.
 - **Verdict owner:** Ben Huffer.
 - **Apply-clearance owner:** Ben Huffer, by signing and merging.
 - **Minimum profile required by the consequence:** disclosure, reproducibility from the committed tree, owner signature on trust surfaces, and a first real run by the owner.
-- **Unmet separation carried into `ship.md`:** actor, context and resource axes are coupled for E-001 to E-015.
+- **Unmet separation carried into `ship.md`:** actor, context and resource axes are coupled for E-001 to E-015; E-016 is partially separated on the actor axis.
 
 ## Commands, evals, and reviews
 
@@ -125,6 +127,7 @@ The contracts, kernel, control plane, daemon, web app, site pack, tests and this
 | Daemon (N1, N2, N5, N8) | `go test -count=1 -v ./...` in `daemon/` | Go, Linux container | 26 passed | E-010 |
 | Web and types (N2, N4, N5) | `pnpm --filter @control-rod/web test`; `pnpm -r typecheck`; `cargo deny check licenses bans sources` | Node 22 | 22 passed; typecheck clean; deny ok | E-011 |
 | Owner decisions, N9, N2 addition | kernel, control plane, daemon, web, typecheck and deny as above | Linux container | kernel 19; control plane 31; daemon 29; web 22 then 23; all clean | E-012, E-013, E-014, E-015 |
+| Codex review findings on PR #3 | control plane and web suites, typecheck | Linux container | control plane 34; web 26; clean | E-016 |
 | Packet | `ng.py validate --strict-custody` | Python 3.13 | pass | this packet |
 
 ## Negative / failure-mode checks

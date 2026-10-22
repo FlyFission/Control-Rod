@@ -11,7 +11,7 @@ const GeoMap = lazy(() => import("./GeoMap.js"));
 export function OutputItem({ packageId, artifact }: { packageId: string; artifact: Artifact }) {
   const [open, setOpen] = useState(false);
   const name = baseName(artifact.path);
-  const href = api.outputUrl(packageId, name);
+  const href = api.outputUrl(packageId, artifact.path);
   return (
     <li className="output">
       <div className="output-head">

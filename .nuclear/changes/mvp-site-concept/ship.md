@@ -30,7 +30,7 @@
 | Risk classification | pass | `risk.md` | Standard mode |
 | Basis | pass | `basis.md` | Eight protected outcomes |
 | Trace | pass | `trace.md` | C-012 planned; C-015 passes by test, real Codex run planned |
-| Verification | pass | `verification.md` | E-008 to E-015 cover N1 to N9 and the owner's decisions |
+| Verification | pass | `verification.md` | E-008 to E-015 cover N1 to N9 and the owner's decisions; E-016 covers the Codex review fixes |
 | Dependency / supply chain | pass | `verification.md` | Vulnerability review is a gap |
 | AI-assisted work checks | pass | `verification.md` | Scope and actions recorded |
 | Evidence custody / coupling | gap | `verification.md` | Coupled on actor, context and resource |

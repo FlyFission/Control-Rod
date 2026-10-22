@@ -330,6 +330,12 @@ function fakeScript(run: Json, runtime: string): Input[] {
   return existsSync(p) ? [file("FAKE.sh", readFileSync(p))] : [];
 }
 
+const withoutNetwork = (tools: string) =>
+  tools
+    .split("\n")
+    .filter((l) => !/^\s*network\s*:/i.test(l))
+    .join("\n");
+
 async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   const inputs: Input[] = fakeScript(run, runtime);
   const header = `# Control Rod brief\n\nRole: ${run.role} · Package ${run.package_id} revision ${run.package_revision} · Round ${run.round}\n`;
@@ -386,8 +392,10 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   }
   const brief = [header, roleText, `## The work package\n\nSee inputs/PACKAGE.json. Objective: ${pkg.body.objective}\n`, ...extra, RULES].join("\n");
   inputs.push(file("BRIEF.md", brief));
-  const tools = findRole(cfg, `${role}.tools`);
-  inputs.push(file("TOOLS.txt", tools ?? "Read\nWrite\nEdit\nGlob\nGrep\nWebSearch\nWebFetch\nBash(cr-site:*)\nBash(python3:*)\n"));
+  const tools = findRole(cfg, `${role}.tools`) ?? "Read\nWrite\nEdit\nGlob\nGrep\nWebSearch\nWebFetch\nBash(cr-site:*)\nBash(python3:*)\n";
+  // "network: on" asks the daemon for network inside a runtime sandbox. Only the role's own author
+  // runs get it; a pre-check works from the deliverables alone.
+  inputs.push(file("TOOLS.txt", run.role === "pre-check" ? withoutNetwork(tools) : tools));
   return { run, package: { ...pkg.body, status: pkg.status }, inputs, ...(findings ? { findings } : {}) };
 }
 

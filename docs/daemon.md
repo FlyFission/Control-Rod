@@ -25,8 +25,16 @@ SIGINT or SIGTERM stops claiming, gives running jobs 30 seconds, then kills them
 The daemon offers the runtimes it finds on `PATH`:
 
 - `claude`: Claude Code, run as `claude -p <prompt> --output-format stream-json --verbose --permission-mode acceptEdits --allowedTools <list>`. The tool list comes from `inputs/TOOLS.txt`, one per line, or defaults to `Read,Write,Edit,Glob,Grep,Bash(cr-site:*),WebSearch,WebFetch`.
-- `codex`: `codex exec --json --cd <workspace> <prompt>`.
+- `codex`: `codex exec --json -s workspace-write --skip-git-repo-check -C <workspace> [-m <model>] <prompt>`. Codex runs read-only by default and refuses to start outside a Git repository; run workspaces are not repositories, so the daemon asks for a sandbox that may write only inside the run workspace and skips the repository check. Checked against `codex exec --help` on Codex 0.163.0.
 - `fake`: test runtime. Runs `inputs/FAKE.sh` with bash, or copies `inputs/FAKE_OUT/*` into `out/`.
+
+### Network inside the Codex sandbox
+
+The Codex sandbox has no network unless the job asks for it. A job asks by putting the line `network: on` in `inputs/TOOLS.txt`; the daemon then adds `-c sandbox_workspace_write.network_access=true`. The line is a directive for the daemon and is never passed to a runtime as a tool name. Any other `network:` value means no network.
+
+The control plane writes the line only for author runs of roles whose tools file asks for it. Today those are `site-parcel` and `site-constraints` (`packs/capital-projects/site-concept/roles/<role>.tools.md`), because `cr-site parcel` and `cr-site constraints` query public GIS services. Pre-check runs never get it, and neither do intake or roles without a tools file. Claude Code runs have no sandbox from the daemon in the MVP, so the line changes nothing for them; their fence is the tool allowlist.
+
+Codex loads the owner's own Codex configuration (the agent keeps `HOME`), which can change these defaults. Run one real Codex author and pre-check on the Mac before trusting Codex with real work.
 
 A run's provider picks the runtime (`anthropic` or `claude`, `openai` or `codex`, `fake`). A job for a runtime this machine lacks fails at once without creating a workspace.
 

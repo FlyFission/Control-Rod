@@ -1,0 +1,29 @@
+# Dependencies and builds
+node_modules/
+dist/
+build/
+target/
+.turbo/
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+bin/
+
+# Local data and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+data/
+.pgdata/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

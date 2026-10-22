@@ -3,6 +3,7 @@
 import copy
 import importlib.util
 import json
+import shutil
 import unittest
 from pathlib import Path
 
@@ -56,3 +57,17 @@ class RecordTests(unittest.TestCase):
 
     def test_valid_record_is_accepted(self):
         rs.check_record(self.tpl, self.rec)
+
+    def test_blank_or_incomplete_revision_rows_are_refused(self):
+        header = self.tpl["revisionBlock"]["columns"][0]["header"]
+        for rev in ({}, {header: "  "}, None):
+            with self.subTest(rev=rev):
+                rec = copy.deepcopy(self.rec)
+                rec["revisions"] = [rev]
+                with self.assertRaises(rs.SheetError):
+                    rs.check_record(self.tpl, rec)
+
+    @unittest.skipIf(shutil.which("fc-match") is None or importlib.util.find_spec("PIL") is None, "needs fontconfig and Pillow")
+    def test_missing_font_is_refused_rather_than_substituted(self):
+        with self.assertRaisesRegex(rs.SheetError, "not installed"):
+            rs.Metrics("cadcraft-cli-not-called", "No Such Font Control Rod")

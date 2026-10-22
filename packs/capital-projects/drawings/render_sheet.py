@@ -114,6 +114,12 @@ def check_record(tpl: dict, rec: dict) -> None:
         raise SheetError("drawing number must be a safe filename without path separators")
     if not rec.get("revisions"):
         raise SheetError("revision block needs at least one revision")
+    headers = [c["header"] for c in tpl["revisionBlock"]["columns"]]
+    for i, rev in enumerate(rec["revisions"]):
+        # Every column needs a value; a pending approval is written as "-", never left blank.
+        blank = [h for h in headers if not isinstance(rev, dict) or not str(rev.get(h, "")).strip()]
+        if blank:
+            raise SheetError(f"revision {i + 1} is missing {blank}")
     keys = [s["key"] for s in tpl["notes"]["sections"]]
     notes = rec.get("notes", {})
     if not isinstance(notes, dict):
@@ -140,10 +146,17 @@ class Metrics:
         from PIL import ImageFont  # Pillow, HPND licence
 
         # fc-match is resolved from PATH on purpose: it is the system font lookup.
-        lookup = ["fc-match", "-f", "%{file}", font]
-        path = subprocess.run(lookup, capture_output=True, text=True).stdout.strip()  # noqa: S603, S607
-        if not path:
-            raise SheetError(f"font {font!r} not found")
+        # fc-match always answers with its best match, so a missing font comes back as a stand-in.
+        # Refuse unless the matched family is the one asked for, so Pillow measures the same font
+        # CADCraft draws.
+        lookup = ["fc-match", "-f", "%{family}\n%{file}", font]
+        out = subprocess.run(lookup, capture_output=True, text=True).stdout  # noqa: S603, S607
+        families, _, path = out.partition("\n")
+        wanted = font.split(":")[0].strip().casefold()
+        found = [f.strip().casefold() for f in families.split(",")]
+        if not path.strip() or wanted not in found:
+            raise SheetError(f"font {font!r} not installed (closest match: {families.strip() or 'none'})")
+        path = path.strip()
         self.face = ImageFont.truetype(path, 1000)
         probe = "ABCDEFGHIJKLM 0123456789"
         cad = Cad(cli)

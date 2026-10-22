@@ -282,11 +282,9 @@ function identityOf(run: Json, trace?: Json): RuntimeIdentity {
   };
 }
 
-const openModel = (m: string) => ["", "default", "any"].includes(m.trim().toLowerCase());
-
-/** Same rule as the kernel's: same provider, and models equal or not pinned down. For the record only. */
+/** Same rule as the kernel's: the same provider is the same runtime, whatever the models. For the record only. */
 function mayBeSameRuntime(a: RuntimeIdentity, b: RuntimeIdentity): boolean {
-  return a.provider === b.provider && (openModel(a.model) || openModel(b.model) || a.model.toLowerCase() === b.model.toLowerCase());
+  return a.provider.trim().toLowerCase() === b.provider.trim().toLowerCase();
 }
 
 function runtimeRef(name: string) {

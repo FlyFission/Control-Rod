@@ -19,7 +19,7 @@ export type Action =
   | "return"
   | "reject";
 
-/** Provider and model that ran an agent. A model of "default" may be any model. */
+/** Provider and model that ran an agent. The kernel treats the same provider as the same runtime. */
 export interface RuntimeIdentity {
   provider: string;
   model: string;

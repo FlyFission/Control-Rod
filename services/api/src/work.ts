@@ -1424,8 +1424,22 @@ export async function activeRuns(db: Db) {
 }
 
 export async function listCaptures(db: Db) {
-  const r = await db.query<{ body: Json }>("select body from captures order by created_at desc limit 200");
-  return r.rows.map((x) => x.body);
+  const r = await db.query<{ body: Json; run_id: string | null; run_status: string | null; run_body: Json | null }>(
+    `select c.body, r.id as run_id, r.status as run_status, r.body as run_body
+       from captures c
+       left join lateral (
+         select id, status, body from runs
+          where package_id = c.id and role = 'intake'
+          order by created_at desc, id desc limit 1
+       ) r on true
+      order by c.created_at desc limit 200`,
+  );
+  return r.rows.map((x) => {
+    // Only a pending capture carries its intake state; an answered or packaged one is done.
+    if (x.body.disposition !== "pending" || !x.run_id || !x.run_status) return x.body;
+    const error = typeof x.run_body?.error === "string" ? x.run_body.error : undefined;
+    return { ...x.body, intake: { run_id: x.run_id, status: x.run_status, ...(error ? { error } : {}) } };
+  });
 }
 
 /* ---------- runtime readiness ---------- */

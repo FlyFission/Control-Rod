@@ -6,6 +6,7 @@ type S = components["schemas"];
 export type Session = S["Auth.Session"];
 export type Capture = S["ControlRod.Records.Capture"];
 export type NewCapture = S["Captures.NewCapture"];
+export type CaptureView = S["Captures.CaptureView"];
 export type WorkPackage = S["ControlRod.Records.WorkPackage"];
 export type PackageStatus = S["ControlRod.Records.PackageStatus"];
 export type PackageView = S["PackageView"];

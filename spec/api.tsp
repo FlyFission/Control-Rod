@@ -62,7 +62,19 @@ namespace Captures {
     source?: "web" | "cli" | "voice" | "chat";
   }
 
-  @get op list(): Capture[];
+  /** The latest intake run for a capture still pending, so a failed intake is never stranded. */
+  model IntakeState {
+    run_id: string;
+    status: RunStatus;
+    error?: string;
+  }
+
+  model CaptureView {
+    ...Capture;
+    intake?: IntakeState;
+  }
+
+  @get op list(): CaptureView[];
   @post op create(@body body: NewCapture): {
     @statusCode _: 201;
     @body capture: Capture;

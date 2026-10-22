@@ -773,3 +773,25 @@ describe("log batches", () => {
     await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
   });
 });
+
+describe("stranded intake", () => {
+  it("shows a failed intake on its capture and lets the owner retry it", async () => {
+    const c = await asOwner("POST", "/captures", { text: "Intake will fail" });
+    expect(c.statusCode, c.body).toBe(201);
+    const capId = c.json().capture?.id ?? c.json().id;
+    const job = await claim();
+    if (!job) throw new Error("no intake job");
+    expect(job.run.role).toBe("intake");
+    await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "model unavailable", outputs: [] });
+    const list = (await asOwner("GET", "/captures")).json() as { id: string; intake?: { run_id: string; status: string; error?: string } }[];
+    const row = list.find((x) => x.id === capId);
+    expect(row?.intake?.status).toBe("failed");
+    expect(row?.intake?.error).toContain("model unavailable");
+    const r = await asOwner("POST", `/packages/${capId}/runs/${row?.intake?.run_id}/requeue`);
+    expect(r.statusCode, r.body).toBe(201);
+    const after = ((await asOwner("GET", "/captures")).json() as { id: string; intake?: { status: string } }[]).find((x) => x.id === capId);
+    expect(after?.intake?.status).toBe("queued");
+    const again = await claim();
+    if (again) await asDaemon(`/runner/runs/${again.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
+  });
+});

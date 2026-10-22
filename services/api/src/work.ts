@@ -187,9 +187,22 @@ export async function packageOutput(db: Db, id: string, name: string) {
   if (!pkg) throw new Refusal(404, "not-found", "No such package");
   const author = await latestAuthorRun(db, id, pkg.revision);
   if (!author) throw new Refusal(404, "not-found", "No output yet");
-  const r = await db.query<{ bytes: Buffer }>("select bytes from outputs where run_id = $1 and name = $2", [author.id, name]);
-  if (!r.rows[0]) throw new Refusal(404, "not-found", "No such output");
-  return r.rows[0].bytes;
+  const r = await db.query<{ bytes: Buffer; sha256: string }>("select bytes, sha256 from outputs where run_id = $1 and name = $2", [
+    author.id,
+    name,
+  ]);
+  const row = r.rows[0];
+  if (!row) throw new Refusal(404, "not-found", "No such output");
+  // Bytes are re-hashed on every read. A stored file that no longer matches its recorded digest
+  // is never served; the mismatch goes on the record.
+  const actual = sha256(row.bytes);
+  if (actual !== row.sha256) {
+    await tx(db, (c) =>
+      appendEvent(c, "output.mismatch", pkg.id, SYSTEM, { revision: pkg.revision, run: author.id, name, recorded: row.sha256, actual }),
+    );
+    throw new Refusal(409, "output-changed", "This output changed since it was recorded, so it is not served. The mismatch is on the record.");
+  }
+  return row.bytes;
 }
 
 /** Edits a draft. Identity, revision and status are the server's, never the client's. */

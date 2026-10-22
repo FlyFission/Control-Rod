@@ -81,6 +81,23 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return reply.code(500).send({ code: "error", message: "Something went wrong; it is in the server log." });
   });
 
+  // Cookies ride along on requests other pages make, including pages on other localhost ports
+  // (same-site), so every state-changing request must show it came from this app. Runner routes
+  // use the daemon's bearer token, which a browser never sends on its own, and skip the check.
+  const allowedOrigins = new Set(auth.origins);
+  app.addHook("onRequest", async (req) => {
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
+    if (req.url.startsWith("/runner/")) return;
+    const origin = req.headers.origin;
+    if (origin !== undefined) {
+      if (allowedOrigins.has(origin)) return;
+    } else {
+      const site = req.headers["sec-fetch-site"];
+      if (site === "same-origin" || site === "none") return;
+    }
+    throw new Refusal(403, "cross-origin", "Refused: this request did not come from the Control Rod app");
+  });
+
   const person = async (req: FastifyRequest): Promise<string> => {
     if (isDaemon(auth, req)) throw new Refusal(403, "forbidden", "The daemon cannot act for a person");
     const user = await sessionUser(db, req);

@@ -90,6 +90,18 @@ export const api = {
   runtimes: () => call<{ reported_at?: string; runtimes: RuntimeStatus[] }>("GET", "/runtimes"),
   metrics: () => call<Metrics>("GET", "/metrics"),
   events: (after?: number) => call<CrEvent[]>("GET", after === undefined ? "/events" : `/events?after=${after}`),
+  /** Every event, following the server's `after` cursor page by page (500 per page, capped). */
+  allEvents: async (maxPages = 200): Promise<CrEvent[]> => {
+    const out: CrEvent[] = [];
+    let after = 0;
+    for (let i = 0; i < maxPages; i++) {
+      const page = await call<CrEvent[]>("GET", after === 0 ? "/events" : `/events?after=${after}`);
+      out.push(...page);
+      if (page.length < 500) break;
+      after = page[page.length - 1]?.seq ?? after;
+    }
+    return out;
+  },
   verifyEvents: () => call<{ ok: boolean; count: number; broken_at?: number }>("GET", "/events/verify"),
   streamUrl: () => url("/events/stream"),
 };

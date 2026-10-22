@@ -588,8 +588,8 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
     }
     if (row.role !== "intake") {
       const pkg = await currentPackage(c, packageId, true);
-      const want = row.role === "author" ? "in-work" : "in-verification";
-      if (!pkg || pkg.revision !== row.package_revision || pkg.status !== want) {
+      const want = row.role === "author" ? ["in-work", "released"] : ["in-verification"];
+      if (!pkg || pkg.revision !== row.package_revision || !want.includes(pkg.status)) {
         throw new Refusal(409, "wrong-state", "The package has moved on since this run; there is nothing to requeue");
       }
     }
@@ -599,6 +599,32 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
     await c.query("update runs set body = $2 where id = $1", [runId, old]);
     await appendEvent(c, "run.requeued", runId, { kind: "human", id: user }, { package: row.package_id, role: row.role, new_run: next.id });
     return next;
+  });
+}
+
+/**
+ * The owner stops a run. A queued run stops at once. A running run gets the request recorded
+ * first; the daemon learns it from its next log reply, ends the process and completes the run
+ * as stopped. Until then the run shows as stopping. Repeating is harmless.
+ */
+export async function stopRun(db: Db, cfg: WorkConfig, user: string, packageId: string, runId: string) {
+  return tx(db, async (c) => {
+    const row = await lockRun(c, runId);
+    if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+    const human: Actor = { kind: "human", id: user };
+    if (row.status === "queued") {
+      const body = { ...row.body, status: "stopped", finished_at: now(), error: "Stopped by the owner before it started." };
+      validate(cfg, "Run.json", body);
+      await c.query("update runs set status = 'stopped', body = $2 where id = $1", [runId, body]);
+      await appendEvent(c, "run.stopped", runId, human, { package: row.package_id, role: row.role, round: row.round });
+      return body;
+    }
+    if (row.status !== "running" || row.body.stop_requested_at) return { ...row.body, status: row.status };
+    const body = { ...row.body, stop_requested_at: now(), stop_requested_by: user, label: "Stopping" };
+    validate(cfg, "Run.json", body);
+    await c.query("update runs set body = $2 where id = $1", [runId, body]);
+    await appendEvent(c, "run.stop-requested", runId, human, { package: row.package_id, role: row.role, round: row.round });
+    return body;
   });
 }
 
@@ -708,6 +734,15 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   const finished = { ...row.body, status: body.status === "succeeded" ? "succeeded" : "failed", finished_at: now(), label: "Done" };
   delete finished.lease_expires_at;
   if (body.error) finished.error = String(body.error).slice(0, 2000);
+  if (body.status === "stopped") {
+    if (row.body.stop_requested_at) {
+      finished.status = "stopped";
+      finished.label = "Stopped";
+      finished.error = `Stopped by ${String(row.body.stop_requested_by ?? "the owner")}.`;
+    } else {
+      finished.error = "The daemon reported the run stopped, but nobody asked it to stop.";
+    }
+  }
   // A clean exit is not a deliverable. An author run that wrote nothing fails, and the package
   // stays where it is.
   if (finished.status === "succeeded" && row.role === "author" && outputs.length === 0) {
@@ -1062,7 +1097,7 @@ export async function office(db: Db) {
         });
       }
     }
-    if (p.status === "in-work" || p.status === "in-verification") {
+    if (p.status === "in-work" || p.status === "in-verification" || p.status === "released") {
       const failed = await db.query<{ body: Json }>(
         "select body from runs where package_id = $1 and package_revision = $2 and status = 'failed' order by created_at desc limit 1",
         [p.id, p.revision],
@@ -1072,7 +1107,16 @@ export async function office(db: Db) {
         [p.id, p.revision],
       );
       const last = latest.rows[0];
-      if (last?.status === "lost") {
+      if (last?.status === "stopped") {
+        items.push({
+          kind: "dispute",
+          package_id: p.id,
+          package_revision: p.revision,
+          title,
+          detail: `${last.body.role === "pre-check" ? "Pre-check" : "Author"} run stopped. Requeue it, or return or reject the package.`,
+          since: String(last.body.finished_at ?? new Date().toISOString()),
+        });
+      } else if (last?.status === "lost") {
         items.push({
           kind: "lost",
           package_id: p.id,

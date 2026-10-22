@@ -31,6 +31,8 @@ export function runStatusText(run: Run): string {
       return "Failed";
     case "stopped":
       return "Stopped";
+    case "running":
+      return run.stop_requested_at !== undefined ? "Stopping: waiting for the daemon to confirm" : (run.label ?? run.status);
     default:
       return run.label ?? run.status;
   }
@@ -41,21 +43,33 @@ export function canRequeue(run: Run): boolean {
   return (run.status === "lost" || run.status === "failed" || run.status === "stopped") && run.requeued_as === undefined;
 }
 
+/** A queued run, or a running one nobody has asked to stop yet, can be stopped by the owner. */
+export function canStop(run: Run): boolean {
+  return run.status === "queued" || (run.status === "running" && run.stop_requested_at === undefined);
+}
+
 function RunActions({ packageId, run }: { packageId: string; run: Run }) {
   const qc = useQueryClient();
-  const requeue = useMutation({
-    mutationFn: () => api.requeueRun(packageId, run.id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["package", packageId] }),
-  });
-  if (!canRequeue(run)) return null;
+  const done = () => void qc.invalidateQueries({ queryKey: ["package", packageId] });
+  const requeue = useMutation({ mutationFn: () => api.requeueRun(packageId, run.id), onSuccess: done });
+  const stop = useMutation({ mutationFn: () => api.stopRun(packageId, run.id), onSuccess: done });
+  if (!canRequeue(run) && !canStop(run)) return null;
+  const failed = requeue.error ?? stop.error;
   return (
     <div className="run-actions">
-      <button type="button" className="btn small" disabled={requeue.isPending} onClick={() => requeue.mutate()}>
-        Requeue this run
-      </button>
-      {requeue.isError && (
+      {canStop(run) && (
+        <button type="button" className="btn small" disabled={stop.isPending} onClick={() => stop.mutate()}>
+          Stop this run
+        </button>
+      )}
+      {canRequeue(run) && (
+        <button type="button" className="btn small" disabled={requeue.isPending} onClick={() => requeue.mutate()}>
+          Requeue this run
+        </button>
+      )}
+      {failed !== null && (
         <p className="error" role="alert">
-          {requeue.error.message}
+          {failed.message}
         </p>
       )}
     </div>

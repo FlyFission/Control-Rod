@@ -1175,7 +1175,6 @@
     "/packages/{id}/runs/{runId}/requeue": {
       "post": {
         "operationId": "Packages_requeue",
-        "description": "The owner queues a new run in place of one that was lost, failed or stopped. The old run\nkeeps its record. Repeating returns the run already queued.",
         "parameters": [
           {
             "name": "id",
@@ -1197,6 +1196,92 @@
         "responses": {
           "201": {
             "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/runs/{runId}/stop": {
+      "post": {
+        "operationId": "Packages_stop",
+        "description": "The owner queues a new run in place of one that was lost, failed or stopped. The old run\nkeeps its record. Repeating returns the run already queued.The owner stops a run. A queued run stops at once. For a running run the request is\nrecorded first, then the daemon is told in its next log reply and ends the process; the run\nshows as stopping until the daemon confirms. Repeating is harmless.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2480,6 +2565,14 @@
           "requeued_as": {
             "type": "string",
             "description": "The run the owner queued to replace this one."
+          },
+          "stop_requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The owner asked to stop this run. It shows as stopping until the daemon confirms."
+          },
+          "stop_requested_by": {
+            "type": "string"
           }
         },
         "description": "One agent session working on one package revision in one role."
@@ -2959,8 +3052,10 @@
             "type": "string",
             "enum": [
               "succeeded",
-              "failed"
-            ]
+              "failed",
+              "stopped"
+            ],
+            "description": "\"stopped\" only after the owner asked to stop the run."
           },
           "error": {
             "type": "string"

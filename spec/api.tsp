@@ -106,6 +106,15 @@ namespace Packages {
    * The owner queues a new run in place of one that was lost, failed or stopped. The old run
    * keeps its record. Repeating returns the run already queued.
    */
+  /**
+   * The owner stops a run. A queued run stops at once. For a running run the request is
+   * recorded first, then the daemon is told in its next log reply and ends the process; the run
+   * shows as stopping until the daemon confirms. Repeating is harmless.
+   */
+  @route("/{id}/runs/{runId}/stop")
+  @post
+  op stop(@path id: string, @path runId: string): Run | Refused;
+
   @route("/{id}/runs/{runId}/requeue")
   @post
   op requeue(@path id: string, @path runId: string): {
@@ -266,7 +275,8 @@ namespace Runner {
     @maxLength(100)
     idempotency_key: string;
 
-    status: "succeeded" | "failed";
+    /** "stopped" only after the owner asked to stop the run. */
+    status: "succeeded" | "failed" | "stopped";
     error?: string;
     trace?: ExecutionTrace;
     outputs: {

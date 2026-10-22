@@ -114,6 +114,7 @@ func New(cfg Config) *Daemon {
 var (
 	errShutdown = errors.New("daemon shutdown")
 	errLost     = errors.New("the control plane no longer holds this run for this daemon")
+	errStopped  = errors.New("stopped by the owner")
 )
 
 func sleepCtx(ctx context.Context, d time.Duration) {
@@ -314,13 +315,17 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 				batch = LogBatch{Lines: []string{}}
 			}
 			batch.ClaimToken = job.Claim.Token
-			_, err := d.client.Log(context.Background(), job.Run.ID, batch)
+			reply, err := d.client.Log(context.Background(), job.Run.ID, batch)
 			switch {
 			case errors.Is(err, ErrRunGone):
 				d.log.Warn("run no longer held; stopping it", "run", job.Run.ID, "err", err)
 				stop(errLost)
 			case err != nil:
 				d.log.Warn("log upload failed", "run", job.Run.ID, "err", err)
+			case reply.Stop:
+				last = time.Now()
+				d.log.Info("owner asked to stop the run", "run", job.Run.ID)
+				stop(errStopped)
 			default:
 				last = time.Now()
 			}
@@ -337,6 +342,8 @@ func failText(err error) string {
 		return "daemon shutdown"
 	case errors.Is(err, errLost):
 		return "run lost: " + errLost.Error()
+	case errors.Is(err, errStopped):
+		return errStopped.Error()
 	case errors.As(err, &exit):
 		return fmt.Sprintf("agent exited with status %d", exit.ExitCode())
 	}
@@ -425,6 +432,9 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}}
 	if err != nil {
 		comp.Status, comp.Error = "failed", failText(err)
+		if errors.Is(err, errStopped) {
+			comp.Status = "stopped"
+		}
 	}
 	files, outArts, cerr := Collect(ws.Out, MaxOutputFile, MaxOutputTotal)
 	if cerr != nil {

@@ -361,5 +361,51 @@ describe("an author run with no output", () => {
     expect(item?.kind).toBe("dispute");
     expect(item?.detail).toMatch(/without writing anything/);
     expect((await asOwner("POST", `/packages/${id}/runs/${job.run.id}/requeue`)).statusCode).toBe(201);
+    const again = (await claim()) as Job;
+    expect(again.run.package_id).toBe(id);
+    await asDaemon(`/runner/runs/${again.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
+  });
+});
+
+describe("stopping a run", () => {
+  it("records the stop first, tells the daemon in its log reply, and lands as stopped when the daemon confirms", async () => {
+    const id = await releasedPackage("STOP");
+    const job = (await claim()) as Job;
+    const byDaemon = await h.app.inject({ method: "POST", url: `/packages/${id}/runs/${job.run.id}/stop`, headers: daemonHeaders });
+    expect(byDaemon.statusCode).toBe(403);
+    const s1 = await asOwner("POST", `/packages/${id}/runs/${job.run.id}/stop`);
+    expect(s1.statusCode, s1.body).toBe(200);
+    expect(s1.json().stop_requested_at).toBeTruthy();
+    const view = (await asOwner("GET", `/packages/${id}`)).json();
+    const shown = view.runs.find((r: { id: string }) => r.id === job.run.id);
+    expect(shown.status).toBe("running");
+    expect(shown.label).toBe("Stopping");
+    const s2 = await asOwner("POST", `/packages/${id}/runs/${job.run.id}/stop`);
+    expect(s2.json().stop_requested_at).toBe(s1.json().stop_requested_at);
+    expect((await eventsOf(job.run.id)).filter((e) => e.type === "run.stop-requested")).toHaveLength(1);
+
+    const beat = await asDaemon(`/runner/runs/${job.run.id}/log`, { lines: [] });
+    expect(beat.json().stop).toBe(true);
+    const done = await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "stopped", error: "stopped by the owner", outputs: [] });
+    expect(done.json().status).toBe("stopped");
+    const after = (await asOwner("GET", `/packages/${id}`)).json();
+    expect(after.package.status).toBe("in-work");
+    expect(after.runs.find((r: { id: string }) => r.id === job.run.id).status).toBe("stopped");
+    const s3 = await asOwner("POST", `/packages/${id}/runs/${job.run.id}/stop`);
+    expect(s3.json().status).toBe("stopped");
+    const item = ((await asOwner("GET", "/office")).json() as { package_id: string; detail: string }[]).find((o) => o.package_id === id);
+    expect(item?.detail).toMatch(/stopped/);
+  });
+
+  it("stops a queued run at once, and never takes a stopped report nobody asked for", async () => {
+    const id = await releasedPackage("STOPQ");
+    const queued = (await asOwner("GET", `/packages/${id}`)).json().runs[0];
+    const s = await asOwner("POST", `/packages/${id}/runs/${queued.id}/stop`);
+    expect(s.json().status).toBe("stopped");
+    expect(await claim()).toBeNull();
+    expect((await asOwner("POST", `/packages/${id}/runs/${queued.id}/requeue`)).statusCode).toBe(201);
+    const job = (await claim()) as Job;
+    const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "stopped", outputs: [] });
+    expect(r.json().status).toBe("failed");
   });
 });

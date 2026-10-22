@@ -8,7 +8,7 @@ import { DIGEST, view } from "../test/fixtures.js";
 import { CaptureBox, CAPTURE_LIMIT } from "./CaptureBox.js";
 import { DecisionBar } from "./DecisionBar.js";
 import { Office } from "../pages/Office.js";
-import { RunCard, canRequeue } from "./RunLog.js";
+import { RunCard, canRequeue, canStop, runStatusText } from "./RunLog.js";
 import type { Run } from "../api/types.js";
 import type { Passkeys } from "../lib/decide.js";
 
@@ -275,6 +275,27 @@ describe("runs that need the owner", () => {
     await waitFor(() => expect(posted).toBe("/packages/WP-9/runs/R-lost/requeue"));
     expect(canRequeue({ ...lostRun, requeued_as: "R-new" })).toBe(false);
     expect(canRequeue({ ...lostRun, status: "running" })).toBe(false);
+  });
+
+  it("stops a running run and shows it as stopping until the daemon confirms", async () => {
+    const running: Run = { ...lostRun, id: "R-run", status: "running", label: "Run: cr-site" };
+    delete running.error;
+    let posted = "";
+    server.use(
+      http.get("*/packages/WP-9/runs/R-run/log", () => HttpResponse.json({ lines: [] })),
+      http.post("*/packages/WP-9/runs/R-run/stop", ({ request }) => {
+        posted = new URL(request.url).pathname;
+        return HttpResponse.json({ ...running, stop_requested_at: "2026-10-22T12:00:00Z" });
+      }),
+    );
+    await renderPage(<RunCard packageId="WP-9" run={running} />);
+    expect(screen.queryByRole("button", { name: "Requeue this run" })).toBeNull();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Stop this run" }));
+    await waitFor(() => expect(posted).toBe("/packages/WP-9/runs/R-run/stop"));
+    const stopping = { ...running, stop_requested_at: "2026-10-22T12:00:00Z" };
+    expect(runStatusText(stopping)).toBe("Stopping: waiting for the daemon to confirm");
+    expect(canStop(stopping)).toBe(false);
+    expect(canStop({ ...running, status: "queued" })).toBe(true);
   });
 
   it("puts lost runs right after holds in the office", async () => {

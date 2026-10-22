@@ -71,6 +71,14 @@
         "requeued_as": {
             "type": "string",
             "description": "The run the owner queued to replace this one."
+        },
+        "stop_requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The owner asked to stop this run. It shows as stopping until the daemon confirms."
+        },
+        "stop_requested_by": {
+            "type": "string"
         }
     },
     "required": [

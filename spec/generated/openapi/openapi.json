@@ -874,6 +874,10 @@
                   "reason": {
                     "type": "string"
                   },
+                  "expected_subject_digest": {
+                    "$ref": "#/components/schemas/ControlRod.Records.Digest",
+                    "description": "The subject digest the person was shown. The server refuses the options request when the\npackage has changed since, so a person never signs content they did not see."
+                  },
                   "assertion": {
                     "type": "object",
                     "additionalProperties": {}
@@ -3359,6 +3363,10 @@
           },
           "reason": {
             "type": "string"
+          },
+          "expected_subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "The subject digest the person was shown. The server refuses the options request when the\npackage has changed since, so a person never signs content they did not see."
           }
         }
       },

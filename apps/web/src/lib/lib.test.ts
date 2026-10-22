@@ -7,6 +7,7 @@ import { composeCapture, splitAttachments } from "./attachments.js";
 import { sortOffice } from "./office.js";
 import { layoutFloor } from "./floor.js";
 import { view } from "../test/fixtures.js";
+import { api } from "../api/client.js";
 
 describe("board mapping", () => {
   it("maps each status to its work step", () => {
@@ -141,5 +142,11 @@ describe("floor layout", () => {
       ["run:r3", "bench"],
       ["office:accept:WP-0002:0", "office"],
     ]);
+  });
+});
+
+describe("output links", () => {
+  it("keeps the folders of an output's path and encodes each part", () => {
+    expect(api.outputUrl("WP-1", "reports/summary 1.md")).toMatch(/\/packages\/WP-1\/outputs\/reports\/summary%201\.md$/);
   });
 });

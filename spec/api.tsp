@@ -158,6 +158,12 @@ namespace Packages {
     package_revision: int32;
 
     reason?: string;
+
+    /**
+     * The subject digest the person was shown. The server refuses the options request when the
+     * package has changed since, so a person never signs content they did not see.
+     */
+    expected_subject_digest?: Digest;
   }
 
   /** Step 1: the server returns the digest to sign and a WebAuthn challenge derived from it. */

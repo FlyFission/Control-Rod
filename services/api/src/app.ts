@@ -207,11 +207,16 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     package_revision: number;
     reason?: string;
     assertion?: Record<string, unknown>;
+    expected_subject_digest?: { algorithm: string; value: string };
   }
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions/options", async (req) => {
     await person(req);
     const { kind, package_revision: revision } = req.body ?? ({} as DecisionBody);
     const s = await decisionSubject(db, req.params.id, String(kind), Number(revision));
+    const shown = req.body?.expected_subject_digest?.value;
+    if (shown !== undefined && shown !== s.digest) {
+      throw new Refusal(409, "changed", "This package changed since you opened it. Reload and review the current version.");
+    }
     const nonce = randomBytes(16).toString("hex");
     const options = await assertionOptions(
       db,

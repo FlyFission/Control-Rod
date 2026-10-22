@@ -136,7 +136,7 @@ describe("decision flow", () => {
     expect(await screen.findByRole("status")).toHaveProperty("textContent", "Accept recorded.");
     expect(signed).toEqual([{ challenge: "abc", rpId: "localhost" }]);
     expect(sent).toEqual([
-      ["options", { kind: "accept", package_revision: 3 }],
+      ["options", { kind: "accept", package_revision: 3, expected_subject_digest: DIGEST }],
       [
         "decide",
         {
@@ -146,6 +146,34 @@ describe("decision flow", () => {
         },
       ],
     ]);
+  });
+
+  it("stops before signing when the package changed since the page loaded", async () => {
+    const signed: unknown[] = [];
+    let decided = false;
+    server.use(
+      http.post("*/packages/WP-0001/decisions/options", () =>
+        HttpResponse.json({ subject_digest: { algorithm: "sha256", value: "ff".repeat(32) }, options: { challenge: "new" } }),
+      ),
+      http.post("*/packages/WP-0001/decisions", () => {
+        decided = true;
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys(signed)} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Release" }));
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("changed since you opened it"));
+    expect(signed).toEqual([]);
+    expect(decided).toBe(false);
+  });
+
+  it("asks why before signing a rejection", async () => {
+    const signed: unknown[] = [];
+    await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys(signed)} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Reject" }));
+    expect(screen.getByRole("textbox", { name: "Why reject this package" })).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Sign: Reject" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(signed).toEqual([]);
   });
 
   it("labels acceptance of a parcel package Confirm boundary", async () => {

@@ -28,10 +28,12 @@ export interface DecideInput {
   revision: number;
   kind: DecisionKind;
   reason?: string;
+  /** The subject digest shown to the person. Signing stops if the server's differs. */
+  shownDigest: Digest;
 }
 
 /** Kinds that need a written reason before the person signs. */
-export const NEEDS_REASON: ReadonlySet<DecisionKind> = new Set(["accept-with-findings", "return"]);
+export const NEEDS_REASON: ReadonlySet<DecisionKind> = new Set(["accept-with-findings", "return", "reject"]);
 
 export const DECISION_LABEL: Record<DecisionKind, string> = {
   release: "Release",
@@ -58,7 +60,10 @@ export async function decide(
     package_revision: input.revision,
     ...(input.reason !== undefined && input.reason.trim().length > 0 ? { reason: input.reason.trim() } : {}),
   };
-  const opts = await client.decisionOptions(input.packageId, req);
+  const opts = await client.decisionOptions(input.packageId, { ...req, expected_subject_digest: input.shownDigest });
+  if (opts.subject_digest.value !== input.shownDigest.value) {
+    throw new Error("This package changed since you opened it. Reload and review the current version.");
+  }
   const assertion = await passkeys.get(opts.options);
   const decision = await client.decide(input.packageId, { ...req, assertion });
   return { decision, signed: opts.subject_digest };

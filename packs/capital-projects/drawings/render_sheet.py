@@ -104,12 +104,29 @@ def check_record(tpl: dict, rec: dict) -> None:
     unknown = [t for t in tb if t not in tags]
     if missing or unknown:
         raise SheetError(f"title block fields missing {missing} or unknown {unknown}")
+    stem = tb["DWGNO"]
+    if (
+        not isinstance(stem, str)
+        or any(c in stem for c in '/\\:<>"|?*')
+        or any(ord(c) < 32 for c in stem)
+        or stem.endswith((".", " "))
+    ):
+        raise SheetError("drawing number must be a safe filename without path separators")
     if not rec.get("revisions"):
         raise SheetError("revision block needs at least one revision")
     keys = [s["key"] for s in tpl["notes"]["sections"]]
-    extra = [k for k in rec.get("notes", {}) if k not in keys]
-    if extra:
-        raise SheetError(f"unknown notes sections {extra}")
+    notes = rec.get("notes", {})
+    if not isinstance(notes, dict):
+        raise SheetError("notes must be an object containing every template section")
+    missing = [k for k in keys if k not in notes]
+    extra = [k for k in notes if k not in keys]
+    if missing or extra:
+        raise SheetError(f"notes sections missing {missing} or unknown {extra}")
+    for key, items in notes.items():
+        if not isinstance(items, list) or any(
+            not isinstance(t, str) or not t.strip() for t in items
+        ):
+            raise SheetError(f"notes {key}: supply a list of nonblank strings or [] for none")
 
 
 class Metrics:

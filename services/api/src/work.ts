@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Ajv2020 } from "ajv/dist/2020.js";
@@ -23,6 +23,8 @@ export interface WorkConfig {
   /** Repository root, for packs/. */
   root: string;
   ajv: Ajv2020;
+  /** Seconds a claim lasts without a heartbeat before the sweep marks the run lost. */
+  leaseSeconds?: number;
 }
 
 const SYSTEM: Actor = { kind: "system", id: "control-plane" };
@@ -223,8 +225,8 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
 
 /* ---------- runs ---------- */
 
-async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: number, role: string, round: number) {
-  const run = {
+async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: number, role: string, round: number, requeueOf?: string) {
+  const run: Json = {
     schema_version: "0.1.0",
     id: `R-${randomUUID().slice(0, 8)}`,
     package_id: packageId,
@@ -235,6 +237,7 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
     round,
     status: "queued",
     queued_at: now(),
+    ...(requeueOf ? { requeue_of: requeueOf } : {}),
   };
   validate(cfg, "Run.json", run);
   await c.query(
@@ -457,7 +460,25 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
   });
 }
 
+/* ---------- run custody ---------- */
+
+const DEFAULT_LEASE_SECONDS = 90;
+const leaseSeconds = (cfg: WorkConfig) => cfg.leaseSeconds ?? DEFAULT_LEASE_SECONDS;
+const heartbeatSeconds = (cfg: WorkConfig) => Math.max(1, Math.floor(leaseSeconds(cfg) / 3));
+const leaseFromNow = (cfg: WorkConfig) => new Date(Date.now() + leaseSeconds(cfg) * 1000).toISOString();
+const tokenHash = (t: string) => createHash("sha256").update(t).digest();
+
+/** Constant-time check that `token` is the claim token this run was handed. */
+function holdsClaim(storedHash: string | null, token: unknown): boolean {
+  if (!storedHash || typeof token !== "string" || token.length === 0) return false;
+  const want = Buffer.from(storedHash, "hex");
+  const got = tokenHash(token);
+  return want.length === got.length && timingSafeEqual(want, got);
+}
+
 async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, baseline: string) {
+  const token = randomBytes(32).toString("base64url");
+  const lease = leaseFromNow(cfg);
   const body = {
     ...row.body,
     agent_baseline: baseline,
@@ -465,26 +486,119 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     status: "running",
     started_at: now(),
     label: "Starting",
+    lease_expires_at: lease,
   };
   validate(cfg, "Run.json", body);
-  await c.query("update runs set status = 'running', body = $2 where id = $1", [row.id, body]);
-  await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round });
-  return buildJob(c, cfg, body, runtime);
+  await c.query("update runs set status = 'running', body = $2, claim_token_hash = $3, lease_expires_at = $4 where id = $1", [
+    row.id,
+    body,
+    tokenHash(token).toString("hex"),
+    lease,
+  ]);
+  await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round, lease_expires_at: lease });
+  const job = await buildJob(c, cfg, body, runtime);
+  return { ...job, claim: { token, lease_expires_at: lease, heartbeat_seconds: heartbeatSeconds(cfg) } };
+}
+
+type RunRow = {
+  id: string;
+  body: Json;
+  status: string;
+  role: string;
+  package_id: string;
+  package_revision: number;
+  round: number;
+  claim_token_hash: string | null;
+  completion_key: string | null;
+  receipt: Json | null;
+};
+
+async function lockRun(c: Tx, runId: string): Promise<RunRow> {
+  const r = await c.query<RunRow>("select * from runs where id = $1 for update", [runId]);
+  const row = r.rows[0];
+  if (!row) throw new Refusal(404, "not-found", "No such run");
+  return row;
 }
 
 const LABEL_MAX = 120;
 
-export async function runLog(db: Db, runId: string, lines: string[], label?: string) {
-  await tx(db, async (c) => {
-    const r = await c.query<{ body: Json; status: string }>("select body, status from runs where id = $1 for update", [runId]);
-    const row = r.rows[0];
-    if (!row) throw new Refusal(404, "not-found", "No such run");
-    if (row.status !== "running") throw new Refusal(409, "wrong-state", "Run is not running");
-    const body = label ? { ...row.body, label: label.slice(0, LABEL_MAX) } : row.body;
-    await c.query("update runs set log = log || $2::text[], body = $3 where id = $1", [runId, lines.slice(0, 500).map((l) => l.slice(0, 4000)), body]);
+/**
+ * A log batch from the daemon, which is also its heartbeat: it renews the lease. The reply tells
+ * the daemon whether the owner asked to stop the run.
+ */
+export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string) {
+  return tx(db, async (c) => {
+    const row = await lockRun(c, runId);
+    if (!holdsClaim(row.claim_token_hash, token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
+    if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
+    const lease = leaseFromNow(cfg);
+    const body = { ...row.body, lease_expires_at: lease, ...(label ? { label: label.slice(0, LABEL_MAX) } : {}) };
+    await c.query("update runs set log = log || $2::text[], body = $3, lease_expires_at = $4 where id = $1", [
+      runId,
+      lines.slice(0, 500).map((l) => l.slice(0, 4000)),
+      body,
+      lease,
+    ]);
     if (label && label !== row.body.label) {
       await appendEvent(c, "run.label", runId, { kind: "agent", id: row.body.agent_baseline }, { label: body.label, package: row.body.package_id });
     }
+    return { stop: Boolean(row.body.stop_requested_at), lease_expires_at: lease };
+  });
+}
+
+/**
+ * Retires running runs whose lease lapsed: the daemon died, lost its network or was killed. The
+ * run becomes lost, with the reason on the record. Nothing is requeued; the owner decides.
+ */
+export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
+  return tx(db, async (c) => {
+    const r = await c.query<RunRow>(
+      "select * from runs where status = 'running' and lease_expires_at < now() for update skip locked",
+    );
+    const lost: string[] = [];
+    for (const row of r.rows) {
+      const body = {
+        ...row.body,
+        status: "lost",
+        finished_at: now(),
+        label: "Lost",
+        error: `Runner lost: no heartbeat from the daemon after ${String(row.body.lease_expires_at ?? "its lease")}. Nothing was recorded from this run; the owner can requeue it.`,
+      };
+      delete body.lease_expires_at;
+      validate(cfg, "Run.json", body);
+      await c.query("update runs set status = 'lost', body = $2 where id = $1", [row.id, body]);
+      await appendEvent(c, "run.lost", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+      lost.push(row.id);
+    }
+    return lost;
+  });
+}
+
+/** The owner queues a new run in place of a lost, failed or stopped one. Repeating is harmless. */
+export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageId: string, runId: string) {
+  return tx(db, async (c) => {
+    const row = await lockRun(c, runId);
+    if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+    if (row.body.requeued_as) {
+      const again = await c.query<{ body: Json; status: string }>("select body, status from runs where id = $1", [row.body.requeued_as]);
+      if (again.rows[0]) return { ...again.rows[0].body, status: again.rows[0].status };
+    }
+    if (!["lost", "failed", "stopped"].includes(row.status)) {
+      throw new Refusal(409, "not-requeueable", `A ${row.status} run cannot be requeued`);
+    }
+    if (row.role !== "intake") {
+      const pkg = await currentPackage(c, packageId, true);
+      const want = row.role === "author" ? "in-work" : "in-verification";
+      if (!pkg || pkg.revision !== row.package_revision || pkg.status !== want) {
+        throw new Refusal(409, "wrong-state", "The package has moved on since this run; there is nothing to requeue");
+      }
+    }
+    const next = await queueRun(c, cfg, row.package_id, row.package_revision, row.role, row.round, runId);
+    const old = { ...row.body, status: row.status, requeued_as: next.id };
+    validate(cfg, "Run.json", old);
+    await c.query("update runs set body = $2 where id = $1", [runId, old]);
+    await appendEvent(c, "run.requeued", runId, { kind: "human", id: user }, { package: row.package_id, role: row.role, new_run: next.id });
+    return next;
   });
 }
 
@@ -507,52 +621,154 @@ export function modelMismatch(trace: Json): { requested: string; reported: strin
   return reported === requested || reported.startsWith(`${requested}-`) ? null : { requested, reported };
 }
 
-/** A run finished. The server keeps its own digests of every output and asks the kernel to move the package. */
+/** A refusal raised while applying a completion; the run is then recorded failed with its reason. */
+class ApplyRefusal extends Error {
+  constructor(readonly refusal: Refusal) {
+    super(refusal.message);
+  }
+}
+
+/** A completion for a run whose lease already lapsed. */
+class LateCompletion extends Error {}
+
+type Output = { name: string; bytes: Buffer };
+
+function receiptOf(runId: string, key: string, status: string, outputs: Output[], refusal?: Refusal) {
+  return {
+    run_id: runId,
+    idempotency_key: key,
+    status,
+    outputs: outputs.map((o) => ({ path: o.name, digest: { algorithm: "sha256", value: sha256(o.bytes) } })),
+    received_at: now(),
+    ...(refusal ? { refusal: { code: refusal.code, message: refusal.message } } : {}),
+  };
+}
+
+/**
+ * A run finished. The completion must carry the run's claim token and an idempotency key; a
+ * repeat with the same key returns the stored receipt. The server keeps its own digests of every
+ * output and asks the kernel to move the package. If applying the completion is refused, the run
+ * is recorded failed with the reason instead of being left running.
+ */
 export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Json) {
-  return tx(db, async (c) => {
-    const r = await c.query<{ body: Json; status: string; role: string; package_id: string; package_revision: number; round: number }>(
-      "select * from runs where id = $1 for update",
-      [runId],
-    );
-    const row = r.rows[0];
-    if (!row) throw new Refusal(404, "not-found", "No such run");
-    if (row.status !== "running") throw new Refusal(409, "wrong-state", "Run is not running");
-    const agent: Actor = { kind: "agent", id: row.body.agent_baseline };
-    const outputs: { name: string; bytes: Buffer }[] = [];
-    for (const o of body.outputs ?? []) {
-      if (typeof o.name !== "string" || !SAFE_OUTPUT.test(o.name) || o.name.includes("..")) {
-        throw new Refusal(400, "invalid", `bad output name ${String(o.name)}`);
+  const key = typeof body?.idempotency_key === "string" ? body.idempotency_key : "";
+  if (key.length < 8 || key.length > 100) throw new Refusal(400, "invalid", "A completion needs an idempotency key");
+  try {
+    return await tx(db, async (c) => {
+      const row = await lockRun(c, runId);
+      if (!holdsClaim(row.claim_token_hash, body.claim_token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
+      if (row.completion_key !== null) {
+        if (row.completion_key === key) return row.receipt;
+        throw new Refusal(409, "already-complete", "This run already has a different completion on record");
       }
-      outputs.push({ name: o.name, bytes: Buffer.from(String(o.content_base64 ?? ""), "base64") });
-    }
-    const finished = { ...row.body, status: body.status === "succeeded" ? "succeeded" : "failed", finished_at: now(), label: "Done" };
-    if (body.error) finished.error = String(body.error).slice(0, 2000);
-    if (body.trace) finished.trace = body.trace;
-    try {
-      validate(cfg, "Run.json", finished);
-    } catch {
-      delete finished.trace;
-      validate(cfg, "Run.json", finished);
-    }
-    await c.query("update runs set status = $2, body = $3 where id = $1", [runId, finished.status, finished]);
-    for (const o of outputs) {
-      await c.query(
-        "insert into outputs (run_id, package_id, package_revision, name, sha256, bytes) values ($1, $2, $3, $4, $5, $6)",
-        [runId, row.package_id, row.package_revision, o.name, sha256(o.bytes), o.bytes],
+      if (row.status === "lost") throw new LateCompletion();
+      if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
+      try {
+        return await applyCompletion(c, cfg, row, key, body);
+      } catch (e) {
+        if (e instanceof Refusal) throw new ApplyRefusal(e);
+        throw e;
+      }
+    });
+  } catch (e) {
+    if (e instanceof ApplyRefusal) return recordRefused(db, cfg, runId, key, body, e.refusal);
+    if (e instanceof LateCompletion) {
+      await tx(db, (c) =>
+        appendEvent(c, "run.late-completion", runId, SYSTEM, {
+          outputs: (Array.isArray(body.outputs) ? body.outputs : []).slice(0, 200).map((o: Json) => ({
+            name: String(o?.name ?? "").slice(0, 200),
+            sha256: sha256(Buffer.from(String(o?.content_base64 ?? ""), "base64")),
+          })),
+        }),
       );
+      throw new Refusal(409, "run-lost", "The run was marked lost before this completion arrived; its digests are on the record");
     }
-    await appendEvent(c, `run.${finished.status}`, runId, agent, {
+    throw e;
+  }
+}
+
+async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string, body: Json) {
+  const runId = row.id;
+  const agent: Actor = { kind: "agent", id: row.body.agent_baseline };
+  const outputs: Output[] = [];
+  for (const o of body.outputs ?? []) {
+    if (typeof o.name !== "string" || !SAFE_OUTPUT.test(o.name) || o.name.includes("..")) {
+      throw new Refusal(400, "invalid", "An output name is not a plain relative path");
+    }
+    outputs.push({ name: o.name, bytes: Buffer.from(String(o.content_base64 ?? ""), "base64") });
+  }
+  if (body.trace !== undefined) {
+    const v = cfg.ajv.getSchema("ExecutionTrace.json");
+    if (!v || !v(body.trace)) {
+      const first = v?.errors?.[0];
+      throw new Refusal(400, "invalid-trace", `The execution trace is invalid: ${first?.instancePath ?? ""} ${first?.message ?? ""}`.trim());
+    }
+    if (body.trace.run_id !== runId) throw new Refusal(400, "invalid-trace", "The execution trace names another run");
+  }
+  const finished = { ...row.body, status: body.status === "succeeded" ? "succeeded" : "failed", finished_at: now(), label: "Done" };
+  delete finished.lease_expires_at;
+  if (body.error) finished.error = String(body.error).slice(0, 2000);
+  if (body.trace) finished.trace = body.trace;
+  validate(cfg, "Run.json", finished);
+  await c.query("update runs set status = $2, body = $3 where id = $1", [runId, finished.status, finished]);
+  for (const o of outputs) {
+    await c.query(
+      "insert into outputs (run_id, package_id, package_revision, name, sha256, bytes) values ($1, $2, $3, $4, $5, $6)",
+      [runId, row.package_id, row.package_revision, o.name, sha256(o.bytes), o.bytes],
+    );
+  }
+  await appendEvent(c, `run.${finished.status}`, runId, agent, {
+    package: row.package_id,
+    role: row.role,
+    round: row.round,
+    outputs: outputs.map((o) => ({ name: o.name, sha256: sha256(o.bytes) })),
+  });
+  const mismatch = modelMismatch(finished.trace);
+  if (mismatch) await appendEvent(c, "run.model-mismatch", runId, SYSTEM, { package: row.package_id, ...mismatch });
+  if (finished.status === "succeeded") {
+    if (row.role === "intake") await finishIntake(c, cfg, row, outputs, body, agent);
+    else if (row.role === "author") await finishAuthor(c, cfg, row, agent);
+    else await finishPreCheck(c, cfg, row, body, outputs, agent);
+  }
+  const receipt = receiptOf(runId, key, finished.status, outputs);
+  await c.query("update runs set completion_key = $2, receipt = $3 where id = $1", [runId, key, receipt]);
+  return receipt;
+}
+
+/** Applying a completion was refused: the run ends failed with the refusal as its reason. */
+async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string, body: Json, refusal: Refusal) {
+  return tx(db, async (c) => {
+    const row = await lockRun(c, runId);
+    if (!holdsClaim(row.claim_token_hash, body.claim_token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
+    if (row.completion_key !== null) {
+      if (row.completion_key === key) return row.receipt;
+      throw new Refusal(409, "already-complete", "This run already has a different completion on record");
+    }
+    if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
+    const finished = {
+      ...row.body,
+      status: "failed",
+      finished_at: now(),
+      label: "Refused",
+      error: `Completion refused (${refusal.code}): ${refusal.message}`.slice(0, 2000),
+    };
+    delete finished.lease_expires_at;
+    validate(cfg, "Run.json", finished);
+    const receipt = receiptOf(runId, key, "failed", [], refusal);
+    await c.query("update runs set status = 'failed', body = $2, completion_key = $3, receipt = $4 where id = $1", [
+      runId,
+      finished,
+      key,
+      receipt,
+    ]);
+    await appendEvent(c, "run.failed", runId, SYSTEM, {
       package: row.package_id,
       role: row.role,
       round: row.round,
-      outputs: outputs.map((o) => ({ name: o.name, sha256: sha256(o.bytes) })),
+      refused: refusal.code,
+      reason: refusal.message,
     });
-    const mismatch = modelMismatch(finished.trace);
-    if (mismatch) await appendEvent(c, "run.model-mismatch", runId, SYSTEM, { package: row.package_id, ...mismatch });
-    if (finished.status !== "succeeded") return;
-    if (row.role === "intake") return finishIntake(c, cfg, row, outputs, body, agent);
-    if (row.role === "author") return finishAuthor(c, cfg, row, agent);
-    return finishPreCheck(c, cfg, row, body, outputs, agent);
+    return receipt;
   });
 }
 
@@ -626,7 +842,13 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   let raw = body.verification;
   if (!raw) {
     const f = outputs.find((o) => o.name === "verification.json");
-    if (f) raw = JSON.parse(f.bytes.toString("utf8"));
+    if (f) {
+      try {
+        raw = JSON.parse(f.bytes.toString("utf8"));
+      } catch {
+        throw new Refusal(400, "invalid", "verification.json is not valid JSON");
+      }
+    }
   }
   if (!raw || !["pass", "fail", "inconclusive"].includes(raw.outcome)) {
     throw new Refusal(400, "invalid", "Pre-check produced no outcome");
@@ -839,11 +1061,21 @@ export async function office(db: Db) {
         "select body from runs where package_id = $1 and package_revision = $2 and status = 'failed' order by created_at desc limit 1",
         [p.id, p.revision],
       );
-      const latest = await db.query<{ status: string }>(
-        "select status from runs where package_id = $1 and package_revision = $2 order by created_at desc limit 1",
+      const latest = await db.query<{ status: string; body: Json }>(
+        "select status, body from runs where package_id = $1 and package_revision = $2 order by created_at desc limit 1",
         [p.id, p.revision],
       );
-      if (failed.rows[0] && latest.rows[0]?.status === "failed") {
+      const last = latest.rows[0];
+      if (last?.status === "lost") {
+        items.push({
+          kind: "lost",
+          package_id: p.id,
+          package_revision: p.revision,
+          title,
+          detail: `${last.body.role === "pre-check" ? "Pre-check" : "Author"} run lost: the daemon stopped answering. Requeue it, or return or reject the package.`,
+          since: String(last.body.finished_at ?? new Date().toISOString()),
+        });
+      } else if (failed.rows[0] && last?.status === "failed") {
         items.push({
           kind: "dispute",
           package_id: p.id,
@@ -855,7 +1087,7 @@ export async function office(db: Db) {
       }
     }
   }
-  const rank: Record<string, number> = { dispute: 0, accept: 1, release: 2, permission: 3 };
+  const rank: Record<string, number> = { lost: 0, dispute: 0, accept: 1, release: 2, permission: 3 };
   return items.sort((a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9) || a.since.localeCompare(b.since));
 }
 

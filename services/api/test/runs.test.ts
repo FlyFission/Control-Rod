@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Harness, ORIGIN, VirtualAuthenticator, b64, daemonHeaders, signIn, startHarness } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
 /** Run custody, launch inputs and serving: what the daemon and the owner see around a run. */
 let h: Harness;
@@ -20,16 +20,21 @@ const asOwner = (method: Method, url: string, payload?: unknown) =>
     headers: { cookie, ...(method === "GET" ? {} : { origin: ORIGIN }) },
     ...(payload !== undefined ? { payload: payload as object } : {}),
   });
-const asDaemon = (url: string, payload: unknown) => h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: payload as object });
+const asDaemon = (url: string, payload: unknown) =>
+  h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: withClaim(url, payload as Record<string, unknown>) });
 
 interface Job {
   run: { id: string; role: string; package_id: string; round: number; runtime: { provider: string; model: string } };
   inputs: { name: string; content_base64: string }[];
+  claim: { token: string; lease_expires_at: string; heartbeat_seconds: number };
 }
 
 async function claim(runtimes = ["fake"]): Promise<Job | null> {
   const r = await asDaemon("/runner/claim", { runtimes });
-  return r.statusCode === 204 ? null : (r.json() as Job);
+  if (r.statusCode === 204) return null;
+  const job = r.json() as Job;
+  claims.set(job.run.id, job.claim.token);
+  return job;
 }
 
 const input = (job: Job, name: string) => {
@@ -225,5 +230,116 @@ describe("same-origin check on cookie routes", () => {
     expect(runner.statusCode).toBe(204);
     expect((await h.app.inject({ method: "GET", url: "/office", headers: { cookie, origin: "http://evil.example" } })).statusCode).toBe(200);
     await drainIntake();
+  });
+});
+
+describe("run custody", () => {
+  let pendingCheck: Job | undefined;
+  const complete = (job: Job, body: Record<string, unknown>) => asDaemon(`/runner/runs/${job.run.id}/complete`, body);
+  const runRow = async (id: string) =>
+    (await h.db.query<{ status: string; body: Record<string, unknown> }>("select status, body from runs where id = $1", [id])).rows[0];
+
+  it("hands out a claim token and lease, renews it on each log post and refuses a foreign token", async () => {
+    await releasedPackage("LEASE");
+    const job = (await claim()) as Job;
+    expect(job.claim.token.length).toBeGreaterThan(20);
+    expect(job.claim.heartbeat_seconds).toBeGreaterThan(0);
+    const before = Date.parse(job.claim.lease_expires_at);
+    expect(before).toBeGreaterThan(Date.now());
+    const foreign = await asDaemon(`/runner/runs/${job.run.id}/log`, { claim_token: "someone-else", lines: [] });
+    expect(foreign.statusCode).toBe(403);
+    expect(foreign.json().code).toBe("stale-claim");
+    await new Promise((r) => setTimeout(r, 20));
+    const beat = await asDaemon(`/runner/runs/${job.run.id}/log`, { lines: [] });
+    expect(beat.statusCode, beat.body).toBe(200);
+    expect(beat.json().stop).toBe(false);
+    expect(Date.parse(beat.json().lease_expires_at)).toBeGreaterThan(before);
+    const noToken = await complete(job, { claim_token: "", status: "succeeded", outputs: [] });
+    expect(noToken.statusCode).toBe(403);
+    expect((await runRow(job.run.id))?.status).toBe("running");
+
+    const body = { idempotency_key: "key-lease-0001", status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("ok") }] };
+    const first = await complete(job, body);
+    expect(first.statusCode, first.body).toBe(200);
+    expect(first.json()).toMatchObject({ run_id: job.run.id, idempotency_key: "key-lease-0001", status: "succeeded" });
+    const again = await complete(job, body);
+    expect(again.statusCode).toBe(200);
+    expect(again.json()).toEqual(first.json());
+    const other = await complete(job, { ...body, idempotency_key: "key-lease-0002" });
+    expect(other.statusCode).toBe(409);
+    expect(other.json().code).toBe("already-complete");
+    pendingCheck = (await claim()) as Job;
+    expect(pendingCheck.run.role).toBe("pre-check");
+  });
+
+  it("records a refused completion as a failed run with the reason, and never echoes what was sent", async () => {
+    const job = pendingCheck as Job;
+    const runId = job.run.id;
+    const r = await complete(job, { status: "succeeded", outputs: [] });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().status).toBe("failed");
+    expect(r.json().refusal.message).toMatch(/no outcome/);
+    const row = await runRow(runId);
+    expect(row?.status).toBe("failed");
+    expect(String(row?.body.error)).toMatch(/Completion refused/);
+    expect((await asOwner("GET", `/packages/${job.run.package_id}`)).json().package.status).toBe("in-verification");
+
+    await releasedPackage("BADNAME");
+    const author = (await claim()) as Job;
+    const bad = await complete(author, { status: "succeeded", outputs: [{ name: "../../etc/evil<script>", content_base64: b64("x") }] });
+    expect(bad.json().refusal.code).toBe("invalid");
+    expect(bad.body).not.toContain("evil");
+    expect((await runRow(author.run.id))?.status).toBe("failed");
+  });
+
+  it("refuses an invalid trace with a reason instead of dropping it", async () => {
+    await releasedPackage("TRACE");
+    const job = (await claim()) as Job;
+    const r = await complete(job, {
+      status: "succeeded",
+      trace: { ...trace(job), run_id: job.run.id, outputs: "not-a-list" },
+      outputs: [{ name: "r.md", content_base64: b64("ok") }],
+    });
+    expect(r.json().refusal.code).toBe("invalid-trace");
+    const row = await runRow(job.run.id);
+    expect(row?.status).toBe("failed");
+    expect(String(row?.body.error)).toMatch(/execution trace is invalid/);
+    const failed = (await eventsOf(job.run.id)).find((e) => e.type === "run.failed");
+    expect(failed?.data).toMatchObject({ refused: "invalid-trace" });
+  });
+
+  it("marks a run lost when its lease lapses, refuses its late completion and lets only the owner requeue it", async () => {
+    const id = await releasedPackage("LOST");
+    const job = (await claim()) as Job;
+    await h.db.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [job.run.id]);
+    const office = (await asOwner("GET", "/office")).json() as { kind: string; package_id: string; detail: string }[];
+    const item = office.find((o) => o.package_id === id);
+    expect(item?.kind).toBe("lost");
+    expect(item?.detail).toMatch(/Requeue/);
+    const row = await runRow(job.run.id);
+    expect(row?.status).toBe("lost");
+    expect(String(row?.body.error)).toMatch(/Runner lost/);
+    const view = (await asOwner("GET", `/packages/${id}`)).json();
+    expect(view.runs.find((r: { id: string }) => r.id === job.run.id).status).toBe("lost");
+    expect(view.package.status).toBe("in-work");
+
+    const beat = await asDaemon(`/runner/runs/${job.run.id}/log`, { lines: ["late"] });
+    expect(beat.statusCode).toBe(409);
+    const late = await complete(job, { status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("late") }] });
+    expect(late.statusCode).toBe(409);
+    expect(late.json().code).toBe("run-lost");
+    expect((await eventsOf(job.run.id)).some((e) => e.type === "run.late-completion")).toBe(true);
+    expect((await runRow(job.run.id))?.status).toBe("lost");
+
+    const byDaemon = await h.app.inject({ method: "POST", url: `/packages/${id}/runs/${job.run.id}/requeue`, headers: daemonHeaders });
+    expect(byDaemon.statusCode).toBe(403);
+    const rq = await asOwner("POST", `/packages/${id}/runs/${job.run.id}/requeue`);
+    expect(rq.statusCode, rq.body).toBe(201);
+    expect(rq.json()).toMatchObject({ status: "queued", role: "author", requeue_of: job.run.id });
+    const again = await asOwner("POST", `/packages/${id}/runs/${job.run.id}/requeue`);
+    expect(again.json().id).toBe(rq.json().id);
+    expect((await runRow(job.run.id))?.body.requeued_as).toBe(rq.json().id);
+    const next = (await claim()) as Job;
+    expect(next.run.id).toBe(rq.json().id);
   });
 });

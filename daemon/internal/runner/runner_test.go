@@ -161,10 +161,20 @@ type fakeAPI struct {
 	logs     map[string][]LogBatch
 	done     map[string]Completion
 	finished chan string
+	// failCompletes answers that many completion posts with 503 before accepting.
+	failCompletes int
+	// completeStatus, when set, answers every completion post with it (no receipt).
+	completeStatus int
+	attempts       map[string][]Completion
+	// gone answers log posts for these runs with 409, as for a lost run.
+	gone map[string]bool
+	// stop asks the daemon to stop these runs in the log reply.
+	stop map[string]bool
 }
 
 func newFakeAPI(t *testing.T, jobs ...*Job) (*fakeAPI, *httptest.Server) {
-	f := &fakeAPI{t: t, jobs: jobs, logs: map[string][]LogBatch{}, done: map[string]Completion{}, finished: make(chan string, 16)}
+	f := &fakeAPI{t: t, jobs: jobs, logs: map[string][]LogBatch{}, done: map[string]Completion{}, finished: make(chan string, 16),
+		attempts: map[string][]Completion{}, gone: map[string]bool{}, stop: map[string]bool{}}
 	srv := httptest.NewServer(http.HandlerFunc(f.serve))
 	t.Cleanup(srv.Close)
 	return f, srv
@@ -208,8 +218,13 @@ func (f *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		f.mu.Lock()
 		f.logs[id] = append(f.logs[id], b)
+		gone, stop := f.gone[id], f.stop[id]
 		f.mu.Unlock()
-		w.WriteHeader(http.StatusNoContent)
+		if gone {
+			http.Error(w, `{"code":"not-running"}`, http.StatusConflict)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(LogReply{Stop: stop, LeaseExpiresAt: time.Now().Add(time.Minute).Format(time.RFC3339)})
 	case strings.HasSuffix(r.URL.Path, "/complete"):
 		id := strings.Split(r.URL.Path, "/")[3]
 		var c Completion
@@ -218,9 +233,22 @@ func (f *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		f.mu.Lock()
+		f.attempts[id] = append(f.attempts[id], c)
+		if f.failCompletes > 0 {
+			f.failCompletes--
+			f.mu.Unlock()
+			http.Error(w, "busy", http.StatusServiceUnavailable)
+			return
+		}
+		if f.completeStatus != 0 {
+			f.mu.Unlock()
+			http.Error(w, `{"code":"run-lost"}`, f.completeStatus)
+			f.finished <- id
+			return
+		}
 		f.done[id] = c
 		f.mu.Unlock()
-		w.WriteHeader(http.StatusNoContent)
+		_ = json.NewEncoder(w).Encode(Receipt{RunID: id, IdempotencyKey: c.IdempotencyKey, Status: c.Status})
 		f.finished <- id
 	default:
 		http.NotFound(w, r)

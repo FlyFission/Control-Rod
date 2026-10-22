@@ -18,7 +18,7 @@ CONTROLROD_API=http://localhost:7300 ./bin/controlrod daemon --parallel 3 --time
 | `--parallel` | 3 | Jobs run at once |
 | `--timeout` | 45m | Longest a single run may take; the whole process group is killed after it |
 
-SIGINT or SIGTERM stops claiming, gives running jobs 30 seconds, then kills them and reports each as failed with `daemon shutdown`.
+SIGINT or SIGTERM stops claiming, gives running jobs 30 seconds, then kills them and reports each as failed with `daemon shutdown`. A completion that cannot be sent before the daemon exits stays in the outbox and is sent at the next start.
 
 ## Runtimes
 
@@ -48,6 +48,14 @@ The agent's environment has every `CONTROLROD_` variable removed, so it never se
 
 - **Log:** raw stdout and stderr lines (stderr prefixed `[stderr] `) about once a second, with a label the daemon derives from event types only, such as `Edit: report.md`, `Run: cr-site`, `Fetch: hazards.fema.gov`, `Search` or `Finishing`. Labels are built from tool names and short plain tokens (a file basename, a host, a command's first word, at most 120 characters), never from model prose.
 - **Completion:** every regular file under `out/` (20 MB per file, 100 MB in total; symlinks fail the run), an `ExecutionTrace` with SHA-256 digests of every input and output, the runtime name and its `--version`, start and finish times, and what ran: `runtime_mode` (`print` for every real run today, see ADR 0020), the requested model (`default` when the run names none), the model the runtime reported in its own stream, the permission mode, the tool allowlist and the sandbox. When a run names a model the daemon passes it (`--model` for Claude Code, `-m` for Codex). The control plane names `default` today, so the runtime's own default is used and the reported model is the record of what ran. An intake run attaches `out/package.json`; a pre-check run attaches `out/verification.json`.
+
+## Run custody
+
+- **Claim:** each claimed run comes with a claim token and a lease (90 seconds by default). The daemon presents the token on every log post and on the completion; a post with another token is refused.
+- **Heartbeat:** every log post renews the lease. When the agent is quiet the daemon still posts an empty batch at the heartbeat interval the control plane gives it (a third of the lease).
+- **Lost:** if the lease lapses (the daemon died, slept or lost its network), the control plane marks the run `lost` with the reason, shows it in the office, and requeues nothing on its own. Only the owner can requeue it, from the package view. A log post for a run that is no longer running gets a refusal, and the daemon then ends the agent process.
+- **Completion and outbox:** the daemon writes each completion to `~/.controlrod/outbox/<run>.json` (owner read-only) with a key chosen once, then posts it. A network error, 408, 429 or a server error is retried with the same key, waiting 1 second and doubling up to 30 seconds; after six tries it waits in the outbox, which the daemon retries every 30 seconds and at start. A repeat with the same key gets the stored receipt back. Any other refusal is final: the file moves to `outbox/refused/` as evidence and is not sent again.
+- **Refusals while applying a completion** (an unsafe output name, an invalid trace, a pre-check with no outcome, intake with nothing to show, a kernel refusal) leave the run `failed` with the reason on the record, and the receipt says so. An invalid trace is never dropped silently.
 
 ## Tests
 

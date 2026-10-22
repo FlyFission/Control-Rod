@@ -87,30 +87,68 @@ func (c *Client) Claim(ctx context.Context, runtimes []string) (*Job, error) {
 	}
 }
 
-// Log sends a batch of raw log lines and the daemon's own label.
-func (c *Client) Log(ctx context.Context, runID string, batch LogBatch) error {
+// ErrRunGone means the control plane no longer holds this run as running for this daemon (it
+// was marked lost, stopped or completed). The daemon ends the agent process.
+var ErrRunGone = errors.New("run is no longer held by this daemon")
+
+// RefusedError is a completion the control plane refused for good. Retrying cannot help.
+type RefusedError struct {
+	Status int
+	Body   string
+}
+
+func (e *RefusedError) Error() string {
+	return fmt.Sprintf("completion refused: HTTP %d: %s", e.Status, e.Body)
+}
+
+// Log sends a batch of raw log lines and the daemon's own label. It is also the heartbeat that
+// renews the run's lease.
+func (c *Client) Log(ctx context.Context, runID string, batch LogBatch) (LogReply, error) {
 	path := "/runner/runs/" + runID + "/log"
 	resp, err := c.post(ctx, path, batch, 30*time.Second)
 	if err != nil {
-		return err
+		return LogReply{}, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode/100 != 2 {
-		return statusError(path, resp)
+	switch {
+	case resp.StatusCode == http.StatusNoContent:
+		return LogReply{}, nil
+	case resp.StatusCode/100 == 2:
+		var r LogReply
+		if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<16)).Decode(&r); err != nil {
+			return LogReply{}, fmt.Errorf("decode log reply: %w", err)
+		}
+		return r, nil
+	case resp.StatusCode == http.StatusConflict || resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound:
+		return LogReply{}, fmt.Errorf("%w: %v", ErrRunGone, statusError(path, resp))
+	default:
+		return LogReply{}, statusError(path, resp)
 	}
-	return nil
 }
 
-// Complete reports the end of a run with its outputs and trace.
-func (c *Client) Complete(ctx context.Context, runID string, comp Completion) error {
+// Complete reports the end of a run with its outputs and trace. A network error, 408, 429 or a
+// server error may be retried with the same idempotency key; any other refusal is a
+// *RefusedError.
+func (c *Client) Complete(ctx context.Context, runID string, comp Completion) (*Receipt, error) {
 	path := "/runner/runs/" + runID + "/complete"
 	resp, err := c.post(ctx, path, comp, 5*time.Minute)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode/100 != 2 {
-		return statusError(path, resp)
+	switch {
+	case resp.StatusCode == http.StatusNoContent:
+		return &Receipt{RunID: runID, IdempotencyKey: comp.IdempotencyKey, Status: comp.Status}, nil
+	case resp.StatusCode/100 == 2:
+		var r Receipt
+		if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&r); err != nil {
+			return nil, fmt.Errorf("decode receipt: %w", err)
+		}
+		return &r, nil
+	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
+		return nil, statusError(path, resp)
+	default:
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, &RefusedError{Status: resp.StatusCode, Body: strings.TrimSpace(string(msg))}
 	}
-	return nil
 }

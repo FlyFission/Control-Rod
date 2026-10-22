@@ -34,8 +34,10 @@ import {
   office,
   packageOutput,
   packageView,
+  requeueRun,
   runLog,
   runLogLines,
+  sweepLost,
   updateDraft,
 } from "./work.js";
 
@@ -47,6 +49,10 @@ export interface AppOptions {
   root: string;
   /** Built web app to serve at /, if present. */
   webDir?: string;
+  /** Seconds a run claim lasts without a heartbeat. Default 90. */
+  leaseSeconds?: number;
+  /** Seconds between sweeps for lost runs. Default 15; 0 turns the timer off. */
+  sweepSeconds?: number;
 }
 
 const MIME: Record<string, string> = {
@@ -68,7 +74,7 @@ const MIME: Record<string, string> = {
  */
 export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
-  const cfg: WorkConfig = { root: opts.root, ajv };
+  const cfg: WorkConfig = { root: opts.root, ajv, ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
   app.register(cookie);
@@ -107,6 +113,16 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   const daemon = (req: FastifyRequest) => {
     if (!isDaemon(auth, req)) throw new Refusal(401, "unauthorized", "Daemon token required");
   };
+
+  // Runs whose daemon stopped renewing its lease are retired as lost: on a timer, and before the
+  // office or a claim is read so neither ever shows a dead run as working.
+  const sweep = () => sweepLost(db, cfg).catch(() => undefined);
+  const sweepEvery = opts.sweepSeconds ?? 15;
+  if (sweepEvery > 0) {
+    const timer = setInterval(() => void sweep(), sweepEvery * 1000);
+    timer.unref();
+    app.addHook("onClose", async () => clearInterval(timer));
+  }
 
   app.get("/health", async () => ({ status: "ok" as const, version: VERSION }));
 
@@ -224,8 +240,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return reply.code(201).send(decision);
   });
 
+  app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/requeue", async (req, reply) => {
+    const user = await person(req);
+    return reply.code(201).send(await requeueRun(db, cfg, user, req.params.id, req.params.runId));
+  });
+
   app.get("/office", async (req) => {
     await person(req);
+    await sweep();
     return office(db);
   });
   app.get("/runs", async (req) => {
@@ -265,19 +287,19 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Body: { runtimes?: string[] } }>("/runner/claim", async (req, reply) => {
     daemon(req);
     const runtimes = (req.body?.runtimes ?? []).filter((r) => ["claude", "codex", "fake"].includes(r));
+    await sweep();
     const job = await claim(db, cfg, runtimes);
     if (!job) return reply.code(204).send();
     return job;
   });
-  app.post<{ Params: { id: string }; Body: { lines?: string[]; label?: string } }>("/runner/runs/:id/log", async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string } }>("/runner/runs/:id/log", async (req) => {
     daemon(req);
-    await runLog(db, req.params.id, (req.body?.lines ?? []).map(String), req.body?.label ? String(req.body.label) : undefined);
-    return reply.code(204).send();
+    const lines = Array.isArray(req.body?.lines) ? req.body.lines.map(String) : [];
+    return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined);
   });
-  app.post<{ Params: { id: string } }>("/runner/runs/:id/complete", async (req, reply) => {
+  app.post<{ Params: { id: string } }>("/runner/runs/:id/complete", async (req) => {
     daemon(req);
-    await complete(db, cfg, req.params.id, req.body);
-    return reply.code(204).send();
+    return complete(db, cfg, req.params.id, req.body ?? {});
   });
 
   if (opts.webDir && existsSync(opts.webDir)) {

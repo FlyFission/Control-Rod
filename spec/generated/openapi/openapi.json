@@ -1172,6 +1172,92 @@
         }
       }
     },
+    "/packages/{id}/runs/{runId}/requeue": {
+      "post": {
+        "operationId": "Packages_requeue",
+        "description": "The owner queues a new run in place of one that was lost, failed or stopped. The old run\nkeeps its record. Repeating returns the run already queued.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runner/claim": {
       "post": {
         "operationId": "Runner_claim",
@@ -1278,8 +1364,15 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "There is no content to send for this request, but the headers may be useful. "
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Runner.CompletionReceipt"
+                }
+              }
+            }
           },
           "400": {
             "description": "The server could not understand the request due to invalid syntax.",
@@ -1358,8 +1451,29 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "There is no content to send for this request, but the headers may be useful. "
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stop": {
+                      "type": "boolean",
+                      "description": "The owner asked to stop this run: end the process and complete it as stopped."
+                    },
+                    "lease_expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "stop",
+                    "lease_expires_at"
+                  ]
+                }
+              }
+            }
           },
           "400": {
             "description": "The server could not understand the request due to invalid syntax.",
@@ -1419,6 +1533,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "claim_token": {
+                    "type": "string"
+                  },
                   "lines": {
                     "type": "array",
                     "items": {
@@ -1430,6 +1547,7 @@
                   }
                 },
                 "required": [
+                  "claim_token",
                   "lines"
                 ]
               }
@@ -2349,6 +2467,19 @@
           },
           "trace": {
             "$ref": "#/components/schemas/ControlRod.Records.ExecutionTrace"
+          },
+          "lease_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "While running: when the claim lapses unless the daemon renews it with a log post."
+          },
+          "requeue_of": {
+            "type": "string",
+            "description": "The run this one was requeued from, after it was lost, failed or stopped."
+          },
+          "requeued_as": {
+            "type": "string",
+            "description": "The run the owner queued to replace this one."
           }
         },
         "description": "One agent session working on one package revision in one role."
@@ -2368,7 +2499,8 @@
           "running",
           "succeeded",
           "failed",
-          "stopped"
+          "stopped",
+          "lost"
         ]
       },
       "ControlRod.Records.RuntimeRef": {
@@ -2720,7 +2852,8 @@
               "release",
               "accept",
               "dispute",
-              "permission"
+              "permission",
+              "lost"
             ]
           },
           "package_id": {
@@ -2807,10 +2940,21 @@
       "Runner.Completion": {
         "type": "object",
         "required": [
+          "claim_token",
+          "idempotency_key",
           "status",
           "outputs"
         ],
         "properties": {
+          "claim_token": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100,
+            "description": "Chosen by the daemon once per completion and kept across retries."
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -2850,11 +2994,48 @@
           }
         }
       },
+      "Runner.CompletionReceipt": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "idempotency_key",
+          "status",
+          "outputs",
+          "received_at"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunStatus"
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Artifact"
+            }
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "refusal": {
+            "$ref": "#/components/schemas/ApiError",
+            "description": "Set when the completion could not be applied; the run is then recorded failed with this reason."
+          }
+        },
+        "description": "What the control plane recorded for a completion. A repeat with the same key returns it again."
+      },
       "Runner.Job": {
         "type": "object",
         "required": [
           "run",
-          "inputs"
+          "inputs",
+          "claim"
         ],
         "properties": {
           "run": {
@@ -2890,8 +3071,35 @@
             "items": {
               "$ref": "#/components/schemas/ControlRod.Records.Finding"
             }
+          },
+          "claim": {
+            "$ref": "#/components/schemas/Runner.RunClaim",
+            "description": "Custody of this run: present the token on every log and completion."
           }
         }
+      },
+      "Runner.RunClaim": {
+        "type": "object",
+        "required": [
+          "token",
+          "lease_expires_at",
+          "heartbeat_seconds"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "lease_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "heartbeat_seconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Post a log batch, even an empty one, at least this often."
+          }
+        },
+        "description": "A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost."
       }
     }
   },

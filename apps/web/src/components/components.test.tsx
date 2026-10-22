@@ -8,6 +8,8 @@ import { DIGEST, view } from "../test/fixtures.js";
 import { CaptureBox, CAPTURE_LIMIT } from "./CaptureBox.js";
 import { DecisionBar } from "./DecisionBar.js";
 import { Office } from "../pages/Office.js";
+import { RunCard, canRequeue } from "./RunLog.js";
+import type { Run } from "../api/types.js";
 import type { Passkeys } from "../lib/decide.js";
 
 describe("capture", () => {
@@ -240,5 +242,53 @@ describe("your office", () => {
     await screen.findByText("Accept WP-1");
     const titles = screen.getAllByText(/^(Release|Accept|Dispute) WP-\d$/).map((n) => n.textContent);
     expect(titles).toEqual(["Dispute WP-4", "Accept WP-1", "Accept WP-2", "Release WP-3"]);
+  });
+});
+
+describe("runs that need the owner", () => {
+  const lostRun: Run = {
+    schema_version: "0.1.0",
+    id: "R-lost",
+    package_id: "WP-9",
+    package_revision: 0,
+    role: "author",
+    agent_baseline: "author-claude",
+    runtime: { kind: "subscription", provider: "claude", model: "default" },
+    round: 1,
+    status: "lost",
+    queued_at: "2026-10-22T10:00:00Z",
+    error: "Runner lost: no heartbeat from the daemon.",
+  };
+
+  it("shows a lost run plainly and lets the owner requeue it once", async () => {
+    let posted = "";
+    server.use(
+      http.get("*/packages/WP-9/runs/R-lost/log", () => HttpResponse.json({ lines: [] })),
+      http.post("*/packages/WP-9/runs/R-lost/requeue", ({ request }) => {
+        posted = new URL(request.url).pathname;
+        return HttpResponse.json({ ...lostRun, id: "R-new", status: "queued", requeue_of: "R-lost" }, { status: 201 });
+      }),
+    );
+    await renderPage(<RunCard packageId="WP-9" run={lostRun} />);
+    expect(screen.getByText("Lost: the daemon stopped answering")).toBeTruthy();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Requeue this run" }));
+    await waitFor(() => expect(posted).toBe("/packages/WP-9/runs/R-lost/requeue"));
+    expect(canRequeue({ ...lostRun, requeued_as: "R-new" })).toBe(false);
+    expect(canRequeue({ ...lostRun, status: "running" })).toBe(false);
+  });
+
+  it("puts lost runs right after holds in the office", async () => {
+    server.use(
+      http.get("*/office", () =>
+        HttpResponse.json([
+          { kind: "dispute", package_id: "WP-4", package_revision: 2, title: "Dispute WP-4", detail: "", since: "2026-10-22T08:00:00Z" },
+          { kind: "lost", package_id: "WP-9", package_revision: 0, title: "Lost WP-9", detail: "Author run lost", since: "2026-10-22T12:00:00Z" },
+        ]),
+      ),
+    );
+    await renderPage(<Office />);
+    await screen.findByText("Lost WP-9");
+    expect(screen.getAllByText(/^(Lost|Dispute) WP-\d$/).map((n) => n.textContent)).toEqual(["Lost WP-9", "Dispute WP-4"]);
+    expect(screen.getByText("Lost run")).toBeTruthy();
   });
 });

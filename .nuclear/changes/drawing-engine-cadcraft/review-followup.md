@@ -20,8 +20,8 @@ the CI-pinned nuclear-grade validator at `8122269a5b55e5694c8f998ad17955e7ce4579
 
 Limit: these tests prove record refusals, not CAD rendering, output confinement in the
 presence of filesystem symlinks, DWG fidelity or AutoCAD compatibility. CADCraft was
-unavailable for a fresh nine-check conformance run. Existing CAD evidence remains
-historical. Owner review and contributor DCO requirements remain pending.
+unavailable at the initial review; the fresh run recorded below supersedes that
+local gap. AutoCAD compatibility remains unverified. Owner review and contributor DCO requirements remain pending.
 
 Publication: the owner instructed "Double check to ensure youre confident then continue"
 after reviewing the concrete patches. This authorizes publishing these scoped fixes,
@@ -75,3 +75,23 @@ were stringified rather than refused. Every revision cell now requires nonblank 
 write a numeric revision as a string and a pending approval as "-". The added malformed
 value regression failed before the guard and passes afterward. All nine drawing
 test methods pass with fontconfig and Pillow available.
+
+## Live CAD baseline and title-value follow-up
+
+Title block cells now require nonblank strings, matching the revision-cell rule.
+A table of malformed values for every required title cell failed before the fix;
+all ten record-test methods pass afterward with fontconfig and Pillow available.
+
+CAD-03 previously compared the saved DXF with another reopening of the same file.
+The conformance runner now captures counts and text from the live drawing before
+its first save, using a scoped wrapper around the real CADCraft client. Each reopened
+DXF/DWG and the second DWG cycle is compared to that unsaved snapshot.
+
+CADCraft was freshly built from pinned commit `e4214f7180d041d1a88fbb1885317648d0e8bc4b`
+and all nine conformance checks pass on the fixed tree. The PDF is true-size ANSI D
+with searchable title and notes; the PNG was visually inspected. Evidence, library
+versions and seven output-file hashes are retained under
+`E:\invention-pipeline\outputs\control-rod-pr-review-2026-10-22\continued\cad-evidence`.
+The independent reviewer confirmed all seven hashes and the live-before-save ordering.
+The census establishes matching counts/text, not complete geometric fidelity or
+AutoCAD compatibility. Customer-file editing remains blocked by ADR 0018.

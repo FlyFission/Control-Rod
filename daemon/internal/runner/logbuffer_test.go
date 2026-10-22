@@ -34,8 +34,22 @@ func TestPutBackIsBounded(t *testing.T) {
 		big[i] = "x"
 	}
 	b.putBack(big)
-	got, _ := b.take()
-	if len(got.Lines) != maxHeldLines {
-		t.Fatalf("held %d lines, want %d", len(got.Lines), maxHeldLines)
+	if len(b.lines) != maxHeldLines {
+		t.Fatalf("held %d lines, want %d", len(b.lines), maxHeldLines)
+	}
+}
+
+func TestTakeSendsAtMostOneBatchAndKeepsTheRest(t *testing.T) {
+	b := &logBuffer{}
+	for range MaxLogBatch + 7 {
+		b.add("l")
+	}
+	first, _ := b.take()
+	second, ok := b.take()
+	if len(first.Lines) != MaxLogBatch || !ok || len(second.Lines) != 7 {
+		t.Fatalf("first %d, second %d (ok %v)", len(first.Lines), len(second.Lines), ok)
+	}
+	if _, ok := b.take(); ok {
+		t.Fatal("buffer should be empty")
 	}
 }

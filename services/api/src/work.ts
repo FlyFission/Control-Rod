@@ -500,6 +500,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
 }
 
 const CLAIM_PAGE = 50;
+const MAX_LOG_LINES = 500;
 
 /** The daemon asks for work. Only runs whose package is ready are handed out. */
 export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
@@ -640,11 +641,15 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
     const row = await lockRun(c, runId);
     if (!holdsClaim(row.claim_token_hash, token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
     if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
+    // Refuse, never truncate: a line the server drops after acknowledging it is lost for good.
+    if (lines.length > MAX_LOG_LINES) {
+      throw new Refusal(400, "too-many-lines", `Send at most ${MAX_LOG_LINES} lines per batch`);
+    }
     const lease = leaseFromNow(cfg);
     const body = { ...row.body, lease_expires_at: lease, ...(label ? { label: label.slice(0, LABEL_MAX) } : {}) };
     await c.query("update runs set log = log || $2::text[], body = $3, lease_expires_at = $4 where id = $1", [
       runId,
-      lines.slice(0, 500).map((l) => l.slice(0, 4000)),
+      lines.map((l) => l.slice(0, 4000)),
       body,
       lease,
     ]);

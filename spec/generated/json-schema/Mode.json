@@ -1,0 +1,10 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Mode.json",
+    "type": "string",
+    "enum": [
+        "software",
+        "capital-projects"
+    ],
+    "description": "Kind of work a project does."
+}

@@ -1,0 +1,33 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ToolRef.json",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string"
+        },
+        "version": {
+            "type": "string"
+        },
+        "qualification": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "not-required"
+                },
+                {
+                    "type": "string",
+                    "const": "required-before-use"
+                },
+                {
+                    "type": "string",
+                    "const": "qualified"
+                }
+            ]
+        }
+    },
+    "required": [
+        "name"
+    ],
+    "unevaluatedProperties": false
+}

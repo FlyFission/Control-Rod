@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Coupling.json",
+    "type": "string",
+    "enum": [
+        "independent",
+        "shared",
+        "coupled",
+        "unknown"
+    ],
+    "description": "Independence of one axis of the actor and evidence coupling profile."
+}

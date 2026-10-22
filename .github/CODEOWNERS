@@ -1,0 +1,7 @@
+# Trust surfaces need review from a maintainer who did not author the change.
+/policies/            @FlyFission
+/tests/redteam/       @FlyFission
+/.github/             @FlyFission
+/kernel/              @FlyFission
+/spec/                @FlyFission
+/docs/adr/            @FlyFission

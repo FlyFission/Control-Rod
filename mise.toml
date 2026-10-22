@@ -1,0 +1,10 @@
+# Toolchain pins. Every developer and CI job uses exactly these versions.
+[tools]
+node = "22"
+pnpm = "10.28.0"
+rust = "1.97.0"
+go = "1.24.7"
+python = "3.13"
+uv = "0.11.32"
+"aqua:EmbarkStudios/cargo-deny" = "0.20.2"
+"go:github.com/google/go-licenses/v2" = "2.0.1"

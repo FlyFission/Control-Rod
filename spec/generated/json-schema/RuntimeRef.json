@@ -1,0 +1,35 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RuntimeRef.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "subscription"
+                },
+                {
+                    "type": "string",
+                    "const": "account"
+                },
+                {
+                    "type": "string",
+                    "const": "local"
+                }
+            ]
+        },
+        "provider": {
+            "type": "string"
+        },
+        "model": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "kind",
+        "provider",
+        "model"
+    ],
+    "unevaluatedProperties": false
+}

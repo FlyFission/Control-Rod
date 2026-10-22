@@ -1,0 +1,17 @@
+[package]
+name = "controlrod-kernel"
+version = "0.0.0"
+description = "Control Rod kernel: the only component that decides state changes."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = "1.0.154"
+serde_json_canonicalizer = "0.4.1"
+sha2 = "0.11.1"

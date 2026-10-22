@@ -1,0 +1,13 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "DataLane.json",
+    "type": "string",
+    "enum": [
+        "public",
+        "internal",
+        "proprietary",
+        "client-confidential",
+        "restricted"
+    ],
+    "description": "Data handling class. Decides runtimes, egress, storage and transcription."
+}

@@ -1,0 +1,32 @@
+[DOCUMENT]
+TITLE: Control Rod requirements
+
+[REQUIREMENT]
+UID: REQ-KRN-001
+TITLE: Agents never decide
+STATEMENT: The kernel shall refuse any release, verdict, apply clearance or policy change requested by an agent principal.
+
+[REQUIREMENT]
+UID: REQ-KRN-002
+TITLE: Fail closed
+STATEMENT: The kernel shall refuse any request it has no rule for, and any request whose policy evaluation reports an error.
+
+[REQUIREMENT]
+UID: REQ-KRN-003
+TITLE: Only the kernel allows
+STATEMENT: No component outside the kernel shall be able to construct an allowing decision.
+
+[REQUIREMENT]
+UID: REQ-KRN-004
+TITLE: Canonical digests
+STATEMENT: Record digests shall be SHA-256 over the RFC 8785 canonical form, identical across the Rust, Go, TypeScript and Python implementations.
+
+[REQUIREMENT]
+UID: REQ-KRN-005
+TITLE: No floating-point engineering values
+STATEMENT: Record digest functions shall refuse non-integer JSON numbers and report their JSON pointer.
+
+[REQUIREMENT]
+UID: REQ-API-001
+TITLE: Contract validation
+STATEMENT: The control plane shall reject any request body that fails validation against the TypeSpec-generated JSON Schema, including any field the contract does not name, at any depth.

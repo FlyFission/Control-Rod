@@ -32,6 +32,12 @@ contributors' commits or supply the protected-surface owner signature. Merge rem
 subject to owner review and the repository's existing gates.
 Rollback: discard this isolated branch or revert the eventual fix commit.
 
+## Second Codex review (2026-10-22, on 688dc12)
+
+- Revision rows: `check_record` now refuses a revision with any template column missing or blank; a pending approval is written as "-". Test: `test_blank_or_incomplete_revision_rows_are_refused`.
+- Font: `fc-match` always returns its best match, so a missing font came back as a substitute (here "Inter" for a made-up name). `Metrics` now refuses unless the matched family is the one requested, so Pillow measures the font CADCraft draws. Test: `test_missing_font_is_refused_rather_than_substituted` (skips without fontconfig and Pillow).
+- Result: `tests/conformance/cad`, 8 passed, 29 subtests passed.
+
 ## Required links
 
 - `basis.md`, `trace.md`, `verification.md`, `ship.md`

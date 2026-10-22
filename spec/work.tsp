@@ -110,7 +110,10 @@ model Run {
   independence_override?: OwnerOverride;
 }
 
-/** A person's recorded choice to proceed past a hold, with who, when and why. */
+/**
+ * A person's choice to proceed past a hold, with who, when and why, signed with their passkey
+ * over the digest of (package, revision, run, the act and the reason).
+ */
 @extension("unevaluatedProperties", false)
 model OwnerOverride {
   by: string;
@@ -119,6 +122,9 @@ model OwnerOverride {
   @minLength(1)
   @maxLength(2000)
   reason: string;
+
+  subject_digest: Digest;
+  assertion: PasskeyAssertion;
 }
 
 /** A WebAuthn assertion over the decision digest, made by the person's own authenticator. */

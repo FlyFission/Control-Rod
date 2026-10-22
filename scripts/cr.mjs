@@ -52,8 +52,9 @@ function doctor() {
   if (!which("codex")) {
     console.log(
       "\nWithout Codex, every pre-check waits for an independent runtime. It never runs on the author's runtime on its own." +
-        "\nTo go ahead with Claude alone, open each held pre-check and choose \"Proceed with owner override\" with a reason." +
-        "\nThat override is recorded, and the pre-check record shows a shared runtime with your override.",
+        "\nTo go ahead with Claude alone, open each held pre-check, write why, and sign the override with your passkey." +
+        "\nA different Claude model does not count as independent. The signed override is recorded, and the pre-check" +
+        "\nrecord shows a shared runtime with your override.",
     );
   }
   return ok;

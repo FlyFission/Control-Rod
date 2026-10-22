@@ -468,7 +468,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           if (pkg.status !== "in-verification") continue;
           const a = await latestAuthorRun(c, pkg.id, pkg.revision);
           const authorRuntime = runtimeName(a?.body.runtime?.provider);
-          runtime = pickChecker(runtimes, authorRuntime, Boolean(row.body.independence_override));
+          runtime = pickChecker(runtimes, authorRuntime, verifiedOverride(row.body));
           if (!runtime && runtimes.includes(authorRuntime) && !row.body.waiting_reason) {
             // Held, not skipped silently: say why on the run and in the office, once.
             const held = { ...row.body, waiting_reason: WAITING_FOR_INDEPENDENT_RUNTIME };
@@ -668,28 +668,92 @@ export async function stopRun(db: Db, cfg: WorkConfig, user: string, packageId: 
   });
 }
 
-/**
- * The owner lets a held pre-check run on the author's runtime. Recorded before the pre-check runs,
- * as an event and on the run; the verification record carries it. Repeating changes nothing.
- */
-export async function overrideIndependence(db: Db, cfg: WorkConfig, user: string, packageId: string, runId: string, reason: unknown) {
+/** The run and package an override would apply to, and the digest the owner signs. */
+async function overrideTarget(q: Db | Tx, packageId: string, runId: string, reason: string, lock = false) {
+  const r = await q.query<RunRow>(`select * from runs where id = $1${lock ? " for update" : ""}`, [runId]);
+  const row = r.rows[0];
+  if (!row || row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+  if (row.role !== "pre-check") throw new Refusal(409, "wrong-state", "Only a pre-check can be overridden");
+  const pkg = await currentPackage(q, packageId, lock);
+  if (!pkg || pkg.revision !== row.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
+  const subject = { package_id: pkg.id, package_revision: pkg.revision, run_id: row.id, act: "override-independence", reason };
+  return { row, pkg, digest: digest(subject) };
+}
+
+const overrideReason = (reason: unknown) => {
   const why = typeof reason === "string" ? reason.trim() : "";
   if (!why) throw new Refusal(400, "reason-required", "Say why the pre-check may share the author's runtime");
+  return why.slice(0, 2000);
+};
+
+/** Step 1 of the override: the digest to sign. Refused for anything but a held pre-check. */
+export async function overrideSubject(db: Db, packageId: string, runId: string, reason: unknown) {
+  const why = overrideReason(reason);
+  const t = await overrideTarget(db, packageId, runId, why);
+  if (t.row.status !== "queued" || t.pkg.status !== "in-verification") throw new Refusal(409, "wrong-state", `The pre-check is ${t.row.status}`);
+  return { digest: t.digest, revision: t.pkg.revision, reason: why };
+}
+
+export function overrideChallenge(subjectDigest: string, revision: number, runId: string, nonce: string): Uint8Array {
+  return new Uint8Array(createHash("sha256").update(`${subjectDigest}|override-independence|${revision}|${runId}|${nonce}`).digest());
+}
+
+/**
+ * Step 2: the owner lets a held pre-check run on the author's provider. The kernel allows it only
+ * as a signed human act with a reason, bound to the digest. Recorded with the assertion as an
+ * event and on the run; the verification record carries it. Repeating changes nothing.
+ */
+export async function overrideIndependence(
+  db: Db,
+  cfg: WorkConfig,
+  user: string,
+  packageId: string,
+  runId: string,
+  reason: unknown,
+  signed: { subject_digest: string; assertion: Json } | null,
+) {
+  const why = overrideReason(reason);
   return tx(db, async (c) => {
-    const row = await lockRun(c, runId);
-    if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
-    if (row.role !== "pre-check") throw new Refusal(409, "wrong-state", "Only a pre-check can be overridden");
+    const { row, pkg, digest: d } = await overrideTarget(c, packageId, runId, why, true);
+    kernel(
+      decide({
+        status: pkg.status,
+        action: "override-independence",
+        actor_kind: "human",
+        actor_id: user,
+        assertion_verified: signed !== null,
+        digest_matches: signed !== null && signed.subject_digest === d,
+        reason_given: true,
+      }),
+      "override",
+    );
     if (row.body.independence_override) return { ...row.body, status: row.status };
     if (row.status !== "queued") throw new Refusal(409, "wrong-state", `The pre-check is ${row.status}`);
-    const override = { by: user, at: now(), reason: why.slice(0, 2000) };
+    const a = signed?.assertion ?? {};
+    const assertion = {
+      credential_id: String(a.id ?? ""),
+      authenticator_data: String(a.response?.authenticatorData ?? ""),
+      client_data_json: String(a.response?.clientDataJSON ?? ""),
+      signature: String(a.response?.signature ?? ""),
+    };
+    const override = { by: user, at: now(), reason: why, subject_digest: { algorithm: "sha256", value: d }, assertion };
     const body = { ...row.body, independence_override: override };
     delete body.waiting_reason;
     validate(cfg, "Run.json", body);
     await c.query("update runs set body = $2 where id = $1", [runId, body]);
-    await appendEvent(c, "run.independence-override", runId, { kind: "human", id: user }, { package: row.package_id, reason: override.reason });
+    await appendEvent(c, "run.independence-override", runId, { kind: "human", id: user }, {
+      package: row.package_id,
+      revision: pkg.revision,
+      reason: why,
+      subject_digest: d,
+      assertion,
+    });
     return { ...body, status: row.status };
   });
 }
+
+/** An override counts only when it was stored after a verified passkey assertion. */
+const verifiedOverride = (run: Json) => Boolean(run?.independence_override?.assertion?.signature && run.independence_override.subject_digest);
 
 export async function runLogLines(db: Db, packageId: string, runId: string) {
   const r = await db.query<{ log: string[] }>("select log from runs where id = $1 and package_id = $2", [runId, packageId]);
@@ -961,7 +1025,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   const authorRuntime = identityOf(author?.body, author?.body.trace);
   const checkerRuntime = identityOf(row.body, body.trace);
   const sharedRuntime = mayBeSameRuntime(authorRuntime, checkerRuntime);
-  const override = row.body.independence_override;
+  const override = verifiedOverride(row.body) ? row.body.independence_override : undefined;
   const asRef = (r: Json, id: RuntimeIdentity) => ({ kind: String(r?.runtime?.kind ?? "local"), provider: id.provider || "unknown", model: id.model });
   const record = {
     schema_version: "0.1.0",
@@ -1015,7 +1079,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       checker_baseline: agent.id,
       author_runtime: authorRuntime,
       checker_runtime: checkerRuntime,
-      owner_override: Boolean(override),
+      owner_override_verified: Boolean(override),
     }),
     "pre-check",
   );

@@ -367,7 +367,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ControlRod.Records.Capture"
+                    "$ref": "#/components/schemas/Captures.CaptureView"
                   }
                 }
               }
@@ -874,6 +874,10 @@
                   "reason": {
                     "type": "string"
                   },
+                  "expected_subject_digest": {
+                    "$ref": "#/components/schemas/ControlRod.Records.Digest",
+                    "description": "The subject digest the person was shown. The server refuses the options request when the\npackage has changed since, so a person never signs content they did not see."
+                  },
                   "assertion": {
                     "type": "object",
                     "additionalProperties": {}
@@ -1172,6 +1176,397 @@
         }
       }
     },
+    "/packages/{id}/runs/{runId}/override-independence": {
+      "post": {
+        "operationId": "Packages_overrideIndependence",
+        "description": "Step 2: the signed override. The challenge is consumed once; the kernel allows it only as a\nsigned human act with a reason. Recorded as an event with the assertion, carried into the\nverification record, and only then may the pre-check run on the author's provider.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "assertion": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "reason",
+                  "assertion"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/runs/{runId}/override-independence/options": {
+      "post": {
+        "operationId": "Packages_overrideIndependenceOptions",
+        "description": "Step 1 of the owner's override: the server returns the digest of (package id, revision, run\nid, \"override-independence\", reason) and a WebAuthn challenge derived from it.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subject_digest": {
+                      "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "subject_digest",
+                    "options"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Packages.OverrideRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/runs/{runId}/requeue": {
+      "post": {
+        "operationId": "Packages_requeue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/runs/{runId}/stop": {
+      "post": {
+        "operationId": "Packages_stop",
+        "description": "The owner queues a new run in place of one that was lost, failed or stopped. The old run\nkeeps its record. Repeating returns the run already queued.The owner stops a run. A queued run stops at once. For a running run the request is\nrecorded first, then the daemon is told in its next log reply and ends the process; the run\nshows as stopping until the daemon confirms. Repeating is harmless.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runner/claim": {
       "post": {
         "operationId": "Runner_claim",
@@ -1252,6 +1647,13 @@
                     "type": "array",
                     "items": {
                       "type": "string"
+                    },
+                    "description": "Runtimes ready for work. The control plane picks only from these."
+                  },
+                  "runtime_status": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Runner.RuntimeStatus"
                     }
                   }
                 },
@@ -1278,8 +1680,15 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "There is no content to send for this request, but the headers may be useful. "
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Runner.CompletionReceipt"
+                }
+              }
+            }
           },
           "400": {
             "description": "The server could not understand the request due to invalid syntax.",
@@ -1358,8 +1767,29 @@
           }
         ],
         "responses": {
-          "204": {
-            "description": "There is no content to send for this request, but the headers may be useful. "
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stop": {
+                      "type": "boolean",
+                      "description": "The owner asked to stop this run: end the process and complete it as stopped."
+                    },
+                    "lease_expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "stop",
+                    "lease_expires_at"
+                  ]
+                }
+              }
+            }
           },
           "400": {
             "description": "The server could not understand the request due to invalid syntax.",
@@ -1419,6 +1849,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "claim_token": {
+                    "type": "string"
+                  },
                   "lines": {
                     "type": "array",
                     "items": {
@@ -1430,6 +1863,7 @@
                   }
                 },
                 "required": [
+                  "claim_token",
                   "lines"
                 ]
               }
@@ -1453,6 +1887,40 @@
                   "items": {
                     "$ref": "#/components/schemas/ControlRod.Records.Run"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runtimes": {
+      "get": {
+        "operationId": "runtimes",
+        "description": "What the daemon last reported about each runtime it found, for the office.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reported_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "runtimes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Runner.RuntimeStatus"
+                      }
+                    }
+                  },
+                  "required": [
+                    "runtimes"
+                  ]
                 }
               }
             }
@@ -1508,6 +1976,84 @@
             "type": "string"
           }
         }
+      },
+      "Captures.CaptureView": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "id",
+          "text",
+          "source",
+          "created_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "web",
+              "cli",
+              "voice",
+              "chat"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "answered",
+              "package"
+            ],
+            "description": "Intake either answers a quick question directly or drafts a work package."
+          },
+          "answer": {
+            "type": "string",
+            "maxLength": 20000,
+            "description": "The direct answer for a quick question. No package, check or approval."
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "intake": {
+            "$ref": "#/components/schemas/Captures.IntakeState"
+          }
+        }
+      },
+      "Captures.IntakeState": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "status"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunStatus"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "description": "The latest intake run for a capture still pending, so a failed intake is never stranded."
       },
       "Captures.NewCapture": {
         "type": "object",
@@ -2031,6 +2577,42 @@
           "finished_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "runtime_mode": {
+            "type": "string",
+            "enum": [
+              "print",
+              "acp",
+              "fake"
+            ],
+            "description": "How the runtime was driven. \"print\" is a headless, one-prompt run (`claude -p`, `codex exec`)\nwhere no ACP permission binding is in force; \"acp\" is reserved for ACP sessions."
+          },
+          "requested_model": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The model the run asked for, or \"default\" when it left the choice to the runtime."
+          },
+          "reported_model": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The model the runtime said it used, read from its own event stream. Absent when it did not say."
+          },
+          "permission_mode": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Permission mode the runtime started in, when it has one."
+          },
+          "allowed_tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tool allowlist passed to the runtime, when it takes one."
+          },
+          "sandbox": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Sandbox the daemon asked the runtime for: \"none\", \"workspace-write\" or \"workspace-write+network\"."
           }
         },
         "description": "Proof of where outputs came from. Recorded by the runner, never by the agent."
@@ -2158,6 +2740,37 @@
         ],
         "description": "Kind of work a project does. General is the base layer with no domain pack."
       },
+      "ControlRod.Records.OwnerOverride": {
+        "type": "object",
+        "required": [
+          "by",
+          "at",
+          "reason",
+          "subject_digest",
+          "assertion"
+        ],
+        "properties": {
+          "by": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+          }
+        },
+        "description": "A person's choice to proceed past a hold, with who, when and why, signed with their passkey\nover the digest of (package, revision, run, the act and the reason)."
+      },
       "ControlRod.Records.PackageStatus": {
         "type": "string",
         "enum": [
@@ -2192,6 +2805,33 @@
           }
         },
         "description": "A WebAuthn assertion over the decision digest, made by the person's own authenticator."
+      },
+      "ControlRod.Records.PreCheckIndependence": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "author_runtime",
+          "checker_runtime"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string",
+            "enum": [
+              "independent",
+              "shared"
+            ]
+          },
+          "author_runtime": {
+            "$ref": "#/components/schemas/ControlRod.Records.RuntimeRef"
+          },
+          "checker_runtime": {
+            "$ref": "#/components/schemas/ControlRod.Records.RuntimeRef"
+          },
+          "owner_override": {
+            "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride"
+          }
+        },
+        "description": "Runtime identity of author and checker, and whether they could be the same."
       },
       "ControlRod.Records.Quantity": {
         "type": "object",
@@ -2313,6 +2953,36 @@
           },
           "trace": {
             "$ref": "#/components/schemas/ControlRod.Records.ExecutionTrace"
+          },
+          "lease_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "While running: when the claim lapses unless the daemon renews it with a log post."
+          },
+          "requeue_of": {
+            "type": "string",
+            "description": "The run this one was requeued from, after it was lost, failed or stopped."
+          },
+          "requeued_as": {
+            "type": "string",
+            "description": "The run the owner queued to replace this one."
+          },
+          "stop_requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The owner asked to stop this run. It shows as stopping until the daemon confirms."
+          },
+          "stop_requested_by": {
+            "type": "string"
+          },
+          "waiting_reason": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why a queued run is not being handed out, in plain words."
+          },
+          "independence_override": {
+            "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride",
+            "description": "The owner let this pre-check run on the author's runtime. Recorded before it ran."
           }
         },
         "description": "One agent session working on one package revision in one role."
@@ -2332,7 +3002,8 @@
           "running",
           "succeeded",
           "failed",
-          "stopped"
+          "stopped",
+          "lost"
         ]
       },
       "ControlRod.Records.RuntimeRef": {
@@ -2479,6 +3150,10 @@
               "fail",
               "inconclusive"
             ]
+          },
+          "independence": {
+            "$ref": "#/components/schemas/ControlRod.Records.PreCheckIndependence",
+            "description": "Whether the checker ran on a runtime other than the author's, and any owner override."
           }
         },
         "description": "Evidence that a result met its criteria. Inconclusive never counts as a pass."
@@ -2684,7 +3359,8 @@
               "release",
               "accept",
               "dispute",
-              "permission"
+              "permission",
+              "lost"
             ]
           },
           "package_id": {
@@ -2765,22 +3441,52 @@
           },
           "reason": {
             "type": "string"
+          },
+          "expected_subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "The subject digest the person was shown. The server refuses the options request when the\npackage has changed since, so a person never signs content they did not see."
+          }
+        }
+      },
+      "Packages.OverrideRequest": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
           }
         }
       },
       "Runner.Completion": {
         "type": "object",
         "required": [
+          "claim_token",
+          "idempotency_key",
           "status",
           "outputs"
         ],
         "properties": {
+          "claim_token": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100,
+            "description": "Chosen by the daemon once per completion and kept across retries."
+          },
           "status": {
             "type": "string",
             "enum": [
               "succeeded",
-              "failed"
-            ]
+              "failed",
+              "stopped"
+            ],
+            "description": "\"stopped\" only after the owner asked to stop the run."
           },
           "error": {
             "type": "string"
@@ -2814,11 +3520,48 @@
           }
         }
       },
+      "Runner.CompletionReceipt": {
+        "type": "object",
+        "required": [
+          "run_id",
+          "idempotency_key",
+          "status",
+          "outputs",
+          "received_at"
+        ],
+        "properties": {
+          "run_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunStatus"
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Artifact"
+            }
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "refusal": {
+            "$ref": "#/components/schemas/ApiError",
+            "description": "Set when the completion could not be applied; the run is then recorded failed with this reason."
+          }
+        },
+        "description": "What the control plane recorded for a completion. A repeat with the same key returns it again."
+      },
       "Runner.Job": {
         "type": "object",
         "required": [
           "run",
-          "inputs"
+          "inputs",
+          "claim"
         ],
         "properties": {
           "run": {
@@ -2854,8 +3597,63 @@
             "items": {
               "$ref": "#/components/schemas/ControlRod.Records.Finding"
             }
+          },
+          "claim": {
+            "$ref": "#/components/schemas/Runner.RunClaim",
+            "description": "Custody of this run: present the token on every log and completion."
           }
         }
+      },
+      "Runner.RunClaim": {
+        "type": "object",
+        "required": [
+          "token",
+          "lease_expires_at",
+          "heartbeat_seconds"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "lease_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "heartbeat_seconds": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Post a log batch, even an empty one, at least this often."
+          }
+        },
+        "description": "A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost."
+      },
+      "Runner.RuntimeStatus": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "ready",
+          "login_checked"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "login_checked": {
+            "type": "boolean",
+            "description": "The CLI could say whether a login is present. The probe never signs in."
+          }
+        },
+        "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not."
       }
     }
   },

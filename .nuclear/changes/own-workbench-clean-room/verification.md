@@ -130,3 +130,14 @@ One AI agent wrote every file, checked the code claims and ran the scans. This r
 ## Source-lineage note
 
 Verification and custody structure follow nuclear-grade context engineering; public source map at https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. No compliance claim is made.
+
+## Stack refresh after independent review
+
+The owner's instruction to double-check and continue authorized publication. The
+documentation branch is aligned with reviewed MVP commit `dc7d40d`, preserving its
+ancestor history and the drawing fixes. This refresh does not rewrite pattern claims
+anchored to `87d0f79` or assert a new clean-room wording or legal review.
+
+The source tree matches the reviewed MVP outside this documentation change. The
+packet validator passes; CI is checked on the refreshed published head. The original
+owner signatures and contributor certifications remain pending before merge.

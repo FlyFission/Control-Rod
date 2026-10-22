@@ -264,6 +264,31 @@ model ExecutionTrace {
   environment?: Record<string>;
   started_at: utcDateTime;
   finished_at: utcDateTime;
+
+  /**
+   * How the runtime was driven. "print" is a headless, one-prompt run (`claude -p`, `codex exec`)
+   * where no ACP permission binding is in force; "acp" is reserved for ACP sessions.
+   */
+  runtime_mode?: "print" | "acp" | "fake";
+
+  /** The model the run asked for, or "default" when it left the choice to the runtime. */
+  @maxLength(200)
+  requested_model?: string;
+
+  /** The model the runtime said it used, read from its own event stream. Absent when it did not say. */
+  @maxLength(200)
+  reported_model?: string;
+
+  /** Permission mode the runtime started in, when it has one. */
+  @maxLength(100)
+  permission_mode?: string;
+
+  /** Tool allowlist passed to the runtime, when it takes one. */
+  allowed_tools?: string[];
+
+  /** Sandbox the daemon asked the runtime for: "none", "workspace-write" or "workspace-write+network". */
+  @maxLength(100)
+  sandbox?: string;
 }
 
 /** Independence of one axis of the actor and evidence coupling profile. */
@@ -319,4 +344,16 @@ model VerificationRecord {
   evidence: EvidenceItem[];
   findings: Finding[];
   outcome: "pass" | "fail" | "inconclusive";
+
+  /** Whether the checker ran on a runtime other than the author's, and any owner override. */
+  independence?: PreCheckIndependence;
+}
+
+/** Runtime identity of author and checker, and whether they could be the same. */
+@extension("unevaluatedProperties", false)
+model PreCheckIndependence {
+  runtime: "independent" | "shared";
+  author_runtime: RuntimeRef;
+  checker_runtime: RuntimeRef;
+  owner_override?: OwnerOverride;
 }

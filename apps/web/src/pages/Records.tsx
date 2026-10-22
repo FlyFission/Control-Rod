@@ -4,7 +4,7 @@ import { api } from "../api/client.js";
 import { shortDigest, time } from "../lib/format.js";
 
 export function Records() {
-  const q = useQuery({ queryKey: ["events", "all"], queryFn: () => api.events() });
+  const q = useQuery({ queryKey: ["events", "all"], queryFn: () => api.allEvents() });
   const [verify, setVerify] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const events = [...(q.data ?? [])].sort((a, b) => b.seq - a.seq);

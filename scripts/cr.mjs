@@ -49,7 +49,14 @@ function doctor() {
   }
   if (!which("claude")) console.log("\nInstall Claude Code and sign in so agents can run on your subscription.");
   if (!drawing tool()) console.log("\nDrawings need drawing tool: run `pnpm cr setup-drawing tool` (needs Rust; builds the pinned version).");
-  if (!which("codex")) console.log("\nWithout Codex the pre-check uses a fresh Claude session; the record marks the runtime as shared.");
+  if (!which("codex")) {
+    console.log(
+      "\nWithout Codex, every pre-check waits for an independent runtime. It never runs on the author's runtime on its own." +
+        "\nTo go ahead with Claude alone, open each held pre-check, write why, and sign the override with your passkey." +
+        "\nA different Claude model does not count as independent. The signed override is recorded, and the pre-check" +
+        "\nrecord shows a shared runtime with your override.",
+    );
+  }
   return ok;
 }
 

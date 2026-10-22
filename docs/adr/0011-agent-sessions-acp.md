@@ -1,6 +1,6 @@
 # ADR 0011: Agent Client Protocol for agent sessions
 
-- Status: Accepted; Gate R spike partial, conditions tightened
+- Status: Accepted; Gate R spike partial, conditions tightened. Amended by ADR 0020 for the MVP
 - Date: 2026-10-22
 
 ## Decision
@@ -15,3 +15,6 @@ A Go client saw every permission request with its ID and denied it, and the agen
 3. **Our own thin client.** The community Go SDK hides request IDs from the handler and lagged the schema by 49 types, so we keep a small client of our own.
 4. **Generated types with hand-written unions.** Code generation fails on the raw ACP schema; after cleanup about 30 union types (`SessionUpdate`, `ContentBlock` and others) still need hand-written Go with tests against the schema's examples.
 5. Actions taken without a permission request are detected from the sandbox and the session stream and recorded as findings.
+
+## Amendment (2026-10-22)
+The MVP daemon does not run ACP sessions yet. It runs Claude Code and Codex in headless print mode, where no ACP permission binding is in force; see ADR 0020. Until ACP lands, the tool allowlist, the Codex sandbox, the stripped environment and the run timeout are the only fences, and the execution trace records `runtime_mode: print`.

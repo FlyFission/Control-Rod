@@ -6,7 +6,10 @@
 //! 1. Only a person can release, accept, return or reject, and only with a passkey assertion
 //!    the server verified over the digest of exactly what that person reviewed.
 //! 2. Agents can claim released work, submit output and submit a pre-check. Nothing else.
-//! 3. The pre-check comes from a different agent baseline than the author's.
+//! 3. The pre-check comes from a different agent baseline than the author's, on a different
+//!    provider. The same provider counts as the same runtime whatever the models. A pre-check on
+//!    the author's provider is allowed only after the owner's override, a human act signed with
+//!    a passkey over its digest and carrying a written reason.
 //! 4. An author may revise only after a pre-check that did not pass.
 //! 5. Acceptance needs a pre-check. A pre-check that did not pass can be accepted only with a
 //!    written reason.
@@ -42,13 +45,20 @@ pub enum Action {
     AcceptWithFindings,
     Return,
     Reject,
+    /// The owner lets a pre-check run on the author's provider. Signed like a decision.
+    OverrideIndependence,
 }
 
 impl Action {
     const fn human_only(self) -> bool {
         matches!(
             self,
-            Self::Release | Self::Accept | Self::AcceptWithFindings | Self::Return | Self::Reject
+            Self::Release
+                | Self::Accept
+                | Self::AcceptWithFindings
+                | Self::Return
+                | Self::Reject
+                | Self::OverrideIndependence
         )
     }
 }
@@ -69,6 +79,26 @@ pub enum PreCheckOutcome {
     Inconclusive,
 }
 
+/// The runtime that ran an agent: provider and model, as the runner reported them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeIdentity {
+    pub provider: String,
+    pub model: String,
+}
+
+impl RuntimeIdentity {
+    /// True when both sides count as the same runtime. The provider decides: two models from one
+    /// provider share training, tooling and blind spots, so a different model is not an
+    /// independent check.
+    #[must_use]
+    pub fn may_be_same(&self, other: &Self) -> bool {
+        self.provider
+            .trim()
+            .eq_ignore_ascii_case(other.provider.trim())
+    }
+}
+
 /// Everything the kernel needs, supplied by the server. The kernel reads no state of its own.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -83,6 +113,17 @@ pub struct Request {
     /// Agent baseline asking to submit a pre-check, for `SubmitPreCheck`.
     #[serde(default)]
     pub checker_baseline: Option<String>,
+    /// Runtime that produced the author's current output, for `SubmitPreCheck`.
+    #[serde(default)]
+    pub author_runtime: Option<RuntimeIdentity>,
+    /// Runtime that ran the pre-check, for `SubmitPreCheck`.
+    #[serde(default)]
+    pub checker_runtime: Option<RuntimeIdentity>,
+    /// The owner's override for this pre-check was allowed by this kernel as a signed human act
+    /// (`OverrideIndependence`) before the pre-check ran. The server sets it only from that
+    /// stored, passkey-verified override.
+    #[serde(default)]
+    pub owner_override_verified: bool,
     /// Outcome of the pre-check on the current output, if one exists.
     #[serde(default)]
     pub pre_check: Option<PreCheckOutcome>,
@@ -143,16 +184,24 @@ pub fn decide(req: &Request) -> Outcome {
         (A::Release, S::Draft) => allow(S::Released),
         (A::Claim, S::Released) => allow(S::InWork),
         (A::SubmitOutput, S::InWork) => allow(S::InVerification),
-        (A::SubmitPreCheck, S::InVerification) => {
-            match (
-                req.author_baseline.as_deref(),
-                req.checker_baseline.as_deref(),
-            ) {
-                (Some(author), Some(checker)) if author != checker => allow(S::InVerification),
-                (Some(_), Some(_)) => refuse(ReasonCode::NotIndependent),
-                _ => refuse(ReasonCode::Forbidden),
+        (A::SubmitPreCheck, S::InVerification) => match (
+            req.author_baseline.as_deref(),
+            req.checker_baseline.as_deref(),
+            req.author_runtime.as_ref(),
+            req.checker_runtime.as_ref(),
+        ) {
+            (Some(author), Some(checker), _, _) if author == checker => {
+                refuse(ReasonCode::NotIndependent)
             }
-        }
+            (Some(_), Some(_), Some(author), Some(checker)) => {
+                if author.may_be_same(checker) && !req.owner_override_verified {
+                    refuse(ReasonCode::NotIndependent)
+                } else {
+                    allow(S::InVerification)
+                }
+            }
+            _ => refuse(ReasonCode::Forbidden),
+        },
         (A::Revise, S::InVerification) => match req.pre_check {
             Some(PreCheckOutcome::Fail | PreCheckOutcome::Inconclusive) => allow(S::InWork),
             Some(PreCheckOutcome::Pass) => refuse(ReasonCode::WrongState),
@@ -168,6 +217,13 @@ pub fn decide(req: &Request) -> Outcome {
             (Some(_), false) => refuse(ReasonCode::ReasonRequired),
             (Some(_), true) => allow(S::Accepted),
         },
+        (A::OverrideIndependence, S::InVerification) => {
+            if req.reason_given {
+                allow(S::InVerification)
+            } else {
+                refuse(ReasonCode::ReasonRequired)
+            }
+        }
         (A::Return, S::Released | S::InWork | S::InVerification) => {
             if req.reason_given {
                 allow(S::Draft)
@@ -190,6 +246,13 @@ pub fn decide(req: &Request) -> Outcome {
 mod tests {
     use super::*;
 
+    fn rt(provider: &str, model: &str) -> RuntimeIdentity {
+        RuntimeIdentity {
+            provider: provider.into(),
+            model: model.into(),
+        }
+    }
+
     fn human(action: Action, status: Status) -> Request {
         Request {
             status,
@@ -198,6 +261,9 @@ mod tests {
             actor_id: "ben".into(),
             author_baseline: Some("author-1".into()),
             checker_baseline: None,
+            author_runtime: Some(rt("claude", "default")),
+            checker_runtime: Some(rt("codex", "default")),
+            owner_override_verified: false,
             pre_check: Some(PreCheckOutcome::Pass),
             assertion_verified: true,
             digest_matches: true,
@@ -215,12 +281,13 @@ mod tests {
         }
     }
 
-    const HUMAN_ACTIONS: [Action; 5] = [
+    const HUMAN_ACTIONS: [Action; 6] = [
         Action::Release,
         Action::Accept,
         Action::AcceptWithFindings,
         Action::Return,
         Action::Reject,
+        Action::OverrideIndependence,
     ];
     const ALL_STATUSES: [Status; 6] = [
         Status::Draft,
@@ -312,6 +379,59 @@ mod tests {
         let mut r = agent(Action::SubmitPreCheck, Status::InVerification);
         r.checker_baseline = Some("author-1".into());
         assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
+    }
+
+    #[test]
+    fn a_pre_check_on_the_authors_runtime_needs_an_owner_override() {
+        let mut r = agent(Action::SubmitPreCheck, Status::InVerification);
+        r.checker_baseline = Some("checker-1".into());
+        for (author, checker) in [
+            (rt("claude", "default"), rt("claude", "default")),
+            (rt("claude", "claude-opus-4-1"), rt("Claude", "default")),
+            (rt("codex", "gpt-5-codex"), rt("codex", "gpt-5-codex")),
+        ] {
+            r.author_runtime = Some(author);
+            r.checker_runtime = Some(checker);
+            r.owner_override_verified = false;
+            assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
+            r.owner_override_verified = true;
+            assert_eq!(decide(&r).next, Some(Status::InVerification));
+        }
+        r.owner_override_verified = false;
+        r.author_runtime = Some(rt("claude", "claude-opus-4-1"));
+        r.checker_runtime = Some(rt("claude", "claude-sonnet-4-5"));
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
+        r.checker_runtime = Some(rt("codex", "claude-opus-4-1"));
+        assert!(decide(&r).decision.is_allowed());
+    }
+
+    #[test]
+    fn the_override_is_a_signed_human_act_with_a_reason_while_in_verification() {
+        let mut r = human(Action::OverrideIndependence, Status::InVerification);
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::ReasonRequired);
+        r.reason_given = true;
+        assert_eq!(decide(&r).next, Some(Status::InVerification));
+        r.assertion_verified = false;
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::Unsigned);
+        for status in [Status::Draft, Status::Released, Status::InWork] {
+            let mut w = human(Action::OverrideIndependence, status);
+            w.reason_given = true;
+            assert_eq!(decide(&w).decision.reason(), ReasonCode::WrongState);
+        }
+        let mut a = agent(Action::OverrideIndependence, Status::InVerification);
+        a.reason_given = true;
+        assert_eq!(decide(&a).decision.reason(), ReasonCode::NotHuman);
+    }
+
+    #[test]
+    fn an_override_never_lets_the_author_check_itself_and_runtimes_must_be_known() {
+        let mut r = agent(Action::SubmitPreCheck, Status::InVerification);
+        r.checker_baseline = Some("author-1".into());
+        r.owner_override_verified = true;
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
+        r.checker_baseline = Some("checker-1".into());
+        r.checker_runtime = None;
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::Forbidden);
     }
 
     #[test]

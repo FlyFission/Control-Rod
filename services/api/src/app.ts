@@ -32,10 +32,18 @@ import {
   listPackages,
   metrics,
   office,
+  overrideChallenge,
+  overrideIndependence,
+  overrideSubject,
   packageOutput,
   packageView,
+  recordRuntimeStatus,
+  requeueRun,
   runLog,
   runLogLines,
+  runtimeStatus,
+  stopRun,
+  sweepLost,
   updateDraft,
 } from "./work.js";
 
@@ -47,7 +55,16 @@ export interface AppOptions {
   root: string;
   /** Built web app to serve at /, if present. */
   webDir?: string;
+  /** Seconds a run claim lasts without a heartbeat. Default 90. */
+  leaseSeconds?: number;
+  /** Seconds between sweeps for lost runs. Default 15; 0 turns the timer off. */
+  sweepSeconds?: number;
 }
+
+const OUTPUT_PATH = /^\/packages\/[^/?#]+\/outputs\//;
+
+/** Policy for agent outputs: sandboxed, no script, images and inline styles only. */
+export const OUTPUT_CSP = "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'";
 
 const MIME: Record<string, string> = {
   ".md": "text/markdown; charset=utf-8",
@@ -68,7 +85,7 @@ const MIME: Record<string, string> = {
  */
 export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
-  const cfg: WorkConfig = { root: opts.root, ajv };
+  const cfg: WorkConfig = { root: opts.root, ajv, ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
   app.register(cookie);
@@ -81,6 +98,23 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return reply.code(500).send({ code: "error", message: "Something went wrong; it is in the server log." });
   });
 
+  // Cookies ride along on requests other pages make, including pages on other localhost ports
+  // (same-site), so every state-changing request must show it came from this app. Runner routes
+  // use the daemon's bearer token, which a browser never sends on its own, and skip the check.
+  const allowedOrigins = new Set(auth.origins);
+  app.addHook("onRequest", async (req) => {
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
+    if (req.url.startsWith("/runner/")) return;
+    const origin = req.headers.origin;
+    if (origin !== undefined) {
+      if (allowedOrigins.has(origin)) return;
+    } else {
+      const site = req.headers["sec-fetch-site"];
+      if (site === "same-origin" || site === "none") return;
+    }
+    throw new Refusal(403, "cross-origin", "Refused: this request did not come from the Control Rod app");
+  });
+
   const person = async (req: FastifyRequest): Promise<string> => {
     if (isDaemon(auth, req)) throw new Refusal(403, "forbidden", "The daemon cannot act for a person");
     const user = await sessionUser(db, req);
@@ -90,6 +124,16 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   const daemon = (req: FastifyRequest) => {
     if (!isDaemon(auth, req)) throw new Refusal(401, "unauthorized", "Daemon token required");
   };
+
+  // Runs whose daemon stopped renewing its lease are retired as lost: on a timer, and before the
+  // office or a claim is read so neither ever shows a dead run as working.
+  const sweep = () => sweepLost(db, cfg).catch(() => undefined);
+  const sweepEvery = opts.sweepSeconds ?? 15;
+  if (sweepEvery > 0) {
+    const timer = setInterval(() => void sweep(), sweepEvery * 1000);
+    timer.unref();
+    app.addHook("onClose", async () => clearInterval(timer));
+  }
 
   app.get("/health", async () => ({ status: "ok" as const, version: VERSION }));
 
@@ -156,7 +200,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const name = req.params["*"];
     const bytes = await packageOutput(db, req.params.id, name);
     const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-    return reply.header("content-type", MIME[ext] ?? "application/octet-stream").header("x-content-type-options", "nosniff").send(bytes);
+    const type = MIME[ext];
+    reply.header("content-type", type ?? "application/octet-stream").header("x-content-type-options", "nosniff");
+    // Agent outputs are untrusted. Anything a browser could run as a document (SVG, HTML, XML)
+    // is served in a sandbox with an opaque origin and no script, so it can never act with the
+    // owner's session. PDFs open in the browser's own viewer, which has no access to this origin.
+    if (ext !== ".pdf") reply.header("content-security-policy", OUTPUT_CSP);
+    if (type === undefined) reply.header("content-disposition", "attachment");
+    return reply.send(bytes);
   });
   app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/log", async (req) => {
     await person(req);
@@ -168,11 +219,16 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     package_revision: number;
     reason?: string;
     assertion?: Record<string, unknown>;
+    expected_subject_digest?: { algorithm: string; value: string };
   }
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions/options", async (req) => {
     await person(req);
     const { kind, package_revision: revision } = req.body ?? ({} as DecisionBody);
     const s = await decisionSubject(db, req.params.id, String(kind), Number(revision));
+    const shown = req.body?.expected_subject_digest?.value;
+    if (shown !== undefined && shown !== s.digest) {
+      throw new Refusal(409, "changed", "This package changed since you opened it. Reload and review the current version.");
+    }
     const nonce = randomBytes(16).toString("hex");
     const options = await assertionOptions(
       db,
@@ -207,9 +263,54 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return reply.code(201).send(decision);
   });
 
+  app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/stop", async (req) => {
+    const user = await person(req);
+    return stopRun(db, cfg, user, req.params.id, req.params.runId);
+  });
+  app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>(
+    "/packages/:id/runs/:runId/override-independence/options",
+    async (req) => {
+      await person(req);
+      const s = await overrideSubject(db, req.params.id, req.params.runId, req.body?.reason);
+      const nonce = randomBytes(16).toString("hex");
+      const options = await assertionOptions(
+        db,
+        auth,
+        "override",
+        { package_id: req.params.id, run_id: req.params.runId, revision: s.revision, reason: s.reason, subject_digest: s.digest },
+        overrideChallenge(s.digest, s.revision, req.params.runId, nonce),
+      );
+      return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
+    },
+  );
+  app.post<{ Params: { id: string; runId: string }; Body: { reason?: string; assertion?: Record<string, unknown> } }>(
+    "/packages/:id/runs/:runId/override-independence",
+    async (req) => {
+      const user = await person(req);
+      const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+      let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
+      if (req.body?.assertion) {
+        const ok = await assertionVerify(db, auth, "override", req.body.assertion as never);
+        if (ok && ok.user === user && ok.data.package_id === req.params.id && ok.data.run_id === req.params.runId && ok.data.reason === reason) {
+          signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
+        }
+      }
+      return overrideIndependence(db, cfg, user, req.params.id, req.params.runId, reason, signed);
+    },
+  );
+  app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/requeue", async (req, reply) => {
+    const user = await person(req);
+    return reply.code(201).send(await requeueRun(db, cfg, user, req.params.id, req.params.runId));
+  });
+
   app.get("/office", async (req) => {
     await person(req);
+    await sweep();
     return office(db);
+  });
+  app.get("/runtimes", async (req) => {
+    await person(req);
+    return runtimeStatus(db);
   });
   app.get("/runs", async (req) => {
     await person(req);
@@ -245,22 +346,28 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[] } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
-    const runtimes = (req.body?.runtimes ?? []).filter((r) => ["claude", "codex", "fake"].includes(r));
+    // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
+    // left out even if it is also listed.
+    const status = await recordRuntimeStatus(db, req.body?.runtime_status);
+    const notReady = new Set(status.filter((s) => !s.ready).map((s) => s.runtime));
+    const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])
+      .map(String)
+      .filter((r) => ["claude", "codex", "fake"].includes(r) && !notReady.has(r));
+    await sweep();
     const job = await claim(db, cfg, runtimes);
     if (!job) return reply.code(204).send();
     return job;
   });
-  app.post<{ Params: { id: string }; Body: { lines?: string[]; label?: string } }>("/runner/runs/:id/log", async (req, reply) => {
+  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string } }>("/runner/runs/:id/log", async (req) => {
     daemon(req);
-    await runLog(db, req.params.id, (req.body?.lines ?? []).map(String), req.body?.label ? String(req.body.label) : undefined);
-    return reply.code(204).send();
+    const lines = Array.isArray(req.body?.lines) ? req.body.lines.map(String) : [];
+    return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined);
   });
-  app.post<{ Params: { id: string } }>("/runner/runs/:id/complete", async (req, reply) => {
+  app.post<{ Params: { id: string } }>("/runner/runs/:id/complete", async (req) => {
     daemon(req);
-    await complete(db, cfg, req.params.id, req.body);
-    return reply.code(204).send();
+    return complete(db, cfg, req.params.id, req.body ?? {});
   });
 
   if (opts.webDir && existsSync(opts.webDir)) {
@@ -268,7 +375,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     // for HTML first; it gets the app, and the app's own fetches get JSON.
     app.addHook("onRequest", async (req, reply) => {
       const accept = req.headers.accept ?? "";
-      if (req.method === "GET" && accept.startsWith("text/html") && req.url !== "/health") {
+      // Output links open the file itself, never the app.
+      if (req.method === "GET" && accept.startsWith("text/html") && req.url !== "/health" && !OUTPUT_PATH.test(req.url)) {
         return reply.type("text/html").sendFile("index.html");
       }
     });

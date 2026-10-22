@@ -8,13 +8,13 @@ case "$role" in
   site-parcel) cr-example parcel resolve --input "inputs/attachments/$(ls inputs/attachments | head -1)" --out out/parcel.json ;;
   site-constraints) cr-example constraints --parcel "$(dep parcel.json)" --out out/constraints.json ;;
   site-charter)
-    cp "$SITE_PACK/templates/charter.md" out/charter.md
-    cp "$SITE_PACK/templates/basis-of-design.md" out/basis-of-design.md
-    cp "$SITE_PACK/examples/program.example.json" out/program.json ;;
+    cp "inputs/pack/templates/charter.md" out/charter.md
+    cp "inputs/pack/templates/basis-of-design.md" out/basis-of-design.md
+    cp "inputs/pack/examples/program.example.json" out/program.json ;;
   site-plan)
     cr-example layout --parcel "$(dep parcel.json)" --constraints "$(dep constraints.json)" --program "$(dep program.json)" --out out/layout.json
-    cp "$SITE_PACK/examples/plan-meta.example.json" out/plan-meta.json
+    cp "inputs/pack/examples/plan-meta.example.json" out/plan-meta.json
     cr-example plan --parcel "$(dep parcel.json)" --constraints "$(dep constraints.json)" --layout out/layout.json --program "$(dep program.json)" --record out/plan-meta.json --out-dir out/ ;;
-  site-next-stage) cp "$SITE_PACK/templates/next-stage-plan.md" out/next-stage-plan.md ;;
+  site-next-stage) cp "inputs/pack/templates/next-stage-plan.md" out/next-stage-plan.md ;;
   *) printf '# Report\n\nDone.\n' > out/report.md ;;
 esac

@@ -130,3 +130,14 @@ cases:
     expected: Refused everywhere; the digest functions refuse duplicates today, and the API must too
     requirements: [REQ-KRN-006]
     status: pending
+  - id: RT-024
+    title: Typed decode drops or accepts what the schema refuses
+    attempt: Send a record with an unknown field or the wrong union variant to a component that decodes into generated types
+    expected: Refused by JSON Schema validation before any typed decode or digest
+    requirements: [REQ-API-001]
+    status: pending
+  - id: RT-025
+    title: Predictable randomness inside the WASM kernel
+    attempt: Rely on WASI random_get inside the kernel under wazero's default deterministic source
+    expected: The kernel makes no random calls, or receives the host's crypto source explicitly; a test fails otherwise
+    status: pending

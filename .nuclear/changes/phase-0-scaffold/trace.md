@@ -27,7 +27,7 @@
 | C-005 | Shipped dependencies carry permissive licenses only. | ADR 0002 | Three license gates | E-004 | Merge | pass |
 | C-006 | Generated contracts match the TypeSpec source. | ADR 0005 | CI regenerate-and-diff | E-005 | Merge | pass |
 | C-007 | All checks run on every pull request on GitHub. | `basis.md#assumptions-constraints-and-invalidation-triggers` | `.github/workflows/ci.yml` | E-005 | Merge | pass |
-| C-008 | Twenty-one pending red-team cases are enforced. | `tests/redteam/catalog.yaml` | Components in later phases | none yet | Do not claim | deferred |
+| C-008 | Twenty-three pending red-team cases are enforced. | `tests/redteam/catalog.yaml` | Components in later phases | none yet | Do not claim | deferred |
 
 ## Evidence chain
 
@@ -45,8 +45,8 @@ Risk: records and digests set patterns every later phase inherits.
 |---|---|---|
 | No TypeScript digest yet | The control plane will need to digest records. | Deferred to Phase 1; it must pass the same vector file. |
 | Digest error kind differs past depth 128 | Rust's parser stops at depth 128 and reports invalid JSON; Python and Go report the depth error. All three refuse. | Accepted; validity agrees. |
-| Twenty-one red-team cases pending | Their components do not exist yet. | Each activates with its component. |
-| Contracts-kernel spike still running | ADR 0005 and the kernel WASM plan rest on it; Postgres, DBOS, evidence, ACP and Flows results are folded into ADRs 0006, 0007, 0009, 0011 and 0016. | Fold results into ADRs before Phase 1 starts. |
+| Twenty-three red-team cases pending | Their components do not exist yet. | Each activates with its component. |
+| Contract profile not yet enforced by CI | Generated types in Go, Rust and Python accepted records the schema refuses; the current contracts avoid the risky types, but nothing stops a future edit. | Phase 1 adds a CI check for the profile in ADR 0005 and validation before every typed decode (RT-024). |
 
 ## Required links
 

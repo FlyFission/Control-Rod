@@ -45,7 +45,7 @@
 | Local evidence is coupled to the agent that wrote the code. | A shared mistake could produce both a defect and a passing test. | Accept for a reversible scaffold; GitHub CI and owner review add separation. | Ben Huffer | Any kernel decision function (Phase 1 nuclear subset). |
 | The API parser keeps the last of two duplicate keys, while the digests refuse them (RT-023). | A record could be stored with a value its digest step would refuse. | Fix in Phase 1 with a strict JSON parser in the control plane. | Ben Huffer | First endpoint that stores records. |
 | No TypeScript digest. | The control plane cannot digest records yet. | Defer to Phase 1. | Ben Huffer | First endpoint that stores a digest. |
-| Contracts-kernel spike not yet folded into ADRs. | ADR 0005 may change. Postgres, DBOS, evidence, ACP and Flows results are folded into ADRs 0006, 0007, 0009, 0011 and 0016. | Update ADRs before Phase 1. | Ben Huffer | Spike results arriving. |
+| Contract profile (ADR 0005) not yet checked in CI. | A future contract edit could add a type the emitters or generated decoders handle differently. | Add the CI check and validate-before-decode in Phase 1. | Ben Huffer | First generated-type consumer outside TypeScript. |
 | Edges defined on both producer and consumer in `records.tsp`. | The two lists can drift. | Fix in the Flows contract work; edges move to the Flow record and deadband becomes typed. | Ben Huffer | Flows spec v0. |
 | No vulnerability scan gate. | Known-vulnerable dependencies could merge. | Add in Phase 1. | Ben Huffer | Phase 1 start. |
 

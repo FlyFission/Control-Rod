@@ -310,8 +310,16 @@ async function attachmentsFor(c: Tx, captureId: string | null): Promise<Input[]>
   return r.rows.map((a) => file(`attachments/${a.name}`, a.bytes));
 }
 
+/** Test runtime only: scripted agents for end-to-end tests, honored only for the fake runtime. */
+function fakeScript(run: Json, runtime: string): Input[] {
+  const dir = process.env.CONTROLROD_FAKE_SCRIPTS;
+  if (runtime !== "fake" || !dir) return [];
+  const p = join(dir, `${run.role}.sh`);
+  return existsSync(p) ? [file("FAKE.sh", readFileSync(p))] : [];
+}
+
 async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
-  const inputs: Input[] = [];
+  const inputs: Input[] = fakeScript(run, runtime);
   const header = `# Control Rod brief\n\nRole: ${run.role} · Package ${run.package_id} revision ${run.package_revision} · Round ${run.round}\n`;
   if (run.role === "intake") {
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id]);
@@ -368,7 +376,6 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   inputs.push(file("BRIEF.md", brief));
   const tools = findRole(cfg, `${role}.tools`);
   inputs.push(file("TOOLS.txt", tools ?? "Read\nWrite\nEdit\nGlob\nGrep\nWebSearch\nWebFetch\nBash(cr-example:*)\nBash(python3:*)\n"));
-  void runtime;
   return { run, package: { ...pkg.body, status: pkg.status }, inputs, ...(findings ? { findings } : {}) };
 }
 

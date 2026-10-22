@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RequiredCustody.json",
+    "type": "object",
+    "properties": {
+        "decisive_evidence_generated_by": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "verifier"
+                },
+                {
+                    "type": "string",
+                    "const": "tool"
+                },
+                {
+                    "type": "string",
+                    "const": "author"
+                }
+            ]
+        },
+        "preparer_may_present": {
+            "type": "boolean"
+        }
+    },
+    "required": [
+        "decisive_evidence_generated_by",
+        "preparer_may_present"
+    ],
+    "unevaluatedProperties": false
+}

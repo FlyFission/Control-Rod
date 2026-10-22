@@ -1,0 +1,90 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "VerificationRecord.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+        },
+        "output": {
+            "$ref": "Artifact.json"
+        },
+        "method": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "test-suite"
+                },
+                {
+                    "type": "string",
+                    "const": "independent-review"
+                },
+                {
+                    "type": "string",
+                    "const": "design-review"
+                },
+                {
+                    "type": "string",
+                    "const": "alternate-calculation"
+                },
+                {
+                    "type": "string",
+                    "const": "qualification-test"
+                }
+            ]
+        },
+        "verifier": {
+            "type": "string"
+        },
+        "evidence": {
+            "type": "array",
+            "items": {
+                "$ref": "EvidenceItem.json"
+            }
+        },
+        "findings": {
+            "type": "array",
+            "items": {
+                "$ref": "Finding.json"
+            }
+        },
+        "outcome": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "pass"
+                },
+                {
+                    "type": "string",
+                    "const": "fail"
+                },
+                {
+                    "type": "string",
+                    "const": "inconclusive"
+                }
+            ]
+        }
+    },
+    "required": [
+        "schema_version",
+        "package_id",
+        "package_revision",
+        "output",
+        "method",
+        "verifier",
+        "evidence",
+        "findings",
+        "outcome"
+    ],
+    "description": "Evidence that a result met its criteria. Inconclusive never counts as a pass.",
+    "unevaluatedProperties": false
+}

@@ -1,0 +1,628 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Control Rod API",
+    "description": "Control Rod control plane API, version 0.1.",
+    "version": "0.0.0"
+  },
+  "tags": [],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages": {
+      "get": {
+        "operationId": "Packages_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "Packages_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}": {
+      "get": {
+        "operationId": "Packages_read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlRod.Records.AgentAssignment": {
+        "type": "object",
+        "required": [
+          "role",
+          "agent_baseline",
+          "baseline_revision"
+        ],
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "agent_baseline": {
+            "type": "string"
+          },
+          "baseline_revision": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ControlRod.Records.Assumption": {
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "basis",
+          "requires_confirmation",
+          "owner"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "basis": {
+            "type": "string"
+          },
+          "requires_confirmation": {
+            "type": "boolean"
+          },
+          "owner": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlRod.Records.CodeOrStandard": {
+        "type": "object",
+        "required": [
+          "code",
+          "edition"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "edition": {
+            "type": "string"
+          },
+          "sections": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Records.DataLane": {
+        "type": "string",
+        "enum": [
+          "public",
+          "internal",
+          "proprietary",
+          "client-confidential",
+          "restricted"
+        ],
+        "description": "Data handling class. Decides runtimes, egress, storage and transcription."
+      },
+      "ControlRod.Records.Deliverable": {
+        "type": "object",
+        "required": [
+          "id",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "format": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Records.DesignInput": {
+        "type": "object",
+        "required": [
+          "doc",
+          "revision",
+          "use"
+        ],
+        "properties": {
+          "doc": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "use": {
+            "type": "string"
+          }
+        },
+        "description": "A controlled document this package relies on, by reference and revision."
+      },
+      "ControlRod.Records.InterfaceConsume": {
+        "type": "object",
+        "required": [
+          "parameter",
+          "from"
+        ],
+        "properties": {
+          "parameter": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlRod.Records.InterfaceExport": {
+        "type": "object",
+        "required": [
+          "parameter",
+          "deadband",
+          "consumers"
+        ],
+        "properties": {
+          "parameter": {
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/ControlRod.Records.Quantity"
+          },
+          "deadband": {
+            "type": "string",
+            "description": "Allowed change before consumers must re-check, for example \"5%\" or a Quantity string."
+          },
+          "consumers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Records.Interfaces": {
+        "type": "object",
+        "properties": {
+          "consumes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.InterfaceConsume"
+            }
+          },
+          "exports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.InterfaceExport"
+            }
+          }
+        }
+      },
+      "ControlRod.Records.Methodology": {
+        "type": "object",
+        "required": [
+          "method",
+          "status"
+        ],
+        "properties": {
+          "method": {
+            "type": "string"
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.ToolRef"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "approved"
+            ]
+          },
+          "approved_by": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlRod.Records.Mode": {
+        "type": "string",
+        "enum": [
+          "software",
+          "capital-projects"
+        ],
+        "description": "Kind of work a project does."
+      },
+      "ControlRod.Records.PackageStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "released",
+          "in-work",
+          "in-verification",
+          "accepted",
+          "closed"
+        ]
+      },
+      "ControlRod.Records.Quantity": {
+        "type": "object",
+        "required": [
+          "value",
+          "unit"
+        ],
+        "properties": {
+          "value": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?([eE][-+]?[0-9]+)?$"
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit in Pint-compatible notation, for example \"kW\" or \"degF\"."
+          }
+        },
+        "description": "An engineering quantity. The value is a decimal string so no precision is lost."
+      },
+      "ControlRod.Records.RequiredCustody": {
+        "type": "object",
+        "required": [
+          "decisive_evidence_generated_by",
+          "preparer_may_present"
+        ],
+        "properties": {
+          "decisive_evidence_generated_by": {
+            "type": "string",
+            "enum": [
+              "verifier",
+              "tool",
+              "author"
+            ]
+          },
+          "preparer_may_present": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ControlRod.Records.RigorMode": {
+        "type": "string",
+        "enum": [
+          "administrative",
+          "quick",
+          "standard",
+          "high-consequence"
+        ],
+        "description": "Graded rigor: how much control a package requires."
+      },
+      "ControlRod.Records.ToolRef": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "qualification": {
+            "type": "string",
+            "enum": [
+              "not-required",
+              "required-before-use",
+              "qualified"
+            ]
+          }
+        }
+      },
+      "ControlRod.Records.VerificationPlan": {
+        "type": "object",
+        "required": [
+          "method",
+          "verifier",
+          "verifier_receives",
+          "required_custody"
+        ],
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "test-suite",
+              "independent-review",
+              "design-review",
+              "alternate-calculation",
+              "qualification-test"
+            ]
+          },
+          "verifier": {
+            "type": "string"
+          },
+          "verifier_receives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "What the verifier may see. Never the author's transcript."
+          },
+          "required_custody": {
+            "$ref": "#/components/schemas/ControlRod.Records.RequiredCustody"
+          }
+        }
+      },
+      "ControlRod.Records.WorkPackage": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "id",
+          "revision",
+          "title",
+          "project",
+          "mode",
+          "status",
+          "rigor_mode",
+          "data_lane",
+          "objective",
+          "deliverables",
+          "design_inputs",
+          "agent_assignment",
+          "acceptance_criteria",
+          "verification"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ControlRod.Records.Mode"
+          },
+          "discipline": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlRod.Records.PackageStatus"
+          },
+          "rigor_mode": {
+            "$ref": "#/components/schemas/ControlRod.Records.RigorMode"
+          },
+          "data_lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane"
+          },
+          "overlays": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "objective": {
+            "type": "string"
+          },
+          "deliverables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Deliverable"
+            },
+            "minItems": 1
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "design_inputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.DesignInput"
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Assumption"
+            }
+          },
+          "codes_and_standards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.CodeOrStandard"
+            }
+          },
+          "methodology": {
+            "$ref": "#/components/schemas/ControlRod.Records.Methodology"
+          },
+          "interfaces": {
+            "$ref": "#/components/schemas/ControlRod.Records.Interfaces"
+          },
+          "agent_assignment": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.AgentAssignment"
+            },
+            "minItems": 1
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "description": "Protected trust surface."
+          },
+          "verification": {
+            "$ref": "#/components/schemas/ControlRod.Records.VerificationPlan",
+            "description": "Protected trust surface."
+          },
+          "revalidation_triggers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "The only unit of work an agent may start."
+      },
+      "Health": {
+        "type": "object",
+        "required": [
+          "status",
+          "version"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:7300",
+      "description": "Local control plane",
+      "variables": {}
+    }
+  ]
+}

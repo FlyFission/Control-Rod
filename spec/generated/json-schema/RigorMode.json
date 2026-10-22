@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RigorMode.json",
+    "type": "string",
+    "enum": [
+        "administrative",
+        "quick",
+        "standard",
+        "high-consequence"
+    ],
+    "description": "Graded rigor: how much control a package requires."
+}

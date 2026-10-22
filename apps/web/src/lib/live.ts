@@ -37,6 +37,13 @@ export function useLiveEvents(enabled: boolean): void {
       if (timer === undefined) timer = setTimeout(flush, 300);
     };
 
+    // After a dropped connection the stream does not replay what was missed, so refresh everything.
+    let opened = false;
+    const onOpen = () => {
+      if (opened) void qc.invalidateQueries();
+      opened = true;
+    };
+    source.addEventListener("open", onOpen);
     source.addEventListener("message", onMessage);
     source.addEventListener("event", onMessage as EventListener);
     return () => {

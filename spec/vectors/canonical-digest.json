@@ -1,0 +1,168 @@
+{
+  "description": "Shared canonical-digest vectors. Every implementation (Rust kernel, Go daemon, Python SDK, and TypeScript when it lands) must give sha256(canonical) for each valid case and refuse each invalid case with the named error. The digest is never stored here: tests compute sha256 of the canonical text themselves. Rules: RFC 8785 canonical form, restricted to integers with |n| <= 2^53-1 (no fractions, exponents or -0), no duplicate keys, nesting depth at most 64, and no non-JSON tokens.",
+  "max_safe_integer": 9007199254740991,
+  "max_depth": 64,
+  "valid": [
+    {
+      "name": "shared vector",
+      "input": "{\"b\":1,\"a\":\"x\"}",
+      "canonical": "{\"a\":\"x\",\"b\":1}"
+    },
+    {
+      "name": "whitespace and nested key order",
+      "input": "{ \"c\": {\"z\": true, \"y\": null}, \"a\": \"x\", \"b\": 1 }",
+      "canonical": "{\"a\":\"x\",\"b\":1,\"c\":{\"y\":null,\"z\":true}}"
+    },
+    {
+      "name": "keys sort by UTF-16 code units",
+      "input": "{\"\\uff61\":1,\"\\ud83d\\ude00\":2,\"\\u00e9\":3,\"z\":4}",
+      "canonical": "{\"z\":4,\"é\":3,\"😀\":2,\"｡\":1}"
+    },
+    {
+      "name": "largest safe integer",
+      "input": "{\"n\":9007199254740991}",
+      "canonical": "{\"n\":9007199254740991}"
+    },
+    {
+      "name": "smallest safe integer",
+      "input": "{\"n\":-9007199254740991}",
+      "canonical": "{\"n\":-9007199254740991}"
+    },
+    {
+      "name": "zero",
+      "input": "{\"n\":0}",
+      "canonical": "{\"n\":0}"
+    },
+    {
+      "name": "string escapes normalize",
+      "input": "{\"s\":\"\\u00e9\\n\\\"\\u001F\\/\\u0041\"}",
+      "canonical": "{\"s\":\"é\\n\\\"\\u001f/A\"}"
+    },
+    {
+      "name": "escaped surrogate pair becomes the character",
+      "input": "{\"s\":\"\\ud83d\\ude00\"}",
+      "canonical": "{\"s\":\"😀\"}"
+    },
+    {
+      "name": "empty containers",
+      "input": "{\"b\":{},\"a\":[]}",
+      "canonical": "{\"a\":[],\"b\":{}}"
+    },
+    {
+      "name": "nesting at the depth limit",
+      "input": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+      "canonical": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "fraction",
+      "input": "{\"exports\":[{\"value\":42.5}]}",
+      "error": "number",
+      "pointer": "/exports/0/value"
+    },
+    {
+      "name": "integer written with a fraction",
+      "input": "{\"n\":1.0}",
+      "error": "number",
+      "pointer": "/n"
+    },
+    {
+      "name": "exponent",
+      "input": "{\"n\":1e2}",
+      "error": "number",
+      "pointer": "/n"
+    },
+    {
+      "name": "negative zero",
+      "input": "{\"n\":-0}",
+      "error": "number",
+      "pointer": "/n"
+    },
+    {
+      "name": "one past the safe range",
+      "input": "{\"n\":9007199254740992}",
+      "error": "number",
+      "pointer": "/n"
+    },
+    {
+      "name": "rounds differently in binary64",
+      "input": "{\"n\":9007199254740993}",
+      "error": "number",
+      "pointer": "/n"
+    },
+    {
+      "name": "one below the safe range",
+      "input": "{\"n\":-9007199254740992}",
+      "error": "number",
+      "pointer": "/n"
+    },
+    {
+      "name": "beyond int64",
+      "input": "{\"n\":9223372036854775808}",
+      "error": "number",
+      "pointer": "/n"
+    },
+    {
+      "name": "beyond uint64",
+      "input": "{\"n\":18446744073709551616}",
+      "error": "number",
+      "pointer": "/n"
+    },
+    {
+      "name": "number at the root",
+      "input": "1.5",
+      "error": "number",
+      "pointer": "/"
+    },
+    {
+      "name": "duplicate key",
+      "input": "{\"a\":1,\"a\":2}",
+      "error": "duplicate_key",
+      "pointer": "/a"
+    },
+    {
+      "name": "duplicate approval flag in a nested record",
+      "input": "{\"x\":{\"approved\":false,\"approved\":true}}",
+      "error": "duplicate_key",
+      "pointer": "/x/approved"
+    },
+    {
+      "name": "duplicate key spelled with an escape",
+      "input": "{\"a\":1,\"\\u0061\":2}",
+      "error": "duplicate_key",
+      "pointer": "/a"
+    },
+    {
+      "name": "nesting past the depth limit",
+      "input": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+      "error": "depth",
+      "pointer": "/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0"
+    },
+    {
+      "name": "NaN token",
+      "input": "{\"n\":NaN}",
+      "error": "invalid_json"
+    },
+    {
+      "name": "Infinity token",
+      "input": "{\"n\":Infinity}",
+      "error": "invalid_json"
+    },
+    {
+      "name": "trailing data",
+      "input": "{\"a\":1} {\"b\":2}",
+      "error": "invalid_json"
+    },
+    {
+      "name": "lone surrogate",
+      "input": "{\"s\":\"\\ud800\"}",
+      "error": "invalid_json"
+    },
+    {
+      "name": "truncated",
+      "input": "{",
+      "error": "invalid_json"
+    }
+  ]
+}

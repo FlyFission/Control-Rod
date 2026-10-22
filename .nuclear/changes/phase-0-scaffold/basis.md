@@ -26,7 +26,7 @@ Control Rod's value rests on records that every component reads the same way and
 | Protected outcome | Why it matters | Evidence needed |
 |---|---|---|
 | A record that breaks the contract is refused at the API boundary. | Malformed or padded records would carry unchecked claims into the system. | API tests for missing required fields, floats, bad enums and unknown fields at the top level and nested. |
-| The same record gives the same digest in Rust, Go and Python. | Signatures and evidence bind to digests; a cross-language mismatch breaks verification. | Shared test vector passing in all three languages. |
+| The same record gives the same digest in Rust, Go and Python. | Signatures and evidence bind to digests; a cross-language mismatch breaks verification. | All 29 shared vectors in `spec/vectors/canonical-digest.json` passing in all three languages. |
 | Engineering values are never floats. | Floats lose precision silently; Control Rod requires decimal strings with units. | Float refusal tests in the API and in all three digests. |
 | The kernel refuses by default. | A decision type that allows by default would make every later bug an approval. | Kernel tests: undecided requests deny; denials never allow; `allow` is crate-private. |
 | Shipped code carries permissive licenses only. | Copyleft or source-available code would break the open-core license plan. | Node, Rust and Go license gates passing. |
@@ -37,7 +37,7 @@ Control Rod's value rests on records that every component reads the same way and
 |---|---|---|
 | A record with an unknown field such as `approved_by_agent` is stored. | Agents could add self-serving fields that later code reads. | Closed schemas (`unevaluatedProperties: false`) on every record model; RT-015 tests. |
 | Generated schemas drift from the TypeSpec source. | Languages disagree about the contract. | CI regenerates and fails on any diff. |
-| Digest implementations disagree on key order or non-ASCII keys. | Signatures verify in one language and fail in another. | RFC 8785 libraries in each language; shared vector; UTF-16 key-order test in Python. |
+| Digest implementations disagree on key order or non-ASCII keys. | Signatures verify in one language and fail in another. | One shared profile (safe integers, no duplicate keys, depth 64) and the shared vector file, including UTF-16 key order. |
 | A GPL or AGPL dependency enters through a transitive update. | License obligations on shipped code. | Gates in CI on every pull request; Dependabot updates pass through the same gates. |
 
 ## Assumptions, constraints, and invalidation triggers
@@ -73,8 +73,8 @@ Control Rod's value rests on records that every component reads the same way and
 |---|---|---|---|---|
 | TypeSpec 1.17 | Emit JSON Schema and OpenAPI | Wrong contracts | Drift check; API tests against generated schemas | Version change |
 | Ajv 8 with Ajv2020 | Validate request bodies | Bad records accepted | API tests including negative cases | Version change |
-| serde_json_canonicalizer, gowebpki/jcs, Python stdlib | RFC 8785 canonicalization | Digest mismatch | Shared vector in all three | Version change |
-| sha2 crate, Go crypto/sha256, hashlib | SHA-256 | Wrong digests | Shared vector | Version change; FIPS build work |
+| serde_json_canonicalizer, gowebpki/jcs, Python stdlib | RFC 8785 canonicalization | Digest mismatch | Shared vector file in all three | Version change |
+| sha2 crate, Go crypto/sha256, hashlib | SHA-256 | Wrong digests | Shared vector file | Version change; FIPS build work |
 | cargo-deny, go-licenses, `tools/license-gate.mjs` | License gates | Copyleft code ships | Three independent gates | Tool upgrade |
 
 ## Derived requirements or claims
@@ -82,8 +82,8 @@ Control Rod's value rests on records that every component reads the same way and
 | ID | Requirement / claim | Basis | Design feature or control | Evidence planned |
 |---|---|---|---|---|
 | C-001 | The control plane refuses any work package that breaks the contract, including unknown fields at any depth. | Protected outcome 1 | Ajv2020 strict validation against closed generated schemas | 6 negative and positive API tests |
-| C-002 | Rust, Go and Python produce the same canonical digest for the same record. | Protected outcome 2 | RFC 8785 plus SHA-256 in each language | Shared vector test in each language |
-| C-003 | Non-integer JSON numbers are refused by the API and by all three digests. | Protected outcome 3 | Decimal-string `Quantity` type; float checks with JSON pointer | API float test; three digest float tests |
+| C-002 | Rust, Go and Python produce the same canonical digest for the same record. | Protected outcome 2 | RFC 8785 plus SHA-256 and one shared profile in each language | `spec/vectors/canonical-digest.json` tested in each language |
+| C-003 | Numbers that are not integers within +/-(2^53 - 1) are refused by all three digests, and fractions by the API. | Protected outcome 3 | Decimal-string `Quantity` type; float checks with JSON pointer | API float test; three digest float tests |
 | C-004 | The kernel decision type refuses by default. | Protected outcome 4 | `Decision::undecided()` denies; `allow` is crate-private | Two kernel tests; clippy with unwrap, expect and panic denied |
 | C-005 | Shipped dependencies carry permissive licenses only. | Protected outcome 5 | Three license gates | Gate output |
 | C-006 | Generated contracts match the TypeSpec source. | Unacceptable outcome 2 | CI regenerate-and-diff step | Local compile; CI run |

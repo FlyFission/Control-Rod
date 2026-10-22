@@ -1,27 +1,52 @@
+import hashlib
+import json
+from pathlib import Path
+
 import pytest
 
-from controlrod import FloatNotAllowedError, canonical_sha256
+from controlrod import digest
+from controlrod.digest import (
+    MAX_DEPTH,
+    MAX_SAFE_INTEGER,
+    DuplicateKeyError,
+    InvalidJSONError,
+    NumberNotAllowedError,
+    TooDeepError,
+    canonical_sha256,
+)
 
-# The shared vector: sha256 of the canonical bytes {"a":"x","b":1}. Checked in every language.
-SHARED_VECTOR = "cdab067e9f3beb32d1252cfd63e492592fecbf591b0d08cadb24bb17f3864246"
+VECTORS = json.loads(
+    (Path(__file__).resolve().parents[3] / "spec" / "vectors" / "canonical-digest.json").read_text(
+        encoding="utf-8"
+    )
+)
+ERRORS = {
+    "number": NumberNotAllowedError,
+    "duplicate_key": DuplicateKeyError,
+    "depth": TooDeepError,
+    "invalid_json": InvalidJSONError,
+}
 
 
-def test_shared_vector() -> None:
-    assert canonical_sha256('{"b":1,"a":"x"}') == SHARED_VECTOR
+def test_profile_constants_match_the_vector_file() -> None:
+    assert VECTORS["max_safe_integer"] == MAX_SAFE_INTEGER
+    assert VECTORS["max_depth"] == MAX_DEPTH
 
 
-def test_key_order_does_not_matter() -> None:
-    a = canonical_sha256('{"b":1,"a":"x","c":{"z":true,"y":null}}')
-    b = canonical_sha256('{ "c": {"y": null, "z": true}, "a": "x", "b": 1 }')
-    assert a == b
+@pytest.mark.parametrize("case", VECTORS["valid"], ids=lambda c: c["name"])
+def test_valid_vectors_hash_their_canonical_form(case: dict[str, str]) -> None:
+    expected = hashlib.sha256(case["canonical"].encode("utf-8")).hexdigest()
+    assert canonical_sha256(case["input"]) == expected
 
 
-def test_floats_are_refused() -> None:
-    with pytest.raises(FloatNotAllowedError) as err:
-        canonical_sha256('{"exports":[{"value":42.5}]}')
-    assert err.value.pointer == "/exports/0/value"
+@pytest.mark.parametrize("case", VECTORS["invalid"], ids=lambda c: c["name"])
+def test_invalid_vectors_are_refused_with_the_named_error(case: dict[str, str]) -> None:
+    with pytest.raises(ERRORS[case["error"]]) as err:
+        canonical_sha256(case["input"])
+    if "pointer" in case:
+        assert err.value.pointer == case["pointer"]
 
 
-def test_non_ascii_keys_sort_by_utf16() -> None:
-    # RFC 8785 sorts by UTF-16 code units; this matches the Rust and Go implementations.
-    assert canonical_sha256('{"é":1,"z":2}') == canonical_sha256('{"z":2,"é":1}')
+def test_all_errors_share_a_base_class() -> None:
+    for error in ERRORS.values():
+        assert issubclass(error, digest.DigestError)

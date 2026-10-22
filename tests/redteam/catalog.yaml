@@ -124,3 +124,9 @@ cases:
     attempt: Rebuild the transparency log under the same key and present its checkpoint
     expected: Witnesses refuse the checkpoint; verification fails
     status: pending
+  - id: RT-023
+    title: Duplicate keys read differently by two components
+    attempt: Send {"approved":false,"approved":true} so one parser keeps the first value and another the last
+    expected: Refused everywhere; the digest functions refuse duplicates today, and the API must too
+    requirements: [REQ-KRN-006]
+    status: pending

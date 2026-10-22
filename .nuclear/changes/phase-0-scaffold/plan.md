@@ -29,13 +29,14 @@
 1. Pin toolchains in `mise.toml` and set workspace roots for pnpm, Cargo, Go and uv.
 2. Write TypeSpec records and API v0; compile to JSON Schema and OpenAPI.
 3. Build the Fastify skeleton with Ajv2020 validation and tests against the worked example.
-4. Build the Rust kernel crate: fail-closed `Decision`, RFC 8785 digest, shared vector.
-5. Port the digest to Go and Python against the same vector.
+4. Build the Rust kernel crate: fail-closed `Decision`, RFC 8785 digest, shared vector file.
+5. Port the digest to Go and Python against the same vector file.
 6. Write license gates for Node, Rust and Go; write the red-team catalog and its checker.
 7. Write CI covering all of the above, actions pinned by commit hash.
 8. Write ADRs, threat model and SQA drafts.
 9. Add RT-015 tests for unknown fields, see them fail, close every record model, see them pass.
-10. Fill and validate this packet; open the pull request.
+10. After review found the digests disagreed on large integers, negative zero and duplicate keys, write a shared vector file and one profile, and make all three languages pass it.
+11. Fill and validate this packet; open the pull request.
 
 ## Two-speed work plan
 
@@ -48,7 +49,7 @@
 
 | Task | Trap | Countermeasure |
 |---|---|---|
-| Shared digest vector | Hand-typing an expected hash | Vector computed by running code; same value asserted in three languages |
+| Shared digest vector | Hand-typing an expected hash | Vector file holds canonical text only; each test computes the SHA-256 itself |
 | Schema strictness | Assuming Ajv strict mode rejects unknown fields | Negative test written first; it failed, proving the assumption wrong |
 | License gate | Our own module reported as unlicensed | `--ignore github.com/flyfission/control-rod` scoped to our module only |
 
@@ -89,8 +90,8 @@ The AI agent works on branch `phase-0/scaffold` only, may run local builds and t
 |---|---|---|
 | Contracts compile | `tsp compile .` succeeds | pass |
 | API tests | 7 passed | pass |
-| Kernel tests and clippy | 6 passed; clippy clean with warnings as errors | pass |
-| Go and Python digests | Go tests pass; 4 Python tests pass; ruff clean | pass |
+| Kernel tests and clippy | 5 passed (vector tests loop over all 29 cases); clippy clean with warnings as errors | pass |
+| Go and Python digests | 4 Go tests pass; 31 Python tests pass; ruff clean | pass |
 | License gates | Node, Rust and Go gates pass | pass |
 | Red-team catalog | Checker passes | pass |
 | Packet validates | `ng validate` passes | pass |

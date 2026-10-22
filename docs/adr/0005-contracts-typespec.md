@@ -7,7 +7,7 @@
 TypeSpec in `spec/` is the single source. It emits JSON Schema 2020-12 for records and OpenAPI 3.1 for APIs, including the daemon link (JSON over HTTPS with mutual TLS). Generated output is committed and CI fails on drift.
 
 ## Conditions
-TypeSpec's versioning and streaming packages are 0.x and stay pinned. Engineering values are decimal strings with units; the digest functions refuse JSON numbers that are not integers. Every record model is closed (`unevaluatedProperties: false`), so a field the contract does not name is rejected rather than stored; a smuggled `approved_by_agent` flag was accepted before this rule and is now red-team case RT-015.
+TypeSpec's versioning and streaming packages are 0.x and stay pinned. Engineering values are decimal strings with units. RFC 8785 leaves room for implementations to disagree, so every digest implementation enforces one profile and passes the shared vectors in `spec/vectors/canonical-digest.json`: integers only, within +/-(2^53 - 1); no duplicate keys; nesting at most 64; no unpaired surrogates or trailing data. Before this profile, Python kept digits past 2^53 while Go and Rust rounded them, and `{"approved":false,"approved":true}` hashed in Python and Rust but was refused in Go. Every record model is closed (`unevaluatedProperties: false`), so a field the contract does not name is rejected rather than stored; a smuggled `approved_by_agent` flag was accepted before this rule and is now red-team case RT-015.
 
 ## Alternatives considered
 Protobuf as a second target (its TypeSpec emitter is a preview), hand-written JSON Schema.

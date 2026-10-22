@@ -15,6 +15,6 @@ crate-type = ["cdylib", "rlib"]
 workspace = true
 
 [dependencies]
-controlrod-kernel = { path = "../.." }
+controlrod-kernel = { path = "../..", version = "=0.0.0" }
 serde_json = "1.0.154"
 wasm-bindgen = "=0.2.104"

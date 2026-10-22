@@ -22,7 +22,7 @@
 |---|---|
 | Objective still matches `risk.md#mission-anchor` | yes |
 | Any work outside the non-goals? | no; documentation and this packet only |
-| Scope change during the work | the fifth note file (observed behaviour) had not arrived; the pattern file marks it pending |
+| Scope change during the work | the fifth note file (observed behaviour) arrived after the first commits and was folded into section 10 in a follow-up commit on the same branch |
 
 ## Build sequence
 
@@ -33,6 +33,9 @@
 5. Write `docs/patterns/kandev.md`: 73 merged patterns by area, pitfalls, UX ideas, pending observed-behaviour section, claims table and build plan.
 6. Write ADR 0019 and `docs/patterns/README.md`; add one line to `docs/README.md`.
 7. Scan for code blocks, em dashes and contrast constructions; confirm changed paths; validate this packet; commit locally.
+8. When note E arrives: read it in full (screenshots only to understand it, never copied), check its claims about our code at `87d0f79`, write section 10, merge its five top UX ideas into section 9, change Now only where an observation gives a reason, and update the provenance header.
+9. Rerun both wording scripts against the pattern file; reword until no run of 8 or more words is shared and no section 10 line scores above 0.55.
+10. Update this packet, validate it, commit and push the branch to pull request #4 on the owner's instruction.
 
 ## Two-speed work plan
 
@@ -52,7 +55,7 @@
 
 ## Agent briefing
 
-The AI agent works only in the worktree on `docs/kandev-patterns`, reads the note files and Control Rod's code, writes docs and this packet, and commits locally. It may not open Kandev's docs or source, push, edit trust surfaces, or touch the main checkout.
+The AI agent works only in the worktree on `docs/kandev-patterns`, reads the note files and Control Rod's code, writes docs and this packet, commits, and pushes the branch only when the owner says so. It may not open Kandev's docs or source, copy observer screenshots into the repository, edit trust surfaces, or touch the main checkout.
 
 ## Affected files and assets
 
@@ -86,6 +89,8 @@ The AI agent works only in the worktree on `docs/kandev-patterns`, reads the not
 | Trust surfaces | Only docs and packet paths changed | pass |
 | Packet validates | `ng.py validate --strict-custody` passes | pass |
 | Independent wording check | Someone who did not write the file compares it with Kandev's docs | pass after fixes (E-006) |
+| Note E folded in | Section 10 written; priority changes have reasons; new code claims cited | pass (E-008) |
+| Wording check rerun | 0 shared runs of 8 or more words; no section 10 line above 0.55 | pass (E-007) |
 | Owner review | Ben approves | planned |
 
 ## Rollback approach
@@ -99,6 +104,9 @@ git diff --name-only mvp/site-concept...docs/kandev-patterns
 grep -c '```' docs/patterns/kandev.md docs/adr/0019-own-workbench-clean-room.md
 LC_ALL=C grep -nP '\xE2\x80[\x93\x94]' docs/patterns/*.md docs/adr/0019-own-workbench-clean-room.md
 python3 -I /root/refs/nuclear-grade-context-engineering/tools/ng.py validate --strict-custody .nuclear/changes/own-workbench-clean-room
+# wording check; <scratch> is the session scratch folder, <docs> the source docs the scripts compare against (not opened by the builder)
+python3 -I <scratch>/wordcheck/ngram.py <docs> docs/patterns/kandev.md
+python3 -I <scratch>/wordcheck/fuzzy.py <docs> docs/patterns/kandev.md | grep -E '^docs/patterns/kandev.md:[0-9]+ score'
 ```
 
 ## Required links
@@ -111,6 +119,7 @@ python3 -I /root/refs/nuclear-grade-context-engineering/tools/ng.py validate --s
 - A reviewer can repeat every result from the proof commands and the cited lines.
 - Every claim has a status label.
 - The wording check ran (E-006); its findings are fixed and rechecked.
+- Note E is folded in and the wording check is rerun clean (E-007, E-008).
 
 ## Source-lineage note
 

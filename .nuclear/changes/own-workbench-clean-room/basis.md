@@ -47,6 +47,7 @@ Kandev solves many workbench problems Control Rod faces, but it is AGPL-3.0 and 
 |---|---|---|---|
 | Kandev and its docs are AGPL-3.0, with no commercial license and about 77 copyright holders. | Readers' report; not re-checked by the builder under the clean-room rule. | A lawyer's review, or a license change upstream. | Ben Huffer |
 | The notes contain no copied wording. | Readers' brief forbids it; the builder rewrote all prose. | The independent wording check finds a match. | Ben Huffer |
+| Observations in note E come from Kandev 0.97.0 driven by a stand-in agent with no model; streaming, timing and output quality may differ with real agents. | Note file E, section 0 and coverage list. | A later observation with a real provider, or a Kandev release that changes the behaviour. | Ben Huffer |
 | `codex exec` is read-only by default and refuses to run outside a Git repository without a flag. | OpenAI non-interactive docs, fetched 2026-10-22. | A Codex release that changes defaults, or Ben's own Codex config. | Ben Huffer |
 | Line numbers match commit `87d0f79` on `mvp/site-concept`. | Read in this session. | Any later commit to the cited files. | Ben Huffer |
 
@@ -54,11 +55,12 @@ Kandev solves many workbench problems Control Rod faces, but it is AGPL-3.0 and 
 
 | Claim area | Grounded in | Status |
 |---|---|---|
-| Kandev behaviour | Note files A to D (2026-10-22) | pass |
+| Kandev behaviour (documented) | Note files A to D (2026-10-22) | pass |
+| Kandev behaviour (as run) | Note file E: Kandev 0.97.0 run unmodified with a stand-in agent (2026-10-22) | pass, within the coverage E lists |
 | Our code | `mvp/site-concept` at `87d0f79` | pass |
 | Codex defaults | OpenAI non-interactive mode docs | pass |
 | License facts | Readers' report | gap (lawyer to confirm) |
-| No copied wording | Independent check | pass after fixes (E-006) |
+| No copied wording | Independent check, rerun after E was folded in | pass after fixes (E-006); rerun clean (E-007) |
 
 ## Interfaces and trust boundaries
 
@@ -66,14 +68,14 @@ Kandev solves many workbench problems Control Rod faces, but it is AGPL-3.0 and 
 - **External services/APIs affected:** none.
 - **Data classes affected:** none.
 - **Human approval boundaries:** Ben merges; a lawyer confirms license conclusions before any commercial release.
-- **AI/model/tool authority boundaries:** the agent wrote docs on a branch in a separate worktree and committed locally; it did not push, did not open Kandev's docs or source, and did not edit trust surfaces.
+- **AI/model/tool authority boundaries:** the agent wrote docs on a branch in a separate worktree, committed, and pushed the branch to pull request #4 on the owner's instruction; it did not open Kandev's docs or source, did not copy screenshots into the repository, and did not edit trust surfaces.
 
 ## Dependency / model / supplier intended use
 
 | Dependency/model/service | Intended use | Consequence if wrong/unavailable/compromised | Evidence or compensating control | Revalidation trigger |
 |---|---|---|---|---|
 | Kandev (AGPL-3.0) | Source of ideas only, through notes | License taint if wording or code is copied | Clean-room roles; wording check | Any new pattern note |
-| Clean-room note files A to D | Only input to the pattern file | Copied wording, or wrong facts about Kandev | Brief forbids copying; builder rewrote; wording check | E arriving; any note revision |
+| Clean-room note files A to E | Only input to the pattern file | Copied wording, or wrong facts about Kandev | Brief forbids copying; builder rewrote; wording check rerun after each fold-in | Any note revision or new note |
 
 ## Derived requirements or claims
 
@@ -85,10 +87,11 @@ Kandev solves many workbench problems Control Rod faces, but it is AGPL-3.0 and 
 | C-004 | Now holds confirmed gaps only, each with files and a trust-surface flag. | Protected outcome 4 | Now table N1 to N8 | Cross-check against the claims table |
 | C-005 | No trust surface is edited. | Protected outcome 5 | Docs-only change | `git diff --name-only` |
 | C-006 | No em dashes and no "X, not Y" constructions. | Protected outcome 6 | Style rewrite | Text scan plus read-through |
+| C-007 | Section 10 folds in note E: what the observer could and could not run, what running added to P01 to P73, new patterns from P74 on, the problems it hit; the build plan changes a priority only with a stated reason, and every new code claim is cited. | Protected outcomes 3 and 4 | Section 10; claims K25 to K29; N9 and the N2 addition | Content review; cited lines at `87d0f79`; wording check rerun |
 
 ## Design outline
 
-The four note files were read in full, merged into 73 patterns sorted by seven Control Rod areas, each with fit, effort, priority and note sources, followed by Kandev's admitted pitfalls, UX ideas, a pending section for observed behaviour, and a build plan. The build plan lists each claim the notes make about our code with file and line, then a Now list drawn only from confirmed gaps.
+The four note files were read in full, merged into 73 patterns sorted by seven Control Rod areas, each with fit, effort, priority and note sources, followed by Kandev's admitted pitfalls, UX ideas, a section for observed behaviour, and a build plan. When note E arrived it was folded into section 10 (observations against existing patterns, nine new patterns P74 to P82, sixteen product problems), five UX ideas were merged into section 9, five more code claims were checked (K25 to K29), and two Now changes were made with reasons (N9 new, one rule added to N2). The build plan lists each claim the notes make about our code with file and line, then a Now list drawn only from confirmed gaps.
 
 ## Required links
 

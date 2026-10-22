@@ -1,8 +1,8 @@
 # Pattern notes: Kandev
 
-> **Provenance.** Written on 2026-10-22 from clean-room notes of Kandev's public documentation (Kandev and its docs are AGPL-3.0). Four readers studied the public docs and wrote notes in their own words; the builder who wrote this file worked from those notes only and never opened Kandev's docs or source. This file records ideas only. No Kandev code, configuration, schema or documentation text is copied. Short phrases in quotation marks are Kandev UI labels or feature names, or labels proposed for Control Rod. See `docs/patterns/README.md` for the clean-room rule and ADR 0019 for the decision this supports.
+> **Provenance.** Written on 2026-10-22 from clean-room notes of Kandev's public documentation (Kandev and its docs are AGPL-3.0). Four readers studied the public docs and wrote notes in their own words. A fifth source was observation of the product running unmodified: an observer installed Kandev 0.97.0 from npm, drove it with a stand-in agent and no model provider, and wrote down what it saw, also in its own words. The builder who wrote this file worked from those notes only and never opened Kandev's docs or source. This file records ideas only. No Kandev code, configuration, schema or documentation text is copied. Short phrases in quotation marks are Kandev UI labels or feature names, or labels proposed for Control Rod. See `docs/patterns/README.md` for the clean-room rule and ADR 0019 for the decision this supports.
 
-Kandev is an open workbench for running coding agents on a board of tasks. Control Rod will build its own workbench (ADR 0019) and borrow ideas from it. This file merges the four note files, removes duplicates, and sorts every idea by the Control Rod area it would change.
+Kandev is an open workbench for running coding agents on a board of tasks. Control Rod will build its own workbench (ADR 0019) and borrow ideas from it. This file merges the five note files, removes duplicates, and sorts every idea by the Control Rod area it would change.
 
 **Note files** (working papers kept outside the repository):
 
@@ -12,7 +12,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 | B | B-office-and-people | Office mode, roles, security, integrations, automation, MCP |
 | C | C-runtime-and-deploy | Agent CLIs, executors, configuration, service install, backups, live channel |
 | D | D-plugins-and-practice | Plugins, canvases, extension safety, architecture, testing, release |
-| E | E-observed-behaviour | An agent watching Kandev run (see "Observed behaviour") |
+| E | E-observed-behaviour | An agent running Kandev 0.97.0 unmodified and recording what it saw (section 10) |
 
 **How to read a pattern.** Each entry gives what Kandev does, why it matters, our version in Control Rod terms, then one line with fit, effort and priority, and the note files it came from.
 
@@ -174,7 +174,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - **What it does:** each agent CLI counts as installed only when its executable is found and answers a version check. Probes sort each CLI into one of five outcomes (failed, unsupported, missing settings, missing binary, or needing sign-in), and a manual rescan refreshes without a restart. The status page warns that a CLI that works in the person's shell can be invisible to a service with a different PATH or user. An agent that is paused or errored is returned to service by a deliberate act, and the docs warn that this fixes nothing by itself.
 - **Why it matters:** a clear "needs login" or "missing" state removes the most common first-day failure.
 - **Our version:** the daemon probes each runtime at start and every few minutes (found on PATH, version answers, login looks present where the CLI can tell) and reports a runtime status with its claim or heartbeat. The office shows ready, missing, needs login, untested version or unknown per runtime, and unknown is never shown as fine. Queued runs whose runtime is unavailable show that reason. Today `Detect` only looks the binary up on PATH (`daemon/internal/runner/runtime.go:46-58`).
-- Fit: Adapt · Effort: M · Priority: Next · Notes: B, C, D
+- Fit: Adapt · Effort: M · Priority: **Now** for the probe (N9, raised after observation), Next for the office display · Notes: B, C, D, E
 
 ### P24 Record what actually ran
 - **What it does:** Kandev states two integration levels (a structured protocol with typed tool and permission events, and a raw terminal with none of them) and refuses to pretend a terminal agent has protocol features. Model lists are hints; at launch the environment's own catalog decides, any substitution writes one warning naming requested and effective model, and a per-profile switch makes a missing model fail before any inference. Requested modes and options must be confirmed by the agent before the first prompt.
@@ -540,10 +540,10 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 
 ## 9. UX ideas worth borrowing
 
-- One "needs you" list where only explicit asks raise attention, and a state that cannot be read is never shown as healthy (A, B, C).
+- One "needs you" list where only explicit asks raise attention, and a state that cannot be read is never shown as healthy (A, B, C). Agent questions sit in that list and are answered through a stepper that works from the keyboard, one question at a time (E).
 - A one-line gate explanation on each package, for example "waiting on you to accept", "pre-check round 2 running", "Claude limited until 14:10" (B).
-- Reviewed ticks per output that clear when the output changes, and a "made against an earlier version" tag on old notes (A).
-- One "send all notes" action that is disabled while pending and keeps anything edited meanwhile (A).
+- Reviewed ticks per output that clear when the output changes, with a running count of how many are reviewed, and a "made against an earlier version" tag on old notes (A, E).
+- One "send all notes" action that is disabled while pending and keeps anything edited meanwhile; notes are stored the moment they are typed, and sending them starts the next author round (A, E).
 - A two-way dependency chip with the exact upstream package and its state, and cycle refusals that show the path (A).
 - A recovery card with the recommended action first, every alternative as its own button, collapsed redacted details and an exact-copy button; resolved and dismissed labels kept in history (A, C).
 - A persistent error strip for package problems that survives tab changes until resolved (A).
@@ -556,6 +556,9 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - A health dot per runtime and connection on the floor bench, with plain states: ready, missing, needs login, untested version, unknown (B, C, D).
 - A read-only "exactly what the daemon will run" panel per runtime baseline, with the tool allowlist and a token estimate per tool (B, C).
 - "Still working, quiet for N minutes" with a calm note that long tools are silent; stop buttons that stay in "stopping" until confirmed, across reloads (C).
+- A run log with tool calls folded into one line each, a progress chip from the author's checklist, elapsed time per stage, and a "stopped by Ben" line under any partial output (E).
+- A preparation block at the top of each run: one line per setup step with its command, duration and result, warnings in amber with details behind a link (E).
+- Tool permission holds shown on the run with deny, allow once and allow for this run, with an amber mark on the board card and the rail; this waits for ACP sessions (P76) (E).
 - A connectivity indicator that turns yellow after three seconds and red after ten (C).
 - A startup page showing the current phase and recent step timings (C).
 - Typed confirmation words for destructive acts and a staged restore that cannot harm live data (C).
@@ -570,9 +573,121 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - A task dialog that shows role preset and isolation mode with a split button for "start" and "create without starting"; for us, the role brief shown as a chip on the capture or package form (D).
 - Semantic states reported by packs and providers with colours chosen by the web app (D).
 
-## 10. Observed behaviour (pending)
+## 10. Observed behaviour
 
-The fifth note file, E-observed-behaviour (an agent watching Kandev run), had not arrived when this file was written. When it arrives, fold its findings into the patterns above, mark any pattern whose documented behaviour differs from what was observed, and record here what was watched, on which version, and with which mock or real agents. Observers' screenshots are working papers and stay out of the repository.
+### 10.1 What the observer could and could not run
+
+Observer E installed Kandev 0.97.0 from npm and ran it unmodified in a Linux container: loopback listener only, an empty environment, a private home folder, the Docker executor switched off. It drove the web app through a headless browser and kept the screenshots and traffic recordings as working papers outside the repository; for live traffic it wrote down only message kinds and field shapes. It did not open Kandev's source, and it read Kandev's docs only for a handful of startup settings and the page on adding a custom agent.
+
+No model provider, account or credential was used. The test agent the docs describe can be switched on by a flag but is missing from the published package, so the observer wrote its own small stand-in agent (no model behind it) that speaks the open Agent Client Protocol and registered it through Kandev's own screen for adding an agent. The stand-in follows keywords to produce thinking text, a to-do list, file reads and edits, shell calls, permission requests, slow output, a hard failure, and calls to Kandev's own question and plan tools.
+
+Exercised: first-run setup, workspace and repository setup, the process and step editor, agent profiles, the new task dialog, session view, permission prompts, file review and review notes, the queue and cancel, failure recovery, plan mode, question bundles, the board and its other views, the Office product, the settings pages and the live update traffic.
+
+Not exercised: what real agents produce, GitHub or GitLab links, Docker or remote executors, the plugin marketplace (no network), automations with real triggers, real cost data, approvals raised by an Office agent, and sign-in or multi-user modes. Everything below about agent output comes from the stand-in, so streaming and timing details may differ with a real agent.
+
+### 10.2 What running it added to P01 to P73
+
+- **P01 Board position and runtime state:** under the default process, every turn end moved the card to the review column by itself, a cancelled turn included, and a new message sent from review moved it back. Office lists each run with the event that woke it. For us: a stopped or failed run leaves the package where it was and says who or what stopped it, and the wake reason is worth the small cost.
+- **P03 Plan document:** the plan panel picked up the agent's write within about a second, kept a version list (author, step, age, size), and held comments on selected text across a reload. The button that approves the plan and the column move were two separate acts, and the approval left out a comment still pending. For us: one signed act both approves and moves, and it carries every open note in its signed subject (P12).
+- **P06 Questions as records:** a bundle held up to four questions, each with a few described options and optional free text, answered through a stepper that works from the keyboard. The answer went back to the agent keyed by question id. Kandev's waiting-items page said in plain words that it leaves out permission requests. For us: questions sit in the same office list as every other ask, and answering one is an attributed event with no passkey, since it decides no package state.
+- **P08 Scheduled captures:** the Office setup armed a coordinator wake-up every five minutes without being asked, and it woke the idle stand-in. This confirms the trap the docs-based notes flagged; our schedules start paused and show their cost.
+- **P10 Skips:** the per-session queue works, and after a cancel its automatic sending switched itself off, so queued text waited for the person. That supports our rule that a stop starts nothing; the skip stands because our runs are one-shot. Adding an agent through the UI ran a protocol handshake at once to learn models and modes; the skip stands, and the probe idea moves to P23.
+- **P11 Reviewed marks:** a tick per file with a running count survived a reload. The observer did not change a file after ticking it, so the digest binding was not seen.
+- **P12 Anchored review notes:** an unsent note on a file disappeared when the page reloaded, which matches the browser-only storage the docs admit. Sending notes did not move the card out of review. For us: notes are saved on the server as they are typed.
+- **P16 Uncertain outcomes and P19 claim custody:** one Office assignment produced two runs for the same task (one claimed, one queued) and the agent handled the assignment twice. Our runs table has no rule against the same kind of duplicate (K28); see the change to N2.
+- **P21 Completion record:** with no completion signal required, a turn end alone counted as done, a cancelled one too. This is exactly the behaviour P21 guards against.
+- **P22 Stop a run:** the stop control cancelled at once, kept the partial text, and drew a line saying the person cancelled the turn, with the elapsed time. Every Office page has a workspace pause button in its header. For N5: keep the partial log and end it with a "stopped by Ben" line and the time. The observer's comparison said our run log already offers stop and requeue; it shows a stopped status only (K25).
+- **P23 Runtime health:** a test agent that could be switched on but was not shipped appeared in the list, showed "Error" and a probe failure with no detail, and its first task failed with the cause shown as unknown while the backend log held the real reason. For us: a probe result carries its reason to the screen, and a runtime that fails its probe is never offered for work. Priority raised (N9).
+- **P24 Record what actually ran:** the startup probe passed no tool servers; task sessions got Kandev's tool server only after the agent said it could take one; each first prompt began with a long block naming the tools, and Office prompts ran to several thousand characters with a closing list of allowed actions. Routing logged warnings when it did not recognise the stand-in's provider. For us: the trace records which tool servers and tools actually reached the agent, beside what was requested.
+- **P28 Recovery choices:** a failed start produced a card offering a fresh session or a read-only look at the workspace, with collapsible details (phase, operation, cause, attempt id) and a copy button. A plain prompt rejection was titled as a failed recovery. A setting stops tasks from starting by themselves when reopened after a restart. For us: queued runs that never started are safe to claim after a restart because their inputs are frozen; a setting that holds the queue until Ben looks is cheap; runs that were mid-flight are retired by the sweep (N2).
+- **P30 Retention:** the storage page warns in red at 90 percent full and keeps a quarantine before deletion; the archive dialog spells out what happens to clean and dirty work folders, running sessions and branches. For us: the close dialog lists what happens to the package's run folders before Ben confirms.
+- **P32 Stage timings:** each session opened with a preparation card: one line per step with its command, duration and result, and a warning for a failed remote fetch that came back on every task in a folder with no remote. For us: show the timings as the first block of the run log, and quiet a known harmless warning after its first appearance per folder.
+- **P34 Office and P33 the "why waiting" line:** waiting items were spread over a sidebar inbox, a waiting-items page, the Office inbox and inline prompts. An agent stuck on a permission was missing from the Office pending count, the Office inbox read as clear, and the sidebar badge said one. For us: one office list, and every count on screen comes from the same query as the list it summarises. A side-by-side view of several live runs could later be a Floor mode.
+- **P35 Recovery card:** the backend knew the exact failure and the screen said unknown; the failed card on the board carried no mark. Our office shows a failed run's error, cut to 200 characters, under the dispute kind (K29). For us: carry the real cause in plain words, give failed runs their own office kind and a mark on the board.
+- **P36 Unknown is never green:** the updates page showed a last-checked date in year one before any check had run, and a GitHub sign-in warning stayed up for a purely local user. For us: a check that has never run says "never checked", and setup warnings appear only for features Ben has turned on.
+- **P37 Live feed:** one socket with subscriptions; change notices carry revision numbers so the client fetches only what is new; boards in two tabs agreed within about a second. With the stand-in, streamed text showed only at turn end (possibly the stand-in's fault). Our daemon already posts log batches every second (K27). For us: the P37 resume plan stands, plus a small "package summary changed" event so cards refresh without refetching whole packages.
+- **P38 Notifications:** desktop and sound settings per event type, including a question from an agent. Confirms P38.
+- **P39 Phone:** at phone width the task page became one column with bottom tabs and a count badge on the changes tab. For us: bottom tabs Run, Outputs and Decide on the package page.
+- **P43 Agent seats:** each Office agent page has a rights grid (create tasks, assign, approve, create agents and more) with a role default per row, plus a monthly budget and a cap on concurrent sessions. For us: show a seat's rights as a read-only grid drawn from Cedar policy.
+- **P57 Launcher and P60 one home:** stopping the npm launcher left the backend and its agent controller running. A long data path broke a local socket with a bare system error, and a path through a symlink was refused. For us: `controlrod down` and the launch agent stop the whole process group, status lists stray processes, and every startup refusal names the fix in one sentence.
+- **P67 Feature toggles:** each switch shows where its value came from, which environment variable locks it, whether a restart is needed, and a risk note. Confirms P67.
+
+### 10.3 New patterns from observation
+
+### P74 First-run checklist
+- **What it does:** on first open, a short series of cards lists the agents found on the machine with their state, every supported agent that is missing with its install command, the places work can run with a plain line on what each needs, the starting process drawn as a chain of steps, and the command panel shortcut. Every card can be skipped.
+- **Why it matters:** within a minute the person learns the product's few nouns and sees what their machine lacks.
+- **Our version:** a first-run panel on Home that checks the daemon is reachable, which runtimes it found with versions and probe results (N9), whether a passkey is registered, and whether the General pack loaded. Each failed line shows the fix as text to copy. Setup warnings appear only for features in use.
+- Fit: Adapt · Effort: S · Priority: Next · Notes: E
+
+### P75 A run log grouped for reading
+- **What it does:** the session view folds runs of tool calls into one expandable line, shows thinking under its own label, shows the agent's to-do list as a progress chip that turns green when complete, and gives each turn its elapsed time. Shell output shows its size and expands on demand.
+- **Why it matters:** a long run stays readable, and progress shows at a glance.
+- **Our version:** RunLog renders our event stream as grouped blocks: tool calls collapsed, a progress chip drawn from the author's checklist, elapsed time per stage, and the preparation block from P32 first. The capture text Ben wrote stays apart from the brief and rules we inject, which sit behind a "show instructions" toggle (Kandev echoed whole step templates into the person's bubble). Partial output stays visible after a stop, ended by a "stopped by Ben" line.
+- Fit: Adopt · Effort: M · Priority: Next · Notes: E
+
+### P76 Tool permission holds on the run
+- **What it does:** when an agent asks to use a tool, the call turns amber with the target path and three answers: deny, allow once, always allow. The composer stays usable, the board card and sidebar entry turn amber, and an approval resumes the agent within a second. The answer sent back is one of the options the agent offered.
+- **Why it matters:** a tool decision made in context, with nothing lost while it waits.
+- **Our version:** our MVP runs batch print mode, so no agent can pause for a permission mid-run (K06), and the API never raises the "permission" office kind the contract allows (K26). Once sessions run over the Agent Client Protocol (ADR 0011), the daemon raises a hold event, the office lists it with every other ask, and the run page offers deny, allow once and allow for this run. Holds are plain clicks recorded in the chain; release and accept stay signed in DecisionBar. Unattended holds time out to deny.
+- Fit: Adapt · Effort: M · Priority: Later · Notes: E
+
+### P77 Each run is told what it may and may not do
+- **What it does:** every Office run's first prompt ends with a block naming the run, the agent, the task in scope and an explicit list of allowed actions.
+- **Why it matters:** an agent that knows its limits wastes fewer turns on refused acts, and a person reading the brief sees the same limits.
+- **Our version:** the control plane writes a fixed-template "you may, you may not" block into each brief from the kernel's legal moves for that role and package state and from the baseline tool list, with ids and digests as the only variables (P15). The package page shows the same block for each run, and its digest goes into the trace.
+- Fit: Adopt · Effort: S · Priority: Next · Notes: E
+
+### P78 Board badges and kernel-checked moves
+- **What it does:** cards show a spinner while running and an amber border and shield while waiting on a person; hovering opens a larger preview; cards can be dragged between columns, and a second tab follows within about a second. The sidebar lists tasks with a state mark, age, queued count and change counts.
+- **Why it matters:** the board becomes a live picture of where attention is needed.
+- **Our version:** board cards and the Shell rail gain running, question, failed and waiting-on-Ben marks through StateMark. Dragging is offered only for moves the kernel would allow; a move that needs a signature opens DecisionBar, and refused moves are greyed with the reason.
+- Fit: Adapt · Effort: M (marks S) · Priority: Next · Notes: E
+
+### P79 Command panel
+- **What it does:** one keyboard shortcut opens a panel listing active tasks with their agent and age, plus create, navigation and view switching; a key flips between commands and search.
+- **Why it matters:** one person moving between many packages needs a fast way to jump.
+- **Our version:** a command panel listing open packages with role at work and age, plus capture, office, floor and records. Signing never starts from the panel; it only opens the package with DecisionBar.
+- Fit: Adopt · Effort: S · Priority: Next · Notes: E
+
+### P80 Pack-defined sub-steps inside the work rung
+- **What it does:** a process is a row of steps, each with settings for which agent profile runs, whether it plans first, whether context resets, a limit on active work, and where the card goes when a turn ends. Moving a card into a step can start, stop or redirect an agent.
+- **Why it matters:** teams can shape the work without code.
+- **Our version:** our rungs stay fixed in `spec/` and guarded by the kernel. A pack may define sub-steps inside the work rung only (which role runs, plan first or not, fresh context or not, a concurrency cap, the next sub-step on completion). The kernel checks every move, and no sub-step can skip a signature.
+- Fit: Adapt · Effort: M · Priority: Later · Notes: E
+
+### P81 Controls that explain themselves
+- **What it does:** in the running product, short empty states named the exact gap and the page for waiting items said what it counts and what it leaves out. Elsewhere a disabled start button gave no reason, its label changed as text was typed, and some screens needed a second save after a dialog had already confirmed.
+- **Why it matters:** a person who cannot see why a control is off, or whether a change was stored, loses trust in the screen.
+- **Our version:** every disabled action shows its reason; button labels stay fixed while a form is edited; one user act saves once, with an undo where it helps; each list says what it counts.
+- Fit: Adopt · Effort: S · Priority: Next · Notes: E
+
+### P82 Reference files supplied to every run
+- **What it does:** a repository can name ignored files to copy into each new work folder, and run setup or cleanup scripts there.
+- **Why it matters:** work folders often need files that are not in version control.
+- **Our version:** a project may name reference files (licence files, standard tables, client reference data). The control plane pins each one by digest as a run input, so frozen inputs still hold and the trace shows exactly which copy each run saw.
+- Fit: Adapt · Effort: S · Priority: Later · Notes: E
+
+### 10.4 Problems the observer hit, and what we take from each
+
+| # | What happened in the running product | Lesson for Control Rod | Pattern |
+|---|---|---|---|
+| E1 | A flag shows a test agent that the published package does not contain, so it fails on first use. | Ship any test runtime with the daemon or hide the switch. | P23 |
+| E2 | A long data path broke a local socket with a bare system error; a symlinked path was refused. | Check path limits at startup and state the fix in one sentence. | P57, P60 |
+| E3 | Stopping the launcher left the backend and agent controller running. | Stop the whole process group; show stray processes on status. | P57 |
+| E4 | The screen said the failure cause was unknown while the backend log had it. | Carry the real cause to Ben in plain words. | P35 |
+| E5 | An unsent review note was lost on reload. | Save notes on the server as typed. | P12 |
+| E6 | Waiting items lived in four places, and a permission wait was missing from counts that claimed to be complete. | One office list; every count from the same query as its list. | P34 |
+| E7 | One assignment created two runs, and the agent did the work twice; the chosen task prefix was ignored. | At most one live run per package revision, role and round; settings chosen in setup are saved as shown. | P16, N2 |
+| E8 | A five-minute coordinator wake-up was armed by default and woke an idle agent. | Runs start from events; any schedule starts paused with its cost shown. | P08 |
+| E9 | Repository and process screens needed a second save after a dialog had confirmed. | One save per act. | P81 |
+| E10 | The start button was disabled with no reason, and its label changed while typing. | Always show why; keep labels fixed. | P81 |
+| E11 | Step templates were echoed into the person's own message bubble. | Keep Ben's words apart from injected instructions. | P75 |
+| E12 | Streamed text from the stand-in appeared only at turn end. | Keep flushing logs every second (already the default) and show a quiet indicator. | P34, P37 |
+| E13 | Setup said default profiles approve everything while the profile's own switch read off. | A safety setting has one source, and every screen reads it. | P24 |
+| E14 | A process picked during setup was not created, and the default one was saved under a different name. | Setup writes exactly what it showed, or says what it skipped. | P74 |
+| E15 | The step shown in the new task dialog differed from the step the task started in, and plan approval and the step move were separate acts. | Show the state the kernel will actually set; tie approval to the move. | P03 |
+| E16 | A last-checked date in year one before any check; a GitHub warning for a local-only user. | "Never checked" for checks not yet run; warnings only for features in use. | P36 |
 
 ---
 
@@ -608,8 +723,13 @@ Every claim the notes make about Control Rod's current code was checked against 
 | K22 | Refusals echo submitted values. | B | Confirmed | `work.ts:492` echoes the bad output name. |
 | K23 | (Found while checking) A trace that fails validation is dropped silently. | none | Confirmed | `work.ts:498-504` deletes the trace and stores the run without it, with no event or finding. |
 | K24 | (Found while checking) The daemon's logs go to stderr with no rotation. | C | Confirmed | `daemon.go:85-87`. No service install exists yet, so this matters once P57 lands. |
+| K25 | The run log already offers stop and requeue. | E | Wrong | `apps/web/src/components/RunLog.tsx:15` renders a stopped status; the component has no controls, and the API has no stop route (K10). |
+| K26 | Ben approves agent tool steps today, and the office already puts those holds first. | E | Partly true | The contract allows an office item of kind permission (`spec/api.tsp:136`) and the web app sorts that kind first (`apps/web/src/lib/office.ts:5`), but the API never raises one and would rank it last (`services/api/src/work.ts:824`). Batch print mode has no mid-run permission prompt (K06). |
+| K27 | Run text should be flushed to the control plane at least once a second. | E | Already have | The daemon posts log batches every second by default (`daemon/internal/runner/daemon.go:82-83`, `:190-199`); the web app batches refreshes for 300 ms (`apps/web/src/lib/live.ts:34`). |
+| K28 | (Found while folding in E) Nothing in the database stops two live runs for the same package revision, role and round. | none | Confirmed | The runs table has no such key (`services/api/src/db/schema.ts:53-63`); `queueRun` inserts a fresh id each time (`work.ts:213-233`). Today each caller sits behind a package row lock and a kernel transition (`work.ts:111`), so no duplicate path is known; the rule would make that explicit. |
+| K29 | (Found while folding in E) A failed run reaches the office as a dispute. | none | Confirmed | `work.ts:803-821` raises kind dispute with the error cut to 200 characters. |
 
-No note claim about the code was found to be invented. One was wrong (K14, already in place), and three were partly true (K09, K12, K18).
+No note claim about the code was found to be invented. Two were wrong (K14, already in place; K25, from the observer), and four were partly true (K09, K12, K18, K26). K25 to K29 were checked at the same commit after the observation notes arrived.
 
 ### 11.2 Now: before Ben's first real run on his Mac
 
@@ -618,26 +738,34 @@ Only confirmed gaps are listed. Order is the suggested build order. "Trust surfa
 | # | Item | Closes | Files it would touch | Trust surface? |
 |---|---|---|---|---|
 | N1 | **Make Codex runs able to start and write `out/`.** Pass an explicit workspace-write sandbox and the skip-repository-check flag (or make each run workspace a repository), add a runner test for the exact arguments, and run one real Codex author and pre-check on the Mac before trusting it. Until that passes, the daemon should not offer Codex. | K07 (P25) | `daemon/internal/runner/runtime.go`, `daemon/internal/runner/runner_test.go`, `docs/daemon.md` | No. It widens what Codex may write to its own run workspace, so Ben reviews it. |
-| N2 | **Run custody: claim token, lease, sweep, idempotent completion, outbox.** Claim returns a token and a lease expiry; log posts renew it; a sweep retires expired runs to a terminal state with an event and an office item; log and complete must present the token; a repeat completion with the same digests returns the stored result; refusals while processing a completion record the run as failed and keep that record; the daemon writes each completion to the run directory first and replays unsent ones at start; an invalid trace is kept with a finding. | K01, K02, K03, K23 (P19, P20) | `spec/work.tsp` (lease fields, terminal cause), `spec/api.tsp` (claim response, log and complete bodies), regenerated schemas, `services/api/src/work.ts`, `services/api/src/app.ts`, `services/api/src/db/schema.ts`, `daemon/internal/runner/{client,daemon,types}.go`, tests in `services/api` and `daemon/internal/runner/runner_test.go` | Spec change is additive (minor version), so no signature under rule 2. No kernel change: run status is not a package transition. Any new case under `tests/redteam/` needs Ben's signature. |
+| N2 | **Run custody: claim token, lease, sweep, idempotent completion, outbox.** Claim returns a token and a lease expiry; log posts renew it; a sweep retires expired runs to a terminal state with an event and an office item; log and complete must present the token; a repeat completion with the same digests returns the stored result; refusals while processing a completion record the run as failed and keep that record; the daemon writes each completion to the run directory first and replays unsent ones at start; an invalid trace is kept with a finding; at most one queued or running run per package revision, role and round, enforced by a partial unique index. | K01, K02, K03, K23, K28 (P16, P19, P20) | `spec/work.tsp` (lease fields, terminal cause), `spec/api.tsp` (claim response, log and complete bodies), regenerated schemas, `services/api/src/work.ts`, `services/api/src/app.ts`, `services/api/src/db/schema.ts`, `daemon/internal/runner/{client,daemon,types}.go`, tests in `services/api` and `daemon/internal/runner/runner_test.go` | Spec change is additive (minor version), so no signature under rule 2. No kernel change: run status is not a package transition. Any new case under `tests/redteam/` needs Ben's signature. |
 | N3 | **An author run succeeds only with a deliverable and a completion manifest.** A clean exit with nothing in `out/` fails the run with "no completion record"; the manifest carries how each criterion is met and a short handoff block. | K13 (P21) | `services/api/src/work.ts` (`complete`, `finishAuthor`), `packs/general/roles/general-author.md`, tests | No. Role briefs are not on the rule 2 list, but they shape agent behaviour, so Ben reviews the wording. |
 | N4 | **Hold a pre-check that would share the author's runtime.** When the only available runtime is the author's, leave the pre-check queued with a visible reason, or let Ben proceed through a recorded owner override that the verification record shows. | K12 (P27) | `services/api/src/work.ts` (`pickRuntime`, `claim`, office detail), `apps/web` office item text, tests | No, if done in the control plane. Changing the kernel to compare runtimes as well as baseline names edits a kernel decision function and needs Ben's signature. |
 | N5 | **Stop a running run.** An owner stop route records the request as an event; the response to the daemon's next log post or heartbeat carries the stop; the daemon kills the process group and completes the run as stopped; the UI shows "stopping" until it lands; a repeat stop is a no-op. | K10 (P22) | `spec/api.tsp`, `services/api/src/work.ts`, `services/api/src/app.ts`, `daemon/internal/runner/{client,daemon}.go`, `apps/web` package view and office, tests | No. Builds on N2's heartbeat. |
 | N6 | **Verify output bytes against the stored digest before serving.** Refuse on mismatch and append an event. | K04 (P51) | `services/api/src/work.ts` (`packageOutput`), `services/api/src/app.ts`, a test | No. |
 | N7 | **Origin check on cookie-authenticated state-changing routes.** Accept only configured origins, or no origin with a same-origin fetch-site header; runner routes skip it. | K05 (P52) | `services/api/src/app.ts` (request hook), `services/api/src/server.ts` (origin list), tests | No. |
 | N8 | **Record what actually ran, and say so in ADR 0011.** Add runtime mode, requested and reported model, permission mode and allowed tools to the trace; raise a finding when models differ; amend ADR 0011 to state that the MVP runs batch print mode where ACP permission binding is not in force, and that the sandbox and tool allowlist are the only fence. | K06, K09 (P24) | `spec/records.tsp` (ExecutionTrace, additive), regenerated schemas, `daemon/internal/runner/{types,daemon,label}.go`, `services/api/src/work.ts`, `docs/adr/0011-agent-sessions-acp.md`, `docs/daemon.md` | No. Additive spec change; ADR text is not on the rule 2 list. |
+| N9 | **Probe each runtime before offering it.** At start and on a timer the daemon checks that each runtime answers a version command and, where the CLI can tell, that a login is present; a runtime that fails is left out of what the daemon reports, and the daemon logs the reason in one plain sentence. The office display of probe results stays in Next (P23). | K08 (P23) | `daemon/internal/runner/runtime.go` (`Detect`), `daemon/internal/runner/daemon.go`, `daemon/cmd/controlrod/main.go`, `daemon/internal/runner/runner_test.go`, `docs/daemon.md` | No. |
+
+**Changes from the observation notes.** Two, each tied to something the observer saw.
+
+- **N9 is new.** P23 was Next. The observer watched a listed agent fail its first task with the cause shown as unknown. Our daemon counts any binary on PATH as ready (K08), and the pre-check prefers a runtime other than the author's (K12), so a Codex binary that is installed but not logged in, or that cannot write (K07), would be picked for every pre-check on Ben's Mac. A minimal probe closes that before the first real run; the office display stays in Next.
+- **N2 gains one rule.** The observer saw one assignment produce two runs and the work done twice. Our schema has no rule against the same duplicate (K28). The index belongs in N2 because N2 already changes the runs table.
+
+The observer marked several more ideas as Now (inline permission holds, question bundles, the review loop, the preparation timeline, the grouped run log, board marks, a pause-all switch, a first-run checklist). They stay in Next or Later because Now holds only fixes for confirmed gaps in the code, and these are improvements. Inline permission holds (P76) go to Later because batch print mode has no mid-run prompt to answer (K26). Stopping one run (N5) covers the first run on one laptop, so stopping the floor stays in Next.
 
 ### 11.3 Next
 
 Grouped by area. Each item names its pattern.
 
-- **Runs and the daemon:** runtime health and login probe with office display (P23, K08); PATH repair (P58); home lock (P60, K19); rate-limit classification and safe retry (P26); interrupted-run recovery choices (P28); explicit environment allowlist and private HOME with the srt driver, and a wrapper that must start (P29, P25); workspace owner markers and retention (P30); queue position and per-role concurrency (P31); stage timings (P32); "stop the floor" (P22); keep the Mac awake (P61).
+- **Runs and the daemon:** office display of runtime probe results (P23; the probe itself is N9); PATH repair (P58); home lock (P60, K19); rate-limit classification and safe retry (P26); interrupted-run recovery choices and a setting that holds the queue after a restart until Ben looks (P28); explicit environment allowlist and private HOME with the srt driver, and a wrapper that must start (P29, P25); workspace owner markers and retention (P30); queue position and per-role concurrency (P31); stage timings (P32); "stop the floor" (P22); keep the Mac awake (P61).
 - **Work and packages:** draft update with an expected version (P03, K15); refusal of design inputs naming unknown packages and a cycle check (P02, K16); owner instructions stored on the queued run and a fresh-start flag (P04); pack commit and digest in the trace (P05, P45); questions as records (P06); capture client ids and outside text as a data file (P07).
 - **Review and decisions:** reviewed marks bound to digests (P11); server-side anchored notes bundled into Return (P12); accept checklist (P13); criteria map (P14); per-finding outcomes in `RESPONSE.md` (P15); decide retries return the stored Decision and "status unknown" handling (P16, K14); write the human-only rule into the threat model (P17); per-run outputs card (P18).
-- **Office:** "why waiting" line (P33); at-work strip and quiet indicator (P34); recovery card and error strip (P35); system status card and connectivity indicator (P36); event stream resume (P37, K11); notifications (P38); phone access and decision sheets (P39).
+- **Office:** "why waiting" line (P33); a first-run checklist (P74); a grouped run log with the preparation block first (P75, P32); the per-run "you may, you may not" block (P77); board and rail marks and kernel-checked moves (P78); command panel (P79); controls that explain themselves (P81); failed runs as their own office kind with the real cause (P35, K29); at-work strip and quiet indicator (P34); recovery card and error strip (P35); system status card and connectivity indicator (P36); event stream resume (P37, K11); notifications (P38); phone access and decision sheets (P39).
 - **Packs:** manifest (P44); declared permissions build the allowlist (P46); pack tools with schemas and deadlines, and refusals that do not echo values (P48, K22); pack settings with readiness gating (P49); host-owned digest beside every preview, then isolated viewers (P50); immutable outside identities (P53).
 - **Operations:** `controlrod up` and the user launch agent (P57); readiness route (P59, K20); bounded logs (P62, K24); backup and verified restore, dump before schema change (P63); one config file (P64); aggregate counters (P65); incident runbook and "where to run it" page (P66).
 - **Practice:** feature status page (P68); pack and runtime adapter checklists (P69); "suites skipped" line in change records (P70); docs coverage check (P71); red-team cases for control-plane reach and role-file edits, with Ben's signature (P72); development home and database (P73); threat-model statement of what the MVP daemon isolates (P29).
 
 ### 11.4 Later
 
-Scheduled captures (P08); capture grouping and roll-ups (P09); webhook captures (P07); runtime fallback that keeps independence (P26); spend ledger and caps (P40); earned autonomy (P41); people, roles and the org tree (P42); agent seats and memory rules (P43); pack approval and pending lane (P47); keychain secrets for packs (P49); constrained summaries (P54); deterministic exports and transmittals (P55); pack sync from a repository (P56); feature toggles, diagnostic bundle, update channel, maintenance command and log storage (P67); immutable baseline revisions and generated reference tables (P73).
+Tool permission holds once sessions run over ACP (P76, K26); pack-defined sub-steps inside the work rung (P80); reference files pinned as run inputs (P82); a side-by-side Floor mode for several live runs (P34); scheduled captures (P08); capture grouping and roll-ups (P09); webhook captures (P07); runtime fallback that keeps independence (P26); spend ledger and caps (P40); earned autonomy (P41); people, roles and the org tree (P42); agent seats and memory rules (P43); pack approval and pending lane (P47); keychain secrets for packs (P49); constrained summaries (P54); deterministic exports and transmittals (P55); pack sync from a repository (P56); feature toggles, diagnostic bundle, update channel, maintenance command and log storage (P67); immutable baseline revisions and generated reference tables (P73).

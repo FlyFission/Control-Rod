@@ -49,11 +49,11 @@
 | Consequence | Medium | A license or wording mistake could taint the public core; a wrong code claim could misdirect the first build. |
 | Reversibility | High | Docs on a branch; revert is one command. Copied wording, once published, is harder to undo, so the wording check comes before merge. |
 | Detectability | Medium | Code claims are checkable by anyone at the cited lines; copied wording needs a deliberate comparison. |
-| Exposure | Low | Pre-alpha repository, not pushed. |
+| Exposure | Low | Pre-alpha repository; branch pushed for review as pull request #4. |
 | Uncertainty | Medium | License facts and Codex behaviour come from secondary sources. |
 | Dependency trust | Medium | The decision is about an outside AGPL project; no dependency is added. |
 | AI authority | Medium | An AI agent wrote every file and checked the code claims; Ben holds merge. |
-| Controllability | High | Ben reviews before merge; nothing is pushed. |
+| Controllability | High | Ben reviews before merge; nothing merges without him. |
 
 ## HPI work-mode screen
 
@@ -62,7 +62,7 @@
 | Familiarity | Medium | ADRs and change records are routine here; clean-room procedure is new. |
 | Time pressure | Low | No deadline. |
 | Complexity | Medium | Four large note files merged; 24 code claims checked. |
-| Distraction risk | Medium | A fifth note file may arrive mid-work; the pattern file marks it pending. |
+| Distraction risk | Medium | The fifth note file arrived mid-work; it was folded into section 10 in a follow-up commit and the wording check rerun. |
 
 ## Selected mode
 

@@ -443,9 +443,11 @@ describe("pre-check independence", () => {
     expect(check.run.id).toBe(held.id);
     expect(check.run.runtime.provider).toBe("fake");
     expect(check.run.agent_baseline).not.toBe(author.run.agent_baseline);
+    // A different model from the same provider is still the same runtime.
     const done = await asDaemon(`/runner/runs/${check.run.id}/complete`, {
       status: "succeeded",
       outputs: [],
+      trace: trace(check, { package_id: id, reported_model: "fake-other-model" }),
       verification: { outcome: "pass", findings: [] },
     });
     expect(done.json().status).toBe("succeeded");
@@ -453,7 +455,7 @@ describe("pre-check independence", () => {
     expect(after.pre_check.independence).toMatchObject({
       runtime: "shared",
       author_runtime: { provider: "fake" },
-      checker_runtime: { provider: "fake" },
+      checker_runtime: { provider: "fake", model: "fake-other-model" },
       owner_override: { by: "ben", reason: "No Codex on this Mac yet" },
     });
     expect(after.pre_check.evidence[0].custody.coupling.mechanism).toBe("shared");

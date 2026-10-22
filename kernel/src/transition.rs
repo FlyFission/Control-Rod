@@ -6,9 +6,10 @@
 //! 1. Only a person can release, accept, return or reject, and only with a passkey assertion
 //!    the server verified over the digest of exactly what that person reviewed.
 //! 2. Agents can claim released work, submit output and submit a pre-check. Nothing else.
-//! 3. The pre-check comes from a different agent baseline than the author's, on a runtime
-//!    identity (provider and model) other than the author's. A pre-check on the author's runtime
-//!    is allowed only with an owner override the server recorded before the pre-check ran.
+//! 3. The pre-check comes from a different agent baseline than the author's, on a different
+//!    provider. The same provider counts as the same runtime whatever the models. A pre-check on
+//!    the author's provider is allowed only with an owner override the server recorded before
+//!    the pre-check ran.
 //! 4. An author may revise only after a pre-check that did not pass.
 //! 5. Acceptance needs a pre-check. A pre-check that did not pass can be accepted only with a
 //!    written reason.
@@ -80,23 +81,14 @@ pub struct RuntimeIdentity {
 }
 
 impl RuntimeIdentity {
-    /// A model of "default", "any" or nothing means "whatever the runtime picks", which may be
-    /// the other side's model, so it counts as the same.
-    fn open_model(m: &str) -> bool {
-        let m = m.trim();
-        m.is_empty() || m.eq_ignore_ascii_case("default") || m.eq_ignore_ascii_case("any")
-    }
-
-    /// True when both sides may be the same runtime: the same provider, and models that are equal
-    /// or not pinned down.
+    /// True when both sides count as the same runtime. The provider decides: two models from one
+    /// provider share training, tooling and blind spots, so a different model is not an
+    /// independent check.
     #[must_use]
     pub fn may_be_same(&self, other: &Self) -> bool {
         self.provider
             .trim()
             .eq_ignore_ascii_case(other.provider.trim())
-            && (Self::open_model(&self.model)
-                || Self::open_model(&other.model)
-                || self.model.trim().eq_ignore_ascii_case(other.model.trim()))
     }
 }
 
@@ -391,6 +383,8 @@ mod tests {
         r.owner_override = false;
         r.author_runtime = Some(rt("claude", "claude-opus-4-1"));
         r.checker_runtime = Some(rt("claude", "claude-sonnet-4-5"));
+        assert_eq!(decide(&r).decision.reason(), ReasonCode::NotIndependent);
+        r.checker_runtime = Some(rt("codex", "claude-opus-4-1"));
         assert!(decide(&r).decision.is_allowed());
     }
 

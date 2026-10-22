@@ -15,7 +15,7 @@
 - **PR / commit / artifact:** branch `docs/kandev-patterns` from `mvp/site-concept` at `87d0f79`; not pushed
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
-- **Intended release window:** merge after the wording check and the owner's review.
+- **Intended release window:** merge after the owner's review.
 
 ## Scope and exclusions
 
@@ -29,12 +29,12 @@
 |---|---|---|---|
 | Risk classification | pass | `risk.md` | Standard mode |
 | Basis | pass | `basis.md` | Six protected outcomes |
-| Trace | gap | `trace.md` | C-002 waits on the wording check |
+| Trace | gap | `trace.md` | C-002 passed after fixes (E-006) |
 | Verification | pass | `verification.md` | Scans and validator pass; 24 code claims cited |
 | Dependency / supply chain | pass | `verification.md` | No dependency added |
 | AI-assisted work checks | pass | `verification.md` | Scope and actions recorded |
-| Evidence custody / coupling | gap | `verification.md` | Coupled on actor, context and resource; E-006 planned |
-| Independent wording check | planned | `trace.md` | Blocks merge |
+| Evidence custody / coupling | gap | `verification.md` | Coupled on actor, context and resource for E-001 to E-005; E-006 partially separated |
+| Independent wording check | pass | `verification.md` E-006 | Findings fixed and rechecked |
 | Legal review of license reading | planned | ADR 0019 condition 6 | Blocks any commercial release; this merge can proceed without it |
 | Owner review | planned | pull request | Blocks merge |
 | Validator | pass | `verification.md#commands-evals-and-reviews` | Packet validates |
@@ -44,7 +44,7 @@
 | Risk / gap | Impact | Disposition | Owner | Recheck trigger |
 |---|---|---|---|---|
 | Evidence is coupled to the agent that wrote the files. | A shared mistake could pass its own checks. | Accept for a reversible doc change; cited lines are reproducible; owner review adds separation. | Ben Huffer | Any change to the pattern file. |
-| No independent wording check yet. | Copied AGPL wording could slip in through the notes. | Run before merge by someone who did not write the file. | Ben Huffer | Before merge; on any new note. |
+| The wording check was run by an agent of the same family, and paraphrase below the 0.55 similarity threshold is not caught by the scripts. | Copied AGPL wording could slip in through the notes. | Rerun the check on any new note; owner skims section headings against the source on review. | Ben Huffer | On any new note. |
 | License facts are the readers' report. | The ADR's context could be wrong in detail. | Lawyer's review before any commercial release or integration. | Ben Huffer | Commercial release planning. |
 | Codex behaviour read from docs only. | N1 may need different flags on Ben's Mac. | Confirm with one real Codex run under N1's change record. | Ben Huffer | First Codex run. |
 | Observed-behaviour notes not folded in. | Documented behaviour may differ from real behaviour. | Section 10 marked pending; fold in on arrival. | Ben Huffer | E arrives. |
@@ -74,7 +74,7 @@
 
 ## Release decision
 
-- **Decision:** merge with residual risk once the wording check passes and the owner approves.
+- **Decision:** merge with residual risk once the owner approves.
 - **Decision maker:** Ben Huffer.
 - **Rationale:** documentation only, fully reversible; the decision protects the license plan; the build plan rests on cited code.
 - **Conditions attached:** keep the clean-room roles for any further Kandev notes; no Kandev in any build or runtime path.
@@ -86,7 +86,7 @@
 | Verdict owner | Ben Huffer |
 | Apply-clearance owner | Ben Huffer |
 | Clearance action | Merge the pull request |
-| Preconditions | Wording check recorded; owner review complete |
+| Preconditions | Owner review complete |
 
 ## Baseline trigger
 

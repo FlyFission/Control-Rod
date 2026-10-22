@@ -58,7 +58,7 @@ Kandev solves many workbench problems Control Rod faces, but it is AGPL-3.0 and 
 | Our code | `mvp/site-concept` at `87d0f79` | pass |
 | Codex defaults | OpenAI non-interactive mode docs | pass |
 | License facts | Readers' report | gap (lawyer to confirm) |
-| No copied wording | Independent check | planned |
+| No copied wording | Independent check | pass after fixes (E-006) |
 
 ## Interfaces and trust boundaries
 

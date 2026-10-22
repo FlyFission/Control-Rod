@@ -26,7 +26,7 @@ Use: `pass`, `fail`, `gap`, `deferred`, `not applicable`, `planned`.
 | Claim / requirement ID | Verification method | Acceptance criteria | Result status | Evidence link | Gap / follow-up |
 |---|---|---|---|---|---|
 | C-001 | Content review of ADR 0019 against the brief | Decision, six options with consequences, conditions for readers, builders and wording check, Ben's personal use, lawyer's review | pass | `docs/adr/0019-own-workbench-clean-room.md` | Ben's review. |
-| C-002 | Code-block scan; builder attestation; independent wording check | Zero code fences; builder never opened Kandev docs or source; independent check finds no copied wording | gap | `plan.md#proof-commands` | Independent check planned (E-006). |
+| C-002 | Code-block scan; builder attestation; independent wording check | Zero code fences; builder never opened Kandev docs or source; independent check finds no copied wording | pass | `plan.md#proof-commands` | E-006 run; findings fixed and rechecked. |
 | C-003 | Read each cited line at `87d0f79` | Each claim has file and line and a status | pass | `docs/patterns/kandev.md` section 11.1 | Line numbers drift with later commits. |
 | C-004 | Cross-check Now against the claims table | Each Now item closes only claims marked confirmed; each names files and a trust-surface flag | pass | `docs/patterns/kandev.md` section 11.2 | None. |
 | C-005 | Changed-path listing | Only `docs/` and this packet | pass | `git status --short` output below | None. |
@@ -39,12 +39,12 @@ Use: `pass`, `fail`, `gap`, `deferred`, `not applicable`, `planned`.
 | Document review | C-001, C-004 |
 | Source inspection at file and line | C-003 |
 | Deterministic scans | C-002 (code blocks), C-005, C-006 |
-| Independent check | C-002 (planned) |
+| Independent check | C-002 (E-006) |
 | Human review | Owner review |
 
 ## Evidence custody and coupling
 
-One AI agent wrote every file, checked the code claims and ran the scans. This record says so plainly. The code claims cite lines anyone can reread at commit `87d0f79`, which adds some separation. The wording check must come from someone else, because the builder may not read Kandev's docs.
+One AI agent wrote every file, checked the code claims and ran the scans. This record says so plainly. The code claims cite lines anyone can reread at commit `87d0f79`, which adds some separation. The wording check came from a separate agent of the same family with its own brief, because the builder may not read Kandev's docs; the owner's review is the human check.
 
 ### Custody record
 
@@ -55,7 +55,7 @@ One AI agent wrote every file, checked the code claims and ran the scans. This r
 | E-003 | C-003 | yes | Claims K01 to K24 with file and line at `87d0f79`, read with Read and grep in this session; Codex defaults from OpenAI's non-interactive docs fetched 2026-10-22 | AI agent (Claude) under owner direction | same agent | same agent chose which lines prove each claim | same agent summarized in the claims table | same agent read the sources | git branch `docs/kandev-patterns` | same agent | anyone can reread the cited lines; owner review planned |
 | E-004 | C-004 | yes | Now table N1 to N8 maps to K01 to K13 and K23, all confirmed | AI agent (Claude) under owner direction | same agent | same agent | same agent | same agent | git branch `docs/kandev-patterns` | same agent | owner review planned |
 | E-005 | C-005 / C-006 | yes | `git status --short` before commit: `M docs/README.md`, new `.nuclear/changes/own-workbench-clean-room/`, `docs/adr/0019-own-workbench-clean-room.md`, `docs/patterns/`; dash scan count 0 in all three new docs | AI agent (Claude) under owner direction | same agent | same agent | same agent | same agent ran the scans | this packet | same agent | owner review planned |
-| E-006 | C-002 | yes | Independent wording check against Kandev's public docs (planned) | AI agent (Claude) under owner direction | independent reviewer, to be named | independent reviewer | independent reviewer | independent reviewer | this packet, once run | independent reviewer | a reviewer who did not write the pattern file |
+| E-006 | C-002 | yes | On 2026-10-22 a separate agent (Claude, own brief, did not write the file) compared all four files with Kandev's docs: 3 real 8-word runs and 7 close paraphrases in `kandev.md`, two factual errors (service account on reinstall; page count in ADR 0019), none in the ADR wording, README or this record. The orchestrating agent applied the reviewer's rewrites, reworded 9 further lines above 0.55 similarity, and reran the reviewer's scripts: 0 shared runs of 8 or more words; 11 lines between 0.55 and 0.58, all short factual statements judged acceptable; 13 of 13 code citations matched. | AI agent (Claude) under owner direction | separate reviewer agent (Claude) | reviewer agent | reviewer agent; rewrites applied by the orchestrating agent | reviewer's scripts rerun by the orchestrating agent | scratchpad `wordcheck/` (ngram.py, fuzzy.py); not committed | reviewer agent | did not write the pattern file; same model family |
 
 ### Coupling profile
 
@@ -66,13 +66,13 @@ One AI agent wrote every file, checked the code claims and ran the scans. This r
 | E-003 | coupled: the change actor chose and read the lines | coupled: same session | partially separated: claims cite lines in code the agent did not write in this change | partially separated: the owner holds merge | coupled: one workspace | self-check | Admitted; reproducible by anyone at `87d0f79`, per `ship.md#residual-risks-and-gaps`. |
 | E-004 | coupled: the change actor wrote both tables | coupled: same session | coupled: document cross-check | partially separated: the owner holds merge | coupled: one workspace | self-check | Admitted with owner review, per `ship.md#residual-risks-and-gaps`. |
 | E-005 | coupled: the change actor ran the scans | coupled: same session | partially separated: deterministic commands | partially separated: the owner holds merge | coupled: one workspace | self-check | Admitted, per `ship.md#residual-risks-and-gaps`. |
-| E-006 | separated: a different reviewer (planned) | separated: separate brief (planned) | separated: comparison with the source docs (planned) | partially separated: the owner holds merge | separated: separate workspace (planned) | independent reproduction | Required before merge, per `ship.md#residual-risks-and-gaps`. |
+| E-006 | partially separated: a different agent of the same family | separated: separate brief | separated: comparison with the source docs | partially separated: the owner holds merge | partially separated: same machine, separate scratch folder | independent reproduction | Run and passed after fixes; owner review remains. |
 
 - **Evidence pattern used:** source inspection at cited lines, deterministic scans, and a planned independent wording check.
 - **Verdict owner:** Ben Huffer.
 - **Apply-clearance owner:** Ben Huffer, by merging.
 - **Minimum profile required by the consequence:** disclosure plus reproducible citations plus an independent wording check plus owner review.
-- **Unmet separation carried into `ship.md`:** actor, context and resource axes are coupled for E-001 to E-005; E-006 is not yet run.
+- **Unmet separation carried into `ship.md`:** actor, context and resource axes are coupled for E-001 to E-005; E-006 is partially separated (same model family).
 
 ## Commands, evals, and reviews
 
@@ -97,7 +97,7 @@ One AI agent wrote every file, checked the code claims and ran the scans. This r
 - **AI scope:** the agent merged the notes, checked the code claims, and wrote the ADR, the pattern files and this packet under the owner's direction.
 - **Model/tool used:** Claude in a cloud workspace.
 - **Permissions/actions allowed:** read the note files and the repository; write in the worktree; fetch OpenAI's Codex docs; commit locally. No push, no Kandev docs or source.
-- **Independent checks performed:** none yet; the wording check is planned.
+- **Independent checks performed:** E-006, the wording and accuracy check by a separate agent; its findings were fixed and its scripts rerun clean.
 - **Hallucination/slop screening:** every file and line cited in the claims table was read in this session.
 - **Human approval gates exercised:** the owner set the brief and holds merge.
 

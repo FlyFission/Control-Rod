@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["kernel"]
+members = ["kernel", "kernel/bindings/wasm"]
 
 [workspace.package]
 edition = "2024"

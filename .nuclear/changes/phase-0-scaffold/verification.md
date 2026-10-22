@@ -87,7 +87,7 @@ The code, tests and this packet were written by one AI agent working under the o
 | Node licenses | `node tools/license-gate.mjs` | Node 22 | `License gate passed for 48 packages.` | `tools/license-gate.mjs` |
 | Rust licenses | `cargo deny check licenses bans sources` | cargo-deny 0.20.2 | `bans ok, licenses ok, sources ok` | `deny.toml` |
 | Go licenses | `go-licenses check ./... --ignore github.com/flyfission/control-rod --allowed_licenses=...` | go-licenses 2.0.1 | exit 0 | CI go step |
-| Red-team catalog | `python3 -I tools/check_redteam.py` | Python 3.13 | `23 red-team cases (2 active, 21 pending)` | `tests/redteam/catalog.yaml` |
+| Red-team catalog | `python3 -I tools/check_redteam.py` | Python 3.13 | `25 red-team cases (2 active, 23 pending)` | `tests/redteam/catalog.yaml` |
 | Packet | `python3 -I tools/ng.py validate .nuclear/changes/phase-0-scaffold` (nuclear-grade at `8122269a`) | Python 3.13 | pass | this packet |
 
 ## Negative / failure-mode checks

@@ -57,7 +57,7 @@
 | Reversibility | High | Everything is files on a branch; revert is one command. |
 | Detectability | Medium | Drift in contracts or digests is caught by CI and shared test vectors; design errors in records surface later. |
 | Exposure | Low | Public repository, pre-alpha, no users, no data. |
-| Uncertainty | Medium | Stack choices rest on surveys and two of five spikes so far; three spikes are still running. |
+| Uncertainty | Medium | All Gate R spikes have run: sandbox, gateway, Postgres, evidence and kernel passed with conditions; DBOS, ACP and contracts were partial, and their conditions are in the ADRs. |
 | Dependency trust | Medium | New dependencies in four ecosystems, all pinned and license-gated. |
 | AI authority | Medium | An AI agent wrote most of the files under the owner's direction; the owner holds merge. |
 

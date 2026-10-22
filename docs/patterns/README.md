@@ -16,3 +16,4 @@ Each pattern file starts with a provenance header: the source, its license, the 
 ## Files
 
 - `kandev.md`: Kandev, an open workbench for coding agents (AGPL-3.0). Decision: ADR 0019.
+- `openharness.md`: openharness, a multi-agent harness (MIT, with some GPL and AGPL parts). Plan to port a few pinned pieces; see the build plan in the file.

@@ -2,6 +2,7 @@
 // the API serves this app at the same origin, so every path is relative to it.
 import type {
   Capture,
+  CaptureView,
   CrEvent,
   Decision,
   DecisionRequest,
@@ -58,7 +59,7 @@ export const api = {
   loginVerify: (body: unknown) => call<Session>("POST", "/auth/login/verify", body),
   logout: () => call<Session>("POST", "/auth/logout"),
 
-  captures: () => call<Capture[]>("GET", "/captures"),
+  captures: () => call<CaptureView[]>("GET", "/captures"),
   capture: (body: NewCapture) => call<Capture>("POST", "/captures", body),
 
   packages: () => call<WorkPackage[]>("GET", "/packages"),

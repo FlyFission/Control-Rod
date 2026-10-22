@@ -191,3 +191,7 @@ The contracts, kernel, control plane, daemon, web app, site pack, tests and this
 ## Source-lineage note
 
 Verification and custody structure follow nuclear-grade context engineering; public source map at https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. No compliance claim is made.
+
+## Independent review follow-up
+
+See `review-followup.md` for published regression coverage, dependency audit remediation and remaining owner gates.

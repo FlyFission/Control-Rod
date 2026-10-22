@@ -759,3 +759,45 @@ describe("package run inputs", () => {
     await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
   });
 });
+
+describe("capture provenance", () => {
+  it("carries the original request to author and pre-check without the author log", async () => {
+    const id = await releasedPackage("PROVENANCE1", "site-charter");
+    const author = await claim();
+    if (!author) throw new Error("no author job");
+    expect(input(author, "CAPTURE.md")).toBe("Make PROVENANCE1");
+    expect((await asDaemon(`/runner/runs/${author.run.id}/log`, { lines: ["private author reasoning"] })).statusCode).toBe(200);
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, {
+      status: "succeeded", outputs: [{ name: "charter.md", content_base64: b64("# Charter") }],
+    });
+    const checker = await claim(["codex"]);
+    if (!checker) throw new Error("no pre-check job");
+    expect(checker.run.package_id).toBe(id);
+    expect(input(checker, "CAPTURE.md")).toBe("Make PROVENANCE1");
+    expect(checker.inputs.map((f) => Buffer.from(f.content_base64, "base64").toString()).join("\n")).not.toContain("private author reasoning");
+    await asDaemon(`/runner/runs/${checker.run.id}/complete`, {
+      status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] },
+    });
+  });
+
+  it("keeps captures with the same four-character prefix in distinct package namespaces", async () => {
+    for (const captureId of ["C-abcd1111", "C-abcd2222"]) {
+      const created = await asOwner("POST", "/captures", { text: "Same local package name" });
+      expect(created.statusCode).toBe(201);
+      const originalId = created.json().id;
+      // Controlled valid capture IDs make the collision deterministic.
+      await h.db.query("update captures set id = $2, body = jsonb_set(body, '{id}', to_jsonb($2::text)) where id = $1", [originalId, captureId]);
+      await h.db.query("update runs set package_id = $2, body = jsonb_set(body, '{package_id}', to_jsonb($2::text)) where package_id = $1", [originalId, captureId]);
+      const intake = await claim();
+      if (!intake) throw new Error("no intake job");
+      expect(intake.run.package_id).toBe(captureId);
+      const result = await asDaemon(`/runner/runs/${intake.run.id}/complete`, {
+        status: "succeeded", outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(draft("SAMELOCAL"))) }],
+      });
+      expect(result.statusCode, result.body).toBeLessThan(300);
+    }
+    const packages = ((await asOwner("GET", "/packages")).json() as { id: string }[]).filter((p) => p.id.endsWith("-SAMELOCAL"));
+    expect(packages).toHaveLength(2);
+    expect(new Set(packages.map((p) => p.id)).size).toBe(2);
+  });
+});

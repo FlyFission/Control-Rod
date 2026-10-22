@@ -27,7 +27,7 @@
 | C-005 | Shipped dependencies carry permissive licenses only. | ADR 0002 | Three license gates | E-004 | Merge | pass |
 | C-006 | Generated contracts match the TypeSpec source. | ADR 0005 | CI regenerate-and-diff | E-005 | Merge | pass |
 | C-007 | All checks run on every pull request on GitHub. | `basis.md#assumptions-constraints-and-invalidation-triggers` | `.github/workflows/ci.yml` | E-005 | Merge | pass |
-| C-008 | Sixteen pending red-team cases are enforced. | `tests/redteam/catalog.yaml` | Components in later phases | none yet | Do not claim | deferred |
+| C-008 | Twenty pending red-team cases are enforced. | `tests/redteam/catalog.yaml` | Components in later phases | none yet | Do not claim | deferred |
 
 ## Evidence chain
 
@@ -45,8 +45,8 @@ Risk: records and digests set patterns every later phase inherits.
 |---|---|---|
 | No TypeScript digest yet | The control plane will need to digest records. | Deferred to Phase 1; it must pass the same vector. |
 | Only one shared digest vector | One vector does not cover escaping, large integers or deep nesting. | Phase 1 adds the RFC 8785 test suite vectors to all languages. |
-| Sixteen red-team cases pending | Their components do not exist yet. | Each activates with its component. |
-| Contracts-kernel and evidence-ACP spikes still running | ADRs 0005, 0009 and 0011 rest on them; Postgres, DBOS and Flows results are already folded into ADRs 0006, 0007 and 0016. | Fold results into ADRs before Phase 1 starts. |
+| Twenty red-team cases pending | Their components do not exist yet. | Each activates with its component. |
+| Contracts-kernel spike still running | ADR 0005 and the kernel WASM plan rest on it; Postgres, DBOS, evidence, ACP and Flows results are folded into ADRs 0006, 0007, 0009, 0011 and 0016. | Fold results into ADRs before Phase 1 starts. |
 
 ## Required links
 

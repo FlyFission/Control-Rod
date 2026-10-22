@@ -15,7 +15,7 @@
 - **PR / commit / artifact:** branch `mvp/site-concept` at `35e604a` plus this packet
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
-- **Intended release window:** merge after the county registry fix, the owner's signatures and the owner's review.
+- **Intended release window:** merge after the owner's signatures and the owner's review.
 
 ## Scope and exclusions
 
@@ -42,9 +42,9 @@
 
 | Risk / gap | Impact | Disposition | Owner | Recheck trigger |
 |---|---|---|---|---|
-| County registry ignored and not committed. | A fresh checkout fails one parcel test, and resolving a parcel by ID raises an error where it should refuse. | Blocks merge. Commit `cr_site/data/county_registry.yaml` with `git add -f` or narrow the `data/` ignore rule, then rerun the site pack suite. | Ben Huffer | Fix commit. |
+| County registry ignored and not committed. | A fresh checkout fails one parcel test, and resolving a parcel by ID raises an error where it should refuse. | Resolved in `3f640a1`: the ignore rule exempts `packs/**/src/**/data/`, the file is committed, and the suite passes (39 passed, 1 skipped). | Ben Huffer | Fix commit. |
 | Evidence is coupled to the agents that wrote the code. | A shared mistake could produce both a defect and a passing test. | Accept for a single-user, reversible build; owner signature and the first real run add separation. | Ben Huffer | Any change to the floors. |
-| Control plane count not rerun by the packet writer. | E-002 rests on the builder's run. | Owner or CI reruns with `TEST_DATABASE_URL` before merge. | Ben Huffer | Before merge. |
+| Control plane count not rerun by the packet writer. | E-002 rests on the builder's run. | Resolved: rerun on 2026-10-22 against a throwaway system PostgreSQL cluster, 14 passed. CI or the owner can rerun with `TEST_DATABASE_URL`. | Ben Huffer | Before merge. |
 | Real Claude Code and Codex untested. | Prompts or tool use may differ from scripted agents. | First run on the owner's Mac. | Ben Huffer | First run. |
 | Embedded Postgres on Linux needs `libicu60`. | Linux users must set `CONTROLROD_DATABASE_URL` or use a system PostgreSQL. | Documented; macOS expected to work. | Ben Huffer | Owner's first start. |
 | Substations and soils are holds; the county parcel registry is empty. | Site packages carry those as holds. | Accept; holds are stated in each package. | Ben Huffer | A verified source is added. |
@@ -79,7 +79,7 @@
 
 ## Release decision
 
-- **Decision:** hold until the county registry is committed and the site pack suite passes, then merge with residual risk after the owner signs the trust-surface edits.
+- **Decision:** merge with residual risk after the owner signs the trust-surface edits and completes review.
 - **Decision maker:** Ben Huffer.
 - **Rationale:** the floors and record are tested and the live run passed; one committed-tree defect remains, and kernel and license gate edits need a signature.
 - **Conditions attached:** owner signature on `kernel/src/transition.rs`, `kernel/src/decision.rs` and the `Unlicense` addition; no site package issued without the owner's engineering review.
@@ -91,7 +91,7 @@
 | Verdict owner | Ben Huffer |
 | Apply-clearance owner | Ben Huffer |
 | Clearance action | Sign the trust-surface edits and merge the pull request |
-| Preconditions | County registry committed; site pack suite passes; control plane suite rerun; owner review complete |
+| Preconditions | Owner review complete; owner signatures on the kernel decision functions and the license gate |
 
 ## Baseline trigger
 

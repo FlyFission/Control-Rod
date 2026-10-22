@@ -96,7 +96,7 @@ AI agents work on the `mvp/*` branches only, may build and run local tests and a
 | Control plane tests | all pass against a real Postgres | pass |
 | Daemon tests | all pass | pass |
 | Web tests | all pass | pass |
-| Site pack tests | all pass on a fresh checkout | fail; county registry not committed |
+| Site pack tests | all pass on a fresh checkout | pass after `3f640a1`: 39 passed, 1 skipped |
 | Live browser run | five packages released and accepted | pass |
 | Packet validates | `ng validate --strict-custody` passes | pass |
 | Owner signature | kernel decision functions and license gate | planned |

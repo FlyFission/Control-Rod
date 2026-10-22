@@ -29,7 +29,7 @@
 | C-007 | Unknown fields are refused, and dependencies gate claims. | `basis.md#derived-requirements-or-claims` | Generated schemas; dependency check | E-002 | Merge | pass |
 | C-008 | A return creates a new revision with the direction in the brief, and a revise loop carries findings. | `basis.md#derived-requirements-or-claims` | `work.ts` | E-002 | Merge | pass |
 | C-009 | A full site job runs in a browser with real tools and live public data to five accepted packages and a passing plan check. | `basis.md#protected-outcomes` | `cr-site`, site roles, scripted agents | E-005 | Merge | pass |
-| C-010 | The site tools compute from recorded inputs and pass their tests on a fresh checkout. | `basis.md#protected-outcomes` | `cr-site` | E-004 | Blocks merge until the county registry is committed | fail |
+| C-010 | The site tools compute from recorded inputs and pass their tests on a fresh checkout. | `basis.md#protected-outcomes` | `cr-site` | E-004 | Fixed in `3f640a1`: registry committed, ignore rule narrowed | pass |
 | C-011 | Shipped dependencies use permissive licenses. | ADR 0002 | License gate with `Unlicense` added | E-006 | Merge after owner signature on the gate | pass |
 | C-012 | Real Claude Code and Codex runs follow the same floors. | `basis.md#assumptions-constraints-and-invalidation-triggers` | Same runner path | none yet | Do not claim | planned |
 | C-013 | The daemon claims eligible jobs, runs the role's runtime in a workspace and reports the trace; the fake runtime runs only with `CONTROLROD_ALLOW_FAKE=1`. | `basis.md#derived-requirements-or-claims` | `daemon/internal/runner` | E-003 | Merge | pass |
@@ -42,14 +42,14 @@ Risk: agents author and check engineering work; a self-approved or rewritten pac
   -> Basis: human passkey decisions bound to a digest, independent pre-check, append-only record, tool-computed numbers.
   -> Control: kernel floors through one binding; route guards; signed challenges; hash chain with trigger; cr-site tools.
   -> Verification: kernel, control plane, daemon, web and site pack suites; a live browser run with a virtual passkey.
-  -> Ship: merge after the county registry is committed and the owner signs the kernel and license gate edits.
+  -> Ship: merge after the owner signs the kernel and license gate edits.
 ```
 
 ## Open trace gaps
 
 | Gap | Why it matters | Disposition |
 |---|---|---|
-| County registry ignored by `.gitignore` and not committed | One parcel test fails on a fresh checkout, and `parcel resolve` by ID raises an error where it should refuse cleanly. | Commit the file with `git add -f` or narrow the ignore rule; rerun the site pack tests. |
+| County registry ignored by `.gitignore` and not committed | One parcel test fails on a fresh checkout, and `parcel resolve` by ID raises an error where it should refuse cleanly. | Done in `3f640a1`: ignore rule narrowed, file committed, suite passes. |
 | No real agent runtime run | Scripted agents may hide prompt or tool issues. | First run on the owner's Mac. |
 | Site pack and end-to-end not in CI | Regressions could land unseen. | CI jobs need the owner's signature on `.github/workflows`. |
 | Live run script not committed | The browser run cannot be repeated from the tree. | Commit it with the CI work. |

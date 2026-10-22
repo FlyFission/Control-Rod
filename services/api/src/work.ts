@@ -261,19 +261,31 @@ async function dependenciesReady(c: Tx, pkg: Json): Promise<{ ready: boolean; de
   return { ready: true, deps };
 }
 
+/**
+ * Finds a role brief by name. General roles win; a job's own intake.md is read only as job
+ * guidance, never as the role named "intake".
+ */
 function findRole(cfg: WorkConfig, name: string): string | null {
-  const safe = name.replace(/[^a-z0-9-]/gi, "");
+  const safe = name.replace(/[^a-z0-9.-]/gi, "");
+  const general = join(cfg.root, "packs", "general", "roles", `${safe}.md`);
+  if (existsSync(general)) return readFileSync(general, "utf8");
   const stack = [join(cfg.root, "packs")];
   while (stack.length) {
     const dir = stack.pop() as string;
     if (!existsSync(dir)) continue;
-    for (const entry of readdirSync(dir)) {
+    for (const entry of readdirSync(dir).sort()) {
       const p = join(dir, entry);
       if (statSync(p).isDirectory()) stack.push(p);
-      else if (entry === `${safe}.md` && dir.endsWith("roles")) return readFileSync(p, "utf8");
+      else if (entry === `${safe}.md` && entry !== "intake.md" && dir.endsWith("roles")) return readFileSync(p, "utf8");
     }
   }
   return null;
+}
+
+/** Pre-check brief: the role's own, then its family's (site-plan to site), then the general one. */
+function preCheckRole(cfg: WorkConfig, role: string): string {
+  const family = role.split("-")[0] ?? role;
+  return findRole(cfg, `${role}-pre-check`) ?? findRole(cfg, `${family}-pre-check`) ?? findRole(cfg, "pre-check") ?? "";
 }
 
 function jobIntakeGuides(cfg: WorkConfig): string[] {
@@ -348,7 +360,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   inputs.push(file("PACKAGE.json", JSON.stringify({ ...pkg.body, status: pkg.status }, null, 2)));
   const roleText =
     run.role === "pre-check"
-      ? (findRole(cfg, `${role}-pre-check`) ?? findRole(cfg, "pre-check") ?? "")
+      ? preCheckRole(cfg, role)
       : (findRole(cfg, role) ?? findRole(cfg, "general-author") ?? "");
   const extra: string[] = [];
   let findings: Json[] | undefined;

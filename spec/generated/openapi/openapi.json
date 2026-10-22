@@ -1437,6 +1437,28 @@
           }
         }
       }
+    },
+    "/runs": {
+      "get": {
+        "operationId": "activeRuns",
+        "description": "Runs that are queued or running, across every package, for the floor and board.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ControlRod.Records.Run"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1496,7 +1518,8 @@
           "text": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 20000
+            "maxLength": 30000000,
+            "description": "Typed text plus any attachment fences; the visible text is capped at 20,000 characters."
           },
           "source": {
             "type": "string",

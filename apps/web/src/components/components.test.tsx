@@ -8,6 +8,7 @@ import { DIGEST, view } from "../test/fixtures.js";
 import { CaptureBox, CAPTURE_LIMIT } from "./CaptureBox.js";
 import { DecisionBar } from "./DecisionBar.js";
 import { Office } from "../pages/Office.js";
+import { Home } from "../pages/Home.js";
 import { RunCard, canRequeue, canStop, runStatusText } from "./RunLog.js";
 import { independenceText } from "../lib/format.js";
 import type { Run } from "../api/types.js";
@@ -448,5 +449,35 @@ describe("runtime readiness in the office", () => {
     expect(await screen.findByText("codex is not ready and is not offered for work.")).toBeTruthy();
     expect(screen.getByText(/not signed in/)).toBeTruthy();
     expect(screen.queryByText(/claude is not ready/)).toBeNull();
+  });
+});
+
+describe("stranded intake", () => {
+  it("shows a failed intake with its error and retries it on request", async () => {
+    let requeued = "";
+    server.use(
+      http.get("*/office", () => HttpResponse.json({ items: [], waiting_on_you: 0 })),
+      http.get("*/captures", () =>
+        HttpResponse.json([
+          {
+            schema_version: "0.1.0",
+            id: "C-1234abcd",
+            text: "Site a data center",
+            source: "web",
+            created_at: "2026-10-22T10:00:00Z",
+            disposition: "pending",
+            intake: { run_id: "R-9", status: "failed", error: "model unavailable" },
+          },
+        ]),
+      ),
+      http.post("*/packages/C-1234abcd/runs/R-9/requeue", () => {
+        requeued = "R-9";
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    await renderPage(<Home />);
+    expect(await screen.findByText(/Intake failed: model unavailable/)).toBeTruthy();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Retry intake" }));
+    await waitFor(() => expect(requeued).toBe("R-9"));
   });
 });

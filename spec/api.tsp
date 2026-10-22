@@ -54,8 +54,9 @@ namespace Auth {
 @route("/captures")
 namespace Captures {
   model NewCapture {
+    /** Typed text plus any attachment fences; the visible text is capped at 20,000 characters. */
     @minLength(1)
-    @maxLength(20000)
+    @maxLength(30000000)
     text: string;
 
     source?: "web" | "cli" | "voice" | "chat";
@@ -164,6 +165,11 @@ op metrics(): Metrics;
 @route("/office")
 @get
 op office(): OfficeItem[];
+
+/** Runs that are queued or running, across every package, for the floor and board. */
+@route("/runs")
+@get
+op activeRuns(): Run[];
 
 @route("/events")
 namespace Events {

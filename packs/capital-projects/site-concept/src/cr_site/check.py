@@ -123,6 +123,22 @@ def run_check(
     ]
     ev(f"Every block respects the {setback_ft:g} ft property setback", not close, "; ".join(close))
 
+    # The layout tool is deterministic, so the checker reruns it on the same inputs. A layout made
+    # for an earlier program, or edited by hand, does not match and cannot pass.
+    from .layout import layout as run_layout
+
+    fresh = run_layout(parcel, constraints, program)
+    differs = [
+        k
+        for k in ("blocks", "unplaced")
+        if json.dumps(fresh.get(k), sort_keys=True) != json.dumps(layout.get(k), sort_keys=True)
+    ]
+    ev(
+        "The layout matches a fresh run of cr-site layout on these inputs",
+        not differs,
+        ("differs in " + ", ".join(differs)) if differs else "",
+    )
+
     bad_area = []
     for n, r, b in rects:
         rep = qval(b["area"]["ft2"])

@@ -159,3 +159,25 @@ def test_setback_check_handles_a_multipart_parcel(inputs):
     setback = [e for e in rec["evidence"] if "setback" in e["claim"]]
     assert setback
     assert setback[0]["status"] == "pass"
+
+
+def test_layout_made_for_an_earlier_program_fails(inputs):
+    parcel, cons = inputs
+    lay = layout(parcel, cons, EXAMPLE)
+    smaller = copy.deepcopy(EXAMPLE)
+    old = layout(parcel, cons, smaller)
+    # A layout that no longer matches the program (one placed block missing).
+    old["blocks"] = old["blocks"][1:]
+    rec = _check(parcel, old, cons, EXAMPLE)
+    assert rec["outcome"] == "fail"
+    assert any("fresh run" in f["text"] for f in rec["findings"])
+    assert _check(parcel, lay, cons, EXAMPLE)["outcome"] == "pass"
+
+
+def test_long_inline_wkt_is_parsed_as_text():
+    ring = ", ".join(f"{-82.30 + i * 1e-6:.6f} {34.75 + (i % 2) * 1e-6:.6f}" for i in range(40))
+    first = ring.split(", ")[0]
+    wkt = f"POLYGON(({ring}, -82.29 34.76, {first}))"
+    assert len(wkt) > 600
+    feat = resolve(wkt)
+    assert feat["geometry"]["type"] in ("Polygon", "MultiPolygon")

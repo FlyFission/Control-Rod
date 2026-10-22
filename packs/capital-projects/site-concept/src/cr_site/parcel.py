@@ -153,7 +153,12 @@ def resolve(inp: str, *, acres_hint: float | None = None, fetcher: Fetcher | Non
     """Resolves any supported input to a GeoJSON Feature with provenance and holds."""
     fetcher = fetcher or Fetcher()
     path = Path(inp)
-    if len(inp) < 4096 and path.exists() and path.is_file():
+    try:
+        # Inline WKT or GeoJSON can be longer than a file name may be; that is text, not a path.
+        is_file = len(inp) < 4096 and path.is_file()
+    except OSError:
+        is_file = False
+    if is_file:
         data = path.read_bytes()
         suffix = path.suffix.lower()
         src = {"kind": "file", "name": path.name}

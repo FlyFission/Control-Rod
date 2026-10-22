@@ -334,17 +334,36 @@ func (b *logBuffer) reportedModel() string {
 	return b.model
 }
 
+// The API records at most 500 lines per request. Keep a byte budget as well so a
+// retry cannot accumulate an upload too large for the request body limit.
+const maxLogBatchLines = 500
+const maxLogBatchBytes = 1 << 20
+
 func (b *logBuffer) take() (LogBatch, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if !b.dirty {
 		return LogBatch{}, false
 	}
-	batch := LogBatch{Lines: b.lines, Label: b.label}
+	n, size := 0, 0
+	for n < len(b.lines) && n < maxLogBatchLines {
+		// Always allow one line: Execute already limits a runtime line to 16 MiB,
+		// below the API's 150 MiB body limit even after JSON escaping.
+		if n > 0 && size+len(b.lines[n]) > maxLogBatchBytes {
+			break
+		}
+		size += len(b.lines[n])
+		n++
+	}
+	batch := LogBatch{Lines: append([]string(nil), b.lines[:n]...), Label: b.label}
 	if batch.Lines == nil {
 		batch.Lines = []string{}
 	}
-	b.lines, b.dirty = nil, false
+	b.lines = b.lines[n:]
+	b.dirty = len(b.lines) > 0
+	if !b.dirty {
+		b.lines = nil
+	}
 	return batch, true
 }
 
@@ -502,10 +521,16 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 	}
 	stopFlush()
 	<-flushed
-	if batch, ok := buf.take(); ok {
+	for {
+		batch, ok := buf.take()
+		if !ok {
+			break
+		}
 		batch.ClaimToken = job.Claim.Token
 		if _, lerr := d.client.Log(context.Background(), job.Run.ID, batch); lerr != nil {
+			buf.putBack(batch.Lines)
 			d.log.Warn("log upload failed", "run", job.Run.ID, "err", lerr)
+			break
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -23,6 +24,31 @@ func claimedJob(id, script string) *Job {
 	j.Run.Runtime.Provider = "fake"
 	j.Claim = RunClaim{Token: "claim-" + id, LeaseExpiresAt: time.Now().Add(time.Minute).Format(time.RFC3339), HeartbeatSeconds: 30}
 	return j
+}
+
+func TestFinalFlushSendsEveryLineBeforeCompletion(t *testing.T) {
+	job := claimedJob("run-final-logs", `i=0; while [ "$i" -lt 1201 ]; do echo "line-$i"; i=$((i+1)); done; echo report > out/report.md`)
+	api, srv := newFakeAPI(t, job)
+	d := custodyDaemon(t, srv, t.TempDir(), io.Discard)
+	d.cfg.LogInterval = time.Hour // all output must travel through the final flush
+	runUntil(t, d, api, 1)
+	api.mu.Lock()
+	defer api.mu.Unlock()
+	seen := 0
+	for _, batch := range api.logs[job.Run.ID] {
+		if len(batch.Lines) > 500 {
+			t.Fatalf("API would discard lines after 500 in a %d-line batch", len(batch.Lines))
+		}
+		for _, line := range batch.Lines {
+			if line != fmt.Sprintf("line-%d", seen) {
+				t.Fatalf("line %d: %q", seen, line)
+			}
+			seen++
+		}
+	}
+	if seen != 1201 {
+		t.Fatalf("uploaded %d lines, want 1201", seen)
+	}
 }
 
 func custodyDaemon(t *testing.T, srv *httptest.Server, home string, logs io.Writer) *Daemon {

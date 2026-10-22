@@ -76,3 +76,22 @@ The original before-audit is `pnpm-audit-current.json` in the parent directory;
 `pnpm-audit-after.json` records the post-update report. Two independent reviewers
 found no new standards or correctness finding in the dependency changes; the
 independent API rerun passed 44 tests and its audit also reported zero advisories.
+
+## Log retry integration follow-up
+
+The independent recheck of upstream `0a864f9` found that failed batches combined
+with newer log lines can exceed the API's 500-line storage limit. A successful reply
+then silently discarded later lines. The buffer now emits at most 500 lines and
+about one MiB of raw text per batch, preserves queued remainder and returns a copy
+to isolate it from concurrent appends. One scanner-bounded line may exceed the
+byte budget; its maximum encoded size remains below the API's body limit.
+
+The final flush drains every available batch rather than just the first. Three
+new regression cases failed on upstream behavior: 1201 ordered lines, two large
+lines and final flush of 1201 lines. The complete Go suite and vet pass afterward.
+
+Residual limit: a failed final network upload is still best effort and logged as
+a warning; raw logs do not have a durable outbox. The completion's existing durable
+outbox is separate. This change does not promise lossless log delivery after an
+outage or an ambiguous server reply. The preexisting 20000-line retry-buffer cap
+and server per-line truncation also remain.

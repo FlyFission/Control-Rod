@@ -367,6 +367,8 @@ class Screen:
             )
             if data is None:
                 self.hold("road", f"TIGERweb {name} roads query failed", cite)
+                # An unqueried layer could hold the nearest road, so no road is named.
+                truncated = True
                 continue
             if _truncated(data):
                 # A first page only: the nearest road could be on a page not returned.

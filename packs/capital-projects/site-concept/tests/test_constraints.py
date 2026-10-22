@@ -116,3 +116,17 @@ def test_truncated_road_query_is_a_hold_and_names_no_road(parcel_file):
     out = screen(resolve(str(parcel_file)), fetcher=f)
     assert any(h["topic"] == "road" and "record limit" in h["text"] for h in out["holds"])
     assert not any(x["topic"] == "road" for x in out["facts"])
+
+
+def test_failed_local_road_layer_names_no_road(parcel_file):
+    from datetime import UTC, datetime
+
+    def transport(url, params, timeout):
+        if "Transportation/MapServer/8" in url:
+            return failing_transport(url, params, timeout)
+        return fixture_transport(url, params, timeout)
+
+    f = Fetcher(transport=transport, clock=lambda: datetime(2026, 10, 22, 16, 0, tzinfo=UTC))
+    out = screen(resolve(str(parcel_file)), fetcher=f)
+    assert any(h["topic"] == "road" and "failed" in h["text"] for h in out["holds"])
+    assert not any(x["topic"] == "road" for x in out["facts"])

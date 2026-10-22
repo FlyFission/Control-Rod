@@ -479,7 +479,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
       findings = prevVer?.body.findings ?? [];
       extra.push(`## Findings to fix from the pre-check\n\n${JSON.stringify(findings, null, 2)}\n`);
       const prev = await c.query<{ id: string }>(
-        "select id from runs where package_id = $1 and package_revision = $2 and role = 'author' and round = $3",
+        "select id from runs where package_id = $1 and package_revision = $2 and role = 'author' and round = $3 and status = 'succeeded' order by created_at desc, id desc limit 1",
         [pkg.id, pkg.revision, run.round - 1],
       );
       for (const o of prev.rows[0] ? await outputsOf(c, prev.rows[0].id) : []) inputs.push(file(`previous/${o.name}`, o.bytes));

@@ -32,6 +32,17 @@ contributors' commits or supply the protected-surface owner signature. Merge rem
 subject to owner review and the repository's existing gates.
 Rollback: discard this isolated branch or revert the eventual fix commit.
 
+## Dependency audit follow-up
+
+The publication surfaced 21 Dependabot advisories in undici 7.24.4 pinned by the
+build-only TypeSpec dependency `@scalar/json-magic@0.13.5`. Apply the same narrow
+workspace override to 7.30.1 used in the later MVP branch; that version already
+appears through another TypeSpec dependency. No production package is added.
+
+Proof: regenerate contracts without drift, run baseline typechecks/tests and license
+checks, validate this packet, and repeat the current registry audit. Retain outcomes
+under `E:\invention-pipeline\outputs\control-rod-pr-review-2026-10-22`.
+
 ## Second Codex review (2026-10-22, on 688dc12)
 
 - Revision rows: `check_record` now refuses a revision with any template column missing or blank; a pending approval is written as "-". Test: `test_blank_or_incomplete_revision_rows_are_refused`.
@@ -49,3 +60,10 @@ Rollback: discard this isolated branch or revert the eventual fix commit.
 ## Source-lineage note
 
 This is an engineering review record under the existing nuclear-grade workflow: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. It makes no certification or compliance claim.
+
+## Dependency proof outcome
+
+The refreshed audit reports zero known advisories. Baseline typechecking and all
+seven API tests pass; TypeSpec regeneration has no tracked drift. The Node license
+gate passes for 48 packages. The six drawing-record tests and packet validator pass.
+These are local checks; remote CI is verified after publication.

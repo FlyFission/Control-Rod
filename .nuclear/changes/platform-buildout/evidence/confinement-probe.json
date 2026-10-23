@@ -1,0 +1,19 @@
+{
+  "checks": {
+    "input_readable": true,
+    "input_write_denied": true,
+    "output_write_allowed": true,
+    "host_secret_hidden": true,
+    "parent_environment_secret_absent": true,
+    "isolated_home": true,
+    "host_service_unreachable": true,
+    "host_process_hidden": true
+  },
+  "bubblewrap": "bubblewrap 0.9.0",
+  "probe_sha256": "05963ad791f9ddac2ab386f2ff36c45e4a246ad69b20b155ed39004a1c1911b2",
+  "scope": "OS boundary with Python and synthetic canaries on this host",
+  "real_clis_integrated": false,
+  "credential_broker_proved": false,
+  "model_egress_policy_proved": false,
+  "assisted_preparation_enablement": "HOLD"
+}

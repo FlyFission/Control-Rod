@@ -1,0 +1,14 @@
+--- FAIL: TestReviewExpiryDuringCommit (0.01s)
+    --- FAIL: TestReviewExpiryDuringCommit/open (0.00s)
+        commit_boundary_test.go:33: Open succeeded after expiry during commit
+    --- FAIL: TestReviewExpiryDuringCommit/read (0.00s)
+        commit_boundary_test.go:35: read returned "controlled source" after expiry during commit
+    --- FAIL: TestReviewExpiryDuringCommit/write (0.01s)
+        commit_boundary_test.go:37: write returned receipt {SHA256:ecd1378bc9dc130008f00d58db5d26f60db55934a49b949af7e6f6a8da2a2beb Bytes:8}; artifact "proposal" after expiry during commit
+--- FAIL: TestReviewCancellationDuringCommit (0.00s)
+    commit_boundary_test.go:48: read returned "controlled source" with canceled context after commit
+--- FAIL: TestReviewRootAliasRace (0.03s)
+    root_race_test.go:27: Open admitted input containing output after EvalSymlinks race (attempt 946)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/confinement	0.059s
+FAIL

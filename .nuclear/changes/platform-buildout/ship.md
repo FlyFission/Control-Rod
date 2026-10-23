@@ -21,3 +21,5 @@ Current evidence, scope and remaining authority gates are explicit. No planned o
 ## Source-lineage note
 
 Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.
+
+The bounded preparation file broker is implemented and reviewed with both Important findings corrected by failed-first regressions. It remains unintegrated with native dispatch and the mandatory controller authority/transport. This does not change the deferred main/operational posture or authorize active policy. See `evidence/file-broker/final-review.md`.

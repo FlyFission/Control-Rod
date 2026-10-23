@@ -199,3 +199,22 @@ Ruling: accept caller context in broker construction as well as operations — i
 Ruling: proposal file consumers must wait for the successful receipt — exclusive writes plus failure cleanup do not provide atomic directory publication — cost if wrong is requiring a staging/publish layer before any concurrent consumer is introduced. The dedicated output directory cannot be exposed to other writers/consumers during this operation.
 
 The mandatory controller-backed authority is intentionally not replaced by a permissive implementation. Native broker transport, OS process confinement, credential/model egress and approved policy still gate activation. This closes the file-capability subcomponent, not all of task 10.
+
+## File broker final review and one fix pass
+
+Fresh reviewer verdict at `dae5dc6`: two Important defects, no Critical or Minor; the bounded module is useful and its future-integration limits are appropriate. Reviewer reproduced post-callback commit-delay expiry/cancellation and a root-alias race. Root reproduced both RED in checked-in commit-boundary/root-race tests before correcting either.
+
+Final: fixed post-transaction expiry/context — Open/read/write now recheck after authority completion, return no data/receipt on refusal and clean newly created output — commit-boundary regressions RED→GREEN. Committed I/O events remain factual history, not admission.
+Final: fixed stale-path root admission — privacy/overlap use descriptor identity and actual parent-descriptor ancestry — the 20,000-attempt real filesystem race RED→GREEN.
+
+Final full daemon race suite passes: confinement 20 top-level + 63 subtests, digest 4 top-level, runner 35 top-level + 9 subtests. Vet/format pass; Windows/macOS package compilation passes only. Evidence and raw failed-first/final results are in `evidence/file-broker/`. No second reviewer or fix pass; no unresolved review finding.
+
+Final: Ruling: native launcher/controller/credential/policy integration remains outside the bounded file module — cost if wrong is additional integration/proof work before assisted preparation.
+Final: Ruling: refuse non-Linux runtime use despite cross-platform compilation — cost if wrong is a separate supported platform boundary.
+Final: Ruling: retain the dedicated output and receipt admission rule rather than claim atomic/crash-safe publication — cost if wrong is a staging/publication layer before concurrent consumers.
+Final: Ruling: rely on trusted supervisor ownership against privileged mounts/hardlinks, administrators, other output writers/consumers and concurrent caller-buffer mutation — cost if wrong is invalid isolation; those conditions must be excluded or separately controlled before integration.
+Final: Ruling: nonblocking open plus regular-file validation is not a general device-driver safety proof — cost if wrong is blocking/side effects in an improperly constructed source snapshot; retain the snapshot and OS-boundary gate.
+Final: Ruling: require a synchronous transactional live authority with immutable detached grants and honest event recording — cost if wrong is invalid authorization/custody; no permissive provider is shipped.
+Final: Ruling: consumers recheck current authority after operation return — cost if wrong is accepting an expired result; post-commit checks do not extend a lease.
+
+Deferred minors: none reported for this slice. Task 10 remains open for real authority/transport/OS process/credential/model-egress integration and protected activation; the file-capability subcomponent is implemented and verified.

@@ -73,3 +73,7 @@ Local engineering evidence using the repository workflow, not a compliance certi
 ## Publication and native follow-up
 
 Draft PR #6 was published at verified 012e8e6 after a fresh API/web run; its first seven CI jobs passed. `evidence/publication-self-check.json` records the exact target and result. `evidence/native-runtime-probe.json` adds actual offline native startup plus scripted Claude builtin refusal and a Bash-enabled positive control. These are implementing-agent qualification experiments, not the open E-10 authenticated native confinement proof. Dependency audit and default-branch alert assessment are retained; they do not dismiss main alerts or establish all-ecosystem vulnerability absence.
+
+## Bounded preparation file capabilities
+
+The task-10 file subcomponent is implemented and verified, while E-10 native activation stays open. `evidence/file-broker/results.json` records the full daemon race/vet/compile checks; `evidence/file-broker/final-review.md` records two Important findings and their failed-first, full-suite-backed fix pass. The interface has no permissive authority provider, native dispatch, general command/network tool or human decision action. Source/output scope, actual byte digests, exclusive writes, receipt admission, cleanup and transactional-history limits are explicit. This is implementing-agent evidence with a fresh-context review, not independent engineering certification or complete runtime proof.

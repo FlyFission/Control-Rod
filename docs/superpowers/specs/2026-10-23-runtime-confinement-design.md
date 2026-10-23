@@ -37,3 +37,9 @@ This proves a candidate OS boundary for a Python child on this host. It does not
 6. Enable only proved role/lane/runtime combinations; then execute task 11 proposal-only preparation. Missing proof remains an actionable hold.
 
 Each step must leave exact commands/results and a reviewable commit in the parent ledger. No policy activation, secret read, new network grant or assisted dispatch is performed by this investigation.
+
+## Native qualification continuation
+
+The reproducible `spikes/runtime-confinement/native_probe.py` now starts the actual installed Claude and Codex native executables inside the offline OS boundary with empty homes. For Claude, a scripted local provider injects seven disabled builtin-tool attempts; the native client advertises no tools and rejects every exact attempted call. A separate positive control enables Bash and writes its disposable marker, confirming that the command is executable in that fixture. Exact source/binary digests and raw per-call refusals are retained in the parent packet's `evidence/native-runtime-probe.json`.
+
+This establishes a candidate Claude no-builtin configuration for the next MCP broker experiment. It does not close native tool delegation, credential transport, grant admission, real authenticated execution or arbitrary network destinations. Codex startup is proved only; its tool-delegation profile remains unsupported/unproved. No active profile or daemon adapter changed. Step 1 remains partial until the actual broker-only route is exercised; steps 2–6 remain open.

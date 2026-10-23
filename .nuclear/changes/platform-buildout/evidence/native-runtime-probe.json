@@ -1,0 +1,384 @@
+{
+  "scope": "actual native executables; offline startup and scripted Claude tool-refusal fixture only",
+  "source_sha256": "2177fa17334f7b73e2f1ce4f2ba4b4ff213c1063d3e386933f9baf33a57fda5a",
+  "fixture_sha256": "185527ed27aaa68229047417b980c51a4788c91c088e72d09a295e34312e3c6f",
+  "bubblewrap": "bubblewrap 0.9.0",
+  "runtimes": [
+    {
+      "runtime": "claude",
+      "binary_sha256": "356733f185fa988e6bf3aa9a555269fdd167982a2e2a80d3c8a78037bb92ad58",
+      "startup": [
+        {
+          "argument": "--version",
+          "exit_code": 0,
+          "stdout_sha256": "b354fe63f3ea7b46441790aa41c704340be3e4722cd759d1b77da284764c82ef",
+          "version": "2.1.308 (Claude Code)",
+          "stderr": ""
+        },
+        {
+          "argument": "--help",
+          "exit_code": 0,
+          "stdout_sha256": "b10f5c36adfe3285f6c5a0d18284f466e6c4486499de56ef62745e13312a7fbc",
+          "version": null,
+          "stderr": ""
+        }
+      ],
+      "disabled_builtin_tools": {
+        "checks": {
+          "native_succeeded": true,
+          "advertised_tools_match": true,
+          "attempt_results_match": true,
+          "all_requests_used_fixture_key": true,
+          "marker_matches_control": true
+        },
+        "positive_control": false,
+        "attempted_tools": [
+          "Bash",
+          "Read",
+          "Write",
+          "Edit",
+          "WebFetch",
+          "Agent",
+          "ToolSearch"
+        ],
+        "scope": "actual Claude CLI, scripted offline provider, fake credential, disabled builtins; not an authenticated native-runtime proof",
+        "exit_code": 0,
+        "native_result": {
+          "type": "result",
+          "subtype": "success",
+          "is_error": false,
+          "num_turns": 8,
+          "result": "Fixture finished after tool refusal."
+        },
+        "stderr": "[claude-code:unrecognized_model] {\"model\":\"fixture-model\",\"query_source\":\"sdk\"}\n",
+        "requests": [
+          {
+            "path": "/v1/messages?beta=true",
+            "tools": [],
+            "tool_results": [],
+            "fixture_key_received": true
+          },
+          {
+            "path": "/v1/messages?beta=true",
+            "tools": [],
+            "tool_results": [
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Bash. Bash is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_0",
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ],
+            "fixture_key_received": true
+          },
+          {
+            "path": "/v1/messages?beta=true",
+            "tools": [],
+            "tool_results": [
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Bash. Bash is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_0"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Read. Read is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_1",
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ],
+            "fixture_key_received": true
+          },
+          {
+            "path": "/v1/messages?beta=true",
+            "tools": [],
+            "tool_results": [
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Bash. Bash is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_0"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Read. Read is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_1"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Write. Write is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_2",
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ],
+            "fixture_key_received": true
+          },
+          {
+            "path": "/v1/messages?beta=true",
+            "tools": [],
+            "tool_results": [
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Bash. Bash is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_0"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Read. Read is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_1"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Write. Write is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_2"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Edit. Edit is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_3",
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ],
+            "fixture_key_received": true
+          },
+          {
+            "path": "/v1/messages?beta=true",
+            "tools": [],
+            "tool_results": [
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Bash. Bash is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_0"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Read. Read is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_1"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Write. Write is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_2"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Edit. Edit is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_3"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: WebFetch. WebFetch is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_4",
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ],
+            "fixture_key_received": true
+          },
+          {
+            "path": "/v1/messages?beta=true",
+            "tools": [],
+            "tool_results": [
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Bash. Bash is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_0"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Read. Read is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_1"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Write. Write is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_2"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Edit. Edit is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_3"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: WebFetch. WebFetch is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_4"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Agent. Agent is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_5",
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ],
+            "fixture_key_received": true
+          },
+          {
+            "path": "/v1/messages?beta=true",
+            "tools": [],
+            "tool_results": [
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Bash. Bash is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_0"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Read. Read is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_1"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Write. Write is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_2"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Edit. Edit is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_3"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: WebFetch. WebFetch is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_4"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: Agent. Agent is disabled for this session, in subagents as well as here.</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_5"
+              },
+              {
+                "type": "tool_result",
+                "content": "<tool_use_error>Error: No such tool available: ToolSearch</tool_use_error>",
+                "is_error": true,
+                "tool_use_id": "toolu_fixture_6",
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ],
+            "fixture_key_received": true
+          }
+        ],
+        "unauthorized_marker_exists": false,
+        "activation": "HOLD"
+      },
+      "positive_control": {
+        "checks": {
+          "native_succeeded": true,
+          "advertised_tools_match": true,
+          "attempt_results_match": true,
+          "all_requests_used_fixture_key": true,
+          "marker_matches_control": true
+        },
+        "positive_control": true,
+        "attempted_tools": [
+          "Bash"
+        ],
+        "scope": "actual Claude CLI, scripted offline provider, fake credential, disabled builtins; not an authenticated native-runtime proof",
+        "exit_code": 0,
+        "native_result": {
+          "type": "result",
+          "subtype": "success",
+          "is_error": false,
+          "num_turns": 2,
+          "result": "Fixture finished after tool refusal."
+        },
+        "stderr": "[claude-code:unrecognized_model] {\"model\":\"fixture-model\",\"query_source\":\"sdk\"}\n",
+        "requests": [
+          {
+            "path": "/v1/messages?beta=true",
+            "tools": [
+              "Bash"
+            ],
+            "tool_results": [],
+            "fixture_key_received": true
+          },
+          {
+            "path": "/v1/messages?beta=true",
+            "tools": [
+              "Bash"
+            ],
+            "tool_results": [
+              {
+                "tool_use_id": "toolu_fixture_0",
+                "type": "tool_result",
+                "content": "(Bash completed with no output)",
+                "is_error": false,
+                "cache_control": {
+                  "type": "ephemeral"
+                }
+              }
+            ],
+            "fixture_key_received": true
+          }
+        ],
+        "unauthorized_marker_exists": true,
+        "activation": "HOLD"
+      }
+    },
+    {
+      "runtime": "codex",
+      "binary_sha256": "399ff69c431c066e40de318fba45c2b07f45a76b19939d247ee4828fc70c4215",
+      "startup": [
+        {
+          "argument": "--version",
+          "exit_code": 0,
+          "stdout_sha256": "15c9db57c80035537f94bea647d07608a1fab5148f5482c0a0d1d7422b7fb69e",
+          "version": "codex-cli 0.163.0",
+          "stderr": ""
+        },
+        {
+          "argument": "--help",
+          "exit_code": 0,
+          "stdout_sha256": "75c90681ba095160666d9884d1eccce391be95c80da27641a3c8e1481bb02fac",
+          "version": null,
+          "stderr": ""
+        }
+      ],
+      "agent_tool_delegation": "unproved; startup is not a tool-boundary test"
+    }
+  ],
+  "real_provider_called": false,
+  "real_credentials_read": false,
+  "credential_broker_proved": false,
+  "model_egress_policy_proved": false,
+  "activation": "HOLD"
+}

@@ -1,0 +1,43 @@
+{
+  "scope": "local implemented slice; virtual passkeys and daemon fixtures; not an operational release",
+  "api": {
+    "passed": 144,
+    "files": 16,
+    "external_restore_enabled": true
+  },
+  "web": {
+    "passed": 37,
+    "files": 5
+  },
+  "rust": {
+    "lifecycle_digest": 19,
+    "preparation": 3,
+    "wasm_boundary": 1
+  },
+  "checks_passed": [
+    "TypeSpec regeneration",
+    "generated source reproducibility",
+    "API/web type checks",
+    "API/web production builds",
+    "Rust workspace tests",
+    "clippy warnings denied",
+    "WASM rebuild",
+    "Go race",
+    "Go vet",
+    "strict packet custody validator",
+    "production web bundle desktop/mobile fixture render"
+  ],
+  "review": {
+    "frozen_commit": "1d2c46652b38b352649f8772734e5331facec6d3",
+    "important_findings": 2,
+    "fixed_by": "one implementer pass with failed-first regressions",
+    "deferred_minors": []
+  },
+  "open_gates": [
+    "native credential/tool/egress confinement",
+    "policy/red-team scoped authorization",
+    "actual owner hardware-passkey pilot",
+    "original contributor DCO and non-author protected review",
+    "external full Platform Plan and domain/source/deployment choices"
+  ]
+}

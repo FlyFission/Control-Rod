@@ -1,7 +1,7 @@
 {
   "scope": "fixture replay of a known fixed bug; virtual owner passkey and simulated daemon",
   "source": {
-    "commit": "92c68108f791c3925cc7ecd7ee5c4011fe8b6fd8",
+    "commit": "1d2c46652b38b352649f8772734e5331facec6d3",
     "path": "spec/vectors/canonical-digest.json",
     "sha256": "6f7c8ade5a0717504cfa33aa2ba0642d44ab6750dc48149694556fd15db02b0d"
   },

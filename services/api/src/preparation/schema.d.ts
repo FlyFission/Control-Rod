@@ -313,6 +313,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/preparation/basis/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Preparations_refreshBasis"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/preparation/confirm": {
         parameters: {
             query?: never;
@@ -628,6 +644,8 @@ export interface components {
             reference: string;
             revision: string;
             digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** @description Complete published output set when this source is a package dependency. */
+            artifacts?: components["schemas"]["ControlRod.Records.Artifact"][];
             commit?: string;
             path?: string;
             /** Format: int32 */
@@ -780,6 +798,9 @@ export interface components {
             /** Format: int32 */
             preparation_revision: number;
             preparation_digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** @description Canonical stored WorkPackage body at release, independent of the lifecycle column. */
+            package_digest: components["schemas"]["ControlRod.Records.Digest"];
+            origin_capture_id?: string;
             requirements_confirmation_id: string;
             requirements_digest: components["schemas"]["ControlRod.Records.Digest"];
             basis_refs: components["schemas"]["ControlRod.Preparation.BasisRef"][];
@@ -1271,6 +1292,8 @@ export interface components {
             preparation_release_ready?: boolean;
             preparation_verification_complete?: boolean;
             preparation_results_pass?: boolean;
+            /** @enum {string} */
+            deliverable_integrity?: "intact" | "changed";
             criterion_results?: components["schemas"]["ControlRod.Preparation.CriterionResultSet"];
             criterion_results_run_id?: string;
             /** @enum {string} */
@@ -2556,6 +2579,84 @@ export interface operations {
                 "application/json": components["schemas"]["ControlRod.Preparation.PreparationEnrollment"];
             };
         };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Preparation.PreparationView"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Preparations_refreshBasis: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description The request has succeeded. */
             200: {

@@ -22,6 +22,13 @@
         "preparation_digest": {
             "$ref": "Digest.json"
         },
+        "package_digest": {
+            "$ref": "Digest.json",
+            "description": "Canonical stored WorkPackage body at release, independent of the lifecycle column."
+        },
+        "origin_capture_id": {
+            "type": "string"
+        },
         "requirements_confirmation_id": {
             "type": "string"
         },
@@ -45,6 +52,7 @@
         "preparation_id",
         "preparation_revision",
         "preparation_digest",
+        "package_digest",
         "requirements_confirmation_id",
         "requirements_digest",
         "basis_refs",

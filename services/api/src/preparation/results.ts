@@ -1,3 +1,4 @@
+import { requireAuthorOutputs } from "./artifacts.js";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Db, Tx } from "../db/index.js";
@@ -353,11 +354,18 @@ export async function preparedAcceptanceGuard(
   c: Tx,
   cfg: WorkConfig,
   pkg: PackageRow,
-  author: { body: Record<string, any>; round: number } | null,
+  author: { id: string; body: Record<string, any>; round: number } | null,
   verification: VerificationRecord | null,
 ): Promise<PreparationGuard | undefined> {
   const guard = await preparedExecutionGuard(c, cfg, pkg, author?.body);
   if (!guard) return undefined;
+  if (!author)
+    throw new Refusal(
+      409,
+      "output-required",
+      "No author deliverable is available for acceptance",
+    );
+  await requireAuthorOutputs(c, author.id, true);
   const p = await preparationForSubject(c, pkg);
   if (!p)
     throw new Refusal(

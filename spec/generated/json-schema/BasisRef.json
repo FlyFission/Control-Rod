@@ -40,6 +40,13 @@
         "digest": {
             "$ref": "Digest.json"
         },
+        "artifacts": {
+            "type": "array",
+            "items": {
+                "$ref": "Artifact.json"
+            },
+            "description": "Complete published output set when this source is a package dependency."
+        },
         "commit": {
             "type": "string"
         },

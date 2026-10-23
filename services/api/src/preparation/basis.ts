@@ -1,3 +1,4 @@
+import { acceptedPackageOutputs } from "./inputs.js";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -11,7 +12,7 @@ import type { PreparationContent } from "./types.js";
 const exec = promisify(execFile);
 const MAX_SOURCE = 5 * 1024 * 1024,
   MAX_TOTAL = 25 * 1024 * 1024;
-async function boundedFile(path: string) {
+export async function readBasisFile(path: string) {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of createReadStream(path)) {
@@ -35,6 +36,7 @@ export interface ResolvedBasis {
   bytes: Buffer;
   bytes_sha256: string;
   kind: string;
+  artifacts?: { path: string; sha256: string; bytes: Buffer }[];
 }
 export async function resolveBasis(
   q: Db | Tx,
@@ -55,6 +57,7 @@ export async function resolveBasis(
           "Only SHA-256 source pins are supported",
         );
       let bytes: Buffer, sourceDigest: string;
+      let artifacts: ResolvedBasis["artifacts"];
       if (b.kind === "package") {
         const id = b.reference.startsWith("package:")
           ? b.reference.slice(8)
@@ -73,6 +76,39 @@ export async function resolveBasis(
           );
         bytes = Buffer.from(JSON.stringify(row.body));
         sourceDigest = digest(row.body);
+        if (b.artifacts !== undefined) {
+          const outputs = await acceptedPackageOutputs(q, row, lock);
+          const expected = [...b.artifacts].sort((a, b) =>
+            a.path < b.path ? -1 : a.path > b.path ? 1 : 0,
+          );
+          const actual = outputs.map((o) => ({
+            path: o.name,
+            digest: { algorithm: "sha256", value: o.sha256 },
+          }));
+          if (
+            expected.length !== actual.length ||
+            new Set(expected.map((a) => a.path)).size !== expected.length ||
+            expected.some(
+              (a) =>
+                !actual.some(
+                  (v) =>
+                    v.path === a.path &&
+                    a.digest.algorithm === "sha256" &&
+                    v.digest.value === a.digest.value,
+                ),
+            )
+          )
+            throw new Refusal(
+              409,
+              "basis-unverified",
+              `${b.reference}: published output set changed`,
+            );
+          artifacts = outputs.map((o) => ({
+            path: o.name,
+            sha256: o.sha256,
+            bytes: o.bytes,
+          }));
+        }
       } else if (b.kind === "capture") {
         const id = b.reference.startsWith("capture:")
           ? b.reference.slice(8)
@@ -181,7 +217,7 @@ export async function resolveBasis(
           ["-C", root, "cat-file", "blob", `${b.commit}:${b.path}`],
           { ...options, encoding: "buffer" },
         );
-        bytes = await boundedFile(path);
+        bytes = await readBasisFile(path);
         sourceDigest = rawSha256(bytes);
         const after = (
           await exec(
@@ -210,10 +246,18 @@ export async function resolveBasis(
             "basis-unverified",
             `${b.reference}: source exceeds the retained input budget`,
           );
-        bytes = await boundedFile(source.path);
+        bytes = await readBasisFile(source.path);
         sourceDigest = rawSha256(bytes);
       }
-      total += bytes.length;
+      total +=
+        bytes.length +
+        (artifacts ?? []).reduce((n, a) => n + a.bytes.length, 0);
+      if ((artifacts ?? []).some((a) => a.bytes.length > MAX_SOURCE))
+        throw new Refusal(
+          409,
+          "basis-unverified",
+          `${b.reference}: dependency artifact exceeds the input budget`,
+        );
       if (
         bytes.length > MAX_SOURCE ||
         total > MAX_TOTAL ||
@@ -230,6 +274,7 @@ export async function resolveBasis(
         source_digest: sourceDigest,
         bytes,
         bytes_sha256: rawSha256(bytes),
+        ...(artifacts ? { artifacts } : {}),
       });
     } catch (error) {
       if (error instanceof Refusal) throw error;

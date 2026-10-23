@@ -135,6 +135,64 @@ export function RequirementsEditor({
       >
         Add criterion
       </button>
+      <h3>Declared design inputs</h3>
+      {value.package_contract.design_inputs.map((input, i) => (
+        <div className="prep-item" key={i}>
+          <Line
+            label={`Design input ${i + 1} reference`}
+            value={input.doc}
+            change={(v) =>
+              change((d) => {
+                d.package_contract.design_inputs[i]!.doc = v;
+              })
+            }
+          />
+          <Line
+            label={`Design input ${i + 1} revision`}
+            value={input.revision}
+            change={(v) =>
+              change((d) => {
+                d.package_contract.design_inputs[i]!.revision = v;
+              })
+            }
+          />
+          <Text
+            label={`Design input ${i + 1} use`}
+            value={input.use}
+            change={(v) =>
+              change((d) => {
+                d.package_contract.design_inputs[i]!.use = v;
+              })
+            }
+          />
+          <button
+            type="button"
+            className="btn ghost small"
+            onClick={() =>
+              change((d) => {
+                d.package_contract.design_inputs.splice(i, 1);
+              })
+            }
+          >
+            Remove design input {i + 1}
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="btn ghost small"
+        onClick={() =>
+          change((d) => {
+            d.package_contract.design_inputs.push({
+              doc: "",
+              revision: "",
+              use: "",
+            });
+          })
+        }
+      >
+        Add design input
+      </button>
       <h3>Deliverables</h3>
       {value.package_contract.deliverables.map((deliverable, i) => (
         <div key={i}>

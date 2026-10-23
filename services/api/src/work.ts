@@ -1,3 +1,4 @@
+import { authorOutputIntegrity } from "./preparation/artifacts.js";
 import type { VerificationRecord } from "./preparation/types.js";
 import { prepareCriterionResults, persistCriterionResults, preparedAcceptanceGuard, currentCriterionResults, criterionResultFlags, criterionResultSchemaInputs } from "./preparation/results.js";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
@@ -164,15 +165,16 @@ export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
   const outs = author && author.status === "succeeded" ? await outputsOf(q, author.id) : [];
   const ver = author ? await latestVerification(q, pkg.id, pkg.revision, author.round) : null;
   const preparation = await preparationForSubject(q,pkg);
+  const integrity=preparation && author?.status==="succeeded"?await authorOutputIntegrity(q,author.id):null;
   const subject = {
     ...(preparation ? {preparation:preparation.subject} : {}),
     package: { ...pkg.body, status: pkg.status },
-    outputs: outs.map((o) => ({ name: o.name, sha256: o.sha256 })),
+    outputs: integrity?integrity.observed:outs.map((o) => ({ name: o.name, sha256: o.sha256 })),
     pre_check: ver?.body ?? null,
   };
   const criterionResults=preparation?await currentCriterionResults(q,pkg,author?.round,ver?.body??null):null;
   if(criterionResults) Object.assign(subject,{criterion_results_digest:{algorithm:"sha256",value:criterionResults.digest},criterion_evidence_digest:{algorithm:"sha256",value:digest(criterionResults.evidence_subject)}});
-  return { subject, preparation, criterionResults, digest: digest(subject), author, outputs: outs, verification: ver?.body ?? null };
+  return { subject, preparation, integrity, criterionResults, digest: digest(subject), author, outputs: outs, verification: ver?.body ?? null };
 }
 
 export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
@@ -195,7 +197,8 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     decisions: decisions.rows.map((d) => d.body),
     subject_digest: { algorithm: "sha256", value: s.digest },
     ...(s.criterionResults?{criterion_results_integrity:s.criterionResults.evidence_valid?"intact":"changed",criterion_results:s.criterionResults.body,criterion_results_run_id:s.criterionResults.run_id}:{}),
-    ...(s.preparation?{preparation_verification_complete:criterionResultFlags(s.preparation.snapshot,s.criterionResults?.evidence_valid?s.criterionResults.body:null).required_checks_complete,preparation_results_pass:criterionResultFlags(s.preparation.snapshot,s.criterionResults?.evidence_valid?s.criterionResults.body:null).results_pass}:{}),
+    ...(s.preparation?{preparation_verification_complete:Boolean(s.integrity?.intact && criterionResultFlags(s.preparation.snapshot,s.criterionResults?.evidence_valid?s.criterionResults.body:null).required_checks_complete),preparation_results_pass:Boolean(s.integrity?.intact && criterionResultFlags(s.preparation.snapshot,s.criterionResults?.evidence_valid?s.criterionResults.body:null).results_pass)}:{}),
+    ...(s.integrity?{deliverable_integrity:s.integrity.intact?"intact":"changed"}:{}),
     preparation_enrolled: Boolean(s.preparation),
     preparation_release_ready: Boolean(cfg?.preparedRelease && s.preparation?.manifest && s.preparation.blockers.length===0),
   };
@@ -470,6 +473,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   const pkg = await currentPackage(c, run.package_id);
   if (!pkg) throw new Error("package vanished");
   const role: string = pkg.body.agent_assignment?.[0]?.role ?? "general-author";
+  if(!run.preparation_manifest_digest) {
   const { deps } = await dependenciesReady(c, pkg.body);
   for (const dep of deps) {
     const dp = await currentPackage(c, dep);
@@ -477,19 +481,21 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
     for (const o of ar ? await outputsOf(c, ar.id) : []) inputs.push(file(`deps/${dep}/${o.name}`, o.bytes));
   }
   inputs.push(...(await attachmentsFor(c, pkg.capture_id)));
-  // The person's own words, so authors use them and pre-checkers can trace values to them.
+  // Legacy jobs read live capture context; prepared jobs use retained signed sources below.
   if (pkg.capture_id) {
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [pkg.capture_id]);
     const text = cap.rows[0]?.body?.text;
     if (typeof text === "string") inputs.push(file("CAPTURE.md", text));
   }
+  }
   inputs.push(...await preparedJobInputs(c,run));
-  inputs.push(file("PACKAGE.json", JSON.stringify({ ...pkg.body, status: pkg.status }, null, 2)));
+  inputs.push(file("PACKAGE.json", JSON.stringify(run.preparation_manifest_digest?pkg.body:{ ...pkg.body, status: pkg.status }, null, 2)));
   const own = findRoleIn(cfg, role) ?? findRoleIn(cfg, "general-author");
   // The role's own pack ships its templates, typicals and examples to author and pre-check alike.
   if (own) inputs.push(...packFiles(own.packDir));
   const roleText = run.role === "pre-check" ? preCheckRole(cfg, role) : (own?.text ?? "");
   const extra: string[] = [];
+  if(run.preparation_manifest_digest)extra.push("PACKAGE.json is the immutable package body reviewed at release; the server owns current run and lifecycle status.");
   if(run.preparation_manifest_digest && run.role==="pre-check") {
     inputs.push(...criterionResultSchemaInputs(cfg.root));
     extra.push("## Controlled criterion results\n\nWrite out/criterion-results.json using inputs/schemas/CriterionResultSubmission.json. Use the exact package, revision and manifest digest from inputs/PREPARATION.json. Record every current criterion and mapped check once. Retain actual check evidence as separate out/ files and reference it as checker:<relative file name>. Claim JSON is not decisive evidence. Open/deferred checks must be reported honestly; required checks cannot be waived at acceptance. Also write the ordinary verification.json outcome and findings.");
@@ -521,7 +527,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   // "network: on" asks the daemon for network inside a runtime sandbox. Only the role's own author
   // runs get it; a pre-check works from the deliverables alone.
   inputs.push(file("TOOLS.txt", run.role === "pre-check" ? withoutNetwork(tools) : tools));
-  return { run, package: { ...pkg.body, status: pkg.status }, inputs, ...(findings ? { findings } : {}) };
+  return { run, package: run.preparation_manifest_digest?pkg.body:{ ...pkg.body, status: pkg.status }, inputs, ...(findings ? { findings } : {}) };
 }
 
 const CLAIM_PAGE = 50;

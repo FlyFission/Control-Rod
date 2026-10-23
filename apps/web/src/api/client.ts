@@ -66,6 +66,7 @@ export const api = {
   captures: () => call<CaptureView[]>("GET", "/captures"),
   capture: (body: NewCapture) => call<Capture>("POST", "/captures", body),
 
+  refreshPreparationBasis: (id:string,etag:string) => call<PreparationView>("POST",`/packages/${enc(id)}/preparation/basis/refresh`,undefined,{"if-match":etag}),
   preparationConfirmationOptions: (id:string,expected:Digest) => call<{requirements_digest:Digest;options:Record<string,unknown>}>("POST",`/packages/${enc(id)}/preparation/confirm/options`,{expected_requirements_digest:expected}),
   confirmPreparation: (id:string,assertion:Record<string,unknown>) => call<RequirementsConfirmation>("POST",`/packages/${enc(id)}/preparation/confirm`,{assertion}),
   preparation: (id: string) =>

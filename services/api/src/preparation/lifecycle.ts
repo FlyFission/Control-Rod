@@ -1,3 +1,5 @@
+import { validateInputCoverage } from "./inputs.js";
+import { requireAuthorOutputs } from "./artifacts.js";
 import type { Tx } from "../db/index.js";
 import { appendEvent } from "../events.js";
 import { digest, type PreparationGuard } from "../kernel.js";
@@ -9,7 +11,10 @@ export async function preparedExecutionGuard(
   c: Tx,
   cfg: WorkConfig,
   pkg: PackageRow,
-  run?: { preparation_manifest_digest?: { algorithm: string; value: string } },
+  run?: {
+    role?: string;
+    preparation_manifest_digest?: { algorithm: string; value: string };
+  },
 ): Promise<PreparationGuard | undefined> {
   const prep = await preparationForSubject(c, pkg);
   if (!prep) {
@@ -41,7 +46,23 @@ export async function preparedExecutionGuard(
       throw new Error("Release manifest changed or is missing");
     if (!["public", "internal"].includes(pkg.body.data_lane))
       throw new Error("This data lane needs an approved confined runtime");
+    await validateInputCoverage(c, pkg, prep.snapshot);
     await resolveBasis(c, cfg, prep.manifest.basis_refs, true);
+    if (run?.role === "pre-check") {
+      const author = (
+        await c.query<{ id: string; status: string }>(
+          "select id,status from runs where package_id=$1 and package_revision=$2 and role='author' order by round desc,created_at desc,id desc limit 1 for share",
+          [pkg.id, pkg.revision],
+        )
+      ).rows[0];
+      if (!author || author.status !== "succeeded")
+        throw new Refusal(
+          409,
+          "output-changed",
+          "Current author deliverable is unavailable",
+        );
+      await requireAuthorOutputs(c, author.id, true);
+    }
     return {
       requirements_confirmed: true,
       ready_for_release: true,
@@ -143,6 +164,84 @@ export async function preparedJobInputs(
       name: `basis/${String(i + 1).padStart(3, "0")}-${source.kind}${["package", "capture"].includes(source.kind) ? ".json" : ".source"}`,
       content_base64: source.bytes.toString("base64"),
     });
+  }
+  const dependencies = (
+    await c.query<{
+      reference: string;
+      path: string;
+      sha256: string;
+      bytes: Buffer;
+    }>(
+      "select reference,path,sha256,bytes from preparation_dependency_artifacts where manifest_digest=$1 order by reference,path",
+      [run.preparation_manifest_digest.value],
+    )
+  ).rows;
+  for (const b of manifest.basis_refs)
+    if (b.kind === "package" && b.artifacts !== undefined) {
+      const artifacts = dependencies.filter((d) => d.reference === b.reference);
+      if (artifacts.length !== b.artifacts.length)
+        throw new Refusal(
+          409,
+          "preparation-stale",
+          "Retained dependency outputs are incomplete",
+        );
+      const id = b.reference.slice(8);
+      if (!id || /[\\/]/.test(id) || id === "." || id === "..")
+        throw new Refusal(
+          409,
+          "preparation-stale",
+          "Unsafe dependency identity",
+        );
+      for (const artifact of artifacts) {
+        const expected = b.artifacts.find(
+          (a: { path: string; digest: { algorithm: string; value: string } }) =>
+            a.path === artifact.path,
+        );
+        if (
+          !expected ||
+          expected.digest.algorithm !== "sha256" ||
+          expected.digest.value !== artifact.sha256 ||
+          rawSha256(artifact.bytes) !== artifact.sha256
+        )
+          throw new Refusal(
+            409,
+            "preparation-stale",
+            "Retained dependency output changed",
+          );
+        inputs.push({
+          name: `deps/${id}/${artifact.path}`,
+          content_base64: artifact.bytes.toString("base64"),
+        });
+      }
+    }
+  const packageRow = (
+    await c.query<{ capture_id: string | null }>(
+      "select capture_id from packages where id=$1 and revision=$2",
+      [run.package_id, run.package_revision],
+    )
+  ).rows[0];
+  for (const source of sources) {
+    if (
+      source.kind === "capture" &&
+      source.reference === `capture:${packageRow?.capture_id}`
+    ) {
+      const capture = JSON.parse(source.bytes.toString("utf8"));
+      inputs.push({
+        name: "CAPTURE.md",
+        content_base64: Buffer.from(String(capture.text)).toString("base64"),
+      });
+    }
+    if (
+      source.kind === "attachment" &&
+      packageRow?.capture_id &&
+      source.reference.startsWith(`attachment:${packageRow.capture_id}/`)
+    ) {
+      const name = source.reference.slice(source.reference.indexOf("/") + 1);
+      inputs.push({
+        name: `attachments/${name}`,
+        content_base64: source.bytes.toString("base64"),
+      });
+    }
   }
   return inputs;
 }

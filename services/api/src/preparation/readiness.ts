@@ -131,6 +131,21 @@ export function preparationReadiness(
       "duplicate-id",
       "Every preparation item must have a distinct stable ID.",
     );
+  for (const input of s.package_contract.design_inputs) {
+    const matches = s.basis.filter(
+      (b) =>
+        b.reference === input.doc ||
+        b.reference === `${b.kind}:${input.doc}` ||
+        (b.kind === "attachment" &&
+          input.doc.startsWith("attachment:") &&
+          b.reference.endsWith(`/${input.doc.slice(11)}`)),
+    );
+    if (matches.length !== 1 || matches[0]!.revision !== input.revision)
+      add(
+        "design-input-basis",
+        `${input.doc}: pin its declared revision in the controlled basis.`,
+      );
+  }
   const req = new Set(s.requirements.map((v) => v.id)),
     criteria = new Set(s.criteria.map((v) => v.id));
   const checks = new Map(s.technical_plan.checks.map((v) => [v.id, v]));
@@ -249,6 +264,11 @@ export function preparationReadiness(
       add("owner-missing", `${item.id}: assign a resolution owner.`);
   }
   for (const b of s.basis) {
+    if (b.artifacts !== undefined && b.kind !== "package")
+      add(
+        "artifact-basis",
+        `${b.reference}: only package sources declare published outputs.`,
+      );
     if (!nonempty(b.reference) || !nonempty(b.revision))
       add("basis-incomplete", "Pin source reference and revision.");
     if (

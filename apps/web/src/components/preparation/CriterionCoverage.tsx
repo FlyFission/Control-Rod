@@ -17,6 +17,12 @@ export function CriterionCoverage({ view }: { view: PackageView }) {
         Reported outcomes and retained evidence. Mapping a check records intent;
         human review is still required.
       </p>
+      {view.deliverable_integrity === "changed" && (
+        <p role="alert" className="error">
+          Author deliverables changed. Acceptance is blocked. Return or reject
+          the package for controlled recovery.
+        </p>
+      )}
       {view.criterion_results_integrity === "changed" && (
         <p role="alert" className="error">
           Retained checker evidence changed. Acceptance is blocked. Return or

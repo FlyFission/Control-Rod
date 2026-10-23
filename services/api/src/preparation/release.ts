@@ -1,3 +1,4 @@
+import { validateInputCoverage } from "./inputs.js";
 import { resolveBasis } from "./basis.js";
 import type { Db, Tx } from "../db/index.js";
 import { digest, type PreparationGuard } from "../kernel.js";
@@ -49,6 +50,8 @@ export async function preparationForSubject(q: Db | Tx, pkg: PackageRow) {
         preparation_id: snapshot.id,
         preparation_revision: snapshot.revision,
         preparation_digest: subjects.content_digest,
+        package_digest: { algorithm: "sha256", value: digest(pkg.body) },
+        ...(pkg.capture_id ? { origin_capture_id: pkg.capture_id } : {}),
         requirements_confirmation_id: confirmation.id,
         requirements_digest: subjects.requirements_digest,
         basis_refs,
@@ -96,6 +99,7 @@ export async function preparedReleaseGuard(
       p.blockers.map((b) => `${b.owner}: ${b.message}`).join(" ") ||
         "Confirm the current requirements",
     );
+  await validateInputCoverage(q, pkg, p.snapshot);
   await resolveBasis(q, cfg, p.snapshot.basis);
   const basis_current = true;
   if (!basis_current)
@@ -142,7 +146,7 @@ export async function persistReleaseManifest(
       decisionId,
     ],
   );
-  for (const source of sources)
+  for (const source of sources) {
     await c.query(
       "insert into preparation_basis_artifacts(manifest_digest,reference,kind,source_digest,bytes_sha256,bytes) values($1,$2,$3,$4,$5,$6)",
       [
@@ -154,5 +158,17 @@ export async function persistReleaseManifest(
         source.bytes,
       ],
     );
+    for (const artifact of source.artifacts ?? [])
+      await c.query(
+        "insert into preparation_dependency_artifacts(manifest_digest,reference,path,sha256,bytes) values($1,$2,$3,$4,$5)",
+        [
+          hash,
+          source.reference,
+          artifact.path,
+          artifact.sha256,
+          artifact.bytes,
+        ],
+      );
+  }
   return hash;
 }

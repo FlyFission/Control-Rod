@@ -13,6 +13,7 @@ import {
   readPreparation,
   preparationHistory,
   resolvePreparation,
+  refreshPreparationBasis,
 } from "./store.js";
 import type {
   PreparationContent,
@@ -71,15 +72,13 @@ export function preparationRoutes(
         subject,
         confirmationChallenge(subject),
       );
-      return reply
-        .header("Cache-Control", "no-store")
-        .send({
-          requirements_digest: {
-            algorithm: "sha256",
-            value: subject.requirements_digest,
-          },
-          options,
-        });
+      return reply.header("Cache-Control", "no-store").send({
+        requirements_digest: {
+          algorithm: "sha256",
+          value: subject.requirements_digest,
+        },
+        options,
+      });
     },
   );
   app.post<{ Params: Params; Body: { assertion: Record<string, unknown> } }>(
@@ -120,6 +119,20 @@ export function preparationRoutes(
       );
       return reply.code(201).send(confirmation);
     },
+  );
+  app.post<{ Params: Params }>(
+    "/packages/:id/preparation/basis/refresh",
+    async (req, reply) =>
+      send(
+        reply,
+        await refreshPreparationBasis(
+          db,
+          cfg,
+          await person(req),
+          req.params.id,
+          req.headers["if-match"],
+        ),
+      ),
   );
   app.get<{ Params: Params }>(
     "/packages/:id/preparation",

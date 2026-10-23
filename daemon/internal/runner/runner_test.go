@@ -208,7 +208,18 @@ func (f *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 		job := f.jobs[0]
 		f.jobs = f.jobs[1:]
 		f.mu.Unlock()
-		_ = json.NewEncoder(w).Encode(job)
+		raw, _ := json.Marshal(job)
+		var envelope map[string]any
+		_ = json.Unmarshal(raw, &envelope)
+		run := envelope["run"].(map[string]any)
+		if job.Claim.LeaseExpiresAt == "" {
+			envelope["claim"] = RunClaim{Token: "claim-" + job.Run.ID, LeaseExpiresAt: time.Now().Add(time.Minute).Format(time.RFC3339), HeartbeatSeconds: 30}
+		}
+		run["schema_version"], run["status"], run["queued_at"] = "0.1.0", "running", "2026-10-23T00:00:00Z"
+		if envelope["inputs"] == nil {
+			envelope["inputs"] = []any{}
+		}
+		_ = json.NewEncoder(w).Encode(envelope)
 	case strings.HasSuffix(r.URL.Path, "/log"):
 		id := strings.Split(r.URL.Path, "/")[3]
 		var b LogBatch
@@ -248,7 +259,7 @@ func (f *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		f.done[id] = c
 		f.mu.Unlock()
-		_ = json.NewEncoder(w).Encode(Receipt{RunID: id, IdempotencyKey: c.IdempotencyKey, Status: c.Status})
+		_ = json.NewEncoder(w).Encode(map[string]any{"run_id": id, "idempotency_key": c.IdempotencyKey, "status": c.Status, "outputs": []any{}, "received_at": "2026-10-23T00:00:00Z"})
 		f.finished <- id
 	default:
 		http.NotFound(w, r)

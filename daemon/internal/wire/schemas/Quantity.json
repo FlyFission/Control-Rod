@@ -1,0 +1,21 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Quantity.json",
+    "type": "object",
+    "properties": {
+        "value": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?([eE][-+]?[0-9]+)?$"
+        },
+        "unit": {
+            "type": "string",
+            "description": "Unit in Pint-compatible notation, for example \"kW\" or \"degF\"."
+        }
+    },
+    "required": [
+        "value",
+        "unit"
+    ],
+    "description": "An engineering quantity. The value is a decimal string so no precision is lost.",
+    "unevaluatedProperties": false
+}

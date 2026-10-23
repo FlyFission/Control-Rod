@@ -3,6 +3,7 @@ import "./records.tsp";
 import "./work.tsp";
 
 using Http;
+using JsonSchema;
 using ControlRod.Records;
 
 /** Control Rod control plane API, version 0.1. */
@@ -266,17 +267,26 @@ namespace Events {
 
 /** Run daemon API. Authenticated with the daemon token; it can never make a decision. */
 @route("/runner")
+@jsonSchema
 namespace Runner {
+  @extension("unevaluatedProperties", false)
+  model NamedFile { name: string; content_base64: string; }
+
+  @extension("unevaluatedProperties", false)
+  model LogReply {
+    /** End the agent process when the owner has requested a stop. */
+    stop: boolean;
+    lease_expires_at: utcDateTime;
+  }
+
+  @extension("unevaluatedProperties", false)
   model Job {
     run: Run;
     `package`?: WorkPackage;
     capture?: Capture;
 
     /** For a pre-check: only the deliverable and criteria, never the author's transcript. */
-    inputs: {
-      name: string;
-      content_base64: string;
-    }[];
+    inputs: NamedFile[];
 
     findings?: Finding[];
 
@@ -285,6 +295,7 @@ namespace Runner {
   }
 
   /** A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost. */
+  @extension("unevaluatedProperties", false)
   model RunClaim {
     token: string;
     lease_expires_at: utcDateTime;
@@ -294,6 +305,7 @@ namespace Runner {
   }
 
   /** What the control plane recorded for a completion. A repeat with the same key returns it again. */
+  @extension("unevaluatedProperties", false)
   model CompletionReceipt {
     run_id: string;
     idempotency_key: string;
@@ -306,6 +318,7 @@ namespace Runner {
   }
 
   /** The daemon's probe of one runtime it found: whether it is ready for work, and why not. */
+  @extension("unevaluatedProperties", false)
   model RuntimeStatus {
     runtime: string;
     ready: boolean;
@@ -331,13 +344,9 @@ namespace Runner {
     claim_token: string;
     lines: string[];
     label?: string;
-  }): {
-    /** The owner asked to stop this run: end the process and complete it as stopped. */
-    stop: boolean;
+  }): LogReply | Refused;
 
-    lease_expires_at: utcDateTime;
-  } | Refused;
-
+  @extension("unevaluatedProperties", false)
   model Completion {
     claim_token: string;
 
@@ -350,10 +359,7 @@ namespace Runner {
     status: "succeeded" | "failed" | "stopped";
     error?: string;
     trace?: ExecutionTrace;
-    outputs: {
-      name: string;
-      content_base64: string;
-    }[];
+    outputs: NamedFile[];
     `package`?: WorkPackage;
     verification?: VerificationRecord;
   }

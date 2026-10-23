@@ -1,0 +1,27 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RunClaim.json",
+    "type": "object",
+    "properties": {
+        "token": {
+            "type": "string"
+        },
+        "lease_expires_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "heartbeat_seconds": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647,
+            "description": "Post a log batch, even an empty one, at least this often."
+        }
+    },
+    "required": [
+        "token",
+        "lease_expires_at",
+        "heartbeat_seconds"
+    ],
+    "description": "A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost.",
+    "unevaluatedProperties": false
+}

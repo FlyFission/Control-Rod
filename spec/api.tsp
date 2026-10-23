@@ -22,7 +22,7 @@ model ApiError {
 }
 
 alias Refused = {
-  @statusCode _: 400 | 401 | 403 | 404 | 409;
+  @statusCode _: 400 | 401 | 403 | 404 | 409 | 428;
   @body error: ApiError;
 };
 
@@ -72,6 +72,7 @@ namespace Captures {
 
   model CaptureView {
     ...Capture;
+    package_ids?: string[];
     intake?: IntakeState;
   }
 
@@ -84,6 +85,8 @@ namespace Captures {
 
 /** What the web app shows for one package: the revision, its runs, output and decisions. */
 model PackageView {
+  preparation_enabled?: boolean;
+  preparation_enrolled?: boolean;
   `package`: WorkPackage;
   runs: Run[];
   outputs: Artifact[];

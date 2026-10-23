@@ -18,7 +18,7 @@ import { shortDigest } from "../lib/format.js";
 export function DecisionBar({ view, passkeys = browserPasskeys }: { view: PackageView; passkeys?: Passkeys }) {
   const qc = useQueryClient();
   const pkg = view.package;
-  const kinds = availableDecisions(pkg.status, view.pre_check !== undefined, view.pre_check?.outcome);
+  const kinds = availableDecisions(pkg.status, view.pre_check !== undefined, view.pre_check?.outcome).filter(k => !(k === "release" && view.preparation_enrolled));
   const role = pkg.agent_assignment[0]?.role;
   const label = (k: DecisionKind) => decisionLabel(k, role);
   const [pending, setPending] = useState<DecisionKind | null>(null);

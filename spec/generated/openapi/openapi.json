@@ -71,6 +71,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -132,6 +142,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -236,6 +256,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -315,6 +345,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -431,6 +471,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -690,6 +740,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       },
@@ -759,6 +819,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -847,6 +917,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -981,6 +1061,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -1076,6 +1166,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -1146,6 +1246,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -1238,6 +1348,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       },
@@ -1314,6 +1434,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -1428,6 +1558,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -1506,6 +1646,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -1619,6 +1769,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -1698,6 +1858,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -1829,6 +1999,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -1924,6 +2104,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -2010,6 +2200,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -2074,6 +2274,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -2186,6 +2396,16 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -2266,6 +2486,16 @@
           },
           "409": {
             "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
             "content": {
               "application/json": {
                 "schema": {
@@ -2463,6 +2693,12 @@
           },
           "package_id": {
             "type": "string"
+          },
+          "package_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "intake": {
             "$ref": "#/components/schemas/Captures.IntakeState"
@@ -4583,6 +4819,12 @@
           "subject_digest"
         ],
         "properties": {
+          "preparation_enabled": {
+            "type": "boolean"
+          },
+          "preparation_enrolled": {
+            "type": "boolean"
+          },
           "package": {
             "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
           },

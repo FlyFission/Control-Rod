@@ -769,3 +769,8 @@ nav {
     max-width: 110px;
   }
 }
+
+.prep-fields { border: 0; padding: 0; min-width: 0; }
+.prep-item { border-block-start: 1px solid var(--line, #ddd); padding-block: 1rem; margin-block: 1rem; }
+.preparation fieldset label { display: block; }
+.preparation .mono { overflow-wrap: anywhere; }

@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import type { Ajv2020 } from "ajv/dist/2020.js";
+import { enrollPreparationTx } from "./preparation/store.js";
 import { type Db, type Tx, tx } from "./db/index.js";
 import { type Actor, appendEvent } from "./events.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
@@ -25,6 +26,7 @@ export interface WorkConfig {
   ajv: Ajv2020;
   /** Seconds a claim lasts without a heartbeat before the sweep marks the run lost. */
   leaseSeconds?: number;
+  guidedPreparation?: boolean;
 }
 
 const SYSTEM: Actor = { kind: "system", id: "control-plane" };
@@ -181,6 +183,7 @@ export async function packageView(db: Db, id: string) {
     ...(s.verification ? { pre_check: s.verification } : {}),
     decisions: decisions.rows.map((d) => d.body),
     subject_digest: { algorithm: "sha256", value: s.digest },
+    preparation_enrolled: Boolean((await db.query("select 1 from preparation_heads where package_id=$1",[id])).rowCount),
   };
 }
 
@@ -213,6 +216,7 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.status !== "draft") throw new Refusal(409, "wrong-state", "Only a draft can be edited");
+    if ((await c.query("select 1 from preparation_heads where package_id=$1", [id])).rowCount) throw new Refusal(409,"preparation-edit-required","Use preparation editing to keep the controlled contract and criteria together");
     const next = { ...body, id: pkg.id, revision: pkg.revision, status: "draft", schema_version: "0.1.0" };
     next.agent_assignment = pkg.body.agent_assignment;
     next.verification = pkg.body.verification;
@@ -1064,6 +1068,7 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
     validate(cfg, "WorkPackage.json", pkg);
     await c.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'draft', $2, $3)", [pkg.id, capture.id, pkg]);
     await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id });
+    if(cfg.guidedPreparation) await enrollPreparationTx(c,cfg,SYSTEM,pkg.id as string,{package_revision:0,idempotency_key:`intake-${capture.id}-${pkg.id}`});
     created.push(pkg.id as string);
   }
   const updated = { ...capture, disposition: "package", package_id: created[0] };
@@ -1209,6 +1214,7 @@ export async function decisionSubject(db: Db, id: string, kind: string, revision
   const pkg = await currentPackage(db, id);
   if (!pkg) throw new Refusal(404, "not-found", "No such package");
   if (pkg.revision !== revision) throw new Refusal(409, "stale", "That revision is no longer current");
+  if(kind==="release" && (await db.query("select 1 from preparation_heads where package_id=$1",[id])).rowCount) throw new Refusal(409,"prepared-release-disabled","Signed prepared release is not enabled yet");
   return { pkg, ...(await subjectOf(db, pkg)) };
 }
 
@@ -1225,6 +1231,7 @@ export async function applyDecision(
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
+    if(req.kind==="release" && (await c.query("select 1 from preparation_heads where package_id=$1",[id])).rowCount) throw new Refusal(409,"prepared-release-disabled","Signed prepared release is not enabled yet");
     const s = await subjectOf(c, pkg);
     const reason = (req.reason ?? "").trim();
     const outcome = decide({
@@ -1441,11 +1448,14 @@ export async function listCaptures(db: Db) {
        ) r on true
       order by c.created_at desc limit 200`,
   );
+  const links=await db.query<{capture_id:string;id:string}>("select distinct capture_id,id from packages where capture_id=any($1::text[]) order by id",[r.rows.map(x=>x.body.id)]);
   return r.rows.map((x) => {
+    const package_ids=links.rows.filter(p=>p.capture_id===x.body.id).map(p=>p.id);
+    const base={...x.body,...(package_ids.length?{package_ids}:{})};
     // Only a pending capture carries its intake state; an answered or packaged one is done.
-    if (x.body.disposition !== "pending" || !x.run_id || !x.run_status) return x.body;
+    if (x.body.disposition !== "pending" || !x.run_id || !x.run_status) return base;
     const error = typeof x.run_body?.error === "string" ? x.run_body.error : undefined;
-    return { ...x.body, intake: { run_id: x.run_id, status: x.run_status, ...(error ? { error } : {}) } };
+    return { ...base, intake: { run_id: x.run_id, status: x.run_status, ...(error ? { error } : {}) } };
   });
 }
 

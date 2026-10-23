@@ -23,3 +23,6 @@ export type CrEvent = S["ControlRod.Records.Event"];
 export type Metrics = S["Metrics"];
 export type ApiErrorBody = S["ApiError"];
 export type RuntimeStatus = S["Runner.RuntimeStatus"];
+export type PreparationView = S["ControlRod.Preparation.PreparationView"];
+export type PreparationContent = S["ControlRod.Preparation.PreparationContent"];
+export type ResolutionRequest = S["ControlRod.Preparation.ResolutionRequest"];

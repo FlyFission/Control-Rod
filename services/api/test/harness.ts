@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { isoCBOR } from "@simplewebauthn/server/helpers";
 import EmbeddedPostgres from "embedded-postgres";
 import type { FastifyInstance } from "fastify";
-import { buildApp } from "../src/app.js";
+import { buildApp, type AppOptions } from "../src/app.js";
 import { hashToken } from "../src/auth.js";
 import pg from "pg";
 import { type Db, openDb } from "../src/db/index.js";
@@ -38,7 +38,7 @@ export interface Harness {
 }
 
 /** A real Postgres per test file and the real app. Nothing is mocked but the authenticator and the daemon. */
-export async function startHarness(): Promise<Harness> {
+export async function startHarness(options: Pick<AppOptions,"guidedPreparation"> = {}): Promise<Harness> {
   const external = process.env.TEST_DATABASE_URL;
   if (external) {
     // A fresh database per test file on a Postgres the caller provides (CI service or local server).
@@ -50,6 +50,7 @@ export async function startHarness(): Promise<Harness> {
     url.pathname = `/${name}`;
     const db = await openDb(url.toString());
     const app = buildApp({
+      ...options,
       db,
       root,
       auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN) },
@@ -76,6 +77,7 @@ export async function startHarness(): Promise<Harness> {
     execFileSync(join(system, "pg_ctl"), ["-D", dir, "-o", `-p ${port} -k ${dir} -c listen_addresses=127.0.0.1`, "-w", "start"], { stdio: "ignore" });
     const db = await openDb(`postgres://controlrod@127.0.0.1:${port}/postgres`);
     const app = buildApp({
+      ...options,
       db,
       root,
       auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN) },
@@ -108,6 +110,7 @@ export async function startHarness(): Promise<Harness> {
   await pg.start();
   const db = await openDb(`postgres://controlrod:test@127.0.0.1:${port}/postgres`);
   const app = buildApp({
+      ...options,
     db,
     root,
     auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN) },

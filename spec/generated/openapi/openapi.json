@@ -3446,6 +3446,57 @@
           }
         }
       },
+      "ControlRod.Preparation.PreparationReleaseManifest": {
+        "type": "object",
+        "required": [
+          "package_id",
+          "package_revision",
+          "preparation_id",
+          "preparation_revision",
+          "preparation_digest",
+          "requirements_confirmation_id",
+          "requirements_digest",
+          "basis_refs",
+          "feature_version"
+        ],
+        "properties": {
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "preparation_id": {
+            "type": "string"
+          },
+          "preparation_revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "preparation_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "requirements_confirmation_id": {
+            "type": "string"
+          },
+          "requirements_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "basis_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.BasisRef"
+            }
+          },
+          "feature_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          }
+        }
+      },
       "ControlRod.Preparation.PreparationSnapshot": {
         "type": "object",
         "required": [
@@ -3625,6 +3676,9 @@
           },
           "change_summary": {
             "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.PreparationReleaseManifest"
           }
         }
       },
@@ -4632,6 +4686,10 @@
             "type": "string",
             "format": "date-time"
           },
+          "preparation_manifest_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Controlled preparation basis; absent for historical legacy runs."
+          },
           "started_at": {
             "type": "string",
             "format": "date-time"
@@ -5094,6 +5152,9 @@
             "type": "boolean"
           },
           "preparation_enrolled": {
+            "type": "boolean"
+          },
+          "preparation_release_ready": {
             "type": "boolean"
           },
           "package": {

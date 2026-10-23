@@ -125,7 +125,7 @@ export function preparationRoutes(
     "/packages/:id/preparation",
     async (req, reply) => {
       await person(req);
-      return send(reply, await readPreparation(db, req.params.id));
+      return send(reply, await readPreparation(db, req.params.id, cfg));
     },
   );
   app.put<{ Params: Params; Body: PreparationContent }>(

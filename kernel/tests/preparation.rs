@@ -35,3 +35,40 @@ fn confirmation_requires_human_signature_current_requirements_and_draft() {
     bad.actor_id = " ".into();
     assert!(!decide_preparation(&bad).is_allowed());
 }
+
+#[test]
+fn enrolled_release_defaults_closed_and_requires_complete_guard() {
+    use controlrod_kernel::preparation::PreparationGuard;
+    use controlrod_kernel::transition::{Action, Request, decide};
+    let mut req = Request {
+        status: Status::Draft,
+        action: Action::Release,
+        actor_kind: ActorKind::Human,
+        actor_id: "owner".into(),
+        author_baseline: None,
+        checker_baseline: None,
+        author_runtime: None,
+        checker_runtime: None,
+        owner_override_verified: false,
+        pre_check: None,
+        assertion_verified: true,
+        digest_matches: true,
+        reason_given: false,
+        preparation: Some(PreparationGuard::default()),
+    };
+    assert!(!decide(&req).decision.is_allowed());
+    req.preparation = Some(PreparationGuard {
+        requirements_confirmed: true,
+        ready_for_release: true,
+        basis_current: true,
+        manifest_matches: true,
+        ..PreparationGuard::default()
+    });
+    assert!(decide(&req).decision.is_allowed());
+    if let Some(guard) = req.preparation.as_mut() {
+        guard.manifest_matches = false;
+    }
+    assert!(!decide(&req).decision.is_allowed());
+    req.preparation = None;
+    assert!(decide(&req).decision.is_allowed());
+}

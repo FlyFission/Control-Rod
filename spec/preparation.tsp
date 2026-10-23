@@ -149,6 +149,7 @@ model PreparationView {
   readiness: "blocked" | "ready";
   blockers: PreparationBlocker[];
   change_summary: string;
+  manifest?: PreparationReleaseManifest;
 }
 @extension("unevaluatedProperties", false)
 model PreparationEnrollment {

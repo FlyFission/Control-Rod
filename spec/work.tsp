@@ -78,6 +78,9 @@ model Run {
 
   status: RunStatus;
   queued_at: utcDateTime;
+
+  /** Controlled preparation basis; absent for historical legacy runs. */
+  preparation_manifest_digest?: Digest;
   started_at?: utcDateTime;
   finished_at?: utcDateTime;
 

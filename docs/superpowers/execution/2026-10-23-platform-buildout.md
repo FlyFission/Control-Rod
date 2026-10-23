@@ -90,3 +90,14 @@ Ruling: criterion-to-check links are technical mapping, excluded from the requir
 Ruling: structured confirmation records use the authenticated actor and consumed server challenge, never a client-supplied confirmation flag — no agent proposal or public JSON becomes signature evidence — cost if wrong is a rejected request rather than a bypass.
 
 Task 7: next — manifest-bound release and one-author transaction.
+
+## Task 7 evidence
+
+Task 7: complete — the existing release decision subject now includes the full preparation manifest for enrolled packages; legacy subjects retain their exact shape/digest. The manifest includes package/preparation revisions, full content and requirements digests, actual confirmation ID, ordered basis refs and feature version. Release records the immutable manifest and queues its digest-bound author in one package-locked transaction. Concurrent signed releases produce one manifest and one author. Technical edits preserve requirements confirmation and invalidate pending release challenges.
+
+RED: missing preparation guard and three API release failures. GREEN: Rust workspace (including legacy lifecycle and new enrolled-release floor), regenerated WASM, API 110 and web 33 tests, workspace type checks. Final API release/authorization set passed. Optional Run manifest digest regenerated into TypeSpec schemas and embedded daemon boundary.
+
+Ruling: keep prepared release separately default-off and hold enrolled run claims in this intermediate slice — completion and acceptance barriers are next in dependency order — cost if wrong is a visible queued hold, not execution without guards.
+Ruling: only package basis references are supported by the first release verifier; other source kinds hold — no fabricated proof for an unavailable source provider — cost if wrong is additional manual waiting until task 8 providers are implemented.
+
+Task 8: next — controlled basis providers, immutable input capture and run lifecycle barriers.

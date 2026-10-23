@@ -40,3 +40,16 @@ pub fn decide_preparation(req: &PreparationRequest) -> Decision {
     }
     Decision::allow()
 }
+
+/// Server-derived preparation facts. Presence enrolls the request; omitted facts refuse.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PreparationGuard {
+    pub requirements_confirmed: bool,
+    pub ready_for_release: bool,
+    pub basis_current: bool,
+    pub manifest_matches: bool,
+    pub results_complete: bool,
+    pub required_checks_complete: bool,
+    pub results_pass: bool,
+}

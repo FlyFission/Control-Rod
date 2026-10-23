@@ -24,7 +24,7 @@ Preserve current runtime behavior, inactive preparation roles and all protected 
 ## Task 3 — whole slice verification and publication
 
 - [x] Run daemon race suite, vet and formatting; unsupported-target compile check; strict change-record validation. Update mission/verification/ledger with observed results.
-- [ ] Get the required final fresh-context review under the existing execution workflow; fix Important defects with failed-first regressions in one pass.
+- [x] Get the required final fresh-context review under the existing execution workflow; fix Important defects with failed-first regressions in one pass.
 - [ ] Commit with DCO and push to PR #6 under the user's existing push-and-continue authority; verify exact remote SHA and CI. Refresh Windows evidence packet.
 
 No per-task reviewer or generic approval round. The final review is the single fresh context for this implemented slice. Stop integration if the real grant authority or native confinement is missing; do not replace it with a permissive implementation.

@@ -113,10 +113,6 @@ func (b *Broker) check(ctx context.Context, g Grant) error {
 	}
 	return nil
 }
-func nested(a, b string) bool {
-	rel, err := filepath.Rel(a, b)
-	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
 
 func Open(ctx context.Context, options Options) (*Broker, error) {
 	if err := ctx.Err(); err != nil {
@@ -131,32 +127,16 @@ func Open(ctx context.Context, options Options) (*Broker, error) {
 	if options.Now == nil {
 		options.Now = time.Now
 	}
-	inputPath, err := filepath.EvalSymlinks(options.InputDir)
-	if err != nil {
-		return nil, err
-	}
-	outputPath, err := filepath.EvalSymlinks(options.OutputDir)
-	if err != nil {
-		return nil, err
-	}
-	inputPath, err = filepath.Abs(inputPath)
-	if err != nil {
-		return nil, err
-	}
-	outputPath, err = filepath.Abs(outputPath)
-	if err != nil {
-		return nil, err
-	}
-	inInfo, err := os.Stat(inputPath)
-	if err != nil {
-		return nil, err
-	}
-	outInfo, err := os.Stat(outputPath)
-	if err != nil {
-		return nil, err
-	}
-	if !inInfo.IsDir() || !outInfo.IsDir() || os.SameFile(inInfo, outInfo) || nested(inputPath, outputPath) || nested(outputPath, inputPath) || outInfo.Mode().Perm()&0077 != 0 {
+	if options.InputDir == "" || options.OutputDir == "" {
 		return nil, ErrDenied
+	}
+	inputPath, err := filepath.Abs(options.InputDir)
+	if err != nil {
+		return nil, err
+	}
+	outputPath, err := filepath.Abs(options.OutputDir)
+	if err != nil {
+		return nil, err
 	}
 	input, err := os.OpenRoot(inputPath)
 	if err != nil {
@@ -167,21 +147,12 @@ func Open(ctx context.Context, options Options) (*Broker, error) {
 		_ = input.Close()
 		return nil, err
 	}
-	// Verify retained handles refer to the directories inspected above. A path
-	// changed between inspection and OpenRoot must not bypass overlap/privacy checks.
-	handlesMatch := func(root *os.Root, expected os.FileInfo) bool {
-		f, e := root.Open(".")
-		if e != nil {
-			return false
-		}
-		defer f.Close()
-		actual, e := f.Stat()
-		return e == nil && os.SameFile(actual, expected) && actual.Mode().Perm() == expected.Mode().Perm()
-	}
-	if !handlesMatch(input, inInfo) || !handlesMatch(output, outInfo) {
+	// Derive privacy and ancestry from the actual opened roots. A path string
+	// resolved before OpenRoot can describe a different directory after a rename.
+	if err := validateRoots(ctx, input, output); err != nil {
 		_ = input.Close()
 		_ = output.Close()
-		return nil, ErrDenied
+		return nil, err
 	}
 	b := &Broker{options: options, input: input, output: output}
 	called := false
@@ -196,6 +167,9 @@ func Open(ctx context.Context, options Options) (*Broker, error) {
 		b.grant = cloneGrant(g)
 		return nil
 	})
+	if err == nil && called {
+		err = b.check(ctx, b.grant)
+	}
 	if err != nil || !called {
 		_ = b.Close()
 		if err == nil {
@@ -242,6 +216,9 @@ func (b *Broker) use(ctx context.Context, fn func(Grant, func(Event) error) erro
 	})
 	if err == nil && !called {
 		return ErrDenied
+	}
+	if err == nil {
+		err = b.check(ctx, b.grant)
 	}
 	return err
 }

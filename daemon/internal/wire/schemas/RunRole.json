@@ -5,6 +5,8 @@
     "enum": [
         "intake",
         "author",
-        "pre-check"
+        "pre-check",
+        "requirements-preparer",
+        "technical-preparer"
     ]
 }

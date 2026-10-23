@@ -505,6 +505,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{packageId}/preparation-grants/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokePreparationGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runner/claim": {
         parameters: {
             query?: never;
@@ -515,6 +531,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["Runner_claim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/preparation-grants/{id}/begin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PreparationGrantBroker_begin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/preparation-grants/{id}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["PreparationGrantBroker_finalize"];
         delete?: never;
         options?: never;
         head?: never;
@@ -714,6 +762,36 @@ export interface components {
             owner: string;
             resolution_refs: string[];
         };
+        "ControlRod.Preparation.GrantInspectIntent": {
+            /** @enum {string} */
+            kind: "inspect";
+        };
+        "ControlRod.Preparation.GrantInspectResult": {
+            /** @enum {string} */
+            kind: "inspect";
+        };
+        "ControlRod.Preparation.GrantReadIntent": {
+            /** @enum {string} */
+            kind: "read-input";
+            input_id: string;
+        };
+        "ControlRod.Preparation.GrantReadResult": {
+            /** @enum {string} */
+            kind: "read-input";
+            input_id: string;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** Format: int32 */
+            bytes: number;
+        };
+        "ControlRod.Preparation.GrantWriteIntent": {
+            /** @enum {string} */
+            kind: "write-proposal";
+        };
+        "ControlRod.Preparation.GrantWriteResult": {
+            /** @enum {string} */
+            kind: "write-proposal";
+            content_base64: string;
+        };
         "ControlRod.Preparation.HumanResolution": {
             id: string;
             item_id: string;
@@ -785,6 +863,45 @@ export interface components {
             package_revision: number;
             idempotency_key: string;
         };
+        "ControlRod.Preparation.PreparationGrant": {
+            /** @enum {string} */
+            schema_version: "0.1.0";
+            id: string;
+            run_id: string;
+            package_id: string;
+            /** Format: int32 */
+            package_revision: number;
+            preparation_id: string;
+            /** Format: int32 */
+            preparation_revision: number;
+            base_digest: components["schemas"]["ControlRod.Records.Digest"];
+            package_digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** @description Assigned baseline/runtime/round; changing them invalidates the grant. */
+            assignment_digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** @enum {string} */
+            role: "requirements-preparer";
+            /** @enum {string} */
+            lane: "public" | "internal";
+            /** Format: date-time */
+            expires_at: string;
+            inputs: components["schemas"]["ControlRod.Preparation.PreparationGrantInput"][];
+            /** @enum {string} */
+            proposal_path: "proposal.json";
+            /** Format: int32 */
+            max_proposal_bytes: number;
+            /** Format: int32 */
+            max_operations: number;
+        };
+        "ControlRod.Preparation.PreparationGrantInput": {
+            id: string;
+            /** @description Relative to the dedicated input root, never the workspace/host root. */
+            path: string;
+            reference: string;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** Format: int32 */
+            bytes: number;
+        };
+        "ControlRod.Preparation.PreparationGrantIntent": components["schemas"]["ControlRod.Preparation.GrantInspectIntent"] | components["schemas"]["ControlRod.Preparation.GrantReadIntent"] | components["schemas"]["ControlRod.Preparation.GrantWriteIntent"];
         "ControlRod.Preparation.PreparationHistory": {
             revisions: components["schemas"]["ControlRod.Preparation.PreparationView"][];
             /** Format: int32 */
@@ -838,6 +955,37 @@ export interface components {
             design_element_ids: string[];
             depends_on: string[];
         };
+        "ControlRod.Preparation.PreparationUseFinalize": {
+            use_id: string;
+            use_token: string;
+            result: components["schemas"]["ControlRod.Preparation.PreparationUseResult"];
+        };
+        "ControlRod.Preparation.PreparationUsePermit": {
+            grant: components["schemas"]["ControlRod.Preparation.PreparationGrant"];
+            use_id: string;
+            use_token: string;
+            intent: components["schemas"]["ControlRod.Preparation.PreparationGrantIntent"];
+            /** Format: date-time */
+            expires_at: string;
+        };
+        "ControlRod.Preparation.PreparationUseReceipt": {
+            /** @enum {string} */
+            schema_version: "0.1.0";
+            grant_id: string;
+            use_id: string;
+            intent: components["schemas"]["ControlRod.Preparation.PreparationGrantIntent"];
+            /** Format: date-time */
+            admitted_at: string;
+            /**
+             * @description Admission is not proof of tool execution or model consumption.
+             * @enum {string}
+             */
+            custody: "authorization-only" | "broker-reported-read" | "controller-retained-proposal";
+            artifact?: components["schemas"]["ControlRod.Records.Artifact"];
+            /** Format: int32 */
+            bytes?: number;
+        };
+        "ControlRod.Preparation.PreparationUseResult": components["schemas"]["ControlRod.Preparation.GrantInspectResult"] | components["schemas"]["ControlRod.Preparation.GrantReadResult"] | components["schemas"]["ControlRod.Preparation.GrantWriteResult"];
         "ControlRod.Preparation.PreparationView": {
             snapshot: components["schemas"]["ControlRod.Preparation.PreparationSnapshot"];
             content_digest: components["schemas"]["ControlRod.Records.Digest"];
@@ -1179,7 +1327,7 @@ export interface components {
             independence_override?: components["schemas"]["ControlRod.Records.OwnerOverride"];
         };
         /** @enum {string} */
-        "ControlRod.Records.RunRole": "intake" | "author" | "pre-check";
+        "ControlRod.Records.RunRole": "intake" | "author" | "pre-check" | "requirements-preparer" | "technical-preparer";
         /** @enum {string} */
         "ControlRod.Records.RunStatus": "queued" | "running" | "succeeded" | "failed" | "stopped" | "lost";
         "ControlRod.Records.RuntimeRef": {
@@ -3527,6 +3675,85 @@ export interface operations {
             };
         };
     };
+    revokePreparationGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                packageId: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revoked: boolean;
+                    };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Runner_claim: {
         parameters: {
             query?: never;
@@ -3559,6 +3786,170 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    PreparationGrantBroker_begin: {
+        parameters: {
+            query?: never;
+            header: {
+                Authorization: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlRod.Preparation.PreparationGrantIntent"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Preparation.PreparationUsePermit"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    PreparationGrantBroker_finalize: {
+        parameters: {
+            query?: never;
+            header: {
+                Authorization: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlRod.Preparation.PreparationUseFinalize"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Preparation.PreparationUseReceipt"];
+                };
             };
             /** @description The server could not understand the request due to invalid syntax. */
             400: {

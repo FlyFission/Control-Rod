@@ -18,3 +18,9 @@ export type CriterionResultSubmission = S["ControlRod.Preparation.CriterionResul
 export type CriterionResultSet = S["ControlRod.Preparation.CriterionResultSet"];
 export type VerificationRecord = S["ControlRod.Records.VerificationRecord"];
 export type EvidenceItem = S["ControlRod.Records.EvidenceItem"];
+
+export type PreparationGrant = S["ControlRod.Preparation.PreparationGrant"];
+export type PreparationGrantIntent = S["ControlRod.Preparation.PreparationGrantIntent"];
+export type PreparationUsePermit = S["ControlRod.Preparation.PreparationUsePermit"];
+export type PreparationUseFinalize = S["ControlRod.Preparation.PreparationUseFinalize"];
+export type PreparationUseReceipt = S["ControlRod.Preparation.PreparationUseReceipt"];

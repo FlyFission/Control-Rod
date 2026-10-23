@@ -12,6 +12,12 @@ import { hashToken } from "../src/auth.js";
 import { migrate } from "../src/db/migrate.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
+import { grantConfig, grantRun } from "./preparation-grant-fixture.js";
+import {
+  issuePreparationGrant,
+  beginGrantUse,
+  finishGrantUse,
+} from "../src/preparation/grants.js";
 import { SCHEMA } from "../src/db/schema.js";
 import { ORIGIN, RP_ID, DAEMON_TOKEN } from "./harness.js";
 
@@ -43,6 +49,13 @@ const TABLES = [
   "preparation_dependency_artifacts",
   "preparation_quarantine_batches",
   "preparation_quarantined_outputs",
+  "preparation_grants",
+  "preparation_grant_inputs",
+  "preparation_grant_state",
+  "preparation_grant_uses",
+  "preparation_grant_receipts",
+  "preparation_grant_proposals",
+  "preparation_grant_guards",
 ];
 async function snapshot(db: pg.Pool) {
   const rows: Record<string, unknown> = {};
@@ -154,6 +167,36 @@ describe.skipIf(!tools)(
         (await f.h.db.query("select * from preparation_dependency_artifacts"))
           .rowCount,
       ).toBeGreaterThan(0);
+      const grantSeed = await grantRun(f);
+      const grant = await issuePreparationGrant(
+        f.h.db,
+        grantConfig,
+        grantSeed.run.id,
+        grantSeed.token,
+      );
+      const permit = await beginGrantUse(
+        f.h.db,
+        grantConfig,
+        grant.grant.id,
+        grant.token,
+        { kind: "write-proposal" },
+      );
+      const retainedProposal = Buffer.from(
+        "Recovery fixture proposal: owner review required",
+      );
+      await finishGrantUse(f.h.db, grantConfig, grant.grant.id, grant.token, {
+        use_id: permit.use_id,
+        use_token: permit.use_token,
+        result: {
+          kind: "write-proposal",
+          content_base64: retainedProposal.toString("base64"),
+        },
+      });
+      const guardSequence = (
+        await f.h.db.query(
+          "select last_value from preparation_grant_guards_id_seq",
+        )
+      ).rows[0].last_value;
       const before = await snapshot(f.h.db),
         chain = await verifyChain(f.h.db);
       const connection = new URL(String(f.h.db.options.connectionString));
@@ -209,6 +252,22 @@ describe.skipIf(!tools)(
           ).rowCount,
         ).toBeGreaterThan(0);
         expect(await verifyChain(restored)).toEqual(chain);
+        expect(
+          (
+            await restored.query(
+              "select bytes from preparation_grant_proposals where grant_id=$1",
+              [grant.grant.id],
+            )
+          ).rows[0].bytes,
+        ).toEqual(retainedProposal);
+        expect(
+          (
+            await restored.query(
+              "select last_value from preparation_grant_guards_id_seq",
+            )
+          ).rows[0].last_value,
+        ).toBe(guardSequence);
+
         app = buildApp({
           db: restored,
           root: resolve(fileURLToPath(new URL("../../../", import.meta.url))),
@@ -259,6 +318,8 @@ describe.skipIf(!tools)(
           event_chain: chain,
           restored_package_state: v.json().package.status,
           evidence_bytes_equal: true,
+          grant_proposal_bytes_equal: true,
+          grant_guard_sequence_equal: true,
           legacy_writer_refused: true,
         };
         if (process.env.CONTROLROD_REHEARSAL_REPORT)

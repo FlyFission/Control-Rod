@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "GrantReadResult.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "type": "string",
+            "const": "read-input"
+        },
+        "input_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+        },
+        "digest": {
+            "$ref": "Digest.json"
+        },
+        "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "kind",
+        "input_id",
+        "digest",
+        "bytes"
+    ],
+    "unevaluatedProperties": false
+}

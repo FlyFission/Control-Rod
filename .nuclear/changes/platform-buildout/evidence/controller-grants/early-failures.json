@@ -1,0 +1,18 @@
+{
+  "raw_logs_retained_locally": [
+    {
+      "file": "controlrod-grant-adversarial-first.log",
+      "sha256": "66837b6f401b7442c0f2a6dbc261c6aff5a020ed378c36ea738b4d9b4698923f"
+    },
+    {
+      "file": "controlrod-db-deadline-red.log",
+      "sha256": "7f49d5382055c3b341dd1b9edf3e789033707d073d37ecdfbd8f5e42b1be12bd"
+    }
+  ],
+  "behavioral_failures": [
+    "package body ID mismatch was accepted",
+    "canonical proposal ceiling caused regex call-stack overflow",
+    "fatal transaction timeout masked original error and emitted unhandled connection error"
+  ],
+  "redaction": "Raw test failures can contain ephemeral synthetic grant credentials; public record retains failure descriptions and raw hashes only."
+}

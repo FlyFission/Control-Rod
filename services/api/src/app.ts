@@ -18,6 +18,7 @@ import {
 import type { Db } from "./db/index.js";
 import { bus, type EventRecord, listEvents, verifyChain } from "./events.js";
 import { verificationEvidence } from "./preparation/results.js";
+import { grantRoutes } from "./preparation/grant-routes.js";
 import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
@@ -88,8 +89,9 @@ const MIME: Record<string, string> = {
 };
 
 /**
- * The control plane. People act through a passkey session; the daemon acts through its token.
- * Neither can use the other's routes, and every state change goes through the kernel.
+ * People use a passkey session; the daemon uses its token; grant brokers use narrow
+ * per-grant credentials. Package lifecycle decisions still require the kernel.
+ * Grant admission does not confer human decision rights or activate a runtime.
  */
 export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
@@ -190,6 +192,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   preparationRoutes(app, db, cfg, person, auth);
+  grantRoutes(app,db,cfg,person);
 
   /* ---- captures ---- */
   app.get("/captures", async (req) => {

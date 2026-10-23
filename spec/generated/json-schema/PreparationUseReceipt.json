@@ -1,0 +1,58 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationUseReceipt.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "grant_id": {
+            "type": "string"
+        },
+        "use_id": {
+            "type": "string"
+        },
+        "intent": {
+            "$ref": "PreparationGrantIntent.json"
+        },
+        "admitted_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "custody": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "authorization-only"
+                },
+                {
+                    "type": "string",
+                    "const": "broker-reported-read"
+                },
+                {
+                    "type": "string",
+                    "const": "controller-retained-proposal"
+                }
+            ],
+            "description": "Admission is not proof of tool execution or model consumption."
+        },
+        "artifact": {
+            "$ref": "Artifact.json"
+        },
+        "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "schema_version",
+        "grant_id",
+        "use_id",
+        "intent",
+        "admitted_at",
+        "custody"
+    ],
+    "unevaluatedProperties": false
+}

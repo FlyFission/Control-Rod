@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationGrantInput.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+        },
+        "path": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+[.](json|bin)$",
+            "description": "Relative to the dedicated input root, never the workspace/host root."
+        },
+        "reference": {
+            "type": "string"
+        },
+        "digest": {
+            "$ref": "Digest.json"
+        },
+        "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "id",
+        "path",
+        "reference",
+        "digest",
+        "bytes"
+    ],
+    "unevaluatedProperties": false
+}

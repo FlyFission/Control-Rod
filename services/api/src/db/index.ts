@@ -20,6 +20,13 @@ export async function openDb(connectionString: string): Promise<Db> {
 /** Runs `fn` in one serializable-enough transaction (row locks are taken explicitly). */
 export async function tx<T>(db: Db, fn: (c: Tx) => Promise<T>): Promise<T> {
   const c = await db.connect();
+  let broken = false;
+  const connectionError = () => {
+    broken = true;
+  };
+  // Checked-out clients need an error listener too: a fatal server deadline
+  // closes the socket before a rollback can run. Preserve the original error.
+  c.on("error", connectionError);
   try {
     await c.query("begin");
     await c.query(
@@ -32,11 +39,19 @@ export async function tx<T>(db: Db, fn: (c: Tx) => Promise<T>): Promise<T> {
     for (const e of pendingEvents(c).splice(0)) bus.emit("event", e);
     return out;
   } catch (e) {
-    await c.query("rollback");
+    if ((e as { severity?: string })?.severity === "FATAL") broken = true;
+    if (!broken) {
+      try {
+        await c.query("rollback");
+      } catch {
+        broken = true;
+      }
+    }
     const { pendingEvents } = await import("../events.js");
     pendingEvents(c).splice(0);
     throw e;
   } finally {
-    c.release();
+    c.off("error", connectionError);
+    c.release(broken);
   }
 }

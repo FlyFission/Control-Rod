@@ -3,10 +3,12 @@ import type { Db } from "./index.js";
 import { SCHEMA } from "./schema.js";
 import { PREPARATION_SQL } from "./migrations/001-preparation.js";
 import { CONFIRMATION_SQL } from "./migrations/002-confirmation.js";
+import { RELEASE_SQL } from "./migrations/003-release.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
   { version: "002-confirmation", sql: CONFIRMATION_SQL },
+  { version: "003-release", sql: RELEASE_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

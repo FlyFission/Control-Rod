@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import type { Ajv2020 } from "ajv/dist/2020.js";
+import { preparationForSubject, preparedReleaseGuard, persistReleaseManifest } from "./preparation/release.js";
 import { enrollPreparationTx } from "./preparation/store.js";
 import { type Db, type Tx, tx } from "./db/index.js";
 import { type Actor, appendEvent } from "./events.js";
@@ -27,6 +28,7 @@ export interface WorkConfig {
   /** Seconds a claim lasts without a heartbeat before the sweep marks the run lost. */
   leaseSeconds?: number;
   guidedPreparation?: boolean;
+  preparedRelease?: boolean;
 }
 
 const SYSTEM: Actor = { kind: "system", id: "control-plane" };
@@ -156,15 +158,17 @@ export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
   const author = await latestAuthorRun(q, pkg.id, pkg.revision);
   const outs = author && author.status === "succeeded" ? await outputsOf(q, author.id) : [];
   const ver = author ? await latestVerification(q, pkg.id, pkg.revision, author.round) : null;
+  const preparation = await preparationForSubject(q,pkg);
   const subject = {
+    ...(preparation ? {preparation:preparation.subject} : {}),
     package: { ...pkg.body, status: pkg.status },
     outputs: outs.map((o) => ({ name: o.name, sha256: o.sha256 })),
     pre_check: ver?.body ?? null,
   };
-  return { subject, digest: digest(subject), author, outputs: outs, verification: ver?.body ?? null };
+  return { subject, preparation, digest: digest(subject), author, outputs: outs, verification: ver?.body ?? null };
 }
 
-export async function packageView(db: Db, id: string) {
+export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
   const pkg = await currentPackage(db, id);
   if (!pkg) throw new Refusal(404, "not-found", "No such package");
   const s = await subjectOf(db, pkg);
@@ -183,7 +187,8 @@ export async function packageView(db: Db, id: string) {
     ...(s.verification ? { pre_check: s.verification } : {}),
     decisions: decisions.rows.map((d) => d.body),
     subject_digest: { algorithm: "sha256", value: s.digest },
-    preparation_enrolled: Boolean((await db.query("select 1 from preparation_heads where package_id=$1",[id])).rowCount),
+    preparation_enrolled: Boolean(s.preparation),
+    preparation_release_ready: Boolean(cfg?.preparedRelease && s.preparation?.manifest && s.preparation.blockers.length===0),
   };
 }
 
@@ -230,7 +235,9 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
 /* ---------- runs ---------- */
 
 async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: number, role: string, round: number, requeueOf?: string) {
+  const manifest=(await c.query<{digest:string}>("select digest from preparation_release_manifests where package_id=$1 and package_revision=$2",[packageId,revision])).rows[0];
   const run: Json = {
+    ...(manifest?{preparation_manifest_digest:{algorithm:"sha256",value:manifest.digest}}:{}),
     schema_version: "0.1.0",
     id: `R-${randomUUID().slice(0, 8)}`,
     package_id: packageId,
@@ -531,6 +538,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
             await c.query("update runs set status = 'stopped' where id = $1", [row.id]);
             continue;
           }
+          if ((await c.query("select 1 from preparation_heads where package_id=$1",[pkg.id])).rowCount) continue; // held until prepared lifecycle guards are implemented
           if (row.role === "author") {
             if (pkg.status === "released") {
               if (!(await dependenciesReady(c, pkg.body)).ready) continue;
@@ -1209,13 +1217,17 @@ export function decisionChallenge(subjectDigest: string, kind: string, revision:
   return new Uint8Array(createHash("sha256").update(`${subjectDigest}|${kind}|${revision}|${nonce}`).digest());
 }
 
-export async function decisionSubject(db: Db, id: string, kind: string, revision: number) {
+export async function decisionSubject(db: Db, id: string, kind: string, revision: number, cfg?: WorkConfig) {
   if (!(kind in HUMAN_ACTIONS)) throw new Refusal(400, "invalid", "Unknown decision");
   const pkg = await currentPackage(db, id);
   if (!pkg) throw new Refusal(404, "not-found", "No such package");
   if (pkg.revision !== revision) throw new Refusal(409, "stale", "That revision is no longer current");
-  if(kind==="release" && (await db.query("select 1 from preparation_heads where package_id=$1",[id])).rowCount) throw new Refusal(409,"prepared-release-disabled","Signed prepared release is not enabled yet");
-  return { pkg, ...(await subjectOf(db, pkg)) };
+  const s=await subjectOf(db,pkg);
+  if(kind==="release" && s.preparation) {
+    if(!cfg) throw new Refusal(409,"prepared-release-disabled","Prepared release is disabled");
+    await preparedReleaseGuard(db,cfg,pkg,s.preparation);
+  }
+  return {pkg,...s};
 }
 
 /** Applies a person's decision. The assertion was verified by the caller against the stored challenge. */
@@ -1231,8 +1243,8 @@ export async function applyDecision(
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
-    if(req.kind==="release" && (await c.query("select 1 from preparation_heads where package_id=$1",[id])).rowCount) throw new Refusal(409,"prepared-release-disabled","Signed prepared release is not enabled yet");
     const s = await subjectOf(c, pkg);
+    const preparation = s.preparation ? req.kind==="release" ? await preparedReleaseGuard(c,cfg,pkg,s.preparation) : {requirements_confirmed:Boolean(s.preparation.confirmation),ready_for_release:false,basis_current:false,manifest_matches:false,results_complete:false,required_checks_complete:false,results_pass:false} : undefined;
     const reason = (req.reason ?? "").trim();
     const outcome = decide({
       status: pkg.status,
@@ -1244,6 +1256,7 @@ export async function applyDecision(
       assertion_verified: signed !== null,
       digest_matches: signed !== null && signed.subject_digest === s.digest,
       reason_given: reason.length > 0,
+      ...(preparation?{preparation}:{}),
     });
     const next = kernel(outcome, req.kind);
     const decision = {
@@ -1271,6 +1284,7 @@ export async function applyDecision(
       req.kind,
       decision,
     ]);
+    if(req.kind==="release" && s.preparation) await persistReleaseManifest(c,cfg,s.preparation,decision.id);
     const human: Actor = { kind: "human", id: user };
     if (req.kind === "return") {
       await c.query("update packages set status = 'closed', updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision]);

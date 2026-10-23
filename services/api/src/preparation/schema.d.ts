@@ -726,6 +726,20 @@ export interface components {
             /** Format: int32 */
             next_before?: number;
         };
+        "ControlRod.Preparation.PreparationReleaseManifest": {
+            package_id: string;
+            /** Format: int32 */
+            package_revision: number;
+            preparation_id: string;
+            /** Format: int32 */
+            preparation_revision: number;
+            preparation_digest: components["schemas"]["ControlRod.Records.Digest"];
+            requirements_confirmation_id: string;
+            requirements_digest: components["schemas"]["ControlRod.Records.Digest"];
+            basis_refs: components["schemas"]["ControlRod.Preparation.BasisRef"][];
+            /** @enum {string} */
+            feature_version: "0.1.0";
+        };
         "ControlRod.Preparation.PreparationSnapshot": {
             /** @enum {string} */
             request_kind: "general" | "bugfix" | "enhancement" | "capital-projects";
@@ -766,6 +780,7 @@ export interface components {
             readiness: "blocked" | "ready";
             blockers: components["schemas"]["ControlRod.Preparation.PreparationBlocker"][];
             change_summary: string;
+            manifest?: components["schemas"]["ControlRod.Preparation.PreparationReleaseManifest"];
         };
         "ControlRod.Preparation.Requirement": {
             id: string;
@@ -1066,6 +1081,8 @@ export interface components {
             status: components["schemas"]["ControlRod.Records.RunStatus"];
             /** Format: date-time */
             queued_at: string;
+            /** @description Controlled preparation basis; absent for historical legacy runs. */
+            preparation_manifest_digest?: components["schemas"]["ControlRod.Records.Digest"];
             /** Format: date-time */
             started_at?: string;
             /** Format: date-time */
@@ -1205,6 +1222,7 @@ export interface components {
         PackageView: {
             preparation_enabled?: boolean;
             preparation_enrolled?: boolean;
+            preparation_release_ready?: boolean;
             package: components["schemas"]["ControlRod.Records.WorkPackage"];
             runs: components["schemas"]["ControlRod.Records.Run"][];
             outputs: components["schemas"]["ControlRod.Records.Artifact"][];

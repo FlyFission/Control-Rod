@@ -35,6 +35,9 @@
         },
         "change_summary": {
             "type": "string"
+        },
+        "manifest": {
+            "$ref": "PreparationReleaseManifest.json"
         }
     },
     "required": [

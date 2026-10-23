@@ -10,6 +10,7 @@ import {
   preparationSubjects,
 } from "./readiness.js";
 import type {
+  PreparationReleaseManifest,
   PreparationContent,
   PreparationSnapshot,
   PreparationView,
@@ -17,7 +18,7 @@ import type {
   WorkPackage,
 } from "./types.js";
 
-type Config = { ajv: Ajv2020 };
+type Config = { ajv: Ajv2020; preparedRelease?: boolean };
 const actor = (id: string) => ({ kind: "human" as const, id });
 export function preparationContent(s: PreparationSnapshot): PreparationContent {
   const {
@@ -72,6 +73,7 @@ async function view(
   c: Tx,
   s: PreparationSnapshot,
   p: PackageRow,
+  cfg: { preparedRelease?: boolean } = {},
 ): Promise<PreparationView> {
   const subjects = preparationSubjects(s);
   const confirmed = Boolean(
@@ -87,16 +89,29 @@ async function view(
     { ...p.body, status: p.status } as WorkPackage,
     confirmed,
   );
-  blockers.push({
-    code: "prepared-release-disabled",
-    message: "Preparation is saved. Prepared release is not enabled yet.",
-    owner: "owner",
-  });
+  if (!cfg.preparedRelease)
+    blockers.push({
+      code: "prepared-release-disabled",
+      message: "Preparation is saved. Prepared release is not enabled yet.",
+      owner: "owner",
+    });
+  const released = (
+    await c.query<{ body: PreparationReleaseManifest }>(
+      "select body from preparation_release_manifests where package_id=$1 and package_revision=$2",
+      [p.id, p.revision],
+    )
+  ).rows[0]?.body;
+  const manifest =
+    released?.preparation_id === s.id &&
+    released.preparation_revision === s.revision
+      ? released
+      : undefined;
   return {
+    ...(manifest ? { manifest } : {}),
     snapshot: s,
     ...preparationSubjects(s),
     confirmed,
-    readiness: "blocked",
+    readiness: blockers.length ? "blocked" : "ready",
     blockers,
     change_summary:
       s.revision === 0
@@ -149,7 +164,7 @@ async function save(
     preparation_revision: s.revision,
     content_digest: subjects.content_digest,
   });
-  return view(c, s, p);
+  return view(c, s, p, cfg);
 }
 export async function enrollPreparation(
   db: Db,
@@ -190,7 +205,7 @@ export async function enrollPreparationTx(
         "already-enrolled",
         "This package already has preparation; read its current head.",
       );
-    return view(c, previous, p);
+    return view(c, previous, p, cfg);
   }
   const pkg = { ...p.body, status: p.status } as WorkPackage;
   const capture = p.capture_id
@@ -261,13 +276,14 @@ export async function enrollPreparationTx(
 export async function readPreparation(
   db: Db,
   id: string,
+  cfg: { preparedRelease?: boolean } = {},
 ): Promise<PreparationView> {
   return tx(db, async (c) => {
     const p = await lockedPackage(c, id);
     const s = await head(c, id);
     if (!s)
       throw new Refusal(404, "not-enrolled", "This package has no preparation");
-    return view(c, s, p);
+    return view(c, s, p, cfg);
   });
 }
 function preserveResolutions(

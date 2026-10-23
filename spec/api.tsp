@@ -87,6 +87,7 @@ namespace Captures {
 model PackageView {
   preparation_enabled?: boolean;
   preparation_enrolled?: boolean;
+  preparation_release_ready?: boolean;
   `package`: WorkPackage;
   runs: Run[];
   outputs: Artifact[];

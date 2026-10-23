@@ -40,6 +40,10 @@
             "type": "string",
             "format": "date-time"
         },
+        "preparation_manifest_digest": {
+            "$ref": "Digest.json",
+            "description": "Controlled preparation basis; absent for historical legacy runs."
+        },
         "started_at": {
             "type": "string",
             "format": "date-time"

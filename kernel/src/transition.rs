@@ -136,6 +136,9 @@ pub struct Request {
     /// A non-empty written reason accompanies the request.
     #[serde(default)]
     pub reason_given: bool,
+    /// Present only for an enrolled package; facts come from controlled server records.
+    #[serde(default)]
+    pub preparation: Option<crate::preparation::PreparationGuard>,
 }
 
 /// The kernel's answer: the decision and, when allowed, the state the package moves to.
@@ -178,6 +181,31 @@ pub fn decide(req: &Request) -> Outcome {
         return refuse(ReasonCode::Forbidden);
     }
 
+    if let Some(p) = &req.preparation {
+        let allowed = match req.action {
+            Action::Release => {
+                p.requirements_confirmed
+                    && p.ready_for_release
+                    && p.basis_current
+                    && p.manifest_matches
+            }
+            Action::Claim | Action::SubmitOutput | Action::SubmitPreCheck | Action::Revise => {
+                p.requirements_confirmed && p.basis_current && p.manifest_matches
+            }
+            Action::Accept | Action::AcceptWithFindings => {
+                p.requirements_confirmed
+                    && p.basis_current
+                    && p.manifest_matches
+                    && p.results_complete
+                    && p.required_checks_complete
+                    && (req.action == Action::AcceptWithFindings || p.results_pass)
+            }
+            Action::Return | Action::Reject | Action::OverrideIndependence => true,
+        };
+        if !allowed {
+            return refuse(ReasonCode::Forbidden);
+        }
+    }
     use Action as A;
     use Status as S;
     match (req.action, req.status) {
@@ -268,6 +296,7 @@ mod tests {
             assertion_verified: true,
             digest_matches: true,
             reason_given: false,
+            preparation: None,
         }
     }
 

@@ -61,6 +61,7 @@ export interface AppOptions {
   leaseSeconds?: number;
   /** Enables new enrollment; existing companions stay controlled when off. */
   guidedPreparation?: boolean;
+  preparedRelease?: boolean;
   /** Seconds between sweeps for lost runs. Default 15; 0 turns the timer off. */
   sweepSeconds?: number;
 }
@@ -89,7 +90,7 @@ const MIME: Record<string, string> = {
  */
 export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
-  const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
+  const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
   app.removeContentTypeParser("application/json");
@@ -205,7 +206,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   app.get<{ Params: { id: string } }>("/packages/:id", async (req) => {
     await person(req);
-    return { ...await packageView(db, req.params.id), preparation_enabled: cfg.guidedPreparation };
+    return { ...await packageView(db, req.params.id, cfg), preparation_enabled: cfg.guidedPreparation };
   });
   app.put<{ Params: { id: string } }>("/packages/:id", async (req) => {
     const user = await person(req);
@@ -240,7 +241,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions/options", async (req) => {
     await person(req);
     const { kind, package_revision: revision } = req.body ?? ({} as DecisionBody);
-    const s = await decisionSubject(db, req.params.id, String(kind), Number(revision));
+    const s = await decisionSubject(db, req.params.id, String(kind), Number(revision), cfg);
     const shown = req.body?.expected_subject_digest?.value;
     if (shown !== undefined && shown !== s.digest) {
       throw new Refusal(409, "changed", "This package changed since you opened it. Reload and review the current version.");

@@ -38,7 +38,7 @@ export interface Harness {
 }
 
 /** A real Postgres per test file and the real app. Nothing is mocked but the authenticator and the daemon. */
-export async function startHarness(options: Pick<AppOptions,"guidedPreparation"> = {}): Promise<Harness> {
+export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|"preparedRelease"> = {}): Promise<Harness> {
   const external = process.env.TEST_DATABASE_URL;
   if (external) {
     // A fresh database per test file on a Postgres the caller provides (CI service or local server).

@@ -41,6 +41,7 @@ export interface KernelRequest {
   assertion_verified?: boolean;
   digest_matches?: boolean;
   reason_given?: boolean;
+  preparation?: PreparationGuard;
 }
 
 export interface KernelOutcome {
@@ -69,4 +70,9 @@ export function decidePreparation(req: {
   assertion_verified: boolean; current_digest: string; expected_digest: string; requirements_clear: boolean;
 }): { allowed: boolean; reason: string } {
   return JSON.parse(wasm.decide_preparation_json(JSON.stringify(req)));
+}
+
+export interface PreparationGuard {
+ requirements_confirmed:boolean; ready_for_release:boolean; basis_current:boolean; manifest_matches:boolean;
+ results_complete:boolean; required_checks_complete:boolean; results_pass:boolean;
 }

@@ -12,3 +12,5 @@ export type ResolutionRequest = S["ControlRod.Preparation.ResolutionRequest"];
 
 export type RequirementsConfirmation =
   S["ControlRod.Preparation.RequirementsConfirmation"];
+
+export type PreparationReleaseManifest = S["ControlRod.Preparation.PreparationReleaseManifest"];

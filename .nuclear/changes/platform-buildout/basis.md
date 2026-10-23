@@ -23,3 +23,7 @@ The task evidence and remaining authority gates are recorded honestly in the exe
 ## Source-lineage note
 
 Workflow basis: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. Adapted as a local engineering record, not a compliance certification.
+
+## Human authorization received
+
+On 2026-10-23 the user answered **“Authorize those specific kernel changes”** to the scoped question naming signed requirements confirmation, manifest-bound release, stale-basis refusal and criterion-result acceptance (tasks 6–9). This is the recorded human authorization for those exact kernel decision edits under AGENTS.md rule 2. It does not authorize unrelated protected policies/CI/red-team changes, certify prior contributors, approve main integration or approve deployment. No cryptographic GitHub identity or passkey signature is claimed by this conversation record.

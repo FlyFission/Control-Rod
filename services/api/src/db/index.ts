@@ -1,5 +1,5 @@
 import pg from "pg";
-import { SCHEMA } from "./schema.js";
+import { migrate } from "./migrate.js";
 
 export type Db = pg.Pool;
 export type Tx = pg.PoolClient;
@@ -7,7 +7,7 @@ export type Tx = pg.PoolClient;
 /** Opens a pool and applies the schema. */
 export async function openDb(connectionString: string): Promise<Db> {
   const pool = new pg.Pool({ connectionString, max: 10 });
-  await pool.query(SCHEMA);
+  try { await migrate(pool); } catch (error) { await pool.end(); throw error; }
   return pool;
 }
 

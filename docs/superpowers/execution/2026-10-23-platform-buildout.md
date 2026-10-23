@@ -52,3 +52,16 @@ Ruling: include mode in the contract projection — classification is a requirem
 Ruling: allocate unique IDs across item kinds within a snapshot — prevents ambiguous resolution/task references — cost if wrong is requiring clearer prefixed user IDs.
 
 Task 4: next — versioned migrations and immutable storage.
+
+## Task 4 evidence
+
+Task 4: complete — transactional checksum-locked migration registry, append-only preparation snapshots/enrollments, current head, one-companion enrollment, immutable revisions and package/criteria projection updates in the same transaction as events. Strong ETag CAS refuses absent preconditions (428) and stale writes (409). Human resolution endpoint records actual session identity; content edits cannot forge actors/resolutions. Retired requirement/criterion IDs cannot be reused.
+
+RED: missing store/migration modules in `/tmp/controlrod-task4-red.log`. GREEN: eight database scenarios including concurrent enrollment/edit, historical bytes, actor custody, rollback on failed event append, new-pool restart, legacy schema upgrade and checksum/future-version refusal. Full API suite: 96 tests; type check passed. First test had an incorrect events-column assumption; corrected to existing JSONB event fields rather than changing production schema.
+
+Ruling: keep migration SQL in compiled TypeScript modules — built server must carry the identical checksummed SQL without a separate asset-copy step — cost if wrong is a later SQL-export tool, not lost runtime migration assets.
+Ruling: expose public store operations as complete transactions, adding a Tx variant for intake integration next — public callers cannot accidentally forget atomic events — cost if wrong is a small integration wrapper.
+
+Human authorization received: user explicitly answered “Authorize those specific kernel changes” for tasks 6–9 on 2026-10-23. Exact scope is retained in the basis record. Unrelated protected surfaces and main/DCO/release gates remain pending.
+
+Task 5: next — human routes, intake linkage, workbench and enrollment/release guards.

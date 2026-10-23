@@ -41,3 +41,14 @@ Ruling: retain lean internal Go projections only behind complete generated raw-s
 Ruling: reject undocumented 204 log/completion success — current TypeSpec promises a stop/lease response and a recorded receipt — cost if wrong is incompatibility with older nonconforming servers; main integration must deploy matching server/daemon.
 
 Task 3: next — additive preparation contracts and pure readiness.
+
+## Task 3 evidence
+
+Task 3: complete — additive closed TypeSpec preparation companions and human manual-route contracts; generated API types; pure relationship/readiness checks and separate requirements/content subjects. Existing WorkPackage schema unchanged.
+
+RED: missing preparation module in `/tmp/controlrod-task3-red.log`. GREEN: seven focused schema/readiness tests and API type check. Fixtures cover orphan/duplicate IDs, reciprocal check coverage, human blocker ownership/resolutions, bug context, source pins, criteria compatibility and technical-only subject changes. Raw-profile vectors continue to exercise historical serialization.
+
+Ruling: include mode in the contract projection — classification is a requirements input — cost if wrong is a conservative confirmation invalidation.
+Ruling: allocate unique IDs across item kinds within a snapshot — prevents ambiguous resolution/task references — cost if wrong is requiring clearer prefixed user IDs.
+
+Task 4: next — versioned migrations and immutable storage.

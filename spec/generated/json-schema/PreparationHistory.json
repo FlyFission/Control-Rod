@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationHistory.json",
+    "type": "object",
+    "properties": {
+        "revisions": {
+            "type": "array",
+            "items": {
+                "$ref": "PreparationView.json"
+            }
+        },
+        "next_before": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "revisions"
+    ],
+    "unevaluatedProperties": false
+}

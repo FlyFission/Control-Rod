@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationEnrollment.json",
+    "type": "object",
+    "properties": {
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100
+        }
+    },
+    "required": [
+        "package_revision",
+        "idempotency_key"
+    ],
+    "unevaluatedProperties": false
+}

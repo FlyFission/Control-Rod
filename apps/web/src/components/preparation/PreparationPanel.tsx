@@ -207,6 +207,12 @@ export function PreparationPanel({
         · revision {v?.snapshot.revision} ·{" "}
         {dirty ? "Unsaved changes" : "Saved"}
       </p>
+      {v && (
+        <p className="mono small">
+          Requirements {v.requirements_digest.value.slice(0, 12)} · Content{" "}
+          {v.content_digest.value.slice(0, 12)}
+        </p>
+      )}
       {pkg.status === "draft" && !v?.confirmed && (
         <button
           type="button"

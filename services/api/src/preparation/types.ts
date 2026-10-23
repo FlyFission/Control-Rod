@@ -14,3 +14,7 @@ export type RequirementsConfirmation =
   S["ControlRod.Preparation.RequirementsConfirmation"];
 
 export type PreparationReleaseManifest = S["ControlRod.Preparation.PreparationReleaseManifest"];
+export type CriterionResultSubmission = S["ControlRod.Preparation.CriterionResultSubmission"];
+export type CriterionResultSet = S["ControlRod.Preparation.CriterionResultSet"];
+export type VerificationRecord = S["ControlRod.Records.VerificationRecord"];
+export type EvidenceItem = S["ControlRod.Records.EvidenceItem"];

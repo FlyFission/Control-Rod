@@ -1,3 +1,5 @@
+import type { VerificationRecord } from "./preparation/types.js";
+import { prepareCriterionResults, persistCriterionResults, preparedAcceptanceGuard, currentCriterionResults, criterionResultFlags, criterionResultSchemaInputs } from "./preparation/results.js";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
@@ -168,7 +170,9 @@ export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
     outputs: outs.map((o) => ({ name: o.name, sha256: o.sha256 })),
     pre_check: ver?.body ?? null,
   };
-  return { subject, preparation, digest: digest(subject), author, outputs: outs, verification: ver?.body ?? null };
+  const criterionResults=preparation?await currentCriterionResults(q,pkg,author?.round,ver?.body??null):null;
+  if(criterionResults) Object.assign(subject,{criterion_results_digest:{algorithm:"sha256",value:criterionResults.digest},criterion_evidence_digest:{algorithm:"sha256",value:digest(criterionResults.evidence_subject)}});
+  return { subject, preparation, criterionResults, digest: digest(subject), author, outputs: outs, verification: ver?.body ?? null };
 }
 
 export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
@@ -190,6 +194,8 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     ...(s.verification ? { pre_check: s.verification } : {}),
     decisions: decisions.rows.map((d) => d.body),
     subject_digest: { algorithm: "sha256", value: s.digest },
+    ...(s.criterionResults?{criterion_results_integrity:s.criterionResults.evidence_valid?"intact":"changed",criterion_results:s.criterionResults.body,criterion_results_run_id:s.criterionResults.run_id}:{}),
+    ...(s.preparation?{preparation_verification_complete:criterionResultFlags(s.preparation.snapshot,s.criterionResults?.evidence_valid?s.criterionResults.body:null).required_checks_complete,preparation_results_pass:criterionResultFlags(s.preparation.snapshot,s.criterionResults?.evidence_valid?s.criterionResults.body:null).results_pass}:{}),
     preparation_enrolled: Boolean(s.preparation),
     preparation_release_ready: Boolean(cfg?.preparedRelease && s.preparation?.manifest && s.preparation.blockers.length===0),
   };
@@ -484,6 +490,10 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   if (own) inputs.push(...packFiles(own.packDir));
   const roleText = run.role === "pre-check" ? preCheckRole(cfg, role) : (own?.text ?? "");
   const extra: string[] = [];
+  if(run.preparation_manifest_digest && run.role==="pre-check") {
+    inputs.push(...criterionResultSchemaInputs(cfg.root));
+    extra.push("## Controlled criterion results\n\nWrite out/criterion-results.json using inputs/schemas/CriterionResultSubmission.json. Use the exact package, revision and manifest digest from inputs/PREPARATION.json. Record every current criterion and mapped check once. Retain actual check evidence as separate out/ files and reference it as checker:<relative file name>. Claim JSON is not decisive evidence. Open/deferred checks must be reported honestly; required checks cannot be waived at acceptance. Also write the ordinary verification.json outcome and findings.");
+  }
   let findings: Json[] | undefined;
   if (run.role === "pre-check") {
     const author = await latestAuthorRun(c, pkg.id, pkg.revision);
@@ -952,6 +962,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     if(row.body.preparation_manifest_digest && (!pkg || pkg.revision!==row.package_revision)) throw new Refusal(409,"preparation-stale","Run belongs to a superseded preparation basis");
     if(pkg) await preparedExecutionGuard(c,cfg,pkg,row.body);
   }
+  if(row.role!=="pre-check" && body.criterion_results!==undefined) throw new Refusal(403,"criterion-role","Only the assigned checker can submit criterion results");
   const runId = row.id;
   const agent: Actor = { kind: "agent", id: row.body.agent_baseline };
   const outputs: Output[] = [];
@@ -959,6 +970,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     if (typeof o.name !== "string" || !SAFE_OUTPUT.test(o.name) || o.name.includes("..")) {
       throw new Refusal(400, "invalid", "An output name is not a plain relative path");
     }
+    if(outputs.some(v=>v.name===o.name)) throw new Refusal(400,"duplicate-output","Output names must be unique");
     outputs.push({ name: o.name, bytes: Buffer.from(String(o.content_base64 ?? ""), "base64") });
   }
   if (body.trace !== undefined) {
@@ -1154,8 +1166,12 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   const checkerRuntime = identityOf(row.body, body.trace);
   const sharedRuntime = mayBeSameRuntime(authorRuntime, checkerRuntime);
   const override = verifiedOverride(row.body) ? row.body.independence_override : undefined;
-  const asRef = (r: Json, id: RuntimeIdentity) => ({ kind: String(r?.runtime?.kind ?? "local"), provider: id.provider || "unknown", model: id.model });
-  const record = {
+  const asRef = (r: Json, id: RuntimeIdentity): NonNullable<VerificationRecord["independence"]>["author_runtime"] => {
+    const kind=String(r?.runtime?.kind ?? "local");
+    if(kind!=="local" && kind!=="subscription" && kind!=="account") throw new Refusal(400,"invalid-runtime","Unknown runtime kind");
+    return {kind,provider:id.provider || "unknown",model:id.model};
+  };
+  const record: VerificationRecord = {
     schema_version: "0.1.0",
     package_id: pkg.id,
     package_revision: pkg.revision,
@@ -1196,6 +1212,8 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       ...(sharedRuntime && override ? { owner_override: override } : {}),
     },
   };
+  const admitted=preparation?await prepareCriterionResults(c,cfg,row,record,body,outputs,sharedRuntime):null;
+  if(admitted) record.evidence=admitted.evidence;
   validate(cfg, "VerificationRecord.json", record);
   kernel(
     decide({
@@ -1216,6 +1234,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
     "insert into verifications (run_id, package_id, package_revision, round, body) values ($1, $2, $3, $4, $5)",
     [row.id, pkg.id, pkg.revision, row.round, record],
   );
+  if(admitted) await persistCriterionResults(c,cfg,row,admitted.submission,record);
   await appendEvent(c, "package.pre-checked", pkg.id, agent, {
     revision: pkg.revision,
     round: row.round,
@@ -1259,7 +1278,7 @@ export async function decisionSubject(db: Db, id: string, kind: string, revision
     if(!cfg) throw new Refusal(409,"prepared-release-disabled","Prepared release is disabled");
     await preparedReleaseGuard(db,cfg,pkg,s.preparation);
   }
-  if(s.preparation && (kind==="accept" || kind==="accept-with-findings") && cfg) await tx(db,c=>preparedExecutionGuard(c,cfg,pkg,s.author?.body));
+  if(s.preparation && (kind==="accept" || kind==="accept-with-findings") && cfg) await tx(db,c=>preparedAcceptanceGuard(c,cfg,pkg,s.author,s.verification));
   return {pkg,...s};
 }
 
@@ -1277,7 +1296,7 @@ export async function applyDecision(
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
     const s = await subjectOf(c, pkg);
-    const preparation = s.preparation ? req.kind==="release" ? await preparedReleaseGuard(c,cfg,pkg,s.preparation) : (req.kind==="accept" || req.kind==="accept-with-findings") ? await preparedExecutionGuard(c,cfg,pkg,s.author?.body) : {requirements_confirmed:Boolean(s.preparation.confirmation),ready_for_release:false,basis_current:false,manifest_matches:false,results_complete:false,required_checks_complete:false,results_pass:false} : undefined;
+    const preparation = s.preparation ? req.kind==="release" ? await preparedReleaseGuard(c,cfg,pkg,s.preparation) : (req.kind==="accept" || req.kind==="accept-with-findings") ? await preparedAcceptanceGuard(c,cfg,pkg,s.author,s.verification) : {requirements_confirmed:Boolean(s.preparation.confirmation),ready_for_release:false,basis_current:false,manifest_matches:false,results_complete:false,required_checks_complete:false,results_pass:false} : undefined;
     const reason = (req.reason ?? "").trim();
     const outcome = decide({
       status: pkg.status,

@@ -19,3 +19,11 @@ The default repository reference `repository:control-rod` reads tracked blobs fr
 Repository refs pin full HEAD commit, relative path and SHA-256 of the blob; current working bytes must match the pinned blob. Document/policy refs pin configured revision and raw-file SHA-256. Package refs pin the current revision and canonical stored body. Capture refs hash only original identity/text/source/time, excluding intake routing fields; attachment refs hash their original bytes. Source reads are bounded to 5 MiB each and 25 MiB total. These are resource budgets, not engineering values.
 
 Prepared execution currently supports public/internal lanes. Other lanes require an approved confined runtime. Source checking is provenance validation, not runtime confinement, policy certification or engineering acceptance. External file changes are observed at release, claim, completion and acceptance; execution receives the retained pinned inputs. The PostgreSQL chain/immutable tables remain owner-local records, not an independent external trust anchor.
+
+## Criterion result admission
+
+An enrolled checker writes `criterion-results.json` using the generated `CriterionResultSubmission` schema supplied with the job. Submission binds package/revision/release-manifest and records every criterion and mapped check. The controller adds the canonical digest of the actual normalized verification record when storing `CriterionResultSet`; a checker does not guess server-owned metadata. Executed outcomes reference retained current-checker artifacts as `checker:<relative name>`. Claim JSON itself is not decisive evidence.
+
+Normal acceptance requires passing results and complete required verification. Acceptance with findings needs a signed reason and can accept completed failed checks; it cannot waive missing/open/deferred/inconclusive mandatory checks, stale inputs, invalid signatures or wrong revisions. Results are checker reports with retained artifacts, not a certification that the method is sound. Human review remains required.
+
+The workbench shows per-criterion reports and links only to admitted checker evidence. The server verifies retained bytes against the verification record's bound artifact digests at review/acceptance and on evidence reads. Altered evidence blocks acceptance while the owner can still return/reject the package with a controlled history.

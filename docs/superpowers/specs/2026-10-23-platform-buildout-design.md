@@ -58,3 +58,7 @@ AGENTS.md rule 2 requires a human signature for kernel decisions, policies, CI, 
 ## Definition of done
 
 For each slice: reviewed contracts, meaningful observed RED then GREEN, regenerated files reproducible, relevant suites green, immutable execution evidence, clean reviewable commit and honest limitations. For the program: all PB rows meet their gates, protected authorizations and DCO resolved, restore rehearsed, exact delivered artifact checked and release decision recorded. A completed local slice is not program completion.
+
+## Result admission interface clarification
+
+`CriterionResultSubmission` is the checker-owned wire record (package/revision/manifest/results). The controller derives `CriterionResultSet.verification_record_digest` from the actual normalized stored record. Evidence refs name retained checker artifacts as `checker:<relative name>`; claim JSON is not a decisive artifact. Complete mandatory verification means required checks have pass/fail outcomes with retained evidence. Open/deferred/inconclusive mandatory outcomes cannot be waived by acceptance with findings. A completed failed check may be accepted only through the existing explicit signed exception.

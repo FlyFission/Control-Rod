@@ -28,3 +28,4 @@ export type PreparationContent = S["ControlRod.Preparation.PreparationContent"];
 export type ResolutionRequest = S["ControlRod.Preparation.ResolutionRequest"];
 
 export type RequirementsConfirmation = S["ControlRod.Preparation.RequirementsConfirmation"];
+export type CriterionResultSet = S["ControlRod.Preparation.CriterionResultSet"];

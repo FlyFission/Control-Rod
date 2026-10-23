@@ -46,6 +46,9 @@
         },
         "verification": {
             "$ref": "VerificationRecord.json"
+        },
+        "criterion_results": {
+            "$ref": "CriterionResultSubmission.json"
         }
     },
     "required": [

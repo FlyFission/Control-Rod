@@ -472,6 +472,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/verification-evidence/{runId}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Authenticated access only to evidence referenced by an admitted checker result. */
+        get: operations["Packages_verificationEvidence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runner/claim": {
         parameters: {
             query?: never;
@@ -618,6 +635,12 @@ export interface components {
             /** Format: int32 */
             line_end?: number;
         };
+        "ControlRod.Preparation.CheckResult": {
+            check_id: string;
+            /** @enum {string} */
+            outcome: "pass" | "fail" | "inconclusive" | "open" | "deferred";
+            evidence_refs: string[];
+        };
         "ControlRod.Preparation.ConfirmationOptions": {
             requirements_digest: components["schemas"]["ControlRod.Records.Digest"];
             options: {
@@ -637,6 +660,29 @@ export interface components {
             requirement_ids: string[];
             statement: string;
             verification_check_ids: string[];
+        };
+        "ControlRod.Preparation.CriterionResult": {
+            criterion_id: string;
+            /** @enum {string} */
+            outcome: "pass" | "fail" | "inconclusive" | "open" | "deferred";
+            check_results: components["schemas"]["ControlRod.Preparation.CheckResult"][];
+            finding_refs: string[];
+        };
+        /** @description Controller binds admitted checker results to the actual normalized verification record. */
+        "ControlRod.Preparation.CriterionResultSet": {
+            package_id: string;
+            /** Format: int32 */
+            package_revision: number;
+            release_manifest_digest: components["schemas"]["ControlRod.Records.Digest"];
+            results: components["schemas"]["ControlRod.Preparation.CriterionResult"][];
+            verification_record_digest: components["schemas"]["ControlRod.Records.Digest"];
+        };
+        "ControlRod.Preparation.CriterionResultSubmission": {
+            package_id: string;
+            /** Format: int32 */
+            package_revision: number;
+            release_manifest_digest: components["schemas"]["ControlRod.Records.Digest"];
+            results: components["schemas"]["ControlRod.Preparation.CriterionResult"][];
         };
         "ControlRod.Preparation.DesignElement": {
             id: string;
@@ -1223,6 +1269,12 @@ export interface components {
             preparation_enabled?: boolean;
             preparation_enrolled?: boolean;
             preparation_release_ready?: boolean;
+            preparation_verification_complete?: boolean;
+            preparation_results_pass?: boolean;
+            criterion_results?: components["schemas"]["ControlRod.Preparation.CriterionResultSet"];
+            criterion_results_run_id?: string;
+            /** @enum {string} */
+            criterion_results_integrity?: "intact" | "changed";
             package: components["schemas"]["ControlRod.Records.WorkPackage"];
             runs: components["schemas"]["ControlRod.Records.Run"][];
             outputs: components["schemas"]["ControlRod.Records.Artifact"][];
@@ -1259,6 +1311,7 @@ export interface components {
             outputs: components["schemas"]["Runner.NamedFile"][];
             package?: components["schemas"]["ControlRod.Records.WorkPackage"];
             verification?: components["schemas"]["ControlRod.Records.VerificationRecord"];
+            criterion_results?: components["schemas"]["ControlRod.Preparation.CriterionResultSubmission"];
         };
         /** @description What the control plane recorded for a completion. A repeat with the same key returns it again. */
         "Runner.CompletionReceipt": {
@@ -3237,6 +3290,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ControlRod.Records.Run"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_verificationEvidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                runId: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": unknown;
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */

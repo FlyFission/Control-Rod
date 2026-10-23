@@ -201,12 +201,17 @@ model CriterionResult {
   finding_refs: string[];
 }
 @extension("unevaluatedProperties", false)
-model CriterionResultSet {
+model CriterionResultSubmission {
   package_id: string;
-  package_revision: int32;
+  @minValue(0) package_revision: int32;
   release_manifest_digest: Digest;
-  verification_record_digest: Digest;
   results: CriterionResult[];
+}
+/** Controller binds admitted checker results to the actual normalized verification record. */
+@extension("unevaluatedProperties", false)
+model CriterionResultSet {
+  ...CriterionResultSubmission;
+  verification_record_digest: Digest;
 }
 
 @extension("unevaluatedProperties", false)

@@ -72,3 +72,43 @@ fn enrolled_release_defaults_closed_and_requires_complete_guard() {
     req.preparation = None;
     assert!(decide(&req).decision.is_allowed());
 }
+
+#[test]
+fn acceptance_cannot_waive_missing_mandatory_prepared_verification() {
+    use controlrod_kernel::preparation::PreparationGuard;
+    use controlrod_kernel::transition::{Action, PreCheckOutcome, Request, decide};
+    let mut req = Request {
+        status: Status::InVerification,
+        action: Action::AcceptWithFindings,
+        actor_kind: ActorKind::Human,
+        actor_id: "owner".into(),
+        author_baseline: None,
+        checker_baseline: None,
+        author_runtime: None,
+        checker_runtime: None,
+        owner_override_verified: false,
+        pre_check: Some(PreCheckOutcome::Fail),
+        assertion_verified: true,
+        digest_matches: true,
+        reason_given: true,
+        preparation: Some(PreparationGuard {
+            requirements_confirmed: true,
+            basis_current: true,
+            manifest_matches: true,
+            results_complete: true,
+            ..PreparationGuard::default()
+        }),
+    };
+    assert!(!decide(&req).decision.is_allowed());
+    if let Some(g) = req.preparation.as_mut() {
+        g.required_checks_complete = true;
+    }
+    assert!(decide(&req).decision.is_allowed());
+    req.action = Action::Accept;
+    req.pre_check = Some(PreCheckOutcome::Pass);
+    assert!(!decide(&req).decision.is_allowed());
+    if let Some(g) = req.preparation.as_mut() {
+        g.results_pass = true;
+    }
+    assert!(decide(&req).decision.is_allowed());
+}

@@ -34,7 +34,10 @@ export async function preparedHarness(options: Partial<AppOptions> = {}) {
       headers: { cookie, origin: ORIGIN, ...headers },
       ...(payload === undefined ? {} : { payload: payload as object }),
     });
-  async function draft(basis?: PreparationContent["basis"]) {
+  async function draft(
+    basis?: PreparationContent["basis"],
+    customize?: (content: PreparationContent) => void,
+  ) {
     const p = { ...packageFixture(), id: `WP-${randomUUID()}` };
     await h.db.query(
       "insert into packages(id,revision,status,body) values($1,0,'draft',$2)",
@@ -78,6 +81,7 @@ export async function preparedHarness(options: Partial<AppOptions> = {}) {
       rollout: "Owner reviews before use",
       risks: ["Missing inputs hold"],
     };
+    customize?.(a);
     const saved = await owner("PUT", url, a, {
       "if-match": `"${v.content_digest.value}"`,
     });

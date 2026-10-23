@@ -110,6 +110,7 @@ export const api = {
   overrideIndependence: (id: string, runId: string, body: { reason: string; assertion: Record<string, unknown> }) =>
     call<Run>("POST", `/packages/${enc(id)}/runs/${enc(runId)}/override-independence`, body),
   requeueRun: (id: string, runId: string) => call<Run>("POST", `/packages/${enc(id)}/runs/${enc(runId)}/requeue`),
+  verificationEvidenceUrl: (id:string,runId:string,name:string) => url(`/packages/${enc(id)}/verification-evidence/${enc(runId)}/${name.split("/").map(enc).join("/")}`),
   outputUrl: (id: string, path: string) => url(`/packages/${enc(id)}/outputs/${path.split("/").map(enc).join("/")}`),
   decisionOptions: (id: string, req: DecisionRequest) =>
     call<{ subject_digest: Digest; options: Record<string, unknown> }>(

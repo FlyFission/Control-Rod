@@ -1,10 +1,14 @@
 # Ship posture: controlled platform buildout
 
-Disposition: local execution authorized; main integration, protected edits and release remain gated.
+Release decision: **defer main integration and operational release**. The owner-local implementation slice and fixture recovery rehearsal are ready for fresh whole-branch review. No PR has been merged by this packet; no service is deployed.
 
-No open PR is merged by this packet. Existing kernel-signature review and per-contributor DCO remain open. New preparation defaults off; enrollment must remain release-disabled until the full signed manifest path is verified. Automated preparation stays off until runtime confinement is demonstrated. Legacy 0.1.0 signed bytes remain valid and unchanged.
+Human authorization was received for the specific kernel edits in tasks 6–9 and is recorded in the basis. It does not certify original contributors, close the earlier MVP protected-review thread, approve unrelated policies/red-team/CI surfaces or approve deployment. Those gates remain distinct. The new policy/red-team authorization request is pending; the runtime policy proposal is inactive.
 
-Rollback must preserve immutable preparation history and reject enrolled packages on an older binary. Backup/restore must be rehearsed against the same generated contracts before a manual pilot. No production, certification, deployed-service or engineering-fitness claim is made.
+New enrollment and prepared release default off. Existing companions cannot fall back to legacy release when flags are off. A database capability floor refuses unaware prepared writers. Authenticated native confinement is not proved, so assisted preparation remains held. The larger domain/platform programs are specified future work.
+
+Rollback uses the same supported binary and a verified restored database; never delete companions or reinterpret old signatures to downgrade. The fixture backup/restore preserved controlled bodies, evidence bytes and event continuity. An actual owner/hardware-passkey operational pilot and qualified engineering/data inputs have not been supplied.
+
+Monitoring during an approved pilot must cover stale-source refusals, expired claims, result/evidence integrity, quarantine growth, writer-protocol errors, migration drift and operator decisions. Keep release/dispatch off during recovery until owner checks complete. No production, independent-witness, certification, compliance or engineering-fitness claim is made.
 
 ## Required links
 
@@ -12,12 +16,8 @@ Rollback must preserve immutable preparation history and reject enrolled package
 
 ## Exit criteria
 
-The task evidence and remaining authority gates are recorded honestly in the execution ledger.
+Current evidence, scope and remaining authority gates are explicit. No planned or fixture-only capability is presented as operational deployment or engineering acceptance.
 
 ## Source-lineage note
 
-Workflow basis: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. Adapted as a local engineering record, not a compliance certification.
-
-## Release decision and monitoring
-
-Release decision: defer. Monitor failed claims, stale-subject refusals, migration drift and preparation blockers during the eventual pilot; owner reviews operational evidence before changing posture.
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

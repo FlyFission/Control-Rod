@@ -1,0 +1,107 @@
+
+> @control-rod/api@0.0.0 test /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+> vitest run --run test/preparation-role-boundary.test.ts
+
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+
+ ❯ test/preparation-role-boundary.test.ts (5 tests | 5 failed) 1031ms
+   ❯ preparation integration role boundary (2)
+     × does not dispatch inconsistent unexpected-role rows as legacy author work 56ms
+     × does not dispatch inconsistent intake rows as legacy author work 10ms
+   ❯ legacy mutators cannot adopt an unsupported role (3)
+     × refuses log without changing custody 7ms
+     × refuses complete without changing custody 10ms
+     × refuses requeue without changing custody 20ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/preparation-role-boundary.test.ts > preparation integration role boundary > does not dispatch inconsistent unexpected-role rows as legacy author work
+AssertionError: {"run":{"id":"RUN-517eb5db-b899-4b14-9e42-ccf09f7713ad","role":"author","round":1,"status":"running","runtime":{"kind":"local","provider":"fake","model":"fake"},"queued_at":"2026-10-23T19:30:25.454Z","package_id":"WP-4eb43bed-b15a-4cf3-8d68-34b52d0db517","agent_baseline":"author-fake","schema_version":"0.1.0","package_revision":0,"started_at":"2026-10-23T19:30:25.472Z","label":"Starting","lease_expires_at":"2026-10-23T19:31:55.472Z"},"package":{"id":"WP-4eb43bed-b15a-4cf3-8d68-34b52d0db517","mode":"general","title":"Controlled report","status":"draft","project":"test","revision":0,"data_lane":"internal","objective":"Produce a report","rigor_mode":"standard","deliverables":[{"id":"D1","type":"report","format":["md"]}],"verification":{"method":"agent-pre-check","verifier":"checker","required_custody":{"preparer_may_present":false,"decisive_evidence_generated_by":"verifier"},"verifier_receives":["deliverables"]},"design_inputs":[],"schema_version":"0.1.0","agent_assignment":[{"role":"general-author","agent_baseline":"author","baseline_revision":0}],"acceptance_criteria":["The report exists"]},"inputs":[{"name":"PACKAGE.json","content_base64":"ewogICJpZCI6ICJXUC00ZWI0M2JlZC1iMTVhLTRjZjMtOGQ2OC0zNGI1MmQwZGI1MTciLAogICJtb2RlIjogImdlbmVyYWwiLAogICJ0aXRsZSI6ICJDb250cm9sbGVkIHJlcG9ydCIsCiAgInN0YXR1cyI6ICJkcmFmdCIsCiAgInByb2plY3QiOiAidGVzdCIsCiAgInJldmlzaW9uIjogMCwKICAiZGF0YV9sYW5lIjogImludGVybmFsIiwKICAib2JqZWN0aXZlIjogIlByb2R1Y2UgYSByZXBvcnQiLAogICJyaWdvcl9tb2RlIjogInN0YW5kYXJkIiwKICAiZGVsaXZlcmFibGVzIjogWwogICAgewogICAgICAiaWQiOiAiRDEiLAogICAgICAidHlwZSI6ICJyZXBvcnQiLAogICAgICAiZm9ybWF0IjogWwogICAgICAgICJtZCIKICAgICAgXQogICAgfQogIF0sCiAgInZlcmlmaWNhdGlvbiI6IHsKICAgICJtZXRob2QiOiAiYWdlbnQtcHJlLWNoZWNrIiwKICAgICJ2ZXJpZmllciI6ICJjaGVja2VyIiwKICAgICJyZXF1aXJlZF9jdXN0b2R5IjogewogICAgICAicHJlcGFyZXJfbWF5X3ByZXNlbnQiOiBmYWxzZSwKICAgICAgImRlY2lzaXZlX2V2aWRlbmNlX2dlbmVyYXRlZF9ieSI6ICJ2ZXJpZmllciIKICAgIH0sCiAgICAidmVyaWZpZXJfcmVjZWl2ZXMiOiBbCiAgICAgICJkZWxpdmVyYWJsZXMiCiAgICBdCiAgfSwKICAiZGVzaWduX2lucHV0cyI6IFtdLAogICJzY2hlbWFfdmVyc2lvbiI6ICIwLjEuMCIsCiAgImFnZW50X2Fzc2lnbm1lbnQiOiBbCiAgICB7CiAgICAgICJyb2xlIjogImdlbmVyYWwtYXV0aG9yIiwKICAgICAgImFnZW50X2Jhc2VsaW5lIjogImF1dGhvciIsCiAgICAgICJiYXNlbGluZV9yZXZpc2lvbiI6IDAKICAgIH0KICBdLAogICJhY2NlcHRhbmNlX2NyaXRlcmlhIjogWwogICAgIlRoZSByZXBvcnQgZXhpc3RzIgogIF0KfQ=="},{"name":"BRIEF.md","content_base64":"IyBDb250cm9sIFJvZCBicmllZgoKUm9sZTogYXV0aG9yIMK3IFBhY2thZ2UgV1AtNGViNDNiZWQtYjE1YS00Y2YzLThkNjgtMzRiNTJkMGRiNTE3IHJldmlzaW9uIDAgwrcgUm91bmQgMQoKIyBBdXRob3IKClByb2R1Y2UgdGhlIGRlbGl2ZXJhYmxlcyBuYW1lZCBpbiB0aGUgd29yayBwYWNrYWdlLCBpbiB0aGUgZm9ybWF0cyBuYW1lZCwgaW50byBgb3V0L2AuCgotIE1lZXQgZXZlcnkgYWNjZXB0YW5jZSBjcml0ZXJpb24gYW5kIHNheSwgYXQgdGhlIGVuZCBvZiB0aGUgbWFpbiBkZWxpdmVyYWJsZSwgaG93IGVhY2ggb25lIGlzIG1ldC4KLSBVc2Ugb25seSB0aGUgaW5wdXRzIHByb3ZpZGVkIGFuZCBzb3VyY2VzIHlvdSBjaXRlLiBDaXRlIGV2ZXJ5IG91dHNpZGUgZmFjdCB3aXRoIGl0cyBzb3VyY2UuCi0gRXZlcnkgbnVtYmVyIGNvbWVzIGZyb20gYSB0b29sIG9yIGNvZGUgeW91IHJ1biwgbmV2ZXIgdHlwZWQgZnJvbSBtZW1vcnkuIEtlZXAgdGhlIGNvZGUgeW91IHJhbiBpbiBgb3V0L3dvcmsvYCBzbyBpdCBjYW4gYmUgcmVydW4uCi0gSWYgc29tZXRoaW5nIGNhbm5vdCBiZSBkb25lLCBzYXkgc28gcGxhaW5seSBpbiB0aGUgZGVsaXZlcmFibGUgYW5kIGxpc3QgaXQgYXMgYW4gb3BlbiBpdGVtLiBEbyBub3QgcGFwZXIgb3ZlciBpdC4KLSBJZiBmaW5kaW5ncyBmcm9tIGEgcHJlLWNoZWNrIGFyZSBwcm92aWRlZCwgZml4IGVhY2ggb25lIGFuZCBsaXN0IGhvdyBpbiBgb3V0L1JFU1BPTlNFLm1kYC4KCiMjIFRoZSB3b3JrIHBhY2thZ2UKClNlZSBpbnB1dHMvUEFDS0FHRS5qc29uLiBPYmplY3RpdmU6IFByb2R1Y2UgYSByZXBvcnQKCiMjIFJ1bGVzCgotIFJlYWQgZXZlcnkgZmlsZSB1bmRlciBpbnB1dHMvLiBXcml0ZSBldmVyeSBkZWxpdmVyYWJsZSBpbnRvIG91dC8uIE5ldmVyIGVkaXQgaW5wdXRzLy4KLSBFdmVyeSBlbmdpbmVlcmluZyBudW1iZXIgY29tZXMgZnJvbSBhIHRvb2wgb3IgY29kZSB5b3UgcnVuLCBuZXZlciB0eXBlZCBmcm9tIG1lbW9yeS4KLSBDaXRlIGV2ZXJ5IG91dHNpZGUgZmFjdCB3aXRoIGl0cyBzb3VyY2UgYW5kIHRoZSBkYXRlIHlvdSByZXRyaWV2ZWQgaXQuCi0gWW91IGNhbm5vdCBhcHByb3ZlLCBhY2NlcHQgb3IgcmVsZWFzZSBhbnl0aGluZy4gQSBwZXJzb24gZG9lcyB0aGF0Lgo="},{"name":"TOOLS.txt","content_base64":"UmVhZApXcml0ZQpFZGl0Ckdsb2IKR3JlcApXZWJTZWFyY2gKV2ViRmV0Y2gKQmFzaChjci1zaXRlOiopCkJhc2gocHl0aG9uMzoqKQo="}],"claim":{"token":"BHF_uE7p0orZVkmkRuKuNAoXjZwjIRcpZMcxw3gGCMY","lease_expires_at":"2026-10-23T19:31:55.472Z","heartbeat_seconds":30}}: expected 200 to be 204 // Object.is equality
+
+- Expected
++ Received
+
+- 204
++ 200
+
+ ❯ test/preparation-role-boundary.test.ts:15:39
+     13|   await h.db.query("insert into runs(id,package_id,package_revision,ro…
+     14|   const claim=await h.app.inject({method:"POST",url:"/runner/claim",he…
+     15|   expect(claim.statusCode,claim.body).toBe(204);
+       |                                       ^
+     16|   const row=(await h.db.query("select status,claim_token_hash from run…
+     17|   expect(row.status).toBe("queued");expect(row.claim_token_hash).toBeN…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  test/preparation-role-boundary.test.ts > preparation integration role boundary > does not dispatch inconsistent intake rows as legacy author work
+AssertionError: {"run":{"id":"RUN-33e20e77-66fc-4614-9521-fc2020dec8e3","role":"author","round":1,"status":"running","runtime":{"kind":"local","provider":"fake","model":"fake"},"queued_at":"2026-10-23T19:30:25.508Z","package_id":"WP-655ece44-f59c-4550-94d4-fa5cf0205958","agent_baseline":"intake-fake","schema_version":"0.1.0","package_revision":0,"started_at":"2026-10-23T19:30:25.512Z","label":"Starting","lease_expires_at":"2026-10-23T19:31:55.512Z"},"package":{"id":"WP-655ece44-f59c-4550-94d4-fa5cf0205958","mode":"general","title":"Controlled report","status":"draft","project":"test","revision":0,"data_lane":"internal","objective":"Produce a report","rigor_mode":"standard","deliverables":[{"id":"D1","type":"report","format":["md"]}],"verification":{"method":"agent-pre-check","verifier":"checker","required_custody":{"preparer_may_present":false,"decisive_evidence_generated_by":"verifier"},"verifier_receives":["deliverables"]},"design_inputs":[],"schema_version":"0.1.0","agent_assignment":[{"role":"general-author","agent_baseline":"author","baseline_revision":0}],"acceptance_criteria":["The report exists"]},"inputs":[{"name":"PACKAGE.json","content_base64":"ewogICJpZCI6ICJXUC02NTVlY2U0NC1mNTljLTQ1NTAtOTRkNC1mYTVjZjAyMDU5NTgiLAogICJtb2RlIjogImdlbmVyYWwiLAogICJ0aXRsZSI6ICJDb250cm9sbGVkIHJlcG9ydCIsCiAgInN0YXR1cyI6ICJkcmFmdCIsCiAgInByb2plY3QiOiAidGVzdCIsCiAgInJldmlzaW9uIjogMCwKICAiZGF0YV9sYW5lIjogImludGVybmFsIiwKICAib2JqZWN0aXZlIjogIlByb2R1Y2UgYSByZXBvcnQiLAogICJyaWdvcl9tb2RlIjogInN0YW5kYXJkIiwKICAiZGVsaXZlcmFibGVzIjogWwogICAgewogICAgICAiaWQiOiAiRDEiLAogICAgICAidHlwZSI6ICJyZXBvcnQiLAogICAgICAiZm9ybWF0IjogWwogICAgICAgICJtZCIKICAgICAgXQogICAgfQogIF0sCiAgInZlcmlmaWNhdGlvbiI6IHsKICAgICJtZXRob2QiOiAiYWdlbnQtcHJlLWNoZWNrIiwKICAgICJ2ZXJpZmllciI6ICJjaGVja2VyIiwKICAgICJyZXF1aXJlZF9jdXN0b2R5IjogewogICAgICAicHJlcGFyZXJfbWF5X3ByZXNlbnQiOiBmYWxzZSwKICAgICAgImRlY2lzaXZlX2V2aWRlbmNlX2dlbmVyYXRlZF9ieSI6ICJ2ZXJpZmllciIKICAgIH0sCiAgICAidmVyaWZpZXJfcmVjZWl2ZXMiOiBbCiAgICAgICJkZWxpdmVyYWJsZXMiCiAgICBdCiAgfSwKICAiZGVzaWduX2lucHV0cyI6IFtdLAogICJzY2hlbWFfdmVyc2lvbiI6ICIwLjEuMCIsCiAgImFnZW50X2Fzc2lnbm1lbnQiOiBbCiAgICB7CiAgICAgICJyb2xlIjogImdlbmVyYWwtYXV0aG9yIiwKICAgICAgImFnZW50X2Jhc2VsaW5lIjogImF1dGhvciIsCiAgICAgICJiYXNlbGluZV9yZXZpc2lvbiI6IDAKICAgIH0KICBdLAogICJhY2NlcHRhbmNlX2NyaXRlcmlhIjogWwogICAgIlRoZSByZXBvcnQgZXhpc3RzIgogIF0KfQ=="},{"name":"BRIEF.md","content_base64":"IyBDb250cm9sIFJvZCBicmllZgoKUm9sZTogYXV0aG9yIMK3IFBhY2thZ2UgV1AtNjU1ZWNlNDQtZjU5Yy00NTUwLTk0ZDQtZmE1Y2YwMjA1OTU4IHJldmlzaW9uIDAgwrcgUm91bmQgMQoKIyBBdXRob3IKClByb2R1Y2UgdGhlIGRlbGl2ZXJhYmxlcyBuYW1lZCBpbiB0aGUgd29yayBwYWNrYWdlLCBpbiB0aGUgZm9ybWF0cyBuYW1lZCwgaW50byBgb3V0L2AuCgotIE1lZXQgZXZlcnkgYWNjZXB0YW5jZSBjcml0ZXJpb24gYW5kIHNheSwgYXQgdGhlIGVuZCBvZiB0aGUgbWFpbiBkZWxpdmVyYWJsZSwgaG93IGVhY2ggb25lIGlzIG1ldC4KLSBVc2Ugb25seSB0aGUgaW5wdXRzIHByb3ZpZGVkIGFuZCBzb3VyY2VzIHlvdSBjaXRlLiBDaXRlIGV2ZXJ5IG91dHNpZGUgZmFjdCB3aXRoIGl0cyBzb3VyY2UuCi0gRXZlcnkgbnVtYmVyIGNvbWVzIGZyb20gYSB0b29sIG9yIGNvZGUgeW91IHJ1biwgbmV2ZXIgdHlwZWQgZnJvbSBtZW1vcnkuIEtlZXAgdGhlIGNvZGUgeW91IHJhbiBpbiBgb3V0L3dvcmsvYCBzbyBpdCBjYW4gYmUgcmVydW4uCi0gSWYgc29tZXRoaW5nIGNhbm5vdCBiZSBkb25lLCBzYXkgc28gcGxhaW5seSBpbiB0aGUgZGVsaXZlcmFibGUgYW5kIGxpc3QgaXQgYXMgYW4gb3BlbiBpdGVtLiBEbyBub3QgcGFwZXIgb3ZlciBpdC4KLSBJZiBmaW5kaW5ncyBmcm9tIGEgcHJlLWNoZWNrIGFyZSBwcm92aWRlZCwgZml4IGVhY2ggb25lIGFuZCBsaXN0IGhvdyBpbiBgb3V0L1JFU1BPTlNFLm1kYC4KCiMjIFRoZSB3b3JrIHBhY2thZ2UKClNlZSBpbnB1dHMvUEFDS0FHRS5qc29uLiBPYmplY3RpdmU6IFByb2R1Y2UgYSByZXBvcnQKCiMjIFJ1bGVzCgotIFJlYWQgZXZlcnkgZmlsZSB1bmRlciBpbnB1dHMvLiBXcml0ZSBldmVyeSBkZWxpdmVyYWJsZSBpbnRvIG91dC8uIE5ldmVyIGVkaXQgaW5wdXRzLy4KLSBFdmVyeSBlbmdpbmVlcmluZyBudW1iZXIgY29tZXMgZnJvbSBhIHRvb2wgb3IgY29kZSB5b3UgcnVuLCBuZXZlciB0eXBlZCBmcm9tIG1lbW9yeS4KLSBDaXRlIGV2ZXJ5IG91dHNpZGUgZmFjdCB3aXRoIGl0cyBzb3VyY2UgYW5kIHRoZSBkYXRlIHlvdSByZXRyaWV2ZWQgaXQuCi0gWW91IGNhbm5vdCBhcHByb3ZlLCBhY2NlcHQgb3IgcmVsZWFzZSBhbnl0aGluZy4gQSBwZXJzb24gZG9lcyB0aGF0Lgo="},{"name":"TOOLS.txt","content_base64":"UmVhZApXcml0ZQpFZGl0Ckdsb2IKR3JlcApXZWJTZWFyY2gKV2ViRmV0Y2gKQmFzaChjci1zaXRlOiopCkJhc2gocHl0aG9uMzoqKQo="}],"claim":{"token":"f6N8iik7Lx6Mr2HdTFDDMPjfLjBhqRaqAdiJL-Xpza4","lease_expires_at":"2026-10-23T19:31:55.512Z","heartbeat_seconds":30}}: expected 200 to be 204 // Object.is equality
+
+- Expected
++ Received
+
+- 204
++ 200
+
+ ❯ test/preparation-role-boundary.test.ts:15:39
+     13|   await h.db.query("insert into runs(id,package_id,package_revision,ro…
+     14|   const claim=await h.app.inject({method:"POST",url:"/runner/claim",he…
+     15|   expect(claim.statusCode,claim.body).toBe(204);
+       |                                       ^
+     16|   const row=(await h.db.query("select status,claim_token_hash from run…
+     17|   expect(row.status).toBe("queued");expect(row.claim_token_hash).toBeN…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  test/preparation-role-boundary.test.ts > legacy mutators cannot adopt an unsupported role > refuses log without changing custody
+AssertionError: {"stop":false,"lease_expires_at":"2026-10-23T19:31:55.521Z"}: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ test/preparation-role-boundary.test.ts:34:41
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  test/preparation-role-boundary.test.ts > legacy mutators cannot adopt an unsupported role > refuses complete without changing custody
+AssertionError: {"run_id":"RUN-b584675a-3fb6-4649-8762-5676902900bf","idempotency_key":"unsupported-completion","status":"failed","outputs":[{"path":"proposal.json","digest":{"algorithm":"sha256","value":"78ecf09f8df372e1a33305e6a64792b433ea5d39c33e29d182834f9cc3201d1e"}}],"received_at":"2026-10-23T19:30:25.532Z"}: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ test/preparation-role-boundary.test.ts:34:41
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  test/preparation-role-boundary.test.ts > legacy mutators cannot adopt an unsupported role > refuses requeue without changing custody
+AssertionError: {"code":"invalid","message":"Run.json: /role must be equal to one of the allowed values"}: expected 400 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 400
+
+ ❯ test/preparation-role-boundary.test.ts:34:41
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  15:30:24
+   Duration  1.44s (tests 76%, import 19%, transform 5%)
+
+/home/flyfission/worktrees/control-rod-buildout-20261023/services/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @control-rod/api@0.0.0 test: `vitest run --run test/preparation-role-boundary.test.ts`
+Exit status 1

@@ -1,0 +1,13 @@
+
+> @control-rod/api@0.0.0 test /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+> vitest run
+
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+
+
+ Test Files  17 passed (17)
+      Tests  149 passed (149)
+   Start at  15:33:53
+   Duration  5.69s (tests 87%, import 12%, transform 1%)
+

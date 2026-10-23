@@ -1,0 +1,28 @@
+--- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands (0.02s)
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/requirements-preparer/claude (0.00s)
+        launch_test.go:119: role "requirements-preparer" reached claude: command=/home/flyfission/.local/bin/claude -p Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/. --output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Write error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/requirements-preparer/codex (0.00s)
+        launch_test.go:119: role "requirements-preparer" reached codex: command=/home/flyfission/.local/bin/codex exec --json -s workspace-write --skip-git-repo-check -C /tmp/TestUnapprovedRolesNeverReachLegacyRuntimeCommandsrequirements-preparercodex1895915018/001 Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/. error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/requirements-preparer/fake (0.00s)
+        launch_test.go:119: role "requirements-preparer" reached fake: command=<nil> error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/technical-preparer/claude (0.00s)
+        launch_test.go:119: role "technical-preparer" reached claude: command=/home/flyfission/.local/bin/claude -p Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/. --output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Write error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/technical-preparer/codex (0.00s)
+        launch_test.go:119: role "technical-preparer" reached codex: command=/home/flyfission/.local/bin/codex exec --json -s workspace-write --skip-git-repo-check -C /tmp/TestUnapprovedRolesNeverReachLegacyRuntimeCommandstechnical-preparercodex557488028/001 Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/. error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/technical-preparer/fake (0.00s)
+        launch_test.go:119: role "technical-preparer" reached fake: command=<nil> error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/unknown-role/claude (0.00s)
+        launch_test.go:119: role "unknown-role" reached claude: command=/home/flyfission/.local/bin/claude -p Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/. --output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Write error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/unknown-role/codex (0.00s)
+        launch_test.go:119: role "unknown-role" reached codex: command=/home/flyfission/.local/bin/codex exec --json -s workspace-write --skip-git-repo-check -C /tmp/TestUnapprovedRolesNeverReachLegacyRuntimeCommandsunknown-rolecodex1264620320/001 Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/. error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/unknown-role/fake (0.00s)
+        launch_test.go:119: role "unknown-role" reached fake: command=<nil> error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands//claude (0.00s)
+        launch_test.go:119: role "" reached claude: command=/home/flyfission/.local/bin/claude -p Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/. --output-format stream-json --verbose --permission-mode acceptEdits --allowedTools Read,Write error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands//codex (0.00s)
+        launch_test.go:119: role "" reached codex: command=/home/flyfission/.local/bin/codex exec --json -s workspace-write --skip-git-repo-check -C /tmp/TestUnapprovedRolesNeverReachLegacyRuntimeCommandscodex2706177346/001 Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/. error=<nil>
+    --- FAIL: TestUnapprovedRolesNeverReachLegacyRuntimeCommands//fake (0.00s)
+        launch_test.go:119: role "" reached fake: command=<nil> error=<nil>
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.025s
+FAIL

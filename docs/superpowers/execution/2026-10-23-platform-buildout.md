@@ -218,3 +218,11 @@ Final: Ruling: require a synchronous transactional live authority with immutable
 Final: Ruling: consumers recheck current authority after operation return — cost if wrong is accepting an expired result; post-commit checks do not extend a lease.
 
 Deferred minors: none reported for this slice. Task 10 remains open for real authority/transport/OS process/credential/model-egress integration and protected activation; the file-capability subcomponent is implemented and verified.
+
+## Adversarial gate before controller grants
+
+User requested adversarial review then continuation. Root and a fresh design adversary challenged the proposed network authority before implementation. A fetch-and-trust adapter and remote I/O under held DB locks were rejected. The revised begin/finalize design binds narrow secrets/intents, unique proposal custody, current fences, bounded transactions and explicit commit guards on every acknowledgment. Initial scope is requirements-preparer with DB snapshot/capture/attachment inputs only; no external I/O inside grant transactions, public issuance or native activation. See the controller grant spec/plan and attack record.
+
+Task 1 role boundary: RED real API dispatch/heartbeat/completion/requeue tests and Go launch tests; GREEN five API adversarial cases, full API 149 with restore enabled, type check and full runner race suite. Unknown or inconsistent roles cannot enter existing legacy author/checker behavior. Passive owner stop/expiry controls remain available. Future serialized preparer role values must not activate those paths.
+
+Independent design findings are adopted as requirements and remain unproved until real DB/concurrency/RPC tests: one proposal per grant, finite use quotas, bounded audit-lock waits, every-response deferred deadlines, no external IO under held rows, exact-retry/current-fence behavior, admission-versus-delivery distinction and controller custody after lost acknowledgments. No active credential/model interaction occurred. Controller storage/authority work is next, not claimed complete.

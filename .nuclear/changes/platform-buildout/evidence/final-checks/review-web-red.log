@@ -1,0 +1,885 @@
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/apps/web
+
+ ❯ src/components/preparation/coverage.test.tsx (3 tests | 1 failed) 1152ms
+   × reports altered author deliverables independently of checker evidence 1006ms
+ ❯ src/components/preparation/preparation.test.tsx (5 tests | 1 failed) 1530ms
+   ❯ manual preparation workbench (5)
+     × refreshes declared inputs explicitly with the loaded ETag before signing 1007ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/preparation/coverage.test.tsx > reports altered author deliverables independently of checker evidence
+TestingLibraryElementError: Unable to find role="alert"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"criterion-results-title"[39m
+      [33mclass[39m=[32m"panel"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mid[39m=[32m"criterion-results-title"[39m
+      [36m>[39m
+        [0mVerification by criterion[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"muted small"[39m
+      [36m>[39m
+        [0mReported outcomes and retained evidence. Mapping a check records intent; human review is still required.[0m
+      [36m</p>[39m
+      [36m<p>[39m
+        [0mCriterion results have not been recorded.[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"criterion-results-title"[39m
+      [33mclass[39m=[32m"panel"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mid[39m=[32m"criterion-results-title"[39m
+      [36m>[39m
+        [0mVerification by criterion[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"muted small"[39m
+      [36m>[39m
+        [0mReported outcomes and retained evidence. Mapping a check records intent; human review is still required.[0m
+      [36m</p>[39m
+      [36m<p>[39m
+        [0mCriterion results have not been recorded.[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/components/preparation/coverage.test.tsx:70:22
+     68| it("reports altered author deliverables independently of checker evide…
+     69|  await renderPage(<CriterionCoverage view={view({preparation_enrolled:…
+     70|  expect(await screen.findByRole("alert")).toBeTruthy();expect(screen.g…
+       |                      ^
+     71| });
+     72|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/components/preparation/preparation.test.tsx > manual preparation workbench > refreshes declared inputs explicitly with the loaded ETag before signing
+TestingLibraryElementError: Unable to find role="button" and name "Refresh declared input pins"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"preparation-title"[39m
+      [33mclass[39m=[32m"panel preparation"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mid[39m=[32m"preparation-title"[39m
+      [36m>[39m
+        [0mGuided preparation[0m
+      [36m</h2>[39m
+      [36m<p>[39m
+        [0mRequirements not confirmed[0m
+        [0m [0m
+        [0m· revision [0m
+        [0m0[0m
+        [0m ·[0m
+        [0m [0m
+        [0mSaved[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"mono small"[39m
+      [36m>[39m
+        [0mRequirements [0m
+        [0mab12cd34ef56[0m
+        [0m · Content[0m
+        [0m [0m
+        [0mab12cd34ef56[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"btn primary"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0mConfirm requirements with passkey[0m
+      [36m</button>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"muted small"[39m
+      [36m>[39m
+        [0mPreparation records intent and review. Mapped checks do not represent passing verification.[0m
+      [36m</p>[39m
+      [36m<ul[39m
+        [33maria-label[39m=[32m"Preparation blockers"[39m
+      [36m>[39m
+        [36m<li>[39m
+          [0mRequester[0m
+          [0m: [0m
+          [0mSupply input[0m
+        [36m</li>[39m
+      [36m</ul>[39m
+      [36m<fieldset[39m
+        [33mclass[39m=[32m"prep-fields"[39m
+      [36m>[39m
+        [36m<legend>[39m
+          [0mRequirements and technical preparation[0m
+        [36m</legend>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"field"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mRequest kind[0m
+          [36m</span>[39m
+          [36m<select>[39m
+            [36m<option>[39m
+              [0mgeneral[0m
+            [36m</option>[39m
+            [36m<option>[39m
+              [0mbugfix[0m
+            [36m</option>[39m
+            [36m<option>[39m
+              [0menhancement[0m
+            [36m</option>[39m
+            [36m<option>[39m
+              [0mcapital-projects[0m
+            [36m</option>[39m
+          [36m</select>[39m
+        [36m</label>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"field"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mProblem or need[0m
+          [36m</span>[39m
+          [36m<textarea[39m
+            [33mrows[39m=[32m"2"[39m
+          [36m>[39m
+            [0mSaved need[0m
+          [36m</textarea>[39m
+        [36m</label>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"field"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mImplementation suggestions (nonbinding)[0m
+          [36m</span>[39m
+          [36m<textarea[39m
+            [33mrows[39m=[32m"2"[39m
+          [36m/>[39m
+        [36m</label>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"Requirements and criteria"[39m
+        [36m>[39m
+          [36m<h3>[39m
+            [0mRequirements[0m
+          [36m</h3>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mObjective[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m>[39m
+              [0mSite a facility for this project.[0m
+            [36m</textarea>[39m
+          [36m</label>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"prep-item"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mono small"[39m
+            [36m>[39m
+              [0mR1[0m
+            [36m</p>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mRequirement 1[0m
+              [36m</span>[39m
+              [36m<textarea[39m
+                [33mrows[39m=[32m"2"[39m
+              [36m>[39m
+                [0mNeed report[0m
+              [36m</textarea>[39m
+            [36m</label>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mRequirement 1 source[0m
+              [36m</span>[39m
+              [36m<select>[39m
+                [36m<option[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m>[39m
+                  [0mChoose controlled source[0m
+                [36m</option>[39m
+              [36m</select>[39m
+            [36m</label>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"btn ghost small"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mRetire requirement [0m
+              [0m1[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd requirement[0m
+          [36m</button>[39m
+          [36m<h3>[39m
+            [0mAcceptance criteria[0m
+          [36m</h3>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"prep-item"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mono small"[39m
+            [36m>[39m
+              [0mC1[0m
+            [36m</p>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mCriterion 1[0m
+              [36m</span>[39m
+              [36m<textarea[39m
+                [33mrows[39m=[32m"2"[39m
+              [36m>[39m
+                [0mEvery facility block sits inside the buildable area.[0m
+              [36m</textarea>[39m
+            [36m</label>[39m
+            [36m<fieldset>[39m
+              [36m<legend>[39m
+                [0mRequirements covered by criterion [0m
+                [0m1[0m
+              [36m</legend>[39m
+              [36m<label>[39m
+                [36m<input[39m
+                  [33mchecked[39m=[32m""[39m
+                  [33mtype[39m=[32m"checkbox"[39m
+                [36m/>[39m
+                [0mNeed report[0m
+              [36m</label>[39m
+            [36m</fieldset>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"btn ghost small"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mRetire criterion [0m
+              [0m1[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd criterion[0m
+          [36m</button>[39m
+          [36m<h3>[39m
+            [0mDeliverables[0m
+          [36m</h3>[39m
+          [36m<div>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mDeliverable 1 identifier[0m
+              [36m</span>[39m
+              [36m<input[39m
+                [33mvalue[39m=[32m"D1"[39m
+              [36m/>[39m
+            [36m</label>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mDeliverable 1 description[0m
+              [36m</span>[39m
+              [36m<textarea[39m
+                [33mrows[39m=[32m"2"[39m
+              [36m>[39m
+                [0mconcept site plan[0m
+              [36m</textarea>[39m
+            [36m</label>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mDeliverable 1 formats[0m
+              [36m</span>[39m
+              [36m<input[39m
+                [33mvalue[39m=[32m"pdf"[39m
+              [36m/>[39m
+            [36m</label>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd deliverable[0m
+          [36m</button>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"Questions and resolutions"[39m
+        [36m>[39m
+          [36m<h3>[39m
+            [0mQuestions, assumptions and conflicts[0m
+          [36m</h3>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd question[0m
+          [36m</button>[39m
+          [36m<h3>[39m
+            [0mFeasibility escalations[0m
+          [36m</h3>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mRaise feasibility escalation[0m
+          [36m</button>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"Technical preparation"[39m
+        [36m>[39m
+          [36m<h3>[39m
+            [0mTechnical plan[0m
+          [36m</h3>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mApproach summary[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAlternatives considered (one per line)[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd design element[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd task[0m
+          [36m</button>[39m
+          [36m<h3>[39m
+            [0mVerification coverage[0m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"muted small"[39m
+          [36m>[39m
+            [0mMapping a check records intent. Results are recorded only when verification runs.[0m
+          [36m</p>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd verification check[0m
+          [36m</button>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mRollout and recovery[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mRisks and holds (one per line)[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mControlled current-state sources (one reference per line)[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m/>[39m
+          [36m</label>[39m
+        [36m</section>[39m
+        [36m<h3>[39m
+          [0mControlled basis[0m
+        [36m</h3>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn ghost small"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mAdd repository source[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn primary"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mSave preparation[0m
+        [36m</button>[39m
+      [36m</fieldset>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"btn ghost small"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0mReload saved preparation[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"btn ghost small"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0mShow preparation history[0m
+      [36m</button>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"preparation-title"[39m
+      [33mclass[39m=[32m"panel preparation"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mid[39m=[32m"preparation-title"[39m
+      [36m>[39m
+        [0mGuided preparation[0m
+      [36m</h2>[39m
+      [36m<p>[39m
+        [0mRequirements not confirmed[0m
+        [0m [0m
+        [0m· revision [0m
+        [0m0[0m
+        [0m ·[0m
+        [0m [0m
+        [0mSaved[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"mono small"[39m
+      [36m>[39m
+        [0mRequirements [0m
+        [0mab12cd34ef56[0m
+        [0m · Content[0m
+        [0m [0m
+        [0mab12cd34ef56[0m
+      [36m</p>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"btn primary"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0mConfirm requirements with passkey[0m
+      [36m</button>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"muted small"[39m
+      [36m>[39m
+        [0mPreparation records intent and review. Mapped checks do not represent passing verification.[0m
+      [36m</p>[39m
+      [36m<ul[39m
+        [33maria-label[39m=[32m"Preparation blockers"[39m
+      [36m>[39m
+        [36m<li>[39m
+          [0mRequester[0m
+          [0m: [0m
+          [0mSupply input[0m
+        [36m</li>[39m
+      [36m</ul>[39m
+      [36m<fieldset[39m
+        [33mclass[39m=[32m"prep-fields"[39m
+      [36m>[39m
+        [36m<legend>[39m
+          [0mRequirements and technical preparation[0m
+        [36m</legend>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"field"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mRequest kind[0m
+          [36m</span>[39m
+          [36m<select>[39m
+            [36m<option>[39m
+              [0mgeneral[0m
+            [36m</option>[39m
+            [36m<option>[39m
+              [0mbugfix[0m
+            [36m</option>[39m
+            [36m<option>[39m
+              [0menhancement[0m
+            [36m</option>[39m
+            [36m<option>[39m
+              [0mcapital-projects[0m
+            [36m</option>[39m
+          [36m</select>[39m
+        [36m</label>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"field"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mProblem or need[0m
+          [36m</span>[39m
+          [36m<textarea[39m
+            [33mrows[39m=[32m"2"[39m
+          [36m>[39m
+            [0mSaved need[0m
+          [36m</textarea>[39m
+        [36m</label>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"field"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mImplementation suggestions (nonbinding)[0m
+          [36m</span>[39m
+          [36m<textarea[39m
+            [33mrows[39m=[32m"2"[39m
+          [36m/>[39m
+        [36m</label>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"Requirements and criteria"[39m
+        [36m>[39m
+          [36m<h3>[39m
+            [0mRequirements[0m
+          [36m</h3>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mObjective[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m>[39m
+              [0mSite a facility for this project.[0m
+            [36m</textarea>[39m
+          [36m</label>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"prep-item"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mono small"[39m
+            [36m>[39m
+              [0mR1[0m
+            [36m</p>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mRequirement 1[0m
+              [36m</span>[39m
+              [36m<textarea[39m
+                [33mrows[39m=[32m"2"[39m
+              [36m>[39m
+                [0mNeed report[0m
+              [36m</textarea>[39m
+            [36m</label>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mRequirement 1 source[0m
+              [36m</span>[39m
+              [36m<select>[39m
+                [36m<option[39m
+                  [33mvalue[39m=[32m""[39m
+                [36m>[39m
+                  [0mChoose controlled source[0m
+                [36m</option>[39m
+              [36m</select>[39m
+            [36m</label>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"btn ghost small"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mRetire requirement [0m
+              [0m1[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd requirement[0m
+          [36m</button>[39m
+          [36m<h3>[39m
+            [0mAcceptance criteria[0m
+          [36m</h3>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"prep-item"[39m
+          [36m>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mono small"[39m
+            [36m>[39m
+              [0mC1[0m
+            [36m</p>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mCriterion 1[0m
+              [36m</span>[39m
+              [36m<textarea[39m
+                [33mrows[39m=[32m"2"[39m
+              [36m>[39m
+                [0mEvery facility block sits inside the buildable area.[0m
+              [36m</textarea>[39m
+            [36m</label>[39m
+            [36m<fieldset>[39m
+              [36m<legend>[39m
+                [0mRequirements covered by criterion [0m
+                [0m1[0m
+              [36m</legend>[39m
+              [36m<label>[39m
+                [36m<input[39m
+                  [33mchecked[39m=[32m""[39m
+                  [33mtype[39m=[32m"checkbox"[39m
+                [36m/>[39m
+                [0mNeed report[0m
+              [36m</label>[39m
+            [36m</fieldset>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"btn ghost small"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mRetire criterion [0m
+              [0m1[0m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd criterion[0m
+          [36m</button>[39m
+          [36m<h3>[39m
+            [0mDeliverables[0m
+          [36m</h3>[39m
+          [36m<div>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mDeliverable 1 identifier[0m
+              [36m</span>[39m
+              [36m<input[39m
+                [33mvalue[39m=[32m"D1"[39m
+              [36m/>[39m
+            [36m</label>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mDeliverable 1 description[0m
+              [36m</span>[39m
+              [36m<textarea[39m
+                [33mrows[39m=[32m"2"[39m
+              [36m>[39m
+                [0mconcept site plan[0m
+              [36m</textarea>[39m
+            [36m</label>[39m
+            [36m<label[39m
+              [33mclass[39m=[32m"field"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mDeliverable 1 formats[0m
+              [36m</span>[39m
+              [36m<input[39m
+                [33mvalue[39m=[32m"pdf"[39m
+              [36m/>[39m
+            [36m</label>[39m
+          [36m</div>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd deliverable[0m
+          [36m</button>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"Questions and resolutions"[39m
+        [36m>[39m
+          [36m<h3>[39m
+            [0mQuestions, assumptions and conflicts[0m
+          [36m</h3>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd question[0m
+          [36m</button>[39m
+          [36m<h3>[39m
+            [0mFeasibility escalations[0m
+          [36m</h3>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mRaise feasibility escalation[0m
+          [36m</button>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"Technical preparation"[39m
+        [36m>[39m
+          [36m<h3>[39m
+            [0mTechnical plan[0m
+          [36m</h3>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mApproach summary[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAlternatives considered (one per line)[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd design element[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd task[0m
+          [36m</button>[39m
+          [36m<h3>[39m
+            [0mVerification coverage[0m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"muted small"[39m
+          [36m>[39m
+            [0mMapping a check records intent. Results are recorded only when verification runs.[0m
+          [36m</p>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAdd verification check[0m
+          [36m</button>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mRollout and recovery[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mRisks and holds (one per line)[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mControlled current-state sources (one reference per line)[0m
+            [36m</span>[39m
+            [36m<textarea[39m
+              [33mrows[39m=[32m"2"[39m
+            [36m/>[39m
+          [36m</label>[39m
+        [36m</section>[39m
+        [36m<h3>[39m
+          [0mControlled basis[0m
+        [36m</h3>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn ghost small"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mAdd repository source[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn primary"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mSave preparation[0m
+        [36m</button>[39m
+      [36m</fieldset>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"btn ghost small"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0mReload saved preparation[0m
+      [36m</button>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"btn ghost small"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0mShow preparation history[0m
+      [36m</button>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/components/preparation/preparation.test.tsx:131:131
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 6 passed (8)
+   Start at  13:03:15
+   Duration  2.20s (tests 70%, environment 17%, setup 6%, import 4%, transform 2%)
+
+undefined
+/home/flyfission/worktrees/control-rod-buildout-20261023/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/components/preparation/preparation.test.tsx src/components/preparation/coverage.test.tsx

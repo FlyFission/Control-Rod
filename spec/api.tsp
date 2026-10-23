@@ -90,6 +90,7 @@ model PackageView {
   preparation_release_ready?: boolean;
   preparation_verification_complete?: boolean;
   preparation_results_pass?: boolean;
+  deliverable_integrity?: "intact" | "changed";
   criterion_results?: ControlRod.Preparation.CriterionResultSet;
   criterion_results_run_id?: string;
   criterion_results_integrity?: "intact" | "changed";
@@ -388,6 +389,7 @@ namespace Preparations {
   @get op read(@path id: string): ControlRod.Preparation.PreparationView | Refused;
   @put op edit(@path id: string, @header("If-Match") ifMatch: string, @body body: ControlRod.Preparation.PreparationContent): ControlRod.Preparation.PreparationView | Refused;
   @route("/resolutions") @post op resolve(@path id: string, @header("If-Match") ifMatch: string, @body body: ControlRod.Preparation.ResolutionRequest): ControlRod.Preparation.PreparationView | Refused;
+  @route("/basis/refresh") @post op refreshBasis(@path id: string, @header("If-Match") ifMatch: string): ControlRod.Preparation.PreparationView | Refused;
   @route("/confirm/options") @post op confirmOptions(@path id: string, @body body: ControlRod.Preparation.ConfirmationOptionsRequest): ControlRod.Preparation.ConfirmationOptions | Refused;
   @route("/confirm") @post op confirm(@path id: string, @body body: ControlRod.Preparation.ConfirmationRequest): { @statusCode _: 201; @body confirmation: ControlRod.Preparation.RequirementsConfirmation; } | Refused;
   @route("/history") @get op history(@path id: string, @query before?: int32, @query limit?: int32): ControlRod.Preparation.PreparationHistory | Refused;

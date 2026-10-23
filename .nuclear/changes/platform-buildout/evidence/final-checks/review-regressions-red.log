@@ -1,0 +1,87 @@
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+
+ ❯ test/preparation-review-integrity.test.ts (4 tests | 4 failed) 1561ms
+   ❯ final-review controlled input and output regressions (4)
+     × refuses confirmation when a declared dependency has no complete basis pin 272ms
+     × refreshes exact declared dependency bytes into a signed basis and refuses a newer revision at claim 132ms
+     × dispatches retained pinned dependency bytes instead of live dependency output lookup 134ms
+     × rehashes and locks author deliverables before accepting an already signed review 131ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/preparation-review-integrity.test.ts > final-review controlled input and output regressions > refuses confirmation when a declared dependency has no complete basis pin
+AssertionError: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ test/preparation-review-integrity.test.ts:17:129
+     15|  it("refuses confirmation when a declared dependency has no complete b…
+     16|   const parent=await acceptedParent();const p=await f.draft(undefined,…
+     17|   expect((await f.owner("POST",p.url+"/confirm/options",{expected_requ…
+       |                                                                                                                                 ^
+     18|  });
+     19|  it("refreshes exact declared dependency bytes into a signed basis and…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  test/preparation-review-integrity.test.ts > final-review controlled input and output regressions > refreshes exact declared dependency bytes into a signed basis and refuses a newer revision at claim
+AssertionError: {"message":"Route POST:/packages/WP-4a292e4d-4e0e-48b5-bd39-2ea65f6fe4b1/preparation/basis/refresh not found","error":"Not Found","statusCode":404}: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ test/preparation-review-integrity.test.ts:21:160
+     19|  it("refreshes exact declared dependency bytes into a signed basis and…
+     20|   const parent=await acceptedParent();const p=await f.draft(undefined,…
+     21|   const refreshed=await f.owner("POST",p.url+"/basis/refresh",{}, {"if…
+       |                                                                                                                                                                ^
+     22|   expect(v.snapshot.basis.find((b:{reference:string})=>b.reference===`…
+     23|   await confirm(p.id,p.url,v.requirements_digest);await f.release(p.id…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  test/preparation-review-integrity.test.ts > final-review controlled input and output regressions > dispatches retained pinned dependency bytes instead of live dependency output lookup
+AssertionError: {"message":"Route POST:/packages/WP-07427c80-ae22-4f4f-b163-0de25ff1be4a/preparation/basis/refresh not found","error":"Not Found","statusCode":404}: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ test/preparation-review-integrity.test.ts:30:160
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  test/preparation-review-integrity.test.ts > final-review controlled input and output regressions > rehashes and locks author deliverables before accepting an already signed review
+AssertionError: {"schema_version":"0.1.0","id":"D-027661a1","package_id":"WP-cddaa38a-617a-439c-900a-9ff6133fc52d","package_revision":0,"kind":"accept","actor":{"kind":"human","id":"ben"},"subject_digest":{"algorithm":"sha256","value":"a3bc051f614724098bbc3d101b12d92abd5e9e186c99080c6096caf88b09f043"},"assertion":{"credential_id":"9Lb0FKsWCEXxJ5SLgESALg","authenticator_data":"SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MFAAAADQ","client_data_json":"eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoiemNIQkxuR21aRnI0Z3d6dGtXN0lQSVYtWGlYSm90NkZ2WERjQXVrTW50YyIsIm9yaWdpbiI6Imh0dHA6Ly9sb2NhbGhvc3Q6NzMwMCJ9","signature":"MEQCIANstvR671ctK9pm3jWlK_nVIqpsHosFkTqHjXMrTtQ6AiAs3cQ_9D9Ns8EHPsPw19lmtO0_PU7z26JNm5i-cof4FQ"},"decided_at":"2026-10-23T16:57:33.040Z"}: expected 201 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 201
+
+ ❯ test/preparation-review-integrity.test.ts:38:192
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  12:57:31
+   Duration  1.96s (tests 83%, import 14%, transform 3%)
+
+undefined
+/home/flyfission/worktrees/control-rod-buildout-20261023/services/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run test/preparation-review-integrity.test.ts

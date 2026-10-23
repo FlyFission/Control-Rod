@@ -1,0 +1,54 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running unittests src/lib.rs (target/debug/deps/controlrod_kernel-8b1ed9ed7253651e)
+
+running 19 tests
+test decision::tests::denials_never_allow ... ok
+test decision::tests::undecided_requests_are_refused ... ok
+test transition::tests::a_human_action_without_a_matching_signature_is_refused ... ok
+test digest::tests::profile_constants_match_the_vector_file ... ok
+test transition::tests::a_person_cannot_pose_as_an_agent ... ok
+test transition::tests::a_pre_check_on_the_authors_runtime_needs_an_owner_override ... ok
+test digest::tests::invalid_vectors_are_refused_with_the_named_error ... ok
+test transition::tests::a_pre_check_without_known_baselines_is_refused ... ok
+test transition::tests::acceptance_needs_a_pre_check_and_a_reason_when_it_did_not_pass ... ok
+test transition::tests::accepted_and_closed_packages_never_move ... ok
+test transition::tests::an_override_never_lets_the_author_check_itself_and_runtimes_must_be_known ... ok
+test transition::tests::no_agent_or_system_can_take_a_human_action_in_any_state ... ok
+test digest::tests::valid_vectors_hash_their_canonical_form ... ok
+test transition::tests::return_and_reject_need_a_reason ... ok
+test transition::tests::revision_follows_only_a_pre_check_that_did_not_pass ... ok
+test transition::tests::the_author_cannot_pre_check_its_own_work ... ok
+test transition::tests::the_happy_path_walks_draft_to_accepted ... ok
+test transition::tests::the_override_is_a_signed_human_act_with_a_reason_while_in_verification ... ok
+test transition::tests::unknown_fields_in_a_request_are_rejected ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/preparation.rs (target/debug/deps/preparation-fa75d5044729ef48)
+
+running 3 tests
+test acceptance_cannot_waive_missing_mandatory_prepared_verification ... ok
+test confirmation_requires_human_signature_current_requirements_and_draft ... ok
+test enrolled_release_defaults_closed_and_requires_complete_guard ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/controlrod_kernel_wasm-b4a2918707251c35)
+
+running 1 test
+test preparation_tests::malformed_and_unknown_confirmation_fields_are_refused ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests controlrod_kernel
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests controlrod_kernel_wasm
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

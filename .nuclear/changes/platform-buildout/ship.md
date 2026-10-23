@@ -1,6 +1,6 @@
 # Ship posture: controlled platform buildout
 
-Release decision: **defer main integration and operational release**. The owner-local implementation slice and fixture recovery rehearsal are ready for fresh whole-branch review. No PR has been merged by this packet; no service is deployed.
+Release decision: **defer main integration and operational release**. The owner-local implementation slice and fixture recovery rehearsal received fresh whole-branch review; both Important findings were corrected and self-verified with failed-first regressions and the green full suite. No PR has been merged by this packet; no service is deployed.
 
 Human authorization was received for the specific kernel edits in tasks 6–9 and is recorded in the basis. It does not certify original contributors, close the earlier MVP protected-review thread, approve unrelated policies/red-team/CI surfaces or approve deployment. Those gates remain distinct. The new policy/red-team authorization request is pending; the runtime policy proposal is inactive.
 

@@ -5,7 +5,7 @@
 | PB-01 | baseline/inventory complete | Exact pins and isolated branch; main integration/DCO remain gated |
 | PB-02 | implemented and tested | Raw parser vectors/prototype floor; generated embedded runner schemas; Go race |
 | PB-03 | implemented and tested | Schema/readiness/store/API/UI; idempotency/CAS/history/human resolutions/default-off flags |
-| PB-04 | implemented and tested locally | Explicitly authorized kernel changes; signed subjects, manifests, stale barriers, criterion results and signed acceptance |
+| PB-04 | implemented and tested locally | Explicitly authorized kernel changes; signed subjects, complete dependency body/artifact manifests, stale barriers, raw author integrity, criterion results and signed acceptance |
 | PB-05 | OS subset proved; native activation held | Synthetic eight-canary probe; credential/tool/model-egress profile still open |
 | PB-06 | held | No preparation agent roles/powers dispatched before PB-05 closes |
 | PB-07 | fixture rehearsal complete | Real restore/downgrade refusal; bugfix flow; HVAC hold. Actual owner pilot pending |

@@ -334,12 +334,48 @@ export function PreparationPanel({
         />
         <TechnicalPlanEditor value={draft} change={change} />
         <h3>Controlled basis</h3>
+        <p className="muted small">
+          Declared inputs must pin their exact revisions and published
+          artifacts. Refreshing records a new basis; review the new requirements
+          subject before signing.
+        </p>
+        <button
+          type="button"
+          className="btn ghost small"
+          disabled={dirty || busy}
+          onClick={() =>
+            void perform(() => api.refreshPreparationBasis(pkg.id, etag))
+          }
+        >
+          Refresh declared input pins
+        </button>
         {draft.basis.map((b, i) => (
           <div className="prep-item" key={i}>
             <p>
               {b.kind}: {b.reference} · revision {b.revision}
             </p>
             <p className="mono small">{b.digest.value}</p>
+            {b.artifacts && (
+              <ul aria-label={`Pinned outputs for ${b.reference}`}>
+                {b.artifacts.map((a) => (
+                  <li key={a.path}>
+                    {a.path}
+                    <p className="mono small">{a.digest.value}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              className="btn ghost small"
+              onClick={() =>
+                change((d) => {
+                  d.basis.splice(i, 1);
+                })
+              }
+            >
+              Remove source {i + 1}
+            </button>
             {b.kind === "repository" && (
               <>
                 <Line

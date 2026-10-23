@@ -40,6 +40,7 @@ const TABLES = [
   "preparation_release_manifests",
   "preparation_basis_artifacts",
   "preparation_criterion_results",
+  "preparation_dependency_artifacts",
   "preparation_quarantine_batches",
   "preparation_quarantined_outputs",
 ];
@@ -117,6 +118,42 @@ describe.skipIf(!tools)(
           })
         ).statusCode,
       ).toBe(201);
+      const dependent = await f.draft(
+        undefined,
+        (d) => {
+          d.package_contract.design_inputs = [
+            { doc: p.id, revision: "0", use: "Recovery dependency fixture" },
+          ];
+        },
+        false,
+      );
+      const refreshed = await f.owner(
+        "POST",
+        dependent.url + "/basis/refresh",
+        undefined,
+        { "if-match": `"${dependent.view.content_digest.value}"` },
+      );
+      expect(refreshed.statusCode, refreshed.body).toBe(200);
+      const confirmationOptions = await f.owner(
+        "POST",
+        dependent.url + "/confirm/options",
+        { expected_requirements_digest: refreshed.json().requirements_digest },
+      );
+      expect(confirmationOptions.statusCode, confirmationOptions.body).toBe(
+        200,
+      );
+      expect(
+        (
+          await f.owner("POST", dependent.url + "/confirm", {
+            assertion: f.passkey.assert(confirmationOptions.json().options),
+          })
+        ).statusCode,
+      ).toBe(201);
+      await f.release(dependent.id);
+      expect(
+        (await f.h.db.query("select * from preparation_dependency_artifacts"))
+          .rowCount,
+      ).toBeGreaterThan(0);
       const before = await snapshot(f.h.db),
         chain = await verifyChain(f.h.db);
       const connection = new URL(String(f.h.db.options.connectionString));
@@ -164,6 +201,13 @@ describe.skipIf(!tools)(
         );
         await migrate(restored);
         expect(await snapshot(restored)).toBe(before);
+        expect(
+          (
+            await restored.query(
+              "select * from preparation_dependency_artifacts",
+            )
+          ).rowCount,
+        ).toBeGreaterThan(0);
         expect(await verifyChain(restored)).toEqual(chain);
         app = buildApp({
           db: restored,

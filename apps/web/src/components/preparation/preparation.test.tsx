@@ -125,4 +125,23 @@ describe("manual preparation workbench", () => {
     await screen.findByText(/Requirements confirmed/);
     expect(signed).toBe(1);
   });
+  it("refreshes declared inputs explicitly with the loaded ETag before signing", async () => {
+    const current = fixture();
+    let match: string | null = null;
+    server.use(
+      http.get("*/packages/:id/preparation", () => HttpResponse.json(current)),
+      http.post("*/packages/:id/preparation/basis/refresh", ({ request }) => {
+        match = request.headers.get("if-match");
+        return HttpResponse.json(current);
+      }),
+    );
+    await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Refresh declared input pins",
+      }),
+    );
+    await waitFor(() => expect(match).toBe(`"${DIGEST.value}"`));
+  });
 });

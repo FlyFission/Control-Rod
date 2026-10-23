@@ -64,3 +64,18 @@ it("makes altered evidence visible and blocks the acceptance claim", async () =>
     "Acceptance is blocked",
   );
 });
+
+it("reports altered author deliverables independently of checker evidence", async () => {
+  await renderPage(
+    <CriterionCoverage
+      view={view({
+        preparation_enrolled: true,
+        deliverable_integrity: "changed",
+      })}
+    />,
+  );
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(screen.getByRole("alert").textContent).toContain(
+    "Author deliverables changed",
+  );
+});

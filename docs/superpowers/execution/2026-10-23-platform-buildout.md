@@ -21,7 +21,7 @@ Ruling: task 2 generates complete schema validation at the daemon boundary befor
 | 9 → 12 → 13 → 14 | Accepted manual execution → pilot → domain → platform | Later modules require bounded interface specs and missing-plan reconciliation |
 
 Task 1: complete — baseline reconciled, records/spec/plan created, README status qualified; strict packet validation passed. Main and all original worktrees preserved.
-Tasks 2–9: completed in the evidence entries below. Tasks 10–14: pending.
+Tasks 2–9: completed in the evidence entries below. Task 12: local fixture rehearsal complete. Tasks 10/11 remain held; tasks 13/14 are specified future programs with missing owner/source/platform inputs.
 
 ## Gates
 
@@ -161,3 +161,18 @@ Ruling: keep owner pilot distinct from fixture rehearsal — hardware passkeys, 
 Dedicated domain-deliverable spec/plan now defines tool manifests, offline cache, atomic generation publication, authoritative source adapters, reports, calculation provenance and PDF review with exact proposed seams and failure cases. The larger-platform continuation specification records current ADR exceptions and the tenant/orchestration/witnessing/gateway/distribution boundaries. These are proposed programs, not completed implementation. Required owner pilot, domain/source/tool authorities and the external Platform Plan/deployment decisions remain explicit inputs.
 
 Remote baseline refreshed after implementation: origin/main still 40763d4; origin/mvp/example-package still 8a54ff4. No source drift was silently incorporated and no original worktree was changed.
+
+## Final whole-branch review and one fix pass
+
+A fresh read-only reviewer examined frozen `1d2c466` and reproduced two Important/P1 findings against real PostgreSQL; no Critical finding or deferred Minor was reported. This is a separate agent context using the same model/tool environment, not independent engineering verification.
+
+1. Prepared jobs could read newer dependency output outside their signed basis.
+2. Acceptance could succeed after author bytes changed behind their stored hash.
+
+Final: fixed unbound dependency dispatch — `preparation-review-integrity.test.ts` absent-pin refusal, revision drift and retained-byte dispatch RED→GREEN; exact declared revisions, accepted complete output sets and immutable bytes now bind the manifest. Full package-body digest and original capture identity also bind job assembly. Human refresh is explicit and uses CAS.
+
+Final: fixed corrupt author acceptance — the already-issued challenge tamper regression RED→GREEN; acceptance now rehashes and row-locks author bytes and review subjects use observed hashes. Checker dispatch also refuses corrupt author deliverables. The workbench reports corruption and holds acceptance.
+
+The fix pass also extended the real restore fixture with a nonempty retained dependency artifact table; canonical controlled rows/evidence and the 21-event chain survived restore. Final full suite: API 144/144 across 16 files and web 37/37 across 5 files; TypeSpec regeneration, API/web type checks and production builds passed. Rust workspace tests (19 + 3 + 1), clippy with warnings denied, rebuilt WASM boundary, Go race tests and vet passed. The browser check uses the actual rebuilt bundle and fixture API responses, not a deployed service. No Python/CAD implementation changed in this slice.
+
+No second review agent was dispatched: the execution skill specifies one fix pass verified by RED/GREEN and the green whole suite. No unaddressed review finding remains in this pass; operational/authority gates above remain open. Raw review, final commands, restore report and artifact hashes are retained with the packet/export.

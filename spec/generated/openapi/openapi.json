@@ -1465,6 +1465,101 @@
         }
       }
     },
+    "/packages/{id}/preparation/basis/refresh": {
+      "post": {
+        "operationId": "Preparations_refreshBasis",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Preparation.PreparationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/preparation/confirm": {
       "post": {
         "operationId": "Preparations_confirm",
@@ -3074,6 +3169,13 @@
           "digest": {
             "$ref": "#/components/schemas/ControlRod.Records.Digest"
           },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Artifact"
+            },
+            "description": "Complete published output set when this source is a package dependency."
+          },
           "commit": {
             "type": "string"
           },
@@ -3684,6 +3786,7 @@
           "preparation_id",
           "preparation_revision",
           "preparation_digest",
+          "package_digest",
           "requirements_confirmation_id",
           "requirements_digest",
           "basis_refs",
@@ -3706,6 +3809,13 @@
           },
           "preparation_digest": {
             "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "package_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Canonical stored WorkPackage body at release, independent of the lifecycle column."
+          },
+          "origin_capture_id": {
+            "type": "string"
           },
           "requirements_confirmation_id": {
             "type": "string"
@@ -5392,6 +5502,13 @@
           },
           "preparation_results_pass": {
             "type": "boolean"
+          },
+          "deliverable_integrity": {
+            "type": "string",
+            "enum": [
+              "intact",
+              "changed"
+            ]
           },
           "criterion_results": {
             "$ref": "#/components/schemas/ControlRod.Preparation.CriterionResultSet"

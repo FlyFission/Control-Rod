@@ -108,6 +108,8 @@ model BasisRef {
   reference: string;
   revision: string;
   digest: Digest;
+  /** Complete published output set when this source is a package dependency. */
+  artifacts?: Artifact[];
   commit?: string;
   path?: string;
   @minValue(1) line_start?: int32;
@@ -182,6 +184,9 @@ model PreparationReleaseManifest {
   preparation_id: string;
   preparation_revision: int32;
   preparation_digest: Digest;
+  /** Canonical stored WorkPackage body at release, independent of the lifecycle column. */
+  package_digest: Digest;
+  origin_capture_id?: string;
   requirements_confirmation_id: string;
   requirements_digest: Digest;
   basis_refs: BasisRef[];

@@ -1,3 +1,4 @@
+import { refreshInputPins } from "./inputs.js";
 import { captureInput, resolveBasis } from "./basis.js";
 import { randomUUID } from "node:crypto";
 import type { Ajv2020 } from "ajv/dist/2020.js";
@@ -622,4 +623,37 @@ export async function advancePreparationRevision(
     snapshot,
     "preparation.revised",
   );
+}
+
+/** A human explicitly refreshes exact declared source versions before reviewing new subjects. */
+export async function refreshPreparationBasis(
+  db: Db,
+  cfg: WorkConfig,
+  user: string,
+  id: string,
+  expected: string | undefined,
+) {
+  return tx(db, async (c) => {
+    const p = await lockedPackage(c, id);
+    editable(p);
+    const previous = await head(c, id);
+    if (!previous)
+      throw new Refusal(404, "not-enrolled", "Enroll preparation first");
+    cas(previous, expected);
+    const content = await refreshInputPins(
+      c,
+      cfg,
+      p,
+      preparationContent(previous),
+    );
+    return appendEdit(
+      c,
+      cfg,
+      user,
+      p,
+      previous,
+      content,
+      "preparation.basis-refreshed",
+    );
+  });
 }

@@ -6,6 +6,7 @@ import { CONFIRMATION_SQL } from "./migrations/002-confirmation.js";
 import { RELEASE_SQL } from "./migrations/003-release.js";
 import { BASIS_SQL } from "./migrations/004-basis.js";
 import { RESULTS_SQL } from "./migrations/005-results.js";
+import { COMPATIBILITY_SQL } from "./migrations/006-compatibility.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
@@ -13,6 +14,7 @@ export const MIGRATIONS = [
   { version: "003-release", sql: RELEASE_SQL },
   { version: "004-basis", sql: BASIS_SQL },
   { version: "005-results", sql: RESULTS_SQL },
+  { version: "006-compatibility", sql: COMPATIBILITY_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

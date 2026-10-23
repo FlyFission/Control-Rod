@@ -1,3 +1,4 @@
+import { tx } from "../src/db/index.js";
 import { randomUUID } from "node:crypto";
 import { expect } from "vitest";
 import {
@@ -37,6 +38,7 @@ export async function preparedHarness(options: Partial<AppOptions> = {}) {
   async function draft(
     basis?: PreparationContent["basis"],
     customize?: (content: PreparationContent) => void,
+    confirm = true,
   ) {
     const p = { ...packageFixture(), id: `WP-${randomUUID()}` };
     await h.db.query(
@@ -87,14 +89,16 @@ export async function preparedHarness(options: Partial<AppOptions> = {}) {
     });
     expect(saved.statusCode, saved.body).toBe(200);
     v = saved.json();
-    const o = await owner("POST", url + "/confirm/options", {
-      expected_requirements_digest: v.requirements_digest,
-    });
-    expect(o.statusCode, o.body).toBe(200);
-    const c = await owner("POST", url + "/confirm", {
-      assertion: passkey.assert(o.json().options),
-    });
-    expect(c.statusCode, c.body).toBe(201);
+    if (confirm) {
+      const o = await owner("POST", url + "/confirm/options", {
+        expected_requirements_digest: v.requirements_digest,
+      });
+      expect(o.statusCode, o.body).toBe(200);
+      const c = await owner("POST", url + "/confirm", {
+        assertion: passkey.assert(o.json().options),
+      });
+      expect(c.statusCode, c.body).toBe(201);
+    }
     return {
       id: p.id,
       url,
@@ -140,5 +144,17 @@ export async function preparedHarness(options: Partial<AppOptions> = {}) {
         ...extra,
       },
     });
-  return { h, owner, passkey, draft, release, claim, complete };
+  const adminQuery = (sql: string, values?: unknown[]) =>
+    tx(h.db, (c) => c.query(sql, values));
+  return {
+    h,
+    cookie,
+    owner,
+    passkey,
+    draft,
+    release,
+    claim,
+    complete,
+    adminQuery,
+  };
 }

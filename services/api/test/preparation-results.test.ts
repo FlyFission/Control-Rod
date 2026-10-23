@@ -159,7 +159,7 @@ describe("typed criterion verification admission", () => {
     expect((await check(checked, submission(checked))).json().status).toBe(
       "succeeded",
     );
-    await f.h.db.query(
+    await f.adminQuery(
       "update packages set body=jsonb_set(body,'{objective}','\"Changed after checking\"') where id=$1",
       [checked.id],
     );
@@ -168,7 +168,7 @@ describe("typed criterion verification admission", () => {
   it("refuses acceptance when retained evidence is altered, even if its mutable row hash is changed too", async () => {
     const p = await author();
     expect((await check(p, submission(p))).json().status).toBe("succeeded");
-    await f.h.db.query(
+    await f.adminQuery(
       "update outputs set bytes=$2,sha256=$3 where run_id=$1 and name='checks.md'",
       [
         p.checker.run.id,

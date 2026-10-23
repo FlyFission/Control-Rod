@@ -1,0 +1,17 @@
+{
+  "source_url": "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.bz2",
+  "source_sha256": "078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90",
+  "hash_check": "published official SHA-256 matched downloaded archive",
+  "build_scope": "local fixture-only client tools; no system packages installed",
+  "tls": false,
+  "compression": false,
+  "ubuntu_parser_packages": {
+    "flex_2.6.4-8.2build1_amd64.deb": "c5604f55827b50e3f568b4731b7799f86b147454c867be02bc141d9d8ce561ff",
+    "bison_2%3a3.8.2+dfsg-1build2_amd64.deb": "18f487c400da3e968a44ecb3783a443641bcd14e2b080ed9ed1167f4aa2c1612",
+    "m4_1.4.19-4build1_amd64.deb": "30ea715845a1863abd55d11e47ab91513130bf347852d4cdeae69e9d98fa795c"
+  },
+  "client_binaries": {
+    "pg_dump": "0b4a2117ef23c684794f2e0b2c4bbe26b02ac04226cb25ee8879a1921ce3d79d",
+    "pg_restore": "b0039a72102e27061ab95950f46387d13e27cf1d4893d25268754c18fa8c0e2f"
+  }
+}

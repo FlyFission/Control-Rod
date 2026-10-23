@@ -1,0 +1,5 @@
+--- FAIL: TestCancelledConstructionRefuses (0.00s)
+    broker_test.go:418: cancelled construction admitted
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/confinement	0.130s
+FAIL

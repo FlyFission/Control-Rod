@@ -1,0 +1,27 @@
+{
+  "scope": "internal bounded file broker; inactive runtime profiles, no native/controller authority integration",
+  "go_race_suite": {
+    "github.com/flyfission/control-rod/daemon/internal/confinement": {
+      "top_level": 17,
+      "subtests": 57,
+      "package_result": "pass"
+    },
+    "github.com/flyfission/control-rod/daemon/internal/digest": {
+      "top_level": 4,
+      "subtests": 0,
+      "package_result": "pass"
+    },
+    "github.com/flyfission/control-rod/daemon/internal/runner": {
+      "top_level": 35,
+      "subtests": 9,
+      "package_result": "pass"
+    }
+  },
+  "go_vet": "pass",
+  "format": "pass",
+  "windows_amd64": "compile pass only; no execution evidence",
+  "darwin_arm64": "compile pass only; no execution evidence",
+  "fresh_review": "pending",
+  "protected_surfaces_changed": false,
+  "new_dependencies": false
+}

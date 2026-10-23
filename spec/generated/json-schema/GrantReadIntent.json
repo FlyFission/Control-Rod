@@ -1,0 +1,21 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "GrantReadIntent.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "type": "string",
+            "const": "read-input"
+        },
+        "input_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+        }
+    },
+    "required": [
+        "kind",
+        "input_id"
+    ],
+    "unevaluatedProperties": false
+}

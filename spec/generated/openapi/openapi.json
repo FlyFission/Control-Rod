@@ -2607,6 +2607,109 @@
         }
       }
     },
+    "/packages/{packageId}/preparation-grants/{id}/revoke": {
+      "post": {
+        "operationId": "revokePreparationGrant",
+        "parameters": [
+          {
+            "name": "packageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "revoked"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runner/claim": {
       "post": {
         "operationId": "Runner_claim",
@@ -2710,6 +2813,216 @@
                 "required": [
                   "runtimes"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runner/preparation-grants/{id}/begin": {
+      "post": {
+        "operationId": "PreparationGrantBroker_begin",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Preparation.PreparationUsePermit"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRod.Preparation.PreparationGrantIntent"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runner/preparation-grants/{id}/finalize": {
+      "post": {
+        "operationId": "PreparationGrantBroker_finalize",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Preparation.PreparationUseReceipt"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRod.Preparation.PreparationUseFinalize"
               }
             }
           }
@@ -3446,6 +3759,117 @@
           }
         }
       },
+      "ControlRod.Preparation.GrantInspectIntent": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "inspect"
+            ]
+          }
+        }
+      },
+      "ControlRod.Preparation.GrantInspectResult": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "inspect"
+            ]
+          }
+        }
+      },
+      "ControlRod.Preparation.GrantReadIntent": {
+        "type": "object",
+        "required": [
+          "kind",
+          "input_id"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "read-input"
+            ]
+          },
+          "input_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "ControlRod.Preparation.GrantReadResult": {
+        "type": "object",
+        "required": [
+          "kind",
+          "input_id",
+          "digest",
+          "bytes"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "read-input"
+            ]
+          },
+          "input_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "ControlRod.Preparation.GrantWriteIntent": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "write-proposal"
+            ]
+          }
+        }
+      },
+      "ControlRod.Preparation.GrantWriteResult": {
+        "type": "object",
+        "required": [
+          "kind",
+          "content_base64"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "write-proposal"
+            ]
+          },
+          "content_base64": {
+            "type": "string",
+            "maxLength": 6990508
+          }
+        }
+      },
       "ControlRod.Preparation.HumanResolution": {
         "type": "object",
         "required": [
@@ -3760,6 +4184,156 @@
           }
         }
       },
+      "ControlRod.Preparation.PreparationGrant": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "id",
+          "run_id",
+          "package_id",
+          "package_revision",
+          "preparation_id",
+          "preparation_revision",
+          "base_digest",
+          "package_digest",
+          "assignment_digest",
+          "role",
+          "lane",
+          "expires_at",
+          "inputs",
+          "proposal_path",
+          "max_proposal_bytes",
+          "max_operations"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "preparation_id": {
+            "type": "string"
+          },
+          "preparation_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "base_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "package_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "assignment_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Assigned baseline/runtime/round; changing them invalidates the grant."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "requirements-preparer"
+            ]
+          },
+          "lane": {
+            "type": "string",
+            "enum": [
+              "public",
+              "internal"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.PreparationGrantInput"
+            },
+            "maxItems": 16
+          },
+          "proposal_path": {
+            "type": "string",
+            "enum": [
+              "proposal.json"
+            ]
+          },
+          "max_proposal_bytes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 5242880
+          },
+          "max_operations": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 64
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationGrantInput": {
+        "type": "object",
+        "required": [
+          "id",
+          "path",
+          "reference",
+          "digest",
+          "bytes"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+[.](json|bin)$",
+            "description": "Relative to the dedicated input root, never the workspace/host root."
+          },
+          "reference": {
+            "type": "string"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationGrantIntent": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ControlRod.Preparation.GrantInspectIntent"
+          },
+          {
+            "$ref": "#/components/schemas/ControlRod.Preparation.GrantReadIntent"
+          },
+          {
+            "$ref": "#/components/schemas/ControlRod.Preparation.GrantWriteIntent"
+          }
+        ]
+      },
       "ControlRod.Preparation.PreparationHistory": {
         "type": "object",
         "required": [
@@ -3976,6 +4550,119 @@
             }
           }
         }
+      },
+      "ControlRod.Preparation.PreparationUseFinalize": {
+        "type": "object",
+        "required": [
+          "use_id",
+          "use_token",
+          "result"
+        ],
+        "properties": {
+          "use_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "use_token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "result": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.PreparationUseResult"
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationUsePermit": {
+        "type": "object",
+        "required": [
+          "grant",
+          "use_id",
+          "use_token",
+          "intent",
+          "expires_at"
+        ],
+        "properties": {
+          "grant": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.PreparationGrant"
+          },
+          "use_id": {
+            "type": "string"
+          },
+          "use_token": {
+            "type": "string"
+          },
+          "intent": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.PreparationGrantIntent"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationUseReceipt": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "grant_id",
+          "use_id",
+          "intent",
+          "admitted_at",
+          "custody"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "grant_id": {
+            "type": "string"
+          },
+          "use_id": {
+            "type": "string"
+          },
+          "intent": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.PreparationGrantIntent"
+          },
+          "admitted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "custody": {
+            "type": "string",
+            "enum": [
+              "authorization-only",
+              "broker-reported-read",
+              "controller-retained-proposal"
+            ],
+            "description": "Admission is not proof of tool execution or model consumption."
+          },
+          "artifact": {
+            "$ref": "#/components/schemas/ControlRod.Records.Artifact"
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationUseResult": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ControlRod.Preparation.GrantInspectResult"
+          },
+          {
+            "$ref": "#/components/schemas/ControlRod.Preparation.GrantReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/ControlRod.Preparation.GrantWriteResult"
+          }
+        ]
       },
       "ControlRod.Preparation.PreparationView": {
         "type": "object",
@@ -5087,7 +5774,9 @@
         "enum": [
           "intake",
           "author",
-          "pre-check"
+          "pre-check",
+          "requirements-preparer",
+          "technical-preparer"
         ]
       },
       "ControlRod.Records.RunStatus": {

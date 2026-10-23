@@ -23,3 +23,6 @@ Current evidence, scope and remaining authority gates are explicit. No planned o
 Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.
 
 The bounded preparation file broker is implemented and reviewed with both Important findings corrected by failed-first regressions. It remains unintegrated with native dispatch and the mandatory controller authority/transport. This does not change the deferred main/operational posture or authorize active policy. See `evidence/file-broker/final-review.md`.
+
+
+Controller grant storage and narrow RPC continue the inactive task-10 foundation. A trusted coordinator, actual process/credential/model egress boundary and Go distributed adapter are not supplied; an unconfirmed draft lane is not owner disclosure approval. PostgreSQL17+ is required by the new grant protocol. No public issuance or native preparer dispatch is connected. Final review/publication state is recorded in the execution ledger.

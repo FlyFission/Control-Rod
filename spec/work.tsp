@@ -45,6 +45,9 @@ enum RunRole {
   intake: "intake",
   author: "author",
   pre_check: "pre-check",
+  /** Serialized future roles only; legacy dispatch and mutation paths refuse them. */
+  requirements_preparer: "requirements-preparer",
+  technical_preparer: "technical-preparer",
 }
 
 enum RunStatus {

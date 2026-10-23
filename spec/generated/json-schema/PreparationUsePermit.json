@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationUsePermit.json",
+    "type": "object",
+    "properties": {
+        "grant": {
+            "$ref": "PreparationGrant.json"
+        },
+        "use_id": {
+            "type": "string"
+        },
+        "use_token": {
+            "type": "string"
+        },
+        "intent": {
+            "$ref": "PreparationGrantIntent.json"
+        },
+        "expires_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "grant",
+        "use_id",
+        "use_token",
+        "intent",
+        "expires_at"
+    ],
+    "unevaluatedProperties": false
+}

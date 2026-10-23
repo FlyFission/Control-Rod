@@ -394,3 +394,12 @@ namespace Preparations {
   @route("/confirm") @post op confirm(@path id: string, @body body: ControlRod.Preparation.ConfirmationRequest): { @statusCode _: 201; @body confirmation: ControlRod.Preparation.RequirementsConfirmation; } | Refused;
   @route("/history") @get op history(@path id: string, @query before?: int32, @query limit?: int32): ControlRod.Preparation.PreparationHistory | Refused;
 }
+
+/** Narrow broker credentials only. No public grant issuance or native dispatch. */
+@route("/runner/preparation-grants/{id}")
+namespace PreparationGrantBroker {
+  @route("/begin") @post op begin(@path id: string, @header("Authorization") grantAuthorization: string, @body body: ControlRod.Preparation.PreparationGrantIntent): ControlRod.Preparation.PreparationUsePermit | Refused;
+  @route("/finalize") @post op finalize(@path id: string, @header("Authorization") grantAuthorization: string, @body body: ControlRod.Preparation.PreparationUseFinalize): ControlRod.Preparation.PreparationUseReceipt | Refused;
+}
+@route("/packages/{packageId}/preparation-grants/{id}/revoke") @post
+op revokePreparationGrant(@path packageId: string,@path id: string): {revoked: boolean} | Refused;

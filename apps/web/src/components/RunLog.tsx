@@ -22,7 +22,7 @@ export function runState(run: Run): StateKind {
   }
 }
 
-const ROLE_LABEL: Record<Run["role"], string> = { intake: "Intake", author: "Author", "pre-check": "Pre-check" };
+const ROLE_LABEL: Record<Run["role"], string> = { intake: "Intake", author: "Author", "pre-check": "Pre-check", "requirements-preparer": "Requirements preparation", "technical-preparer": "Technical preparation" };
 
 /** What the run card says about where a run stands, in plain words. */
 export function runStatusText(run: Run): string {

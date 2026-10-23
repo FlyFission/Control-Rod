@@ -1,0 +1,26 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationUseFinalize.json",
+    "type": "object",
+    "properties": {
+        "use_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+        },
+        "use_token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+        },
+        "result": {
+            "$ref": "PreparationUseResult.json"
+        }
+    },
+    "required": [
+        "use_id",
+        "use_token",
+        "result"
+    ],
+    "unevaluatedProperties": false
+}

@@ -24,7 +24,7 @@ export interface Figure {
   packageId: string;
 }
 
-const ROLE_SHORT: Record<Run["role"], string> = { intake: "INT", author: "AUT", "pre-check": "CHK" };
+const ROLE_SHORT: Record<Run["role"], string> = { intake: "INT", author: "AUT", "pre-check": "CHK", "requirements-preparer": "REQ", "technical-preparer": "TEC" };
 
 function roomFor(view: PackageView, run: Run): RoomId {
   if (run.status === "queued") return "bench";

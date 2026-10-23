@@ -1,0 +1,15 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationUseResult.json",
+    "anyOf": [
+        {
+            "$ref": "GrantInspectResult.json"
+        },
+        {
+            "$ref": "GrantReadResult.json"
+        },
+        {
+            "$ref": "GrantWriteResult.json"
+        }
+    ]
+}

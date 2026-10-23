@@ -23,11 +23,11 @@ export const RP_ID = "localhost";
 export const DAEMON_TOKEN = "test-daemon-token-0123456789";
 const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 
-/** Directory of a system PostgreSQL's server binaries, if one is installed. */
+/** Host server meeting the controller-grant PG17 floor, or use pinned embedded PG17. */
 function systemPostgres(): string | null {
   const base = "/usr/lib/postgresql";
   if (!existsSync(base)) return null;
-  const versions = readdirSync(base).filter((v) => existsSync(join(base, v, "bin", "initdb"))).sort((a, b) => Number(b) - Number(a));
+  const versions = readdirSync(base).filter((v) => Number(v)>=17 && existsSync(join(base, v, "bin", "initdb"))).sort((a, b) => Number(b) - Number(a));
   return versions[0] ? join(base, versions[0], "bin") : null;
 }
 

@@ -1,0 +1,9 @@
+--- FAIL: TestProposalReceiptBytesPermissionsAndCustody (0.00s)
+    broker_test.go:271: receipt={SHA256: Bytes:0} error=preparation capability refused
+--- FAIL: TestConcurrentProposalsAcrossBrokersAdmitOneWriter (0.00s)
+    broker_test.go:304: winners=[] events=[]
+--- FAIL: TestOutputRootHandleSurvivesRename (0.00s)
+    broker_test.go:310: preparation capability refused
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/confinement	0.119s
+FAIL

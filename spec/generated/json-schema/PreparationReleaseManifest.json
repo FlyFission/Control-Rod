@@ -1,0 +1,54 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationReleaseManifest.json",
+    "type": "object",
+    "properties": {
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+        },
+        "preparation_id": {
+            "type": "string"
+        },
+        "preparation_revision": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+        },
+        "preparation_digest": {
+            "$ref": "Digest.json"
+        },
+        "requirements_confirmation_id": {
+            "type": "string"
+        },
+        "requirements_digest": {
+            "$ref": "Digest.json"
+        },
+        "basis_refs": {
+            "type": "array",
+            "items": {
+                "$ref": "BasisRef.json"
+            }
+        },
+        "feature_version": {
+            "type": "string",
+            "const": "0.1.0"
+        }
+    },
+    "required": [
+        "package_id",
+        "package_revision",
+        "preparation_id",
+        "preparation_revision",
+        "preparation_digest",
+        "requirements_confirmation_id",
+        "requirements_digest",
+        "basis_refs",
+        "feature_version"
+    ],
+    "unevaluatedProperties": false
+}

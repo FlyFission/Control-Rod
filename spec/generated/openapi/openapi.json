@@ -1080,6 +1080,453 @@
         }
       }
     },
+    "/packages/{id}/preparation": {
+      "post": {
+        "operationId": "Preparations_enroll",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Preparation.PreparationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRod.Preparation.PreparationEnrollment"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "Preparations_read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Preparation.PreparationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "Preparations_edit",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Preparation.PreparationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRod.Preparation.PreparationContent"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/preparation/history": {
+      "get": {
+        "operationId": "Preparations_history",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "explode": false
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Preparation.PreparationHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/preparation/resolutions": {
+      "post": {
+        "operationId": "Preparations_resolve",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Preparation.PreparationView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRod.Preparation.ResolutionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/runs/{runId}/log": {
       "get": {
         "operationId": "Packages_runLog",
@@ -2061,6 +2508,763 @@
               "voice",
               "chat"
             ]
+          }
+        }
+      },
+      "ControlRod.Preparation.BasisRef": {
+        "type": "object",
+        "required": [
+          "kind",
+          "reference",
+          "revision",
+          "digest"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "capture",
+              "attachment",
+              "repository",
+              "document",
+              "package",
+              "policy"
+            ]
+          },
+          "reference": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "line_start": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "line_end": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          }
+        }
+      },
+      "ControlRod.Preparation.Criterion": {
+        "type": "object",
+        "required": [
+          "id",
+          "requirement_ids",
+          "statement",
+          "verification_check_ids"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requirement_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "statement": {
+            "type": "string"
+          },
+          "verification_check_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Preparation.DesignElement": {
+        "type": "object",
+        "required": [
+          "id",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlRod.Preparation.Escalation": {
+        "type": "object",
+        "required": [
+          "id",
+          "criterion_ids",
+          "reason",
+          "alternatives",
+          "owner",
+          "resolution_refs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "criterion_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason": {
+            "type": "string"
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "owner": {
+            "type": "string"
+          },
+          "resolution_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Preparation.HumanResolution": {
+        "type": "object",
+        "required": [
+          "id",
+          "item_id",
+          "actor",
+          "rationale",
+          "source_refs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "item_id": {
+            "type": "string"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/ControlRod.Records.Actor"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Preparation.OpenItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "text",
+          "owner",
+          "blocking",
+          "state",
+          "resolution_refs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "question",
+              "assumption",
+              "conflict"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "blocking": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "resolved",
+              "deferred"
+            ]
+          },
+          "resolution_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Preparation.PackageContract": {
+        "type": "object",
+        "required": [
+          "mode",
+          "objective",
+          "deliverables",
+          "design_inputs",
+          "rigor_mode",
+          "data_lane",
+          "verification"
+        ],
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/ControlRod.Records.Mode"
+          },
+          "objective": {
+            "type": "string"
+          },
+          "deliverables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Deliverable"
+            }
+          },
+          "exclusions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "design_inputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.DesignInput"
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Assumption"
+            }
+          },
+          "codes_and_standards": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.CodeOrStandard"
+            }
+          },
+          "rigor_mode": {
+            "$ref": "#/components/schemas/ControlRod.Records.RigorMode"
+          },
+          "data_lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane"
+          },
+          "methodology": {
+            "$ref": "#/components/schemas/ControlRod.Records.Methodology"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/ControlRod.Records.VerificationPlan"
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationBlocker": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "owner"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationCheck": {
+        "type": "object",
+        "required": [
+          "id",
+          "criterion_ids",
+          "method",
+          "required",
+          "expected_result"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "criterion_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "method": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "expected_result": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationContent": {
+        "type": "object",
+        "required": [
+          "request_kind",
+          "package_contract",
+          "requirements",
+          "criteria",
+          "context",
+          "questions",
+          "resolutions",
+          "escalations",
+          "technical_plan",
+          "basis"
+        ],
+        "properties": {
+          "request_kind": {
+            "type": "string",
+            "enum": [
+              "general",
+              "bugfix",
+              "enhancement",
+              "capital-projects"
+            ]
+          },
+          "package_contract": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.PackageContract"
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.Requirement"
+            }
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.Criterion"
+            }
+          },
+          "context": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.PreparationContext"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.OpenItem"
+            }
+          },
+          "resolutions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.HumanResolution"
+            }
+          },
+          "escalations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.Escalation"
+            }
+          },
+          "technical_plan": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.TechnicalPlan"
+          },
+          "basis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.BasisRef"
+            }
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationContext": {
+        "type": "object",
+        "required": [
+          "problem"
+        ],
+        "properties": {
+          "problem": {
+            "type": "string"
+          },
+          "repro": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "string"
+          },
+          "actual": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "current_journey": {
+            "type": "string"
+          },
+          "desired_journey": {
+            "type": "string"
+          },
+          "implementation_notes": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationEnrollment": {
+        "type": "object",
+        "required": [
+          "package_revision",
+          "idempotency_key"
+        ],
+        "properties": {
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationHistory": {
+        "type": "object",
+        "required": [
+          "revisions"
+        ],
+        "properties": {
+          "revisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.PreparationView"
+            }
+          },
+          "next_before": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationSnapshot": {
+        "type": "object",
+        "required": [
+          "request_kind",
+          "package_contract",
+          "requirements",
+          "criteria",
+          "context",
+          "questions",
+          "resolutions",
+          "escalations",
+          "technical_plan",
+          "basis",
+          "schema_version",
+          "id",
+          "package_id",
+          "package_revision",
+          "revision",
+          "created_by",
+          "created_at"
+        ],
+        "properties": {
+          "request_kind": {
+            "type": "string",
+            "enum": [
+              "general",
+              "bugfix",
+              "enhancement",
+              "capital-projects"
+            ]
+          },
+          "package_contract": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.PackageContract"
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.Requirement"
+            }
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.Criterion"
+            }
+          },
+          "context": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.PreparationContext"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.OpenItem"
+            }
+          },
+          "resolutions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.HumanResolution"
+            }
+          },
+          "escalations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.Escalation"
+            }
+          },
+          "technical_plan": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.TechnicalPlan"
+          },
+          "basis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.BasisRef"
+            }
+          },
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "previous_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/ControlRod.Records.Actor"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationTask": {
+        "type": "object",
+        "required": [
+          "id",
+          "description",
+          "design_element_ids",
+          "depends_on"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "design_element_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Preparation.PreparationView": {
+        "type": "object",
+        "required": [
+          "snapshot",
+          "content_digest",
+          "requirements_digest",
+          "confirmed",
+          "readiness",
+          "blockers",
+          "change_summary"
+        ],
+        "properties": {
+          "snapshot": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.PreparationSnapshot"
+          },
+          "content_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "requirements_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "readiness": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "ready"
+            ]
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.PreparationBlocker"
+            }
+          },
+          "change_summary": {
+            "type": "string"
+          }
+        }
+      },
+      "ControlRod.Preparation.Requirement": {
+        "type": "object",
+        "required": [
+          "id",
+          "statement",
+          "source_refs",
+          "journey_or_repro_refs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "statement": {
+            "type": "string"
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "journey_or_repro_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Preparation.ResolutionRequest": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "rationale",
+          "source_refs"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Preparation.TechnicalPlan": {
+        "type": "object",
+        "required": [
+          "summary",
+          "current_state_refs",
+          "design_elements",
+          "alternatives",
+          "tasks",
+          "checks",
+          "rollout",
+          "risks"
+        ],
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "current_state_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "design_elements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.DesignElement"
+            }
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.PreparationTask"
+            }
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.PreparationCheck"
+            }
+          },
+          "rollout": {
+            "type": "string"
+          },
+          "risks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

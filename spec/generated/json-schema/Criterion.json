@@ -1,0 +1,33 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Criterion.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "minLength": 1
+        },
+        "requirement_ids": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "statement": {
+            "type": "string"
+        },
+        "verification_check_ids": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "id",
+        "requirement_ids",
+        "statement",
+        "verification_check_ids"
+    ],
+    "unevaluatedProperties": false
+}

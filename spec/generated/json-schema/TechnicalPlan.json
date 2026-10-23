@@ -1,0 +1,60 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "TechnicalPlan.json",
+    "type": "object",
+    "properties": {
+        "summary": {
+            "type": "string"
+        },
+        "current_state_refs": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "design_elements": {
+            "type": "array",
+            "items": {
+                "$ref": "DesignElement.json"
+            }
+        },
+        "alternatives": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "tasks": {
+            "type": "array",
+            "items": {
+                "$ref": "PreparationTask.json"
+            }
+        },
+        "checks": {
+            "type": "array",
+            "items": {
+                "$ref": "PreparationCheck.json"
+            }
+        },
+        "rollout": {
+            "type": "string"
+        },
+        "risks": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "summary",
+        "current_state_refs",
+        "design_elements",
+        "alternatives",
+        "tasks",
+        "checks",
+        "rollout",
+        "risks"
+    ],
+    "unevaluatedProperties": false
+}

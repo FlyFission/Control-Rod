@@ -366,3 +366,13 @@ namespace Runner {
 
   @route("/runs/{id}/complete") @post op complete(@path id: string, @body body: Completion): CompletionReceipt | Refused;
 }
+
+/** Human-only manual preparation. Enrollment is explicitly enabled by the owner. */
+@route("/packages/{id}/preparation")
+namespace Preparations {
+  @post op enroll(@path id: string, @body body: ControlRod.Preparation.PreparationEnrollment): ControlRod.Preparation.PreparationView | Refused;
+  @get op read(@path id: string): ControlRod.Preparation.PreparationView | Refused;
+  @put op edit(@path id: string, @header("If-Match") ifMatch: string, @body body: ControlRod.Preparation.PreparationContent): ControlRod.Preparation.PreparationView | Refused;
+  @route("/resolutions") @post op resolve(@path id: string, @header("If-Match") ifMatch: string, @body body: ControlRod.Preparation.ResolutionRequest): ControlRod.Preparation.PreparationView | Refused;
+  @route("/history") @get op history(@path id: string, @query before?: int32, @query limit?: int32): ControlRod.Preparation.PreparationHistory | Refused;
+}

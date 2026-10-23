@@ -1,0 +1,33 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Requirement.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "minLength": 1
+        },
+        "statement": {
+            "type": "string"
+        },
+        "source_refs": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "journey_or_repro_refs": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "id",
+        "statement",
+        "source_refs",
+        "journey_or_repro_refs"
+    ],
+    "unevaluatedProperties": false
+}

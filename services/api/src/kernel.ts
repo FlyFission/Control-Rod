@@ -56,3 +56,8 @@ export function decide(req: KernelRequest): KernelOutcome {
 export function digest(value: unknown): string {
   return wasm.canonical_sha256_hex(JSON.stringify(value));
 }
+
+/** Validate raw JSON before duplicate keys, numeric tokens or Unicode can be lost. */
+export function validateRawJson(json: string): void {
+  wasm.canonical_sha256_hex(json);
+}

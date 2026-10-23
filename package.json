@@ -10,7 +10,7 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "spec": "pnpm --filter @control-rod/spec run build",
+    "spec": "pnpm --filter @control-rod/spec run build && node scripts/generate-runner-schemas.mjs",
     "cr": "node scripts/cr.mjs"
   },
   "devDependencies": {

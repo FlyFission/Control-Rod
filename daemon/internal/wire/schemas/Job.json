@@ -1,0 +1,39 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Job.json",
+    "type": "object",
+    "properties": {
+        "run": {
+            "$ref": "Run.json"
+        },
+        "package": {
+            "$ref": "WorkPackage.json"
+        },
+        "capture": {
+            "$ref": "Capture.json"
+        },
+        "inputs": {
+            "type": "array",
+            "items": {
+                "$ref": "NamedFile.json"
+            },
+            "description": "For a pre-check: only the deliverable and criteria, never the author's transcript."
+        },
+        "findings": {
+            "type": "array",
+            "items": {
+                "$ref": "Finding.json"
+            }
+        },
+        "claim": {
+            "$ref": "RunClaim.json",
+            "description": "Custody of this run: present the token on every log and completion."
+        }
+    },
+    "required": [
+        "run",
+        "inputs",
+        "claim"
+    ],
+    "unevaluatedProperties": false
+}

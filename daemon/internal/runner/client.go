@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/flyfission/control-rod/daemon/internal/wire"
 )
 
 // ErrNoWork means the control plane had nothing to hand out (HTTP 204).
@@ -88,7 +90,7 @@ func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeS
 		return nil, ErrNoWork
 	case http.StatusOK, http.StatusCreated:
 		var job Job
-		if err := json.NewDecoder(resp.Body).Decode(&job); err != nil {
+		if err := wire.Decode(resp.Body, "Job.json", 150<<20, &job); err != nil {
 			return nil, fmt.Errorf("decode job: %w", err)
 		}
 		return &job, nil
@@ -121,11 +123,9 @@ func (c *Client) Log(ctx context.Context, runID string, batch LogBatch) (LogRepl
 	}
 	defer resp.Body.Close()
 	switch {
-	case resp.StatusCode == http.StatusNoContent:
-		return LogReply{}, nil
 	case resp.StatusCode/100 == 2:
 		var r LogReply
-		if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<16)).Decode(&r); err != nil {
+		if err := wire.Decode(resp.Body, "LogReply.json", 1<<16, &r); err != nil {
 			return LogReply{}, fmt.Errorf("decode log reply: %w", err)
 		}
 		return r, nil
@@ -147,12 +147,13 @@ func (c *Client) Complete(ctx context.Context, runID string, comp Completion) (*
 	}
 	defer resp.Body.Close()
 	switch {
-	case resp.StatusCode == http.StatusNoContent:
-		return &Receipt{RunID: runID, IdempotencyKey: comp.IdempotencyKey, Status: comp.Status}, nil
 	case resp.StatusCode/100 == 2:
 		var r Receipt
-		if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&r); err != nil {
+		if err := wire.Decode(resp.Body, "CompletionReceipt.json", 1<<20, &r); err != nil {
 			return nil, fmt.Errorf("decode receipt: %w", err)
+		}
+		if r.RunID != runID || r.IdempotencyKey != comp.IdempotencyKey {
+			return nil, fmt.Errorf("completion receipt subject mismatch")
 		}
 		return &r, nil
 	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:

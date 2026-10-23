@@ -1772,21 +1772,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "stop": {
-                      "type": "boolean",
-                      "description": "The owner asked to stop this run: end the process and complete it as stopped."
-                    },
-                    "lease_expires_at": {
-                      "type": "string",
-                      "format": "date-time"
-                    }
-                  },
-                  "required": [
-                    "stop",
-                    "lease_expires_at"
-                  ]
+                  "$ref": "#/components/schemas/Runner.LogReply"
                 }
               }
             }
@@ -3497,19 +3483,7 @@
           "outputs": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "content_base64": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "name",
-                "content_base64"
-              ]
+              "$ref": "#/components/schemas/Runner.NamedFile"
             }
           },
           "package": {
@@ -3576,19 +3550,7 @@
           "inputs": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "content_base64": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "name",
-                "content_base64"
-              ]
+              "$ref": "#/components/schemas/Runner.NamedFile"
             },
             "description": "For a pre-check: only the deliverable and criteria, never the author's transcript."
           },
@@ -3601,6 +3563,38 @@
           "claim": {
             "$ref": "#/components/schemas/Runner.RunClaim",
             "description": "Custody of this run: present the token on every log and completion."
+          }
+        }
+      },
+      "Runner.LogReply": {
+        "type": "object",
+        "required": [
+          "stop",
+          "lease_expires_at"
+        ],
+        "properties": {
+          "stop": {
+            "type": "boolean",
+            "description": "End the agent process when the owner has requested a stop."
+          },
+          "lease_expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Runner.NamedFile": {
+        "type": "object",
+        "required": [
+          "name",
+          "content_base64"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "content_base64": {
+            "type": "string"
           }
         }
       },

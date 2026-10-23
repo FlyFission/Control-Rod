@@ -17,6 +17,7 @@ import {
 } from "./auth.js";
 import type { Db } from "./db/index.js";
 import { bus, type EventRecord, listEvents, verifyChain } from "./events.js";
+import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
 import {
   Refusal,
@@ -88,6 +89,16 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   const cfg: WorkConfig = { root: opts.root, ajv, ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
+  app.removeContentTypeParser("application/json");
+  app.addContentTypeParser("application/json", { parseAs: "buffer" }, (_req, body, done) => {
+    try {
+      const raw = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body as Buffer);
+      validateRawJson(raw);
+      done(null, JSON.parse(raw));
+    } catch {
+      done(Object.assign(new Error("JSON violates the canonical record profile"), { statusCode: 400 }));
+    }
+  });
   app.register(cookie);
   app.setValidatorCompiler(({ schema }) => ajv.compile(schema));
 

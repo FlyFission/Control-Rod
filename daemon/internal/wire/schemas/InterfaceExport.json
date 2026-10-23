@@ -1,0 +1,29 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "InterfaceExport.json",
+    "type": "object",
+    "properties": {
+        "parameter": {
+            "type": "string"
+        },
+        "value": {
+            "$ref": "Quantity.json"
+        },
+        "deadband": {
+            "type": "string",
+            "description": "Allowed change before consumers must re-check, for example \"5%\" or a Quantity string."
+        },
+        "consumers": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "parameter",
+        "deadband",
+        "consumers"
+    ],
+    "unevaluatedProperties": false
+}

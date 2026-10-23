@@ -1,0 +1,77 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Capture.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "id": {
+            "type": "string"
+        },
+        "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+        },
+        "source": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "web"
+                },
+                {
+                    "type": "string",
+                    "const": "cli"
+                },
+                {
+                    "type": "string",
+                    "const": "voice"
+                },
+                {
+                    "type": "string",
+                    "const": "chat"
+                }
+            ]
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "disposition": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "pending"
+                },
+                {
+                    "type": "string",
+                    "const": "answered"
+                },
+                {
+                    "type": "string",
+                    "const": "package"
+                }
+            ],
+            "description": "Intake either answers a quick question directly or drafts a work package."
+        },
+        "answer": {
+            "type": "string",
+            "maxLength": 20000,
+            "description": "The direct answer for a quick question. No package, check or approval."
+        },
+        "package_id": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "schema_version",
+        "id",
+        "text",
+        "source",
+        "created_at"
+    ],
+    "description": "Something a person said they want done, before intake turns it into a package.",
+    "unevaluatedProperties": false
+}

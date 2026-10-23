@@ -155,3 +155,9 @@ Ruling: keep owner pilot distinct from fixture rehearsal — hardware passkeys, 
 - Task 13: domain-deliverable contracts and primary input/tool authorities must close after the owner pilot; no invented engineering fixtures or county/feed choice.
 - Task 14: reconcile the external full Platform Plan and deployment/tenant decisions before larger platform implementation.
 - Main integration: original PR DCO and non-author protected review remain unresolved; new feature kernel edits have their explicit scoped user authorization in the basis record.
+
+## Tasks 13–14 specification closure
+
+Dedicated domain-deliverable spec/plan now defines tool manifests, offline cache, atomic generation publication, authoritative source adapters, reports, calculation provenance and PDF review with exact proposed seams and failure cases. The larger-platform continuation specification records current ADR exceptions and the tenant/orchestration/witnessing/gateway/distribution boundaries. These are proposed programs, not completed implementation. Required owner pilot, domain/source/tool authorities and the external Platform Plan/deployment decisions remain explicit inputs.
+
+Remote baseline refreshed after implementation: origin/main still 40763d4; origin/mvp/site-concept still 8a54ff4. No source drift was silently incorporated and no original worktree was changed.

@@ -1,0 +1,11 @@
+[test-api] Building checksum-pinned PostgreSQL 17.10 for local fixtures: /home/flyfission/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90
+[test-api] PostgreSQL fixture binaries: /home/flyfission/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  17:05:53
+   Duration  1.51s (tests 78%, import 17%, transform 5%)
+

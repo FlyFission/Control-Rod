@@ -68,7 +68,7 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
       },
     };
   }
-  const system = systemPostgres();
+  const system = process.env.CONTROLROD_TEST_PG_DIR ?? systemPostgres();
   if (system && process.getuid?.() !== 0) {
     // CI runners ship PostgreSQL binaries; start a throwaway cluster with them.
     const dir = mkdtempSync(join(tmpdir(), "cr-pg-"));

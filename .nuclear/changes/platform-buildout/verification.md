@@ -80,3 +80,6 @@ The task-10 file subcomponent is implemented and verified, while E-10 native act
 
 
 Controller grant continuation: additive storage/RPC is covered by API 172 and web 37 passing tests, types/builds, real grant-row/proposal/guard restore, full daemon race/vet and reproducible schema generation. Supporting evidence extends E-05 and the partial PB-05/E-10 boundary; it does not close native confinement. These remain coupled, implementer-selected fixture self-checks, with independent design review and a pending final code review. See `evidence/controller-grants/` and the execution ledger. Original origin-pin guards used a controlled rollback RED verification; generated auth records contain no secrets, while arbitrary retained proposal bytes remain untrusted. No deployment or real-provider evidence is supplied.
+
+
+CI portability correction: initial remote TypeScript failure was database setup, not an API behavior verdict. The pinned PG17 source fallback now passes cold deadline and warm whole API174/web39/types/build/restore with the former LD_LIBRARY_PATH workaround removed. Source/flags/program hashes and red remote log are retained in controller evidence. No protected CI workflow was edited; verify the latest remote head separately.

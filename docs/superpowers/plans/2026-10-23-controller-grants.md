@@ -35,3 +35,7 @@ No public issuance, preparer run creation/dispatch, general command/network oper
 - [x] Expand recovery coverage to the new tables; run whole API/web tests, type checks/build/schema reproducibility and Go race/vet/format.
 - [x] Obtain one fresh final code review for the completed slice, fix Important findings failed-first in one pass, record all scope dispositions.
 - [ ] Commit with DCO, push under existing authority, verify exact PR #6 head and CI, refresh Windows packet. Keep all runtime activation gates open.
+
+## Publication environment regression
+
+CI at `707b26d` passed six jobs but the TypeScript job could not start embedded PG17: its old ICU shared library was absent. Acceptance for the portable test bootstrap: existing explicit/host tools win; otherwise verify the already-recorded official source hash before a private non-root Linux build, reuse verified cached programs, execute the actual fatal-deadline and whole API/restore tests without the local LD_LIBRARY_PATH workaround, then verify latest remote CI. No protected workflow edit or grant-deadline weakening is included. First builds require documented C/parser tools; no system package installation occurs.

@@ -1,0 +1,272 @@
+typescript	Run pnpm -r run test	﻿2026-10-23T20:59:06.6317730Z ##[group]Run pnpm -r run test
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6318043Z ^[[36;1mpnpm -r run test^[[0m
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6431415Z shell: /usr/bin/bash -e {0}
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6431736Z env:
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6432011Z   NUCLEAR_GRADE_SHA: 8122269a5b55e5694c8f998ad17955e7ce45798a
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6432578Z   MISE_LOG_LEVEL: info
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6432897Z   MISE_TRUSTED_CONFIG_PATHS: /home/runner/work/Control-Rod/Control-Rod
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6433243Z   MISE_YES: 1
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6433444Z   CARGO_HOME: /home/runner/.cargo
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6433751Z   GOBIN: /home/runner/.local/share/mise/installs/go/1.24.7/bin
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6434126Z   GOROOT: /home/runner/.local/share/mise/installs/go/1.24.7
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6434449Z   RUSTUP_HOME: /home/runner/.rustup
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6434707Z   RUSTUP_TOOLCHAIN: 1.97.0
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.6434930Z ##[endgroup]
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.8300442Z Scope: 3 of 4 workspace projects
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.8318017Z apps/web test$ pnpm gen:api && vitest run
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.9793959Z apps/web test: > @control-rod/web@0.0.0 gen:api /home/runner/work/Control-Rod/Control-Rod/apps/web
+typescript	Run pnpm -r run test	2026-10-23T20:59:06.9801162Z apps/web test: > openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+typescript	Run pnpm -r run test	2026-10-23T20:59:07.4313924Z apps/web test: ✨ openapi-typescript 7.13.0
+typescript	Run pnpm -r run test	2026-10-23T20:59:07.6585514Z apps/web test: 🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [229.1ms]
+typescript	Run pnpm -r run test	2026-10-23T20:59:07.9056931Z apps/web test: ^[[1m^[[30m^[[46m RUN ^[[49m^[[39m^[[22m ^[[36mv5.0.5 ^[[39m^[[90m/home/runner/work/Control-Rod/Control-Rod/apps/web^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.3194244Z apps/web test: ^[[90mstderr^[[2m | src/components/components.test.tsx^[[2m > ^[[22m^[[2myour office^[[2m > ^[[22m^[[2mlists holds first and the oldest of a kind first
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.3203976Z apps/web test: ^[[22m^[[39m[MSW] Error: intercepted a request without a matching request handler:
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.3205345Z apps/web test:   • GET /runtimes
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.3206026Z apps/web test: If you still wish to intercept this unhandled request, please create a request handler for it.
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.3206863Z apps/web test: Read more: https://mswjs.io/docs/http/intercepting-requests
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.3927061Z apps/web test: ^[[90mstderr^[[2m | src/components/components.test.tsx^[[2m > ^[[22m^[[2mruns that need the owner^[[2m > ^[[22m^[[2mputs lost runs right after holds in the office
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.3943873Z apps/web test: ^[[22m^[[39m[MSW] Error: intercepted a request without a matching request handler:
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.3962794Z apps/web test:   • GET /runtimes
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.3969711Z apps/web test: If you still wish to intercept this unhandled request, please create a request handler for it.
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.3970397Z apps/web test: Read more: https://mswjs.io/docs/http/intercepting-requests
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.4913441Z apps/web test: ^[[90mstderr^[[2m | src/components/components.test.tsx^[[2m > ^[[22m^[[2mstranded intake^[[2m > ^[[22m^[[2mshows a failed intake with its error and retries it on request
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.4914545Z apps/web test: ^[[22m^[[39m[MSW] Error: intercepted a request without a matching request handler:
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.4923468Z apps/web test:   • GET /events?after=0
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.4924130Z apps/web test: If you still wish to intercept this unhandled request, please create a request handler for it.
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.4924923Z apps/web test: Read more: https://mswjs.io/docs/http/intercepting-requests
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.4925869Z apps/web test: ^[[90mstderr^[[2m | src/components/components.test.tsx^[[2m > ^[[22m^[[2mstranded intake^[[2m > ^[[22m^[[2mshows a failed intake with its error and retries it on request
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.4926795Z apps/web test: ^[[22m^[[39m[MSW] Error: intercepted a request without a matching request handler:
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.4927342Z apps/web test:   • GET /metrics
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.4927887Z apps/web test: If you still wish to intercept this unhandled request, please create a request handler for it.
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.4928571Z apps/web test: Read more: https://mswjs.io/docs/http/intercepting-requests
+typescript	Run pnpm -r run test	2026-10-23T20:59:09.5165304Z apps/web test:  ^[[32m✓^[[39m src/components/components.test.tsx ^[[2m(^[[22m^[[2m19 tests^[[22m^[[2m)^[[22m^[[33m 833^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:10.0634103Z apps/web test:  ^[[32m✓^[[39m src/lib/lib.test.ts ^[[2m(^[[22m^[[2m11 tests^[[22m^[[2m)^[[22m^[[32m 50^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:11.2899491Z apps/web test:  ^[[32m✓^[[39m src/components/preparation/preparation.test.tsx ^[[2m(^[[22m^[[2m5 tests^[[22m^[[2m)^[[22m^[[33m 630^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:11.9508209Z apps/web test:  ^[[32m✓^[[39m src/components/preparation/coverage.test.tsx ^[[2m(^[[22m^[[2m3 tests^[[22m^[[2m)^[[22m^[[32m 113^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7651151Z apps/web test:  ^[[32m✓^[[39m src/lib/live.test.tsx ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m)^[[22m^[[33m 320^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7652429Z apps/web test:    ^[[32m✓^[[39m live events ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7653298Z apps/web test:      ^[[33m^[[2m✓^[[22m^[[39m refreshes the package a run event names in its data, not only its subject^[[33m 315^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7685225Z apps/web test: ^[[2m Test Files ^[[22m ^[[1m^[[32m5 passed^[[39m^[[22m^[[90m (5)^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7700161Z apps/web test: ^[[2m      Tests ^[[22m ^[[1m^[[32m39 passed^[[39m^[[22m^[[90m (39)^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7712017Z apps/web test: ^[[2m   Start at ^[[22m 20:59:07
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7712778Z apps/web test: ^[[2m   Duration ^[[22m 4.86s^[[2m (tests 44%, environment 30%, setup 13%, import 8%, transform 6%)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7713536Z apps/web test: ^[[2m    Isolate ^[[22m ^[[33m5 workers spawned^[[39m^[[2m · ~337ms startup each (spawn + environment, per file)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7714377Z apps/web test: ^[[2m            ^[[22m ^[[2mat least ~1.35s faster with ^[[22m^[[33misolate: false^[[39m^[[2m — reuses workers across files instead of one per file^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7951505Z apps/web test: Done
+typescript	Run pnpm -r run test	2026-10-23T20:59:12.7958043Z services/api test$ vitest run
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.0005576Z services/api test: ^[[1m^[[30m^[[46m RUN ^[[49m^[[39m^[[22m ^[[36mv5.0.5 ^[[39m^[[90m/home/runner/work/Control-Rod/Control-Rod/services/api^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6746495Z services/api test:  ^[[31m❯^[[39m test/runs.test.ts ^[[2m(^[[22m^[[2m32 tests^[[22m^[[2m | ^[[22m^[[33m32 skipped^[[39m^[[2m)^[[22m^[[32m 13^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6751160Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m launch inputs ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6752091Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m gives network only to the author runs of roles whose tools ask for it
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6765125Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m what actually ran ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6783265Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m keeps runtime mode and models in the trace and flags a model the run did not ask for
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6788481Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m serving outputs ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6789440Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m re-hashes stored bytes and refuses, on the record, an output that changed
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6790251Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m same-origin check on cookie routes ^[[2m(2)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6791103Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses state changes from another origin, another local port, a cross-site fetch or no browser marks
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6792091Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m accepts the app's own origin, or a same-origin fetch with no origin, and leaves runner routes to the token
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6792994Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m run custody ^[[2m(4)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6793721Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m hands out a claim token and lease, renews it on each log post and refuses a foreign token
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6794594Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m records a refused completion as a failed run with the reason, and never echoes what was sent
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6795392Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses an invalid trace with a reason instead of dropping it
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6796633Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m marks a run lost when its lease lapses, refuses its late completion and lets only the owner requeue it
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6797356Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m an author run with no output ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6798007Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m is recorded as failed with a reason and never advances the package
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6798597Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m stopping a run ^[[2m(2)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6799320Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m records the stop first, tells the daemon in its log reply, and lands as stopped when the daemon confirms
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6800135Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m stops a queued run at once, and never takes a stopped report nobody asked for
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6800796Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m pre-check independence ^[[2m(3)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6801509Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m holds a pre-check that could only run on the author's runtime, with the reason in plain words
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6802432Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m records a pre-check on another runtime as independent, with no override
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6803127Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses an override for anything but a queued pre-check
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6803725Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m one live run per assignment ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6804468Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m lets the database hold at most one queued or running run per package revision, role and round
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6805146Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m runtime readiness ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6805803Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m picks only runtimes the daemon found ready and shows the rest to the owner
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6806680Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m review findings on #3 ^[[2m(4)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6807382Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses decision options when the package changed after the person opened it
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6808218Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m drafts one package when intake sends the same draft as a file and as the package field
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6823600Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m serves an output stored under a subfolder by its full name
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6824470Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m serves agent outputs in a script-free sandbox, except PDFs, and downloads unknown types
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6825205Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m pack files and site briefs ^[[2m(2)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6826022Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m ships the role's pack templates, typicals and examples to the author, and the scripted author finds them
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6826941Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m gives an early site stage the stage pre-check and the site plan the full cr-site check
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6827680Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m claim scan ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6828277Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m finds work queued behind more than a page of held runs
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6828881Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m package run inputs ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6829590Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m gives authors the person's own words and keeps package ids distinct across captures
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6853489Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m capture provenance ^[[2m(2)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6854755Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m carries the original request to author and pre-check without the author log
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6873629Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m keeps captures with the same four-character prefix in distinct package namespaces
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6891842Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m log batches ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6912976Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses more than 500 lines in one batch instead of dropping the rest
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6932828Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m pre-check evidence custody ^[[2m(3)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6933507Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses malformed evidence in EVIDBAD1 rather than replacing it
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6952846Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses malformed evidence in EVIDBAD2 rather than replacing it
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6972233Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m retains the tool evidence and its shared-mechanism qualification
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6972914Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m stranded intake ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:13.6993248Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m shows a failed intake on its capture and lets the owner retry it
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0883355Z services/api test:  ^[[31m❯^[[39m test/preparation-grants.test.ts ^[[2m(^[[22m^[[2m16 tests^[[22m^[[2m | ^[[22m^[[33m16 skipped^[[39m^[[2m)^[[22m^[[32m 16^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0884550Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m controller-owned preparation grant authority ^[[2m(9)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0885349Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m derives immutable input custody and grants only the existing running scoped attempt
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0886250Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m requires the narrow grant token rather than browser or daemon authority
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0886868Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses a pending operation after stop
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0887404Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses a pending operation after revoke
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0887930Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses a pending operation after edit
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0889131Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses a pending operation after claim-turnover
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0889782Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses a pending operation after assignment-turnover
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0890584Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m admits a read only for its exact assigned pin and retains a proposal exactly once
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0891396Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m bounds pending permits and rejects operation and secret substitution
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0892093Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m grant input and payload integrity ^[[2m(2)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0893058Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses a mismatched stored package identity before issuing authority
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0893777Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m accepts the actual byte ceiling and rejects ambiguous encodings
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0894562Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m requires a controlled origin pin and rechecks captured bytes rather than mutable routing
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0895416Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m rejects duplicate-key and extra-authority messages before executing a grant operation
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0913160Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m requires grant credentials before parsing an untrusted RPC body
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0919110Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m refuses issuance when a pinned original attachment is missing
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.0919998Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m preserves retained proposal custody and accurate recovery guidance after lease retirement
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4779111Z services/api test:  ^[[31m❯^[[39m test/app.test.ts ^[[2m(^[[22m^[[2m14 tests^[[22m^[[2m | ^[[22m^[[33m14 skipped^[[39m^[[2m)^[[22m^[[32m 13^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4786223Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m access ^[[2m(4)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4786896Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m serves health without a session
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4787644Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses people's routes without a session and refuses the daemon on them
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4789344Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses runner routes without the daemon token
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4790024Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses a second passkey registration from someone signed out
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4790794Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m a quick question is answered without a package ^[[2m(1)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4791371Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m answers and counts it
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4791959Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m a site job runs end to end under the floors ^[[2m(7)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4792843Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m takes an attachment and drafts dependent packages
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4793622Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses a release with no passkey, with a replayed assertion and with the wrong kind
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4794440Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses an assertion from another origin and one with a forged signature
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4795097Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m never lets the daemon decide
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4795735Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m releases both, but holds the plan until the parcel is accepted
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4803981Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m binds acceptance to what was reviewed and then unblocks the plan
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4807820Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m returns work with direction as a new revision
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4808368Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m the record ^[[2m(2)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4808896Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m keeps an intact hash chain and refuses edits to it
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.4809468Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses records the contract does not allow
+typescript	Run pnpm -r run test	2026-10-23T20:59:14.8545370Z services/api test:  ^[[2m^[[90m↓^[[39m^[[22m test/preparation-recovery.test.ts ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m | ^[[22m^[[33m1 skipped^[[39m^[[2m)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2162497Z services/api test:  ^[[31m❯^[[39m test/preparation-results.test.ts ^[[2m(^[[22m^[[2m12 tests^[[22m^[[2m | ^[[22m^[[33m12 skipped^[[39m^[[2m)^[[22m^[[32m 12^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2173561Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m typed criterion verification admission ^[[2m(12)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2174754Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m binds complete results to the actual verification record and admits signed acceptance with retained checker evidence
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2175823Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses missing criterion results without publishing a verification record
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2176536Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses unknown criterion
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2177112Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses duplicate criterion
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2177751Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses unknown check
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2178320Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses missing evidence
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2178992Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses wrong manifest
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2196348Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses ambiguous JSON artifact results before duplicate keys are lost
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2213377Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m does not let an author supply checker results and blocks acceptance after basis changes
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2233641Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses acceptance when retained evidence is altered, even if its mutable row hash is changed too
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2273543Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m never waives an unexecuted required check, but permits a reasoned exception after completed failed checks
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.2293333Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m excludes private preparation canaries from the checker while delivering controlled contracts and inputs
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.6474181Z services/api test:  ^[[31m❯^[[39m test/preparation-store.test.ts ^[[2m(^[[22m^[[2m8 tests^[[22m^[[2m | ^[[22m^[[33m8 skipped^[[39m^[[2m)^[[22m^[[32m 13^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.6484406Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m immutable preparation storage ^[[2m(8)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.6485421Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m enrolls exactly once under retries and concurrent requests, rejects key changes
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.6486348Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m allows one concurrent edit, preserves old bytes and rejects missing CAS
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.6487160Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m updates contract and criteria atomically, refuses ID reuse and forged resolutions
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.6488019Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m records actual human resolutions with CAS and event; never trusts actor supplied in content
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.6488861Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m rolls back snapshot/head/package if event append fails
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.6489611Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m retains head and history through a new pool and migration run
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.6490456Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m upgrades an existing legacy schema without altering package bytes
+typescript	Run pnpm -r run test	2026-10-23T20:59:15.6503203Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m applies migrations once and refuses checksum drift and unknown future migrations
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.0205031Z services/api test:  ^[[31m❯^[[39m test/preparation-basis.test.ts ^[[2m(^[[22m^[[2m6 tests^[[22m^[[2m | ^[[22m^[[33m6 skipped^[[39m^[[2m)^[[22m^[[32m 31^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.0206255Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m prepared execution basis barriers ^[[2m(6)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.0207187Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m claims a released run with immutable basis bytes and denies a changed package basis before claim
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.0208524Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m quarantines stale completion bytes and replays the refusal without advancing or duplicating history
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.0209495Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m pins document bytes at release, holds changed revisions and never publishes stopped successful output
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.0210368Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses a changed repository HEAD or blob, even when a previous release was valid
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.0211248Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m retains late output once and advances preparation on a signed return without reusing confirmation
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.0212195Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m linearizes a signed return racing with completion without publishing into the new revision
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.4306279Z services/api test:  ^[[31m❯^[[39m test/preparation-grant-concurrency.test.ts ^[[2m(^[[22m^[[2m7 tests^[[22m^[[2m | ^[[22m^[[33m7 skipped^[[39m^[[2m)^[[22m^[[32m 16^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.4315000Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m grant concurrency and final database deadlines ^[[2m(6)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.4316031Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m admits exactly one proposal across two distinct concurrent valid write permits
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.4316858Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m rolls back an audit-blocked finalization and releases its package lock
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.4317595Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m enforces a deferred deadline after ordinary begin checks
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.4318291Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m enforces a deferred deadline after ordinary first-finalize checks
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.4319054Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m enforces a deferred deadline after ordinary completed-replay checks
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.4319839Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m bounds lifetime acknowledgments and does not renew the budget on retry
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.4320634Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m bounds the whole authority transaction and relinquishes its row locks
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.7981308Z services/api test:  ^[[31m❯^[[39m test/preparation-api.test.ts ^[[2m(^[[22m^[[2m4 tests^[[22m^[[2m | ^[[22m^[[33m4 skipped^[[39m^[[2m)^[[22m^[[32m 12^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.7993529Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m human manual preparation API ^[[2m(4)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.7994399Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m defaults enrollment off, but never permits legacy downgrade of an enrolled package
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.7996975Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m requires a person, returns a strong ETag, resumes edited context and paginates immutable history
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.7998002Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses parallel legacy edits and release for enrolled work, even with forged fields
+typescript	Run pnpm -r run test	2026-10-23T20:59:16.7998834Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m auto-enrolls every package from one capture and retains all capture links
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.1463154Z services/api test:  ^[[31m❯^[[39m test/preparation-confirm.test.ts ^[[2m(^[[22m^[[2m6 tests^[[22m^[[2m | ^[[22m^[[33m6 skipped^[[39m^[[2m)^[[22m^[[32m 11^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.1464537Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m signed human requirements confirmation ^[[2m(6)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.1465317Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m confirms requirements without releasing or queuing, preserves technical-only edits and invalidates changed need
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.1466193Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses stale displayed subjects and stale signed challenges after a concurrent requirements edit
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.1466864Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses expired, wrong-purpose and non-human assertions
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.1467558Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m holds confirmation on unresolved human requirements and rejects forged confirmed fields
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.1468201Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m rejects malformed assertions without a server error
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.1469233Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m rejects a signature redirected to another package or bound to another session user
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.4904676Z services/api test:  ^[[31m❯^[[39m test/preparation-review-integrity.test.ts ^[[2m(^[[22m^[[2m4 tests^[[22m^[[2m | ^[[22m^[[33m4 skipped^[[39m^[[2m)^[[22m^[[32m 11^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.4908826Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m final-review controlled input and output regressions ^[[2m(4)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.4909840Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses confirmation when a declared dependency has no complete basis pin
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.4910851Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refreshes exact declared dependency bytes into a signed basis and refuses a newer revision at claim
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.4911817Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m dispatches retained pinned dependency bytes instead of live dependency output lookup
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.4913032Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m rehashes and locks author deliverables before accepting an already signed review
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.8627637Z services/api test:  ^[[31m❯^[[39m test/preparation-release.test.ts ^[[2m(^[[22m^[[2m3 tests^[[22m^[[2m | ^[[22m^[[33m3 skipped^[[39m^[[2m)^[[22m^[[32m 13^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.8643762Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m prepared release through the existing authority ^[[2m(3)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.8656262Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m persists the complete manifest and exactly one author under concurrent signed releases
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.8663394Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m invalidates pending release challenges on technical edits without discarding requirements confirmation
+typescript	Run pnpm -r run test	2026-10-23T20:59:17.8664341Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses release before confirmation and preserves the exact legacy subject shape
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.2065813Z services/api test:  ^[[31m❯^[[39m test/preparation-walkthrough.test.ts ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m | ^[[22m^[[33m1 skipped^[[39m^[[2m)^[[22m^[[32m 12^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.2067143Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m rehearses requirements, release, independent-role results and acceptance for a known JSON bugfix
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.5527850Z services/api test:  ^[[31m❯^[[39m test/preparation-role-boundary.test.ts ^[[2m(^[[22m^[[2m5 tests^[[22m^[[2m | ^[[22m^[[33m5 skipped^[[39m^[[2m)^[[22m^[[32m 12^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.5537031Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m preparation integration role boundary ^[[2m(2)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.5537978Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m does not dispatch inconsistent unexpected-role rows as legacy author work
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.5538762Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m does not dispatch inconsistent intake rows as legacy author work
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.5539467Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m legacy mutators cannot adopt an unsupported role ^[[2m(3)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.5540159Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses log without changing custody
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.5540770Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses complete without changing custody
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.5541360Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses requeue without changing custody
+typescript	Run pnpm -r run test	2026-10-23T20:59:18.8290595Z services/api test:  ^[[32m✓^[[39m test/preparation.test.ts ^[[2m(^[[22m^[[2m9 tests^[[22m^[[2m)^[[22m^[[32m 159^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:19.1702513Z services/api test:  ^[[31m❯^[[39m test/preparation-pilot.test.ts ^[[2m(^[[22m^[[2m2 tests^[[22m^[[2m | ^[[22m^[[33m2 skipped^[[39m^[[2m)^[[22m^[[32m 12^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:19.1703378Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m manual pilot compatibility and missing-input holds ^[[2m(2)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:19.1704126Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m refuses pre-protocol writers on every enrolled lifecycle table but permits legacy draft writes
+typescript	Run pnpm -r run test	2026-10-23T20:59:19.1704944Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m keeps HVAC preparation held with sourced-input questions and produces no invented calculation
+typescript	Run pnpm -r run test	2026-10-23T20:59:19.5281218Z services/api test:  ^[[31m❯^[[39m test/static.test.ts ^[[2m(^[[22m^[[2m3 tests^[[22m^[[2m | ^[[22m^[[33m3 skipped^[[39m^[[2m)^[[22m^[[32m 13^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:19.5282803Z services/api test:    ^[[31m❯^[[39m built web serving ^[[2m(3)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:19.5283814Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m serves the shell and a deep browser navigation
+typescript	Run pnpm -r run test	2026-10-23T20:59:19.5284645Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m serves built assets and refuses files outside the configured root
+typescript	Run pnpm -r run test	2026-10-23T20:59:19.5285477Z services/api test:      ^[[2m^[[90m↓^[[39m^[[22m keeps JSON API and artifact navigation behind the person guard
+typescript	Run pnpm -r run test	2026-10-23T20:59:19.9926216Z services/api test:  ^[[32m✓^[[39m test/json-boundary.test.ts ^[[2m(^[[22m^[[2m33 tests^[[22m^[[2m)^[[22m^[[32m 45^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.0912702Z services/api test:  ^[[32m✓^[[39m test/preparation-config.test.ts ^[[2m(^[[22m^[[2m6 tests^[[22m^[[2m)^[[22m^[[32m 7^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.4484600Z services/api test:  ^[[31m❯^[[39m test/preparation-grant-storage.test.ts ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m | ^[[22m^[[33m1 skipped^[[39m^[[2m)^[[22m^[[32m 12^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.4505245Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m migrates the complete controller grant custody tables
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8148610Z services/api test:  ^[[31m❯^[[39m test/database-deadline.test.ts ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m | ^[[22m^[[33m1 skipped^[[39m^[[2m)^[[22m^[[32m 12^[[2mms^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8163724Z services/api test:    ^[[2m^[[90m↓^[[39m^[[22m preserves the fatal database deadline error and safely discards its client
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8243836Z services/api test: ^[[31m⎯⎯⎯⎯⎯⎯^[[39m^[[1m^[[41m Failed Suites 17 ^[[49m^[[22m^[[31m⎯⎯⎯⎯⎯⎯^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8273873Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/app.test.ts^[[2m [ test/app.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8286577Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/database-deadline.test.ts^[[2m [ test/database-deadline.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8288054Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-api.test.ts^[[2m [ test/preparation-api.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8289038Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-basis.test.ts^[[2m [ test/preparation-basis.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8290159Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-confirm.test.ts^[[2m [ test/preparation-confirm.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8302999Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-grant-concurrency.test.ts^[[2m [ test/preparation-grant-concurrency.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8306082Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-grant-storage.test.ts^[[2m [ test/preparation-grant-storage.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8310093Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-grants.test.ts^[[2m [ test/preparation-grants.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8312941Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-pilot.test.ts^[[2m [ test/preparation-pilot.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8313875Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-release.test.ts^[[2m [ test/preparation-release.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8314794Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-results.test.ts^[[2m [ test/preparation-results.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8315749Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-review-integrity.test.ts^[[2m [ test/preparation-review-integrity.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8316803Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-role-boundary.test.ts^[[2m [ test/preparation-role-boundary.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8317810Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-store.test.ts^[[2m [ test/preparation-store.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8318808Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/preparation-walkthrough.test.ts^[[2m [ test/preparation-walkthrough.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8319975Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/runs.test.ts^[[2m [ test/runs.test.ts ]^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8320690Z services/api test: ^[[41m^[[1m FAIL ^[[22m^[[49m test/static.test.ts^[[2m > ^[[22mbuilt web serving
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8324855Z services/api test: ^[[31m^[[1mError^[[22m: Postgres init script failed (code: 127, signal: null). ERROR OUTPUT: /home/runner/work/Control-Rod/Control-Rod/node_modules/.pnpm/@embedded-postgres+linux-x64@17.10.0-beta.17/node_modules/@embedded-postgres/linux-x64/native/bin/initdb: error while loading shared libraries: libicuuc.so.60: cannot open shared object file: No such file or directory
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8326398Z services/api test: ^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8327425Z services/api test: ^[[90m ^[[2m❯^[[22m ChildProcess.<anonymous> ../../node_modules/.pnpm/embedded-postgres@17.10.0-beta.17/node_modules/embedded-postgres/dist/index.js:^[[2m176:36^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8328451Z services/api test: ^[[31m^[[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/17]⎯^[[22m^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8329366Z services/api test: ^[[2m Test Files ^[[22m ^[[1m^[[31m17 failed^[[39m^[[22m^[[2m | ^[[22m^[[1m^[[32m3 passed^[[39m^[[22m^[[2m | ^[[22m^[[33m1 skipped^[[39m^[[90m (21)^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8330319Z services/api test: ^[[2m      Tests ^[[22m ^[[1m^[[32m48 passed^[[39m^[[22m^[[2m | ^[[22m^[[33m126 skipped^[[39m^[[90m (174)^[[39m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8330991Z services/api test: ^[[2m   Start at ^[[22m 20:59:13
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8331670Z services/api test: ^[[2m   Duration ^[[22m 7.81s^[[2m (import 85%, tests 7%, transform 7%, worker 1%)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8332727Z services/api test: ^[[2m    Isolate ^[[22m ^[[33m21 workers spawned^[[39m^[[2m · ~71ms startup each (spawn + environment, per file)^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8333828Z services/api test: ^[[2m            ^[[22m ^[[2mat least ~1.42s faster with ^[[22m^[[33misolate: false^[[39m^[[2m — reuses workers across files instead of one per file^[[22m
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8466393Z services/api test: Failed
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8476059Z /home/runner/work/Control-Rod/Control-Rod/services/api:
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8477902Z  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @control-rod/api@0.0.0 test: `vitest run`
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8478456Z Exit status 1
+typescript	Run pnpm -r run test	2026-10-23T20:59:20.8651683Z ##[error]Process completed with exit code 1.

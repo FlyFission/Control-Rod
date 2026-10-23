@@ -258,3 +258,14 @@ Final: Ruling: actual owner/passkey pilot, production recovery, main integration
 Final: Ruling: retain this ongoing worktree and published source/spec/plan — it contains the shared multi-stage programme rather than a disposable completed plan workspace — cost if wrong: modest retained local disk usage; no original worktree is deleted.
 
 All findings and declined judgments are recorded in `evidence/controller-grants/final-review.md`; these explicit local/agent checks are not external engineering witnessing or certification. Publication/export closure follows.
+
+## Remote CI environment regression and portable PG17 tests
+
+Push `707b26d` was verified against the remote branch. CI run40023277793 passed six jobs but TypeScript failed database setup: host server was below PG17 and embedded PG17 needed absent `libicuuc.so.60`. No API database test result is inferred from that failed setup. The full log, raw digest and ANSI-stripping transformation are retained. The protected CI workflow was not changed.
+
+Root traced the discrepancy to the qualifying host-version selection and embedded distribution libraries. The unprotected test launcher now selects working explicit/host/embedded binaries, then builds the already-recorded official SHA-256-pinned PG17.10 source in a private user cache on non-root Linux. No system package installation or production DB change occurs. Minimal test build excludes optional ICU/TLS/compression features; its source/flags and program hashes are retained. The cold local build was exercised with LD_LIBRARY_PATH removed and passed the actual fatal-deadline database regression. Local parser tools were supplied from the previously recorded private extraction; missing Bison/M4 prerequisites were diagnosed before that successful build. Warm reuse and the whole suite/restore are the next evidence gate. Details: `docs/test-database.md`.
+
+Ruling: use a private checksum-pinned source fallback rather than weaken the PG17 deadline or silently skip grant tests — cost if wrong: cold-build time and documented compiler/parser prerequisites; existing working tools remain preferred. Matching native client tools enable the ordinary restore rehearsal. This does not modify or expand protected CI/policy authority.
+
+
+Portable bootstrap acceptance: cold source build plus real deadline regression GREEN; warm cache reuse without LD_LIBRARY_PATH or the old manual client override passes API174, web39, types, builds and real restore (proposal bytes, guard sequence, 25-event chain). The private source build/provenance is retained; no system package or protected workflow changed. CI verification must now run on the new head. The deferred permit-metadata Minor and all activation gates remain unchanged.

@@ -69,3 +69,7 @@ Local engineering evidence using the repository workflow, not a compliance certi
 ## Final review closure
 
 [evidence/final-review.md](evidence/final-review.md) records both Important findings, their failed-first regression evidence and the single fix pass. Prepared dependency inputs now require complete declared-revision body/artifact pins, explicit human refresh and immutable retained dispatch. Author deliverables are rehashed and locked before acceptance; review subjects bind observed bytes. The new dependency artifact table survived the real PostgreSQL restore fixture with a valid 21-event chain. Test evidence remains coupled to the implementing agent; the fresh reviewer varied context, not model family, runtime host or external authority. No independent engineering certification is inferred.
+
+## Publication and native follow-up
+
+Draft PR #6 was published at verified 012e8e6 after a fresh API/web run; its first seven CI jobs passed. `evidence/publication-self-check.json` records the exact target and result. `evidence/native-runtime-probe.json` adds actual offline native startup plus scripted Claude builtin refusal and a Bash-enabled positive control. These are implementing-agent qualification experiments, not the open E-10 authenticated native confinement proof. Dependency audit and default-branch alert assessment are retained; they do not dismiss main alerts or establish all-ecosystem vulnerability absence.

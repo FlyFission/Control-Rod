@@ -1,0 +1,179 @@
+{
+  "scope": "GitHub alerts on default branch compared with resolved buildout pnpm graph; does not close default-branch alerts",
+  "captured_utc": "2026-10-23T18:02:57.527722+00:00",
+  "default_branch_alert_count": 21,
+  "resolved_buildout_package": "undici@7.30.1",
+  "resolved_path": "@control-rod/spec devDependency @typespec/openapi3 -> @scalar/json-magic -> undici; also via @scalar/openapi-parser",
+  "alerts": [
+    {
+      "number": 21,
+      "package": "undici",
+      "severity": "medium",
+      "vulnerable_range": ">= 7.11.0, < 7.29.1",
+      "patched": "7.29.1",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/21"
+    },
+    {
+      "number": 20,
+      "package": "undici",
+      "severity": "low",
+      "vulnerable_range": ">= 7.0.0, < 7.29.1",
+      "patched": "7.29.1",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/20"
+    },
+    {
+      "number": 19,
+      "package": "undici",
+      "severity": "high",
+      "vulnerable_range": ">= 7.0.0, < 7.29.1",
+      "patched": "7.29.1",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/19"
+    },
+    {
+      "number": 18,
+      "package": "undici",
+      "severity": "medium",
+      "vulnerable_range": ">= 7.15.0, < 7.29.1",
+      "patched": "7.29.1",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/18"
+    },
+    {
+      "number": 17,
+      "package": "undici",
+      "severity": "medium",
+      "vulnerable_range": ">= 7.0.0, < 7.29.1",
+      "patched": "7.29.1",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/17"
+    },
+    {
+      "number": 16,
+      "package": "undici",
+      "severity": "low",
+      "vulnerable_range": ">= 7.1.0, < 7.29.1",
+      "patched": "7.29.1",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/16"
+    },
+    {
+      "number": 15,
+      "package": "undici",
+      "severity": "high",
+      "vulnerable_range": ">= 7.24.1, < 7.29.1",
+      "patched": "7.29.1",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/15"
+    },
+    {
+      "number": 14,
+      "package": "undici",
+      "severity": "low",
+      "vulnerable_range": ">= 7.0.0, < 7.29.1",
+      "patched": "7.29.1",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/14"
+    },
+    {
+      "number": 13,
+      "package": "undici",
+      "severity": "medium",
+      "vulnerable_range": ">= 7.0.0, < 7.29.1",
+      "patched": "7.29.1",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/13"
+    },
+    {
+      "number": 12,
+      "package": "undici",
+      "severity": "medium",
+      "vulnerable_range": ">= 7.0.0, < 7.29.0",
+      "patched": "7.29.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/12"
+    },
+    {
+      "number": 11,
+      "package": "undici",
+      "severity": "medium",
+      "vulnerable_range": ">= 7.0.0, < 7.29.0",
+      "patched": "7.29.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/11"
+    },
+    {
+      "number": 10,
+      "package": "undici",
+      "severity": "medium",
+      "vulnerable_range": ">= 7.0.0, < 7.29.0",
+      "patched": "7.29.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/10"
+    },
+    {
+      "number": 9,
+      "package": "undici",
+      "severity": "medium",
+      "vulnerable_range": ">= 7.0.0, < 7.29.0",
+      "patched": "7.29.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/9"
+    },
+    {
+      "number": 8,
+      "package": "undici",
+      "severity": "high",
+      "vulnerable_range": ">= 7.0.0, < 7.29.0",
+      "patched": "7.29.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/8"
+    },
+    {
+      "number": 7,
+      "package": "undici",
+      "severity": "low",
+      "vulnerable_range": ">= 7.0.0, < 7.28.0",
+      "patched": "7.28.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/7"
+    },
+    {
+      "number": 6,
+      "package": "undici",
+      "severity": "medium",
+      "vulnerable_range": ">= 7.0.0, < 7.28.0",
+      "patched": "7.28.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/6"
+    },
+    {
+      "number": 5,
+      "package": "undici",
+      "severity": "high",
+      "vulnerable_range": ">= 7.0.0, < 7.28.0",
+      "patched": "7.28.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/5"
+    },
+    {
+      "number": 4,
+      "package": "undici",
+      "severity": "high",
+      "vulnerable_range": ">= 7.23.0, < 7.28.0",
+      "patched": "7.28.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/4"
+    },
+    {
+      "number": 3,
+      "package": "undici",
+      "severity": "low",
+      "vulnerable_range": ">= 7.0.0, < 7.28.0",
+      "patched": "7.28.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/3"
+    },
+    {
+      "number": 2,
+      "package": "undici",
+      "severity": "high",
+      "vulnerable_range": ">= 7.23.0, < 7.28.0",
+      "patched": "7.28.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/2"
+    },
+    {
+      "number": 1,
+      "package": "undici",
+      "severity": "medium",
+      "vulnerable_range": ">= 7.0.0, < 7.28.0",
+      "patched": "7.28.0",
+      "url": "https://github.com/FlyFission/Control-Rod/security/dependabot/1"
+    }
+  ],
+  "branch_pnpm_audit": "zero known advisories; raw report in dependency-audit.json",
+  "decision": "no dependency mutation needed for these alerts; preserve main integration gates"
+}

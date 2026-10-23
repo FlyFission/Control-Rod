@@ -1,0 +1,18 @@
+{
+  "action": "push verified branch and create draft PR",
+  "authorization": "User: Push then continue",
+  "repository": "FlyFission/Control-Rod",
+  "branch": "buildout/controlled-preparation-20261023",
+  "expected_head": "012e8e613e54a698b2e910988dd9196a1b4fbc63",
+  "expected_base": "docs/kandev-patterns",
+  "stop_condition": "wrong repository/base/head, dirty tree, failed tests, or non-fast-forward rejection",
+  "preflight": "clean tree, base ancestor verified, API144/web37 rerun green",
+  "observed_remote_head": "012e8e613e54a698b2e910988dd9196a1b4fbc63",
+  "pr": "https://github.com/FlyFission/Control-Rod/pull/6",
+  "draft": true,
+  "base_verified": true,
+  "first_ci_run": "https://github.com/FlyFission/Control-Rod/actions/runs/39998785727",
+  "first_ci": "all seven jobs succeeded",
+  "mismatch": null,
+  "scope_limit": "no main merge/deployment; protected runtime policy authorization remains pending"
+}

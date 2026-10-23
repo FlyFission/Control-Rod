@@ -27,3 +27,7 @@ Workflow basis: https://github.com/FlyFission/nuclear-grade-context-engineering/
 ## Human authorization received
 
 On 2026-10-23 the user answered **“Authorize those specific kernel changes”** to the scoped question naming signed requirements confirmation, manifest-bound release, stale-basis refusal and criterion-result acceptance (tasks 6–9). This is the recorded human authorization for those exact kernel decision edits under AGENTS.md rule 2. It does not authorize unrelated protected policies/CI/red-team changes, certify prior contributors, approve main integration or approve deployment. No cryptographic GitHub identity or passkey signature is claimed by this conversation record.
+
+## Publication authorization
+
+The user subsequently instructed **“Push then continue”**. This authorizes publishing and continuing the reviewed buildout branch and draft PR #6. It does not expand the earlier kernel authorization to active policy/red-team/CI edits or authorize main integration/deployment.

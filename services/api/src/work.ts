@@ -2,8 +2,9 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import { existsSync, lstatSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import type { Ajv2020 } from "ajv/dist/2020.js";
+import { preparedExecutionGuard, preparedJobInputs, quarantineCompletion } from "./preparation/lifecycle.js";
 import { preparationForSubject, preparedReleaseGuard, persistReleaseManifest } from "./preparation/release.js";
-import { enrollPreparationTx } from "./preparation/store.js";
+import { enrollPreparationTx, advancePreparationRevision } from "./preparation/store.js";
 import { type Db, type Tx, tx } from "./db/index.js";
 import { type Actor, appendEvent } from "./events.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
@@ -29,6 +30,8 @@ export interface WorkConfig {
   leaseSeconds?: number;
   guidedPreparation?: boolean;
   preparedRelease?: boolean;
+  preparationSources?: Record<string,{kind:"document"|"policy";revision:string;path:string}>;
+  preparationRepositories?: Record<string,string>;
 }
 
 const SYSTEM: Actor = { kind: "system", id: "control-plane" };
@@ -474,6 +477,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
     const text = cap.rows[0]?.body?.text;
     if (typeof text === "string") inputs.push(file("CAPTURE.md", text));
   }
+  inputs.push(...await preparedJobInputs(c,run));
   inputs.push(file("PACKAGE.json", JSON.stringify({ ...pkg.body, status: pkg.status }, null, 2)));
   const own = findRoleIn(cfg, role) ?? findRoleIn(cfg, "general-author");
   // The role's own pack ships its templates, typicals and examples to author and pre-check alike.
@@ -523,22 +527,31 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
       const queued: { rows: { id: string; role: string; package_id: string; package_revision: number; round: number; body: Json; created_key: string }[] } =
         await c.query(
           cursor
-            ? "select *, created_at::text as created_key from runs where status = 'queued' and (created_at, id) > ($2::timestamptz, $3) order by created_at, id for update skip locked limit $1"
-            : "select *, created_at::text as created_key from runs where status = 'queued' order by created_at, id for update skip locked limit $1",
+            ? "select *, created_at::text as created_key from runs where status = 'queued' and (created_at, id) > ($2::timestamptz, $3) order by created_at, id limit $1"
+            : "select *, created_at::text as created_key from runs where status = 'queued' order by created_at, id limit $1",
           cursor ? [CLAIM_PAGE, cursor.at, cursor.id] : [CLAIM_PAGE],
         );
       if (queued.rows.length === 0) break;
       const last = queued.rows[queued.rows.length - 1];
       // The key is the timestamp as text, at full microsecond precision; a JS Date would round it.
       if (last) cursor = { at: last.created_key, id: last.id };
-      for (const row of queued.rows) {
+      for (const candidate of queued.rows) {
+        let row=candidate;
         if (row.role !== "intake") {
           const pkg = await currentPackage(c, row.package_id, true);
           if (!pkg || pkg.revision !== row.package_revision) {
             await c.query("update runs set status = 'stopped' where id = $1", [row.id]);
             continue;
           }
-          if ((await c.query("select 1 from preparation_heads where package_id=$1",[pkg.id])).rowCount) continue; // held until prepared lifecycle guards are implemented
+          const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
+          if(!locked.rows[0]) continue;row=locked.rows[0];
+          let preparation;
+          try {preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);} catch(error) {
+            if(!(error instanceof Refusal)) throw error;
+            const waiting_reason=error.message;
+            if(row.body.waiting_reason!==waiting_reason) {await c.query("update runs set body=$2 where id=$1",[row.id,{...row.body,waiting_reason}]);await appendEvent(c,"run.waiting",row.id,SYSTEM,{package:pkg.id,reason:waiting_reason});}
+            continue;
+          }
           if (row.role === "author") {
             if (pkg.status === "released") {
               if (!(await dependenciesReady(c, pkg.body)).ready) continue;
@@ -564,7 +577,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           const baseline = `${row.role === "pre-check" ? "checker" : "author"}-${runtime}`;
           if (row.role === "author" && pkg.status === "released") {
             const next = kernel(
-              decide({ status: pkg.status, action: "claim", actor_kind: "agent", actor_id: baseline }),
+              decide({ status: pkg.status, action: "claim", actor_kind: "agent", actor_id: baseline, ...(preparation?{preparation}:{}) }),
               "claim",
             );
             await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
@@ -574,6 +587,8 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
         }
         const runtime = pickRuntime(runtimes);
         if (!runtime) continue;
+        const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
+        if(!locked.rows[0]) continue;row=locked.rows[0];
         return startRun(c, cfg, row, runtime, `intake-${runtime}`);
       }
     }
@@ -636,6 +651,8 @@ type RunRow = {
 };
 
 async function lockRun(c: Tx, runId: string): Promise<RunRow> {
+  const owner=(await c.query<{package_id:string;role:string}>("select package_id,role from runs where id=$1",[runId])).rows[0];
+  if(owner && owner.role!=="intake") await currentPackage(c,owner.package_id,true);
   const r = await c.query<RunRow>("select * from runs where id = $1 for update", [runId]);
   const row = r.rows[0];
   if (!row) throw new Refusal(404, "not-found", "No such run");
@@ -653,6 +670,7 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
     const row = await lockRun(c, runId);
     if (!holdsClaim(row.claim_token_hash, token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
     if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
+    if((await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount) throw new Refusal(409,"run-lost","The run lease expired; a late heartbeat cannot revive it");
     // Refuse, never truncate: a line the server drops after acknowledging it is lost for good.
     if (lines.length > MAX_LOG_LINES) {
       throw new Refusal(400, "too-many-lines", `Send at most ${MAX_LOG_LINES} lines per batch`);
@@ -679,10 +697,12 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
 export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
   return tx(db, async (c) => {
     const r = await c.query<RunRow>(
-      "select * from runs where status = 'running' and lease_expires_at < now() for update skip locked",
+      "select * from runs where status = 'running' and lease_expires_at < now() order by created_at,id",
     );
     const lost: string[] = [];
-    for (const row of r.rows) {
+    for (const candidate of r.rows) {
+      const row=await lockRun(c,candidate.id);
+      if(row.status!=="running" || !(await c.query("select 1 from runs where id=$1 and lease_expires_at < now()",[row.id])).rowCount) continue;
       const body = {
         ...row.body,
         status: "lost",
@@ -900,7 +920,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
         if (row.completion_key === key) return row.receipt;
         throw new Refusal(409, "already-complete", "This run already has a different completion on record");
       }
-      if (row.status === "lost") throw new LateCompletion();
+      if (row.status === "lost" || (row.status==="running" && (await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount)) throw new LateCompletion();
       if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
       try {
         return await applyCompletion(c, cfg, row, key, body);
@@ -912,21 +932,26 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
   } catch (e) {
     if (e instanceof ApplyRefusal) return recordRefused(db, cfg, runId, key, body, e.refusal);
     if (e instanceof LateCompletion) {
-      await tx(db, (c) =>
-        appendEvent(c, "run.late-completion", runId, SYSTEM, {
-          outputs: (Array.isArray(body.outputs) ? body.outputs : []).slice(0, 200).map((o: Json) => ({
-            name: String(o?.name ?? "").slice(0, 200),
-            sha256: sha256(Buffer.from(String(o?.content_base64 ?? ""), "base64")),
-          })),
-        }),
-      );
-      throw new Refusal(409, "run-lost", "The run was marked lost before this completion arrived; its digests are on the record");
+      await tx(db, async c=>{
+        const row=await lockRun(c,runId);
+        if(!holdsClaim(row.claim_token_hash,body.claim_token)) throw new Refusal(403,"stale-claim","This claim token does not hold the run");
+        const enrolled=Boolean((await c.query("select 1 from preparation_heads where package_id=$1",[row.package_id])).rowCount);
+        const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
+        if(!enrolled || fresh) await appendEvent(c,"run.late-completion",runId,SYSTEM,{outputs:(Array.isArray(body.outputs)?body.outputs:[]).slice(0,200).map((o:Json)=>({name:String(o?.name??"").slice(0,200),sha256:sha256(Buffer.from(String(o?.content_base64??""),"base64"))}))});
+      });
+      throw new Refusal(409, "run-lost", "The lease expired or the run was marked lost before this completion arrived; its digests are on the record");
     }
     throw e;
   }
 }
 
 async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string, body: Json) {
+  if(row.body.stop_requested_at && (body.status==="succeeded" || row.body.preparation_manifest_digest)) throw new Refusal(409,"stopped","The owner stopped this run; its output cannot advance the package");
+  if(row.role!=="intake") {
+    const pkg=await currentPackage(c,row.package_id,true);
+    if(row.body.preparation_manifest_digest && (!pkg || pkg.revision!==row.package_revision)) throw new Refusal(409,"preparation-stale","Run belongs to a superseded preparation basis");
+    if(pkg) await preparedExecutionGuard(c,cfg,pkg,row.body);
+  }
   const runId = row.id;
   const agent: Actor = { kind: "agent", id: row.body.agent_baseline };
   const outputs: Output[] = [];
@@ -1008,14 +1033,18 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     };
     delete finished.lease_expires_at;
     validate(cfg, "Run.json", finished);
-    const receipt = receiptOf(runId, key, "failed", [], refusal);
-    await c.query("update runs set status = 'failed', body = $2, completion_key = $3, receipt = $4 where id = $1", [
+    const status=refusal.code==="stopped"?"stopped":"failed";
+    finished.status=status;
+    await quarantineCompletion(c,runId,key,body,refusal.code);
+    const receipt = receiptOf(runId, key, status, [], refusal);
+    await c.query("update runs set status = $5, body = $2, completion_key = $3, receipt = $4 where id = $1", [
       runId,
       finished,
       key,
       receipt,
+      status,
     ]);
-    await appendEvent(c, "run.failed", runId, SYSTEM, {
+    await appendEvent(c, `run.${status}`, runId, SYSTEM, {
       package: row.package_id,
       role: row.role,
       round: row.round,
@@ -1087,7 +1116,8 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
 async function finishAuthor(c: Tx, cfg: WorkConfig, row: Json, agent: Actor) {
   const pkg = await currentPackage(c, row.package_id, true);
   if (!pkg || pkg.revision !== row.package_revision) return;
-  const next = kernel(decide({ status: pkg.status, action: "submit-output", actor_kind: "agent", actor_id: agent.id }), "submit output");
+  const preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);
+  const next = kernel(decide({ status: pkg.status, action: "submit-output", actor_kind: "agent", actor_id: agent.id, ...(preparation?{preparation}:{}) }), "submit output");
   await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
   await appendEvent(c, "package.output", pkg.id, agent, { revision: pkg.revision, round: row.round, status: next });
   await queueRun(c, cfg, pkg.id, pkg.revision, "pre-check", row.round);
@@ -1111,6 +1141,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   if (!raw || !["pass", "fail", "inconclusive"].includes(raw.outcome)) {
     throw new Refusal(400, "invalid", "Pre-check produced no outcome");
   }
+  const preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);
   const suppliedEvidence = raw.evidence;
   if (suppliedEvidence !== undefined && !Array.isArray(suppliedEvidence)) {
     throw new Refusal(400, "invalid", "Pre-check evidence must be an array");
@@ -1177,6 +1208,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       author_runtime: authorRuntime,
       checker_runtime: checkerRuntime,
       owner_override_verified: Boolean(override),
+      ...(preparation?{preparation}:{}),
     }),
     "pre-check",
   );
@@ -1194,7 +1226,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   });
   if (record.outcome !== "pass" && row.round < MAX_ROUNDS) {
     const next = kernel(
-      decide({ status: pkg.status, action: "revise", actor_kind: "agent", actor_id: author?.body.agent_baseline ?? "author", pre_check: record.outcome }),
+      decide({ status: pkg.status, action: "revise", actor_kind: "agent", actor_id: author?.body.agent_baseline ?? "author", pre_check: record.outcome, ...(preparation?{preparation}:{}) }),
       "revise",
     );
     await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
@@ -1227,6 +1259,7 @@ export async function decisionSubject(db: Db, id: string, kind: string, revision
     if(!cfg) throw new Refusal(409,"prepared-release-disabled","Prepared release is disabled");
     await preparedReleaseGuard(db,cfg,pkg,s.preparation);
   }
+  if(s.preparation && (kind==="accept" || kind==="accept-with-findings") && cfg) await tx(db,c=>preparedExecutionGuard(c,cfg,pkg,s.author?.body));
   return {pkg,...s};
 }
 
@@ -1244,7 +1277,7 @@ export async function applyDecision(
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
     const s = await subjectOf(c, pkg);
-    const preparation = s.preparation ? req.kind==="release" ? await preparedReleaseGuard(c,cfg,pkg,s.preparation) : {requirements_confirmed:Boolean(s.preparation.confirmation),ready_for_release:false,basis_current:false,manifest_matches:false,results_complete:false,required_checks_complete:false,results_pass:false} : undefined;
+    const preparation = s.preparation ? req.kind==="release" ? await preparedReleaseGuard(c,cfg,pkg,s.preparation) : (req.kind==="accept" || req.kind==="accept-with-findings") ? await preparedExecutionGuard(c,cfg,pkg,s.author?.body) : {requirements_confirmed:Boolean(s.preparation.confirmation),ready_for_release:false,basis_current:false,manifest_matches:false,results_complete:false,required_checks_complete:false,results_pass:false} : undefined;
     const reason = (req.reason ?? "").trim();
     const outcome = decide({
       status: pkg.status,
@@ -1296,6 +1329,7 @@ export async function applyDecision(
         pkg.capture_id,
         body,
       ]);
+      await advancePreparationRevision(c,cfg,user,pkg,body);
       await c.query("update runs set status = 'stopped' where package_id = $1 and package_revision = $2 and status = 'queued'", [pkg.id, pkg.revision]);
     } else {
       await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);

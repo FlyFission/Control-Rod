@@ -1,3 +1,4 @@
+import { resolveBasis } from "./basis.js";
 import type { Db, Tx } from "../db/index.js";
 import { digest, type PreparationGuard } from "../kernel.js";
 import { Refusal, type PackageRow, type WorkConfig } from "../work.js";
@@ -74,29 +75,6 @@ export async function preparationForSubject(q: Db | Tx, pkg: PackageRow) {
 export type PreparedSubject = NonNullable<
   Awaited<ReturnType<typeof preparationForSubject>>
 >;
-/** First release slice supports owner-local package sources. Other source providers remain holds. */
-async function releaseBasisCurrent(
-  q: Db | Tx,
-  p: PreparedSubject,
-): Promise<boolean> {
-  for (const b of p.snapshot.basis) {
-    if (b.kind !== "package" || b.digest.algorithm !== "sha256") return false;
-    const id = b.reference.startsWith("package:") ? b.reference.slice(8) : "";
-    const row = (
-      await q.query(
-        "select revision,body from packages where id=$1 order by revision desc limit 1",
-        [id],
-      )
-    ).rows[0];
-    if (
-      !row ||
-      String(row.revision) !== b.revision ||
-      digest(row.body) !== b.digest.value
-    )
-      return false;
-  }
-  return p.snapshot.basis.length > 0;
-}
 export async function preparedReleaseGuard(
   q: Db | Tx,
   cfg: WorkConfig,
@@ -118,7 +96,8 @@ export async function preparedReleaseGuard(
       p.blockers.map((b) => `${b.owner}: ${b.message}`).join(" ") ||
         "Confirm the current requirements",
     );
-  const basis_current = await releaseBasisCurrent(q, p);
+  await resolveBasis(q, cfg, p.snapshot.basis);
+  const basis_current = true;
   if (!basis_current)
     throw new Refusal(
       409,
@@ -151,6 +130,7 @@ export async function persistReleaseManifest(
       "invalid-manifest",
       "Preparation release manifest is incomplete",
     );
+  const sources = await resolveBasis(c, cfg, p.manifest.basis_refs, true);
   const hash = digest(p.manifest);
   await c.query(
     "insert into preparation_release_manifests(package_id,package_revision,digest,body,decision_id) values($1,$2,$3,$4,$5)",
@@ -162,5 +142,17 @@ export async function persistReleaseManifest(
       decisionId,
     ],
   );
+  for (const source of sources)
+    await c.query(
+      "insert into preparation_basis_artifacts(manifest_digest,reference,kind,source_digest,bytes_sha256,bytes) values($1,$2,$3,$4,$5,$6)",
+      [
+        hash,
+        source.reference,
+        source.kind,
+        source.source_digest,
+        source.bytes_sha256,
+        source.bytes,
+      ],
+    );
   return hash;
 }

@@ -101,3 +101,17 @@ Ruling: keep prepared release separately default-off and hold enrolled run claim
 Ruling: only package basis references are supported by the first release verifier; other source kinds hold — no fabricated proof for an unavailable source provider — cost if wrong is additional manual waiting until task 8 providers are implemented.
 
 Task 8: next — controlled basis providers, immutable input capture and run lifecycle barriers.
+
+## Task 8 evidence
+
+Task 8: complete — current-basis checks at release, claim, completion and acceptance; immutable retained source bytes; digest-bound job inputs; checker projection excludes private preparation context. Package/capture/attachment, allowlisted repository and configured document/policy providers verify actual bytes/revisions. Missing, changed or unsupported sources hold. Capture hashing excludes mutable intake routing, while every original attachment is separately pinned. Self-package pins advance atomically with controlled contract edits.
+
+Stopped/stale/late prepared output goes to append-only private quarantine, never deliverables. Retry returns the same refusal or retains one late batch. Signed return appends an unconfirmed companion for the new package revision. Package-before-run locks now cover claims, posts and loss sweeps; source/package rows are locked for release retention and execution barriers.
+
+RED: three absent lifecycle/provider behavior failures; expired completion was accepted before a sweep; a 12,000-item flat task chain exhausted the recursive checker stack. GREEN: API 116 tests and type check, plus final repository/document/late/race/config set. Dependency checking now uses an iterative graph pass. Expired heartbeats cannot revive custody, and completion checks expiry directly. Exact Go boundary race suite after the regenerated Run schema also passed.
+
+Ruling: retain exact immutable source bytes at release and recheck live external sources at each lifecycle barrier — filesystem changes are not PostgreSQL-transactional — cost if wrong is conservative refusal; no claim of a filesystem-wide transaction or continuous watcher.
+Ruling: support only public/internal prepared execution until confined lanes are proved — owner-managed provenance reads are not an agent power grant — cost if wrong is an explicit hold for other lanes.
+Ruling: keep late/stale bytes in private quarantine outside outputs — preserves custody without contaminating verification — cost if wrong is additional local storage within request/source budgets.
+
+Task 9: next — typed criterion result admission and acceptance.

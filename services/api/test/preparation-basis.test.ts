@@ -52,7 +52,7 @@ describe("prepared execution basis barriers", () => {
     expect((await f.complete(r.json())).json().status).toBe("succeeded");
     const changed = await f.draft();
     await f.release(changed.id);
-    await f.h.db.query(
+    await f.adminQuery(
       "update packages set body=jsonb_set(body,'{objective}','\"Changed basis\"') where id=$1",
       [changed.id],
     );
@@ -68,7 +68,7 @@ describe("prepared execution basis barriers", () => {
     const r = await f.claim();
     expect(r.statusCode, r.body).toBe(200);
     const job = r.json();
-    await f.h.db.query(
+    await f.adminQuery(
       "update packages set body=jsonb_set(body,'{objective}','\"Changed basis\"') where id=$1",
       [p.id],
     );
@@ -164,7 +164,7 @@ describe("prepared execution basis barriers", () => {
     const r = await f.claim();
     expect(r.statusCode, r.body).toBe(200);
     const job = r.json();
-    await f.h.db.query(
+    await f.adminQuery(
       "update runs set lease_expires_at=now()-interval '1 second' where id=$1",
       [job.run.id],
     );

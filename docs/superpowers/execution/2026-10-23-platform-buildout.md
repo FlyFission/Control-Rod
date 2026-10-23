@@ -136,3 +136,22 @@ Task 10: in progress / activation held. Actual host probe passed eight OS canari
 Ruling: do not enable preparation roles from a synthetic sandbox probe — native client tool delegation and credential/model egress remain unproved — cost if wrong is delayed assisted preparation, not an unsupported confinement claim.
 Task 11: held by task 10. No proposal role/agent powers added.
 Ruling: proceed with task 12 manual rehearsal — the master dependency map explicitly separates it from assisted preparation — cost if wrong is re-running a local rehearsal, not deploying agents.
+
+## Task 12 evidence
+
+Task 12: complete for local rehearsal; operational owner pilot remains a release gate. The software bugfix fixture replays the known raw-JSON defect against actual HTTP parsing and verifies no capture mutation, then exercises separate confirmation/release/checker-result/acceptance actions. The HVAC fixture has explicit requester-owned missing-input holds, no author run and no fabricated calculation. Test passkeys and daemon submissions are simulated and are not retroactive project approval or independent engineering evidence.
+
+RED: pre-protocol SQL writer modified an enrolled package. GREEN: writer capability floor refuses enrolled package/run/output/verification/decision writes without protocol support, while legacy unenrolled draft writes remain possible. New transactions declare the protocol but still require kernel/signature/admission permission. A 17.10 pg_dump archive restored into an empty database with identical canonical controlled rows, actual evidence bytes and a valid 15-event chain; the accepted fixture remained readable. The old pre-registry boot SCHEMA still could not write enrolled state after restore.
+
+Full API suite with the external restore tool configured: 140 passed, 15 files; type check passed. Reports are retained in this packet. PostgreSQL source archive matched its official SHA-256; matching client tools built only in local cache. Parser tool dependencies came from signed Ubuntu package metadata. No system package installation or real credential/model call occurred. Default CI does not enforce the optional external-client restore rehearsal; that protected workflow gate remains explicit.
+
+Ruling: add a database writer-capability refusal floor — older pre-registry binaries do not know the migration registry and would otherwise update enrolled state — cost if wrong is refusal of unsupported writes; this marker grants no release authority and does not replace the kernel.
+Ruling: keep owner pilot distinct from fixture rehearsal — hardware passkeys, real native runtimes and operational judgment cannot be supplied by a test harness — cost if wrong is an additional owner run, not a false deployment claim.
+
+## Remaining sequence and authority
+
+- Task 10: native credential/tool/egress confinement remains unproved; OS probe and inactive policy proposal ready. Scoped authorization for policies/red-team edits requested asynchronously; no answer is inferred.
+- Task 11: held until 10 is proved and active profiles are approved.
+- Task 13: domain-deliverable contracts and primary input/tool authorities must close after the owner pilot; no invented engineering fixtures or county/feed choice.
+- Task 14: reconcile the external full Platform Plan and deployment/tenant decisions before larger platform implementation.
+- Main integration: original PR DCO and non-author protected review remain unresolved; new feature kernel edits have their explicit scoped user authorization in the basis record.

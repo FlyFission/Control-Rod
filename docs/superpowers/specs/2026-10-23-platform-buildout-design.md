@@ -62,3 +62,9 @@ For each slice: reviewed contracts, meaningful observed RED then GREEN, regenera
 ## Result admission interface clarification
 
 `CriterionResultSubmission` is the checker-owned wire record (package/revision/manifest/results). The controller derives `CriterionResultSet.verification_record_digest` from the actual normalized stored record. Evidence refs name retained checker artifacts as `checker:<relative name>`; claim JSON is not a decisive artifact. Complete mandatory verification means required checks have pass/fail outcomes with retained evidence. Open/deferred/inconclusive mandatory outcomes cannot be waived by acceptance with findings. A completed failed check may be accepted only through the existing explicit signed exception.
+
+## Bounded continuation documents
+
+- [Runtime confinement](2026-10-23-runtime-confinement-design.md): observed OS proof and remaining native/credential/egress interfaces.
+- [Domain deliverables](2026-10-23-domain-deliverables-design.md) and [implementation plan](../plans/2026-10-23-domain-deliverables.md): tool/data/report/calculation/PDF contracts and exact failure cases.
+- [Larger platform](2026-10-23-platform-expansion-design.md): ADR reconciliation and bounded tenant/orchestration/evidence/gateway/distribution programs, explicitly awaiting required inputs.

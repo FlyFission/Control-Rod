@@ -50,6 +50,7 @@ const app = buildApp({
   db,
   root,
   webDir: join(root, "apps", "web", "dist"),
+  guidedPreparation: process.env.CONTROLROD_GUIDED_PREPARATION === "1",
   auth: {
     rpID: process.env.CONTROLROD_RP_ID ?? "localhost",
     rpName: "Control Rod",

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { PackageView, VerificationRecord, WorkPackage } from "../api/types.js";
+import { PreparationPanel } from "../components/preparation/PreparationPanel.js";
 import { DecisionBar } from "../components/DecisionBar.js";
 import { OutputItem } from "../components/OutputPreview.js";
 import { RunCard } from "../components/RunLog.js";
@@ -80,7 +81,8 @@ export function PackagePage({ id }: { id: string }) {
               </>
             )}
           </section>
-          <Criteria pkg={pkg} />
+          <PreparationPanel pkg={pkg} enabled={view.preparation_enabled ?? false} enrolled={view.preparation_enrolled ?? false} />
+          <Criteria pkg={pkg} enrolled={view.preparation_enrolled ?? false} />
           <section className="panel" aria-labelledby="runs-title">
             <h2 id="runs-title">Runs</h2>
             {view.runs.length === 0 && <p className="muted">No runs yet.</p>}
@@ -109,9 +111,9 @@ export function PackagePage({ id }: { id: string }) {
 }
 
 /** Acceptance criteria. Editable while the package is a draft; fixed once released. */
-function Criteria({ pkg }: { pkg: WorkPackage }) {
+function Criteria({ pkg, enrolled }: { pkg: WorkPackage; enrolled:boolean }) {
   const qc = useQueryClient();
-  const editable = pkg.status === "draft";
+  const editable = pkg.status === "draft" && !enrolled;
   const [text, setText] = useState(pkg.acceptance_criteria.join("\n"));
   const [editing, setEditing] = useState(false);
   useEffect(() => setText(pkg.acceptance_criteria.join("\n")), [pkg.acceptance_criteria]);
@@ -168,7 +170,7 @@ function Criteria({ pkg }: { pkg: WorkPackage }) {
           ))}
         </ol>
       )}
-      {!editable && <p className="muted small">Fixed at release. Return the package to change them.</p>}
+      {!editable && <p className="muted small">{enrolled && pkg.status === "draft" ? "Edit these criteria in guided preparation." : "Fixed at release. Return the package to change them."}</p>}
     </section>
   );
 }

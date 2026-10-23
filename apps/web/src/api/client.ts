@@ -1,6 +1,9 @@
 // Typed calls to the control plane. Paths match spec/generated/openapi/openapi.json exactly;
 // the API serves this app at the same origin, so every path is relative to it.
 import type {
+  PreparationView,
+  PreparationContent,
+  ResolutionRequest,
   Capture,
   CaptureView,
   CrEvent,
@@ -31,10 +34,10 @@ function url(path: string): string {
   return new URL(path, window.location.origin).toString();
 }
 
-async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { method, credentials: "same-origin", headers: {} };
+async function call<T>(method: string, path: string, body?: unknown, headers: Record<string,string> = {}): Promise<T> {
+  const init: RequestInit = { method, credentials: "same-origin", headers: { ...headers } };
   if (body !== undefined) {
-    init.headers = { "content-type": "application/json" };
+    init.headers = { ...headers, "content-type": "application/json" };
     init.body = JSON.stringify(body);
   }
   const res = await fetch(url(path), init);
@@ -62,6 +65,33 @@ export const api = {
   captures: () => call<CaptureView[]>("GET", "/captures"),
   capture: (body: NewCapture) => call<Capture>("POST", "/captures", body),
 
+  preparation: (id: string) =>
+    call<PreparationView>("GET", `/packages/${enc(id)}/preparation`),
+  enrollPreparation: (id: string, revision: number, key: string) =>
+    call<PreparationView>("POST", `/packages/${enc(id)}/preparation`, {
+      package_revision: revision,
+      idempotency_key: key,
+    }),
+  savePreparation: (id: string, etag: string, content: PreparationContent) =>
+    call<PreparationView>("PUT", `/packages/${enc(id)}/preparation`, content, {
+      "if-match": etag,
+    }),
+  resolvePreparation: (
+    id: string,
+    etag: string,
+    resolution: ResolutionRequest,
+  ) =>
+    call<PreparationView>(
+      "POST",
+      `/packages/${enc(id)}/preparation/resolutions`,
+      resolution,
+      { "if-match": etag },
+    ),
+  preparationHistory: (id: string, before?: number) =>
+    call<{ revisions: PreparationView[]; next_before?: number }>(
+      "GET",
+      `/packages/${enc(id)}/preparation/history${before === undefined ? "" : `?before=${before}`}`,
+    ),
   packages: () => call<WorkPackage[]>("GET", "/packages"),
   packageView: (id: string) => call<PackageView>("GET", `/packages/${enc(id)}`),
   updatePackage: (pkg: WorkPackage) => call<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg),

@@ -17,6 +17,7 @@ import {
 } from "./auth.js";
 import type { Db } from "./db/index.js";
 import { bus, type EventRecord, listEvents, verifyChain } from "./events.js";
+import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
 import {
@@ -58,6 +59,8 @@ export interface AppOptions {
   webDir?: string;
   /** Seconds a run claim lasts without a heartbeat. Default 90. */
   leaseSeconds?: number;
+  /** Enables new enrollment; existing companions stay controlled when off. */
+  guidedPreparation?: boolean;
   /** Seconds between sweeps for lost runs. Default 15; 0 turns the timer off. */
   sweepSeconds?: number;
 }
@@ -86,7 +89,7 @@ const MIME: Record<string, string> = {
  */
 export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
-  const cfg: WorkConfig = { root: opts.root, ajv, ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
+  const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
   app.removeContentTypeParser("application/json");
@@ -181,6 +184,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { registered: await isRegistered(db), signed_in: false };
   });
 
+  preparationRoutes(app, db, cfg, person);
+
   /* ---- captures ---- */
   app.get("/captures", async (req) => {
     await person(req);
@@ -200,7 +205,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   app.get<{ Params: { id: string } }>("/packages/:id", async (req) => {
     await person(req);
-    return packageView(db, req.params.id);
+    return { ...await packageView(db, req.params.id), preparation_enabled: cfg.guidedPreparation };
   });
   app.put<{ Params: { id: string } }>("/packages/:id", async (req) => {
     const user = await person(req);

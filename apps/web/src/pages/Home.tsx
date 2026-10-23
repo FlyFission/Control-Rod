@@ -109,11 +109,9 @@ function CaptureRow({ c }: { c: CaptureView }) {
           <Markdown>{c.answer}</Markdown>
         </div>
       )}
-      {disposition === "package" && c.package_id !== undefined && (
-        <Link to="/packages/$id" params={{ id: c.package_id }} className="link">
-          Open package {c.package_id}
-        </Link>
-      )}
+      {disposition === "package" && (c.package_ids ?? (c.package_id ? [c.package_id] : [])).map(id => (
+        <p key={id}><Link to="/packages/$id" params={{ id }} className="link">Open package {id}</Link></p>
+      ))}
     </li>
   );
 }

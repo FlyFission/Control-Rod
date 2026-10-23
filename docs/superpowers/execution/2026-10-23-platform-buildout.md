@@ -65,3 +65,17 @@ Ruling: expose public store operations as complete transactions, adding a Tx var
 Human authorization received: user explicitly answered “Authorize those specific kernel changes” for tasks 6–9 on 2026-10-23. Exact scope is retained in the basis record. Unrelated protected surfaces and main/DCO/release gates remain pending.
 
 Task 5: next — human routes, intake linkage, workbench and enrollment/release guards.
+
+## Task 5 evidence
+
+Task 5: complete — human-only enrollment/read/edit/resolution/history routes, strong ETags and actionable conflicts; default-off new enrollment; intake automatically creates one system-authored companion per package inside its completion transaction. Capture views and Home retain every package link. Legacy draft edits and release refuse enrolled work, even when the enrollment flag is off. Generated TypeSpec/API types stay authoritative.
+
+The workbench has structured context, requirement/criterion mapping, questions/answers/owners, feasibility escalations, technical tasks/checks, controlled source pins and immutable history. Local edits survive stale-save refusal; reload is explicit. Check mapping is labelled as intent, not results. Enrolled release is absent from UI and refused at both challenge and transaction seams.
+
+RED: four API behavior failures before routes/integration and missing workbench module. GREEN: API 100 tests, web 32 tests, workspace type checks and production builds. Actual built React bundle checked with desktop/mobile Chromium using fixture API responses: no page errors, no horizontal overflow, no release button, stored context rendered. Screenshots and `browser-check.json` are in the Windows verification export. This is final-bundle rendering evidence with fixture data, not a deployed-service claim. Vite preview proxies package paths, so the browser harness served navigation HTML directly from dist; API/static integration is separately covered by real Fastify tests. Build retains the existing >500 kB bundle advisory.
+
+Ruling: automatic intake enrollment carries the system actor — enabling the feature is owner intent, not a human confirmation of agent-generated requirements — cost if wrong is later explicit enrollment policy, never an invented human signature.
+Ruling: preserve existing verifier assignment in manual contract edits — the legacy editor already treats that assignment as controlled — cost if wrong is an additional authorized reassignment workflow.
+Ruling: format new preparation modules for review while preserving unrelated source formatting — keeps the integration diff focused — cost if wrong is later uniform formatting work.
+
+Task 6: next — signed requirements confirmation; scoped human authorization is recorded.

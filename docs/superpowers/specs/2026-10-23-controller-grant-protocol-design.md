@@ -48,3 +48,7 @@ Grant input paths are basenames relative to a dedicated input root, not the over
 ## Disclosure activation prerequisite
 
 An unconfirmed draft package’s `data_lane` is an input label, not evidence of owner-authorized disclosure. The future approved coordinator must establish trusted disclosure classification and a permitted runtime profile before creating or issuing a preparer attempt. This slice derives scope only from an existing run and exposes no public issuance or preparer dispatch; synthetic SQL fixtures do not prove that missing authorization path. Native transport must not expose the returned token or retained bytes until that gate and the process/credential/egress boundary are established.
+
+## Tracked implementation limitation
+
+Final code review identified a Minor deadline-metadata mismatch: if a trusted writer coherently shortens a preparer lease after issuance, new uses currently retain/return the original grant deadline. Finalize and transaction-end guards still enforce the actual shorter run lease; no authorization bypass or public preparer shortening path is demonstrated. Before native integration, persist/return the minimum of original grant and current run expiry for each new permit. See the final review record for the reproduction and disposition. Owner custody/history retrieval and global retention/issuance controls also remain activation gates.

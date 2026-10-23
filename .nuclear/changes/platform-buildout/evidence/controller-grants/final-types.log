@@ -3,7 +3,7 @@ apps/web typecheck$ pnpm gen:api && tsc -p tsconfig.json --noEmit
 apps/web typecheck: > @control-rod/web@0.0.0 gen:api /home/flyfission/worktrees/control-rod-buildout-20261023/apps/web
 apps/web typecheck: > openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
 apps/web typecheck: ✨ openapi-typescript 7.13.0
-apps/web typecheck: 🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [138.4ms]
+apps/web typecheck: 🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [150.3ms]
 apps/web typecheck: Done
 services/api typecheck$ tsc -p tsconfig.json --noEmit
 services/api typecheck: Done

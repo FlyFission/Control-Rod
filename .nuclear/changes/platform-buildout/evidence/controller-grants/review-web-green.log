@@ -1,0 +1,9 @@
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/apps/web
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 17 skipped (19)
+   Start at  16:56:31
+   Duration  1.05s (environment 41%, import 22%, setup 15%, transform 10%, tests 10%, worker 1%)
+

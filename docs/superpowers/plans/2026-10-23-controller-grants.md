@@ -33,5 +33,5 @@ No public issuance, preparer run creation/dispatch, general command/network oper
 ## Task 4 — final integration evidence
 
 - [x] Expand recovery coverage to the new tables; run whole API/web tests, type checks/build/schema reproducibility and Go race/vet/format.
-- [ ] Obtain one fresh final code review for the completed slice, fix Important findings failed-first in one pass, record all scope dispositions.
+- [x] Obtain one fresh final code review for the completed slice, fix Important findings failed-first in one pass, record all scope dispositions.
 - [ ] Commit with DCO, push under existing authority, verify exact PR #6 head and CI, refresh Windows packet. Keep all runtime activation gates open.

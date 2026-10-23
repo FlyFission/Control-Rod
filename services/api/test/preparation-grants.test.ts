@@ -448,7 +448,128 @@ it("rejects duplicate-key and extra-authority messages before executing a grant 
   ).toBe(404);
 });
 
-it("requires grant credentials before parsing an untrusted RPC body",async()=>{
- const v=await issued();const r=await f.h.app.inject({method:"POST",url:`/runner/preparation-grants/${v.grant.id}/begin`,headers:{"content-type":"application/json"},payload:'{"unfinished":'});
- expect(r.statusCode,r.body).toBe(401);
+it("requires grant credentials before parsing an untrusted RPC body", async () => {
+  const v = await issued();
+  const r = await f.h.app.inject({
+    method: "POST",
+    url: `/runner/preparation-grants/${v.grant.id}/begin`,
+    headers: { "content-type": "application/json" },
+    payload: '{"unfinished":',
+  });
+  expect(r.statusCode, r.body).toBe(401);
+});
+
+it("refuses issuance when a pinned original attachment is missing", async () => {
+  const { randomUUID } = await import("node:crypto");
+  const { digest } = await import("../src/kernel.js");
+  const { preparationContent } = await import("../src/preparation/store.js");
+  const seed = await grantRun(f);
+  const capture = {
+    schema_version: "0.1.0",
+    id: `CAP-${randomUUID()}`,
+    text: "Original request",
+    source: "web",
+    created_at: new Date().toISOString(),
+  };
+  const bytes = Buffer.from("Original attachment");
+  await f.adminQuery(
+    "insert into captures(id,body,created_at) values($1,$2,$3)",
+    [capture.id, capture, capture.created_at],
+  );
+  await f.adminQuery(
+    "insert into attachments(capture_id,name,sha256,bytes) values($1,'original.txt',$2,$3)",
+    [capture.id, sha(bytes), bytes],
+  );
+  await f.adminQuery("update packages set capture_id=$2 where id=$1", [
+    seed.p.id,
+    capture.id,
+  ]);
+  const view = (await f.owner("GET", seed.p.url)).json(),
+    content = preparationContent(view.snapshot);
+  content.basis.push(
+    {
+      kind: "capture",
+      reference: `capture:${capture.id}`,
+      revision: "0",
+      digest: { algorithm: "sha256", value: digest(capture) },
+    },
+    {
+      kind: "attachment",
+      reference: `attachment:${capture.id}/original.txt`,
+      revision: "0",
+      digest: { algorithm: "sha256", value: sha(bytes) },
+    },
+  );
+  expect(
+    (
+      await f.owner("PUT", seed.p.url, content, {
+        "if-match": `"${view.content_digest.value}"`,
+      })
+    ).statusCode,
+  ).toBe(200);
+  await f.adminQuery(
+    "delete from attachments where capture_id=$1 and name='original.txt'",
+    [capture.id],
+  );
+  const outcome = await issuePreparationGrant(
+    f.h.db,
+    grantConfig,
+    seed.run.id,
+    seed.token,
+  ).then(
+    () => ({ status: 0 }),
+    (e) => ({ status: e.status }),
+  );
+  expect(outcome.status).toBe(409);
+  expect(
+    (
+      await f.h.db.query("select 1 from preparation_grants where run_id=$1", [
+        seed.run.id,
+      ])
+    ).rowCount,
+  ).toBe(0);
+});
+
+it("preserves retained proposal custody and accurate recovery guidance after lease retirement", async () => {
+  const { sweepLost } = await import("../src/work.js");
+  const v = await issued(),
+    permit = await begin(v.grant.id, v.token, { kind: "write-proposal" });
+  expect(permit.statusCode, permit.body).toBe(200);
+  const response = await finish(v.grant.id, v.token, permit.json(), {
+    kind: "write-proposal",
+    content_base64: Buffer.from("Retained evidence").toString("base64"),
+  });
+  expect(response.statusCode, response.body).toBe(200);
+  await f.adminQuery(
+    "update runs set lease_expires_at=clock_timestamp()-interval '1 second',body=jsonb_set(body,'{lease_expires_at}',to_jsonb((clock_timestamp()-interval '1 second')::text)) where id=$1",
+    [v.run.id],
+  );
+  await sweepLost(f.h.db, { ...grantConfig, root: process.cwd() });
+  const run = (
+    await f.h.db.query("select body from runs where id=$1", [v.run.id])
+  ).rows[0].body;
+  expect(run.status).toBe("lost");
+  expect(run.error).not.toContain("Nothing was recorded");
+  expect(run.error).not.toContain("the owner can requeue");
+  expect(run.error).toContain("retained proposals or receipts");
+  expect(
+    (
+      await f.h.db.query(
+        "select bytes from preparation_grant_proposals where grant_id=$1",
+        [v.grant.id],
+      )
+    ).rows[0].bytes,
+  ).toEqual(Buffer.from("Retained evidence"));
+  expect(
+    (
+      await f.h.db.query(
+        "select 1 from preparation_grant_receipts where grant_id=$1",
+        [v.grant.id],
+      )
+    ).rowCount,
+  ).toBe(1);
+  expect(
+    (await f.owner("POST", `/packages/${v.p.id}/runs/${v.run.id}/requeue`))
+      .statusCode,
+  ).toBe(409);
 });

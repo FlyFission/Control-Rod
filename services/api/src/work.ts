@@ -738,7 +738,7 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
         status: "lost",
         finished_at: now(),
         label: "Lost",
-        error: `Runner lost: no heartbeat from the daemon after ${String(row.body.lease_expires_at ?? "its lease")}. Nothing was recorded from this run; the owner can requeue it.`,
+        error: `Runner lost: no heartbeat from the daemon after ${String(row.body.lease_expires_at ?? "its lease")}. ${legacyRun(row) ? "Nothing was recorded from this run; the owner can requeue it." : "This attempt may have retained proposals or receipts. Review its retained evidence; this role cannot be requeued. A retry requires a new authorized attempt."}`,
       };
       delete body.lease_expires_at;
       validate(cfg, "Run.json", body);

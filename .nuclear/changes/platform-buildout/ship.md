@@ -26,3 +26,6 @@ The bounded preparation file broker is implemented and reviewed with both Import
 
 
 Controller grant storage and narrow RPC continue the inactive task-10 foundation. A trusted coordinator, actual process/credential/model egress boundary and Go distributed adapter are not supplied; an unconfirmed draft lane is not owner disclosure approval. PostgreSQL17+ is required by the new grant protocol. No public issuance or native preparer dispatch is connected. Final review/publication state is recorded in the execution ledger.
+
+
+Final controller review found two Important defects, reproduced and fixed in one implementer pass: missing pinned original attachment at issuance and inaccurate lost-run custody/requeue guidance. One Minor remains explicitly deferred: permit metadata can overstate a shortened lease; actual finalize/commit guards enforce the shorter lease. Correct the metadata before native integration. Owner custody retrieval and global issuance/retention operations also remain activation prerequisites. Full review/rulings: `evidence/controller-grants/final-review.md`.

@@ -290,6 +290,14 @@ describe("runs that need the owner", () => {
     error: "Runner lost: no heartbeat from the daemon.",
   };
 
+  it.each(["requirements-preparer", "technical-preparer"] as const)("does not offer unsupported preparer requeue for %s", async (role) => {
+    const run: Run = {...lostRun, role};
+    server.use(http.get("*/packages/WP-9/runs/R-lost/log",()=>HttpResponse.json({lines:[]})));
+    await renderPage(<RunCard packageId="WP-9" run={run} />);
+    expect(canRequeue(run)).toBe(false);
+    expect(screen.queryByRole("button",{name:"Requeue this run"})).toBeNull();
+  });
+
   it("shows a lost run plainly and lets the owner requeue it once", async () => {
     let posted = "";
     server.use(

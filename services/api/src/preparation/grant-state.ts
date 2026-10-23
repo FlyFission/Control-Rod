@@ -312,6 +312,22 @@ export async function requestInputs(
         "grant-input-budget",
         "Too many original attachments for this grant",
       );
+    const originalPrefix = `attachment:${p.capture_id}/`;
+    const pinnedAttachments = new Set(
+      s.basis
+        .filter(
+          (b) =>
+            b.kind === "attachment" && b.reference.startsWith(originalPrefix),
+        )
+        .map((b) => b.reference),
+    );
+    if (
+      pinnedAttachments.size !== attachments.length ||
+      attachments.some(
+        (a) => !pinnedAttachments.has(`${originalPrefix}${a.name}`),
+      )
+    )
+      throw stale();
     for (const [i, a] of attachments.entries()) {
       if (a.size > SOURCE_LIMIT)
         throw new Refusal(

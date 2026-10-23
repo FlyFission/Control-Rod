@@ -1,0 +1,48 @@
+import { beforeAll, afterAll, it, expect } from 'vitest';
+import { randomUUID, createHash } from 'node:crypto';
+import { preparedHarness } from '/home/flyfission/worktrees/control-rod-buildout-20261023/services/api/test/preparation-flow.ts';
+import { grantRun, grantConfig, grantHeaders } from '/home/flyfission/worktrees/control-rod-buildout-20261023/services/api/test/preparation-grant-fixture.ts';
+import { issuePreparationGrant } from '/home/flyfission/worktrees/control-rod-buildout-20261023/services/api/src/preparation/grants.ts';
+import { preparationContent } from '/home/flyfission/worktrees/control-rod-buildout-20261023/services/api/src/preparation/store.ts';
+import { digest } from '/home/flyfission/worktrees/control-rod-buildout-20261023/services/api/src/kernel.ts';
+let f: Awaited<ReturnType<typeof preparedHarness>>;
+beforeAll(async()=>{f=await preparedHarness()}); afterAll(async()=>{await f?.h.stop()});
+it('refuses issuance when a pinned original attachment disappeared before issuance', async()=>{
+ const seed=await grantRun(f);
+ const cap={schema_version:'0.1.0',id:`CAP-${randomUUID()}`,text:'Original requester words',source:'web',created_at:new Date().toISOString()};
+ const bytes=Buffer.from('original bytes'), sha=createHash('sha256').update(bytes).digest('hex');
+ await f.adminQuery('insert into captures(id,body,created_at) values($1,$2,$3)',[cap.id,cap,cap.created_at]);
+ await f.adminQuery("insert into attachments(capture_id,name,sha256,bytes) values($1,'original.txt',$2,$3)",[cap.id,sha,bytes]);
+ await f.adminQuery('update packages set capture_id=$2 where id=$1',[seed.p.id,cap.id]);
+ const view=(await f.owner('GET',seed.p.url)).json(); const content=preparationContent(view.snapshot);
+ content.basis.push({kind:'capture',reference:`capture:${cap.id}`,revision:'0',digest:{algorithm:'sha256',value:digest(cap)}},{kind:'attachment',reference:`attachment:${cap.id}/original.txt`,revision:'0',digest:{algorithm:'sha256',value:sha}});
+ expect((await f.owner('PUT',seed.p.url,content,{'if-match':`"${view.content_digest.value}"`})).statusCode).toBe(200);
+ await f.adminQuery("delete from attachments where capture_id=$1 and name='original.txt'",[cap.id]);
+ const result=await issuePreparationGrant(f.h.db,grantConfig,seed.run.id,seed.token).then(v=>({status:'issued',inputs:v.grant.inputs.map(x=>x.reference)}),e=>({status:'refused',code:e.code}));
+ console.log('MISSING_ATTACHMENT_RESULT',JSON.stringify(result));
+ expect(result.status).toBe('refused');
+});
+it('caps a new permit at the currently shortened run lease', async()=>{
+ const seed=await grantRun(f), v=await issuePreparationGrant(f.h.db,grantConfig,seed.run.id,seed.token);
+ const shorter=new Date(Date.now()+15000).toISOString();
+ await f.adminQuery("update runs set lease_expires_at=$2::timestamptz,body=jsonb_set(body,'{lease_expires_at}',to_jsonb($2::text)) where id=$1",[seed.run.id,shorter]);
+ const response=await f.h.app.inject({method:'POST',url:`/runner/preparation-grants/${v.grant.id}/begin`,headers:grantHeaders(v.token),payload:{kind:'inspect'}});
+ expect(response.statusCode,response.body).toBe(200);
+ console.log('PERMIT_LEASE_RESULT',JSON.stringify({run_lease:shorter,permit_lease:response.json().expires_at}));
+ expect(new Date(response.json().expires_at).getTime()).toBeLessThanOrEqual(new Date(shorter).getTime());
+});
+
+it('retirement does not tell the owner no output exists after a retained proposal', async()=>{
+ const {beginGrantUse,finishGrantUse}=await import('/home/flyfission/worktrees/control-rod-buildout-20261023/services/api/src/preparation/grants.ts');
+ const {sweepLost}=await import('/home/flyfission/worktrees/control-rod-buildout-20261023/services/api/src/work.ts');
+ const seed=await grantRun(f,{leaseMs:1500}), v=await issuePreparationGrant(f.h.db,grantConfig,seed.run.id,seed.token);
+ const permit=await beginGrantUse(f.h.db,grantConfig,v.grant.id,v.token,{kind:'write-proposal'});
+ await finishGrantUse(f.h.db,grantConfig,v.grant.id,v.token,{use_id:permit.use_id,use_token:permit.use_token,result:{kind:'write-proposal',content_base64:Buffer.from('Retained proposal').toString('base64')}});
+ await new Promise(resolve=>setTimeout(resolve,1600));
+ await sweepLost(f.h.db,{ajv:grantConfig.ajv,root:'/home/flyfission/worktrees/control-rod-buildout-20261023'});
+ const run=(await f.h.db.query('select body from runs where id=$1',[seed.run.id])).rows[0].body;
+ const count=(await f.h.db.query('select 1 from preparation_grant_proposals where grant_id=$1',[v.grant.id])).rowCount;
+ console.log('LOST_CUSTODY_RESULT',JSON.stringify({error:run.error,retained_proposal_count:count}));
+ expect(count).toBe(1);
+ expect(run.error).not.toContain('Nothing was recorded from this run');
+});

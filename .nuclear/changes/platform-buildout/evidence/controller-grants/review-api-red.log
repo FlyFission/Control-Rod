@@ -1,0 +1,53 @@
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+
+ ❯ test/preparation-grants.test.ts (16 tests | 2 failed | 14 skipped) 1821ms
+   × refuses issuance when a pinned original attachment is missing 295ms
+   × preserves retained proposal custody and accurate recovery guidance after lease retirement 169ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/preparation-grants.test.ts > refuses issuance when a pinned original attachment is missing
+AssertionError: expected +0 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 0
+
+ ❯ test/preparation-grants.test.ts:471:26
+    469|   await f.adminQuery("delete from attachments where capture_id=$1 and …
+    470|   const outcome=await issuePreparationGrant(f.h.db,grantConfig,seed.ru…
+    471|   expect(outcome.status).toBe(409);
+       |                          ^
+    472|   expect((await f.h.db.query("select 1 from preparation_grants where r…
+    473| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  test/preparation-grants.test.ts > preserves retained proposal custody and accurate recovery guidance after lease retirement
+AssertionError: expected 'Runner lost: no heartbeat from the da…' not to contain 'Nothing was recorded'
+
+Expected: "Nothing was recorded"
+Received: "Runner lost: no heartbeat from the daemon after 2026-10-23 16:56:12.206224-04. Nothing was recorded from this run; the owner can requeue it."
+
+ ❯ test/preparation-grants.test.ts:485:25
+    483|   const run=(await f.h.db.query("select body from runs where id=$1",[v…
+    484|   expect(run.status).toBe("lost");
+    485|   expect(run.error).not.toContain("Nothing was recorded");
+       |                         ^
+    486|   expect(run.error).not.toContain("the owner can requeue");
+    487|   expect(run.error).toContain("retained proposals or receipts");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 14 skipped (16)
+   Start at  16:56:10
+   Duration  2.51s (tests 76%, import 17%, transform 6%)
+
+undefined
+/home/flyfission/worktrees/control-rod-buildout-20261023/services/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run test/preparation-grants.test.ts -t pinned original attachment is missing|accurate recovery guidance

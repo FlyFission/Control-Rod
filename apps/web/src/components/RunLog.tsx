@@ -42,9 +42,9 @@ export function runStatusText(run: Run): string {
   }
 }
 
-/** A lost, failed or stopped run can be queued again by the owner, once. */
+/** Only supported legacy runs can be queued again by the owner, once. */
 export function canRequeue(run: Run): boolean {
-  return (run.status === "lost" || run.status === "failed" || run.status === "stopped") && run.requeued_as === undefined;
+  return ["intake", "author", "pre-check"].includes(run.role) && (run.status === "lost" || run.status === "failed" || run.status === "stopped") && run.requeued_as === undefined;
 }
 
 /**

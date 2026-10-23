@@ -1,0 +1,39 @@
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/apps/web
+
+ ❯ src/components/components.test.tsx (19 tests | 2 failed | 17 skipped) 96ms
+   ❯ runs that need the owner (5)
+     × does not offer unsupported preparer requeue for requirements-preparer 78ms
+     × does not offer unsupported preparer requeue for technical-preparer 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/components.test.tsx > runs that need the owner > does not offer unsupported preparer requeue for requirements-preparer
+ FAIL  src/components/components.test.tsx > runs that need the owner > does not offer unsupported preparer requeue for technical-preparer
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/components/components.test.tsx:297:29
+    295|     server.use(http.get("*/packages/WP-9/runs/R-lost/log",()=>HttpResp…
+    296|     await renderPage(<RunCard packageId="WP-9" run={run} />);
+    297|     expect(canRequeue(run)).toBe(false);
+       |                             ^
+    298|     expect(screen.queryByRole("button",{name:"Requeue this run"})).toB…
+    299|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 17 skipped (19)
+   Start at  16:56:12
+   Duration  1.19s (environment 40%, import 23%, setup 16%, transform 12%, tests 9%)
+
+undefined
+/home/flyfission/worktrees/control-rod-buildout-20261023/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/components/components.test.tsx -t unsupported preparer requeue

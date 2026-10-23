@@ -6,12 +6,12 @@ apps/web build: > openapi-typescript ../../spec/generated/openapi/openapi.json -
 spec build: TypeSpec compiler v1.17.0
 spec build: - Compiling...
 apps/web build: ✨ openapi-typescript 7.13.0
+apps/web build: 🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [138.6ms]
 spec build: ✔ Compiling
 spec build: - Running @typespec/json-schema...
-apps/web build: 🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [137.7ms]
-spec build: ✔ @typespec/json-schema 87ms generated/json-schema/
+spec build: ✔ @typespec/json-schema 88ms generated/json-schema/
 spec build: - Running @typespec/openapi3...
-spec build: ✔ @typespec/openapi3 98ms generated/openapi/
+spec build: ✔ @typespec/openapi3 90ms generated/openapi/
 spec build: Compilation completed successfully.
 spec build: Done
 apps/web build: vite v8.3.5 building client environment for production...
@@ -22,14 +22,14 @@ apps/web build: computing gzip size...
 apps/web build: dist/index.html                    0.68 kB │ gzip:   0.39 kB
 apps/web build: dist/assets/index-oj2XjfiH.css    10.11 kB │ gzip:   2.91 kB
 apps/web build: dist/assets/GeoMap-vh-t_kPv.css   15.09 kB │ gzip:   6.36 kB
-apps/web build: dist/assets/GeoMap-DJAmed_a.js   149.36 kB │ gzip:  43.73 kB
-apps/web build: dist/assets/index-eVTH9kyn.js    528.28 kB │ gzip: 161.99 kB
+apps/web build: dist/assets/GeoMap-5dayG3n5.js   149.36 kB │ gzip:  43.73 kB
+apps/web build: dist/assets/index-BnK9_eKy.js    528.33 kB │ gzip: 162.02 kB
 apps/web build: [plugin builtin:vite-reporter] 
 apps/web build: (!) Some chunks are larger than 500 kB after minification. Consider:
 apps/web build: - Using dynamic import() to code-split the application
 apps/web build: - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
 apps/web build: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-apps/web build: ✓ built in 245ms
+apps/web build: ✓ built in 220ms
 apps/web build: Done
 services/api build$ tsc -p tsconfig.build.json
 services/api build: Done

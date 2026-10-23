@@ -39,3 +39,21 @@ A blocked global audit table causes bounded rollback and releases the package lo
 Self-review exposed an identity mismatch, a grouped-base64 regex stack overflow at the actual byte ceiling, and an unhandled fatal database timeout; all have behavioral failed-first regressions and fixes. Original-source guard regressions were verified with a controlled temporary rollback of those guards, followed by restoration and GREEN; this is regression validation rather than pristine test-first chronology. A missing library caused one isolated preauth run to fail setup; it supplied no behavioral evidence. Full harness commands include the required local library path.
 
 Controller-generated events/receipts store no authentication token. Actual untrusted proposal bytes remain inert retained data; no release, requirement acceptance, output or verification is created by finalization. Native credential/network escape, model prompt injection, safe artifact rendering, remote Go adapter semantics and trusted disclosure classification remain uncertain and block activation. An unconfirmed draft lane label is not disclosure approval.
+
+## Final result by attack class
+
+| Class | Result | Evidence or remaining control |
+|---|---|---|
+| Revocation race | contained in tested DB/RPC scope | stop/revoke/edit refusals, current-state and commit guards; already-admitted delayed responses remain possible |
+| Stop starvation | contained within grant transaction budget | audit lock timeout rolls back/releases package lock; global outage availability unproved |
+| Confused deputy | contained at tested legacy boundaries | explicit role/body/launcher guards and preparer requeue UI denial |
+| Capability substitution | contained in tested messages | wrong token/use/claim/intent/assigned ID refusals |
+| Audit fabrication | contained for custody claim | actual controller-retained proposal bytes/server hash, unique slot; reported read is not consumption proof |
+| Replay/partition | contained for stale/altered retries; uncertain delivery | every-ack guards and immutable receipts; lost ack may mean committed result |
+| Time-of-commit | contained in DB regressions | delayed initial/replay guards and total transaction timeout |
+| Injection/poisoned retrieval | uncertain for models | proposal remains inert and unrendered; model/native activation held |
+| Credential/data exfiltration | contained for generated records; uncertain native egress | narrow pre-parse auth and absence tests; trusted disclosure classification and native isolation held |
+| Resource/path misuse | contained in bounded protocol | closed ID-only input selection, response/pending/proposal limits, canonical base64 at byte ceiling |
+| Native credential/network escape | uncertain | no native preparer dispatch; requires separate proof and protected authorization |
+
+Final review exposed two Important gaps (missing pinned attachment before issuance; misleading lost-run custody/requeue). Root reproduced both before fixing; the final review record gives RED/GREEN and scope dispositions. One Minor remains deferred: permit metadata can overstate a coherently shortened lease, while actual finalize/commit fences enforce that lease. Correct it before native integration. No finite attack set establishes universal coverage.

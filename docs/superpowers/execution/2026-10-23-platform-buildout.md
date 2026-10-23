@@ -128,3 +128,11 @@ Ruling: evidence refs must name actual checker artifacts outside claim JSON — 
 Ruling: treat integrity failures as blocked acceptance while allowing a controlled return/reject — owners need a repair path — cost if wrong is additional forensic review, not acceptance of altered bytes.
 
 Tasks 10/11: runtime confinement and assisted preparation next; task 12 manual pilot/recovery is independently unblocked after 9.
+
+## Task 10 investigation
+
+Task 10: in progress / activation held. Actual host probe passed eight OS canaries using bubblewrap 0.9.0 and namespaces. Installed native versions observed without model calls: Claude 2.1.308, Codex 0.163.0. Current adapters still inherit HOME/general environment; the OS spike does not prove credential/egress boundaries through those clients. Runtime/credential broker interfaces and ordered implementation are now specified in `2026-10-23-runtime-confinement-design.md`; inactive policy proposal and raw probe result are retained in this packet.
+
+Ruling: do not enable preparation roles from a synthetic sandbox probe — native client tool delegation and credential/model egress remain unproved — cost if wrong is delayed assisted preparation, not an unsupported confinement claim.
+Task 11: held by task 10. No proposal role/agent powers added.
+Ruling: proceed with task 12 manual rehearsal — the master dependency map explicitly separates it from assisted preparation — cost if wrong is re-running a local rehearsal, not deploying agents.

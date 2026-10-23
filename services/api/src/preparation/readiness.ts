@@ -48,7 +48,9 @@ export function preparationSubjects(s: PreparationSnapshot) {
         package_contract: s.package_contract,
         context,
         requirements: s.requirements,
-        criteria: s.criteria,
+        criteria: s.criteria.map(
+          ({ verification_check_ids: _checks, ...criterion }) => criterion,
+        ),
         questions: s.questions,
         resolutions: s.resolutions,
         escalations: s.escalations,
@@ -63,6 +65,7 @@ export function preparationReadiness(
   s: PreparationSnapshot,
   pkg: WorkPackage,
   confirmed: boolean,
+  scope: "requirements" | "full" = "full",
 ): PreparationBlocker[] {
   const blockers: PreparationBlocker[] = [];
   const add = (code: string, message: string, owner = "owner") =>
@@ -180,10 +183,11 @@ export function preparationReadiness(
         `${c.id}: criterion references an unknown requirement.`,
       );
     if (
-      !c.verification_check_ids.length ||
-      c.verification_check_ids.some(
-        (id) => !checks.get(id)?.criterion_ids.includes(c.id),
-      )
+      scope === "full" &&
+      (!c.verification_check_ids.length ||
+        c.verification_check_ids.some(
+          (id) => !checks.get(id)?.criterion_ids.includes(c.id),
+        ))
     )
       add(
         "check-coverage",
@@ -266,6 +270,7 @@ export function preparationReadiness(
     )
       add("source-lines", `${b.reference}: invalid source line range.`);
   }
+  if (scope === "requirements") return blockers;
   const plan = s.technical_plan;
   if (
     !nonempty(plan.summary) ||

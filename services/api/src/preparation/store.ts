@@ -49,7 +49,7 @@ function validate(cfg: Config, schema: string, v: unknown): void {
   if (!cfg.ajv.validate(schema, v))
     throw new Refusal(400, "invalid", `${schema}: ${cfg.ajv.errorsText()}`);
 }
-async function lockedPackage(c: Tx, id: string): Promise<PackageRow> {
+export async function lockedPackage(c: Tx, id: string): Promise<PackageRow> {
   const p = await currentPackage(c, id, true);
   if (!p) throw new Refusal(404, "not-found", "No such package");
   return p;
@@ -58,29 +58,44 @@ function editable(p: PackageRow) {
   if (p.status !== "draft")
     throw new Refusal(409, "wrong-state", "Preparation can only edit a draft");
 }
-async function head(c: Tx, id: string): Promise<PreparationSnapshot | null> {
+export async function head(
+  c: Tx,
+  id: string,
+): Promise<PreparationSnapshot | null> {
   const r = await c.query<{ body: PreparationSnapshot }>(
     "select s.body from preparation_heads h join preparation_snapshots s on s.preparation_id=h.preparation_id and s.revision=h.revision where h.package_id=$1 for update of h",
     [id],
   );
   return r.rows[0]?.body ?? null;
 }
-function view(s: PreparationSnapshot, p: PackageRow): PreparationView {
+async function view(
+  c: Tx,
+  s: PreparationSnapshot,
+  p: PackageRow,
+): Promise<PreparationView> {
+  const subjects = preparationSubjects(s);
+  const confirmed = Boolean(
+    (
+      await c.query(
+        "select 1 from preparation_confirmations where package_id=$1 and package_revision=$2 and requirements_digest=$3 limit 1",
+        [p.id, p.revision, subjects.requirements_digest.value],
+      )
+    ).rowCount,
+  );
   const blockers = preparationReadiness(
     s,
     { ...p.body, status: p.status } as WorkPackage,
-    false,
+    confirmed,
   );
   blockers.push({
     code: "prepared-release-disabled",
-    message:
-      "Preparation is saved. Signed confirmation and prepared release are not enabled yet.",
+    message: "Preparation is saved. Prepared release is not enabled yet.",
     owner: "owner",
   });
   return {
     snapshot: s,
     ...preparationSubjects(s),
-    confirmed: false,
+    confirmed,
     readiness: "blocked",
     blockers,
     change_summary:
@@ -134,7 +149,7 @@ async function save(
     preparation_revision: s.revision,
     content_digest: subjects.content_digest,
   });
-  return view(s, p);
+  return view(c, s, p);
 }
 export async function enrollPreparation(
   db: Db,
@@ -175,7 +190,7 @@ export async function enrollPreparationTx(
         "already-enrolled",
         "This package already has preparation; read its current head.",
       );
-    return view(previous, p);
+    return view(c, previous, p);
   }
   const pkg = { ...p.body, status: p.status } as WorkPackage;
   const capture = p.capture_id
@@ -252,7 +267,7 @@ export async function readPreparation(
     const s = await head(c, id);
     if (!s)
       throw new Refusal(404, "not-enrolled", "This package has no preparation");
-    return view(s, p);
+    return view(c, s, p);
   });
 }
 function preserveResolutions(
@@ -496,7 +511,9 @@ export async function preparationHistory(
         [id, before ?? null, limit + 1],
       )
     ).rows;
-    const revisions = rows.slice(0, limit).map((r) => view(r.body, p));
+    const revisions = await Promise.all(
+      rows.slice(0, limit).map((r) => view(c, r.body, p)),
+    );
     return {
       revisions,
       ...(rows.length > limit

@@ -207,3 +207,10 @@ model CriterionResultSet {
   verification_record_digest: Digest;
   results: CriterionResult[];
 }
+
+@extension("unevaluatedProperties", false)
+model ConfirmationOptionsRequest { expected_requirements_digest: Digest; }
+@extension("unevaluatedProperties", false)
+model ConfirmationRequest { assertion: Record<unknown>; }
+@extension("unevaluatedProperties", false)
+model ConfirmationOptions { requirements_digest: Digest; options: Record<unknown>; }

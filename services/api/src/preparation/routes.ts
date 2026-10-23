@@ -1,4 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { assertionOptions, assertionVerify, type AuthConfig } from "../auth.js";
+import {
+  confirmationSubject,
+  confirmationChallenge,
+  confirmRequirements,
+} from "./subjects.js";
 import type { Db } from "../db/index.js";
 import { Refusal, type WorkConfig } from "../work.js";
 import {
@@ -19,6 +25,7 @@ export function preparationRoutes(
   db: Db,
   cfg: WorkConfig,
   person: (req: FastifyRequest) => Promise<string>,
+  auth: AuthConfig,
 ) {
   type Params = { id: string };
   const send = (reply: import("fastify").FastifyReply, v: PreparationView) =>
@@ -42,6 +49,78 @@ export function preparationRoutes(
       await enrollPreparation(db, cfg, user, req.params.id, req.body),
     );
   });
+  app.post<{
+    Params: Params;
+    Body: {
+      expected_requirements_digest: { algorithm: string; value: string };
+    };
+  }>(
+    "/packages/:id/preparation/confirm/options",
+    { schema: { body: { $ref: "ConfirmationOptionsRequest.json" } } },
+    async (req, reply) => {
+      await person(req);
+      const subject = await confirmationSubject(
+        db,
+        req.params.id,
+        req.body.expected_requirements_digest,
+      );
+      const options = await assertionOptions(
+        db,
+        auth,
+        "preparation-confirmation",
+        subject,
+        confirmationChallenge(subject),
+      );
+      return reply
+        .header("Cache-Control", "no-store")
+        .send({
+          requirements_digest: {
+            algorithm: "sha256",
+            value: subject.requirements_digest,
+          },
+          options,
+        });
+    },
+  );
+  app.post<{ Params: Params; Body: { assertion: Record<string, unknown> } }>(
+    "/packages/:id/preparation/confirm",
+    { schema: { body: { $ref: "ConfirmationRequest.json" } } },
+    async (req, reply) => {
+      const user = await person(req);
+      const ok = await assertionVerify(
+        db,
+        auth,
+        "preparation-confirmation",
+        req.body.assertion as never,
+      );
+      if (!ok || ok.user !== user)
+        throw new Refusal(
+          403,
+          "unsigned",
+          "A current requirements confirmation passkey assertion is required",
+        );
+      if (
+        typeof ok.data.package_id !== "string" ||
+        typeof ok.data.package_revision !== "number" ||
+        typeof ok.data.requirements_digest !== "string"
+      )
+        throw new Refusal(403, "unsigned", "Invalid confirmation subject");
+      const confirmation = await confirmRequirements(
+        db,
+        cfg,
+        user,
+        req.params.id,
+        {
+          user: ok.user,
+          package_id: ok.data.package_id,
+          package_revision: ok.data.package_revision,
+          requirements_digest: ok.data.requirements_digest,
+          assertion: req.body.assertion,
+        },
+      );
+      return reply.code(201).send(confirmation);
+    },
+  );
   app.get<{ Params: Params }>(
     "/packages/:id/preparation",
     async (req, reply) => {

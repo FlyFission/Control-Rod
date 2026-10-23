@@ -2,9 +2,11 @@ import { createHash } from "node:crypto";
 import type { Db } from "./index.js";
 import { SCHEMA } from "./schema.js";
 import { PREPARATION_SQL } from "./migrations/001-preparation.js";
+import { CONFIRMATION_SQL } from "./migrations/002-confirmation.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
+  { version: "002-confirmation", sql: CONFIRMATION_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

@@ -11,3 +11,7 @@ export function decide_json(request: string): string;
  * Returns the digest profile error for input outside the profile.
  */
 export function canonical_sha256_hex(json: string): string;
+/**
+ * Confirms the current requirements only for a verified human assertion.
+ */
+export function decide_preparation_json(request: string): string;

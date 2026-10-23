@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { browserPasskeys, type Passkeys } from "../../lib/decide.js";
 import { api } from "../../api/client.js";
 import type {
   PreparationContent,
@@ -41,10 +42,12 @@ export function PreparationPanel({
   pkg,
   enabled,
   enrolled,
+  passkeys = browserPasskeys,
 }: {
   pkg: WorkPackage;
   enabled: boolean;
   enrolled: boolean;
+  passkeys?: Passkeys;
 }) {
   const qc = useQueryClient(),
     key = ["preparation", pkg.id];
@@ -118,6 +121,30 @@ export function PreparationPanel({
       setBusy(false);
     }
   }
+  async function confirm() {
+    if (!q.data || dirty) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const shown = q.data.requirements_digest;
+      const options = await api.preparationConfirmationOptions(pkg.id, shown);
+      if (
+        options.requirements_digest.algorithm !== shown.algorithm ||
+        options.requirements_digest.value !== shown.value
+      )
+        throw new Error(
+          "Requirements changed. Reload and review before signing.",
+        );
+      await api.confirmPreparation(pkg.id, await passkeys.get(options.options));
+      await reload();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Requirements were not confirmed",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   async function loadHistory(cursor?: number) {
     try {
       const v = await api.preparationHistory(pkg.id, cursor);
@@ -180,6 +207,16 @@ export function PreparationPanel({
         · revision {v?.snapshot.revision} ·{" "}
         {dirty ? "Unsaved changes" : "Saved"}
       </p>
+      {pkg.status === "draft" && !v?.confirmed && (
+        <button
+          type="button"
+          className="btn primary"
+          disabled={dirty || busy}
+          onClick={() => void confirm()}
+        >
+          Confirm requirements with passkey
+        </button>
+      )}
       <p className="muted small">
         Preparation records intent and review. Mapped checks do not represent
         passing verification.

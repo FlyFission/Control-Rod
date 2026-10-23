@@ -1,18 +1,20 @@
 # Trace: controlled platform buildout
 
-| Requirement | Implementation task | Required evidence |
+| Requirement | Local disposition | Main evidence / remaining limit |
 |---|---|---|
-| PB-01 controlled baseline | 1 | Pinned source tree, status inventory, no main mutation |
-| PB-02 strict wire boundary | 2 | Raw malformed JSON and complete runner-schema refusal tests |
-| PB-03 manual preparation | 3, 4, 5 | GP-01..05, GP-11, GP-14, GP-16, GP-18 tests |
-| PB-04 signed prepared execution | 6, 7, 8, 9 | GP-06..10, GP-12..13 race/refusal tests, human signature |
-| PB-05 confinement | 10 | Negative filesystem, secrets, network and lane evidence |
-| PB-06 assisted preparation | 11 | GP-03, GP-15, GP-18 proposal/refusal tests |
-| PB-07 pilot | 12 | GP-17, actual walkthroughs, restore/rollback rehearsal |
-| PB-08 domain depth | 13 | Pinned tools, provenance, incomplete-input holds, output artifact checks |
-| PB-09 platform expansion | 14 | ADR reconciliation and separate reviewed interface specs |
+| PB-01 | baseline/inventory complete | Exact pins and isolated branch; main integration/DCO remain gated |
+| PB-02 | implemented and tested | Raw parser vectors/prototype floor; generated embedded runner schemas; Go race |
+| PB-03 | implemented and tested | Schema/readiness/store/API/UI; idempotency/CAS/history/human resolutions/default-off flags |
+| PB-04 | implemented and tested locally | Explicitly authorized kernel changes; signed subjects, manifests, stale barriers, criterion results and signed acceptance |
+| PB-05 | OS subset proved; native activation held | Synthetic eight-canary probe; credential/tool/model-egress profile still open |
+| PB-06 | held | No preparation agent roles/powers dispatched before PB-05 closes |
+| PB-07 | fixture rehearsal complete | Real restore/downgrade refusal; bugfix flow; HVAC hold. Actual owner pilot pending |
+| PB-08 | specified, not implemented | Dedicated domain contracts/plan; actual tool/source/method authorities required |
+| PB-09 | bounded continuation specified | ADR exceptions and interfaces recorded; external Platform Plan/topology inputs required |
 
-All rows begin planned. The execution ledger supplies current evidence and qualified completion; a mapping is not proof.
+GP-01..05/08/11/14/16/18 manual controls map to preparation schema, store, API, web and pilot tests. GP-06..10/12..13 map to confirmation, release, basis/results and native kernel tests. GP-15 is the native runtime gate, not fulfilled by a synthetic child. GP-17 is demonstrated as a missing-input HVAC hold only; no numerical HVAC verification is claimed. Agent proposal lifecycle portions of GP-03/15/18 remain held with task 11.
+
+The [persistent ledger](../../../docs/superpowers/execution/2026-10-23-platform-buildout.md) records observed RED/GREEN, exact task sequence, source commits, rulings and remaining gates. A trace row is not proof beyond its stated evidence.
 
 ## Required links
 
@@ -20,8 +22,8 @@ All rows begin planned. The execution ledger supplies current evidence and quali
 
 ## Exit criteria
 
-The task evidence and remaining authority gates are recorded honestly in the execution ledger.
+Current evidence, scope and remaining authority gates are explicit. No planned or fixture-only capability is presented as operational deployment or engineering acceptance.
 
 ## Source-lineage note
 
-Workflow basis: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. Adapted as a local engineering record, not a compliance certification.
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

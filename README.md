@@ -6,7 +6,7 @@ Control Rod is an open-source platform for all things engineering: software, and
 
 It is built for the toughest industries, where a confident mistake costs more than a slow answer. The discipline underneath comes from [nuclear-grade context engineering](https://github.com/FlyFission/nuclear-grade-context-engineering).
 
-> **Status: pre-alpha, design phase.** There is no runnable code yet. The architecture, decisions and plan are being written into this repository first, and every stack choice is being proven with hands-on tests before product code begins.
+> **Status: pre-alpha, local MVP under review.** Main has the scaffold; this buildout branch includes the reviewed owner-local workbench, API, daemon and site-concept/drawing work. Organization controls, general sandbox confinement, independent witnessed evidence and hosted deployment remain planned. See the [buildout specification](docs/superpowers/specs/2026-10-23-platform-buildout-design.md), [execution plan](docs/superpowers/plans/2026-10-23-platform-buildout.md) and [evidence ledger](docs/superpowers/execution/2026-10-23-platform-buildout.md).
 
 ## The idea in one paragraph
 
@@ -36,7 +36,7 @@ Control Rod is not a quality assurance program, a certification, or a substitute
 
 ## Repository layout
 
-The layout is being scaffolded now. See [AGENTS.md](AGENTS.md) for how work in this repository is done, and `docs/adr/` for decision records as they land.
+The repository contains executable MVP modules alongside planning stubs. See [AGENTS.md](AGENTS.md) for how work in this repository is done, and `docs/adr/` for decision records as they land.
 
 ## License
 

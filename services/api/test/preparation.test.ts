@@ -122,4 +122,14 @@ describe("preparation contracts and structural readiness", () => {
       preparationSubjects(b).requirements_digest,
     );
   });
+  it("handles a long flat dependency chain without exhausting the server stack", () => {
+    const s = preparationFixture();
+    s.technical_plan.tasks = Array.from({ length: 12000 }, (_, i) => ({
+      id: `TASK-${i}`,
+      description: "Controlled step",
+      design_element_ids: ["D1"],
+      depends_on: i < 11999 ? [`TASK-${i + 1}`] : [],
+    }));
+    expect(() => preparationReadiness(s, packageFixture(), true)).not.toThrow();
+  });
 });

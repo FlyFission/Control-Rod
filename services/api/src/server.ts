@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import EmbeddedPostgres from "embedded-postgres";
+import { preparationConfig } from "./preparation/config.js";
 import { buildApp } from "./app.js";
 import { hashToken } from "./auth.js";
 import { openDb } from "./db/index.js";
@@ -46,7 +47,10 @@ writeFileSync(tokenPath, token, { mode: 0o600 });
 chmodSync(tokenPath, 0o600);
 
 const origin = process.env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`;
+const sourceConfigPath=process.env.CONTROLROD_PREPARATION_CONFIG;
+const sourceConfig=sourceConfigPath?preparationConfig(readFileSync(sourceConfigPath,"utf8")):{};
 const app = buildApp({
+  ...sourceConfig,
   db,
   root,
   webDir: join(root, "apps", "web", "dist"),

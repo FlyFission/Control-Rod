@@ -1,9 +1,15 @@
+import { captureInput, resolveBasis } from "./basis.js";
 import { randomUUID } from "node:crypto";
 import type { Ajv2020 } from "ajv/dist/2020.js";
 import { type Db, type Tx, tx } from "../db/index.js";
 import { type Actor, appendEvent } from "../events.js";
 import { digest } from "../kernel.js";
-import { currentPackage, Refusal, type PackageRow } from "../work.js";
+import {
+  currentPackage,
+  Refusal,
+  type PackageRow,
+  type WorkConfig,
+} from "../work.js";
 import {
   packageContract,
   preparationReadiness,
@@ -18,7 +24,16 @@ import type {
   WorkPackage,
 } from "./types.js";
 
-type Config = { ajv: Ajv2020; preparedRelease?: boolean };
+type ReadConfig = Partial<
+  Pick<
+    WorkConfig,
+    | "root"
+    | "preparedRelease"
+    | "preparationSources"
+    | "preparationRepositories"
+  >
+>;
+type Config = { ajv: Ajv2020 } & ReadConfig;
 const actor = (id: string) => ({ kind: "human" as const, id });
 export function preparationContent(s: PreparationSnapshot): PreparationContent {
   const {
@@ -73,7 +88,7 @@ async function view(
   c: Tx,
   s: PreparationSnapshot,
   p: PackageRow,
-  cfg: { preparedRelease?: boolean } = {},
+  cfg: ReadConfig = {},
 ): Promise<PreparationView> {
   const subjects = preparationSubjects(s);
   const confirmed = Boolean(
@@ -89,6 +104,18 @@ async function view(
     { ...p.body, status: p.status } as WorkPackage,
     confirmed,
   );
+  if (cfg.preparedRelease) {
+    try {
+      await resolveBasis(c, cfg, s.basis);
+    } catch {
+      blockers.push({
+        code: "basis-unverified",
+        owner: "owner",
+        message:
+          "A controlled source changed or needs a configured verification provider.",
+      });
+    }
+  }
   if (!cfg.preparedRelease)
     blockers.push({
       code: "prepared-release-disabled",
@@ -217,7 +244,10 @@ export async function enrollPreparationTx(
         kind: "capture" as const,
         reference: `capture:${p.capture_id}`,
         revision: "0",
-        digest: { algorithm: "sha256" as const, value: digest(capture) },
+        digest: {
+          algorithm: "sha256" as const,
+          value: digest(captureInput(capture)),
+        },
       }
     : {
         kind: "package" as const,
@@ -225,6 +255,19 @@ export async function enrollPreparationTx(
         revision: String(p.revision),
         digest: { algorithm: "sha256" as const, value: digest(pkg) },
       };
+  const attachmentBasis = p.capture_id
+    ? (
+        await c.query(
+          "select name,sha256 from attachments where capture_id=$1 order by name",
+          [p.capture_id],
+        )
+      ).rows.map((a) => ({
+        kind: "attachment" as const,
+        reference: `attachment:${p.capture_id}/${a.name}`,
+        revision: "0",
+        digest: { algorithm: "sha256" as const, value: a.sha256 },
+      }))
+    : [];
   const s: PreparationSnapshot = {
     schema_version: "0.1.0",
     id: `P-${randomUUID()}`,
@@ -262,7 +305,7 @@ export async function enrollPreparationTx(
       rollout: "",
       risks: [],
     },
-    basis: [source],
+    basis: [source, ...attachmentBasis],
     created_by: createdBy,
     created_at: new Date().toISOString(),
   };
@@ -276,7 +319,7 @@ export async function enrollPreparationTx(
 export async function readPreparation(
   db: Db,
   id: string,
-  cfg: { preparedRelease?: boolean } = {},
+  cfg: ReadConfig = {},
 ): Promise<PreparationView> {
   return tx(db, async (c) => {
     const p = await lockedPackage(c, id);
@@ -406,6 +449,11 @@ async function appendEdit(
     acceptance_criteria: content.criteria.map((v) => v.statement),
   } as WorkPackage;
   validate(cfg, "WorkPackage.json", pkg);
+  for (const b of content.basis)
+    if (b.kind === "package" && b.reference === `package:${p.id}`) {
+      b.revision = String(p.revision);
+      b.digest = { algorithm: "sha256", value: digest(pkg) };
+    }
   const s: PreparationSnapshot = {
     ...content,
     schema_version: "0.1.0",
@@ -537,4 +585,41 @@ export async function preparationHistory(
         : {}),
     };
   });
+}
+
+/** A signed return creates a new package revision and an unconfirmed companion revision atomically. */
+export async function advancePreparationRevision(
+  c: Tx,
+  cfg: Config,
+  user: string,
+  p: PackageRow,
+  body: WorkPackage,
+) {
+  const previous = await head(c, p.id);
+  if (!previous) return;
+  const content = preparationContent(previous);
+  content.package_contract = packageContract(body);
+  for (const b of content.basis)
+    if (b.kind === "package" && b.reference === `package:${p.id}`) {
+      b.revision = String(body.revision);
+      b.digest = { algorithm: "sha256", value: digest(body) };
+    }
+  const snapshot: PreparationSnapshot = {
+    ...content,
+    schema_version: "0.1.0",
+    id: previous.id,
+    package_id: p.id,
+    package_revision: body.revision,
+    revision: previous.revision + 1,
+    previous_digest: preparationSubjects(previous).content_digest,
+    created_by: actor(user),
+    created_at: new Date().toISOString(),
+  };
+  return save(
+    c,
+    cfg,
+    { ...p, revision: body.revision, status: "draft", body },
+    snapshot,
+    "preparation.revised",
+  );
 }

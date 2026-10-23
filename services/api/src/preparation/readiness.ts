@@ -289,20 +289,29 @@ export function preparationReadiness(
   sources(plan.current_state_refs, "Technical plan");
   const designs = new Set(plan.design_elements.map((d) => d.id));
   const tasks = new Map(plan.tasks.map((t) => [t.id, t]));
-  const visit = (id: string, path: Set<string>): boolean => {
-    if (path.has(id)) return false;
-    const next = new Set(path);
-    next.add(id);
-    return (tasks.get(id)?.depends_on ?? []).every(
-      (dep) => tasks.has(dep) && visit(dep, next),
-    );
-  };
+  const remaining = new Map(plan.tasks.map((t) => [t.id, t.depends_on.length]));
+  const consumers = new Map<string, string[]>();
+  for (const t of plan.tasks)
+    for (const dependency of t.depends_on) {
+      const list = consumers.get(dependency) ?? [];
+      list.push(t.id);
+      consumers.set(dependency, list);
+    }
+  const available = plan.tasks
+    .filter((t) => !t.depends_on.length)
+    .map((t) => t.id);
+  for (let cursor = 0; cursor < available.length; cursor++)
+    for (const consumer of consumers.get(available[cursor]!) ?? []) {
+      const n = (remaining.get(consumer) ?? 0) - 1;
+      remaining.set(consumer, n);
+      if (n === 0) available.push(consumer);
+    }
   for (const t of plan.tasks)
     if (
       !nonempty(t.description) ||
       !t.design_element_ids.length ||
       t.design_element_ids.some((id) => !designs.has(id)) ||
-      !visit(t.id, new Set())
+      (remaining.get(t.id) ?? 1) !== 0
     )
       add(
         "task-mapping",

@@ -2408,6 +2408,110 @@
         }
       }
     },
+    "/packages/{id}/verification-evidence/{runId}/{name}": {
+      "get": {
+        "operationId": "Packages_verificationEvidence",
+        "description": "Authenticated access only to evidence referenced by an admitted checker result.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "contentMediaType": "*/*"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runner/claim": {
       "post": {
         "operationId": "Runner_claim",
@@ -2988,6 +3092,35 @@
           }
         }
       },
+      "ControlRod.Preparation.CheckResult": {
+        "type": "object",
+        "required": [
+          "check_id",
+          "outcome",
+          "evidence_refs"
+        ],
+        "properties": {
+          "check_id": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive",
+              "open",
+              "deferred"
+            ]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "ControlRod.Preparation.ConfirmationOptions": {
         "type": "object",
         "required": [
@@ -3053,6 +3186,103 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Preparation.CriterionResult": {
+        "type": "object",
+        "required": [
+          "criterion_id",
+          "outcome",
+          "check_results",
+          "finding_refs"
+        ],
+        "properties": {
+          "criterion_id": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive",
+              "open",
+              "deferred"
+            ]
+          },
+          "check_results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.CheckResult"
+            }
+          },
+          "finding_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ControlRod.Preparation.CriterionResultSet": {
+        "type": "object",
+        "required": [
+          "package_id",
+          "package_revision",
+          "release_manifest_digest",
+          "results",
+          "verification_record_digest"
+        ],
+        "properties": {
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "release_manifest_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.CriterionResult"
+            }
+          },
+          "verification_record_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        },
+        "description": "Controller binds admitted checker results to the actual normalized verification record."
+      },
+      "ControlRod.Preparation.CriterionResultSubmission": {
+        "type": "object",
+        "required": [
+          "package_id",
+          "package_revision",
+          "release_manifest_digest",
+          "results"
+        ],
+        "properties": {
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "release_manifest_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Preparation.CriterionResult"
             }
           }
         }
@@ -5157,6 +5387,25 @@
           "preparation_release_ready": {
             "type": "boolean"
           },
+          "preparation_verification_complete": {
+            "type": "boolean"
+          },
+          "preparation_results_pass": {
+            "type": "boolean"
+          },
+          "criterion_results": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.CriterionResultSet"
+          },
+          "criterion_results_run_id": {
+            "type": "string"
+          },
+          "criterion_results_integrity": {
+            "type": "string",
+            "enum": [
+              "intact",
+              "changed"
+            ]
+          },
           "package": {
             "$ref": "#/components/schemas/ControlRod.Records.WorkPackage"
           },
@@ -5269,6 +5518,9 @@
           },
           "verification": {
             "$ref": "#/components/schemas/ControlRod.Records.VerificationRecord"
+          },
+          "criterion_results": {
+            "$ref": "#/components/schemas/ControlRod.Preparation.CriterionResultSubmission"
           }
         }
       },

@@ -17,6 +17,7 @@ import {
 } from "./auth.js";
 import type { Db } from "./db/index.js";
 import { bus, type EventRecord, listEvents, verifyChain } from "./events.js";
+import { verificationEvidence } from "./preparation/results.js";
 import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
@@ -68,7 +69,7 @@ export interface AppOptions {
   sweepSeconds?: number;
 }
 
-const OUTPUT_PATH = /^\/packages\/[^/?#]+\/outputs\//;
+const OUTPUT_PATH = /^\/packages\/[^/?#]+\/(?:outputs\/|verification-evidence\/[^/?#]+\/)/;
 
 /** Policy for agent outputs: sandboxed, no script, images and inline styles only. */
 export const OUTPUT_CSP = "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'";
@@ -95,12 +96,13 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.preparationSources?{preparationSources:opts.preparationSources}:{}), ...(opts.preparationRepositories?{preparationRepositories:opts.preparationRepositories}:{}), ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
+  const parseJson = app.getDefaultJsonParser("error", "error");
   app.removeContentTypeParser("application/json");
   app.addContentTypeParser("application/json", { parseAs: "buffer" }, (_req, body, done) => {
     try {
       const raw = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(body as Buffer);
       validateRawJson(raw);
-      done(null, JSON.parse(raw));
+      parseJson(_req, raw, done);
     } catch {
       done(Object.assign(new Error("JSON violates the canonical record profile"), { statusCode: 400 }));
     }
@@ -227,6 +229,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (ext !== ".pdf") reply.header("content-security-policy", OUTPUT_CSP);
     if (type === undefined) reply.header("content-disposition", "attachment");
     return reply.send(bytes);
+  });
+  app.get<{Params:{id:string;runId:string;"*":string}}>("/packages/:id/verification-evidence/:runId/*",async(req,reply)=>{
+    await person(req);const name=req.params["*"],bytes=await verificationEvidence(db,req.params.id,req.params.runId,name);
+    const ext=name.slice(name.lastIndexOf(".")).toLowerCase(),type=MIME[ext];
+    reply.header("content-type",type??"application/octet-stream").header("x-content-type-options","nosniff").header("content-security-policy",OUTPUT_CSP);
+    if(!type)reply.header("content-disposition","attachment");return reply.send(bytes);
   });
   app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/log", async (req) => {
     await person(req);

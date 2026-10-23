@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { PackageView, VerificationRecord, WorkPackage } from "../api/types.js";
+import { CriterionCoverage } from "../components/preparation/CriterionCoverage.js";
 import { PreparationPanel } from "../components/preparation/PreparationPanel.js";
 import { DecisionBar } from "../components/DecisionBar.js";
 import { OutputItem } from "../components/OutputPreview.js";
@@ -103,6 +104,7 @@ export function PackagePage({ id }: { id: string }) {
             </ul>
           </section>
           <PreCheck record={view.pre_check} />
+          <CriterionCoverage view={view} />
           <Decisions view={view} />
         </div>
       </div>

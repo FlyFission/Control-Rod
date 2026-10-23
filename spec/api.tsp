@@ -88,6 +88,11 @@ model PackageView {
   preparation_enabled?: boolean;
   preparation_enrolled?: boolean;
   preparation_release_ready?: boolean;
+  preparation_verification_complete?: boolean;
+  preparation_results_pass?: boolean;
+  criterion_results?: ControlRod.Preparation.CriterionResultSet;
+  criterion_results_run_id?: string;
+  criterion_results_integrity?: "intact" | "changed";
   `package`: WorkPackage;
   runs: Run[];
   outputs: Artifact[];
@@ -112,6 +117,10 @@ namespace Packages {
     @header contentType: string;
     @body body: bytes;
   } | Refused;
+
+  /** Authenticated access only to evidence referenced by an admitted checker result. */
+  @route("/{id}/verification-evidence/{runId}/{name}") @get
+  op verificationEvidence(@path id: string, @path runId: string, @path name: string): { @header contentType: string; @body body: bytes; } | Refused;
 
   @route("/{id}/runs/{runId}/log")
   @get
@@ -366,6 +375,7 @@ namespace Runner {
     outputs: NamedFile[];
     `package`?: WorkPackage;
     verification?: VerificationRecord;
+    criterion_results?: ControlRod.Preparation.CriterionResultSubmission;
   }
 
   @route("/runs/{id}/complete") @post op complete(@path id: string, @body body: Completion): CompletionReceipt | Refused;

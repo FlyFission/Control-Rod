@@ -8,13 +8,10 @@
         },
         "package_revision": {
             "type": "integer",
-            "minimum": -2147483648,
+            "minimum": 0,
             "maximum": 2147483647
         },
         "release_manifest_digest": {
-            "$ref": "Digest.json"
-        },
-        "verification_record_digest": {
             "$ref": "Digest.json"
         },
         "results": {
@@ -22,14 +19,18 @@
             "items": {
                 "$ref": "CriterionResult.json"
             }
+        },
+        "verification_record_digest": {
+            "$ref": "Digest.json"
         }
     },
     "required": [
         "package_id",
         "package_revision",
         "release_manifest_digest",
-        "verification_record_digest",
-        "results"
+        "results",
+        "verification_record_digest"
     ],
+    "description": "Controller binds admitted checker results to the actual normalized verification record.",
     "unevaluatedProperties": false
 }

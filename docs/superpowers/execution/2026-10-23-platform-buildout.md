@@ -21,7 +21,7 @@ Ruling: task 2 generates complete schema validation at the daemon boundary befor
 | 9 → 12 → 13 → 14 | Accepted manual execution → pilot → domain → platform | Later modules require bounded interface specs and missing-plan reconciliation |
 
 Task 1: complete — baseline reconciled, records/spec/plan created, README status qualified; strict packet validation passed. Main and all original worktrees preserved.
-Tasks 2–6: completed in the evidence entries below. Tasks 7–14: pending.
+Tasks 2–9: completed in the evidence entries below. Tasks 10–14: pending.
 
 ## Gates
 
@@ -115,3 +115,16 @@ Ruling: support only public/internal prepared execution until confined lanes are
 Ruling: keep late/stale bytes in private quarantine outside outputs — preserves custody without contaminating verification — cost if wrong is additional local storage within request/source budgets.
 
 Task 9: next — typed criterion result admission and acceptance.
+
+## Task 9 evidence
+
+Task 9: complete — typed checker submission, controller-bound immutable result set, complete criterion/check relationship admission, actual retained evidence references, artifact integrity in review/acceptance subjects, and result-aware kernel acceptance. The workbench displays checker reports and admitted evidence separately from mapped intent. Normal acceptance needs passing results; a signed exception can accept completed failed checks but cannot waive mandatory checks without completed outcomes/evidence. Private preparer canaries do not enter checker inputs.
+
+RED: nine API result-admission failures, missing coverage UI, evidence tampering still allowed acceptance, and prototype-poisoning HTTP input accepted by the custom parser. GREEN: full API 135 and web 35 tests, production builds/type checks; final result/custody suite 12 passed after adding the private-context canary and controlled return after tampering. Native Rust: 19 lifecycle/digest + 3 preparation + 1 WASM-boundary tests. Framework prototype protection restored by delegating object conversion to Fastify's secure parser after raw canonical-profile validation.
+
+Ruling: distinguish checker-owned CriterionResultSubmission from server-owned CriterionResultSet — the checker cannot predict normalized verification metadata — cost if wrong is an additive contract translation; actual stored bindings remain authoritative.
+Ruling: derive prepared evidence custody from assigned runtime/run and retained files, excluding client-supplied custody labels — preserves actual provenance — cost if wrong is later richer tool attestation, not a false claim of external witnessing.
+Ruling: evidence refs must name actual checker artifacts outside claim JSON — schema coverage cannot serve as its own proof — cost if wrong is requiring explicit evidence files from checker adapters.
+Ruling: treat integrity failures as blocked acceptance while allowing a controlled return/reject — owners need a repair path — cost if wrong is additional forensic review, not acceptance of altered bytes.
+
+Tasks 10/11: runtime confinement and assisted preparation next; task 12 manual pilot/recovery is independently unblocked after 9.

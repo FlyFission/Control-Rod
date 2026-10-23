@@ -110,3 +110,16 @@ func TestLaunchForDescribesWhatCommandRuns(t *testing.T) {
 		t.Errorf("claude launch %+v", l)
 	}
 }
+
+func TestUnapprovedRolesNeverReachLegacyRuntimeCommands(t *testing.T) {
+	for _, role := range []string{"requirements-preparer", "technical-preparer", "unknown-role", ""} {
+		for _, runtime := range []string{RuntimeClaude, RuntimeCodex, RuntimeFake} {
+			t.Run(role+"/"+runtime, func(t *testing.T) {
+				cmd, err := Command(runtime, testRun("held-role", role), workspaceWithTools(t, "Read\nWrite\n"))
+				if err == nil || cmd != nil {
+					t.Fatalf("role %q reached %s: command=%v error=%v", role, runtime, cmd, err)
+				}
+			})
+		}
+	}
+}

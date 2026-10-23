@@ -183,6 +183,11 @@ func LaunchFor(runtime string, run Run, ws *Workspace) Launch {
 
 // Command builds the process for a runtime, or nil for the fake runtime's copy mode.
 func Command(runtime string, run Run, ws *Workspace) (*exec.Cmd, error) {
+	switch run.Role {
+	case "intake", "author", "pre-check":
+	default:
+		return nil, fmt.Errorf("run role %q has no approved legacy runtime launcher", run.Role)
+	}
 	model := RequestedModel(run)
 	var cmd *exec.Cmd
 	switch runtime {

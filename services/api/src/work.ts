@@ -553,6 +553,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
       if (last) cursor = { at: last.created_key, id: last.id };
       for (const candidate of queued.rows) {
         let row=candidate;
+        if(!legacyRun(row)) continue;
         if (row.role !== "intake") {
           const pkg = await currentPackage(c, row.package_id, true);
           if (!pkg || pkg.revision !== row.package_revision) {
@@ -561,6 +562,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           }
           const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
           if(!locked.rows[0]) continue;row=locked.rows[0];
+          if(!legacyRun(row)) continue;
           let preparation;
           try {preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);} catch(error) {
             if(!(error instanceof Refusal)) throw error;
@@ -605,6 +607,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
         if (!runtime) continue;
         const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
         if(!locked.rows[0]) continue;row=locked.rows[0];
+          if(!legacyRun(row)) continue;
         return startRun(c, cfg, row, runtime, `intake-${runtime}`);
       }
     }
@@ -628,7 +631,17 @@ function holdsClaim(storedHash: string | null, token: unknown): boolean {
   return want.length === got.length && timingSafeEqual(want, got);
 }
 
+// Adding a serialized role must never activate it through legacy fallbacks.
+const LEGACY_RUN_ROLES = new Set(["intake", "author", "pre-check"]);
+function legacyRun(row: { role: string; body: Json }): boolean {
+  return LEGACY_RUN_ROLES.has(row.role) && row.body.role === row.role;
+}
+function requireLegacyRun(row: { role: string; body: Json }): void {
+  if (!legacyRun(row)) throw new Refusal(409,"unsupported-run-role","This run needs its own approved execution and custody path; legacy processing is refused");
+}
+
 async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, baseline: string) {
+  requireLegacyRun(row as {role:string;body:Json});
   const token = randomBytes(32).toString("base64url");
   const lease = leaseFromNow(cfg);
   const body = {
@@ -684,6 +697,7 @@ const LABEL_MAX = 120;
 export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string) {
   return tx(db, async (c) => {
     const row = await lockRun(c, runId);
+    requireLegacyRun(row);
     if (!holdsClaim(row.claim_token_hash, token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
     if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
     if((await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount) throw new Refusal(409,"run-lost","The run lease expired; a late heartbeat cannot revive it");
@@ -740,6 +754,7 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
 export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageId: string, runId: string) {
   return tx(db, async (c) => {
     const row = await lockRun(c, runId);
+    requireLegacyRun(row);
     if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
     if (row.body.requeued_as) {
       const again = await c.query<{ body: Json; status: string }>("select body, status from runs where id = $1", [row.body.requeued_as]);
@@ -795,6 +810,7 @@ async function overrideTarget(q: Db | Tx, packageId: string, runId: string, reas
   const r = await q.query<RunRow>(`select * from runs where id = $1${lock ? " for update" : ""}`, [runId]);
   const row = r.rows[0];
   if (!row || row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+  requireLegacyRun(row);
   if (row.role !== "pre-check") throw new Refusal(409, "wrong-state", "Only a pre-check can be overridden");
   const pkg = await currentPackage(q, packageId, lock);
   if (!pkg || pkg.revision !== row.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
@@ -931,6 +947,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
   try {
     return await tx(db, async (c) => {
       const row = await lockRun(c, runId);
+      requireLegacyRun(row);
       if (!holdsClaim(row.claim_token_hash, body.claim_token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
       if (row.completion_key !== null) {
         if (row.completion_key === key) return row.receipt;
@@ -962,6 +979,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
 }
 
 async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string, body: Json) {
+  requireLegacyRun(row);
   if(row.body.stop_requested_at && (body.status==="succeeded" || row.body.preparation_manifest_digest)) throw new Refusal(409,"stopped","The owner stopped this run; its output cannot advance the package");
   if(row.role!=="intake") {
     const pkg=await currentPackage(c,row.package_id,true);
@@ -1025,7 +1043,8 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   if (finished.status === "succeeded") {
     if (row.role === "intake") await finishIntake(c, cfg, row, outputs, body, agent);
     else if (row.role === "author") await finishAuthor(c, cfg, row, agent);
-    else await finishPreCheck(c, cfg, row, body, outputs, agent);
+    else if(row.role === "pre-check") await finishPreCheck(c, cfg, row, body, outputs, agent);
+    else throw new Refusal(409,"unsupported-run-role","Unsupported completion role");
   }
   const receipt = receiptOf(runId, key, finished.status, outputs);
   await c.query("update runs set completion_key = $2, receipt = $3 where id = $1", [runId, key, receipt]);
@@ -1036,6 +1055,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
 async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string, body: Json, refusal: Refusal) {
   return tx(db, async (c) => {
     const row = await lockRun(c, runId);
+    requireLegacyRun(row);
     if (!holdsClaim(row.claim_token_hash, body.claim_token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
     if (row.completion_key !== null) {
       if (row.completion_key === key) return row.receipt;

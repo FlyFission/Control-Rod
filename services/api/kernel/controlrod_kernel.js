@@ -131,6 +131,26 @@ exports.canonical_sha256_hex = function(json) {
     }
 };
 
+/**
+ * Confirms the current requirements only for a verified human assertion.
+ * @param {string} request
+ * @returns {string}
+ */
+exports.decide_preparation_json = function(request) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(request, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.decide_preparation_json(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+};
+
 exports.__wbg_Error_e17e777aac105295 = function(arg0, arg1) {
     const ret = Error(getStringFromWasm0(arg0, arg1));
     return ret;

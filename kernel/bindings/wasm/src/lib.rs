@@ -44,3 +44,33 @@ pub fn decide_json(request: &str) -> String {
 pub fn canonical_sha256_hex(json: &str) -> Result<String, JsError> {
     canonical_sha256(json).map_err(|e| JsError::new(&format!("{e:?}")))
 }
+
+/// Confirms the current requirements only for a verified human assertion.
+#[wasm_bindgen]
+#[must_use]
+pub fn decide_preparation_json(request: &str) -> String {
+    let Ok(req) =
+        serde_json::from_str::<controlrod_kernel::preparation::PreparationRequest>(request)
+    else {
+        return serde_json::json!({"allowed": false, "reason": "invalid-request"}).to_string();
+    };
+    let out = controlrod_kernel::preparation::decide_preparation(&req);
+    serde_json::json!({"allowed": out.is_allowed(), "reason": reason_name(out.reason())})
+        .to_string()
+}
+
+#[cfg(test)]
+mod preparation_tests {
+    use super::decide_preparation_json;
+    #[test]
+    fn malformed_and_unknown_confirmation_fields_are_refused() {
+        for raw in [
+            "{}",
+            "null",
+            "[]",
+            r#"{"actor_kind":"agent","unexpected":true}"#,
+        ] {
+            assert!(decide_preparation_json(raw).contains(r#""allowed":false"#));
+        }
+    }
+}

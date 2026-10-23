@@ -313,6 +313,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/preparation/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Preparations_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packages/{id}/preparation/confirm/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Preparations_confirmOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/preparation/history": {
         parameters: {
             query?: never;
@@ -586,6 +618,20 @@ export interface components {
             /** Format: int32 */
             line_end?: number;
         };
+        "ControlRod.Preparation.ConfirmationOptions": {
+            requirements_digest: components["schemas"]["ControlRod.Records.Digest"];
+            options: {
+                [key: string]: unknown;
+            };
+        };
+        "ControlRod.Preparation.ConfirmationOptionsRequest": {
+            expected_requirements_digest: components["schemas"]["ControlRod.Records.Digest"];
+        };
+        "ControlRod.Preparation.ConfirmationRequest": {
+            assertion: {
+                [key: string]: unknown;
+            };
+        };
         "ControlRod.Preparation.Criterion": {
             id: string;
             requirement_ids: string[];
@@ -726,6 +772,18 @@ export interface components {
             statement: string;
             source_refs: string[];
             journey_or_repro_refs: string[];
+        };
+        /** @description Stored only by the later verified passkey and kernel confirmation path. */
+        "ControlRod.Preparation.RequirementsConfirmation": {
+            id: string;
+            package_id: string;
+            /** Format: int32 */
+            package_revision: number;
+            requirements_digest: components["schemas"]["ControlRod.Records.Digest"];
+            actor: components["schemas"]["ControlRod.Records.Actor"];
+            /** Format: date-time */
+            decided_at: string;
+            assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
         };
         "ControlRod.Preparation.ResolutionRequest": {
             item_id: string;
@@ -2435,6 +2493,166 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ControlRod.Preparation.PreparationView"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Preparations_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlRod.Preparation.ConfirmationRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded and a new resource has been created as a result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Preparation.RequirementsConfirmation"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Preparations_confirmOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlRod.Preparation.ConfirmationOptionsRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Preparation.ConfirmationOptions"];
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */

@@ -53,9 +53,13 @@ export async function takeChallenge(
 }
 
 function clientChallenge(response: { response: { clientDataJSON: string } }): string {
-  const json = Buffer.from(response.response.clientDataJSON, "base64url").toString("utf8");
-  const parsed = JSON.parse(json) as { challenge?: unknown };
-  return typeof parsed.challenge === "string" ? parsed.challenge : "";
+  try {
+    const json = Buffer.from(response.response.clientDataJSON, "base64url").toString("utf8");
+    const parsed = JSON.parse(json) as { challenge?: unknown };
+    return typeof parsed?.challenge === "string" ? parsed.challenge : "";
+  } catch {
+    return ""; // malformed assertions have no consumable challenge
+  }
 }
 
 export async function registrationOptions(db: Db, cfg: AuthConfig, name: string) {

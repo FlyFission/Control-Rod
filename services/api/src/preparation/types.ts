@@ -9,3 +9,6 @@ export type PreparationView = S["ControlRod.Preparation.PreparationView"];
 export type PreparationBlocker = S["ControlRod.Preparation.PreparationBlocker"];
 export type PackageContract = PreparationContent["package_contract"];
 export type ResolutionRequest = S["ControlRod.Preparation.ResolutionRequest"];
+
+export type RequirementsConfirmation =
+  S["ControlRod.Preparation.RequirementsConfirmation"];

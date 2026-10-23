@@ -21,7 +21,7 @@ Ruling: task 2 generates complete schema validation at the daemon boundary befor
 | 9 → 12 → 13 → 14 | Accepted manual execution → pilot → domain → platform | Later modules require bounded interface specs and missing-plan reconciliation |
 
 Task 1: complete — baseline reconciled, records/spec/plan created, README status qualified; strict packet validation passed. Main and all original worktrees preserved.
-Tasks 2–14: pending.
+Tasks 2–6: completed in the evidence entries below. Tasks 7–14: pending.
 
 ## Gates
 
@@ -79,3 +79,14 @@ Ruling: preserve existing verifier assignment in manual contract edits — the l
 Ruling: format new preparation modules for review while preserving unrelated source formatting — keeps the integration diff focused — cost if wrong is later uniform formatting work.
 
 Task 6: next — signed requirements confirmation; scoped human authorization is recorded.
+
+## Task 6 evidence
+
+Task 6: complete — separate pure kernel confirmation decision, generated WASM bridge, passkey-purpose/subject-bound options and confirmation endpoints, append-only confirmation records and workbench confirmation action. Confirmation never queues an author. Current requirements edits invalidate confirmation; technical-plan/check-mapping edits preserve it. Replay, expiry, redirected package, session-user mismatch, stale displayed/signed subjects, daemon requests and open human blockers refuse.
+
+RED: kernel module absent, four missing-route behavior failures, missing UI action, plus malformed assertion producing a server error. GREEN: native kernel 19 existing tests + preparation floor + WASM-boundary test; API suite 105 and web 33 before the final two focused scenarios; final confirmation/readiness focused set 14 passed; workspace type checks passed. Rebuilt actual WASM using repository-pinned wasm-bindgen-cli 0.2.104 after installing the current toolchain's wasm target. Malformed assertions now yield no consumable challenge in the shared authentication parser rather than 500.
+
+Ruling: criterion-to-check links are technical mapping, excluded from the requirements digest while criterion IDs/text/requirement links remain included — preserves requirements confirmation during technical preparation as specified — cost if wrong is conservative extra reconfirmation if later policy chooses to bind mappings earlier. The full content digest still binds all mapping changes at release.
+Ruling: structured confirmation records use the authenticated actor and consumed server challenge, never a client-supplied confirmation flag — no agent proposal or public JSON becomes signature evidence — cost if wrong is a rejected request rather than a bypass.
+
+Task 7: next — manifest-bound release and one-author transaction.

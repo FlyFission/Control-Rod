@@ -110,4 +110,16 @@ describe("preparation contracts and structural readiness", () => {
       preparationSubjects(b).requirements_digest,
     );
   });
+  it("treats check mapping as technical scope while keeping criterion text controlled", () => {
+    const a = preparationFixture(),
+      b = preparationFixture();
+    b.criteria[0]!.verification_check_ids = ["new-check"];
+    expect(preparationSubjects(a).requirements_digest).toEqual(
+      preparationSubjects(b).requirements_digest,
+    );
+    b.criteria[0]!.statement = "Changed acceptance";
+    expect(preparationSubjects(a).requirements_digest).not.toEqual(
+      preparationSubjects(b).requirements_digest,
+    );
+  });
 });

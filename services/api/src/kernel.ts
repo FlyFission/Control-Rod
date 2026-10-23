@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const wasm = require("../kernel/controlrod_kernel.js") as {
   decide_json(request: string): string;
+  decide_preparation_json(request: string): string;
   canonical_sha256_hex(json: string): string;
 };
 
@@ -60,4 +61,12 @@ export function digest(value: unknown): string {
 /** Validate raw JSON before duplicate keys, numeric tokens or Unicode can be lost. */
 export function validateRawJson(json: string): void {
   wasm.canonical_sha256_hex(json);
+}
+
+/** Requirements confirmation is separate from a package lifecycle decision. */
+export function decidePreparation(req: {
+  status: Status; actor_kind: "human" | "agent" | "system"; actor_id: string;
+  assertion_verified: boolean; current_digest: string; expected_digest: string; requirements_clear: boolean;
+}): { allowed: boolean; reason: string } {
+  return JSON.parse(wasm.decide_preparation_json(JSON.stringify(req)));
 }

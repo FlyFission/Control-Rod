@@ -1465,6 +1465,200 @@
         }
       }
     },
+    "/packages/{id}/preparation/confirm": {
+      "post": {
+        "operationId": "Preparations_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Preparation.RequirementsConfirmation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRod.Preparation.ConfirmationRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/preparation/confirm/options": {
+      "post": {
+        "operationId": "Preparations_confirmOptions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Preparation.ConfirmationOptions"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlRod.Preparation.ConfirmationOptionsRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/preparation/history": {
       "get": {
         "operationId": "Preparations_history",
@@ -2794,6 +2988,45 @@
           }
         }
       },
+      "ControlRod.Preparation.ConfirmationOptions": {
+        "type": "object",
+        "required": [
+          "requirements_digest",
+          "options"
+        ],
+        "properties": {
+          "requirements_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      },
+      "ControlRod.Preparation.ConfirmationOptionsRequest": {
+        "type": "object",
+        "required": [
+          "expected_requirements_digest"
+        ],
+        "properties": {
+          "expected_requirements_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        }
+      },
+      "ControlRod.Preparation.ConfirmationRequest": {
+        "type": "object",
+        "required": [
+          "assertion"
+        ],
+        "properties": {
+          "assertion": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        }
+      },
       "ControlRod.Preparation.Criterion": {
         "type": "object",
         "required": [
@@ -3424,6 +3657,44 @@
             }
           }
         }
+      },
+      "ControlRod.Preparation.RequirementsConfirmation": {
+        "type": "object",
+        "required": [
+          "id",
+          "package_id",
+          "package_revision",
+          "requirements_digest",
+          "actor",
+          "decided_at",
+          "assertion"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "requirements_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/ControlRod.Records.Actor"
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+          }
+        },
+        "description": "Stored only by the later verified passkey and kernel confirmation path."
       },
       "ControlRod.Preparation.ResolutionRequest": {
         "type": "object",

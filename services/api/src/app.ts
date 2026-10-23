@@ -184,7 +184,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { registered: await isRegistered(db), signed_in: false };
   });
 
-  preparationRoutes(app, db, cfg, person);
+  preparationRoutes(app, db, cfg, person, auth);
 
   /* ---- captures ---- */
   app.get("/captures", async (req) => {

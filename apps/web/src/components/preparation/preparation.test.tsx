@@ -145,4 +145,47 @@ describe("manual preparation workbench", () => {
       screen.getByRole("button", { name: "Start guided preparation" }),
     ).toBeTruthy();
   });
+  it("signs displayed requirements as a separate action and reloads the stored confirmation", async () => {
+    const current = fixture();
+    let confirmed = false;
+    let signed = 0;
+    server.use(
+      http.get("*/packages/:id/preparation", () =>
+        HttpResponse.json({ ...current, confirmed }),
+      ),
+      http.post("*/packages/:id/preparation/confirm/options", () =>
+        HttpResponse.json({
+          requirements_digest: DIGEST,
+          options: { challenge: "requirements-only" },
+        }),
+      ),
+      http.post("*/packages/:id/preparation/confirm", () => {
+        confirmed = true;
+        return HttpResponse.json({ id: "CONF-1" }, { status: 201 });
+      }),
+    );
+    await renderPage(
+      <PreparationPanel
+        pkg={pkg()}
+        enabled
+        enrolled
+        passkeys={{
+          get: async (options) => {
+            expect(options.challenge).toBe("requirements-only");
+            signed++;
+            return { id: "signed" };
+          },
+          create: async () => ({}),
+        }}
+      />,
+    );
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Confirm requirements with passkey",
+      }),
+    );
+    await screen.findByText(/Requirements confirmed/);
+    expect(signed).toBe(1);
+  });
 });

@@ -1,6 +1,7 @@
 // Typed calls to the control plane. Paths match spec/generated/openapi/openapi.json exactly;
 // the API serves this app at the same origin, so every path is relative to it.
 import type {
+  RequirementsConfirmation,
   PreparationView,
   PreparationContent,
   ResolutionRequest,
@@ -65,6 +66,8 @@ export const api = {
   captures: () => call<CaptureView[]>("GET", "/captures"),
   capture: (body: NewCapture) => call<Capture>("POST", "/captures", body),
 
+  preparationConfirmationOptions: (id:string,expected:Digest) => call<{requirements_digest:Digest;options:Record<string,unknown>}>("POST",`/packages/${enc(id)}/preparation/confirm/options`,{expected_requirements_digest:expected}),
+  confirmPreparation: (id:string,assertion:Record<string,unknown>) => call<RequirementsConfirmation>("POST",`/packages/${enc(id)}/preparation/confirm`,{assertion}),
   preparation: (id: string) =>
     call<PreparationView>("GET", `/packages/${enc(id)}/preparation`),
   enrollPreparation: (id: string, revision: number, key: string) =>

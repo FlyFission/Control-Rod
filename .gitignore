@@ -32,3 +32,6 @@ data/
 
 # Agent worktrees
 .claude/worktrees/
+
+.worktrees/
+.superpowers/

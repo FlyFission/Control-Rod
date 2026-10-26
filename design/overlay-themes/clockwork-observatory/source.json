@@ -1,0 +1,12 @@
+{
+  "packId": "clockwork-observatory",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#283553",
+    "#BA9A5A",
+    "#EEE5D2",
+    "#91BBD4"
+  ],
+  "status": "draft",
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

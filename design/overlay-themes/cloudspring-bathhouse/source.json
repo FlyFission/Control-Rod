@@ -1,0 +1,12 @@
+{
+  "packId": "cloudspring-bathhouse",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#5F8E80",
+    "#A7614D",
+    "#E2B976",
+    "#EEE9DE"
+  ],
+  "status": "draft",
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

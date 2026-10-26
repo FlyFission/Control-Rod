@@ -1,0 +1,12 @@
+{
+  "packId": "meadow-post",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#A4B79A",
+    "#E8BC9F",
+    "#B2A6C5",
+    "#F2EBDD"
+  ],
+  "status": "draft",
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

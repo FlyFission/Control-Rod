@@ -1,0 +1,12 @@
+{
+  "packId": "coral-commons",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#214A62",
+    "#7DC6B7",
+    "#E49382",
+    "#E8E7D8"
+  ],
+  "status": "draft",
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

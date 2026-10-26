@@ -21,7 +21,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "inspection counter",
       "office": "supervisor window",
       "bench": "waiting platform"
-    }
+    },
+    "thumbnail": "/floor-themes/creature-dispatch/thumbnail.f30b46ffe48b.svg"
   },
   {
     "id": "pocket-lab",
@@ -44,7 +45,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "calibration bay",
       "office": "lead scientist desk",
       "bench": "charging nook"
-    }
+    },
+    "thumbnail": "/floor-themes/pocket-lab/thumbnail.1051427d013d.svg"
   },
   {
     "id": "midnight-bureau",
@@ -67,7 +69,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "audit table",
       "office": "director desk",
       "bench": "lounge"
-    }
+    },
+    "thumbnail": "/floor-themes/midnight-bureau/thumbnail.48c70811abf8.svg"
   },
   {
     "id": "confectionery-works",
@@ -90,7 +93,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "inspection table",
       "office": "head confectioner desk",
       "bench": "cooling rack"
-    }
+    },
+    "thumbnail": "/floor-themes/confectionery-works/thumbnail.e5a3e666aa44.svg"
   },
   {
     "id": "lanternwood-guild",
@@ -113,7 +117,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "appraisal table",
       "office": "guild steward",
       "bench": "travelers' rest"
-    }
+    },
+    "thumbnail": "/floor-themes/lanternwood-guild/thumbnail.10c990153471.svg"
   },
   {
     "id": "corner-cafe",
@@ -136,7 +141,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "reading table",
       "office": "host's desk",
       "bench": "lounge nook"
-    }
+    },
+    "thumbnail": "/floor-themes/corner-cafe/thumbnail.c44adaf582cc.svg"
   },
   {
     "id": "tumbletown-workshop",
@@ -159,7 +165,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "measuring table",
       "office": "mayor's window",
       "bench": "spring-seat bench"
-    }
+    },
+    "thumbnail": "/floor-themes/tumbletown-workshop/thumbnail.88c5c40a51bc.svg"
   },
   {
     "id": "orbital-shipyard",
@@ -182,7 +189,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "systems inspection",
       "office": "command desk",
       "bench": "docking cradle"
-    }
+    },
+    "thumbnail": "/floor-themes/orbital-shipyard/thumbnail.811f84c9c861.svg"
   },
   {
     "id": "wildlight-camp",
@@ -205,7 +213,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "observation bench",
       "office": "expedition desk",
       "bench": "camp rest"
-    }
+    },
+    "thumbnail": "/floor-themes/wildlight-camp/thumbnail.631d68d73001.svg"
   },
   {
     "id": "voxel-foundry",
@@ -228,7 +237,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "fit-check bay",
       "office": "foreman station",
       "bench": "staging shelf"
-    }
+    },
+    "thumbnail": "/floor-themes/voxel-foundry/thumbnail.85afb47d4fe0.svg"
   },
   {
     "id": "cloudspring-bathhouse",
@@ -251,7 +261,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "quality table",
       "office": "caretaker desk",
       "bench": "tea alcove"
-    }
+    },
+    "thumbnail": "/floor-themes/cloudspring-bathhouse/thumbnail.04b232571c1c.svg"
   },
   {
     "id": "button-and-spool",
@@ -274,7 +285,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "measurement table",
       "office": "workshop lead",
       "bench": "pincushion rest"
-    }
+    },
+    "thumbnail": "/floor-themes/button-and-spool/thumbnail.03af8cc00a5d.svg"
   },
   {
     "id": "clockwork-observatory",
@@ -297,7 +309,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "calibration table",
       "office": "chief observer",
       "bench": "winding alcove"
-    }
+    },
+    "thumbnail": "/floor-themes/clockwork-observatory/thumbnail.6c7c554f0551.svg"
   },
   {
     "id": "coral-commons",
@@ -320,7 +333,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "inspection pool",
       "office": "council alcove",
       "bench": "anemone rest"
-    }
+    },
+    "thumbnail": "/floor-themes/coral-commons/thumbnail.b45d9e75ffad.svg"
   },
   {
     "id": "meadow-post",
@@ -343,6 +357,7 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "verify": "reading garden",
       "office": "postmaster desk",
       "bench": "picnic nook"
-    }
+    },
+    "thumbnail": "/floor-themes/meadow-post/thumbnail.7910b5fcacb4.svg"
   }
 ];

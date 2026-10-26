@@ -1,15 +1,75 @@
-import type { WorkPackage, PackageView, OfficeItem } from '../../api/types.js';
-import type { StateKind } from '../../components/StateMark.js';
-export type StationId = 'general'|'site'|'verify'|'office'|'bench'|'archive';
-export type ActionId = 'idle'|'work'|'carry'|'wait'|'attention'|'inspect'|'submitted'|'error';
-export type MotionMode = 'full'|'quiet'|'still';
-export type FloorFilter = 'active'|'all';
-export type FloorView = 'scene'|'list';
-export type FloorPage = {index: number; size: 30; filter: FloorFilter};
-export type SourceHealth = {key: string; updatedAt: number; pending: boolean; failed: boolean};
-export type FloorInput = {packages: readonly WorkPackage[]; views: ReadonlyMap<string,PackageView>; office: readonly OfficeItem[]; page: FloorPage};
-export type FloorEntity = {id: string; kind: 'run'|'request'|'package'; packageId: string; revision: number; runId?: string; role?: string; sourceState: string; label: string; detail: string; station: StationId; action: ActionId; mark: StateKind; attentionRank: number; variant?: number};
-export type FloorModel = {entities: readonly FloorEntity[]; selectedPackages: readonly WorkPackage[]; matchingPackageCount: number; revisionConflicts: readonly string[]; warnings: readonly string[]};
-export type FloorHealth = {state:'loading'|'healthy'|'partial'|'stale'; oldestSuccessAt?: number; failedKeys: readonly string[]};
-export type FloorData = {model: FloorModel; health: FloorHealth; loadedDetails:number; requiredDetails:number; refresh:()=>Promise<void>};
-export type FloorPreferencesV1 = {schemaVersion:1; themeId:string; motion:MotionMode; view:FloorView};
+import type { WorkPackage, PackageView, OfficeItem } from "../../api/types.js";
+import type { StateKind } from "../../components/StateMark.js";
+export type StationId =
+  | "general"
+  | "site"
+  | "verify"
+  | "office"
+  | "bench"
+  | "archive";
+export type ActionId =
+  | "idle"
+  | "work"
+  | "carry"
+  | "wait"
+  | "attention"
+  | "inspect"
+  | "submitted"
+  | "error";
+export type MotionMode = "full" | "quiet" | "still";
+export type FloorFilter = "active" | "all";
+export type FloorView = "scene" | "list";
+export type FloorPage = { index: number; size: 30; filter: FloorFilter };
+export type SourceHealth = {
+  key: string;
+  updatedAt: number;
+  pending: boolean;
+  failed: boolean;
+};
+export type FloorInput = {
+  packages: readonly WorkPackage[];
+  views: ReadonlyMap<string, PackageView>;
+  office: readonly OfficeItem[];
+  page: FloorPage;
+};
+export type FloorEntity = {
+  id: string;
+  kind: "run" | "request" | "package";
+  packageId: string;
+  revision: number;
+  runId?: string;
+  role?: string;
+  sourceState: string;
+  label: string;
+  detail: string;
+  station: StationId;
+  action: ActionId;
+  mark: StateKind;
+  attentionRank: number;
+  variant?: number;
+};
+export type FloorModel = {
+  entities: readonly FloorEntity[];
+  selectedPackages: readonly WorkPackage[];
+  matchingPackageCount: number;
+  revisionConflicts: readonly string[];
+  warnings: readonly string[];
+};
+export type FloorHealth = {
+  state: "loading" | "healthy" | "partial" | "stale";
+  oldestSuccessAt?: number;
+  failedKeys: readonly string[];
+};
+export type FloorData = {
+  model: FloorModel;
+  health: FloorHealth;
+  loadedDetails: number;
+  requiredDetails: number;
+  refresh: () => Promise<void>;
+};
+export type FloorPreferencesV1 = {
+  schemaVersion: 1;
+  themeId: string;
+  motion: MotionMode;
+  view: FloorView;
+};

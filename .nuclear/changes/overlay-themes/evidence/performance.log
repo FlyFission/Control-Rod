@@ -1,0 +1,20 @@
+{"id":"creature-dispatch","title":"Creature Dispatch","actors":36,"frames":1797,"frameP95Ms":16.8,"cachedSwitchMs":140,"coldActivationMs":1002,"pass":true}
+{"id":"pocket-lab","title":"Pocket Lab","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":111,"coldActivationMs":960,"pass":true}
+{"id":"midnight-bureau","title":"Midnight Bureau","actors":36,"frames":1799,"frameP95Ms":16.8,"cachedSwitchMs":158,"coldActivationMs":1096,"pass":true}
+{"id":"confectionery-works","title":"Confectionery Works","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":113,"coldActivationMs":961,"pass":true}
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Target page, context or browser has been closed
+Call log:
+[2m  - waiting for getByRole('group', { name: 'Lanternwood Guild activity scene' }) to be visible[22m
+
+    at activate (/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/measure-themes.mjs:33:62)
+    at async file:///workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/measure-themes.mjs:44:49 {
+  log: [
+    "  - waiting for getByRole('group', { name: 'Lanternwood Guild activity scene' }) to be visible"
+  ]
+}
+
+Node.js v24.19.0

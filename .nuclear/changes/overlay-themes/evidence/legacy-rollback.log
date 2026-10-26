@@ -1,0 +1,33 @@
+[WebServer] (node:8101) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:8116) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ python3 ../../tools/check_theme_assets.py --root ../..
+[WebServer] (node:8137) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:8152) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:8184) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:8211) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:8225) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 8 tests using 1 worker
+
+  -  1 [chromium] › e2e/floor-themes.spec.ts:6:1 › all fifteen worlds switch without changing work and reduced motion stays still
+  -  2 [chromium] › e2e/floor-themes.spec.ts:64:1 › gallery keyboard, focus return, list fallback and accessibility
+  -  3 [chromium] › e2e/floor-themes.spec.ts:92:1 › failed artwork keeps the current world and explains the failure inside the gallery
+  -  4 [chromium] › e2e/floor-themes.spec.ts:115:1 › a slower earlier theme never replaces a newer selection
+  -  5 [chromium] › e2e/floor-themes.spec.ts:146:1 › stale live data pauses activity and recovery never replays submissions
+  -  6 [chromium] › e2e/floor-themes.spec.ts:170:1 › late image failure uses a plain actor while retaining task access
+  -  7 [chromium] › e2e/floor-themes.spec.ts:192:1 › real route limits package queries and marks failed detail coverage
+(node:8249) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  8 [chromium] › e2e/legacy-floor.spec.ts:3:1 › feature-off build preserves legacy navigation without mutations (754ms)
+
+  7 skipped
+  1 passed (10.4s)

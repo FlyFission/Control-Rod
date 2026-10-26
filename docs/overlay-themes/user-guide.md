@@ -68,8 +68,8 @@ pnpm --filter @control-rod/web test
 pnpm --filter @control-rod/web typecheck
 pnpm --filter @control-rod/web build
 pnpm --filter @control-rod/web exec playwright install chromium firefox webkit
-pnpm --filter @control-rod/web run test:themes:browser -- --project=chromium
-pnpm --filter @control-rod/web run test:themes:browser -- --project=firefox
+pnpm --filter @control-rod/web run test:themes:browser --project=chromium
+pnpm --filter @control-rod/web run test:themes:browser --project=firefox
 THEME_TEST_RELEASE=true pnpm --filter @control-rod/web exec playwright test --project=chromium --grep 'release build excludes'
 THEME_TEST_LEGACY=true pnpm --filter @control-rod/web exec playwright test --project=chromium --grep 'feature-off build'
 ```

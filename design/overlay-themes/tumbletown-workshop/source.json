@@ -1,0 +1,12 @@
+{
+  "packId": "tumbletown-workshop",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#469FA2",
+    "#DF7962",
+    "#D5AC46",
+    "#F6EEDB"
+  ],
+  "status": "draft",
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

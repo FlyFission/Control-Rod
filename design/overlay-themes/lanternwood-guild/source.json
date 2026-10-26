@@ -1,0 +1,12 @@
+{
+  "packId": "lanternwood-guild",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#365D4D",
+    "#A2B67C",
+    "#E8BC70",
+    "#314653"
+  ],
+  "status": "draft",
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

@@ -1,0 +1,215 @@
+import type { ThemePackV1 } from "../types.js";
+export default {
+  "schemaVersion": 1,
+  "id": "pocket-lab",
+  "version": "0.1.0",
+  "title": "Pocket Lab",
+  "description": "Small inventors, oversized equipment, and a laboratory full of personality.",
+  "moodTags": [
+    "Whimsical"
+  ],
+  "availability": "development",
+  "tokens": {
+    "backdrop": "#162539",
+    "surface": "#1b2e49",
+    "ink": "#ffffff",
+    "mutedInk": "#d4e0eb",
+    "accent": "#E37E6A",
+    "focus": "#ffffff"
+  },
+  "assets": {
+    "scene": {
+      "path": "/floor-themes/pocket-lab/scene.1ae44f138d3b.svg",
+      "sha256": "1ae44f138d3b3b9921ae9c85b48cf68b358abb62fcb62416ca6dc72fb46c3064",
+      "bytes": 9042,
+      "width": 1000,
+      "height": 600,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    "thumbnail": {
+      "path": "/floor-themes/pocket-lab/thumbnail.1051427d013d.svg",
+      "sha256": "1051427d013d5b448f4a0dce64ff0adaffd639fa8a42b3800fd3323f63749e96",
+      "bytes": 16732,
+      "width": 800,
+      "height": 480,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    "characters": [
+      {
+        "path": "/floor-themes/pocket-lab/character-0.b41c05d65f55.svg",
+        "sha256": "b41c05d65f556ba961ee1fc31ff905d66bd71e101c99e505f919e049ede4cbc1",
+        "bytes": 1242,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/pocket-lab/character-1.7a9ff8168d24.svg",
+        "sha256": "7a9ff8168d24f35f09c85fe6e4f584cca85bcd865d4dfefe1edfb97d95916b08",
+        "bytes": 1244,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/pocket-lab/character-2.96f229798077.svg",
+        "sha256": "96f22979807796be117d74ddc0b4964f0f2fe1d0192aca6be6b95e794089fd11",
+        "bytes": 1260,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/pocket-lab/character-3.198f79139cde.svg",
+        "sha256": "198f79139cdee77fc342501dc8f99299216280584fe0b6ff68525c3f36a7ff01",
+        "bytes": 1297,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/pocket-lab/character-4.bffc26cdcd1e.svg",
+        "sha256": "bffc26cdcd1e11650a6e91e4a1fb71431d442c29ffa805b68ffb28e31f3c6e24",
+        "bytes": 1281,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/pocket-lab/character-5.512beed94c6f.svg",
+        "sha256": "512beed94c6f0bc26a4a214657d4f937ae9937430ae173af780e350ff925b621",
+        "bytes": 1262,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      }
+    ],
+    "props": {
+      "prop-0": {
+        "path": "/floor-themes/pocket-lab/prop-0.b547512c811d.svg",
+        "sha256": "b547512c811d7fae01dafbe380a90386c5c4c78c2ea1e5874584caceab5015a3",
+        "bytes": 324,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-1": {
+        "path": "/floor-themes/pocket-lab/prop-1.52d1e7950674.svg",
+        "sha256": "52d1e7950674eeda1ef47b601b3a615757b0413d879cd7e8cb7fcc19b6a71174",
+        "bytes": 342,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-2": {
+        "path": "/floor-themes/pocket-lab/prop-2.5c73a04dd802.svg",
+        "sha256": "5c73a04dd802246960c04208e0932667258eb5028039ffda3c8ddea61e00d1ce",
+        "bytes": 369,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-3": {
+        "path": "/floor-themes/pocket-lab/prop-3.27a4833118af.svg",
+        "sha256": "27a4833118af88751a9a8e05ccdff45bebb5e4aa8d249297d260e7ac18b265bc",
+        "bytes": 391,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-4": {
+        "path": "/floor-themes/pocket-lab/prop-4.b6fb6d0e5e11.svg",
+        "sha256": "b6fb6d0e5e11c9e9d03138d30c3dc5a5c3d572c7a7fd6d42f2c9e63a4e7fd46e",
+        "bytes": 358,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-5": {
+        "path": "/floor-themes/pocket-lab/prop-5.8dc530d43be7.svg",
+        "sha256": "8dc530d43be71a4701fe0e61b0269a68eed67b8fe5c357ab5fe7db70878ee3f0",
+        "bytes": 361,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      }
+    }
+  },
+  "stations": {
+    "general": {
+      "x": 20,
+      "y": 20,
+      "w": 300,
+      "h": 240,
+      "label": "experiment desk"
+    },
+    "site": {
+      "x": 340,
+      "y": 20,
+      "w": 320,
+      "h": 240,
+      "label": "prototype bench"
+    },
+    "archive": {
+      "x": 680,
+      "y": 20,
+      "w": 300,
+      "h": 240,
+      "label": "specimen cabinet"
+    },
+    "verify": {
+      "x": 20,
+      "y": 340,
+      "w": 340,
+      "h": 240,
+      "label": "calibration bay"
+    },
+    "office": {
+      "x": 380,
+      "y": 340,
+      "w": 260,
+      "h": 240,
+      "label": "lead scientist desk"
+    },
+    "bench": {
+      "x": 660,
+      "y": 340,
+      "w": 320,
+      "h": 240,
+      "label": "charging nook"
+    }
+  },
+  "motionProfile": "shared-v1",
+  "signature": "spark",
+  "credits": [
+    "Original Control-Rod vector artwork \u00b7 Apache-2.0"
+  ]
+} satisfies ThemePackV1;

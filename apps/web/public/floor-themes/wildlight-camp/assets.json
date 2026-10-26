@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "packId": "wildlight-camp",
+  "version": "0.1.0",
+  "title": "Wildlight Research Camp",
+  "assets": [
+    {
+      "key": "scene",
+      "path": "scene.32975d9a3300.svg",
+      "sha256": "32975d9a33000f3db371415321c36e903d86754f132309a3575bc8edf6628723",
+      "bytes": 9133,
+      "width": 1000,
+      "height": 600,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "thumbnail",
+      "path": "thumbnail.631d68d73001.svg",
+      "sha256": "631d68d7300177c9bef8117bdb27b53cf5d0266b0276748c21fb35b66c443562",
+      "bytes": 17386,
+      "width": 800,
+      "height": 480,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "character-0",
+      "path": "character-0.f7e572001d03.svg",
+      "sha256": "f7e572001d036a3b0d48d1d7a6aaf2d5647105df73eb8e9b4245197969831a25",
+      "bytes": 1348,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "character-1",
+      "path": "character-1.c6d326117ae4.svg",
+      "sha256": "c6d326117ae4c783683e7bd808cefd4bc498537af81742a885ea70447d4d2f1a",
+      "bytes": 1336,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "character-2",
+      "path": "character-2.5905a979d1af.svg",
+      "sha256": "5905a979d1afb47286bcbe8b7bb8e2bb160475710f12926be3e7ad6c48754775",
+      "bytes": 1347,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "character-3",
+      "path": "character-3.abbbb7145f62.svg",
+      "sha256": "abbbb7145f6248a3b3a3b2a609bd9a93663db4b43109dcb151635db3a97708c3",
+      "bytes": 1443,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "character-4",
+      "path": "character-4.ffa09f21d199.svg",
+      "sha256": "ffa09f21d1992688eb61ef697d9f2c0cf095c07b3138d0615da496218f90d230",
+      "bytes": 1335,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "character-5",
+      "path": "character-5.b60a9c0f2dea.svg",
+      "sha256": "b60a9c0f2deafdc27e66461303da94b77c913ade025d2cb5122e0787cf17e459",
+      "bytes": 1340,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "prop-0",
+      "path": "prop-0.81412948e4ab.svg",
+      "sha256": "81412948e4abc76c55cfd5c54fd9623175f3a2ce09e225e705212e33e7126865",
+      "bytes": 324,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "prop-1",
+      "path": "prop-1.7e9df5c833f4.svg",
+      "sha256": "7e9df5c833f43e71625124aa86087fb7d53d18c7536b4aad4e78f99d158945fe",
+      "bytes": 342,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "prop-2",
+      "path": "prop-2.4acbddefe745.svg",
+      "sha256": "4acbddefe745526f3335c24af6f3f8548bef67344fd5b95e5fd955f907bf3089",
+      "bytes": 369,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "prop-3",
+      "path": "prop-3.80048b7a2f98.svg",
+      "sha256": "80048b7a2f98dfcaa135bfcc1b84b50d445e6248ed9ab3a327a3db1d5de34726",
+      "bytes": 391,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "prop-4",
+      "path": "prop-4.6b9c07f908e2.svg",
+      "sha256": "6b9c07f908e201f12d88bdad2cd4105ac4a286609af33b5e19293374fa388c03",
+      "bytes": 358,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    {
+      "key": "prop-5",
+      "path": "prop-5.40ecea0b298a.svg",
+      "sha256": "40ecea0b298a40e6040bd13b4c7827541f43d5d513d5e8e4d2433c4395e879c0",
+      "bytes": 361,
+      "width": 128,
+      "height": 128,
+      "creator": "Codex \u2014 original procedural vector illustration",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    }
+  ]
+}

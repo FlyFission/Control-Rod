@@ -1,0 +1,12 @@
+{
+  "packId": "orbital-shipyard",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#1A304A",
+    "#A8D4DE",
+    "#BB8265",
+    "#E3EAF0"
+  ],
+  "status": "draft",
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

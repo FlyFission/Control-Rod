@@ -27,6 +27,43 @@ const model = (runs: Run[], office: OfficeItem[] = []) =>
     page,
   });
 describe("authoritative Floor projection", () => {
+  it("retains unknown statuses alongside later known terminal history with raw escaped context", () => {
+    const m = model([
+      run({ id: "unknown", status: "paused-for-review" as never }),
+      run({
+        id: "finished",
+        status: "succeeded",
+        finished_at: "2026-10-27T00:00:00Z",
+      }),
+    ]);
+    expect(m.entities).toHaveLength(2);
+    const unknown = m.entities.find((e) => e.runId === "unknown")!;
+    expect(unknown.label).toBe("Status unavailable");
+    expect(unknown.detail).toContain("paused-for-review");
+    expect(unknown.variant).toBeUndefined();
+  });
+  it("preserves conflicting cross-package run identities as neutral source rows", () => {
+    const a = view({ runs: [run()] });
+    const b = view(
+      { runs: [run({ package_id: "WP-2", status: "succeeded" })] },
+      { id: "WP-2" },
+    );
+    const m = projectFloor({
+      packages: [a.package, b.package],
+      views: new Map([
+        [a.package.id, a],
+        [b.package.id, b],
+      ]),
+      office: [],
+      page,
+    });
+    expect(m.entities).toHaveLength(2);
+    expect(new Set(m.entities.map((e) => e.id)).size).toBe(2);
+    expect(m.entities.every((e) => e.label === "Status unavailable")).toBe(
+      true,
+    );
+    expect(m.warnings.join(" ")).toContain("R1");
+  });
   it.each([
     ["queued", "Queued"],
     ["running", "Working"],

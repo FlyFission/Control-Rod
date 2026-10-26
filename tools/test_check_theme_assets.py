@@ -2,10 +2,20 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import hashlib
+import xml.etree.ElementTree as ET
 from check_theme_assets import check_svg, check_manifest, check_release_records
 
 
 class AssetGateTests(unittest.TestCase):
+    def test_human_and_guild_casts_have_six_distinct_structural_silhouettes(self):
+        root=Path(__file__).resolve().parents[1]/'design/overlay-themes'
+        for pack in ['midnight-bureau','lanternwood-guild','corner-cafe','button-and-spool']:
+            geometries=[]
+            for i in range(6):
+                tree=ET.parse(root/pack/f'character-{i}.svg')
+                geometry=[(n.tag.split('}')[-1], tuple(sorted((k,v) for k,v in n.attrib.items() if k in {'d','points','x','y','cx','cy','r','rx','ry','width','height','transform'}))) for n in tree.iter() if n.tag.split('}')[-1] not in {'defs','linearGradient','stop'}]
+                geometries.append(str(geometry))
+            self.assertEqual(len(set(geometries)),6,pack)
     def test_accepts_passive_local_gradient(self):
         self.assertEqual(check_svg(b'<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><defs><linearGradient id="a"><stop offset="0" stop-color="#fff"/></linearGradient></defs><path fill="url(#a)" d="M0 0h1"/></svg>'), [])
 

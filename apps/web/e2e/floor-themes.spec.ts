@@ -1,7 +1,157 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { mockFloorApi } from "./floor-fixtures.js";
-test.skip(process.env.THEME_TEST_LEGACY === "true", "Dedicated legacy rollback run");
+test.skip(
+  process.env.THEME_TEST_LEGACY === "true",
+  "Dedicated legacy rollback run",
+);
+test.skip(
+  process.env.THEME_TEST_RELEASE === "true",
+  "Dedicated release artifact run",
+);
+test("standalone scenes pause when the document is hidden and resume without replay", async ({
+  page,
+}) => {
+  await page.goto("/themes.html");
+  await expect(page.locator(".floor-stage")).toHaveClass(/motion-full/);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.locator(".floor-stage")).toHaveClass(/motion-still/);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(page.locator(".floor-stage")).toHaveClass(/motion-full/);
+  await expect(page.locator(".floor-signature")).toHaveCount(0);
+});
+test("Quiet submission emphasis uses opacity without translation or scale", async ({
+  page,
+}) => {
+  const api = await mockFloorApi(page, { finishOnReconnect: true });
+  await page.goto("/floor");
+  await expect(
+    page.getByRole("button", { name: /WP-101.*Working/ }),
+  ).toBeVisible();
+  await page.getByRole("combobox", { name: /Motion/ }).selectOption("quiet");
+  api.finishAuthor();
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  const effect = page.locator(".floor-signature").first();
+  await effect.waitFor();
+  expect(
+    await effect.evaluate((el) =>
+      el
+        .getAnimations()
+        .flatMap((a) => a.effect?.getKeyframes() ?? [])
+        .every((frame) => !frame.transform || frame.transform === "none"),
+    ),
+  ).toBe(true);
+});
+
+test("short reconnect rebaselines without a submission effect", async ({
+  page,
+}) => {
+  const api = await mockFloorApi(page, { finishOnReconnect: true });
+  await page.goto("/floor");
+  await expect(
+    page.getByRole("button", { name: /WP-101.*Working/ }),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    (window as unknown as { seenEffects: number }).seenEffects = 0;
+    new MutationObserver(() => {
+      if (document.querySelector(".floor-signature"))
+        (window as unknown as { seenEffects: number }).seenEffects++;
+    }).observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+    });
+    (
+      window as unknown as { themeStream: { emit: (s: string) => void } }
+    ).themeStream.emit("error");
+  });
+  api.finishAuthor();
+  await page.evaluate(() =>
+    (
+      window as unknown as { themeStream: { emit: (s: string) => void } }
+    ).themeStream.emit("open"),
+  );
+  await expect(
+    page.getByRole("button", { name: /WP-101.*Run finished/ }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { seenEffects: number }).seenEffects,
+    ),
+  ).toBe(0);
+});
+
+test("a newer cross-tab decision cancels a pending choice even when it selects the current pack", async ({
+  page,
+}) => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let complete!: () => void;
+  const done = new Promise<void>((resolve) => {
+    complete = resolve;
+  });
+  await page.route(
+    "**/floor-themes/creature-dispatch/scene.*.svg",
+    async (r) => {
+      await held;
+      await r.continue();
+      complete();
+    },
+  );
+  await page.goto("/themes.html");
+  await page.locator(".floor-theme-trigger").click();
+  await page
+    .getByRole("button", { name: "Use Creature Dispatch theme", exact: true })
+    .click();
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "cr.floor.preferences.v1",
+        newValue: JSON.stringify({
+          schemaVersion: 1,
+          themeId: "plain",
+          motion: "full",
+          view: "scene",
+        }),
+      }),
+    ),
+  );
+  release();
+  await done;
+  await page
+    .getByRole("dialog")
+    .waitFor({ state: "hidden", timeout: 1200 })
+    .catch(() => {});
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("group", { name: "Plain Floor activity scene" }),
+  ).toBeVisible();
+});
+
+test("mobile list keeps complete run identifiers and distinguishes active rounds", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/themes.html");
+  await expect(page.getByRole("button", { name: /WP-101.*R-1/ })).toBeVisible();
+  await expect(
+    page.locator(".floor-list-id").filter({ hasText: "R-1" }).first(),
+  ).toBeVisible();
+});
 
 test("all fifteen worlds switch without changing work and reduced motion stays still", async ({
   page,

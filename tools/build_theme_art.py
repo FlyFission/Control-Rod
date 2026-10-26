@@ -91,12 +91,32 @@ def character(world,v,palette):
         skin=['#d29d80','#a96f55','#edc4a7','#bc8d6c','#825443','#e5b795'][v]
         hair=['#263544','#49382e','#d0b78c','#30413c','#322b37','#8e644e'][v]
         legs=f'<path d="M45 87l-4 24h16l8-24M68 87l5 24h16l-7-24" fill="{b}"/>'
-        torso=f'<path d="M32 100l9-37q22-15 44 0l12 37z" fill="{fill}"/><path d="M49 58l14 16 14-16" fill="{d}"/><ellipse cx="63" cy="40" rx="20" ry="23" fill="{skin}"/><path d="M42 36q-2-26 23-25 27 0 20 29l-8-15-25 3-7 13z" fill="{hair}"/>'
+        coats=['M32 103l9-40q22-15 44 0l12 40H70l-7-17-7 17z','M27 101l7-35q29-25 59 0l9 35z','M37 101l7-42h38l11 42-28-6z','M24 101l12-32q27-27 57 0l12 32z','M34 101l9-45q21-9 40 4l10 41z','M30 101l6-38q26-18 54 0l9 38-35 6z']
+        hairstyles=['M42 36q-2-26 23-25 27 0 20 29l-8-15-25 3-7 13z','M39 38q-8-20 6-25 2-15 20-5 19-7 24 12l-5 24-10-18-24 1z','M44 35q-2-33 24-24 24 7 17 30l-12-13-24 13z','M36 31q3-27 30-23 32 3 24 32l-8-18-36 4-10 18z','M43 39q-11-36 20-30 28-8 23 34l-11-19-21-1z','M37 39q-6-30 29-29 27 2 21 33l-13-16-26 8z']
+        torso=f'<path d="{coats[v]}" fill="{fill}"/><path d="M49 58l14 16 14-16" fill="{d}"/><ellipse cx="63" cy="40" rx="{[19,22,17,24,18,21][v]}" ry="{[23,21,25,20,24,22][v]}" fill="{skin}"/><path d="{hairstyles[v]}" fill="{hair}"/>'
         eyes='<circle cx="56" cy="41" r="2" fill="#243540"/><circle cx="70" cy="41" r="2" fill="#243540"/><path d="M59 50q5 3 9-1" fill="none" stroke="#573f35" stroke-width="2"/>'
         if world==2:extras=f'<path d="M62 73l-4 16 5 7 5-7-4-16" fill="{c}"/><path d="M42 62l9 38M82 62l-9 38" stroke="{b}" stroke-width="6"/>'
         if world==4:extras=f'<path d="M35 58l-11 45h29l9-33 10 33h31L90 58 64 74z" fill="{b}"/><circle cx="63" cy="74" r="4" fill="{c}"/>'
         if world==5 and v%2==0:extras=f'<path d="M47 70h32v31H47z" fill="{d}"/><path d="M50 67l-2-11M76 67l2-11" stroke="{d}" stroke-width="4"/>'
         if world==11:extras=f'<path d="M42 20Q64-15 84 20z" fill="{c}"/><path d="M34 23h57" stroke="{b}" stroke-width="5"/>'
+        # Each specialist has an original tool as well as different silhouette/proportions.
+        tools=[f'<path d="M88 77l26-5v24l-26 4z" fill="{d}"/><path d="M90 78v21M112 73v24" stroke="{c}" stroke-width="3"/>',f'<path d="M43 42q-4-24 21-25 28 0 22 25M42 40v12M86 40v12l-12 4" fill="none" stroke="{b}" stroke-width="5"/>',f'<path d="M87 75h27v27H87z" fill="{d}" stroke="{b}" stroke-width="3"/><path d="M93 80v17M99 82h10M99 89h8" stroke="{a}" stroke-width="2"/>',f'<rect x="87" y="83" width="30" height="23" rx="3" fill="{b}"/><path d="M96 83v-8h11v8" fill="none" stroke="{c}" stroke-width="3"/>',f'<rect x="88" y="72" width="26" height="31" rx="4" fill="{b}"/><rect x="92" y="76" width="18" height="22" fill="{d}"/>',f'<circle cx="99" cy="76" r="12" fill="{d}" stroke="{c}" stroke-width="4"/><path d="M95 86l-10 19" stroke="{c}" stroke-width="5"/>']
+        tool=tools[v]
+        if world==4 and v==1:
+            torso=f'<path d="M29 98l7-39 14-25h30l17 28 4 36z" fill="{fill}"/><path d="M46 36L32 13l4 31M78 36l18-24-5 33" fill="{c}"/><path d="M42 80h45v22H42z" fill="{b}"/>'
+            eyes='<circle cx="53" cy="52" r="3" fill="#243540"/><circle cx="74" cy="52" r="3" fill="#243540"/>';extras=''
+        elif world==4 and v==2:
+            torso=f'<path d="M40 100q-16-24 1-39l15-13V29q10-18 24-2v27l16 18-9 29z" fill="{fill}"/><path d="M76 32l24 10-23 7" fill="{c}"/><path d="M46 67L24 95l30-10" fill="{b}"/>'
+            eyes='<circle cx="67" cy="32" r="3" fill="#243540"/>';extras=''
+        elif world==4 and v==3:
+            torso=f'<path d="M26 52l23-24 36 5 18 28-9 36-29 11-36-14z" fill="{fill}"/><path d="M49 28l7 25-18 19M85 33L72 59l22 38" stroke="{b}" stroke-width="3" fill="none"/>'
+            eyes='<circle cx="52" cy="59" r="4" fill="#243540"/><circle cx="74" cy="59" r="4" fill="#243540"/>';extras=''
+        elif world==4 and v==4:
+            extras+=leaf(92,84,12,c,-30)+leaf(109,91,15,a,35)+f'<path d="M88 90h29l-5 18H94z" fill="{b}"/>'
+        if world==5 and v==0:extras+=f'<ellipse cx="63" cy="17" rx="29" ry="10" fill="{b}"/>'
+        if world==5 and v==3:extras+=f'<path d="M37 76h55l-4 29H41z" fill="{d}"/>'
+        if world==11:
+            extras+=f'<path d="M{35+v*3} 97l{18+v} -22 27 22" fill="{c}"/><circle cx="{36+v*7}" cy="86" r="{5+v}" fill="{d}"/>'
     elif world==6:
         paper=[
             f'<path d="M27 91l23-49 14-30 14 33 26 50-41-12z" fill="{fill}"/><path d="M50 42l13 41 15-38M27 91l36-8 41 12" stroke="{d}" stroke-width="3" fill="none"/>',
@@ -227,12 +247,17 @@ def main():
             inner+=char
         thumbnail=svg(inner,800,480,'0 0 1000 600')
         raw_assets={'scene':background,'thumbnail':thumbnail,**{f'character-{i}':c for i,c in enumerate(chars)},**{f'prop-{i}':prop(i,palette) for i in range(6)}}
+        previous=json.loads((public/'assets.json').read_text())['assets'] if (public/'assets.json').exists() else []
         assets=[]
         for key,value in raw_assets.items():
             data=value.encode();sha=hashlib.sha256(data).hexdigest();name=f'{key}.{sha[:12]}.svg'
             (public/name).write_bytes(data);(source/f'{key}.svg').write_bytes(data)
             w,h=(1000,600) if key=='scene' else (800,480) if key=='thumbnail' else (128,128)
             assets.append(dict(key=key,path=name,sha256=sha,bytes=len(data),width=w,height=h,creator='Codex — original procedural vector illustration',rightsBasis='original',licenseNoticeId='Apache-2.0'))
+        current_names={a['path'] for a in assets}
+        for old in previous:
+            if old['path'] not in current_names and Path(old['path']).name==old['path']:
+                (public/old['path']).unlink(missing_ok=True)
         manifest=dict(schemaVersion=1,packId=pid,version='0.1.0',title=entry['title'],assets=assets)
         (public/'assets.json').write_text(json.dumps(manifest,indent=2)+'\n')
         (public/'NOTICE.txt').write_text('Original Control-Rod vector artwork, authored in tools/build_theme_art.py.\nLicensed under Apache-2.0. No franchise characters, reference images, fonts or audio are included.\nDraft artwork; human art/distribution review remains pending.\n')

@@ -19,7 +19,15 @@ export default defineConfig({
     url: "http://127.0.0.1:4173/themes.html",
     reuseExistingServer: false,
     timeout: 120000,
-    env: { VITE_FLOOR_THEMES_ENABLED: process.env.THEME_TEST_LEGACY === "true" ? "false" : "true", VITE_FLOOR_THEME_DRAFTS: "true" },
+    env: {
+      VITE_FLOOR_THEMES_ENABLED:
+        process.env.THEME_TEST_LEGACY === "true" ? "false" : "true",
+      VITE_FLOOR_THEME_DRAFTS:
+        process.env.THEME_TEST_RELEASE === "true" ||
+        process.env.THEME_TEST_LEGACY === "true"
+          ? "false"
+          : "true",
+    },
   },
   reporter: [
     ["list"],

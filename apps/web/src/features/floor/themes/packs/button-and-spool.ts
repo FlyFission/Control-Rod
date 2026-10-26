@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/button-and-spool/thumbnail.03af8cc00a5d.svg",
-      "sha256": "03af8cc00a5d98d0dfdb4695867309f53fbacbe3c3875d199cc56ee1be596672",
-      "bytes": 14783,
+      "path": "/floor-themes/button-and-spool/thumbnail.027928f075a0.svg",
+      "sha256": "027928f075a0d616a31860019ad8a578cd905cf5f6fb2693cb3ce67278d361c0",
+      "bytes": 15232,
       "width": 800,
       "height": 480,
       "creator": "Codex \u2014 original procedural vector illustration",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/button-and-spool/character-0.a18a8b8f4bd1.svg",
-        "sha256": "a18a8b8f4bd1d69a8382cd77cf744bd87c664dff7060ffffdb346279718492fd",
-        "bytes": 1161,
+        "path": "/floor-themes/button-and-spool/character-0.f7a773959ac2.svg",
+        "sha256": "f7a773959ac2ab64096eb9a3da0ab9e8919aaef77f9e744d04a9700492de74e1",
+        "bytes": 1231,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/button-and-spool/character-1.e654b9ff83bd.svg",
-        "sha256": "e654b9ff83bd34dcf63f9771f4d8bbf096aff0e94834acc86b9f5d4228b1b3d8",
-        "bytes": 1161,
+        "path": "/floor-themes/button-and-spool/character-1.46267dd6afcd.svg",
+        "sha256": "46267dd6afcdde9464c6d25a1857fac5a3793065c17884695254a7f6e10d30f1",
+        "bytes": 1224,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/button-and-spool/character-2.9ae783ec9664.svg",
-        "sha256": "9ae783ec96642083164eea86cf7b1a227beb47fa0f4ddb21e1bc19075cfb8e3f",
-        "bytes": 1161,
+        "path": "/floor-themes/button-and-spool/character-2.19a807fd010f.svg",
+        "sha256": "19a807fd010f6ed753f73aa39dae33496c089771f973185157283abcf359fb46",
+        "bytes": 1247,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/button-and-spool/character-3.4e4bd00f6637.svg",
-        "sha256": "4e4bd00f66370af9d8c266eb68882a2321c31803e4870123e9dbe9816a697124",
-        "bytes": 1161,
+        "path": "/floor-themes/button-and-spool/character-3.45c9ddba8a77.svg",
+        "sha256": "45c9ddba8a776e7e038ce3862c333400a5b241700e6ec8e72babfb221765a17a",
+        "bytes": 1243,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/button-and-spool/character-4.4fbc9092bf07.svg",
-        "sha256": "4fbc9092bf071fd9e50adcc48581d3d6e77de0f961b711fb18935fc7ee480120",
-        "bytes": 1161,
+        "path": "/floor-themes/button-and-spool/character-4.dcadea8350d6.svg",
+        "sha256": "dcadea8350d6ba121c613d699fff6cfd579eef5426ef15101d983a908471b772",
+        "bytes": 1225,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/button-and-spool/character-5.4b3f5a331b37.svg",
-        "sha256": "4b3f5a331b377dc8a60f91ed9ef1e558f0acd1de02b2a9dc77feb4b264b367ea",
-        "bytes": 1161,
+        "path": "/floor-themes/button-and-spool/character-5.8ee5190e7a8f.svg",
+        "sha256": "8ee5190e7a8fcc2476d4455ed1cce676eb85fd33bcd1fb47c3d611a8b7147f96",
+        "bytes": 1245,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",

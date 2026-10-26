@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/lanternwood-guild/thumbnail.10c990153471.svg",
-      "sha256": "10c990153471e37b01e38f154a6eff5b4551241c5a3681227b46b89614e4b62a",
-      "bytes": 17761,
+      "path": "/floor-themes/lanternwood-guild/thumbnail.8b478ee11f10.svg",
+      "sha256": "8b478ee11f1013b1b4328039c36e6bf989e45a9f1a13ffe738679266f9a26d6b",
+      "bytes": 17087,
       "width": 800,
       "height": 480,
       "creator": "Codex \u2014 original procedural vector illustration",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/lanternwood-guild/character-0.6d96262db962.svg",
-        "sha256": "6d96262db9627f97312f3e0b094c45cca584db39bdd65788c3e0d946f3e0f438",
-        "bytes": 1176,
+        "path": "/floor-themes/lanternwood-guild/character-0.19de509f4dcc.svg",
+        "sha256": "19de509f4dcc3b4d8fde30e3528609f771049bb3047e2247b9451c1c732b604c",
+        "bytes": 1154,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-1.7f996ff62602.svg",
-        "sha256": "7f996ff626021767685a6b2578cf91df869a52d7ddaafcd220f66ed8c35bcb22",
-        "bytes": 1176,
+        "path": "/floor-themes/lanternwood-guild/character-1.cf41150ab54f.svg",
+        "sha256": "cf41150ab54f581dbe0223aa151dc4a2d8ab8fe27a29ee55966d3019bf158fe8",
+        "bytes": 881,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-2.ae4a5b678ec9.svg",
-        "sha256": "ae4a5b678ec9d80ad4d7db1530d5834a1206ff86e4dd1b43c0b7c3f7d5818e08",
-        "bytes": 1176,
+        "path": "/floor-themes/lanternwood-guild/character-2.ec4c4dd7741c.svg",
+        "sha256": "ec4c4dd7741c69a306d422330a7b4d4531510d509b37449fa5ab485c557356e8",
+        "bytes": 880,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-3.d2861a8761f9.svg",
-        "sha256": "d2861a8761f9a34ca8baa38241a1e343a382202e676450c05cd1b888f7a76274",
-        "bytes": 1176,
+        "path": "/floor-themes/lanternwood-guild/character-3.8e97e52b5017.svg",
+        "sha256": "8e97e52b5017f35f53e826b2aa10864ddb0c4df85608aa041df2e3249f8d756e",
+        "bytes": 906,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-4.1c04c94e6c4f.svg",
-        "sha256": "1c04c94e6c4f426097f4ac9fbebd12bb3f23e4e8a048a9f01fd1c45dd945056e",
-        "bytes": 1176,
+        "path": "/floor-themes/lanternwood-guild/character-4.a788a0073a6a.svg",
+        "sha256": "a788a0073a6a51bf2ecb0d3cb3ba518b95dec292238d582580b4dca71a40834e",
+        "bytes": 1394,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-5.fd070055df99.svg",
-        "sha256": "fd070055df990293830ca855c08e5b1ca42aa140442dc4176376a9297910c4c3",
-        "bytes": 1176,
+        "path": "/floor-themes/lanternwood-guild/character-5.0af3ef879f20.svg",
+        "sha256": "0af3ef879f20ee72ea6316055028836d2b90bec0580a67c45e42747de11eb36a",
+        "bytes": 1167,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",

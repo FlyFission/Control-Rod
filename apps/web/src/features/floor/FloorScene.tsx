@@ -115,7 +115,7 @@ export function FloorScene({
           <FloorActor
             entity={e}
             art={
-              e.kind === "run"
+              e.kind === "run" && e.variant !== undefined
                 ? pack.assets.characters[e.variant ?? 0]?.path
                 : undefined
             }

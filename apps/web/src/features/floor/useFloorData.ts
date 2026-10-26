@@ -5,9 +5,19 @@ import type { FloorPage, FloorData, SourceHealth } from "./types.js";
 import { selectPackagePage } from "./paging.js";
 import { projectFloor } from "./project.js";
 import { assessFloorHealth } from "./freshness.js";
+import { LIVE_GAP_EVENT } from "../../lib/live.js";
 export function useFloorData(page: FloorPage, visible: boolean): FloorData {
   const [now, setNow] = useState(Date.now),
     [resuming, setResuming] = useState(visible);
+  const [gapEpoch, setGapEpoch] = useState(0);
+  useEffect(() => {
+    const gap = () => {
+      setResuming(true);
+      setGapEpoch((n) => n + 1);
+    };
+    window.addEventListener(LIVE_GAP_EVENT, gap);
+    return () => window.removeEventListener(LIVE_GAP_EVENT, gap);
+  }, []);
   const interval = visible ? 15000 : false;
   const packages = useQuery({
     queryKey: ["packages"],
@@ -75,7 +85,7 @@ export function useFloorData(page: FloorPage, visible: boolean): FloorData {
       current = false;
       clearInterval(t);
     };
-  }, [visible]);
+  }, [visible, gapEpoch]);
   const attempted = useRef(new Set<string>());
   useEffect(() => {
     for (const id of model.revisionConflicts) {

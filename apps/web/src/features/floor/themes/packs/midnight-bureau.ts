@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/midnight-bureau/thumbnail.48c70811abf8.svg",
-      "sha256": "48c70811abf8b81bdf89f6b8df03094e1bac4416409e1266c03ccc4c9ab65318",
-      "bytes": 36388,
+      "path": "/floor-themes/midnight-bureau/thumbnail.fdf6974b634d.svg",
+      "sha256": "fdf6974b634d4f5a36d3f64446b2d31c9286aa00b5d1d2fcd2eb760b67a9236f",
+      "bytes": 36284,
       "width": 800,
       "height": 480,
       "creator": "Codex \u2014 original procedural vector illustration",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/midnight-bureau/character-0.751f9c884e28.svg",
-        "sha256": "751f9c884e28b1ecd23ee0372bd798dfe8a994a25d54cd20927262769684136d",
-        "bytes": 1181,
+        "path": "/floor-themes/midnight-bureau/character-0.cb941df82ca8.svg",
+        "sha256": "cb941df82ca895d79a2825ca8f6e5347364c1db8d2cdb8a214f454e7aa801044",
+        "bytes": 1159,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-1.935b6ac1e300.svg",
-        "sha256": "935b6ac1e300d4854ebd3a5e03370cc9a791e4929f71a6d620705ad27e1ffb2e",
-        "bytes": 1181,
+        "path": "/floor-themes/midnight-bureau/character-1.166bef8750ff.svg",
+        "sha256": "166bef8750ff32fd201a63b9a6c90615ac668e240bd5f7affe663d1e0253e11e",
+        "bytes": 1152,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-2.4d4546d00389.svg",
-        "sha256": "4d4546d0038925393fb48b7533617653fda67c31a3adc3b3ad4cc8019784dd54",
-        "bytes": 1181,
+        "path": "/floor-themes/midnight-bureau/character-2.dc2ee4e798b5.svg",
+        "sha256": "dc2ee4e798b5e521862a38be6e3289652183f7df861d0c4c0d38790e3178c4e4",
+        "bytes": 1175,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-3.f0d9ecb0b305.svg",
-        "sha256": "f0d9ecb0b3055d4c619c66c5f32d620bf25cdf4717e303f828af8ec17a40696e",
-        "bytes": 1181,
+        "path": "/floor-themes/midnight-bureau/character-3.51f2dcbd3a94.svg",
+        "sha256": "51f2dcbd3a94361a8a63f393028189ca7a3a00e9273aad2132fc8df6782972ee",
+        "bytes": 1171,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-4.9ea8d27ad48e.svg",
-        "sha256": "9ea8d27ad48e9e3fd92690b1bda6708568549f3754668301381f716c03a95d12",
-        "bytes": 1181,
+        "path": "/floor-themes/midnight-bureau/character-4.ff1f0551512c.svg",
+        "sha256": "ff1f0551512c32403403fb2817b680e9bfdb246e9b5b9bf99aca585bc1eca921",
+        "bytes": 1153,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-5.752050ac653a.svg",
-        "sha256": "752050ac653aefef5fc4247b893ec823b0ef625594aedef1ec3fe79123ab239c",
-        "bytes": 1181,
+        "path": "/floor-themes/midnight-bureau/character-5.75281fe37783.svg",
+        "sha256": "75281fe377834f6d6d3c30ea2fd104ad9879d4b17fb3720a559195fc96cbbedc",
+        "bytes": 1172,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",

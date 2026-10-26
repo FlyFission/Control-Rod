@@ -14,6 +14,10 @@
 - [Implementation plan](superpowers/plans/2026-10-25-overlay-themes.md)
 - [Change basis and verification](../.nuclear/changes/overlay-themes/basis.md)
 
-These are proposed planning documents; artwork, implementation and pack-specific release review remain future work.
+The design/plan were approved for implementation on 2026-10-26. The implementation includes fifteen original worlds, a shared Floor engine and a standalone local draft preview. Pack-specific human art/distribution approval is separate from implementation.
+
+- [Working Worlds user guide](overlay-themes/user-guide.md)
+- [Art authoring and release workflow](overlay-themes/asset-workflow.md)
+- [Execution and remaining review decisions](../.nuclear/changes/overlay-themes/execution.md)
 
 The full platform plan (product, architecture, security, domain model, flows, typicals, experience and business) is maintained as the Control Rod Platform Plan document and summarized by the records here.

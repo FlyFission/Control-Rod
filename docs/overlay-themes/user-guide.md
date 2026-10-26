@@ -27,6 +27,14 @@ Then sign in normally and open **Floor**. These are build-time flags; set the eq
 
 All fifteen art packs are complete original vector illustrations but remain `development` pending actual human art/distribution review. The draft flag allows local evaluation with a persistent notice. Normal release mode admits only a pack with a matching human release record; the current release manifest is intentionally empty. This is independent of whether a theme can be drawn or loaded successfully. No public franchise “inspired by” wording has been approved or displayed.
 
+Ordinary builds exclude `themes.html` and all unapproved artwork from the output. To build the explicitly labelled private review preview, use:
+
+```sh
+VITE_FLOOR_THEMES_ENABLED=true VITE_FLOOR_THEME_DRAFTS=true pnpm --filter @control-rod/web build
+```
+
+Serve `apps/web/dist` over localhost and open `/themes.html`. Keep this draft bundle separate from a public release. Disabling both flags restores a build containing the legacy Floor and no draft preview/artwork. A normal release build copies only assets listed in the approved pack manifests, never obsolete or unrelated files in an art directory.
+
 ## Read the activity correctly
 
 - **Working** and **Pre-checking** describe active runs. **Run finished** does not mean an output is accepted.
@@ -62,6 +70,8 @@ pnpm --filter @control-rod/web build
 pnpm --filter @control-rod/web exec playwright install chromium firefox webkit
 pnpm --filter @control-rod/web run test:themes:browser -- --project=chromium
 pnpm --filter @control-rod/web run test:themes:browser -- --project=firefox
+THEME_TEST_RELEASE=true pnpm --filter @control-rod/web exec playwright test --project=chromium --grep 'release build excludes'
+THEME_TEST_LEGACY=true pnpm --filter @control-rod/web exec playwright test --project=chromium --grep 'feature-off build'
 ```
 
 Browser engines may need their OS dependencies installed by the environment owner. WebKit engine tests do not replace testing real Safari/iOS. The execution record distinguishes observed checks from remaining manual accessibility, art and distribution decisions.

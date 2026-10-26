@@ -1,0 +1,42 @@
+$ pnpm gen:api && vitest run -- src/features/floor/themes/registry.test.ts
+$ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [123.6ms]
+
+ RUN  v5.0.5 /workspace/Control-Rod/.worktrees/overlay-themes/apps/web
+
+ ❯ src/features/floor/themes/registry.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/floor/themes/registry.test.ts [ src/features/floor/themes/registry.test.ts ]
+Error: Failed to resolve import "./registry.js" from "src/features/floor/themes/registry.test.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/src/features/floor/themes/registry.test.ts:2:92
+  1  |  import { describe, it, expect } from "vitest";
+  2  |  import { THEME_CATALOG, getThemeEntry, isThemeEligible, validateThemePack, loadTheme } from "./registry.js";
+     |                                                                                               ^
+  3  |  import { PLAIN_THEME } from "./plain.js";
+  4  |  describe("theme admission", () => {
+ ❯ TransformPluginContext._formatLog ../../node_modules/.pnpm/vite@8.3.5_@types+node@26.6.5_yaml@2.9.1/node_modules/vite/dist/node/chunks/node.js:8803:39
+ ❯ TransformPluginContext.error ../../node_modules/.pnpm/vite@8.3.5_@types+node@26.6.5_yaml@2.9.1/node_modules/vite/dist/node/chunks/node.js:8800:14
+ ❯ resolveId ../../node_modules/.pnpm/vite@8.3.5_@types+node@26.6.5_yaml@2.9.1/node_modules/vite/dist/node/chunks/node.js:26594:18
+ ❯ ../../node_modules/.pnpm/vite@8.3.5_@types+node@26.6.5_yaml@2.9.1/node_modules/vite/dist/node/chunks/node.js:26693:23
+ ❯ TransformPluginContext.transform ../../node_modules/.pnpm/vite@8.3.5_@types+node@26.6.5_yaml@2.9.1/node_modules/vite/dist/node/chunks/node.js:26666:4
+ ❯ EnvironmentPluginContainer.transform ../../node_modules/.pnpm/vite@8.3.5_@types+node@26.6.5_yaml@2.9.1/node_modules/vite/dist/node/chunks/node.js:8582:14
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@8.3.5_@types+node@26.6.5_yaml@2.9.1/node_modules/vite/dist/node/chunks/node.js:20155:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 5 passed (6)
+      Tests  39 passed (39)
+   Start at  17:51:53
+   Duration  5.50s (tests 41%, environment 36%, setup 12%, import 9%, transform 1%)
+
+    Isolate  6 workers spawned · ~375ms startup each (spawn + environment, per file)
+             at least ~1.88s faster with isolate: false — reuses workers across files instead of one per file
+
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @control-rod/web@0.0.0 test: `pnpm gen:api && vitest run -- src/features/floor/themes/registry.test.ts`
+Exit status 1

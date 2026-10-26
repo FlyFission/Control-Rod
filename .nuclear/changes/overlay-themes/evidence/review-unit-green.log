@@ -1,0 +1,17 @@
+$ pnpm gen:api && vitest run
+$ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [144ms]
+
+ RUN  v5.0.5 /workspace/Control-Rod/.worktrees/overlay-themes/apps/web
+
+
+ Test Files  13 passed (13)
+      Tests  97 passed (97)
+   Start at  18:39:19
+   Duration  10.96s (environment 43%, tests 31%, setup 15%, import 7%, transform 4%, worker 1%)
+
+Environment  jsdom was created 13 times · 4.17s total, 43% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

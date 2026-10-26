@@ -1,0 +1,1504 @@
+{
+  "date": "2026-10-26T18:51:58.673Z",
+  "scope": "Synthetic 36-entity source fixture; local headless reference machine only",
+  "environment": {
+    "platform": "linux",
+    "release": "6.18.55",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "cpuCount": 3,
+    "node": "v24.19.0",
+    "browser": "156.0.8078.4",
+    "viewport": {
+      "width": 1440,
+      "height": 1200
+    },
+    "cache": "Warm frame/cached switch; fresh browser context + CDP 10 Mbps / 100 ms RTT for cold load"
+  },
+  "targets": {
+    "frameP95Ms": 33,
+    "cachedSwitchMs": 250,
+    "coldActivationMs": 2000,
+    "frameSampleSeconds": 30
+  },
+  "worlds": [
+    {
+      "id": "creature-dispatch",
+      "title": "Creature Dispatch",
+      "actors": 36,
+      "frames": 1797,
+      "frameP95Ms": 16.8,
+      "cachedSwitchMs": 113,
+      "coldActivationMs": 967,
+      "pass": true
+    },
+    {
+      "id": "pocket-lab",
+      "title": "Pocket Lab",
+      "actors": 36,
+      "frames": 1797,
+      "frameP95Ms": 16.7,
+      "cachedSwitchMs": 89,
+      "coldActivationMs": 940,
+      "pass": true
+    },
+    {
+      "id": "midnight-bureau",
+      "title": "Midnight Bureau",
+      "actors": 36,
+      "frames": 1797,
+      "frameP95Ms": 16.8,
+      "cachedSwitchMs": 134,
+      "coldActivationMs": 1008,
+      "pass": true
+    },
+    {
+      "id": "confectionery-works",
+      "title": "Confectionery Works",
+      "actors": 36,
+      "frames": 1791,
+      "frameP95Ms": 16.7,
+      "cachedSwitchMs": 111,
+      "coldActivationMs": 1005,
+      "pass": true
+    },
+    {
+      "id": "lanternwood-guild",
+      "title": "Lanternwood Guild",
+      "actors": 36,
+      "frames": 1797,
+      "frameP95Ms": 16.7,
+      "cachedSwitchMs": 106,
+      "coldActivationMs": 959,
+      "pass": true
+    },
+    {
+      "id": "corner-cafe",
+      "title": "Corner Caf\u00e9",
+      "actors": 36,
+      "frames": 1789,
+      "frameP95Ms": 16.7,
+      "cachedSwitchMs": 100,
+      "coldActivationMs": 925,
+      "pass": true
+    },
+    {
+      "id": "tumbletown-workshop",
+      "title": "Tumbletown Workshop",
+      "actors": 36,
+      "frames": 1792,
+      "frameP95Ms": 16.8,
+      "cachedSwitchMs": 91,
+      "coldActivationMs": 963,
+      "pass": true
+    },
+    {
+      "id": "orbital-shipyard",
+      "title": "Orbital Shipyard",
+      "actors": 36,
+      "frames": 1796,
+      "frameP95Ms": 16.8,
+      "cachedSwitchMs": 139,
+      "coldActivationMs": 892,
+      "pass": true
+    },
+    {
+      "id": "wildlight-camp",
+      "title": "Wildlight Research Camp",
+      "actors": 36,
+      "frames": 1795,
+      "frameP95Ms": 16.7,
+      "cachedSwitchMs": 167,
+      "coldActivationMs": 977,
+      "pass": true
+    },
+    {
+      "id": "voxel-foundry",
+      "title": "Voxel Foundry",
+      "actors": 36,
+      "frames": 1798,
+      "frameP95Ms": 16.7,
+      "cachedSwitchMs": 156,
+      "coldActivationMs": 898,
+      "pass": true
+    },
+    {
+      "id": "cloudspring-bathhouse",
+      "title": "Cloudspring Bathhouse",
+      "actors": 36,
+      "frames": 1798,
+      "frameP95Ms": 16.8,
+      "cachedSwitchMs": 127,
+      "coldActivationMs": 921,
+      "pass": true
+    },
+    {
+      "id": "button-and-spool",
+      "title": "Button & Spool",
+      "actors": 36,
+      "frames": 1793,
+      "frameP95Ms": 16.7,
+      "cachedSwitchMs": 114,
+      "coldActivationMs": 940,
+      "pass": true
+    },
+    {
+      "id": "clockwork-observatory",
+      "title": "Clockwork Observatory",
+      "actors": 36,
+      "frames": 1792,
+      "frameP95Ms": 16.8,
+      "cachedSwitchMs": 121,
+      "coldActivationMs": 1034,
+      "pass": true
+    },
+    {
+      "id": "coral-commons",
+      "title": "Coral Commons",
+      "actors": 36,
+      "frames": 1797,
+      "frameP95Ms": 16.7,
+      "cachedSwitchMs": 167,
+      "coldActivationMs": 960,
+      "pass": true
+    },
+    {
+      "id": "meadow-post",
+      "title": "Meadow Post",
+      "actors": 36,
+      "frames": 1790,
+      "frameP95Ms": 16.8,
+      "cachedSwitchMs": 90,
+      "coldActivationMs": 892,
+      "pass": true
+    }
+  ],
+  "sourceCommit": "3655b0b16d9aeb81f5fd2c6cbf0163bc59300b1b",
+  "builtFiles": [
+    {
+      "path": "assets/GeoMap-B4LsVTW_.js",
+      "sha256": "b721c1d15338de4c02efac24529e7b0fe00acc4a68bf4475b73de91039d99dbf",
+      "bytes": 149408
+    },
+    {
+      "path": "assets/GeoMap-vh-t_kPv.css",
+      "sha256": "86d3d093fad979e1d185c8a93258f5f124d863fd13ca894c0b9f50bb68b66997",
+      "bytes": 15095
+    },
+    {
+      "path": "assets/app-Dp87RYgh.js",
+      "sha256": "0136cf5b946c4c429319cb394ad0a6f4668fdc0733e59630348d74b4e0843021",
+      "bytes": 275968
+    },
+    {
+      "path": "assets/button-and-spool-Dqt1VMMp.js",
+      "sha256": "fa0fbb4cfea0837dd386492d050928e78baf11511c3fdf19daf43e17edb55b1a",
+      "bytes": 4862
+    },
+    {
+      "path": "assets/clockwork-observatory-DOu_EdEe.js",
+      "sha256": "ad0b6a7b4e261e4fed8939fd2bab0bd57f0324ed7f187f8ff540c211a439104b",
+      "bytes": 4949
+    },
+    {
+      "path": "assets/cloudspring-bathhouse-Drk8lpCK.js",
+      "sha256": "a42c17fe3257cc1f485863c65729276809900a1a6785737f8d16798cb1ac3957",
+      "bytes": 4941
+    },
+    {
+      "path": "assets/confectionery-works-CDssPzS6.js",
+      "sha256": "31fb508ebcbf9d1e0de0a36a19ad8a9a8c405e69c34aa34bded4c88b0dc27b2c",
+      "bytes": 4945
+    },
+    {
+      "path": "assets/coral-commons-B6Y33Y6j.js",
+      "sha256": "9ebf154881e047901e50b2c6e952d3299c976a43a664e28ec52bebd4f455640e",
+      "bytes": 4808
+    },
+    {
+      "path": "assets/corner-cafe-BIftXVNk.js",
+      "sha256": "8fd665c5fb848ee6a144922dd56cc0ebffaa236821fc0e161e12a821a823cf08",
+      "bytes": 4787
+    },
+    {
+      "path": "assets/creature-dispatch-C6TkCqua.js",
+      "sha256": "e4d800b8c2b4d144589cd78570b69c8fb921da4aaf1868f844e8e6a078c9cc90",
+      "bytes": 4912
+    },
+    {
+      "path": "assets/lanternwood-guild-BFcjznmE.js",
+      "sha256": "42e2869760d9c8364c2eab2bb2c24460982b5ed5e85a62fd330db51f69114bec",
+      "bytes": 4892
+    },
+    {
+      "path": "assets/meadow-post-Q7fpC5Ao.js",
+      "sha256": "41be79fe90c5ff9c5c1e96640f60a02e5b32e7c8a4e25200ea8dea9b20c54cca",
+      "bytes": 4779
+    },
+    {
+      "path": "assets/midnight-bureau-B7HEZ2pK.js",
+      "sha256": "ac77b3b43b70be9b570bd1d9e6cecd7207cd2d127bc5aa623ed1abfecace2df8",
+      "bytes": 4843
+    },
+    {
+      "path": "assets/orbital-shipyard-Bs7ivXZW.js",
+      "sha256": "e8bd0eb1557bf9597e2e7fbe052950df427e28cbfad808c2bb5c416c0f8605ec",
+      "bytes": 4862
+    },
+    {
+      "path": "assets/pocket-lab-DFAfU-q2.js",
+      "sha256": "04287f6149ea8df3e18d3ae1190ee6cf260f26825aa054019f0ccd9caaf68e91",
+      "bytes": 4795
+    },
+    {
+      "path": "assets/rolldown-runtime-XKyaHtl9.js",
+      "sha256": "548d1dbf321e7d2ae804fcc158b588706a7c52f8ca175de1490c6ccb4dbe55b7",
+      "bytes": 726
+    },
+    {
+      "path": "assets/styles-B_Q3hWCp.css",
+      "sha256": "1d69d20b04866fc94b4f5cadef81b1ecceaed3845ee8ca081a77bebb87ab2dd9",
+      "bytes": 21801
+    },
+    {
+      "path": "assets/styles-BkSQ6HJ8.js",
+      "sha256": "f0cddc0923440fd95649e5b1948406f09eb5fa6d93ea5bdd93b8b731e85ec970",
+      "bytes": 289151
+    },
+    {
+      "path": "assets/themes-ez_uoyjM.js",
+      "sha256": "188db754f3b56d5fbad79396314f6ed6fb2d490b5822e22d92b8fe1b13319a9f",
+      "bytes": 3167
+    },
+    {
+      "path": "assets/tumbletown-workshop-C4Octkn9.js",
+      "sha256": "1488dc6ab03b849c0694a75615a584daa3ad1c7266360c79faad4ff7cdc1bbe9",
+      "bytes": 4940
+    },
+    {
+      "path": "assets/voxel-foundry-ClYApNS-.js",
+      "sha256": "972bda0ad3d4f3c2994a41bf9123f987559eb87b588e3f824947ca8caaa31406",
+      "bytes": 4819
+    },
+    {
+      "path": "assets/wildlight-camp-Ce1DR_-R.js",
+      "sha256": "f43dba9de28f9ffc6e453efe61194de1405b8e7c50b79ee97e1be4d20625d672",
+      "bytes": 4854
+    },
+    {
+      "path": "floor-themes/button-and-spool/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/button-and-spool/assets.json",
+      "sha256": "b3df852692e6a97e712752ccf033d56058a2aac8d564a82f633642514bead1cd",
+      "bytes": 5324
+    },
+    {
+      "path": "floor-themes/button-and-spool/character-0.f7a773959ac2.svg",
+      "sha256": "f7a773959ac2ab64096eb9a3da0ab9e8919aaef77f9e744d04a9700492de74e1",
+      "bytes": 1231
+    },
+    {
+      "path": "floor-themes/button-and-spool/character-1.46267dd6afcd.svg",
+      "sha256": "46267dd6afcdde9464c6d25a1857fac5a3793065c17884695254a7f6e10d30f1",
+      "bytes": 1224
+    },
+    {
+      "path": "floor-themes/button-and-spool/character-2.19a807fd010f.svg",
+      "sha256": "19a807fd010f6ed753f73aa39dae33496c089771f973185157283abcf359fb46",
+      "bytes": 1247
+    },
+    {
+      "path": "floor-themes/button-and-spool/character-3.45c9ddba8a77.svg",
+      "sha256": "45c9ddba8a776e7e038ce3862c333400a5b241700e6ec8e72babfb221765a17a",
+      "bytes": 1243
+    },
+    {
+      "path": "floor-themes/button-and-spool/character-4.dcadea8350d6.svg",
+      "sha256": "dcadea8350d6ba121c613d699fff6cfd579eef5426ef15101d983a908471b772",
+      "bytes": 1225
+    },
+    {
+      "path": "floor-themes/button-and-spool/character-5.8ee5190e7a8f.svg",
+      "sha256": "8ee5190e7a8fcc2476d4455ed1cce676eb85fd33bcd1fb47c3d611a8b7147f96",
+      "bytes": 1245
+    },
+    {
+      "path": "floor-themes/button-and-spool/prop-0.c6c53f5ab7ff.svg",
+      "sha256": "c6c53f5ab7ff76eb7d62c2f7991ce5003e807a82e25e0a56cb4b44e4a9f452e8",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/button-and-spool/prop-1.40fda9e4fbe7.svg",
+      "sha256": "40fda9e4fbe74e37414251273b42b8dff95aac71f3c68b11f281746f0768eb46",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/button-and-spool/prop-2.18b67c9f09ac.svg",
+      "sha256": "18b67c9f09ac16b6bb6544289fcbf6e08bcffc6b5fcedefb48b8a02340b9d9fb",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/button-and-spool/prop-3.4f40708ec4ee.svg",
+      "sha256": "4f40708ec4ee9504c739ee0fa70f737b428545d39520679bcbd5b78484e843f1",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/button-and-spool/prop-4.46f955d80649.svg",
+      "sha256": "46f955d806496de3d521f61f9d8fab26dc273904ff67e4259dd2b15fd5156c54",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/button-and-spool/prop-5.821945754325.svg",
+      "sha256": "821945754325b8680c649b0637b6a5df85c2637432a1480bdb9dcbaff0ff5898",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/button-and-spool/scene.e635ca23671a.svg",
+      "sha256": "e635ca23671a6470a4f804ad56bcd68d5c28b6d22e843c360ffb9b728631d3f2",
+      "bytes": 7713
+    },
+    {
+      "path": "floor-themes/button-and-spool/thumbnail.027928f075a0.svg",
+      "sha256": "027928f075a0d616a31860019ad8a578cd905cf5f6fb2693cb3ce67278d361c0",
+      "bytes": 15232
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/assets.json",
+      "sha256": "ad4dd68021049549d8666aa1f91c371ca10775141f1d0c155d54363026570f99",
+      "bytes": 5337
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/character-0.0377899adf86.svg",
+      "sha256": "0377899adf86cb9c54c081df6768413f05bb088b05ee4ec156d8250822539d02",
+      "bytes": 1394
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/character-1.15d5ce735094.svg",
+      "sha256": "15d5ce735094bdb2e58bf6e4d167f247c46d6983de238b446172f24246244a03",
+      "bytes": 1396
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/character-2.d66caf4edaca.svg",
+      "sha256": "d66caf4edacaee3a52ecffa3fad296de6b1794319833588d0a88f36b3c76dd07",
+      "bytes": 1412
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/character-3.086bbf805e26.svg",
+      "sha256": "086bbf805e26479583ceb490f67389a59d0e5096e95824fb25df0414fb6da7c8",
+      "bytes": 1449
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/character-4.3f73f24803a6.svg",
+      "sha256": "3f73f24803a64a7d79286dedcbdc83c863d2c2002e67bdf24bde86f90000aaa0",
+      "bytes": 1433
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/character-5.4b55d0819712.svg",
+      "sha256": "4b55d081971234f437aba5939e543cb450ffbe5e8f96b5d8442face7f6be02c0",
+      "bytes": 1414
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/prop-0.dc735e626471.svg",
+      "sha256": "dc735e626471b6b539827575c4e901d6360859ca5291c18be4655b2107f2b2c0",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/prop-1.e134c88a943a.svg",
+      "sha256": "e134c88a943ae3d203a45040f72516c54b0a803510ecf8c6d2808893c2061eed",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/prop-2.bf9916b21018.svg",
+      "sha256": "bf9916b21018e27d8b89e1e0c17e50e03224a86eba4379634c5613676dfd8362",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/prop-3.4f06656820e9.svg",
+      "sha256": "4f06656820e9ec28c1cc26ebf7a4903e215121093ca7e9e825f1f8b6a7e77f2d",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/prop-4.b18b4a6dab5e.svg",
+      "sha256": "b18b4a6dab5e924ed7cf5cf7b8428bf2afe535c0c38dcdd28ec4660b94f19d41",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/prop-5.cf03839b80f2.svg",
+      "sha256": "cf03839b80f2875a374ba7f38e73a121ad6953d419950fec33fc721878ce01f6",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/scene.4d57ca87ec3c.svg",
+      "sha256": "4d57ca87ec3c70b86b48dedd589cc75a840b7acdd8a723b51f01ce0a17a31e20",
+      "bytes": 14390
+    },
+    {
+      "path": "floor-themes/clockwork-observatory/thumbnail.6c7c554f0551.svg",
+      "sha256": "6c7c554f0551d5efc629bd5a841726a263025e659870583e420bf7a37e4a3c2b",
+      "bytes": 22992
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/assets.json",
+      "sha256": "486c9fe7771e3eb076219a86c6bd2f98ceb666254d35540cced5fc3eb09e0c9c",
+      "bytes": 5336
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/character-0.919695f9aaf9.svg",
+      "sha256": "919695f9aaf91f5292dd6f75420f5246fc592d9e0aa9d3cc31b4fc9cd336001e",
+      "bytes": 1092
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/character-1.7e2619de6945.svg",
+      "sha256": "7e2619de6945b22f33439b93d4524bc1d884aeb009b236a8a63bcf2fd6ebfba0",
+      "bytes": 1171
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/character-2.8bdd2475f6cd.svg",
+      "sha256": "8bdd2475f6cdd9211fc4350797580a10b93dc55e2663840cc9379ac6c42d5732",
+      "bytes": 1092
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/character-3.122a9751c569.svg",
+      "sha256": "122a9751c569bec0bfff91aec0e70033c4da3fe2a14e2bb88232eaffcd02af74",
+      "bytes": 1092
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/character-4.af7109152b91.svg",
+      "sha256": "af7109152b912a89eed0d5cf83a2d7b3cc2b095380968e7549719d67411d74dd",
+      "bytes": 1102
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/character-5.c919bc71f8d6.svg",
+      "sha256": "c919bc71f8d6011d6abd934fb18c75bb72b223913e1080cb0beb35d697403899",
+      "bytes": 1165
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/prop-0.274561c5f13a.svg",
+      "sha256": "274561c5f13a8a78c43dd2fb4c68ef09a26e2c87526e31693a70ded1137ce6c4",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/prop-1.b59c8cd40497.svg",
+      "sha256": "b59c8cd404976c0d0e427c2afb85a2457dbc8b278db3b8c52ae32184042ec394",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/prop-2.b73c940f6648.svg",
+      "sha256": "b73c940f66482619d17d6224b1ad603e48ef4283dbb0b39200e715fd2de1635d",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/prop-3.d8f21f286512.svg",
+      "sha256": "d8f21f2865127a685eab181e6e35a41667a76157e3045263ad50ad237d070b72",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/prop-4.fe3629997458.svg",
+      "sha256": "fe36299974585577690c27e1984c5b782f98f6ca43a3163b0029700d58a5d210",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/prop-5.998a0a7bae4d.svg",
+      "sha256": "998a0a7bae4d41e7d2670e99b76cb5f7014890672b0a7c20088af5d909bc9d5d",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/scene.e8f5f67d334d.svg",
+      "sha256": "e8f5f67d334d2a44cd9e0e768a8a1c49d773d4d8230a2a9a22bca4f44d7a0346",
+      "bytes": 7828
+    },
+    {
+      "path": "floor-themes/cloudspring-bathhouse/thumbnail.04b232571c1c.svg",
+      "sha256": "04b232571c1cb481c8a3f57212c2732f993893eafdf453f05971b8e1d0354296",
+      "bytes": 14646
+    },
+    {
+      "path": "floor-themes/confectionery-works/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/confectionery-works/assets.json",
+      "sha256": "e26f99d8cd0bd4779e4a9bdd2118509cdc91199aee3703f94e7b6f3c853d51ba",
+      "bytes": 5332
+    },
+    {
+      "path": "floor-themes/confectionery-works/character-0.cd1d83e5e997.svg",
+      "sha256": "cd1d83e5e997a6d1c28dec09985760a4656f5db45d2f693b41a93711dc1ef5c9",
+      "bytes": 1270
+    },
+    {
+      "path": "floor-themes/confectionery-works/character-1.dcd85a8ec4b8.svg",
+      "sha256": "dcd85a8ec4b851fdd4b869ab98c05df08c1ed870c7f22dc171e708275878f22a",
+      "bytes": 1349
+    },
+    {
+      "path": "floor-themes/confectionery-works/character-2.a18af4236e32.svg",
+      "sha256": "a18af4236e32a716493a942c9c2ecc75973f0f7e4b120a9872a836e7cefc9f96",
+      "bytes": 1267
+    },
+    {
+      "path": "floor-themes/confectionery-works/character-3.e4b5a276d0db.svg",
+      "sha256": "e4b5a276d0db4991e2cddd2b9f8e28747df74d2fec67b9e48faa1f1bfe11a24d",
+      "bytes": 1270
+    },
+    {
+      "path": "floor-themes/confectionery-works/character-4.c54dd50ed9fa.svg",
+      "sha256": "c54dd50ed9faf7b4c55836831c08b78b28dee8c59ee225f4a7df2c5d4bdf1422",
+      "bytes": 1314
+    },
+    {
+      "path": "floor-themes/confectionery-works/character-5.693dcbfd599f.svg",
+      "sha256": "693dcbfd599f04c6fe834a8ef28d23a4cd525d0ad11e5ca33873b5b73625f430",
+      "bytes": 1293
+    },
+    {
+      "path": "floor-themes/confectionery-works/prop-0.f67a9624df77.svg",
+      "sha256": "f67a9624df77f2328f4767dce916d5a85330cfcbe0b3d71a10001f31f316ceab",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/confectionery-works/prop-1.8cf3b5e6773d.svg",
+      "sha256": "8cf3b5e6773d0a243b2c807a175a736b06696319f63a293e992955552ad22d5e",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/confectionery-works/prop-2.bd2e95f8f995.svg",
+      "sha256": "bd2e95f8f9954a7a6ad7f05b16ae3eb4a6585e4f875bd0fba8a4b54bab14a2d5",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/confectionery-works/prop-3.22c5132185fe.svg",
+      "sha256": "22c5132185fe40432b76ad5cc33c084c8236f42b773389d53a7c7e3813e9c48d",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/confectionery-works/prop-4.cc951f33fc19.svg",
+      "sha256": "cc951f33fc19af3d70f0929044822844e37afdde01235894b54d76519e9dd720",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/confectionery-works/prop-5.b7b81b276511.svg",
+      "sha256": "b7b81b276511fa97fb301bc27554d1787d6cb8a702a5f1a2a165d0e5fe90b56f",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/confectionery-works/scene.93607084dcfc.svg",
+      "sha256": "93607084dcfc43e3135c638d0d1d458b52d4f615e380d5e2c7fbd4561fe96420",
+      "bytes": 8946
+    },
+    {
+      "path": "floor-themes/confectionery-works/thumbnail.e5a3e666aa44.svg",
+      "sha256": "e5a3e666aa44154c70d07d63162a6b32866884689020692a5ebd3219504b0dba",
+      "bytes": 16813
+    },
+    {
+      "path": "floor-themes/coral-commons/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/coral-commons/assets.json",
+      "sha256": "5b2233192fcddbd082dbf36daa1ae165fc519201beab96671a440f7fab5ac0b4",
+      "bytes": 5315
+    },
+    {
+      "path": "floor-themes/coral-commons/character-0.7e061a2d5d5d.svg",
+      "sha256": "7e061a2d5d5d645b9303e3d3294b760ede6ed5892cf61cd3cc5dbf10b3a2ae25",
+      "bytes": 937
+    },
+    {
+      "path": "floor-themes/coral-commons/character-1.560358a0a48f.svg",
+      "sha256": "560358a0a48fd7bf9acd9d815492bb899d6262464247f67e0e348752698cbcd4",
+      "bytes": 978
+    },
+    {
+      "path": "floor-themes/coral-commons/character-2.84bbd9059c99.svg",
+      "sha256": "84bbd9059c99568729958b87155bad0c4790c85bfdf41cabd3f9ad09a526e914",
+      "bytes": 957
+    },
+    {
+      "path": "floor-themes/coral-commons/character-3.fea669d97286.svg",
+      "sha256": "fea669d972867c8c489ce0ad9bcb57ee9f855c84abad5765c11d789539528047",
+      "bytes": 993
+    },
+    {
+      "path": "floor-themes/coral-commons/character-4.9a740263290d.svg",
+      "sha256": "9a740263290dfe2ced4306f4b3683fc87bd3c4c829257ebc279fb44cd0087199",
+      "bytes": 942
+    },
+    {
+      "path": "floor-themes/coral-commons/character-5.9f418bc46ed8.svg",
+      "sha256": "9f418bc46ed896df146c62189f0a71d884b021d31b7e4e77139f2380e8c092b3",
+      "bytes": 989
+    },
+    {
+      "path": "floor-themes/coral-commons/prop-0.3129b82af857.svg",
+      "sha256": "3129b82af85779b83f0c2664639e644484ec56dfb7cafe4f9e8feb0bd0d58d8f",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/coral-commons/prop-1.261b0354d4b6.svg",
+      "sha256": "261b0354d4b64e9e1630b1851117a09209c6bd1585330c821bab6578568841d8",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/coral-commons/prop-2.d8871d6aba4d.svg",
+      "sha256": "d8871d6aba4d50fdd80a4d4a55b78962d03d42216fbbfc914338b66f21d26e07",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/coral-commons/prop-3.4703fd78eb7f.svg",
+      "sha256": "4703fd78eb7f2e5a9d41f1576003587d46e6956db59a962741009aafa6a63bd7",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/coral-commons/prop-4.f9dfd7799c57.svg",
+      "sha256": "f9dfd7799c575c4e6d63ebb0929d0f757757686c78653fb62bb2257b7923a45a",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/coral-commons/prop-5.306630ac0e6e.svg",
+      "sha256": "306630ac0e6e681bd34b93499d4e8bc9660fa0fc6f957ef719f167ab4295c62d",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/coral-commons/scene.8f5eda62c4a5.svg",
+      "sha256": "8f5eda62c4a5830a37319b9cea857b0a2a69747e77a29b9b18fcce79cff38acc",
+      "bytes": 15042
+    },
+    {
+      "path": "floor-themes/coral-commons/thumbnail.b45d9e75ffad.svg",
+      "sha256": "b45d9e75ffad708282c8d68bd1ef23711194b668c6a0d9370f0660afdd62dad1",
+      "bytes": 20942
+    },
+    {
+      "path": "floor-themes/corner-cafe/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/corner-cafe/assets.json",
+      "sha256": "77c0914084dd59b3e48e15b5e96b97186089c959d231f19e26bb5b6810766e16",
+      "bytes": 5322
+    },
+    {
+      "path": "floor-themes/corner-cafe/character-0.aaebc6257d93.svg",
+      "sha256": "aaebc6257d930a25f681995fb0c3089d79bb460646e04a49607ed49b5d671cb2",
+      "bytes": 1207
+    },
+    {
+      "path": "floor-themes/corner-cafe/character-1.708b97b17927.svg",
+      "sha256": "708b97b17927981fe92ccad03d6c7a09e9287243bb0bc704f0228bf9654de627",
+      "bytes": 1031
+    },
+    {
+      "path": "floor-themes/corner-cafe/character-2.7e1332552ea6.svg",
+      "sha256": "7e1332552ea630c559bf648bd69ff0a4d0ce9abf937faa1be2d93654ae4ba4a2",
+      "bytes": 1166
+    },
+    {
+      "path": "floor-themes/corner-cafe/character-3.184a5eefada9.svg",
+      "sha256": "184a5eefada9eb23a5fa20caebce05a06c1f180088398cc459b1cf67b420be33",
+      "bytes": 1096
+    },
+    {
+      "path": "floor-themes/corner-cafe/character-4.4d171b7ae99a.svg",
+      "sha256": "4d171b7ae99ae4944b865ba063f6ed82ac2994dcf0edca5b32731774ffb2af53",
+      "bytes": 1144
+    },
+    {
+      "path": "floor-themes/corner-cafe/character-5.aeab590cc165.svg",
+      "sha256": "aeab590cc1659a3d8ba1c81894fb497cd01f7e98097fc4047f82fe6fe31d401a",
+      "bytes": 1051
+    },
+    {
+      "path": "floor-themes/corner-cafe/prop-0.69db8a1feddb.svg",
+      "sha256": "69db8a1feddb58be9bf2f08a8e596ca77d75134ff1dc174a216651f32ba8e33b",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/corner-cafe/prop-1.07bb8fe38380.svg",
+      "sha256": "07bb8fe383809905c3fae5f9fa9a75d4aaacd5f759ab5206f7176089d06fb3c5",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/corner-cafe/prop-2.99ed69d0d730.svg",
+      "sha256": "99ed69d0d73051e5936445e67f11e6101ce08b38376d3888f384bb0fe9d13c5b",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/corner-cafe/prop-3.f2df7a462159.svg",
+      "sha256": "f2df7a462159cfb6a183d64f58617b4599f170194e462e7fae3de9a6791e2784",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/corner-cafe/prop-4.08a8eb6720a0.svg",
+      "sha256": "08a8eb6720a059a03b482eac8accb9df6c6660fa13a2ba74d97804f08effa700",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/corner-cafe/prop-5.df24f94df0f3.svg",
+      "sha256": "df24f94df0f33169757b75d107c24ce0cd5d238722a0df7f1ccff46a78ba9943",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/corner-cafe/scene.848a79f95e15.svg",
+      "sha256": "848a79f95e15eeffe3f32d2aa6d0b6397128c0cdd440f033e8dd1ab27d94038a",
+      "bytes": 27350
+    },
+    {
+      "path": "floor-themes/corner-cafe/thumbnail.88c08cc199c6.svg",
+      "sha256": "88c08cc199c608ff7f466ee8388e79bedc72e9d0f7f7a558a3f7cb4d07655fda",
+      "bytes": 34149
+    },
+    {
+      "path": "floor-themes/creature-dispatch/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/creature-dispatch/assets.json",
+      "sha256": "b86cb837e76f5f4651b693c6b350d5d5a60cd0f78874e8ab9f60d4e44fc3e416",
+      "bytes": 5328
+    },
+    {
+      "path": "floor-themes/creature-dispatch/character-0.45dcf456b899.svg",
+      "sha256": "45dcf456b899f43a94749d4aa29c998cfd8da63d06cd20022b66bbd541092a33",
+      "bytes": 1093
+    },
+    {
+      "path": "floor-themes/creature-dispatch/character-1.f861d885b157.svg",
+      "sha256": "f861d885b1579fe063c935f4e0b6d49a3e9441b67669c7651d6cc761fed4167d",
+      "bytes": 1172
+    },
+    {
+      "path": "floor-themes/creature-dispatch/character-2.5c00b2c2e866.svg",
+      "sha256": "5c00b2c2e866170991c950a72ae999baa0c830226c3411827de422697cb02940",
+      "bytes": 1090
+    },
+    {
+      "path": "floor-themes/creature-dispatch/character-3.ab0fea203357.svg",
+      "sha256": "ab0fea203357895619c81cc642508ab852914a119d32a8b50e77aa37172a8d1f",
+      "bytes": 1093
+    },
+    {
+      "path": "floor-themes/creature-dispatch/character-4.90d10593f7a3.svg",
+      "sha256": "90d10593f7a37842348f202c315b608774aa638c9c5026baece596b942a5e29e",
+      "bytes": 1137
+    },
+    {
+      "path": "floor-themes/creature-dispatch/character-5.06ee752fd605.svg",
+      "sha256": "06ee752fd605634c077682ff9cef126dd7b76810609758143b9594c40953a33a",
+      "bytes": 1116
+    },
+    {
+      "path": "floor-themes/creature-dispatch/prop-0.ac705d5d1436.svg",
+      "sha256": "ac705d5d14366a8822ce62b3c2b990e1a42229cba6c7895379af723c851b5dbb",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/creature-dispatch/prop-1.33261c5fab71.svg",
+      "sha256": "33261c5fab71cb2d21f035d963e22b5e03bad01da90caa113dcdef48e9be2758",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/creature-dispatch/prop-2.d5f7920213dd.svg",
+      "sha256": "d5f7920213ddac243123d95c9517c01ccffd36d37f030a833dd0f1b398ad294c",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/creature-dispatch/prop-3.0d3604648033.svg",
+      "sha256": "0d3604648033c012bbe023705ab598da29b02748b54c7d8e1610d84170f7c365",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/creature-dispatch/prop-4.d896ab68f5a2.svg",
+      "sha256": "d896ab68f5a2daba2e58219b4120a15de85f836793a695048ab74bfbf1812fea",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/creature-dispatch/prop-5.61be75c48183.svg",
+      "sha256": "61be75c48183cc3327078f48739a59e9fb5e61b6f89c077e21ceb3ec735107e4",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/creature-dispatch/scene.1b3244bf120b.svg",
+      "sha256": "1b3244bf120bc63ae60f8fe567414f4b7862f8b4d022fb6693f0e1735281b215",
+      "bytes": 8856
+    },
+    {
+      "path": "floor-themes/creature-dispatch/thumbnail.f30b46ffe48b.svg",
+      "sha256": "f30b46ffe48b9de18bf214a597019ce28d8cb32aa3a90ba305869e3833372f8b",
+      "bytes": 15661
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/assets.json",
+      "sha256": "01ea58629d252a5df587de92d1f86cc9ba594ed58603854b719fb641b93d771e",
+      "bytes": 5326
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/character-0.19de509f4dcc.svg",
+      "sha256": "19de509f4dcc3b4d8fde30e3528609f771049bb3047e2247b9451c1c732b604c",
+      "bytes": 1154
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/character-1.cf41150ab54f.svg",
+      "sha256": "cf41150ab54f581dbe0223aa151dc4a2d8ab8fe27a29ee55966d3019bf158fe8",
+      "bytes": 881
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/character-2.ec4c4dd7741c.svg",
+      "sha256": "ec4c4dd7741c69a306d422330a7b4d4531510d509b37449fa5ab485c557356e8",
+      "bytes": 880
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/character-3.8e97e52b5017.svg",
+      "sha256": "8e97e52b5017f35f53e826b2aa10864ddb0c4df85608aa041df2e3249f8d756e",
+      "bytes": 906
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/character-4.a788a0073a6a.svg",
+      "sha256": "a788a0073a6a51bf2ecb0d3cb3ba518b95dec292238d582580b4dca71a40834e",
+      "bytes": 1394
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/character-5.0af3ef879f20.svg",
+      "sha256": "0af3ef879f20ee72ea6316055028836d2b90bec0580a67c45e42747de11eb36a",
+      "bytes": 1167
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/prop-0.508c0530e11b.svg",
+      "sha256": "508c0530e11b6fc4f4316413537283ba38545d140d9fc9fd7667d2b77c08ad75",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/prop-1.7c9fe1a39109.svg",
+      "sha256": "7c9fe1a39109cc52abad677d4ac90a58c5437b9a9bba0667766343383d99e970",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/prop-2.e3e0afcf47c9.svg",
+      "sha256": "e3e0afcf47c9227125ceaecb3ae5cbf40bbe5585edc150d72cf0f90db5182b0e",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/prop-3.342b468b5083.svg",
+      "sha256": "342b468b5083769a02dc1e7b3274ff3d5c282940e21598e23086d354c930cf4c",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/prop-4.1ccbcd3ffe7a.svg",
+      "sha256": "1ccbcd3ffe7a72be2698010c2f248f064d13431c1bc40e8338df30717ce8e347",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/prop-5.337ecb8f2ca6.svg",
+      "sha256": "337ecb8f2ca619a90f404f3091be114271dafb20bf6891f4615d4dd25c76f9af",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/scene.5258cca6ae3e.svg",
+      "sha256": "5258cca6ae3e1f53a6e5c71e664f5383fde7cf5f7cc2357be1fe48893527328c",
+      "bytes": 10601
+    },
+    {
+      "path": "floor-themes/lanternwood-guild/thumbnail.8b478ee11f10.svg",
+      "sha256": "8b478ee11f1013b1b4328039c36e6bf989e45a9f1a13ffe738679266f9a26d6b",
+      "bytes": 17087
+    },
+    {
+      "path": "floor-themes/meadow-post/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/meadow-post/assets.json",
+      "sha256": "2b052f9e23ca44304aad906fa5cba785b6a7998cde349aac680dea84d0e8939c",
+      "bytes": 5316
+    },
+    {
+      "path": "floor-themes/meadow-post/character-0.373d90de28bf.svg",
+      "sha256": "373d90de28bf7f9530c69b5982529f0d716a6e4307490127c21f766d370a9530",
+      "bytes": 1189
+    },
+    {
+      "path": "floor-themes/meadow-post/character-1.032267c4d7d0.svg",
+      "sha256": "032267c4d7d03926f1e81e54c5eb921d8529bc8481c38c8785b2cafa8f81e214",
+      "bytes": 1177
+    },
+    {
+      "path": "floor-themes/meadow-post/character-2.e61a0dd7c221.svg",
+      "sha256": "e61a0dd7c221755ce7f0aa7240f6584618d932f183859a0dbe4de09fecbad1ef",
+      "bytes": 1188
+    },
+    {
+      "path": "floor-themes/meadow-post/character-3.32173fc3a0b5.svg",
+      "sha256": "32173fc3a0b5090142638077daeba33b681df316ea0be6e33c8d6bb0885823b6",
+      "bytes": 1284
+    },
+    {
+      "path": "floor-themes/meadow-post/character-4.050cf73ec662.svg",
+      "sha256": "050cf73ec6622a427d2b1b5491d4d4f21a40e47124d52e97bdd1e112e44a4767",
+      "bytes": 1176
+    },
+    {
+      "path": "floor-themes/meadow-post/character-5.cb51f821a3e9.svg",
+      "sha256": "cb51f821a3e980d945f78bb1baba45c2bef737890c00856c521cdc5966a974cc",
+      "bytes": 1181
+    },
+    {
+      "path": "floor-themes/meadow-post/prop-0.80a573421552.svg",
+      "sha256": "80a5734215527ada92a6cc5e1d46ac5f7f35a39dfc978af3f930583483216578",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/meadow-post/prop-1.8fa590010079.svg",
+      "sha256": "8fa59001007930c8856cf3fec9031bfc165422d6f3ff13ed68e451f9cc6256bd",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/meadow-post/prop-2.70245bbbdcce.svg",
+      "sha256": "70245bbbdccec0e8d95e03d73d3911d0bf7ac4932bbc97ce15b0da4749388dd7",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/meadow-post/prop-3.721002cf891f.svg",
+      "sha256": "721002cf891fd191503f7b5d8153189432adedfbd2fab6bd75d19af5bf4174e9",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/meadow-post/prop-4.e20e46a6bded.svg",
+      "sha256": "e20e46a6bdedcf1bace6d351de7b2f7cf9f9e4d6f66c5315644d0ce53db9e5b7",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/meadow-post/prop-5.98c39c4c3021.svg",
+      "sha256": "98c39c4c302125b05c4f470ceda44b5885b2091700d7ec8bba244b56dab77141",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/meadow-post/scene.08e8bf2973fb.svg",
+      "sha256": "08e8bf2973fb6f0a639ff576736ed44fa04aed43cfd36114d9e318a0083bacec",
+      "bytes": 9376
+    },
+    {
+      "path": "floor-themes/meadow-post/thumbnail.7910b5fcacb4.svg",
+      "sha256": "7910b5fcacb4f4b5db8c0cb8a50b68f5825f1cc8f948e469ce7b89fb5ccdf16c",
+      "bytes": 16675
+    },
+    {
+      "path": "floor-themes/midnight-bureau/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/midnight-bureau/assets.json",
+      "sha256": "e31abfc3dfb632958dd8d9456f768075f5a1b16297aab900c8b1605fd02c29ea",
+      "bytes": 5325
+    },
+    {
+      "path": "floor-themes/midnight-bureau/character-0.cb941df82ca8.svg",
+      "sha256": "cb941df82ca895d79a2825ca8f6e5347364c1db8d2cdb8a214f454e7aa801044",
+      "bytes": 1159
+    },
+    {
+      "path": "floor-themes/midnight-bureau/character-1.166bef8750ff.svg",
+      "sha256": "166bef8750ff32fd201a63b9a6c90615ac668e240bd5f7affe663d1e0253e11e",
+      "bytes": 1152
+    },
+    {
+      "path": "floor-themes/midnight-bureau/character-2.dc2ee4e798b5.svg",
+      "sha256": "dc2ee4e798b5e521862a38be6e3289652183f7df861d0c4c0d38790e3178c4e4",
+      "bytes": 1175
+    },
+    {
+      "path": "floor-themes/midnight-bureau/character-3.51f2dcbd3a94.svg",
+      "sha256": "51f2dcbd3a94361a8a63f393028189ca7a3a00e9273aad2132fc8df6782972ee",
+      "bytes": 1171
+    },
+    {
+      "path": "floor-themes/midnight-bureau/character-4.ff1f0551512c.svg",
+      "sha256": "ff1f0551512c32403403fb2817b680e9bfdb246e9b5b9bf99aca585bc1eca921",
+      "bytes": 1153
+    },
+    {
+      "path": "floor-themes/midnight-bureau/character-5.75281fe37783.svg",
+      "sha256": "75281fe377834f6d6d3c30ea2fd104ad9879d4b17fb3720a559195fc96cbbedc",
+      "bytes": 1172
+    },
+    {
+      "path": "floor-themes/midnight-bureau/prop-0.4149a6249cc3.svg",
+      "sha256": "4149a6249cc3cf956779c655a3018435c8eef636f27b6b4888ea892910583e99",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/midnight-bureau/prop-1.4663f2015de0.svg",
+      "sha256": "4663f2015de0b407686b39aee3dbb4d5e3cb65a78d00b42a54015693e56646b5",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/midnight-bureau/prop-2.6c252f3abf18.svg",
+      "sha256": "6c252f3abf187dd2b0662b3d67fb2b3ee13abbdae7e099933581bb55d86ed510",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/midnight-bureau/prop-3.b7232ba21cf8.svg",
+      "sha256": "b7232ba21cf8db3748a702f124d971396a14c5ade0722278584ae34d0da11ea2",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/midnight-bureau/prop-4.ee1173b7713a.svg",
+      "sha256": "ee1173b7713a98f381f2be342575bbeee3c7f5c00283e086e4da481dfaa3a2b0",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/midnight-bureau/prop-5.813076b4729a.svg",
+      "sha256": "813076b4729a5b5e8f6d5b113ff64e04e1952191c597209316ce09d7def2c5fe",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/midnight-bureau/scene.be65798340b2.svg",
+      "sha256": "be65798340b2c4e18d4d35db85d8ba48a9abbfcf4919e5aafb8fc3b1c10e9b33",
+      "bytes": 29198
+    },
+    {
+      "path": "floor-themes/midnight-bureau/thumbnail.fdf6974b634d.svg",
+      "sha256": "fdf6974b634d4f5a36d3f64446b2d31c9286aa00b5d1d2fcd2eb760b67a9236f",
+      "bytes": 36284
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/assets.json",
+      "sha256": "90f26345efd59097bdc1f2284d9ca9b8d14e11b2f7e4ba25cb1240745dc49374",
+      "bytes": 5327
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/character-0.f6d04fc89b08.svg",
+      "sha256": "f6d04fc89b08ffce956c52a2f827123a8b64663a799ccc1b2cb44c7d73f3c16a",
+      "bytes": 1336
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/character-1.cdea66e6482e.svg",
+      "sha256": "cdea66e6482ec6bf1590bc8d563c3916cd176c81f0bac52427c0a4cb6414c864",
+      "bytes": 1338
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/character-2.1e7dc0419f06.svg",
+      "sha256": "1e7dc0419f06c0ace454a628ea2d544efcd6823f3b2ebba090cd2d111cd88c12",
+      "bytes": 1354
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/character-3.2fb03abb554f.svg",
+      "sha256": "2fb03abb554f9acd44fc6f50f24adaf95811cf9e1f97fccb865cdf0ed1e1ed93",
+      "bytes": 1391
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/character-4.1d4bce2a6e90.svg",
+      "sha256": "1d4bce2a6e9054cf184bc8a985ea034efb3acfd51393ac58552fc1132d98ee9b",
+      "bytes": 1375
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/character-5.49e64243e2af.svg",
+      "sha256": "49e64243e2afbff33a34f3d49aca977ce1df35b7c74fc006c993ced484ab9b8f",
+      "bytes": 1356
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/prop-0.cfb65ac8e500.svg",
+      "sha256": "cfb65ac8e50094802f24f8c95a73f0dc334e44789b994d05d97e45a8d878f478",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/prop-1.9ec265f4276f.svg",
+      "sha256": "9ec265f4276f917bc6a189598789ec141fff7775ea528d9918f76dde5a718d6d",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/prop-2.273a6c21512f.svg",
+      "sha256": "273a6c21512f5b5cc60d9e2c435e7479d99ac732d32c81b08aa30ffb061c92ee",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/prop-3.a7e4f32bbe2b.svg",
+      "sha256": "a7e4f32bbe2b1a1f581dffcf5dae28928909e04b7136bd86e1f59c8147297c54",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/prop-4.3205f5e151b2.svg",
+      "sha256": "3205f5e151b27e0089ed2480d8a110f8e15c191033a27ddca62974c27979c455",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/prop-5.417782a6cc2c.svg",
+      "sha256": "417782a6cc2c179b57bced0b48a7b24df6934db226523319ba84e75b940e436b",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/scene.fd1e4fed1f1c.svg",
+      "sha256": "fd1e4fed1f1c3b78f1086a59d6c2af53898ab7cd8678f25167b6485e5cf1f09f",
+      "bytes": 15936
+    },
+    {
+      "path": "floor-themes/orbital-shipyard/thumbnail.811f84c9c861.svg",
+      "sha256": "811f84c9c86190127952ec7d3b5031c13e1f882458a4f0557a580ee1963bf2e9",
+      "bytes": 24190
+    },
+    {
+      "path": "floor-themes/pocket-lab/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/pocket-lab/assets.json",
+      "sha256": "34e59f5563d8dfc75a4663ca230bf5d6df529d0ced547f4fbb5cca604b65698b",
+      "bytes": 5314
+    },
+    {
+      "path": "floor-themes/pocket-lab/character-0.b41c05d65f55.svg",
+      "sha256": "b41c05d65f556ba961ee1fc31ff905d66bd71e101c99e505f919e049ede4cbc1",
+      "bytes": 1242
+    },
+    {
+      "path": "floor-themes/pocket-lab/character-1.7a9ff8168d24.svg",
+      "sha256": "7a9ff8168d24f35f09c85fe6e4f584cca85bcd865d4dfefe1edfb97d95916b08",
+      "bytes": 1244
+    },
+    {
+      "path": "floor-themes/pocket-lab/character-2.96f229798077.svg",
+      "sha256": "96f22979807796be117d74ddc0b4964f0f2fe1d0192aca6be6b95e794089fd11",
+      "bytes": 1260
+    },
+    {
+      "path": "floor-themes/pocket-lab/character-3.198f79139cde.svg",
+      "sha256": "198f79139cdee77fc342501dc8f99299216280584fe0b6ff68525c3f36a7ff01",
+      "bytes": 1297
+    },
+    {
+      "path": "floor-themes/pocket-lab/character-4.bffc26cdcd1e.svg",
+      "sha256": "bffc26cdcd1e11650a6e91e4a1fb71431d442c29ffa805b68ffb28e31f3c6e24",
+      "bytes": 1281
+    },
+    {
+      "path": "floor-themes/pocket-lab/character-5.512beed94c6f.svg",
+      "sha256": "512beed94c6f0bc26a4a214657d4f937ae9937430ae173af780e350ff925b621",
+      "bytes": 1262
+    },
+    {
+      "path": "floor-themes/pocket-lab/prop-0.b547512c811d.svg",
+      "sha256": "b547512c811d7fae01dafbe380a90386c5c4c78c2ea1e5874584caceab5015a3",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/pocket-lab/prop-1.52d1e7950674.svg",
+      "sha256": "52d1e7950674eeda1ef47b601b3a615757b0413d879cd7e8cb7fcc19b6a71174",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/pocket-lab/prop-2.5c73a04dd802.svg",
+      "sha256": "5c73a04dd802246960c04208e0932667258eb5028039ffda3c8ddea61e00d1ce",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/pocket-lab/prop-3.27a4833118af.svg",
+      "sha256": "27a4833118af88751a9a8e05ccdff45bebb5e4aa8d249297d260e7ac18b265bc",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/pocket-lab/prop-4.b6fb6d0e5e11.svg",
+      "sha256": "b6fb6d0e5e11c9e9d03138d30c3dc5a5c3d572c7a7fd6d42f2c9e63a4e7fd46e",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/pocket-lab/prop-5.8dc530d43be7.svg",
+      "sha256": "8dc530d43be71a4701fe0e61b0269a68eed67b8fe5c357ab5fe7db70878ee3f0",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/pocket-lab/scene.1ae44f138d3b.svg",
+      "sha256": "1ae44f138d3b3b9921ae9c85b48cf68b358abb62fcb62416ca6dc72fb46c3064",
+      "bytes": 9042
+    },
+    {
+      "path": "floor-themes/pocket-lab/thumbnail.1051427d013d.svg",
+      "sha256": "1051427d013d5b448f4a0dce64ff0adaffd639fa8a42b3800fd3323f63749e96",
+      "bytes": 16732
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/assets.json",
+      "sha256": "453b1d41de5e35bfba894a8107b206eff6ca36e3ef7fee46e8de60d2402cd5ae",
+      "bytes": 5333
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/character-0.faf1ff7db227.svg",
+      "sha256": "faf1ff7db227bda15942438c121267b29b5b0dc4593b72574167da7576a7f162",
+      "bytes": 1119
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/character-1.7a65814c367a.svg",
+      "sha256": "7a65814c367ac5ce502073dc520f2ea36371725046037787fe8196ca28db5717",
+      "bytes": 1065
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/character-2.b10d7f7b0366.svg",
+      "sha256": "b10d7f7b036613155076da48558cc3c5d3258de04081edab67634cae6d68b87a",
+      "bytes": 1147
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/character-3.52c6bcf6141b.svg",
+      "sha256": "52c6bcf6141bbc6ad4f4991513825323caaa5e257d918044d33d274471242a4c",
+      "bytes": 1066
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/character-4.5974eaebc11b.svg",
+      "sha256": "5974eaebc11bded2c29718a5f8a492109319815a258571564baa0563222b0e56",
+      "bytes": 1142
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/character-5.33497fa3c198.svg",
+      "sha256": "33497fa3c1984e72e523582423c66135483e8ee79e6e41bf74d6328a7e4d7e81",
+      "bytes": 1106
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/prop-0.eeb577acaad4.svg",
+      "sha256": "eeb577acaad4fc20c9331c23061474ad48839f9e7d2ff6539a31e4bbbe5b102c",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/prop-1.8b0ed8de7ab4.svg",
+      "sha256": "8b0ed8de7ab4f4e256a882234711e1e0e4bec852b47c4a3481fedefe58cdc534",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/prop-2.c5da32511fa6.svg",
+      "sha256": "c5da32511fa697daaf3767bbcb97dd4c7fc879d7c47145ab46ee399d0cd127cd",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/prop-3.d1fcd0d4723d.svg",
+      "sha256": "d1fcd0d4723df870d2c384a1d0cb4aed4d39d065e0aaca30c834f12750bfcdfe",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/prop-4.3afcee250936.svg",
+      "sha256": "3afcee25093684920b23dcb2c4b1697d31e38ffd185361b2cf5246ab84308cf8",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/prop-5.99a14842810e.svg",
+      "sha256": "99a14842810e313fa92d90ea8ae58272671810cf6174f22b81e768a69b2c04f4",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/scene.2b7afabbe271.svg",
+      "sha256": "2b7afabbe2713109a7f586abc898d41d343cc8416dac431319c29d35aa866f72",
+      "bytes": 10894
+    },
+    {
+      "path": "floor-themes/tumbletown-workshop/thumbnail.88c5c40a51bc.svg",
+      "sha256": "88c5c40a51bcd99d5868fefb85ddb74f221a8e12654bdd6502ebf88ae033c25c",
+      "bytes": 17643
+    },
+    {
+      "path": "floor-themes/voxel-foundry/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/voxel-foundry/assets.json",
+      "sha256": "026313b5b0ace6c949bc3569f4e027fb77c571bc232511699a21b9e1a6fd3662",
+      "bytes": 5320
+    },
+    {
+      "path": "floor-themes/voxel-foundry/character-0.59f28dfd0233.svg",
+      "sha256": "59f28dfd02335f38ea6431bc713866b0cc60eabdcfbe38498a37a2137535d71f",
+      "bytes": 1060
+    },
+    {
+      "path": "floor-themes/voxel-foundry/character-1.20c054af67e4.svg",
+      "sha256": "20c054af67e44d3f3a0f003e883937605b64cb8d3b3dd7b38765413f864382eb",
+      "bytes": 1079
+    },
+    {
+      "path": "floor-themes/voxel-foundry/character-2.d2c0ddf3e709.svg",
+      "sha256": "d2c0ddf3e7098abe9a46da65950f01da403958051c54985b798333e10013630e",
+      "bytes": 1108
+    },
+    {
+      "path": "floor-themes/voxel-foundry/character-3.b9eedae45141.svg",
+      "sha256": "b9eedae45141bf95d91395c52093a2f1162d64df71efeb0a314cf2eb433b43a4",
+      "bytes": 1072
+    },
+    {
+      "path": "floor-themes/voxel-foundry/character-4.5ec72dc326c4.svg",
+      "sha256": "5ec72dc326c4343c8e0a97814a7d053983042a0f02c86a60d74ac75908ef6180",
+      "bytes": 1089
+    },
+    {
+      "path": "floor-themes/voxel-foundry/character-5.c703a66a5435.svg",
+      "sha256": "c703a66a543568c0752bb7be3b20e1c532c56ad552f413f733829ba32064f74b",
+      "bytes": 1126
+    },
+    {
+      "path": "floor-themes/voxel-foundry/prop-0.84c6c03092b1.svg",
+      "sha256": "84c6c03092b11e31370fc84517bc3ff4031afbce9dabcfd7ce0e697f111727b3",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/voxel-foundry/prop-1.4520bacb0abe.svg",
+      "sha256": "4520bacb0abe414efeff5aa570ba339e943d2dad4b76e023947a12124a410830",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/voxel-foundry/prop-2.1ea00d4d7283.svg",
+      "sha256": "1ea00d4d7283fc554784884e3b2ce33efde5f941bdd09592cd2363cbdd609f44",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/voxel-foundry/prop-3.0d91b0bc86ce.svg",
+      "sha256": "0d91b0bc86ce2acf9ba533e62bf68a9cc0e0634e41d57e819fd68eb2fbe78268",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/voxel-foundry/prop-4.015e14e3ca3f.svg",
+      "sha256": "015e14e3ca3ffa230eb3a97e4a4e82cb3f291889dc4520ed6246655c97df887b",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/voxel-foundry/prop-5.71ab29b0c82b.svg",
+      "sha256": "71ab29b0c82b281b7a15de5b317554a314d9fa4e5f937e22b942736ff9cc6247",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/voxel-foundry/scene.2638c0ccd75d.svg",
+      "sha256": "2638c0ccd75df2966417c02a7ee77402f0bc7da833a23560d715145172320103",
+      "bytes": 8910
+    },
+    {
+      "path": "floor-themes/voxel-foundry/thumbnail.85afb47d4fe0.svg",
+      "sha256": "85afb47d4fe0c6107ac97ef33306838d1945634d6082f232b38c315f9277fe27",
+      "bytes": 15548
+    },
+    {
+      "path": "floor-themes/wildlight-camp/NOTICE.txt",
+      "sha256": "c360563504a81f10bd76176a899c85f993c638262d549a78b7c60a6eb8a11e51",
+      "bytes": 236
+    },
+    {
+      "path": "floor-themes/wildlight-camp/assets.json",
+      "sha256": "e51416d98b79060d85d7ebe6a3ecdac3ae6cf9433700ff85a0dc040285c1faba",
+      "bytes": 5331
+    },
+    {
+      "path": "floor-themes/wildlight-camp/character-0.f7e572001d03.svg",
+      "sha256": "f7e572001d036a3b0d48d1d7a6aaf2d5647105df73eb8e9b4245197969831a25",
+      "bytes": 1348
+    },
+    {
+      "path": "floor-themes/wildlight-camp/character-1.c6d326117ae4.svg",
+      "sha256": "c6d326117ae4c783683e7bd808cefd4bc498537af81742a885ea70447d4d2f1a",
+      "bytes": 1336
+    },
+    {
+      "path": "floor-themes/wildlight-camp/character-2.5905a979d1af.svg",
+      "sha256": "5905a979d1afb47286bcbe8b7bb8e2bb160475710f12926be3e7ad6c48754775",
+      "bytes": 1347
+    },
+    {
+      "path": "floor-themes/wildlight-camp/character-3.abbbb7145f62.svg",
+      "sha256": "abbbb7145f6248a3b3a3b2a609bd9a93663db4b43109dcb151635db3a97708c3",
+      "bytes": 1443
+    },
+    {
+      "path": "floor-themes/wildlight-camp/character-4.ffa09f21d199.svg",
+      "sha256": "ffa09f21d1992688eb61ef697d9f2c0cf095c07b3138d0615da496218f90d230",
+      "bytes": 1335
+    },
+    {
+      "path": "floor-themes/wildlight-camp/character-5.b60a9c0f2dea.svg",
+      "sha256": "b60a9c0f2deafdc27e66461303da94b77c913ade025d2cb5122e0787cf17e459",
+      "bytes": 1340
+    },
+    {
+      "path": "floor-themes/wildlight-camp/prop-0.81412948e4ab.svg",
+      "sha256": "81412948e4abc76c55cfd5c54fd9623175f3a2ce09e225e705212e33e7126865",
+      "bytes": 324
+    },
+    {
+      "path": "floor-themes/wildlight-camp/prop-1.7e9df5c833f4.svg",
+      "sha256": "7e9df5c833f43e71625124aa86087fb7d53d18c7536b4aad4e78f99d158945fe",
+      "bytes": 342
+    },
+    {
+      "path": "floor-themes/wildlight-camp/prop-2.4acbddefe745.svg",
+      "sha256": "4acbddefe745526f3335c24af6f3f8548bef67344fd5b95e5fd955f907bf3089",
+      "bytes": 369
+    },
+    {
+      "path": "floor-themes/wildlight-camp/prop-3.80048b7a2f98.svg",
+      "sha256": "80048b7a2f98dfcaa135bfcc1b84b50d445e6248ed9ab3a327a3db1d5de34726",
+      "bytes": 391
+    },
+    {
+      "path": "floor-themes/wildlight-camp/prop-4.6b9c07f908e2.svg",
+      "sha256": "6b9c07f908e201f12d88bdad2cd4105ac4a286609af33b5e19293374fa388c03",
+      "bytes": 358
+    },
+    {
+      "path": "floor-themes/wildlight-camp/prop-5.40ecea0b298a.svg",
+      "sha256": "40ecea0b298a40e6040bd13b4c7827541f43d5d513d5e8e4d2433c4395e879c0",
+      "bytes": 361
+    },
+    {
+      "path": "floor-themes/wildlight-camp/scene.32975d9a3300.svg",
+      "sha256": "32975d9a33000f3db371415321c36e903d86754f132309a3575bc8edf6628723",
+      "bytes": 9133
+    },
+    {
+      "path": "floor-themes/wildlight-camp/thumbnail.631d68d73001.svg",
+      "sha256": "631d68d7300177c9bef8117bdb27b53cf5d0266b0276748c21fb35b66c443562",
+      "bytes": 17386
+    },
+    {
+      "path": "index.html",
+      "sha256": "e70a3d8884664a3c058f6c03a928ba2776bc3d4f6ded0c45e0da456f3888cae8",
+      "bytes": 849
+    },
+    {
+      "path": "themes.html",
+      "sha256": "66fd0bcbd8a256338e053a7c63bdfe789c8bb11f61f9d37780ded26685f29b11",
+      "bytes": 630
+    }
+  ],
+  "summary": {
+    "packs": 15,
+    "maxFrameP95Ms": 16.8,
+    "maxCachedSwitchMs": 167,
+    "maxColdActivationMs": 1034
+  }
+}

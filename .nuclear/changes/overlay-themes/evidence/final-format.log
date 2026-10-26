@@ -1,0 +1,34 @@
+apps/web/src/features/floor/data.test.tsx 97ms (unchanged)
+apps/web/src/features/floor/floor.css 80ms
+apps/web/src/features/floor/FloorActor.tsx 25ms (unchanged)
+apps/web/src/features/floor/FloorList.tsx 7ms (unchanged)
+apps/web/src/features/floor/FloorScene.tsx 19ms
+apps/web/src/features/floor/FloorToolbar.tsx 14ms (unchanged)
+apps/web/src/features/floor/freshness.ts 6ms (unchanged)
+apps/web/src/features/floor/gallery.test.tsx 9ms (unchanged)
+apps/web/src/features/floor/layout.ts 5ms (unchanged)
+apps/web/src/features/floor/LegacyFloor.tsx 22ms (unchanged)
+apps/web/src/features/floor/motion.test.tsx 6ms (unchanged)
+apps/web/src/features/floor/motion.ts 3ms (unchanged)
+apps/web/src/features/floor/paging.ts 5ms (unchanged)
+apps/web/src/features/floor/preferences.test.tsx 7ms (unchanged)
+apps/web/src/features/floor/preferences.ts 6ms
+apps/web/src/features/floor/project.ts 28ms
+apps/web/src/features/floor/projection.test.ts 21ms
+apps/web/src/features/floor/render.test.tsx 13ms (unchanged)
+apps/web/src/features/floor/showcase-data.ts 9ms (unchanged)
+apps/web/src/features/floor/ThemedFloor.tsx 46ms
+apps/web/src/features/floor/ThemeErrorBoundary.tsx 5ms (unchanged)
+apps/web/src/features/floor/ThemeGallery.tsx 16ms (unchanged)
+apps/web/src/features/floor/types.ts 6ms (unchanged)
+apps/web/src/features/floor/useFloorData.ts 11ms
+apps/web/src/features/floor/useFloorMotion.ts 6ms
+apps/web/src/features/floor/useFloorPreferences.ts 3ms
+apps/web/src/lib/live.ts 7ms
+apps/web/vite.config.ts 7ms
+apps/web/playwright.config.ts 2ms
+apps/web/src/themes-demo.tsx 6ms
+apps/web/e2e/floor-fixtures.ts 8ms
+apps/web/e2e/floor-themes.spec.ts 30ms
+apps/web/e2e/legacy-floor.spec.ts 3ms
+apps/web/e2e/release-distribution.spec.ts 2ms

@@ -1,6 +1,6 @@
 # Risk: interchangeable visual overlay themes
 
-Date: 2026-10-25. Mode: documentation-only planning; planned implementation is a standard frontend change with asset/distribution review.
+Date: 2026-10-26. Mode: standard frontend/asset implementation after user approval. Initial planning was delivered 2026-10-25; actual technical results and remaining human/public-release decisions are in verification.md and ship.md.
 
 | Risk | Planned control | Evidence / stop condition |
 |---|---|---|

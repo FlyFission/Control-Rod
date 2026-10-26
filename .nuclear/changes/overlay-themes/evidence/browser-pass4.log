@@ -1,0 +1,27 @@
+[WebServer] (node:4345) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:4360) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ python3 ../../tools/check_theme_assets.py --root ../..
+[WebServer] (node:4376) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:4391) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:4420) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:4447) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:4461) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 3 tests using 1 worker
+
+(node:4485) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/floor-themes.spec.ts:4:1 › all fifteen worlds switch without changing work and reduced motion stays still (7.0s)
+  ✓  2 e2e/floor-themes.spec.ts:18:1 › gallery keyboard, focus return, list fallback and accessibility (2.4s)
+  ✓  3 e2e/floor-themes.spec.ts:30:1 › real route limits package queries and marks failed detail coverage (2.0s)
+
+  3 passed (19.0s)

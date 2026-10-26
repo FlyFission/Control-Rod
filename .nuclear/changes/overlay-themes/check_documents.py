@@ -16,7 +16,7 @@ def main():
     spec = root / "docs/superpowers/specs/2026-10-25-overlay-themes-design.md"
     catalog = root / "docs/superpowers/specs/2026-10-25-overlay-themes-catalog.md"
     plan = root / "docs/superpowers/plans/2026-10-25-overlay-themes.md"
-    files = sorted(packet.glob("*.md")) + [spec, catalog, plan, root / "docs/README.md"]
+    files = sorted(packet.glob("*.md")) + [spec, catalog, plan, root / "docs/README.md", root / 'docs/overlay-themes/user-guide.md', root / 'docs/overlay-themes/asset-workflow.md']
     errors = []
     for path in files:
         content = path.read_text()

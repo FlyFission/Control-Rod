@@ -298,3 +298,7 @@ type FloorPreferencesV1 = {
 ## Planning completion and handoff
 
 This plan deliberately leaves every implementation checkbox unchecked. Source inspection, document validation and builder review are planning evidence only. The next engineering milestone is the shared engine plus first two complete packs, followed by Midnight Bureau; completing all fifteen also requires the art pipeline and individual release evidence. Review the proposed defaults and exact artwork/attribution posture before execution. A native sequential implementation is a reasonable default because the tasks share projection, pack and renderer contracts; no execution method has been selected by the user.
+
+## Execution record, 2026-10-26
+
+The user approved execution. Native implementation, source commits, observed failed-first regressions, final review disposition, retained evidence and remaining manual/public-release gates are recorded in [the execution ledger](../../../.nuclear/changes/overlay-themes/execution.md). The checkboxes above preserve the original runbook, not current progress; consult the ledger for executed task status.

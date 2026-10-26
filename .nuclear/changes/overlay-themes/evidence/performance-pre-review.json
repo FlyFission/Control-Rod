@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-26T18:30:04.220Z",
+  "scope": "Synthetic 36-entity source fixture; local headless reference machine only",
+  "environment": {
+    "platform": "linux",
+    "release": "6.18.55",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "cpuCount": 3,
+    "node": "v24.19.0",
+    "browser": "156.0.8078.4",
+    "viewport": {
+      "width": 1440,
+      "height": 1200
+    },
+    "cache": "Warm frame/cached switch; fresh browser context + CDP 10 Mbps / 100 ms RTT for cold load"
+  },
+  "targets": {
+    "frameP95Ms": 33,
+    "cachedSwitchMs": 250,
+    "coldActivationMs": 2000,
+    "frameSampleSeconds": 30
+  },
+  "worlds": [
+    {
+      "id": "creature-dispatch",
+      "title": "Creature Dispatch",
+      "actors": 36,
+      "frames": 1797,
+      "frameP95Ms": 16.8,
+      "cachedSwitchMs": 140,
+      "coldActivationMs": 1002,
+      "pass": true
+    },
+    {
+      "id": "pocket-lab",
+      "title": "Pocket Lab",
+      "actors": 36,
+      "frames": 1800,
+      "frameP95Ms": 16.7,
+      "cachedSwitchMs": 111,
+      "coldActivationMs": 960,
+      "pass": true
+    },
+    {
+      "id": "midnight-bureau",
+      "title": "Midnight Bureau",
+      "actors": 36,
+      "frames": 1799,
+      "frameP95Ms": 16.8,
+      "cachedSwitchMs": 158,
+      "coldActivationMs": 1096,
+      "pass": true
+    },
+    {
+      "id": "confectionery-works",
+      "title": "Confectionery Works",
+      "actors": 36,
+      "frames": 1800,
+      "frameP95Ms": 16.7,
+      "cachedSwitchMs": 113,
+      "coldActivationMs": 961,
+      "pass": true
+    }
+  ]
+}

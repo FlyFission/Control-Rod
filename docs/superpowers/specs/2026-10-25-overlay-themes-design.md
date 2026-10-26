@@ -1,6 +1,6 @@
 # Interchangeable visual overlay themes: specification
 
-Date: 2026-10-25. Status: proposed design for review; no implementation or asset clearance claimed.
+Date: 2026-10-25. Status: approved for implementation by the user on 2026-10-26. See the execution ledger for observed implementation status; asset/public-release clearance remains separate.
 
 Companions: [catalog](2026-10-25-overlay-themes-catalog.md), [implementation plan](../plans/2026-10-25-overlay-themes.md), [change basis](../../../.nuclear/changes/overlay-themes/basis.md).
 

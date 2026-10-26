@@ -1,0 +1,113 @@
+[WebServer] (node:2343) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:2358) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:2373) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:2402) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [plugin builtin:vite-reporter] 
+[WebServer] (!) Some chunks are larger than 500 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer] (node:2429) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:2443) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 3 tests using 1 worker
+
+(node:2467) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 6:07:21 PM [vite] http proxy error: /auth/session
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1339:18)
+[WebServer]     at afterConnectMultiple (node:net:1942:7)
+[WebServer] 6:07:22 PM [vite] http proxy error: /auth/session
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1339:18)
+[WebServer]     at afterConnectMultiple (node:net:1942:7)
+  ✘  1 e2e/floor-themes.spec.ts:4:1 › all fifteen worlds switch without changing work and reduced motion stays still (5.4s)
+(node:2544) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] 6:07:27 PM [vite] http proxy error: /auth/session
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1339:18)
+[WebServer]     at afterConnectMultiple (node:net:1942:7)
+[WebServer] 6:07:28 PM [vite] http proxy error: /auth/session
+[WebServer] AggregateError [ECONNREFUSED]: 
+[WebServer]     at internalConnectMultiple (node:net:1339:18)
+[WebServer]     at afterConnectMultiple (node:net:1942:7)
+  ✘  2 e2e/floor-themes.spec.ts:18:1 › gallery keyboard, focus return, list fallback and accessibility (1.0m)
+(node:2815) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 e2e/floor-themes.spec.ts:30:1 › real route limits package queries and marks failed detail coverage (1.9s)
+
+
+  1) e2e/floor-themes.spec.ts:4:1 › all fifteen worlds switch without changing work and reduced motion stays still 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Preview — sample activity. This is a demonstration, not live work.')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByText('Preview — sample activity. This is a demonstration, not live work.') with timeout 5000ms
+      - waiting for getByText('Preview — sample activity. This is a demonstration, not live work.')
+
+
+      4 | test('all fifteen worlds switch without changing work and reduced motion stays still',async({page})=>{
+      5 |  await page.goto('/themes.html');
+    > 6 |  await expect(page.getByText('Preview — sample activity. This is a demonstration, not live work.')).toBeVisible();
+        |                                                                                                     ^
+      7 |  for(const name of ['Creature Dispatch','Pocket Lab','Midnight Bureau','Confectionery Works','Lanternwood Guild','Corner Café','Tumbletown Workshop','Orbital Shipyard','Wildlight Research Camp','Voxel Foundry','Cloudspring Bathhouse','Button & Spool','Clockwork Observatory','Coral Commons','Meadow Post']){
+      8 |   await page.getByRole('button',{name:/Theme Plain Floor|Theme /}).first().click();
+      9 |   await page.getByRole('button',{name:`Use ${name} theme`,exact:true}).click();
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/floor-themes.spec.ts:6:101
+
+    Error Context: test-results/floor-themes-all-fifteen-w-0b701--reduced-motion-stays-still/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/floor-themes-all-fifteen-w-0b701--reduced-motion-stays-still/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/floor-themes-all-fifteen-w-0b701--reduced-motion-stays-still/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) e2e/floor-themes.spec.ts:18:1 › gallery keyboard, focus return, list fallback and accessibility 
+
+    Test timeout of 60000ms exceeded.
+
+    Error: apiRequestContext._wrapApiCall: ENOENT: no such file or directory, copyfile '/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/test-results/.playwright-artifacts-1/traces/7bc25a8900dc1252fd94-ad5f755aafa7ef370c48-recording1.network' -> '/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/test-results/.playwright-artifacts-1/traces/7bc25a8900dc1252fd94-ad5f755aafa7ef370c48-recording1-pwnetcopy-1.network'
+
+    Error: browserContext._wrapApiCall: ENOENT: no such file or directory, copyfile '/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/test-results/.playwright-artifacts-1/traces/7bc25a8900dc1252fd94-ad5f755aafa7ef370c48.network' -> '/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/test-results/.playwright-artifacts-1/traces/7bc25a8900dc1252fd94-ad5f755aafa7ef370c48-pwnetcopy-1.network'
+
+    Error: locator.click: Test ended.
+    Call log:
+      - waiting for getByRole('button', { name: /Theme Plain Floor/ })
+
+
+      18 | test('gallery keyboard, focus return, list fallback and accessibility',async({page})=>{
+      19 |  await page.goto('/themes.html');
+    > 20 |  const trigger=page.getByRole('button',{name:/Theme Plain Floor/});await trigger.click();
+         |                                                                                  ^
+      21 |  await expect(page.getByRole('dialog')).toBeVisible();
+      22 |  expect((await new AxeBuilder({page}).include('.floor-gallery').analyze()).violations).toEqual([]);
+      23 |  await page.keyboard.press('Escape');await expect(trigger).toBeFocused();
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/floor-themes.spec.ts:20:82
+
+    Error: ENOENT: no such file or directory, open '/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/test-results/.playwright-artifacts-1/06c1c87fa3460561e9ca418b027ad584.zip'
+
+  2 failed
+    e2e/floor-themes.spec.ts:4:1 › all fifteen worlds switch without changing work and reduced motion stays still 
+    e2e/floor-themes.spec.ts:18:1 › gallery keyboard, focus return, list fallback and accessibility 
+  1 passed (1.3m)
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test

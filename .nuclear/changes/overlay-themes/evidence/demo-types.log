@@ -1,0 +1,4 @@
+$ pnpm gen:api && tsc -p tsconfig.json --noEmit
+$ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [133.6ms]

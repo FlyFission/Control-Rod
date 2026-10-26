@@ -1,7 +1,7 @@
 # Basis: interchangeable visual overlay themes
 
 - Date: 2026-10-25 (America/New_York).
-- Status: specification and plan only; product implementation is not claimed.
+- Initial delivery: specification and plan, 2026-10-25. Execution subsequently authorized below.
 - User authorization: “Build out the full specification and plan.”
 - Scope anchor: fifteen interchangeable beautiful worlds; begin with Monsters/Minion influences, then Ocean's Eleven; preserve strong creative influences and consider factual “inspired by” references without treating them as legal clearance.
 - Observed implementation baseline: `buildout/controlled-preparation-20261023` at `465b084a04c6a99bb80c29aa890146eea5a55bd1`.
@@ -32,3 +32,9 @@ Theme changes never change the work, its evidence or authority. Every visible st
 ## Exit criterion
 
 A source-grounded, internally consistent, reviewed specification and task plan, with fifteen concrete art briefs, source limitations and future acceptance tests stated honestly.
+
+## Execution authorization, 2026-10-26
+
+The user approved the documents and instructed: **“I love it. Go ahead and execute this out to completion.”** This supersedes the initial documentation-only boundary for this frontend/asset implementation. It does not claim human approval of artwork not yet created, a third-party license, protected-surface changes, or authorization to merge/publish/deploy.
+
+Implementation is isolated on `feat/overlay-themes`, forked from `41d2d0b` (the observed executable buildout plus the planning packet and workspace ignores). The execution ledger, final checks and remaining release decisions are recorded in [execution](execution.md), [verification](verification.md) and [ship](ship.md). The earlier proposed defaults became the implementation basis when the user approved the complete plan. New rulings and the final review fix pass are disclosed in the execution record.

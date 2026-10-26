@@ -51,7 +51,10 @@ function Showcase() {
         page={page}
         onPageChange={setPage}
         onOpen={setOpened}
-        allowDrafts
+        allowDrafts={
+          import.meta.env.DEV ||
+          import.meta.env.VITE_FLOOR_THEME_DRAFTS === "true"
+        }
         sample
       />
       {opened && (

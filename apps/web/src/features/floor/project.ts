@@ -96,12 +96,14 @@ function runEntity(p: WorkPackage, r: Run, conflict = false): FloorEntity {
     label,
     detail: conflict
       ? "Conflicting records for this run"
-      : (r.waiting_reason ?? r.error ?? r.label ?? ""),
+      : label === "Status unavailable"
+        ? `Unrecognized status or role: ${r.status} / ${r.role}`
+        : (r.waiting_reason ?? r.error ?? r.label ?? ""),
     station,
     action,
     mark,
     attentionRank: rank,
-    variant: variantForRun(r.id),
+    ...(label === "Status unavailable" ? {} : { variant: variantForRun(r.id) }),
   };
 }
 const time = (r: Run) =>
@@ -146,6 +148,14 @@ export function projectFloor(input: FloorInput): FloorModel {
       if (
         r.status === "queued" ||
         r.status === "running" ||
+        !["succeeded", "failed", "stopped", "lost"].includes(r.status) ||
+        ![
+          "intake",
+          "author",
+          "pre-check",
+          "requirements-preparer",
+          "technical-preparer",
+        ].includes(r.role) ||
         conflicts.has(r.id)
       )
         entities.push(runEntity(p, r, conflicts.has(r.id)));
@@ -228,6 +238,30 @@ export function projectFloor(input: FloorInput): FloorModel {
       if (summary) warnings.push(`${p.id}: ${summary}`);
     }
   }
+  const owners = new Map<string, Set<string>>();
+  for (const e of entities)
+    if (e.kind === "run" && e.runId) {
+      const set = owners.get(e.runId) ?? new Set<string>();
+      set.add(`${e.packageId}:${e.revision}`);
+      owners.set(e.runId, set);
+    }
+  for (const [runId, set] of owners)
+    if (set.size > 1) {
+      const detail = `Conflicting run ID ${runId} across ${[...set].sort().join(", ")}. Open the source package for details.`;
+      warnings.push(detail);
+      for (const e of entities)
+        if (e.runId === runId) {
+          e.id = `conflict:${e.packageId}:${e.revision}:${e.id}`;
+          e.sourceState = "unknown";
+          e.label = "Status unavailable";
+          e.detail = detail;
+          e.action = "idle";
+          e.mark = "idle";
+          e.station = "bench";
+          e.attentionRank = 0;
+          delete e.variant;
+        }
+    }
   const dedup = new Map(entities.map((e) => [e.id, e]));
   return {
     entities: [...dedup.values()].sort((a, b) =>

@@ -6,19 +6,26 @@ export const DEFAULT_PREFERENCES: FloorPreferencesV1 = {
   motion: "full",
   view: "scene",
 };
+export function isFloorPreferenceRecord(
+  value: unknown,
+): value is FloorPreferencesV1 {
+  if (!value || typeof value !== "object") return false;
+  const p = value as FloorPreferencesV1;
+  return (
+    p.schemaVersion === 1 &&
+    typeof p.themeId === "string" &&
+    /^[a-z-]{1,80}$/.test(p.themeId) &&
+    ["full", "quiet", "still"].includes(p.motion) &&
+    ["scene", "list"].includes(p.view)
+  );
+}
 export function parseFloorPreferences(
   raw: string | null,
   fallback: FloorPreferencesV1 = DEFAULT_PREFERENCES,
 ): FloorPreferencesV1 {
   try {
     const p = JSON.parse(raw ?? "null") as FloorPreferencesV1;
-    if (
-      p?.schemaVersion === 1 &&
-      typeof p.themeId === "string" &&
-      /^[a-z-]{1,80}$/.test(p.themeId) &&
-      ["full", "quiet", "still"].includes(p.motion) &&
-      ["scene", "list"].includes(p.view)
-    )
+    if (isFloorPreferenceRecord(p))
       return {
         schemaVersion: 1,
         themeId: p.themeId,

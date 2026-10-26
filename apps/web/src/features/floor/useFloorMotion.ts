@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { FloorEntity, MotionMode, FloorHealth } from "./types.js";
 import { effectiveMotion, submissionTransitions } from "./motion.js";
+import { LIVE_GAP_EVENT } from "../../lib/live.js";
 export function useDocumentVisible() {
   const [visible, setVisible] = useState(
     () => document.visibilityState !== "hidden",
@@ -25,6 +26,7 @@ export function useFloorMotion({
   sceneVisible: boolean;
   resetKey: string;
 }) {
+  const documentVisible = useDocumentVisible();
   const [reduced, setReduced] = useState(
     () =>
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
@@ -36,7 +38,12 @@ export function useFloorMotion({
     q.addEventListener("change", update);
     return () => q.removeEventListener("change", update);
   }, []);
-  const mode = effectiveMotion(requested, reduced, sceneVisible, health);
+  const mode = effectiveMotion(
+    requested,
+    reduced,
+    sceneVisible && documentVisible,
+    health,
+  );
   const previous = useRef<ReadonlyMap<string, string>>(new Map());
   const baseline = useRef("");
   const [submittingIds, setSubmittingIds] = useState<ReadonlySet<string>>(
@@ -44,7 +51,15 @@ export function useFloorMotion({
   );
   const signature = entities.map((e) => `${e.id}:${e.sourceState}`).join("|");
   useEffect(() => {
-    const healthy = health === "healthy" && sceneVisible;
+    const gap = () => {
+      baseline.current = "";
+      setSubmittingIds(new Set());
+    };
+    window.addEventListener(LIVE_GAP_EVENT, gap);
+    return () => window.removeEventListener(LIVE_GAP_EVENT, gap);
+  }, []);
+  useEffect(() => {
+    const healthy = health === "healthy" && sceneVisible && documentVisible;
     const key = healthy ? resetKey : "";
     const ids = submissionTransitions(
       previous.current,
@@ -56,6 +71,6 @@ export function useFloorMotion({
     setSubmittingIds(new Set(mode === "still" ? [] : ids));
     const t = setTimeout(() => setSubmittingIds(new Set()), 1200);
     return () => clearTimeout(t);
-  }, [signature, resetKey, health, sceneVisible, mode]);
+  }, [signature, resetKey, health, sceneVisible, documentVisible, mode]);
   return { mode, submittingIds };
 }

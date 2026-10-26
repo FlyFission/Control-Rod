@@ -40,7 +40,7 @@ export function FloorWorkbench({
   allowDrafts?: boolean;
   sample?: boolean;
 }) {
-  const { preferences, update } = useFloorPreferences();
+  const { preferences, update, externalDecision } = useFloorPreferences();
   const [pack, setPack] = useState<ThemePackV1>(PLAIN_THEME),
     [gallery, setGallery] = useState(false),
     [error, setError] = useState(""),
@@ -93,7 +93,12 @@ export function FloorWorkbench({
   useEffect(() => {
     if (preferences.themeId !== active.current.id)
       void activate(preferences.themeId, false);
-  }, [preferences.themeId, activate]);
+    else {
+      generation.current++;
+      setLoading("");
+      setGallery(false);
+    }
+  }, [preferences.themeId, externalDecision, activate]);
   useEffect(() => {
     const el = container.current;
     if (!el) return;

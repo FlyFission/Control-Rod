@@ -70,7 +70,7 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "director desk",
       "bench": "lounge"
     },
-    "thumbnail": "/floor-themes/midnight-bureau/thumbnail.48c70811abf8.svg"
+    "thumbnail": "/floor-themes/midnight-bureau/thumbnail.fdf6974b634d.svg"
   },
   {
     "id": "confectionery-works",
@@ -118,7 +118,7 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "guild steward",
       "bench": "travelers' rest"
     },
-    "thumbnail": "/floor-themes/lanternwood-guild/thumbnail.10c990153471.svg"
+    "thumbnail": "/floor-themes/lanternwood-guild/thumbnail.8b478ee11f10.svg"
   },
   {
     "id": "corner-cafe",
@@ -142,7 +142,7 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "host's desk",
       "bench": "lounge nook"
     },
-    "thumbnail": "/floor-themes/corner-cafe/thumbnail.c44adaf582cc.svg"
+    "thumbnail": "/floor-themes/corner-cafe/thumbnail.88c08cc199c6.svg"
   },
   {
     "id": "tumbletown-workshop",
@@ -286,7 +286,7 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "workshop lead",
       "bench": "pincushion rest"
     },
-    "thumbnail": "/floor-themes/button-and-spool/thumbnail.03af8cc00a5d.svg"
+    "thumbnail": "/floor-themes/button-and-spool/thumbnail.027928f075a0.svg"
   },
   {
     "id": "clockwork-observatory",

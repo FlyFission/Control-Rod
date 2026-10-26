@@ -1,0 +1,16 @@
+$ python3 .nuclear/changes/overlay-themes/check_documents.py --write-inventory
+Checked 10 Markdown files, 15 pack IDs, 15 requirement/scenario pairs, 13 tasks.
+PASS: local links, catalog, requirement coverage, task sequence, unchecked status and whitespace.
+Wrote evidence/document-inventory.json with actual SHA-256 hashes.
+Exit: 0
+
+$ git diff --check
+Exit: 0
+
+$ git status --short
+ M docs/README.md
+?? .nuclear/changes/overlay-themes/
+?? docs/superpowers/plans/2026-10-25-overlay-themes.md
+?? docs/superpowers/specs/2026-10-25-overlay-themes-catalog.md
+?? docs/superpowers/specs/2026-10-25-overlay-themes-design.md
+Exit: 0

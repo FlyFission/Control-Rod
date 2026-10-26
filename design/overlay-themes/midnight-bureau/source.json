@@ -1,0 +1,12 @@
+{
+  "packId": "midnight-bureau",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#172A3A",
+    "#CDB78F",
+    "#735743",
+    "#F0E8DB"
+  ],
+  "status": "draft",
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

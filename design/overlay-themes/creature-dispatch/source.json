@@ -1,0 +1,12 @@
+{
+  "packId": "creature-dispatch",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#78C5AF",
+    "#60476E",
+    "#F4D79A",
+    "#20323D"
+  ],
+  "status": "draft",
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

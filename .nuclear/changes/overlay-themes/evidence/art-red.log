@@ -1,0 +1,58 @@
+
+ RUN  v5.0.5 /workspace/Control-Rod/.worktrees/overlay-themes/apps/web
+
+ ❯ src/features/floor/themes/pack-conformance.test.ts (15 tests | 15 failed) 19ms
+   × has complete passive artwork for Creature Dispatch 8ms
+   × has complete passive artwork for Pocket Lab 1ms
+   × has complete passive artwork for Midnight Bureau 0ms
+   × has complete passive artwork for Confectionery Works 0ms
+   × has complete passive artwork for Lanternwood Guild 0ms
+   × has complete passive artwork for Corner Café 0ms
+   × has complete passive artwork for Tumbletown Workshop 0ms
+   × has complete passive artwork for Orbital Shipyard 0ms
+   × has complete passive artwork for Wildlight Research Camp 0ms
+   × has complete passive artwork for Voxel Foundry 0ms
+   × has complete passive artwork for Cloudspring Bathhouse 0ms
+   × has complete passive artwork for Button & Spool 0ms
+   × has complete passive artwork for Clockwork Observatory 0ms
+   × has complete passive artwork for Coral Commons 0ms
+   × has complete passive artwork for Meadow Post 0ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 15 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Creature Dispatch
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Pocket Lab
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Midnight Bureau
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Confectionery Works
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Lanternwood Guild
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Corner Café
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Tumbletown Workshop
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Orbital Shipyard
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Wildlight Research Camp
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Voxel Foundry
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Cloudspring Bathhouse
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Button & Spool
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Clockwork Observatory
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Coral Commons
+ FAIL  src/features/floor/themes/pack-conformance.test.ts > has complete passive artwork for Meadow Post
+Error: Artwork is still in development.
+ ❯ loadTheme src/features/floor/themes/registry.ts:32:56
+     30|  const entry=getThemeEntry(id);if(!entry)throw new Error('Unknown them…
+     31|  if(!allowDrafts)throw new Error('This theme has no public release app…
+     32|  const load=loaders[`./packs/${id}.ts`];if(!load)throw new Error('Artw…
+       |                                                        ^
+     33|  const p=(await load()).default;if(!validateThemePack(p))throw new Err…
+     34|  return p;
+ ❯ src/features/floor/themes/pack-conformance.test.ts:4:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/15]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  15 failed (15)
+   Start at  18:00:21
+   Duration  639ms (environment 64%, setup 22%, transform 7%, tests 4%, import 1%, worker 1%)
+
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run src/features/floor/themes/pack-conformance.test.ts

@@ -1,0 +1,20 @@
+{
+  "packId": "voxel-foundry",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#C27C60",
+    "#4B9790",
+    "#DDCCAA",
+    "#34404C"
+  ],
+  "status": "draft",
+  "props": [
+    "modular arch",
+    "crane hook",
+    "design tile",
+    "measure block",
+    "component tray",
+    "toolbox"
+  ],
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

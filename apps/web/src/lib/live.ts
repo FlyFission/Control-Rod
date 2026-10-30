@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { CrEvent } from "../api/types.js";
+export const LIVE_GAP_EVENT = "cr:live-gap";
 
 /**
  * Subscribes to the event stream and refreshes whatever the new event touches. Batches bursts
@@ -17,9 +18,17 @@ export function useLiveEvents(enabled: boolean): void {
 
     const flush = () => {
       timer = undefined;
-      for (const s of subjects) void qc.invalidateQueries({ queryKey: ["package", s] });
+      for (const s of subjects)
+        void qc.invalidateQueries({ queryKey: ["package", s] });
       subjects.clear();
-      for (const key of ["packages", "office", "metrics", "events", "captures", "views"]) {
+      for (const key of [
+        "packages",
+        "office",
+        "metrics",
+        "events",
+        "captures",
+        "views",
+      ]) {
         void qc.invalidateQueries({ queryKey: [key] });
       }
     };
@@ -27,7 +36,8 @@ export function useLiveEvents(enabled: boolean): void {
     const onMessage = (msg: MessageEvent<string>) => {
       try {
         const ev = JSON.parse(msg.data) as CrEvent;
-        if (typeof ev.subject === "string") subjects.add(ev.subject.split("/")[0] ?? ev.subject);
+        if (typeof ev.subject === "string")
+          subjects.add(ev.subject.split("/")[0] ?? ev.subject);
         // Run events name the run as their subject and carry the package in their data.
         const pkg = (ev.data as { package?: unknown } | undefined)?.package;
         if (typeof pkg === "string") subjects.add(pkg);
@@ -40,10 +50,15 @@ export function useLiveEvents(enabled: boolean): void {
     // After a dropped connection the stream does not replay what was missed, so refresh everything.
     let opened = false;
     const onOpen = () => {
-      if (opened) void qc.invalidateQueries();
+      if (opened) {
+        window.dispatchEvent(new Event(LIVE_GAP_EVENT));
+        void qc.invalidateQueries();
+      }
       opened = true;
     };
+    const onError = () => window.dispatchEvent(new Event(LIVE_GAP_EVENT));
     source.addEventListener("open", onOpen);
+    source.addEventListener("error", onError);
     source.addEventListener("message", onMessage);
     source.addEventListener("event", onMessage as EventListener);
     return () => {
@@ -55,5 +70,7 @@ export function useLiveEvents(enabled: boolean): void {
 
 /** True while the tab is visible, so animations and polling can rest when it is not. */
 export function isVisible(): boolean {
-  return typeof document === "undefined" || document.visibilityState !== "hidden";
+  return (
+    typeof document === "undefined" || document.visibilityState !== "hidden"
+  );
 }

@@ -1,0 +1,20 @@
+{
+  "packId": "corner-cafe",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#A75F4E",
+    "#93A58E",
+    "#D9AD65",
+    "#F0E7D8"
+  ],
+  "status": "draft",
+  "props": [
+    "notebook",
+    "coffee cup",
+    "folder",
+    "drawing roll",
+    "desk lamp",
+    "book cart"
+  ],
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

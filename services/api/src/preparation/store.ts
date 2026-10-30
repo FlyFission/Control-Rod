@@ -2,7 +2,8 @@ import { refreshInputPins } from "./inputs.js";
 import { captureInput, resolveBasis } from "./basis.js";
 import { randomUUID } from "node:crypto";
 import type { Ajv2020 } from "ajv/dist/2020.js";
-import { type Db, type Tx, tx } from "../db/index.js";
+import { type Db, type Tx, readTx } from "../db/index.js";
+import { command } from "../commands/executor.js";
 import { type Actor, appendEvent } from "../events.js";
 import { digest } from "../kernel.js";
 import {
@@ -71,16 +72,24 @@ export async function lockedPackage(c: Tx, id: string): Promise<PackageRow> {
   if (!p) throw new Refusal(404, "not-found", "No such package");
   return p;
 }
+/** The current package row inside a read only snapshot, without a row lock (the reader cannot lock). */
+export async function snapshotPackage(c: Tx, id: string): Promise<PackageRow> {
+  const p = await currentPackage(c, id, false);
+  if (!p) throw new Refusal(404, "not-found", "No such package");
+  return p;
+}
 function editable(p: PackageRow) {
   if (p.status !== "draft")
     throw new Refusal(409, "wrong-state", "Preparation can only edit a draft");
 }
+/** The current preparation snapshot. Writers lock the head; read only snapshots cannot and need not. */
 export async function head(
   c: Tx,
   id: string,
+  lock = true,
 ): Promise<PreparationSnapshot | null> {
   const r = await c.query<{ body: PreparationSnapshot }>(
-    "select s.body from preparation_heads h join preparation_snapshots s on s.preparation_id=h.preparation_id and s.revision=h.revision where h.package_id=$1 for update of h",
+    `select s.body from preparation_heads h join preparation_snapshots s on s.preparation_id=h.preparation_id and s.revision=h.revision where h.package_id=$1${lock ? " for update of h" : ""}`,
     [id],
   );
   return r.rows[0]?.body ?? null;
@@ -201,7 +210,7 @@ export async function enrollPreparation(
   id: string,
   request: { package_revision: number; idempotency_key: string },
 ) {
-  return tx(db, (c) => enrollPreparationTx(c, cfg, actor(user), id, request));
+  return command(db, "preparation.enroll", (c) => enrollPreparationTx(c, cfg, actor(user), id, request));
 }
 /** Intake shares its existing transaction; automatic drafts carry a system actor, never a human confirmation. */
 export async function enrollPreparationTx(
@@ -322,9 +331,9 @@ export async function readPreparation(
   id: string,
   cfg: ReadConfig = {},
 ): Promise<PreparationView> {
-  return tx(db, async (c) => {
-    const p = await lockedPackage(c, id);
-    const s = await head(c, id);
+  return readTx(db, async (c) => {
+    const p = await snapshotPackage(c, id);
+    const s = await head(c, id, false);
     if (!s)
       throw new Refusal(404, "not-enrolled", "This package has no preparation");
     return view(c, s, p, cfg);
@@ -481,7 +490,7 @@ export async function editPreparation(
   expected: string | undefined,
 ) {
   validate(cfg, "PreparationContent.json", content);
-  return tx(db, async (c) => {
+  return command(db, "preparation.edit", async (c) => {
     const p = await lockedPackage(c, id);
     editable(p);
     const prev = await head(c, id);
@@ -503,7 +512,7 @@ export async function resolvePreparation(
   validate(cfg, "ResolutionRequest.json", request);
   if (!request.rationale.trim())
     throw new Refusal(400, "invalid", "Give the reason for this resolution");
-  return tx(db, async (c) => {
+  return command(db, "preparation.resolve", async (c) => {
     const p = await lockedPackage(c, id);
     editable(p);
     const prev = await head(c, id);
@@ -566,9 +575,9 @@ export async function preparationHistory(
       "invalid",
       "History limit is 1–50 and before is a nonnegative revision",
     );
-  return tx(db, async (c) => {
-    const p = await lockedPackage(c, id);
-    if (!(await head(c, id)))
+  return readTx(db, async (c) => {
+    const p = await snapshotPackage(c, id);
+    if (!(await head(c, id, false)))
       throw new Refusal(404, "not-enrolled", "This package has no preparation");
     const rows = (
       await c.query<{ body: PreparationSnapshot }>(
@@ -633,7 +642,7 @@ export async function refreshPreparationBasis(
   id: string,
   expected: string | undefined,
 ) {
-  return tx(db, async (c) => {
+  return command(db, "preparation.refresh-basis", async (c) => {
     const p = await lockedPackage(c, id);
     editable(p);
     const previous = await head(c, id);

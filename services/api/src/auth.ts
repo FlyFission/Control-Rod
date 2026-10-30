@@ -8,7 +8,8 @@ import {
   type RegistrationResponseJSON,
 } from "@simplewebauthn/server";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { type Db, tx } from "./db/index.js";
+import type { Db } from "./db/index.js";
+import { command } from "./commands/executor.js";
 import { recordRegistration } from "./tenancy.js";
 
 export interface AuthConfig {
@@ -32,12 +33,14 @@ export async function isRegistered(db: Db): Promise<boolean> {
 }
 
 async function storeChallenge(db: Db, challenge: string, purpose: string, data: object) {
-  await db.query("delete from challenges where expires_at < now()");
-  await db.query(
-    `insert into challenges (challenge, purpose, data, expires_at)
-     values ($1, $2, $3, now() + interval '${CHALLENGE_MINUTES} minutes')`,
-    [challenge, purpose, data],
-  );
+  await command(db, "auth.challenge-issue", async (c) => {
+    await c.query("delete from challenges where expires_at < now()");
+    await c.query(
+      `insert into challenges (challenge, purpose, data, expires_at)
+       values ($1, $2, $3, now() + interval '${CHALLENGE_MINUTES} minutes')`,
+      [challenge, purpose, data],
+    );
+  });
 }
 
 /** Takes a challenge exactly once. A replayed or expired challenge returns nothing. */
@@ -46,9 +49,11 @@ export async function takeChallenge(
   challenge: string,
   purpose: string,
 ): Promise<Record<string, unknown> | null> {
-  const r = await db.query<{ data: Record<string, unknown> }>(
-    "delete from challenges where challenge = $1 and purpose = $2 and expires_at > now() returning data",
-    [challenge, purpose],
+  const r = await command(db, "auth.challenge-consume", (c) =>
+    c.query<{ data: Record<string, unknown> }>(
+      "delete from challenges where challenge = $1 and purpose = $2 and expires_at > now() returning data",
+      [challenge, purpose],
+    ),
   );
   return r.rows[0]?.data ?? null;
 }
@@ -89,7 +94,7 @@ export async function registrationVerify(db: Db, cfg: AuthConfig, body: Registra
   if (!result.verified) return null;
   const info = result.registrationInfo;
   const { credential } = info;
-  await tx(db, async (c) => {
+  await command(db, "auth.register-credential", async (c) => {
     await c.query(
       "insert into credentials (id, user_name, public_key, counter, transports) values ($1, $2, $3, $4, $5)",
       [credential.id, String(data.name), Buffer.from(credential.publicKey), credential.counter, credential.transports ?? []],
@@ -164,15 +169,19 @@ export async function assertionVerify(
     return null;
   }
   if (!result.verified) return null;
-  await db.query("update credentials set counter = $2 where id = $1", [row.id, result.authenticationInfo.newCounter]);
+  await command(db, "auth.record-assertion", (c) =>
+    c.query("update credentials set counter = $2 where id = $1", [row.id, result.authenticationInfo.newCounter]),
+  );
   return { user: row.user_name, data };
 }
 
 export async function startSession(db: Db, reply: FastifyReply, user: string) {
   const token = b64url(randomBytes(32));
-  await db.query(
-    `insert into sessions (token_hash, user_name, expires_at) values ($1, $2, now() + interval '${SESSION_DAYS} days')`,
-    [sha256(token), user],
+  await command(db, "auth.session-start", (c) =>
+    c.query(
+      `insert into sessions (token_hash, user_name, expires_at) values ($1, $2, now() + interval '${SESSION_DAYS} days')`,
+      [sha256(token), user],
+    ),
   );
   reply.setCookie(SESSION_COOKIE, token, {
     path: "/",
@@ -185,7 +194,7 @@ export async function startSession(db: Db, reply: FastifyReply, user: string) {
 
 export async function endSession(db: Db, request: FastifyRequest, reply: FastifyReply) {
   const token = request.cookies[SESSION_COOKIE];
-  if (token) await db.query("delete from sessions where token_hash = $1", [sha256(token)]);
+  if (token) await command(db, "auth.session-end", (c) => c.query("delete from sessions where token_hash = $1", [sha256(token)]));
   reply.clearCookie(SESSION_COOKIE, { path: "/" });
 }
 

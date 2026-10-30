@@ -34,7 +34,7 @@ const owner = (
   });
 async function fresh() {
   const p = { ...packageFixture(), id: `WP-${randomUUID()}` };
-  await h.db.query(
+  await h.admin.query(
     "insert into packages(id,revision,status,body) values($1,0,'draft',$2)",
     [p.id, p],
   );

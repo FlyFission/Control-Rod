@@ -211,7 +211,7 @@ describe.skipIf(!tools)(
       const directory = mkdtempSync(join(tmpdir(), "controlrod-restore-")),
         backup = join(directory, "fixture.dump");
       const restoredName = `cr_restore_${randomUUID().replaceAll("-", "")}`;
-      await f.h.db.query(`create database ${restoredName}`);
+      await f.h.admin.query(`create database ${restoredName}`);
       const restoredURL = new URL(connection);
       restoredURL.pathname = `/${restoredName}`;
       const restored = new pg.Pool({
@@ -330,7 +330,7 @@ describe.skipIf(!tools)(
       } finally {
         await app?.close();
         await restored.end();
-        await f.h.db.query(`drop database if exists ${restoredName}`);
+        await f.h.admin.query(`drop database if exists ${restoredName}`);
         rmSync(directory, { recursive: true, force: true });
       }
     }, 120_000);

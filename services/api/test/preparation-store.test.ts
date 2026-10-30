@@ -22,7 +22,7 @@ beforeAll(async () => {
 afterAll(async () => h?.stop());
 async function fresh() {
   const p = { ...packageFixture(), id: `WP-${randomUUID()}` };
-  await h.db.query(
+  await h.admin.query(
     "insert into packages(id,revision,status,body) values($1,0,'draft',$2)",
     [p.id, p],
   );
@@ -85,7 +85,7 @@ describe("immutable preparation storage", () => {
     expect(history.revisions[1]!.snapshot).toEqual(v.snapshot);
     expect((await readPreparation(h.db, p.id)).snapshot.revision).toBe(1);
     await expect(
-      h.db.query(
+      h.admin.query(
         "update preparation_snapshots set body='{}' where preparation_id=$1",
         [v.snapshot.id],
       ),
@@ -169,7 +169,7 @@ describe("immutable preparation storage", () => {
       });
     const a = preparationContent(v.snapshot);
     a.context.problem = "rolled back";
-    await h.db.query(
+    await h.admin.query(
       "create function reject_prep_event() returns trigger language plpgsql as $$ begin if new.body->>'type'='preparation.edited' then raise exception 'simulated event failure'; end if; return new; end $$; create trigger reject_prep_event before insert on events for each row execute function reject_prep_event()",
     );
     try {
@@ -177,7 +177,7 @@ describe("immutable preparation storage", () => {
         editPreparation(h.db, cfg, "owner", p.id, a, etag(v)),
       ).rejects.toThrow(/simulated event failure/);
     } finally {
-      await h.db.query(
+      await h.admin.query(
         "drop trigger reject_prep_event on events; drop function reject_prep_event()",
       );
     }
@@ -190,7 +190,7 @@ describe("immutable preparation storage", () => {
         package_revision: 0,
         idempotency_key: "request-1",
       });
-    const reopened = new pg.Pool(h.db.options);
+    const reopened = new pg.Pool(h.admin.options);
     try {
       await migrate(reopened);
       expect((await readPreparation(reopened, p.id)).snapshot).toEqual(
@@ -202,7 +202,7 @@ describe("immutable preparation storage", () => {
   });
   it("upgrades an existing legacy schema without altering package bytes", async () => {
     const schema = `upgrade_${randomUUID().replaceAll("-", "")}`;
-    await h.db.query(`create schema ${schema}`);
+    await h.admin.query(`create schema ${schema}`);
     const old = new pg.Pool({
       ...h.db.options,
       options: `-c search_path=${schema}`,
@@ -222,30 +222,30 @@ describe("immutable preparation storage", () => {
       ).toEqual(p);
     } finally {
       await old.end();
-      await h.db.query(`drop schema ${schema} cascade`);
+      await h.admin.query(`drop schema ${schema} cascade`);
     }
   });
   it("applies migrations once and refuses checksum drift and unknown future migrations", async () => {
-    await migrate(h.db);
-    await migrate(h.db);
+    await migrate(h.admin);
+    await migrate(h.admin);
     expect((await h.db.query("select * from schema_migrations")).rowCount).toBe(
       MIGRATIONS.length,
     );
     await expect(
       migrate(
-        h.db,
+        h.admin,
         MIGRATIONS.map((m, i) =>
           i === 0 ? { ...m, sql: m.sql + "\n-- drift" } : m,
         ),
       ),
     ).rejects.toThrow(/checksum/);
-    await h.db.query(
+    await h.admin.query(
       "insert into schema_migrations(version,checksum) values('999-future','unknown')",
     );
     try {
-      await expect(migrate(h.db)).rejects.toThrow(/newer|unknown/);
+      await expect(migrate(h.admin)).rejects.toThrow(/newer|unknown/);
     } finally {
-      await h.db.query(
+      await h.admin.query(
         "delete from schema_migrations where version='999-future'",
       );
     }

@@ -27,15 +27,20 @@ export default defineConfig(({ mode }) => {
     (process.env["VITE_FLOOR_THEME_DRAFTS"] ??
       loadEnv(mode, process.cwd(), "VITE_")["VITE_FLOOR_THEME_DRAFTS"]) ===
     "true";
+  let outDir = resolve("dist");
   return {
     plugins: [
       react(),
       {
         name: "floor-art-distribution",
         apply: "build",
+        configResolved(config) {
+          // Honour --outDir and build.outDir instead of assuming dist.
+          outDir = resolve(config.root, config.build.outDir);
+        },
         closeBundle() {
           const publicRoot = resolve("public"),
-            out = resolve("dist");
+            out = outDir;
           if (!existsSync(publicRoot)) return;
           for (const name of readdirSync(publicRoot))
             if (name !== "floor-themes")

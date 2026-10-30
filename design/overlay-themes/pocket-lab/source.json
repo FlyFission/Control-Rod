@@ -8,5 +8,13 @@
     "#253440"
   ],
   "status": "draft",
+  "props": [
+    "blueprint",
+    "coil",
+    "caliper",
+    "sample tray",
+    "work lamp",
+    "small trolley"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

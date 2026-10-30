@@ -192,7 +192,7 @@ Browser matrix: current stable Chrome/Edge, Firefox and Safari desktop; mobile S
 
 ## 11. Rollout, completion and proposed defaults
 
-Wave A: Creature Dispatch and Pocket Lab plus engine. Wave B: Midnight Bureau; stabilize the common primitives before increasing pack count. Wave C: Confectionery Works, Lanternwood Guild, Corner Café, Tumbletown Workshop. Wave D: Orbital Shipyard, Wildlight Research Camp, Voxel Foundry. Wave E: Cloudspring Bathhouse, Button & Spool, Clockwork Observatory, Coral Commons, Meadow Post. Fifteen is the target catalog, not a claim they can all ship in one engineering pass.
+Wave A: The Monster Mailroom and Little Helpers Laboratory plus engine. Wave B: Heist Night; stabilize the common primitives before increasing pack count. Wave C: The Chocolate Factory, The Lantern Woods Guild, The Coffee House Crew, Tumbletown Rhyme Works. Wave D: Starport Shipyard, Critter Expedition Camp, Blockworks Foundry. Wave E: The Spirit Bathhouse, Thimble Town, Clockwork Stargazers, Reef Town, Cozy Critter Village. Fifteen is the target catalog, not a claim they can all ship in one engineering pass.
 
 Use static Vite build configuration `VITE_FLOOR_THEMES_ENABLED` (default `false`) and a reviewed static release allowlist. `false` preserves legacy Floor/list behavior; preferences remain harmless. To roll back an individual pack remove it from allowlist and rebuild; its saved ID falls back gracefully. Assets use content hashes; a descriptor version change with modified bytes invalidates the prior release record. No server data rollback exists because the feature writes none.
 

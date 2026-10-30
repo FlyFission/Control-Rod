@@ -3,8 +3,8 @@ export default {
   "schemaVersion": 1,
   "id": "tumbletown-workshop",
   "version": "0.1.0",
-  "title": "Tumbletown Workshop",
-  "description": "Impossible little inventions in a town that never learned to draw a straight line.",
+  "title": "Tumbletown Rhyme Works",
+  "description": "Impossible machines that somehow pass inspection.",
   "moodTags": [
     "Whimsical"
   ],
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/tumbletown-workshop/thumbnail.88c5c40a51bc.svg",
-      "sha256": "88c5c40a51bcd99d5868fefb85ddb74f221a8e12654bdd6502ebf88ae033c25c",
-      "bytes": 17643,
+      "path": "/floor-themes/tumbletown-workshop/thumbnail.2b66af9cef87.svg",
+      "sha256": "2b66af9cef87f87c5bcb14c34b101650588bb584f938a6f026459469a472d1bc",
+      "bytes": 17742,
       "width": 800,
       "height": 480,
       "creator": "Codex \u2014 original procedural vector illustration",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/tumbletown-workshop/character-0.faf1ff7db227.svg",
-        "sha256": "faf1ff7db227bda15942438c121267b29b5b0dc4593b72574167da7576a7f162",
-        "bytes": 1119,
+        "path": "/floor-themes/tumbletown-workshop/character-0.6f0a3ac9a263.svg",
+        "sha256": "6f0a3ac9a263781398e69ddedcffa7cb34de82329bae4aac0e201ff065fe039f",
+        "bytes": 1139,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/tumbletown-workshop/character-1.7a65814c367a.svg",
-        "sha256": "7a65814c367ac5ce502073dc520f2ea36371725046037787fe8196ca28db5717",
-        "bytes": 1065,
+        "path": "/floor-themes/tumbletown-workshop/character-1.47e43cf4f0ab.svg",
+        "sha256": "47e43cf4f0ab668ea622c3e77ac1c4cd48ca6f57fa3b8a426778db76dbd4805e",
+        "bytes": 1085,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/tumbletown-workshop/character-2.b10d7f7b0366.svg",
-        "sha256": "b10d7f7b036613155076da48558cc3c5d3258de04081edab67634cae6d68b87a",
-        "bytes": 1147,
+        "path": "/floor-themes/tumbletown-workshop/character-2.98dbf41098f2.svg",
+        "sha256": "98dbf41098f2d27c067ea786e6c8b91a70a4a58156beb51075ac8a0caaa216fc",
+        "bytes": 1167,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/tumbletown-workshop/character-3.52c6bcf6141b.svg",
-        "sha256": "52c6bcf6141bbc6ad4f4991513825323caaa5e257d918044d33d274471242a4c",
-        "bytes": 1066,
+        "path": "/floor-themes/tumbletown-workshop/character-3.70288f6550cc.svg",
+        "sha256": "70288f6550ccdce43f4ed63b5b747d74837e28aca57338981ce56b9cdb4796c6",
+        "bytes": 1086,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/tumbletown-workshop/character-4.5974eaebc11b.svg",
-        "sha256": "5974eaebc11bded2c29718a5f8a492109319815a258571564baa0563222b0e56",
-        "bytes": 1142,
+        "path": "/floor-themes/tumbletown-workshop/character-4.bafc2a7c7d53.svg",
+        "sha256": "bafc2a7c7d537927bd6087868b745c5314bb0ab088f156ad1330d0a299273dba",
+        "bytes": 1162,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/tumbletown-workshop/character-5.33497fa3c198.svg",
-        "sha256": "33497fa3c1984e72e523582423c66135483e8ee79e6e41bf74d6328a7e4d7e81",
-        "bytes": 1106,
+        "path": "/floor-themes/tumbletown-workshop/character-5.6d0c3aaac2eb.svg",
+        "sha256": "6d0c3aaac2ebe0fb8c113ffd36addff3baaec1a49d4cbdaf11db934fe2d2d0f5",
+        "bytes": 1105,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -102,9 +102,9 @@ export default {
     ],
     "props": {
       "prop-0": {
-        "path": "/floor-themes/tumbletown-workshop/prop-0.eeb577acaad4.svg",
-        "sha256": "eeb577acaad4fc20c9331c23061474ad48839f9e7d2ff6539a31e4bbbe5b102c",
-        "bytes": 324,
+        "path": "/floor-themes/tumbletown-workshop/prop-0.27a4b01596a6.svg",
+        "sha256": "27a4b01596a6c38a6315f47417334cbbf8989cd1b012b9f935c240adf72853ae",
+        "bytes": 544,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -112,9 +112,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-1": {
-        "path": "/floor-themes/tumbletown-workshop/prop-1.8b0ed8de7ab4.svg",
-        "sha256": "8b0ed8de7ab4f4e256a882234711e1e0e4bec852b47c4a3481fedefe58cdc534",
-        "bytes": 342,
+        "path": "/floor-themes/tumbletown-workshop/prop-1.43423623a375.svg",
+        "sha256": "43423623a3754961b8fc5efb66f22ef5aa167e32b5fb1b102ce179a0ef9e5fbe",
+        "bytes": 402,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -122,9 +122,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-2": {
-        "path": "/floor-themes/tumbletown-workshop/prop-2.c5da32511fa6.svg",
-        "sha256": "c5da32511fa697daaf3767bbcb97dd4c7fc879d7c47145ab46ee399d0cd127cd",
-        "bytes": 369,
+        "path": "/floor-themes/tumbletown-workshop/prop-2.56a63b4937ce.svg",
+        "sha256": "56a63b4937ce76b542d68a16d98f686cd43071d2f4632e5742f5d631e49b762a",
+        "bytes": 400,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -132,9 +132,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-3": {
-        "path": "/floor-themes/tumbletown-workshop/prop-3.d1fcd0d4723d.svg",
-        "sha256": "d1fcd0d4723df870d2c384a1d0cb4aed4d39d065e0aaca30c834f12750bfcdfe",
-        "bytes": 391,
+        "path": "/floor-themes/tumbletown-workshop/prop-3.5e0815b163c5.svg",
+        "sha256": "5e0815b163c5cc275015458c2a0ca3156f4fc5b7e2d031d91f7dd36921cc83ea",
+        "bytes": 404,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -142,9 +142,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-4": {
-        "path": "/floor-themes/tumbletown-workshop/prop-4.3afcee250936.svg",
-        "sha256": "3afcee25093684920b23dcb2c4b1697d31e38ffd185361b2cf5246ab84308cf8",
-        "bytes": 358,
+        "path": "/floor-themes/tumbletown-workshop/prop-4.7403786c7609.svg",
+        "sha256": "7403786c7609f319bbe0e050f32c876c9e04a4fba8f057d251f3fb9eec689b27",
+        "bytes": 395,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -152,9 +152,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-5": {
-        "path": "/floor-themes/tumbletown-workshop/prop-5.99a14842810e.svg",
-        "sha256": "99a14842810e313fa92d90ea8ae58272671810cf6174f22b81e768a69b2c04f4",
-        "bytes": 361,
+        "path": "/floor-themes/tumbletown-workshop/prop-5.3cc7cef0b300.svg",
+        "sha256": "3cc7cef0b3008dc20ce432292706d5be42b1bbae1dbc477cb7955fdc790916e7",
+        "bytes": 400,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",

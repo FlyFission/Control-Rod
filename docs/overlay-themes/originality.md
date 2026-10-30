@@ -22,11 +22,11 @@ Use plain descriptive words, then make them vivid with our own invention.
 
 Stable world IDs never change; display names and taglines may be refined.
 
-## Display name proposal (for owner choice)
+## Display names
 
-Current titles are already generic. These alternatives push the fun further while staying on the line. Pick per world; IDs are unchanged.
+Adopted 2026-10-30 at the owner's direction. Earlier working titles were already generic; these push the fun further while staying on the line. IDs are unchanged.
 
-| ID | Current title | Proposed display name | Tagline |
+| ID | Former working title | Display name | Tagline |
 |---|---|---|---|
 | `confectionery-works` | Confectionery Works | **The Chocolate Factory** | Where every package gets a candy-coated inspection. |
 | `midnight-bureau` | Midnight Bureau | **Heist Night** | A crew of specialists, one careful plan, zero surprises. |

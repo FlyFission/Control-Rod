@@ -15,7 +15,7 @@ test("release build excludes the draft demo and unapproved public artwork", asyn
   await page.locator(".floor-theme-trigger").click();
   await expect(
     page.getByRole("button", {
-      name: "Use Creature Dispatch theme",
+      name: "Use The Monster Mailroom theme",
       exact: true,
     }),
   ).toBeDisabled();

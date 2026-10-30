@@ -8,5 +8,13 @@
     "#20323D"
   ],
   "status": "draft",
+  "props": [
+    "parcel capsule",
+    "routing card",
+    "desk stamp",
+    "trolley",
+    "magnifier",
+    "tool pouch"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

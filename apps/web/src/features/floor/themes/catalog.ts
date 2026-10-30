@@ -2,8 +2,8 @@ import type { ThemeRegistryEntry } from "./types.js";
 export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
   {
     "id": "creature-dispatch",
-    "title": "Creature Dispatch",
-    "description": "An extraordinary crew keeps your work moving through a lively dispatch depot.",
+    "title": "The Monster Mailroom",
+    "description": "Big, gentle creatures who never lose a parcel.",
     "moodTags": [
       "Whimsical"
     ],
@@ -22,12 +22,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "supervisor window",
       "bench": "waiting platform"
     },
-    "thumbnail": "/floor-themes/creature-dispatch/thumbnail.f30b46ffe48b.svg"
+    "thumbnail": "/floor-themes/creature-dispatch/thumbnail.5c8d36975d06.svg"
   },
   {
     "id": "pocket-lab",
-    "title": "Pocket Lab",
-    "description": "Small inventors, oversized equipment, and a laboratory full of personality.",
+    "title": "Little Helpers Laboratory",
+    "description": "Tiny inventors, enormous equipment.",
     "moodTags": [
       "Whimsical"
     ],
@@ -46,12 +46,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "lead scientist desk",
       "bench": "charging nook"
     },
-    "thumbnail": "/floor-themes/pocket-lab/thumbnail.1051427d013d.svg"
+    "thumbnail": "/floor-themes/pocket-lab/thumbnail.d8e7b87947ac.svg"
   },
   {
     "id": "midnight-bureau",
-    "title": "Midnight Bureau",
-    "description": "A specialist crew turns a careful plan into coordinated work.",
+    "title": "Heist Night",
+    "description": "A crew of specialists, one careful plan, zero surprises.",
     "moodTags": [
       "Cinematic"
     ],
@@ -70,12 +70,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "director desk",
       "bench": "lounge"
     },
-    "thumbnail": "/floor-themes/midnight-bureau/thumbnail.fdf6974b634d.svg"
+    "thumbnail": "/floor-themes/midnight-bureau/thumbnail.a442d3dae786.svg"
   },
   {
     "id": "confectionery-works",
-    "title": "Confectionery Works",
-    "description": "An extravagant confectionery where every invention gets careful attention.",
+    "title": "The Chocolate Factory",
+    "description": "Where every package gets a candy-coated inspection.",
     "moodTags": [
       "Whimsical"
     ],
@@ -94,12 +94,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "head confectioner desk",
       "bench": "cooling rack"
     },
-    "thumbnail": "/floor-themes/confectionery-works/thumbnail.e5a3e666aa44.svg"
+    "thumbnail": "/floor-themes/confectionery-works/thumbnail.8c7fe26d7f90.svg"
   },
   {
     "id": "lanternwood-guild",
-    "title": "Lanternwood Guild",
-    "description": "A woodland guild of explorers and makers brings each assignment to life.",
+    "title": "The Lantern Woods Guild",
+    "description": "Mapmakers, smiths and couriers on a quest for done.",
     "moodTags": [
       "Adventure"
     ],
@@ -118,12 +118,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "guild steward",
       "bench": "travelers' rest"
     },
-    "thumbnail": "/floor-themes/lanternwood-guild/thumbnail.8b478ee11f10.svg"
+    "thumbnail": "/floor-themes/lanternwood-guild/thumbnail.72eb9ce42a10.svg"
   },
   {
     "id": "corner-cafe",
-    "title": "Corner Caf\u00e9",
-    "description": "A welcoming neighborhood workspace where everyone has a part to play.",
+    "title": "The Coffee House Crew",
+    "description": "Good coffee, good company, everything shipped by Friday.",
     "moodTags": [
       "Adventure"
     ],
@@ -142,12 +142,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "host's desk",
       "bench": "lounge nook"
     },
-    "thumbnail": "/floor-themes/corner-cafe/thumbnail.88c08cc199c6.svg"
+    "thumbnail": "/floor-themes/corner-cafe/thumbnail.c824c12872cd.svg"
   },
   {
     "id": "tumbletown-workshop",
-    "title": "Tumbletown Workshop",
-    "description": "Impossible little inventions in a town that never learned to draw a straight line.",
+    "title": "Tumbletown Rhyme Works",
+    "description": "Impossible machines that somehow pass inspection.",
     "moodTags": [
       "Whimsical"
     ],
@@ -166,12 +166,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "mayor's window",
       "bench": "spring-seat bench"
     },
-    "thumbnail": "/floor-themes/tumbletown-workshop/thumbnail.88c5c40a51bc.svg"
+    "thumbnail": "/floor-themes/tumbletown-workshop/thumbnail.2b66af9cef87.svg"
   },
   {
     "id": "orbital-shipyard",
-    "title": "Orbital Shipyard",
-    "description": "An orbital crew coordinates your work among the stars.",
+    "title": "Starport Shipyard",
+    "description": "Robots, aliens and engineers keeping the fleet flying.",
     "moodTags": [
       "Adventure"
     ],
@@ -190,12 +190,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "command desk",
       "bench": "docking cradle"
     },
-    "thumbnail": "/floor-themes/orbital-shipyard/thumbnail.811f84c9c861.svg"
+    "thumbnail": "/floor-themes/orbital-shipyard/thumbnail.af2593bcc10d.svg"
   },
   {
     "id": "wildlight-camp",
-    "title": "Wildlight Research Camp",
-    "description": "A curious creature crew gathers findings at a lively research camp.",
+    "title": "Critter Expedition Camp",
+    "description": "Your field team is small, furry and very thorough.",
     "moodTags": [
       "Adventure"
     ],
@@ -214,12 +214,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "expedition desk",
       "bench": "camp rest"
     },
-    "thumbnail": "/floor-themes/wildlight-camp/thumbnail.631d68d73001.svg"
+    "thumbnail": "/floor-themes/wildlight-camp/thumbnail.3414ff9ebb6e.svg"
   },
   {
     "id": "voxel-foundry",
-    "title": "Voxel Foundry",
-    "description": "A geometric builder's yard where work takes visible shape.",
+    "title": "Blockworks Foundry",
+    "description": "Every deliverable built one cube at a time.",
     "moodTags": [
       "Adventure"
     ],
@@ -238,12 +238,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "foreman station",
       "bench": "staging shelf"
     },
-    "thumbnail": "/floor-themes/voxel-foundry/thumbnail.85afb47d4fe0.svg"
+    "thumbnail": "/floor-themes/voxel-foundry/thumbnail.b700877578e1.svg"
   },
   {
     "id": "cloudspring-bathhouse",
-    "title": "Cloudspring Bathhouse",
-    "description": "A lantern-lit retreat brings quiet care to the working day.",
+    "title": "The Spirit Bathhouse",
+    "description": "Porcelain attendants, steam, and very careful records.",
     "moodTags": [
       "Calm"
     ],
@@ -262,12 +262,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "caretaker desk",
       "bench": "tea alcove"
     },
-    "thumbnail": "/floor-themes/cloudspring-bathhouse/thumbnail.04b232571c1c.svg"
+    "thumbnail": "/floor-themes/cloudspring-bathhouse/thumbnail.0a06b164c294.svg"
   },
   {
     "id": "button-and-spool",
-    "title": "Button & Spool",
-    "description": "Tiny craftspeople make extraordinary use of ordinary things.",
+    "title": "Thimble Town",
+    "description": "A tiny workshop hidden inside the sewing drawer.",
     "moodTags": [
       "Calm"
     ],
@@ -286,12 +286,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "workshop lead",
       "bench": "pincushion rest"
     },
-    "thumbnail": "/floor-themes/button-and-spool/thumbnail.027928f075a0.svg"
+    "thumbnail": "/floor-themes/button-and-spool/thumbnail.9f5cfc901075.svg"
   },
   {
     "id": "clockwork-observatory",
-    "title": "Clockwork Observatory",
-    "description": "Clockwork observers turn careful work into new discoveries.",
+    "title": "Clockwork Stargazers",
+    "description": "Brass automatons charting your work across the sky.",
     "moodTags": [
       "Calm"
     ],
@@ -310,12 +310,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "chief observer",
       "bench": "winding alcove"
     },
-    "thumbnail": "/floor-themes/clockwork-observatory/thumbnail.6c7c554f0551.svg"
+    "thumbnail": "/floor-themes/clockwork-observatory/thumbnail.a9def1640ef7.svg"
   },
   {
     "id": "coral-commons",
-    "title": "Coral Commons",
-    "description": "A bright reef community brings many talents to the same project.",
+    "title": "Reef Town",
+    "description": "An octopus, a seahorse and a very organized crab.",
     "moodTags": [
       "Calm"
     ],
@@ -334,12 +334,12 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "council alcove",
       "bench": "anemone rest"
     },
-    "thumbnail": "/floor-themes/coral-commons/thumbnail.b45d9e75ffad.svg"
+    "thumbnail": "/floor-themes/coral-commons/thumbnail.92ef4169c136.svg"
   },
   {
     "id": "meadow-post",
-    "title": "Meadow Post",
-    "description": "A gentle village of makers makes room for a calmer working day.",
+    "title": "Cozy Critter Village",
+    "description": "Badgers, mice and a hedgehog who checks everything twice.",
     "moodTags": [
       "Calm"
     ],
@@ -358,6 +358,6 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
       "office": "postmaster desk",
       "bench": "picnic nook"
     },
-    "thumbnail": "/floor-themes/meadow-post/thumbnail.7910b5fcacb4.svg"
+    "thumbnail": "/floor-themes/meadow-post/thumbnail.537b91ee384c.svg"
   }
 ];

@@ -8,5 +8,13 @@
     "#E8E7D8"
   ],
   "status": "draft",
+  "props": [
+    "specimen shell",
+    "sea-glass token",
+    "kelp folder",
+    "pearl lamp",
+    "coral tool",
+    "tray"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

@@ -8,5 +8,13 @@
     "#34404C"
   ],
   "status": "draft",
+  "props": [
+    "modular arch",
+    "crane hook",
+    "design tile",
+    "measure block",
+    "component tray",
+    "toolbox"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

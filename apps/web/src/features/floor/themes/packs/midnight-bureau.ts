@@ -3,8 +3,8 @@ export default {
   "schemaVersion": 1,
   "id": "midnight-bureau",
   "version": "0.1.0",
-  "title": "Midnight Bureau",
-  "description": "A specialist crew turns a careful plan into coordinated work.",
+  "title": "Heist Night",
+  "description": "A crew of specialists, one careful plan, zero surprises.",
   "moodTags": [
     "Cinematic"
   ],
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/midnight-bureau/thumbnail.fdf6974b634d.svg",
-      "sha256": "fdf6974b634d4f5a36d3f64446b2d31c9286aa00b5d1d2fcd2eb760b67a9236f",
-      "bytes": 36284,
+      "path": "/floor-themes/midnight-bureau/thumbnail.a442d3dae786.svg",
+      "sha256": "a442d3dae7869c9845b695a18b81451432a00096eb6c18daa478de76192042ee",
+      "bytes": 36404,
       "width": 800,
       "height": 480,
       "creator": "Codex \u2014 original procedural vector illustration",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/midnight-bureau/character-0.cb941df82ca8.svg",
-        "sha256": "cb941df82ca895d79a2825ca8f6e5347364c1db8d2cdb8a214f454e7aa801044",
-        "bytes": 1159,
+        "path": "/floor-themes/midnight-bureau/character-0.4131c9c26de2.svg",
+        "sha256": "4131c9c26de2b3d915d9e73edca58d507161aba5dde91ff4941021712e0eb37f",
+        "bytes": 1179,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -50,49 +50,49 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-1.166bef8750ff.svg",
-        "sha256": "166bef8750ff32fd201a63b9a6c90615ac668e240bd5f7affe663d1e0253e11e",
-        "bytes": 1152,
-        "width": 128,
-        "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
-        "rightsBasis": "original",
-        "licenseNoticeId": "Apache-2.0"
-      },
-      {
-        "path": "/floor-themes/midnight-bureau/character-2.dc2ee4e798b5.svg",
-        "sha256": "dc2ee4e798b5e521862a38be6e3289652183f7df861d0c4c0d38790e3178c4e4",
-        "bytes": 1175,
-        "width": 128,
-        "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
-        "rightsBasis": "original",
-        "licenseNoticeId": "Apache-2.0"
-      },
-      {
-        "path": "/floor-themes/midnight-bureau/character-3.51f2dcbd3a94.svg",
-        "sha256": "51f2dcbd3a94361a8a63f393028189ca7a3a00e9273aad2132fc8df6782972ee",
-        "bytes": 1171,
-        "width": 128,
-        "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
-        "rightsBasis": "original",
-        "licenseNoticeId": "Apache-2.0"
-      },
-      {
-        "path": "/floor-themes/midnight-bureau/character-4.ff1f0551512c.svg",
-        "sha256": "ff1f0551512c32403403fb2817b680e9bfdb246e9b5b9bf99aca585bc1eca921",
-        "bytes": 1153,
-        "width": 128,
-        "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
-        "rightsBasis": "original",
-        "licenseNoticeId": "Apache-2.0"
-      },
-      {
-        "path": "/floor-themes/midnight-bureau/character-5.75281fe37783.svg",
-        "sha256": "75281fe377834f6d6d3c30ea2fd104ad9879d4b17fb3720a559195fc96cbbedc",
+        "path": "/floor-themes/midnight-bureau/character-1.25d78fb4b376.svg",
+        "sha256": "25d78fb4b3763d2b3a3d425a14c2ce80ccf73995d004bc49afe32d83d87ff3e7",
         "bytes": 1172,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/midnight-bureau/character-2.49efbdfe8b89.svg",
+        "sha256": "49efbdfe8b89754e472beaff54e4b16d0e3fc6d71d4fa94e65119560e87dd7c8",
+        "bytes": 1195,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/midnight-bureau/character-3.c2f0eb8db5ab.svg",
+        "sha256": "c2f0eb8db5abf87ead0ea68812d4489a27ff300fdce1b4e885a2e2d4b25299f4",
+        "bytes": 1191,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/midnight-bureau/character-4.6c4feb856ae0.svg",
+        "sha256": "6c4feb856ae0aa8efcd11998330c3dc11495671c0a3d3ba0de7fa43975770d84",
+        "bytes": 1173,
+        "width": 128,
+        "height": 128,
+        "creator": "Codex \u2014 original procedural vector illustration",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/midnight-bureau/character-5.2f20caa53c99.svg",
+        "sha256": "2f20caa53c995573ac06a3de5bb196e195d9ac33223cdeae6706dcb89e43a36a",
+        "bytes": 1192,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -102,9 +102,9 @@ export default {
     ],
     "props": {
       "prop-0": {
-        "path": "/floor-themes/midnight-bureau/prop-0.4149a6249cc3.svg",
-        "sha256": "4149a6249cc3cf956779c655a3018435c8eef636f27b6b4888ea892910583e99",
-        "bytes": 324,
+        "path": "/floor-themes/midnight-bureau/prop-0.e9b082c3d734.svg",
+        "sha256": "e9b082c3d7342dd51c23639ad09e412b721509ffc3cc81f69456bd78a3b72169",
+        "bytes": 528,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -112,9 +112,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-1": {
-        "path": "/floor-themes/midnight-bureau/prop-1.4663f2015de0.svg",
-        "sha256": "4663f2015de0b407686b39aee3dbb4d5e3cb65a78d00b42a54015693e56646b5",
-        "bytes": 342,
+        "path": "/floor-themes/midnight-bureau/prop-1.28742729282b.svg",
+        "sha256": "28742729282bf72ae2b185a39d4cb4cb0497d730f86f1cf6c61f4342ae9417f3",
+        "bytes": 458,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -122,9 +122,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-2": {
-        "path": "/floor-themes/midnight-bureau/prop-2.6c252f3abf18.svg",
-        "sha256": "6c252f3abf187dd2b0662b3d67fb2b3ee13abbdae7e099933581bb55d86ed510",
-        "bytes": 369,
+        "path": "/floor-themes/midnight-bureau/prop-2.6f7bfa53af39.svg",
+        "sha256": "6f7bfa53af39e67e52c9545a9c664939a7acefd39affccea8a20a3936c416648",
+        "bytes": 404,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -132,9 +132,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-3": {
-        "path": "/floor-themes/midnight-bureau/prop-3.b7232ba21cf8.svg",
-        "sha256": "b7232ba21cf8db3748a702f124d971396a14c5ade0722278584ae34d0da11ea2",
-        "bytes": 391,
+        "path": "/floor-themes/midnight-bureau/prop-3.934795ff57ec.svg",
+        "sha256": "934795ff57ec161693c5243fd104d8b21d01c704baf089a23fa92fb5c00d0521",
+        "bytes": 367,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -142,9 +142,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-4": {
-        "path": "/floor-themes/midnight-bureau/prop-4.ee1173b7713a.svg",
-        "sha256": "ee1173b7713a98f381f2be342575bbeee3c7f5c00283e086e4da481dfaa3a2b0",
-        "bytes": 358,
+        "path": "/floor-themes/midnight-bureau/prop-4.f7dcb2c9ac23.svg",
+        "sha256": "f7dcb2c9ac23a0a9fcf18f8e7a2d1319ecdf0698e1e9f3950eb71c6f28e44e6f",
+        "bytes": 460,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -152,9 +152,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-5": {
-        "path": "/floor-themes/midnight-bureau/prop-5.813076b4729a.svg",
-        "sha256": "813076b4729a5b5e8f6d5b113ff64e04e1952191c597209316ce09d7def2c5fe",
-        "bytes": 361,
+        "path": "/floor-themes/midnight-bureau/prop-5.b07f461cac18.svg",
+        "sha256": "b07f461cac186c8c63f14cc79ce392e65db68dca3ba18ce43e2fcca0b92d8365",
+        "bytes": 389,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",

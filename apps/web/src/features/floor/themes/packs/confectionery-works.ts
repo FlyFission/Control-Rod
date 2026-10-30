@@ -3,8 +3,8 @@ export default {
   "schemaVersion": 1,
   "id": "confectionery-works",
   "version": "0.1.0",
-  "title": "Confectionery Works",
-  "description": "An extravagant confectionery where every invention gets careful attention.",
+  "title": "The Chocolate Factory",
+  "description": "Where every package gets a candy-coated inspection.",
   "moodTags": [
     "Whimsical"
   ],
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/confectionery-works/thumbnail.e5a3e666aa44.svg",
-      "sha256": "e5a3e666aa44154c70d07d63162a6b32866884689020692a5ebd3219504b0dba",
-      "bytes": 16813,
+      "path": "/floor-themes/confectionery-works/thumbnail.8c7fe26d7f90.svg",
+      "sha256": "8c7fe26d7f90f7d459b5faa78a75baf4ebb79a4f458605aa5027917788fc31b5",
+      "bytes": 17080,
       "width": 800,
       "height": 480,
       "creator": "Codex \u2014 original procedural vector illustration",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/confectionery-works/character-0.cd1d83e5e997.svg",
-        "sha256": "cd1d83e5e997a6d1c28dec09985760a4656f5db45d2f693b41a93711dc1ef5c9",
-        "bytes": 1270,
+        "path": "/floor-themes/confectionery-works/character-0.96326aa4a341.svg",
+        "sha256": "96326aa4a34176f79edcd4d75a4d8b8870eb8cbd0a6d643b1cb49ae14085c23b",
+        "bytes": 1307,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/confectionery-works/character-1.dcd85a8ec4b8.svg",
-        "sha256": "dcd85a8ec4b851fdd4b869ab98c05df08c1ed870c7f22dc171e708275878f22a",
-        "bytes": 1349,
+        "path": "/floor-themes/confectionery-works/character-1.00f27ddc23c5.svg",
+        "sha256": "00f27ddc23c5cd3f452a0da6bf3be6a01e7b5b02b706243056ce03a1fb504ba7",
+        "bytes": 1292,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/confectionery-works/character-2.a18af4236e32.svg",
-        "sha256": "a18af4236e32a716493a942c9c2ecc75973f0f7e4b120a9872a836e7cefc9f96",
-        "bytes": 1267,
+        "path": "/floor-themes/confectionery-works/character-2.91671acfe1db.svg",
+        "sha256": "91671acfe1db16d9314ba0de4200b9134c0455b6ce3c8dc71249be27c6ad17d7",
+        "bytes": 1295,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/confectionery-works/character-3.e4b5a276d0db.svg",
-        "sha256": "e4b5a276d0db4991e2cddd2b9f8e28747df74d2fec67b9e48faa1f1bfe11a24d",
-        "bytes": 1270,
+        "path": "/floor-themes/confectionery-works/character-3.966c88453a47.svg",
+        "sha256": "966c88453a47cee57d56bcb3bc4467b5e9997d44d3fc13a4cf7cc0cc2d664533",
+        "bytes": 1392,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/confectionery-works/character-4.c54dd50ed9fa.svg",
-        "sha256": "c54dd50ed9faf7b4c55836831c08b78b28dee8c59ee225f4a7df2c5d4bdf1422",
-        "bytes": 1314,
+        "path": "/floor-themes/confectionery-works/character-4.eb731c1bef4d.svg",
+        "sha256": "eb731c1bef4d86c02ec3c4d1165b4fe9864430487ff19e226d91e394397cb3d3",
+        "bytes": 1394,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/confectionery-works/character-5.693dcbfd599f.svg",
-        "sha256": "693dcbfd599f04c6fe834a8ef28d23a4cd525d0ad11e5ca33873b5b73625f430",
-        "bytes": 1293,
+        "path": "/floor-themes/confectionery-works/character-5.9ff43f63d94c.svg",
+        "sha256": "9ff43f63d94c59e806a2463a947f0daedae14d4cb15d13fbec67f9e048e3b6b6",
+        "bytes": 1350,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -102,9 +102,9 @@ export default {
     ],
     "props": {
       "prop-0": {
-        "path": "/floor-themes/confectionery-works/prop-0.f67a9624df77.svg",
-        "sha256": "f67a9624df77f2328f4767dce916d5a85330cfcbe0b3d71a10001f31f316ceab",
-        "bytes": 324,
+        "path": "/floor-themes/confectionery-works/prop-0.16559ffc4d46.svg",
+        "sha256": "16559ffc4d463409eb556990a1730067f5d883ced9fb2f1bde65674043ca5356",
+        "bytes": 497,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -112,9 +112,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-1": {
-        "path": "/floor-themes/confectionery-works/prop-1.8cf3b5e6773d.svg",
-        "sha256": "8cf3b5e6773d0a243b2c807a175a736b06696319f63a293e992955552ad22d5e",
-        "bytes": 342,
+        "path": "/floor-themes/confectionery-works/prop-1.0090685738ac.svg",
+        "sha256": "0090685738acbc782abf99f54b4112dee1402a889b97b667232979eba758f133",
+        "bytes": 351,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -122,9 +122,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-2": {
-        "path": "/floor-themes/confectionery-works/prop-2.bd2e95f8f995.svg",
-        "sha256": "bd2e95f8f9954a7a6ad7f05b16ae3eb4a6585e4f875bd0fba8a4b54bab14a2d5",
-        "bytes": 369,
+        "path": "/floor-themes/confectionery-works/prop-2.f77793b75b7a.svg",
+        "sha256": "f77793b75b7acbbcaa6f1a82ef07e21db0d5b05b8f45de0bb4fd776b2095d386",
+        "bytes": 386,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -132,9 +132,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-3": {
-        "path": "/floor-themes/confectionery-works/prop-3.22c5132185fe.svg",
-        "sha256": "22c5132185fe40432b76ad5cc33c084c8236f42b773389d53a7c7e3813e9c48d",
-        "bytes": 391,
+        "path": "/floor-themes/confectionery-works/prop-3.1b2c71b8e392.svg",
+        "sha256": "1b2c71b8e3926b2a9177b7093b36f736e78f8f310684e0d0de60efd6d15efa6c",
+        "bytes": 379,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -142,9 +142,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-4": {
-        "path": "/floor-themes/confectionery-works/prop-4.cc951f33fc19.svg",
-        "sha256": "cc951f33fc19af3d70f0929044822844e37afdde01235894b54d76519e9dd720",
-        "bytes": 358,
+        "path": "/floor-themes/confectionery-works/prop-4.f3826e0061cd.svg",
+        "sha256": "f3826e0061cd6972e8aca3371786fdbfeef6ee6a5ba83b40037707eea1c94f2c",
+        "bytes": 413,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -152,9 +152,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-5": {
-        "path": "/floor-themes/confectionery-works/prop-5.b7b81b276511.svg",
-        "sha256": "b7b81b276511fa97fb301bc27554d1787d6cb8a702a5f1a2a165d0e5fe90b56f",
-        "bytes": 361,
+        "path": "/floor-themes/confectionery-works/prop-5.026d13e42c69.svg",
+        "sha256": "026d13e42c69b538b4c001d9bfe94647a5bdad3f28a3fbd7d86e21a19e149deb",
+        "bytes": 441,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",

@@ -8,5 +8,13 @@
     "#695646"
   ],
   "status": "draft",
+  "props": [
+    "button token",
+    "spool",
+    "folded pattern",
+    "paperclip tool",
+    "measuring tape",
+    "thimble"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

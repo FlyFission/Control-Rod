@@ -26,11 +26,11 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 1. Creature Dispatch
 
-- **Influence:** Monsters, Inc.; monster workplace ensembles. Wave A. ID `creature-dispatch`.
+- **Genre:** friendly monster workplace ensembles; a busy dispatch floor run by gentle creatures. Wave A. ID `creature-dispatch`.
 - **Emotional target:** a bustling, warmhearted creature workplace; capable workers with comic physical variety.
 - **Composition/materials:** stepped parcel depot, frosted capsule tubes, ceramic counters, ribbed metal, soft overhead pools of light. Emphasize parcel routing rather than the source film's recognizable door-floor apparatus.
 - **Art swatches:** seafoam `#78C5AF`, plum `#60476E`, butter `#F4D79A`, ink `#20323D`. Functional text contrast is checked separately.
-- **Cast order:** broad moss-furred courier; tall velvet moth clerk; squat stone sorter; long-necked feather archivist; round many-footed mechanic; small fin-eared inspector. Original faces and proportions; no Sullivan/Mike lookalikes, costumes or insignia.
+- **Cast order:** broad moss-furred courier; tall velvet moth clerk; squat stone sorter; long-necked feather archivist; round many-footed mechanic; small fin-eared inspector. Original faces and proportions; no likeness of any existing character, costume or insignia.
 - **Stations:** dispatch desk / fabrication dock / parcel archive / inspection counter / supervisor window / waiting platform (order: general/site/archive/verify/office/bench).
 - **Props:** parcel capsule, routing card, desk stamp, trolley, magnifier, tool pouch.
 - **Submission signature:** `capsule`, illustrated as a parcel entering a local receiving tray. Waiting workers hold a routing card; failed/lost states become still, attentive poses with the shared clear label.
@@ -38,11 +38,11 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 2. Pocket Lab
 
-- **Influence:** Minion Lab / Despicable Me's ensemble comedy; retro scientific workshops. Wave A. ID `pocket-lab`.
+- **Genre:** small-helper ensemble comedy; retro scientific workshops. Wave A. ID `pocket-lab`.
 - **Emotional target:** mischievous invention with readable, purposeful activity.
 - **Composition/materials:** cutaway laboratory, curved enamel worktops, chunky switches, instrument racks, borosilicate vessels. Amber task lights provide warmth without making workers a yellow-uniform swarm.
 - **Art swatches:** cobalt `#355C9B`, warm white `#EEE8DA`, coral `#E37E6A`, graphite `#253440`.
-- **Cast order:** cube-bodied display assistant; three-legged copper instrument; accordion-neck robot; ceramic sphere on tracks; articulated clamp helper; tiny multi-drawer automaton. Avoid the yellow capsule/goggle/denim-overall combination and copied character voices.
+- **Cast order:** cube-bodied display assistant; three-legged copper instrument; accordion-neck robot; ceramic sphere on tracks; articulated clamp helper; tiny multi-drawer automaton. Avoid any silhouette, colour and costume combination that recalls an existing mascot, and any copied voice.
 - **Stations:** experiment desk / prototype bench / specimen cabinet / calibration bay / lead scientist desk / charging nook.
 - **Props:** blueprint, coil, caliper, sample tray, work lamp, small trolley.
 - **Submission signature:** `spark`, a brief contained instrument glow rather than an explosion or evidence-of-success claim.
@@ -50,11 +50,11 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 3. Midnight Bureau
 
-- **Influence:** Ocean's Eleven and ensemble heist cinema. Wave B. ID `midnight-bureau`.
+- **Genre:** ensemble heist cinema; a calm, competent crew planning at night. Wave B. ID `midnight-bureau`.
 - **Emotional target:** calm competence, specialization and sophisticated teamwork.
 - **Composition/materials:** city-night planning office, walnut, brass, frosted glass, blue-lit drafting tables. Functional layers stay brighter than the moody background.
 - **Art swatches:** midnight `#172A3A`, champagne `#CDB78F`, walnut `#735743`, paper `#F0E8DB`.
-- **Cast order:** planner with rolled drawings; communications specialist with headset; researcher with tabbed notebook; logistics specialist with case; analyst with tablet; inspector with loupe. Original faces/clothes; no actor likenesses, film dialogue, casino logos or copied promotional layouts.
+- **Cast order:** planner with rolled drawings; communications specialist with headset; researcher with tabbed notebook; logistics specialist with case; analyst with tablet; inspector with loupe. Original faces/clothes; no actor likenesses, film dialogue, real venue logos or copied promotional layouts.
 - **Stations:** briefing table / operations desk / dossier vault / audit table / director desk / lounge.
 - **Props:** dossier, blueprint roll, task lamp, case, route card, tabletop projector.
 - **Submission signature:** `dossier`, a crisp folder placement. Working motions are small hand/tool movements rather than physical comedy.
@@ -62,11 +62,11 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 4. Confectionery Works
 
-- **Influence:** Wonka, magical confectionery, theatrical invention. Wave C. ID `confectionery-works`.
+- **Genre:** magical confectionery and theatrical invention; a candy factory as a stage. Wave C. ID `confectionery-works`.
 - **Emotional target:** wonder, craft and extravagant machinery.
 - **Composition/materials:** copper kettles, sugar-glass windows, plum tile and ribbon conveyors. Use an original floor plan and machinery; no recreation of a film set.
 - **Art swatches:** plum `#643B65`, copper `#B96F47`, raspberry `#D9618B`, cream `#F7E8CD`.
-- **Cast order:** flour-dusted pastry artisan; sugar-glass automaton; moth-winged wrapper; ceramic kettle attendant; ribbon-haired mixer; pear-shaped clockwork taster. Avoid Oompa Loompa designs, recognizable Wonka costume and copied lyrics.
+- **Cast order:** flour-dusted pastry artisan; sugar-glass automaton; moth-winged wrapper; ceramic kettle attendant; ribbon-haired mixer; pear-shaped clockwork taster. Avoid any existing factory-worker or chocolatier character design, costume or lyrics.
 - **Stations:** recipe desk / invention kitchen / wrapped-goods shelves / inspection table / head confectioner desk / cooling rack.
 - **Props:** recipe card, mixing paddle, wrapped parcel, copper scoop, tasting tray, ribbon spool.
 - **Submission signature:** `parcel`, an original ribbon wrapping around an artifact token.
@@ -74,11 +74,11 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 5. Lanternwood Guild
 
-- **Influence:** Zelda's adventure/craft atmosphere and woodland fantasy. Wave C. ID `lanternwood-guild`.
+- **Genre:** woodland fantasy adventure and craft guilds. Wave C. ID `lanternwood-guild`.
 - **Emotional target:** purposeful exploration, handmade tools and quiet magic.
 - **Composition/materials:** guild workshops inside a great tree, carved timber, mossy stone, blue-green glass and warm lanterns.
 - **Art swatches:** pine `#365D4D`, moss `#A2B67C`, lantern `#E8BC70`, slate `#314653`.
-- **Cast order:** mapmaker; horned woodland smith; bird courier; stone-bodied archivist; herbal engineer; cloak-wearing appraiser. Original outfits, species and symbols; no Link/Zelda likeness, Triforce, recognizable gear or game UI.
+- **Cast order:** mapmaker; horned woodland smith; bird courier; stone-bodied archivist; herbal engineer; cloak-wearing appraiser. Original outfits, species and symbols; no likeness of existing game heroes, emblems, recognizable gear or game interface.
 - **Stations:** quest desk / crafting bench / scroll archive / appraisal table / guild steward / travelers' rest.
 - **Props:** original map, lantern, scroll tube, hand tool, specimen basket, seal block.
 - **Submission signature:** `lantern`, a restrained glow above a submitted scroll, never an approval seal.
@@ -86,9 +86,9 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 6. Corner Café
 
-- **Influence:** Friends, cozy ensemble sitcoms and neighborhood cafés. Wave C. ID `corner-cafe`.
+- **Genre:** cozy ensemble sitcoms and neighborhood cafés. Wave C. ID `corner-cafe`.
 - **Emotional target:** companionship, approachable teamwork and familiar daily rituals.
-- **Composition/materials:** café/apartment-adjacent studio, amber lamps, brick, sage upholstery and sunlit windows. Original architecture and furniture, not a replica of Central Perk or the television apartment.
+- **Composition/materials:** café/apartment-adjacent studio, amber lamps, brick, sage upholstery and sunlit windows. Original architecture and furniture, not a replica of any existing television set.
 - **Art swatches:** brick `#A75F4E`, sage `#93A58E`, amber `#D9AD65`, oat `#F0E7D8`.
 - **Cast order:** illustrator; bookish researcher; practical organizer; café host; architect; editor. Original adult ensemble, no actor likenesses, copied wardrobe, character names, dialogue or logo treatment.
 - **Stations:** window desk / shared worktable / bookshelf / reading table / host's desk / lounge nook.
@@ -98,11 +98,11 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 7. Tumbletown Workshop
 
-- **Influence:** Dr. Seuss, Thing One/Two's lively ensemble energy, and illustrated nonsense literature. Wave C. ID `tumbletown-workshop`.
+- **Genre:** lively illustrated nonsense literature and rhyming picture books. Wave C. ID `tumbletown-workshop`.
 - **Emotional target:** improbable, playful, hand-drawn invention.
 - **Composition/materials:** crooked towers, looping stairways, accordion lifts, sketchy ink outlines, textured cream paper and candy-striped machinery. Create original geometry rather than tracing a book illustration.
 - **Art swatches:** turquoise `#469FA2`, coral `#DF7962`, marigold `#D5AC46`, paper `#F6EEDB`.
-- **Cast order:** folded-paper crane maker; felt bell-shaped tinkerer; long-legged teapot creature; concertina-bodied clerk; spool-tailed courier; umbrella-eared inspector. Run badges are separate UI; no blue-haired red-suited numbered Things or copied Seuss verse.
+- **Cast order:** folded-paper crane maker; felt bell-shaped tinkerer; long-legged teapot creature; concertina-bodied clerk; spool-tailed courier; umbrella-eared inspector. Run badges are separate UI; no existing picture-book character designs or copied verse.
 - **Stations:** notion desk / contraption yard / cubby tower / measuring table / mayor's window / spring-seat bench.
 - **Props:** impossible ruler, paper parcel, bell tool, winding key, umbrella tray, bent desk lamp.
 - **Submission signature:** `capsule`, a striped delivery pod with original proportions.
@@ -110,11 +110,11 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 8. Orbital Shipyard
 
-- **Influence:** Star Wars and space-adventure engineering crews. Wave D. ID `orbital-shipyard`.
+- **Genre:** space-adventure engineering crews in a working shipyard. Wave D. ID `orbital-shipyard`.
 - **Emotional target:** a capable crew building something ambitious in space.
 - **Composition/materials:** modular orbital dock, luminous planet beyond windows, ceramic hull panels, copper service rails and holographic drafting surfaces.
 - **Art swatches:** navy `#1A304A`, ice `#A8D4DE`, copper `#BB8265`, cloud `#E3EAF0`.
-- **Cast order:** spider-legged repair unit; translucent alien surveyor; modular tool robot; suited station engineer; floating archive unit; multi-armed inspector. No recognizable droid silhouettes, uniforms, emblems, ships, lightsabers or franchise audio.
+- **Cast order:** spider-legged repair unit; translucent alien surveyor; modular tool robot; suited station engineer; floating archive unit; multi-armed inspector. No recognizable robot silhouettes, uniforms, emblems, ships, weapons or audio from existing franchises.
 - **Stations:** navigation desk / assembly bay / cargo archive / systems inspection / command desk / docking cradle.
 - **Props:** modular panel, diagnostic wand, cargo token, drafting projector, tool case, relay puck.
 - **Submission signature:** `spark`, a short projector highlight over a delivered panel.
@@ -122,11 +122,11 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 9. Wildlight Research Camp
 
-- **Influence:** Pokémon's creature-team appeal; natural-history expeditions. Wave D. ID `wildlight-camp`.
+- **Genre:** creature-companion teams and natural-history expeditions. Wave D. ID `wildlight-camp`.
 - **Emotional target:** discovery, variety, affection and collaboration.
 - **Composition/materials:** forest field station, canvas awnings, specimen shelves, glowing terrariums and illustrated journals.
 - **Art swatches:** fern `#4E795F`, sky `#90BCCA`, clay `#BB816A`, parchment `#F1E6CF`.
-- **Cast order:** lantern-backed beetle creature; leaf-frilled quadruped; pebble fox-like original species; reed-winged bird; coral-antlered crawler; cloud-bodied amphibian. Artist must develop distinct anatomy; no recognizable Pokémon redesigns, capture balls, type symbols or copied UI.
+- **Cast order:** lantern-backed beetle creature; leaf-frilled quadruped; pebble fox-like original species; reed-winged bird; coral-antlered crawler; cloud-bodied amphibian. Artist must develop distinct anatomy; no redesigns of existing collectible creatures, capture devices, type symbols or copied interface.
 - **Stations:** field journal / sample workshop / specimen archive / observation bench / expedition desk / camp rest.
 - **Props:** specimen tray, notebook, canvas pouch, survey flag, lantern, terrarium.
 - **Submission signature:** `lantern`, a brief glow from an original specimen container.
@@ -134,9 +134,9 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 10. Voxel Foundry
 
-- **Influence:** Minecraft and modular building games. Wave D. ID `voxel-foundry`.
+- **Genre:** modular building games and voxel geometry. Wave D. ID `voxel-foundry`.
 - **Emotional target:** tangible assembly, creativity and readable structure.
-- **Composition/materials:** beveled geometric models, terrazzo platforms, ceramic modules and gantry cranes. Use original materials/palette; no copied block textures, creatures, items or Minecraft branding.
+- **Composition/materials:** beveled geometric models, terrazzo platforms, ceramic modules and gantry cranes. Use original materials/palette; no copied block textures, creatures, items or branding from existing games.
 - **Art swatches:** terracotta `#C27C60`, teal `#4B9790`, sand `#DDCCAA`, charcoal `#34404C`.
 - **Cast order:** wedge-bodied maker; cylindrical survey unit; hexagonal mechanic; faceted courier; arch-bodied archivist; small tracked inspector. Shared scene uses geometry as an art language, not a reproduction of game characters.
 - **Stations:** pattern desk / assembly platform / component store / fit-check bay / foreman station / staging shelf.
@@ -146,11 +146,11 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 11. Cloudspring Bathhouse
 
-- **Influence:** Spirited Away and atmospheric animated bathhouse settings. Wave E. ID `cloudspring-bathhouse`.
+- **Genre:** atmospheric animated bathhouse settings and spirit-world hospitality. Wave E. ID `cloudspring-bathhouse`.
 - **Emotional target:** restorative calm, warmth and deliberate care.
 - **Composition/materials:** an original mountainside retreat, ceramic channels, lacquered timber, translucent screens and slow steam. Quiet mode is especially suited, but motion default still follows global preference.
 - **Art swatches:** jade `#5F8E80`, russet `#A7614D`, lantern `#E2B976`, mist `#EEE9DE`.
-- **Cast order:** porcelain attendants of six distinct silhouettes: crane-like, kettle-shaped, broad basin, tall reed, folded towel, round lantern. No soot sprites, No-Face, copied uniforms or film layouts.
+- **Cast order:** porcelain attendants of six distinct silhouettes: crane-like, kettle-shaped, broad basin, tall reed, folded towel, round lantern. No existing film creatures, copied uniforms or film layouts.
 - **Stations:** reception ledger / restoration bench / linen archive / quality table / caretaker desk / tea alcove.
 - **Props:** ledger, folded cloth, ceramic tray, steam vessel, lantern, wooden token.
 - **Submission signature:** `ripple`, contained in a small receiving basin; does not obscure text.
@@ -158,7 +158,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 12. Button & Spool
 
-- **Influence:** The Borrowers and miniature found-object craftsmanship. Wave E. ID `button-and-spool`.
+- **Genre:** miniature people and found-object craftsmanship. Wave E. ID `button-and-spool`.
 - **Emotional target:** ingenious small-scale craft and tactile charm.
 - **Composition/materials:** spool elevators, matchbox drawers, thimble lamps, fabric awnings and paperclip rails. Original miniature inhabitants, not adaptations of named literary characters or screen designs.
 - **Art swatches:** denim `#627E94`, linen `#E7DDC7`, thread red `#B86D64`, walnut `#695646`.
@@ -170,7 +170,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 13. Clockwork Observatory
 
-- **Influence:** original celestial/clockwork direction from exploration; no single franchise target. Wave E. ID `clockwork-observatory`.
+- **Genre:** original celestial/clockwork direction from exploration; no single franchise target. Wave E. ID `clockwork-observatory`.
 - **Emotional target:** precision, discovery and contemplative elegance.
 - **Composition/materials:** midnight domes, brass orreries, ivory star charts, frosted lenses and polished instrument tables.
 - **Art swatches:** indigo `#283553`, brass `#BA9A5A`, ivory `#EEE5D2`, star blue `#91BBD4`.
@@ -182,7 +182,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 14. Coral Commons
 
-- **Influence:** original reef-community direction; broad underwater animation. Wave E. ID `coral-commons`.
+- **Genre:** original reef-community direction; broad underwater animation. Wave E. ID `coral-commons`.
 - **Emotional target:** buoyancy, biodiversity and cooperative energy.
 - **Composition/materials:** sea-glass desks, coral terraces, shell archives, shaft lighting and original bioluminescent plants.
 - **Art swatches:** deep blue `#214A62`, sea glass `#7DC6B7`, coral `#E49382`, pearl `#E8E7D8`.
@@ -194,11 +194,11 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 ## 15. Meadow Post
 
-- **Influence:** Animal Crossing/Sanrio's comfort and village appeal. Wave E. ID `meadow-post`.
+- **Genre:** cozy animal-village comfort and gentle character design. Wave E. ID `meadow-post`.
 - **Emotional target:** gentle reassurance, friendliness and low visual pressure.
 - **Composition/materials:** garden studios, small bridges, stationery counters, painted timber, paper textures and soft morning light.
 - **Art swatches:** sage `#A4B79A`, apricot `#E8BC9F`, lavender `#B2A6C5`, oat `#F2EBDD`.
-- **Cast order:** field-mouse cartographer; badger maker; swallow courier; tortoise archivist; goat planner; hedgehog inspector. Original proportions, clothing and faces; no recognizable Sanrio/villager designs, logos, game furniture or audio.
+- **Cast order:** field-mouse cartographer; badger maker; swallow courier; tortoise archivist; goat planner; hedgehog inspector. Original proportions, clothing and faces; no recognizable existing mascot or villager designs, logos, game furniture or audio.
 - **Stations:** village desk / garden studio / post archive / reading garden / postmaster desk / picnic nook.
 - **Props:** envelope, seed-paper card, basket, desk flag, book trolley, small stamp.
 - **Submission signature:** `parcel`, a folded envelope settling into a receiving tray.

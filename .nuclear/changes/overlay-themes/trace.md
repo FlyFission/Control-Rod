@@ -5,8 +5,8 @@ Date: 2026-10-25.
 | Input | Resulting design decision | Location |
 |---|---|---|
 | User's initial interchangeable overlay request | One shared scene engine and swappable art descriptors | Design sections 1, 5–6 |
-| Monsters/Minions first, Ocean's Eleven next | Waves A and B; pilot three visual treatments | Catalog production waves; plan Task 9 |
-| Wonka, Zelda, Friends and expansion to fifteen | All fifteen concrete art briefs and exact stable IDs | Catalog sections 1–15 |
+| Creature-workplace and small-helper worlds first, heist world next | Waves A and B; pilot three visual treatments | Catalog production waves; plan Task 9 |
+| Confectionery, woodland-fantasy and café worlds, expansion to fifteen | All fifteen concrete art briefs and exact stable IDs | Catalog sections 1–15 |
 | User wants strong recognizable inspiration and possible “inspired by” labels | Preserve explicit internal lineage and optional separately reviewed public factual notes | Design section 8; each catalog brief |
 | User asks for full spec and plan | Documentation packet with proposed defaults and unchecked implementation tasks | Basis; implementation plan |
 | User approves design and requests full execution, 2026-10-26 | Isolated native implementation, fifteen original art packs, technical checks and private runnable review bundle | Execution ledger; user guide; verification and ship records |

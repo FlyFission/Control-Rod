@@ -4,6 +4,7 @@ Date: 2026-10-26. Mode: standard frontend/asset implementation after user approv
 
 | Risk | Planned control | Evidence / stop condition |
 |---|---|---|
+| Franchise names or likeness reach the public repository or launch posts | Genre only naming, originality rules, hashed denylist scan, cast review at full size | Any scan finding, or a reviewer naming a specific franchise from a cast |
 | Theme says done before work is accepted | Source-backed local projection; exact terminal/checker/human labels | State matrix and mixed-revision tests; stop release on false acceptance |
 | Scene conceals missing/overflow work | Selected-page counts, failed-detail reporting, bounded stations and complete list | 31-package and seventh-entity fixtures; no “all agents” claim |
 | Theme switch changes task authority | Read-only model, no API/auth/raw evidence in pack props | Mutation/external-request rejection in browser fixtures |

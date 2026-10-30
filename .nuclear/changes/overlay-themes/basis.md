@@ -3,7 +3,7 @@
 - Date: 2026-10-25 (America/New_York).
 - Initial delivery: specification and plan, 2026-10-25. Execution subsequently authorized below.
 - User authorization: “Build out the full specification and plan.”
-- Scope anchor: fifteen interchangeable beautiful worlds; begin with Monsters/Minion influences, then Ocean's Eleven; preserve strong creative influences and consider factual “inspired by” references without treating them as legal clearance.
+- Scope anchor: fifteen interchangeable beautiful worlds; begin with the creature-workplace and small-helper worlds, then the heist world; keep strong genre character. Amended 2026-10-30 by the owner for open-source release: no third-party franchise is named anywhere in the repository or launch material, including as an "inspired by" reference.
 - Observed implementation baseline: `buildout/controlled-preparation-20261023` at `465b084a04c6a99bb80c29aa890146eea5a55bd1`.
 - Observed main: `40763d4153eabd542d0c7ef028b8aab5de8d6522`; the executable Floor is not on main. Refresh source pins before implementation.
 - Planning branch: `docs/interchangeable-overlay-themes-20261025`, based on the executable buildout. This does not authorize merging that buildout or adopting its unrelated changes.

@@ -55,6 +55,8 @@ export const VERSION = "0.1.0";
 
 export interface AppOptions {
   db: Db;
+  /** Where unhandled errors are reported. Default: one line on standard error with the stack. */
+  onError?: (err: unknown) => void;
   auth: AuthConfig;
   root: string;
   /** Built web app to serve at /, if present. */
@@ -116,6 +118,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (err instanceof Refusal) return reply.code(err.status).send({ code: err.code, message: err.message });
     const status = (err as { statusCode?: number }).statusCode;
     if (status && status < 500) return reply.code(status).send({ code: "invalid", message: (err as Error).message });
+    (opts.onError ?? ((e) => console.error("[control-rod] unhandled error:", e)))(err);
     return reply.code(500).send({ code: "error", message: "Something went wrong; it is in the server log." });
   });
 

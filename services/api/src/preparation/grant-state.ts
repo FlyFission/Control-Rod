@@ -1,6 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Ajv2020 } from "ajv/dist/2020.js";
-import { type Db, type Tx, tx } from "../db/index.js";
+import type { Db, Tx } from "../db/index.js";
+import { command } from "../commands/executor.js";
+import type { CommandName } from "../commands/catalog.js";
 import { digest } from "../kernel.js";
 import { Refusal, type PackageRow } from "../work.js";
 import { captureInput } from "./basis.js";
@@ -96,10 +98,11 @@ export function validateGrantValue(
 }
 export async function grantTx<T>(
   db: Db,
+  name: CommandName,
   fn: (c: Tx) => Promise<T>,
 ): Promise<T> {
   try {
-    return await tx(db, async (c) => {
+    return await command(db, name, async (c) => {
       const support = (
         await c.query<{ setting: string | null }>(
           "select current_setting('transaction_timeout',true) as setting",

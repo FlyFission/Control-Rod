@@ -1,0 +1,8 @@
+| Item | Result | Evidence |
+|---|---|---|
+| Extended protocol | **Confirmed, including `values: []`** | [executor.ts:70](services/api/src/commands/executor.ts:70) always supplies `queryMode: "extended"`. Installed [pg/query.js:35](node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/query.js:35) returns `true` before checking values. [query.js:163](node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/query.js:163) consequently uses Parse/Bind/Execute. |
+| N-03 | **Not fixed, Major** | [executor.ts:67](services/api/src/commands/executor.ts:67) permits `;COMMIT`: leading comments are removed, but leading empty statements are retained, defeating the anchored keyword check. [PostgreSQL’s grammar](https://github.com/postgres/postgres/blob/REL_17_STABLE/src/backend/parser/gram.y#L896-L925) discards empty statements, so this remains one statement under extended protocol. Concrete bypass: write through `c.query(...)`, then `await c.query(";COMMIT")`, then throw. The earlier write survives rollback. [command-boundary.test.ts:306](services/api/test/command-boundary.test.ts:306) omits this case. |
+| N-09 | **Fixed for the reported race** | [roles.ts:115](services/api/src/db/roles.ts:115) handles duplicate creation by probing the supplied password, then refuses a mismatch unless `ownsCluster` is true. The concurrent installation’s password is no longer overwritten on a shared server. |
+| Introduced critical or major defects | **Major: the leading-empty-statement bypass above** | The simplified prefix check leaves transaction ownership bypassable despite correctly enforcing extended protocol. No additional critical or major defect identified within scope. Source inspection only; no tests run or files modified. |
+
+BLOCK

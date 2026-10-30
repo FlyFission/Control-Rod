@@ -86,9 +86,9 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
 export function BrandMark() {
   return (
     <svg width="24" height="24" viewBox="0 0 28 28" aria-hidden="true">
-      <rect x="12" y="2" width="4" height="24" rx="2" fill="#5CC8FF" />
-      <rect x="4" y="8" width="4" height="12" rx="2" fill="#2B6E99" />
-      <rect x="20" y="8" width="4" height="12" rx="2" fill="#2B6E99" />
+      <rect x="12" y="2" width="4" height="24" rx="2" style={{ fill: "var(--accent)" }} />
+      <rect x="4" y="8" width="4" height="12" rx="2" style={{ fill: "var(--accent-dim)" }} />
+      <rect x="20" y="8" width="4" height="12" rx="2" style={{ fill: "var(--accent-dim)" }} />
     </svg>
   );
 }

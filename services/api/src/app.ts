@@ -55,6 +55,8 @@ export const VERSION = "0.1.0";
 
 export interface AppOptions {
   db: Db;
+  /** Where unhandled errors are reported. Default: one line on standard error with the stack. */
+  onError?: (err: unknown) => void;
   auth: AuthConfig;
   root: string;
   /** Built web app to serve at /, if present. */
@@ -116,6 +118,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (err instanceof Refusal) return reply.code(err.status).send({ code: err.code, message: err.message });
     const status = (err as { statusCode?: number }).statusCode;
     if (status && status < 500) return reply.code(status).send({ code: "invalid", message: (err as Error).message });
+    (opts.onError ?? ((e) => console.error("[control-rod] unhandled error:", e)))(err);
     return reply.code(500).send({ code: "error", message: "Something went wrong; it is in the server log." });
   });
 
@@ -264,7 +267,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       db,
       auth,
       "decision",
-      { package_id: req.params.id, kind, revision, subject_digest: s.digest },
+      { package_id: req.params.id, kind, revision, subject_digest: s.digest, nonce },
       decisionChallenge(s.digest, String(kind), Number(revision), nonce),
     );
     return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
@@ -272,7 +275,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions", async (req, reply) => {
     const user = await person(req);
     const body = req.body ?? ({} as DecisionBody);
-    let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
+    let signed: { subject_digest: string; assertion: Record<string, unknown>; nonce?: string } | null = null;
     if (body.assertion) {
       const ok = await assertionVerify(db, auth, "decision", body.assertion as never);
       if (
@@ -282,7 +285,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
         ok.data.kind === body.kind &&
         Number(ok.data.revision) === Number(body.package_revision)
       ) {
-        signed = { subject_digest: String(ok.data.subject_digest), assertion: body.assertion };
+        signed = {
+          subject_digest: String(ok.data.subject_digest), assertion: body.assertion,
+          ...(typeof ok.data.nonce === "string" ? { nonce: ok.data.nonce } : {}),
+        };
       }
     }
     const decision = await applyDecision(db, cfg, user, req.params.id, {

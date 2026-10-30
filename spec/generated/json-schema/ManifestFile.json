@@ -1,0 +1,27 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ManifestFile.json",
+    "type": "object",
+    "properties": {
+        "path": {
+            "type": "string",
+            "minLength": 1
+        },
+        "mode": {
+            "$ref": "ManifestEntryMode.json"
+        },
+        "digest": {
+            "$ref": "Digest.json",
+            "description": "Content digest; for a symlink, the digest of its target text."
+        },
+        "link_target": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "path",
+        "mode",
+        "digest"
+    ],
+    "unevaluatedProperties": false
+}

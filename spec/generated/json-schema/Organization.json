@@ -1,0 +1,23 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Organization.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "name": {
+            "type": "string"
+        },
+        "status": {
+            "$ref": "LifecycleStatus.json"
+        }
+    },
+    "required": [
+        "id",
+        "name",
+        "status"
+    ],
+    "description": "The tenant boundary. Floors and budgets attach here.",
+    "unevaluatedProperties": false
+}

@@ -594,3 +594,8 @@ it("caps each new permit and its commit guard at the currently shortened run lea
   expect(stored[0].expires_at.getTime()).toBe(lease);
   expect(stored[0].deadline.getTime()).toBe(lease);
 });
+
+it("migrations 009 and 010 preserve grant history (review R14)", async () => {
+  const { assertMigrationsPreserveHistory } = await import("./migration-preservation.js");
+  await assertMigrationsPreserveHistory(f.h.admin, ["preparation_grants", "preparation_grant_inputs", "preparation_grant_uses", "preparation_grant_receipts"]);
+});

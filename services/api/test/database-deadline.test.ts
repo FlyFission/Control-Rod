@@ -7,7 +7,7 @@ beforeAll(async () => {
 }, 120_000);
 afterAll(async () => h?.stop());
 it("preserves the fatal database deadline error and safely discards its client", async () => {
-  const fatal = await tx(h.db, async (c) => {
+  const fatal = await tx(h.admin, async (c) => {
     await c.query("set local transaction_timeout='100ms'");
     await c.query("select pg_sleep(1)");
   }).catch((e) => e);

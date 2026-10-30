@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PlanDecisionKind.json",
+    "type": "string",
+    "enum": [
+        "release",
+        "methodology",
+        "verdict",
+        "clearance"
+    ],
+    "description": "Decision kinds of the Platform Plan (specification 5.5). Additive: the signed Decision record and\nits DecisionKind are unchanged, and every historical decision is read through a versioned\nDecisionKindMapping. Methodology and clearance have no legacy kind; they arrive with the\nprotected kernel change (plan 6.6)."
+}

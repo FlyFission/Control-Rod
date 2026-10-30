@@ -1,0 +1,61 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RuntimeProbe.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "machine_id": {
+            "$ref": "TenancyId.json"
+        },
+        "runtime": {
+            "type": "string",
+            "description": "For example \"claude-code\" or \"codex\"."
+        },
+        "artifact_digest": {
+            "$ref": "Digest.json"
+        },
+        "version": {
+            "type": "string"
+        },
+        "auth_state": {
+            "$ref": "RuntimeAuthState.json"
+        },
+        "outcome": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "pass"
+                },
+                {
+                    "type": "string",
+                    "const": "fail"
+                }
+            ]
+        },
+        "detail": {
+            "type": "string"
+        },
+        "observed_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "runtime",
+        "artifact_digest",
+        "version",
+        "auth_state",
+        "outcome",
+        "detail",
+        "observed_at"
+    ],
+    "description": "An observation of a runtime on a machine. (A)",
+    "unevaluatedProperties": false
+}

@@ -1,0 +1,16 @@
+{
+  "released": {
+    "000-legacy-baseline": "9805dca78314097126fd665f11374ebcfd80beb70015bed5d81fc8596ed0faae",
+    "001-preparation": "28b795e7dbd5c767d61f129d0acc546b89d1a94b8a2c758b06425e31a97cdf1e",
+    "002-confirmation": "06b56c7463682469f453f657849a1bc945e81ba2aecf889336fd572f0c78c733",
+    "003-release": "447fdf0b2f9c6e3dc870d3c91fc02fab7ecba469084d702f7d6c5ef30f1cb826",
+    "004-basis": "67c18166abb65846cd67d6ad59f46f9398c33c16b3b447c9fc73ec97ccd5bdff",
+    "005-results": "f95b6cb7b064410e88b804199349f581d3c5977ad71d67cdd6124f1dbb0487ba",
+    "006-compatibility": "89984cb7a1b4b183eea2e29fdd08bbb75d358728bb5a3502358ecdf6bce0daee",
+    "007-dependency-inputs": "4272f208704182fae03be0ea64708928f3a6be8fe1fcddf6ac4dbdaf971fc9e9",
+    "008-preparation-grants": "c8ddae6adc8ccd5025adc4dfc3d36a677dcf81449b1542a566c96608a67e1f96",
+    "009-tenancy": "0810e6b920b12e9518445d84ea56de78d3a9ba772738df80b6eb030d8657817e",
+    "010-workbench": "11d963c05383cf89372f48815a76c961d1631e02be0d917af9dc2441d4114f3f",
+    "011-roles": "9344aab832b1464bebcf7a1f47276916f1315c0883520b0df3ce9ab5539e6553"
+  }
+}

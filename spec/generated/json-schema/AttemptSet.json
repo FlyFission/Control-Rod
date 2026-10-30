@@ -1,0 +1,44 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AttemptSet.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Intake drafts revision 0; it can be released as is."
+        },
+        "release_digest": {
+            "$ref": "Digest.json"
+        },
+        "candidates": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 8
+        },
+        "status": {
+            "$ref": "AttemptSetStatus.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "package_id",
+        "package_revision",
+        "release_digest",
+        "candidates",
+        "status"
+    ],
+    "description": "N candidates against one released revision digest. (L)",
+    "unevaluatedProperties": false
+}

@@ -1,0 +1,20 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "HardwareFloorVerdict.json",
+    "type": "object",
+    "properties": {
+        "eligible": {
+            "type": "boolean"
+        },
+        "reason": {
+            "type": "string",
+            "description": "The evidence that decided it, or the evidence that is missing."
+        }
+    },
+    "required": [
+        "eligible",
+        "reason"
+    ],
+    "description": "Whether a credential may sign decisions whose floor requires a hardware backed key.",
+    "unevaluatedProperties": false
+}

@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Selection.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "attempt_set_id": {
+            "$ref": "TenancyId.json"
+        },
+        "candidate_id": {
+            "$ref": "TenancyId.json"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 1
+        },
+        "proposed_by": {
+            "$ref": "Actor.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "attempt_set_id",
+        "candidate_id",
+        "reason",
+        "proposed_by"
+    ],
+    "description": "Choice of one candidate; a proposal absorbed into the verdict subject. (A)",
+    "unevaluatedProperties": false
+}

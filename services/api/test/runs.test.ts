@@ -189,7 +189,7 @@ describe("serving outputs", () => {
     const ok = await asOwner("GET", `/packages/${id}/outputs/constraints.md`);
     expect(ok.statusCode).toBe(200);
     expect(ok.body).toBe("# Constraints");
-    await h.db.query("update outputs set bytes = $1 where package_id = $2 and name = 'constraints.md'", [Buffer.from("# Edited"), id]);
+    await h.admin.query("update outputs set bytes = $1 where package_id = $2 and name = 'constraints.md'", [Buffer.from("# Edited"), id]);
     const bad = await asOwner("GET", `/packages/${id}/outputs/constraints.md`);
     expect(bad.statusCode).toBe(409);
     expect(bad.json().code).toBe("output-changed");
@@ -318,7 +318,7 @@ describe("run custody", () => {
   it("marks a run lost when its lease lapses, refuses its late completion and lets only the owner requeue it", async () => {
     const id = await releasedPackage("LOST");
     const job = (await claim()) as Job;
-    await h.db.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [job.run.id]);
+    await h.admin.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [job.run.id]);
     const office = (await asOwner("GET", "/office")).json() as { kind: string; package_id: string; detail: string }[];
     const item = office.find((o) => o.package_id === id);
     expect(item?.kind).toBe("lost");
@@ -515,7 +515,7 @@ describe("one live run per assignment", () => {
     const id = await releasedPackage("ONCE");
     const live = (await asOwner("GET", `/packages/${id}`)).json().runs[0];
     expect(live.status).toBe("queued");
-    const dup = h.db.query(
+    const dup = h.admin.query(
       "insert into runs (id, package_id, package_revision, role, round, status, body) values ('R-dup', $1, 0, 'author', 1, 'running', $2)",
       [id, { ...live, id: "R-dup", status: "running" }],
     );
@@ -526,7 +526,7 @@ describe("one live run per assignment", () => {
     await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
     const first = await asOwner("POST", `/packages/${id}/runs/${job.run.id}/requeue`);
     expect(first.statusCode).toBe(201);
-    await h.db.query("update runs set body = body - 'requeued_as' where id = $1", [job.run.id]);
+    await h.admin.query("update runs set body = body - 'requeued_as' where id = $1", [job.run.id]);
     const second = await asOwner("POST", `/packages/${id}/runs/${job.run.id}/requeue`);
     expect(second.json().id).toBe(first.json().id);
     const counts = await h.db.query<{ n: string }>(
@@ -733,7 +733,7 @@ describe("claim scan", () => {
     if (!id) throw new Error("package not drafted");
     // 60 pre-checks on a draft package: each is skipped (held), never claimed, and they are oldest.
     for (let round = 1; round <= 60; round++) {
-      await h.db.query(
+      await h.admin.query(
         "insert into runs (id, package_id, package_revision, role, round, status, body, created_at) values ($1, $2, 0, 'pre-check', $3, 'queued', '{}'::jsonb, now() - interval '1 hour')",
         [`R-held-${round}`, id, round],
       );
@@ -742,7 +742,7 @@ describe("claim scan", () => {
     expect(fresh.statusCode, fresh.body).toBe(201);
     const job = await claim();
     expect(job?.run.role).toBe("intake");
-    await h.db.query("update runs set status = 'stopped' where id like 'R-held-%'");
+    await h.admin.query("update runs set status = 'stopped' where id like 'R-held-%'");
     if (job) await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test", outputs: [] });
   });
 });
@@ -786,8 +786,8 @@ describe("capture provenance", () => {
       expect(created.statusCode).toBe(201);
       const originalId = created.json().id;
       // Controlled valid capture IDs make the collision deterministic.
-      await h.db.query("update captures set id = $2, body = jsonb_set(body, '{id}', to_jsonb($2::text)) where id = $1", [originalId, captureId]);
-      await h.db.query("update runs set package_id = $2, body = jsonb_set(body, '{package_id}', to_jsonb($2::text)) where package_id = $1", [originalId, captureId]);
+      await h.admin.query("update captures set id = $2, body = jsonb_set(body, '{id}', to_jsonb($2::text)) where id = $1", [originalId, captureId]);
+      await h.admin.query("update runs set package_id = $2, body = jsonb_set(body, '{package_id}', to_jsonb($2::text)) where package_id = $1", [originalId, captureId]);
       const intake = await claim();
       if (!intake) throw new Error("no intake job");
       expect(intake.run.package_id).toBe(captureId);

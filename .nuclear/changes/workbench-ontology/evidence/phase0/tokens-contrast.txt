@@ -1,0 +1,26 @@
+--ground: #0a0a0c;
+--surface: #101012;
+--panel: #141416;
+--line: #1e1e1f;
+--line-2: #2f2f30;
+--text: #e8f0f8;
+--text-2: #c5d0dc;
+--muted: #94a3b8;
+--accent: #00f2ff;
+--accent-ink: #001a1c;
+--needs: #ffaa00;
+--waiting: #b89cff;
+--stuck: #ff7a59;
+--changed: #ffb347;
+--done: #00ff9d;
+
+text     on ground 17.19  on panel 15.99
+text-2   on ground 12.65  on panel 11.77
+muted    on ground  7.71  on panel  7.18
+accent   on ground 14.27  on panel 13.27
+needs    on ground 10.36  on panel  9.64
+waiting  on ground  8.70  on panel  8.09
+stuck    on ground  7.71  on panel  7.17
+changed  on ground 11.11  on panel 10.33
+done     on ground 14.87  on panel 13.83
+accent-ink on accent 13.01

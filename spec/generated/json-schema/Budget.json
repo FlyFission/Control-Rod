@@ -1,0 +1,45 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Budget.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "scope": {
+            "$ref": "BudgetScope.json"
+        },
+        "scope_id": {
+            "type": "string"
+        },
+        "mode": {
+            "$ref": "BudgetMode.json"
+        },
+        "limit": {
+            "$ref": "Quantity.json",
+            "description": "The limit with its unit, for example \"USD\" or \"tokens\"."
+        },
+        "period": {
+            "type": "string",
+            "description": "ISO 8601 duration, for example \"P1M\"."
+        },
+        "status": {
+            "$ref": "LifecycleStatus.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "scope",
+        "scope_id",
+        "mode",
+        "limit",
+        "period",
+        "status"
+    ],
+    "description": "A spending or usage limit. (L)",
+    "unevaluatedProperties": false
+}

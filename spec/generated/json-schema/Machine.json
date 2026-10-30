@@ -1,0 +1,27 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Machine.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "name": {
+            "type": "string"
+        },
+        "status": {
+            "$ref": "LifecycleStatus.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "name",
+        "status"
+    ],
+    "description": "An enrolled daemon host.",
+    "unevaluatedProperties": false
+}

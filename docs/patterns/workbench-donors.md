@@ -24,6 +24,7 @@
 | GoogleCloudPlatform/scion | Apache-2.0 | `8845a940763f91519d25e72cde3762d6e31df4cb` | execution, sandbox, audit |
 | sipyourdrink-ltd/bernstein | Apache-2.0 | `cb761c69b3d11689233e5e7a9ed07fdb26b9e7e5` | execution, sandbox, audit |
 | OpenHands/OpenHands | MIT (this pin holds the frontend only) | `7219c1991e9b47b6af7977bd7e9e5de1aa4f404b` | execution, sandbox, audit |
+| WW-AI-Lab/openclaw-office | MIT (repository assets are screenshots and videos only; no art) | `def631a4533df2b0c8bb6aa19ef3e07c81f4fbc6` | office view rendering (Platform Plan) |
 
 ## What to take
 
@@ -85,4 +86,4 @@ Scouting working papers (reader findings, synthesis) are kept outside the reposi
 
 Munder Difflin's `LICENSE-ASSETS` (read at the pinned commit) states its bundled tileset art is LimeZu "Modern Interiors" under a separate license requiring credit, so its art is excluded; only its MIT code patterns are referenced.
 
-Office view engine patterns named by the Platform Plan (openclaw-office for SVG rendering and event batching, Munder Difflin for state rules, herdr for status rollup order) were not re-read in this pass beyond Munder Difflin and herdr; openclaw-office is to be pinned and license checked before use.
+Office view engine patterns named by the Platform Plan: openclaw-office (pinned above, MIT; its `src/components/office-2d/` renders the floor in SVG and `src/store/office-movement.ts` and `office-collaboration.ts` batch movement and collaboration events), Munder Difflin for state rules, herdr for status rollup order. A second repository with the same name, `wickedapp/openclaw-office`, renders no SVG and is not the reference.

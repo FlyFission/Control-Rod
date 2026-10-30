@@ -1,6 +1,12 @@
 # Risk: workbench and ontology
 
+## Selected mode
+
 - **Mode:** Standard
+- Basis: the change defines controlled object types, the command catalog, decision subjects and protected kernel rules, so it is reviewed as Standard even though this packet holds documents only.
+
+## Risk register
+
 - Standard-plus routing: the change defines new controlled object types, the action catalog, decision subjects that include sandbox attestation, and protected kernel rules.
 - Execution owner: Claude Code under the owner's 2026-10-29 instruction to specify and review.
 - Decision owner: repository owner; no protected surface signature inferred.

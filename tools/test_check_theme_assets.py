@@ -2,8 +2,28 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import hashlib
+import json
+import re
 import xml.etree.ElementTree as ET
 from check_theme_assets import check_svg, check_manifest, check_release_records
+
+GEOMETRY_KEYS={'d','points','x','y','cx','cy','r','rx','ry','width','height','transform','x1','y1','x2','y2'}
+
+
+def _geometry(node):
+    """Shape identity without colour, so recolouring never counts as a new design."""
+    return (node.tag.split('}')[-1], tuple(sorted((k,v) for k,v in node.attrib.items() if k in GEOMETRY_KEYS)))
+
+
+def _catalog_props(path):
+    """Map each pack ID to the six prop names in its catalog brief."""
+    props={}
+    for section in re.split(r'\n## \d+\. ',path.read_text())[1:]:
+        ident=re.search(r'ID `([a-z0-9-]+)`',section)
+        line=re.search(r'\*\*Props:\*\*\s*(.+)',section)
+        if ident and line:
+            props[ident.group(1)]=[p.strip() for p in line.group(1).rstrip('.').split(',')]
+    return props
 
 
 class AssetGateTests(unittest.TestCase):
@@ -16,6 +36,42 @@ class AssetGateTests(unittest.TestCase):
                 geometry=[(n.tag.split('}')[-1], tuple(sorted((k,v) for k,v in n.attrib.items() if k in {'d','points','x','y','cx','cy','r','rx','ry','width','height','transform'}))) for n in tree.iter() if n.tag.split('}')[-1] not in {'defs','linearGradient','stop'}]
                 geometries.append(str(geometry))
             self.assertEqual(len(set(geometries)),6,pack)
+    def test_every_world_has_its_own_body_geometry(self):
+        root=Path(__file__).resolve().parents[1]/'design/overlay-themes'
+        owners={}
+        for pack in sorted(p.name for p in root.iterdir() if p.is_dir()):
+            bodies=[]
+            for i in range(6):
+                tree=ET.parse(root/pack/f'character-{i}.svg')
+                groups=[n for n in tree.iter() if n.tag.split('}')[-1]=='g' and n.attrib.get('id')==f'shape-{i}']
+                self.assertEqual(len(groups),1,f'{pack} character-{i} needs exactly one shape group')
+                shapes=[_geometry(n) for n in groups[0].iter() if n is not groups[0]]
+                self.assertTrue(shapes,f'{pack} character-{i} body is empty')
+                bodies.append(tuple(shapes))
+                for shape in shapes:
+                    owners.setdefault(shape,set()).add(pack)
+            self.assertEqual(len(set(bodies)),6,f'{pack} repeats a body within its cast')
+        shared={shape:worlds for shape,worlds in owners.items() if len(worlds)>1}
+        self.assertEqual(shared,{},'body shapes must belong to exactly one world')
+
+    def test_props_follow_each_world_brief(self):
+        root=Path(__file__).resolve().parents[1]
+        briefs=_catalog_props(root/'docs/superpowers/specs/2026-10-25-overlay-themes-catalog.md')
+        self.assertEqual(len(briefs),15)
+        names_by_geometry={}
+        for pack,names in briefs.items():
+            source=json.loads((root/f'design/overlay-themes/{pack}/source.json').read_text())
+            self.assertEqual(source.get('props'),names,f'{pack} props must match its catalog brief in order')
+            geometries=[]
+            for i,name in enumerate(names):
+                tree=ET.parse(root/f'design/overlay-themes/{pack}/prop-{i}.svg')
+                geometry=tuple(_geometry(n) for n in tree.iter() if n.tag.split('}')[-1] not in {'svg','defs','linearGradient','stop'})
+                geometries.append(geometry)
+                names_by_geometry.setdefault(geometry,set()).add(name)
+            self.assertEqual(len(set(geometries)),6,f'{pack} repeats a prop')
+        reused={g:n for g,n in names_by_geometry.items() if len(n)>1}
+        self.assertEqual(reused,{},'one drawing may serve only one named prop')
+
     def test_accepts_passive_local_gradient(self):
         self.assertEqual(check_svg(b'<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><defs><linearGradient id="a"><stop offset="0" stop-color="#fff"/></linearGradient></defs><path fill="url(#a)" d="M0 0h1"/></svg>'), [])
 

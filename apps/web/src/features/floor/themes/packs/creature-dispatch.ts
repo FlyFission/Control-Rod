@@ -3,8 +3,8 @@ export default {
   "schemaVersion": 1,
   "id": "creature-dispatch",
   "version": "0.1.0",
-  "title": "Creature Dispatch",
-  "description": "An extraordinary crew keeps your work moving through a lively dispatch depot.",
+  "title": "The Monster Mailroom",
+  "description": "Big, gentle creatures who never lose a parcel.",
   "moodTags": [
     "Whimsical"
   ],
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/creature-dispatch/thumbnail.f30b46ffe48b.svg",
-      "sha256": "f30b46ffe48b9de18bf214a597019ce28d8cb32aa3a90ba305869e3833372f8b",
-      "bytes": 15661,
+      "path": "/floor-themes/creature-dispatch/thumbnail.5c8d36975d06.svg",
+      "sha256": "5c8d36975d06c353d0e4705576411d48decede45f7e97c0753246c08b828cdd2",
+      "bytes": 15781,
       "width": 800,
       "height": 480,
       "creator": "Codex \u2014 original procedural vector illustration",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/creature-dispatch/character-0.45dcf456b899.svg",
-        "sha256": "45dcf456b899f43a94749d4aa29c998cfd8da63d06cd20022b66bbd541092a33",
-        "bytes": 1093,
+        "path": "/floor-themes/creature-dispatch/character-0.33fef8d6b6dc.svg",
+        "sha256": "33fef8d6b6dca6e1dc29373508c6977b38031ba662830c5b62f24507c7f2344f",
+        "bytes": 1113,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/creature-dispatch/character-1.f861d885b157.svg",
-        "sha256": "f861d885b1579fe063c935f4e0b6d49a3e9441b67669c7651d6cc761fed4167d",
-        "bytes": 1172,
+        "path": "/floor-themes/creature-dispatch/character-1.65b117134a14.svg",
+        "sha256": "65b117134a1403c84f8f78da08db03eca82eb8984539d7164770dd4381b41a98",
+        "bytes": 1192,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/creature-dispatch/character-2.5c00b2c2e866.svg",
-        "sha256": "5c00b2c2e866170991c950a72ae999baa0c830226c3411827de422697cb02940",
-        "bytes": 1090,
+        "path": "/floor-themes/creature-dispatch/character-2.d22e67a838cd.svg",
+        "sha256": "d22e67a838cd34d61159b6d7f3d6609cca5fac94def7335ab90178653d566ebc",
+        "bytes": 1110,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/creature-dispatch/character-3.ab0fea203357.svg",
-        "sha256": "ab0fea203357895619c81cc642508ab852914a119d32a8b50e77aa37172a8d1f",
-        "bytes": 1093,
+        "path": "/floor-themes/creature-dispatch/character-3.f057017e47d5.svg",
+        "sha256": "f057017e47d5f3bee38c5dbc86acd5a27bcccdbf8d9de23198405e85ab8cd947",
+        "bytes": 1113,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/creature-dispatch/character-4.90d10593f7a3.svg",
-        "sha256": "90d10593f7a37842348f202c315b608774aa638c9c5026baece596b942a5e29e",
-        "bytes": 1137,
+        "path": "/floor-themes/creature-dispatch/character-4.a8be085c8f48.svg",
+        "sha256": "a8be085c8f482c8a5b5dc77fc8cb55b10c5a02b7aecaec9fffbcb46656231af2",
+        "bytes": 1157,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/creature-dispatch/character-5.06ee752fd605.svg",
-        "sha256": "06ee752fd605634c077682ff9cef126dd7b76810609758143b9594c40953a33a",
-        "bytes": 1116,
+        "path": "/floor-themes/creature-dispatch/character-5.ec0bd014d67e.svg",
+        "sha256": "ec0bd014d67eb6944585d13d2ae59f272eb4ca54be730bb2e9ee348353f9a9e7",
+        "bytes": 1136,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -102,9 +102,9 @@ export default {
     ],
     "props": {
       "prop-0": {
-        "path": "/floor-themes/creature-dispatch/prop-0.ac705d5d1436.svg",
-        "sha256": "ac705d5d14366a8822ce62b3c2b990e1a42229cba6c7895379af723c851b5dbb",
-        "bytes": 324,
+        "path": "/floor-themes/creature-dispatch/prop-0.57ab3ce0d7ab.svg",
+        "sha256": "57ab3ce0d7ab0631bbb5dd97774006d4cfb60e1e7688c9c1944607d74b70fff5",
+        "bytes": 351,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -112,9 +112,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-1": {
-        "path": "/floor-themes/creature-dispatch/prop-1.33261c5fab71.svg",
-        "sha256": "33261c5fab71cb2d21f035d963e22b5e03bad01da90caa113dcdef48e9be2758",
-        "bytes": 342,
+        "path": "/floor-themes/creature-dispatch/prop-1.9d55fc1d1f9b.svg",
+        "sha256": "9d55fc1d1f9b2fdef4a0f90ef63a0d112beb05ed1e1c56674325aac934a00152",
+        "bytes": 458,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -122,9 +122,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-2": {
-        "path": "/floor-themes/creature-dispatch/prop-2.d5f7920213dd.svg",
-        "sha256": "d5f7920213ddac243123d95c9517c01ccffd36d37f030a833dd0f1b398ad294c",
-        "bytes": 369,
+        "path": "/floor-themes/creature-dispatch/prop-2.ce43257d86d0.svg",
+        "sha256": "ce43257d86d0e0699b2d4880fc9fc6adacb87ec6b5b72cb7c0266941f792821e",
+        "bytes": 409,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -132,9 +132,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-3": {
-        "path": "/floor-themes/creature-dispatch/prop-3.0d3604648033.svg",
-        "sha256": "0d3604648033c012bbe023705ab598da29b02748b54c7d8e1610d84170f7c365",
-        "bytes": 391,
+        "path": "/floor-themes/creature-dispatch/prop-3.862033aed82a.svg",
+        "sha256": "862033aed82a418dda753cf5d67f9a5bfb1c3c3285c80fc5e4d237f23f0f6ff2",
+        "bytes": 382,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -142,9 +142,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-4": {
-        "path": "/floor-themes/creature-dispatch/prop-4.d896ab68f5a2.svg",
-        "sha256": "d896ab68f5a2daba2e58219b4120a15de85f836793a695048ab74bfbf1812fea",
-        "bytes": 358,
+        "path": "/floor-themes/creature-dispatch/prop-4.64576b802df5.svg",
+        "sha256": "64576b802df5a6b09b74bc2c43a7fc71d8b647a89e65f4d475bcfe3da3ff8540",
+        "bytes": 344,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -152,9 +152,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-5": {
-        "path": "/floor-themes/creature-dispatch/prop-5.61be75c48183.svg",
-        "sha256": "61be75c48183cc3327078f48739a59e9fb5e61b6f89c077e21ceb3ec735107e4",
-        "bytes": 361,
+        "path": "/floor-themes/creature-dispatch/prop-5.d32d37706e83.svg",
+        "sha256": "d32d37706e8317aedc555c7fad83ef7ccfc2cec8eb3900adeb57018cd2a1b111",
+        "bytes": 349,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",

@@ -8,5 +8,13 @@
     "#E3EAF0"
   ],
   "status": "draft",
+  "props": [
+    "modular panel",
+    "diagnostic wand",
+    "cargo token",
+    "drafting projector",
+    "tool case",
+    "relay puck"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

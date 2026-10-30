@@ -8,5 +8,13 @@
     "#F2EBDD"
   ],
   "status": "draft",
+  "props": [
+    "envelope",
+    "seed-paper card",
+    "basket",
+    "desk flag",
+    "book trolley",
+    "small stamp"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

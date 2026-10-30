@@ -8,5 +8,13 @@
     "#91BBD4"
   ],
   "status": "draft",
+  "props": [
+    "chart",
+    "lens",
+    "winding key",
+    "compass",
+    "instrument case",
+    "brass token"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

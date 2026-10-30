@@ -3,8 +3,8 @@ export default {
   "schemaVersion": 1,
   "id": "wildlight-camp",
   "version": "0.1.0",
-  "title": "Wildlight Research Camp",
-  "description": "A curious creature crew gathers findings at a lively research camp.",
+  "title": "Critter Expedition Camp",
+  "description": "Your field team is small, furry and very thorough.",
   "moodTags": [
     "Adventure"
   ],
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/wildlight-camp/thumbnail.631d68d73001.svg",
-      "sha256": "631d68d7300177c9bef8117bdb27b53cf5d0266b0276748c21fb35b66c443562",
-      "bytes": 17386,
+      "path": "/floor-themes/wildlight-camp/thumbnail.3414ff9ebb6e.svg",
+      "sha256": "3414ff9ebb6e1e40ea6da7c6f049946f3e1e0de23f8bdc64d1a7a09905e58fc7",
+      "bytes": 17506,
       "width": 800,
       "height": 480,
       "creator": "Codex \u2014 original procedural vector illustration",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/wildlight-camp/character-0.f7e572001d03.svg",
-        "sha256": "f7e572001d036a3b0d48d1d7a6aaf2d5647105df73eb8e9b4245197969831a25",
-        "bytes": 1348,
+        "path": "/floor-themes/wildlight-camp/character-0.934c231c2f09.svg",
+        "sha256": "934c231c2f098358980609a23ce916bf124fe3ed81961a6e24f64803096be659",
+        "bytes": 1368,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/wildlight-camp/character-1.c6d326117ae4.svg",
-        "sha256": "c6d326117ae4c783683e7bd808cefd4bc498537af81742a885ea70447d4d2f1a",
-        "bytes": 1336,
+        "path": "/floor-themes/wildlight-camp/character-1.19c96bdb1378.svg",
+        "sha256": "19c96bdb1378be8c3215db486ddee6005882ef07a2013f30a66db4d93f4ba39a",
+        "bytes": 1356,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/wildlight-camp/character-2.5905a979d1af.svg",
-        "sha256": "5905a979d1afb47286bcbe8b7bb8e2bb160475710f12926be3e7ad6c48754775",
-        "bytes": 1347,
+        "path": "/floor-themes/wildlight-camp/character-2.17a94cc5c80e.svg",
+        "sha256": "17a94cc5c80ebec113fcb6493b3c28166dc51987add85c2a28c447a17a86ce2b",
+        "bytes": 1367,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/wildlight-camp/character-3.abbbb7145f62.svg",
-        "sha256": "abbbb7145f6248a3b3a3b2a609bd9a93663db4b43109dcb151635db3a97708c3",
-        "bytes": 1443,
+        "path": "/floor-themes/wildlight-camp/character-3.c6f61daae8be.svg",
+        "sha256": "c6f61daae8bef60aeb4574edf967b8c4108427323f92afbc484d4a4b5af2e9aa",
+        "bytes": 1463,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/wildlight-camp/character-4.ffa09f21d199.svg",
-        "sha256": "ffa09f21d1992688eb61ef697d9f2c0cf095c07b3138d0615da496218f90d230",
-        "bytes": 1335,
+        "path": "/floor-themes/wildlight-camp/character-4.8306a559a4a4.svg",
+        "sha256": "8306a559a4a467c8062a389203f606b68dda7bde9b03174724fa7ed75ac5e771",
+        "bytes": 1355,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/wildlight-camp/character-5.b60a9c0f2dea.svg",
-        "sha256": "b60a9c0f2deafdc27e66461303da94b77c913ade025d2cb5122e0787cf17e459",
-        "bytes": 1340,
+        "path": "/floor-themes/wildlight-camp/character-5.e310642dea66.svg",
+        "sha256": "e310642dea66e05c18dd4698c8362a02ab1d0b3fb5105bc2d7c4feb47f194f63",
+        "bytes": 1360,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -102,9 +102,9 @@ export default {
     ],
     "props": {
       "prop-0": {
-        "path": "/floor-themes/wildlight-camp/prop-0.81412948e4ab.svg",
-        "sha256": "81412948e4abc76c55cfd5c54fd9623175f3a2ce09e225e705212e33e7126865",
-        "bytes": 324,
+        "path": "/floor-themes/wildlight-camp/prop-0.005601f07c93.svg",
+        "sha256": "005601f07c9342d3f5de361df0db59fbce83faa68111db3bccbd6dce6f1feb1b",
+        "bytes": 439,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -112,9 +112,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-1": {
-        "path": "/floor-themes/wildlight-camp/prop-1.7e9df5c833f4.svg",
-        "sha256": "7e9df5c833f43e71625124aa86087fb7d53d18c7536b4aad4e78f99d158945fe",
-        "bytes": 342,
+        "path": "/floor-themes/wildlight-camp/prop-1.ebb28d05714d.svg",
+        "sha256": "ebb28d05714dfb37a3f08080cc4815a1fc6f4028ba790353d55c85d40d992eec",
+        "bytes": 676,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -122,9 +122,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-2": {
-        "path": "/floor-themes/wildlight-camp/prop-2.4acbddefe745.svg",
-        "sha256": "4acbddefe745526f3335c24af6f3f8548bef67344fd5b95e5fd955f907bf3089",
-        "bytes": 369,
+        "path": "/floor-themes/wildlight-camp/prop-2.fb3925d3103e.svg",
+        "sha256": "fb3925d3103e4e40d696bf3b66fd40a686da3a8b3545f78ee4cace7c554e3dec",
+        "bytes": 401,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -132,9 +132,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-3": {
-        "path": "/floor-themes/wildlight-camp/prop-3.80048b7a2f98.svg",
-        "sha256": "80048b7a2f98dfcaa135bfcc1b84b50d445e6248ed9ab3a327a3db1d5de34726",
-        "bytes": 391,
+        "path": "/floor-themes/wildlight-camp/prop-3.3637dc15b688.svg",
+        "sha256": "3637dc15b68807f9af13588ebd0a6824a9bb6c1338b6b163976d8f78e9ba73bf",
+        "bytes": 349,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -142,9 +142,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-4": {
-        "path": "/floor-themes/wildlight-camp/prop-4.6b9c07f908e2.svg",
-        "sha256": "6b9c07f908e201f12d88bdad2cd4105ac4a286609af33b5e19293374fa388c03",
-        "bytes": 358,
+        "path": "/floor-themes/wildlight-camp/prop-4.bd60e38df9d6.svg",
+        "sha256": "bd60e38df9d63158850891faa11f5f0fbbea5dc8bdd011ce4406184d0005cd95",
+        "bytes": 432,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -152,9 +152,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-5": {
-        "path": "/floor-themes/wildlight-camp/prop-5.40ecea0b298a.svg",
-        "sha256": "40ecea0b298a40e6040bd13b4c7827541f43d5d513d5e8e4d2433c4395e879c0",
-        "bytes": 361,
+        "path": "/floor-themes/wildlight-camp/prop-5.116d7bd68d2b.svg",
+        "sha256": "116d7bd68d2b4e878a41e7b7677feb46c00ae21d981a8463ec2c5993a000ef3d",
+        "bytes": 407,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",

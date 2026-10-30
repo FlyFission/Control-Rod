@@ -8,5 +8,13 @@
     "#F6EEDB"
   ],
   "status": "draft",
+  "props": [
+    "impossible ruler",
+    "paper parcel",
+    "bell tool",
+    "winding key",
+    "umbrella tray",
+    "bent desk lamp"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

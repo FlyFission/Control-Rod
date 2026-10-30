@@ -3,8 +3,8 @@ export default {
   "schemaVersion": 1,
   "id": "lanternwood-guild",
   "version": "0.1.0",
-  "title": "Lanternwood Guild",
-  "description": "A woodland guild of explorers and makers brings each assignment to life.",
+  "title": "The Lantern Woods Guild",
+  "description": "Mapmakers, smiths and couriers on a quest for done.",
   "moodTags": [
     "Adventure"
   ],
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/lanternwood-guild/thumbnail.8b478ee11f10.svg",
-      "sha256": "8b478ee11f1013b1b4328039c36e6bf989e45a9f1a13ffe738679266f9a26d6b",
-      "bytes": 17087,
+      "path": "/floor-themes/lanternwood-guild/thumbnail.72eb9ce42a10.svg",
+      "sha256": "72eb9ce42a1026ee3d734078e847f667aa65ef3535df5e949e11fee6b4c3c88d",
+      "bytes": 17105,
       "width": 800,
       "height": 480,
       "creator": "Codex \u2014 original procedural vector illustration",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/lanternwood-guild/character-0.19de509f4dcc.svg",
-        "sha256": "19de509f4dcc3b4d8fde30e3528609f771049bb3047e2247b9451c1c732b604c",
-        "bytes": 1154,
+        "path": "/floor-themes/lanternwood-guild/character-0.58e5014502bc.svg",
+        "sha256": "58e5014502bc0985b191e335a20a93dd8f4e6ee64118e518b310c4b6c4242112",
+        "bytes": 1113,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-1.cf41150ab54f.svg",
-        "sha256": "cf41150ab54f581dbe0223aa151dc4a2d8ab8fe27a29ee55966d3019bf158fe8",
-        "bytes": 881,
+        "path": "/floor-themes/lanternwood-guild/character-1.8f6ac616d5ba.svg",
+        "sha256": "8f6ac616d5ba0f980e46929ae82c1ef7102c88630d0c2cfa31d004c51b5ede30",
+        "bytes": 901,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-2.ec4c4dd7741c.svg",
-        "sha256": "ec4c4dd7741c69a306d422330a7b4d4531510d509b37449fa5ab485c557356e8",
-        "bytes": 880,
+        "path": "/floor-themes/lanternwood-guild/character-2.4e8bfa91db53.svg",
+        "sha256": "4e8bfa91db531e8f80dbae5c54a0a47da79eaf8628000be1be64224b1e2c6055",
+        "bytes": 900,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-3.8e97e52b5017.svg",
-        "sha256": "8e97e52b5017f35f53e826b2aa10864ddb0c4df85608aa041df2e3249f8d756e",
-        "bytes": 906,
+        "path": "/floor-themes/lanternwood-guild/character-3.fc445ab0b422.svg",
+        "sha256": "fc445ab0b4225326b0daacd4879f83f09dbb381a31e456873bfe7ae5f6619a48",
+        "bytes": 926,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-4.a788a0073a6a.svg",
-        "sha256": "a788a0073a6a51bf2ecb0d3cb3ba518b95dec292238d582580b4dca71a40834e",
-        "bytes": 1394,
+        "path": "/floor-themes/lanternwood-guild/character-4.f882a7beebbd.svg",
+        "sha256": "f882a7beebbd376496ed2e692d638d10e4bc8a6f5149fea99bb87662fdbfb922",
+        "bytes": 1387,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-5.0af3ef879f20.svg",
-        "sha256": "0af3ef879f20ee72ea6316055028836d2b90bec0580a67c45e42747de11eb36a",
-        "bytes": 1167,
+        "path": "/floor-themes/lanternwood-guild/character-5.59fbc18ab722.svg",
+        "sha256": "59fbc18ab7221cd603140710933366be1f637b738d8cb67e18cba91355204c66",
+        "bytes": 1173,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -102,9 +102,9 @@ export default {
     ],
     "props": {
       "prop-0": {
-        "path": "/floor-themes/lanternwood-guild/prop-0.508c0530e11b.svg",
-        "sha256": "508c0530e11b6fc4f4316413537283ba38545d140d9fc9fd7667d2b77c08ad75",
-        "bytes": 324,
+        "path": "/floor-themes/lanternwood-guild/prop-0.1d13c220baa7.svg",
+        "sha256": "1d13c220baa7f78ecd7a313d22d979b59eb799bccbf21409a42cd957520deb87",
+        "bytes": 503,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -112,9 +112,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-1": {
-        "path": "/floor-themes/lanternwood-guild/prop-1.7c9fe1a39109.svg",
-        "sha256": "7c9fe1a39109cc52abad677d4ac90a58c5437b9a9bba0667766343383d99e970",
-        "bytes": 342,
+        "path": "/floor-themes/lanternwood-guild/prop-1.a4887b357040.svg",
+        "sha256": "a4887b357040c9d83f470483dffafc79f0eb3dbcaec306142241fa8fc02932c7",
+        "bytes": 432,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -122,9 +122,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-2": {
-        "path": "/floor-themes/lanternwood-guild/prop-2.e3e0afcf47c9.svg",
-        "sha256": "e3e0afcf47c9227125ceaecb3ae5cbf40bbe5585edc150d72cf0f90db5182b0e",
-        "bytes": 369,
+        "path": "/floor-themes/lanternwood-guild/prop-2.b58e6896dba8.svg",
+        "sha256": "b58e6896dba87073d85f8df81ab6ea77675ba707eec1be8112808ef285fa27a4",
+        "bytes": 416,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -132,9 +132,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-3": {
-        "path": "/floor-themes/lanternwood-guild/prop-3.342b468b5083.svg",
-        "sha256": "342b468b5083769a02dc1e7b3274ff3d5c282940e21598e23086d354c930cf4c",
-        "bytes": 391,
+        "path": "/floor-themes/lanternwood-guild/prop-3.61fd22e6713c.svg",
+        "sha256": "61fd22e6713c7aa06942fb5ac134bd9b6baefb676cfc0f7e04dcd70b57ab6677",
+        "bytes": 301,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -142,9 +142,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-4": {
-        "path": "/floor-themes/lanternwood-guild/prop-4.1ccbcd3ffe7a.svg",
-        "sha256": "1ccbcd3ffe7a72be2698010c2f248f064d13431c1bc40e8338df30717ce8e347",
-        "bytes": 358,
+        "path": "/floor-themes/lanternwood-guild/prop-4.75f223d1ad7a.svg",
+        "sha256": "75f223d1ad7a2d66c95dd450ccc768afcd34e1beee9dc68ef391e13e3d8eb3d5",
+        "bytes": 410,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -152,9 +152,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-5": {
-        "path": "/floor-themes/lanternwood-guild/prop-5.337ecb8f2ca6.svg",
-        "sha256": "337ecb8f2ca619a90f404f3091be114271dafb20bf6891f4615d4dd25c76f9af",
-        "bytes": 361,
+        "path": "/floor-themes/lanternwood-guild/prop-5.3e3bfb6fb9d8.svg",
+        "sha256": "3e3bfb6fb9d8d4a8a9dc7b96c7c0bcdf39344e710a4d410396f05dfb475c2ef7",
+        "bytes": 350,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",

@@ -115,7 +115,7 @@ test("a newer cross-tab decision cancels a pending choice even when it selects t
   await page.goto("/themes.html");
   await page.locator(".floor-theme-trigger").click();
   await page
-    .getByRole("button", { name: "Use Creature Dispatch theme", exact: true })
+    .getByRole("button", { name: "Use The Monster Mailroom theme", exact: true })
     .click();
   await page.evaluate(() =>
     window.dispatchEvent(
@@ -169,21 +169,21 @@ test("all fifteen worlds switch without changing work and reduced motion stays s
     ),
   ).toBeVisible();
   for (const name of [
-    "Creature Dispatch",
-    "Pocket Lab",
-    "Midnight Bureau",
-    "Confectionery Works",
-    "Lanternwood Guild",
-    "Corner Café",
-    "Tumbletown Workshop",
-    "Orbital Shipyard",
-    "Wildlight Research Camp",
-    "Voxel Foundry",
-    "Cloudspring Bathhouse",
-    "Button & Spool",
-    "Clockwork Observatory",
-    "Coral Commons",
-    "Meadow Post",
+    "The Monster Mailroom",
+    "Little Helpers Laboratory",
+    "Heist Night",
+    "The Chocolate Factory",
+    "The Lantern Woods Guild",
+    "The Coffee House Crew",
+    "Tumbletown Rhyme Works",
+    "Starport Shipyard",
+    "Critter Expedition Camp",
+    "Blockworks Foundry",
+    "The Spirit Bathhouse",
+    "Thimble Town",
+    "Clockwork Stargazers",
+    "Reef Town",
+    "Cozy Critter Village",
   ]) {
     await page
       .getByRole("button", { name: /Theme Plain Floor|Theme / })
@@ -248,10 +248,10 @@ test("failed artwork keeps the current world and explains the failure inside the
   );
   await page.getByRole("button", { name: /Theme Plain Floor/ }).click();
   await page
-    .getByRole("button", { name: "Use Creature Dispatch theme", exact: true })
+    .getByRole("button", { name: "Use The Monster Mailroom theme", exact: true })
     .click();
   await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
-    "Could not load Creature Dispatch",
+    "Could not load The Monster Mailroom",
   );
   await page.keyboard.press("Escape");
   await expect(
@@ -279,17 +279,17 @@ test("a slower earlier theme never replaces a newer selection", async ({
   await page.goto("/themes.html");
   await page.getByRole("button", { name: /Theme Plain Floor/ }).click();
   await page
-    .getByRole("button", { name: "Use Creature Dispatch theme", exact: true })
+    .getByRole("button", { name: "Use The Monster Mailroom theme", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Use Pocket Lab theme", exact: true })
+    .getByRole("button", { name: "Use Little Helpers Laboratory theme", exact: true })
     .click();
   await expect(
-    page.getByRole("group", { name: "Pocket Lab activity scene" }),
+    page.getByRole("group", { name: "Little Helpers Laboratory activity scene" }),
   ).toBeVisible();
   release();
   await expect(page.locator(".floor-theme-trigger")).toContainText(
-    "Pocket Lab",
+    "Little Helpers Laboratory",
   );
 });
 
@@ -323,10 +323,10 @@ test("late image failure uses a plain actor while retaining task access", async 
   await page.goto("/themes.html");
   await page.getByRole("button", { name: /Theme Plain Floor/ }).click();
   await page
-    .getByRole("button", { name: "Use Pocket Lab theme", exact: true })
+    .getByRole("button", { name: "Use Little Helpers Laboratory theme", exact: true })
     .click();
   await expect(
-    page.getByRole("group", { name: "Pocket Lab activity scene" }),
+    page.getByRole("group", { name: "Little Helpers Laboratory activity scene" }),
   ).toBeVisible();
   await page
     .locator(".floor-avatar img")

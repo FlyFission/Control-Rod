@@ -8,5 +8,13 @@
     "#EEE9DE"
   ],
   "status": "draft",
+  "props": [
+    "ledger",
+    "folded cloth",
+    "ceramic tray",
+    "steam vessel",
+    "lantern",
+    "wooden token"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

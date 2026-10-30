@@ -1,14 +1,14 @@
 {
   "config": {
     "argv": [
-      "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
-      "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/node_modules/@playwright/test/cli.js",
+      "/home/flyfission/.hermes/node/bin/node",
+      "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/node_modules/@playwright/test/cli.js",
       "test",
       "--project=chromium",
       "--project=firefox"
     ],
-    "configFile": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/playwright.config.ts",
-    "rootDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e",
+    "configFile": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/playwright.config.ts",
+    "rootDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
     "failOnFlakyTests": false,
     "forbidOnly": false,
     "fullyParallel": false,
@@ -19,20 +19,20 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 1
+      "actualWorkers": 6
     },
     "preserveOutput": "always",
     "projects": [
       {
-        "outputDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/test-results",
+        "outputDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 6
         },
         "id": "chromium",
         "name": "chromium",
-        "testDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e",
+        "testDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -40,15 +40,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/test-results",
+        "outputDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 6
         },
         "id": "firefox",
         "name": "firefox",
-        "testDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e",
+        "testDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -56,15 +56,15 @@
         "timeout": 60000
       },
       {
-        "outputDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/test-results",
+        "outputDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 6
         },
         "id": "webkit",
         "name": "webkit",
-        "testDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e",
+        "testDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
         "testIgnore": [],
         "testMatch": [
           "**/*.@(spec|test).?(c|m)[jt]s?(x)"
@@ -76,15 +76,15 @@
       {
         "grep": {},
         "grepInvert": null,
-        "outputDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/test-results",
+        "outputDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 6
         },
         "name": "chromium",
-        "testDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e",
-        "snapshotDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e",
+        "testDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
+        "snapshotDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
         "testIgnore": [],
         "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
         "timeout": 60000,
@@ -104,15 +104,15 @@
       {
         "grep": {},
         "grepInvert": null,
-        "outputDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/test-results",
+        "outputDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/test-results",
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 6
         },
         "name": "firefox",
-        "testDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e",
-        "snapshotDir": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e",
+        "testDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
+        "snapshotDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
         "testIgnore": [],
         "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
         "timeout": 60000,
@@ -152,7 +152,7 @@
     "updateSnapshots": "default",
     "updateSourceMethod": "patch",
     "version": "1.64.1",
-    "workers": 1,
+    "workers": 6,
     "webServer": {
       "command": "pnpm build && pnpm exec vite preview --host 127.0.0.1 --port 4173",
       "url": "http://127.0.0.1:4173/themes.html",
@@ -187,12 +187,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 332,
+                  "duration": 206,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:48:52.123Z",
+                  "startTime": "2026-10-30T13:08:31.175Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -221,12 +221,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 623,
+                  "duration": 488,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:48:52.537Z",
+                  "startTime": "2026-10-30T13:08:31.490Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -255,12 +255,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 629,
+                  "duration": 440,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:48:53.175Z",
+                  "startTime": "2026-10-30T13:08:31.989Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -289,12 +289,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 580,
+                  "duration": 503,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:48:53.814Z",
+                  "startTime": "2026-10-30T13:08:32.439Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -323,12 +323,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 196,
+                  "duration": 170,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:48:54.405Z",
+                  "startTime": "2026-10-30T13:08:32.955Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -357,12 +357,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 4156,
+                  "duration": 3560,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:48:54.614Z",
+                  "startTime": "2026-10-30T13:08:33.134Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -391,12 +391,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1755,
+                  "duration": 1533,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:48:58.785Z",
+                  "startTime": "2026-10-30T13:08:36.711Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -425,12 +425,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 620,
+                  "duration": 514,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:00.552Z",
+                  "startTime": "2026-10-30T13:08:38.252Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -459,12 +459,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 730,
+                  "duration": 675,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:01.180Z",
+                  "startTime": "2026-10-30T13:08:38.775Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -493,12 +493,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 686,
+                  "duration": 523,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:01.924Z",
+                  "startTime": "2026-10-30T13:08:39.459Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -527,12 +527,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 612,
+                  "duration": 580,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:02.620Z",
+                  "startTime": "2026-10-30T13:08:39.990Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -561,12 +561,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1964,
+                  "duration": 1667,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:03.245Z",
+                  "startTime": "2026-10-30T13:08:40.578Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -592,15 +592,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 1413,
+                  "duration": 1462,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:05.811Z",
+                  "startTime": "2026-10-30T13:08:31.170Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -626,15 +626,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 1016,
+                  "duration": 677,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:07.638Z",
+                  "startTime": "2026-10-30T13:08:33.300Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -660,15 +660,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 765,
+                  "duration": 594,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:08.672Z",
+                  "startTime": "2026-10-30T13:08:33.989Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -694,15 +694,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 1077,
+                  "duration": 630,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:09.448Z",
+                  "startTime": "2026-10-30T13:08:34.593Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -728,15 +728,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 553,
+                  "duration": 388,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:10.541Z",
+                  "startTime": "2026-10-30T13:08:35.232Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -762,15 +762,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 6054,
+                  "duration": 4842,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:11.111Z",
+                  "startTime": "2026-10-30T13:08:35.628Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -796,15 +796,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 2664,
+                  "duration": 2143,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:17.179Z",
+                  "startTime": "2026-10-30T13:08:40.486Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -830,15 +830,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 947,
+                  "duration": 640,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:19.852Z",
+                  "startTime": "2026-10-30T13:08:42.639Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -864,15 +864,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 1017,
+                  "duration": 749,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:20.809Z",
+                  "startTime": "2026-10-30T13:08:43.288Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -898,15 +898,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 1849,
+                  "duration": 1326,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:21.840Z",
+                  "startTime": "2026-10-30T13:08:44.044Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -932,15 +932,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 1095,
+                  "duration": 777,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:23.705Z",
+                  "startTime": "2026-10-30T13:08:45.378Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -966,15 +966,15 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
                   "status": "passed",
-                  "duration": 2073,
+                  "duration": 1839,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:24.813Z",
+                  "startTime": "2026-10-30T13:08:46.162Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -1007,7 +1007,7 @@
                   "type": "skip",
                   "description": "Run with THEME_TEST_LEGACY=true",
                   "location": {
-                    "file": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
+                    "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
                     "line": 6,
                     "column": 8
                   }
@@ -1018,21 +1018,21 @@
               "projectName": "chromium",
               "results": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
                   "status": "skipped",
-                  "duration": 36,
+                  "duration": 86,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:05.223Z",
+                  "startTime": "2026-10-30T13:08:31.088Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Run with THEME_TEST_LEGACY=true",
                       "location": {
-                        "file": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
+                        "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
                         "line": 6,
                         "column": 8
                       }
@@ -1061,7 +1061,7 @@
                   "type": "skip",
                   "description": "Run with THEME_TEST_LEGACY=true",
                   "location": {
-                    "file": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
+                    "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
                     "line": 6,
                     "column": 8
                   }
@@ -1072,21 +1072,21 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 4,
+                  "parallelIndex": 4,
                   "status": "skipped",
-                  "duration": 203,
+                  "duration": 761,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:26.896Z",
+                  "startTime": "2026-10-30T13:08:31.085Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Run with THEME_TEST_LEGACY=true",
                       "location": {
-                        "file": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
+                        "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
                         "line": 6,
                         "column": 8
                       }
@@ -1123,7 +1123,7 @@
                   "type": "skip",
                   "description": "Run with THEME_TEST_RELEASE=true",
                   "location": {
-                    "file": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/release-distribution.spec.ts",
+                    "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/release-distribution.spec.ts",
                     "line": 7,
                     "column": 8
                   }
@@ -1134,21 +1134,21 @@
               "projectName": "chromium",
               "results": [
                 {
-                  "workerIndex": 0,
-                  "parallelIndex": 0,
+                  "workerIndex": 2,
+                  "parallelIndex": 2,
                   "status": "skipped",
-                  "duration": 34,
+                  "duration": 71,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:05.280Z",
+                  "startTime": "2026-10-30T13:08:31.075Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Run with THEME_TEST_RELEASE=true",
                       "location": {
-                        "file": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/release-distribution.spec.ts",
+                        "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/release-distribution.spec.ts",
                         "line": 7,
                         "column": 8
                       }
@@ -1177,7 +1177,7 @@
                   "type": "skip",
                   "description": "Run with THEME_TEST_RELEASE=true",
                   "location": {
-                    "file": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/release-distribution.spec.ts",
+                    "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/release-distribution.spec.ts",
                     "line": 7,
                     "column": 8
                   }
@@ -1188,21 +1188,21 @@
               "projectName": "firefox",
               "results": [
                 {
-                  "workerIndex": 1,
-                  "parallelIndex": 0,
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
                   "status": "skipped",
-                  "duration": 221,
+                  "duration": 684,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-26T18:49:27.116Z",
+                  "startTime": "2026-10-30T13:08:31.066Z",
                   "annotations": [
                     {
                       "type": "skip",
                       "description": "Run with THEME_TEST_RELEASE=true",
                       "location": {
-                        "file": "/workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/release-distribution.spec.ts",
+                        "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/release-distribution.spec.ts",
                         "line": 7,
                         "column": 8
                       }
@@ -1224,8 +1224,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-26T18:48:43.630Z",
-    "duration": 44047.881,
+    "startTime": "2026-10-30T13:08:24.611Z",
+    "duration": 23675.846,
     "expected": 24,
     "skipped": 4,
     "unexpected": 0,

@@ -24,7 +24,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 | D | `orbital-shipyard`, `wildlight-camp`, `voxel-foundry` | Sci-fi, creature variety and geometric construction |
 | E | `cloudspring-bathhouse`, `button-and-spool`, `clockwork-observatory`, `coral-commons`, `meadow-post` | Calm, miniatures, celestial craft, underwater life and pastel comfort |
 
-## 1. Creature Dispatch
+## 1. The Monster Mailroom
 
 - **Genre:** friendly monster workplace ensembles; a busy dispatch floor run by gentle creatures. Wave A. ID `creature-dispatch`.
 - **Emotional target:** a bustling, warmhearted creature workplace; capable workers with comic physical variety.
@@ -36,7 +36,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `capsule`, illustrated as a parcel entering a local receiving tray. Waiting workers hold a routing card; failed/lost states become still, attentive poses with the shared clear label.
 - **Candidate public description:** “An extraordinary crew keeps your work moving through a lively dispatch depot.”
 
-## 2. Pocket Lab
+## 2. Little Helpers Laboratory
 
 - **Genre:** small-helper ensemble comedy; retro scientific workshops. Wave A. ID `pocket-lab`.
 - **Emotional target:** mischievous invention with readable, purposeful activity.
@@ -48,7 +48,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `spark`, a brief contained instrument glow rather than an explosion or evidence-of-success claim.
 - **Candidate description:** “Small inventors, oversized equipment, and a laboratory full of personality.”
 
-## 3. Midnight Bureau
+## 3. Heist Night
 
 - **Genre:** ensemble heist cinema; a calm, competent crew planning at night. Wave B. ID `midnight-bureau`.
 - **Emotional target:** calm competence, specialization and sophisticated teamwork.
@@ -60,7 +60,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `dossier`, a crisp folder placement. Working motions are small hand/tool movements rather than physical comedy.
 - **Candidate description:** “A specialist crew turns a careful plan into coordinated work.”
 
-## 4. Confectionery Works
+## 4. The Chocolate Factory
 
 - **Genre:** magical confectionery and theatrical invention; a candy factory as a stage. Wave C. ID `confectionery-works`.
 - **Emotional target:** wonder, craft and extravagant machinery.
@@ -72,7 +72,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `parcel`, an original ribbon wrapping around an artifact token.
 - **Candidate description:** “An extravagant confectionery where every invention gets careful attention.”
 
-## 5. Lanternwood Guild
+## 5. The Lantern Woods Guild
 
 - **Genre:** woodland fantasy adventure and craft guilds. Wave C. ID `lanternwood-guild`.
 - **Emotional target:** purposeful exploration, handmade tools and quiet magic.
@@ -84,7 +84,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `lantern`, a restrained glow above a submitted scroll, never an approval seal.
 - **Candidate description:** “A woodland guild of explorers and makers brings each assignment to life.”
 
-## 6. Corner Café
+## 6. The Coffee House Crew
 
 - **Genre:** cozy ensemble sitcoms and neighborhood cafés. Wave C. ID `corner-cafe`.
 - **Emotional target:** companionship, approachable teamwork and familiar daily rituals.
@@ -96,7 +96,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `dossier`, an understated folder handoff; no laugh track.
 - **Candidate description:** “A welcoming neighborhood workspace where everyone has a part to play.”
 
-## 7. Tumbletown Workshop
+## 7. Tumbletown Rhyme Works
 
 - **Genre:** lively illustrated nonsense literature and rhyming picture books. Wave C. ID `tumbletown-workshop`.
 - **Emotional target:** improbable, playful, hand-drawn invention.
@@ -108,7 +108,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `capsule`, a striped delivery pod with original proportions.
 - **Candidate description:** “Impossible little inventions in a town that never learned to draw a straight line.”
 
-## 8. Orbital Shipyard
+## 8. Starport Shipyard
 
 - **Genre:** space-adventure engineering crews in a working shipyard. Wave D. ID `orbital-shipyard`.
 - **Emotional target:** a capable crew building something ambitious in space.
@@ -120,7 +120,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `spark`, a short projector highlight over a delivered panel.
 - **Candidate description:** “An orbital crew coordinates your work among the stars.”
 
-## 9. Wildlight Research Camp
+## 9. Critter Expedition Camp
 
 - **Genre:** creature-companion teams and natural-history expeditions. Wave D. ID `wildlight-camp`.
 - **Emotional target:** discovery, variety, affection and collaboration.
@@ -132,7 +132,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `lantern`, a brief glow from an original specimen container.
 - **Candidate description:** “A curious creature crew gathers findings at a lively research camp.”
 
-## 10. Voxel Foundry
+## 10. Blockworks Foundry
 
 - **Genre:** modular building games and voxel geometry. Wave D. ID `voxel-foundry`.
 - **Emotional target:** tangible assembly, creativity and readable structure.
@@ -144,7 +144,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `parcel`, a component tray slides into place; no simulated percentage or fabricated construction progress.
 - **Candidate description:** “A geometric builder's yard where work takes visible shape.”
 
-## 11. Cloudspring Bathhouse
+## 11. The Spirit Bathhouse
 
 - **Genre:** atmospheric animated bathhouse settings and spirit-world hospitality. Wave E. ID `cloudspring-bathhouse`.
 - **Emotional target:** restorative calm, warmth and deliberate care.
@@ -156,7 +156,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `ripple`, contained in a small receiving basin; does not obscure text.
 - **Candidate description:** “A lantern-lit retreat brings quiet care to the working day.”
 
-## 12. Button & Spool
+## 12. Thimble Town
 
 - **Genre:** miniature people and found-object craftsmanship. Wave E. ID `button-and-spool`.
 - **Emotional target:** ingenious small-scale craft and tactile charm.
@@ -168,7 +168,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `parcel`, an original paper wrapper tied with thread.
 - **Candidate description:** “Tiny craftspeople make extraordinary use of ordinary things.”
 
-## 13. Clockwork Observatory
+## 13. Clockwork Stargazers
 
 - **Genre:** original celestial/clockwork direction from exploration; no single franchise target. Wave E. ID `clockwork-observatory`.
 - **Emotional target:** precision, discovery and contemplative elegance.
@@ -180,7 +180,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `spark`, one original star-chart accent without implying a check passed.
 - **Candidate description:** “Clockwork observers turn careful work into new discoveries.”
 
-## 14. Coral Commons
+## 14. Reef Town
 
 - **Genre:** original reef-community direction; broad underwater animation. Wave E. ID `coral-commons`.
 - **Emotional target:** buoyancy, biodiversity and cooperative energy.
@@ -192,7 +192,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `ripple`, a small local bubble ring; ambient bubbles are decorative and disabled in Quiet.
 - **Candidate description:** “A bright reef community brings many talents to the same project.”
 
-## 15. Meadow Post
+## 15. Cozy Critter Village
 
 - **Genre:** cozy animal-village comfort and gentle character design. Wave E. ID `meadow-post`.
 - **Emotional target:** gentle reassurance, friendliness and low visual pressure.

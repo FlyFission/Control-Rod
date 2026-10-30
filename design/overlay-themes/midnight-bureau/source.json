@@ -8,5 +8,13 @@
     "#F0E8DB"
   ],
   "status": "draft",
+  "props": [
+    "dossier",
+    "blueprint roll",
+    "task lamp",
+    "case",
+    "route card",
+    "tabletop projector"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

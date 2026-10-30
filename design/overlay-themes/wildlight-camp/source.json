@@ -8,5 +8,13 @@
     "#F1E6CF"
   ],
   "status": "draft",
+  "props": [
+    "specimen tray",
+    "notebook",
+    "canvas pouch",
+    "survey flag",
+    "lantern",
+    "terrarium"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

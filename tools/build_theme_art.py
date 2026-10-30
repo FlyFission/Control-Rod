@@ -8,6 +8,12 @@ import hashlib
 import json
 import math
 import random
+import re
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import theme_art_casts  # noqa: E402
+from theme_art_props import prop_shape  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIONS = {
@@ -34,17 +40,18 @@ def leaf(x,y,size,color,angle=0):
     return f'<path d="M0 0Q{-size} {-size} 0 {-size*1.8}Q{size} {-size} 0 0Z" fill="{color}" transform="translate({x} {y}) rotate({angle})"/>'
 
 
-def prop(i,palette):
-    a,b,c,d=palette
-    shapes=[
-        f'<path d="M30 32h42l24 24v48H30z" fill="{d}"/><path d="M72 32v24h24" fill="{b}"/><path d="M42 69h40M42 79h31M42 89h36" stroke="{a}" stroke-width="4"/>',
-        f'<path d="M30 66h68v32H30z" fill="{a}"/><path d="M42 66V53q22-22 44 0v13" fill="none" stroke="{c}" stroke-width="8"/><path d="M30 76h68" stroke="{d}" stroke-width="3"/>',
-        f'<path d="M47 29h34l-5 30 17 34q4 12-10 12H45q-14 0-10-12l17-34z" fill="{b}" stroke="{d}" stroke-width="3"/><path d="M42 84h44l6 12H36z" fill="{a}"/><circle cx="60" cy="85" r="4" fill="{d}"/>',
-        f'<circle cx="58" cy="57" r="25" fill="{b}" stroke="{c}" stroke-width="8"/><circle cx="58" cy="57" r="17" fill="{d}" fill-opacity=".7"/><path d="M76 78l23 26" stroke="{c}" stroke-width="12" stroke-linecap="round"/>',
-        f'<rect x="36" y="42" width="58" height="62" rx="12" fill="{a}"/><path d="M47 42V29h36v13M40 64h50" stroke="{c}" stroke-width="5" fill="none"/><circle cx="65" cy="77" r="9" fill="{d}"/>',
-        f'<path d="M34 98V54l30-24 30 24v44z" fill="{c}"/><path d="M34 54l30 25 30-25" fill="none" stroke="{d}" stroke-width="4"/><path d="M34 98l22-26M94 98L73 72" stroke="{a}" stroke-width="3"/>',
-    ]
-    return svg('<ellipse cx="64" cy="110" rx="37" ry="6" fill="#0a1824" opacity=".2"/>'+shapes[i])
+def prop(name,palette):
+    return svg('<ellipse cx="64" cy="110" rx="37" ry="6" fill="#0a1824" opacity=".2"/>'+prop_shape(name,palette))
+
+
+def catalog_props():
+    """Six prop names per pack ID, read from the catalog brief."""
+    text=(ROOT/'docs/superpowers/specs/2026-10-25-overlay-themes-catalog.md').read_text()
+    props={}
+    for section in re.split(r'\n## \d+\. ',text)[1:]:
+        ident=re.search(r'ID `([a-z0-9-]+)`',section);line=re.search(r'\*\*Props:\*\*\s*(.+)',section)
+        if ident and line:props[ident.group(1)]=[x.strip() for x in line.group(1).rstrip('.').split(',')]
+    return props
 
 
 def character(world,v,palette):
@@ -60,6 +67,7 @@ def character(world,v,palette):
     tool=f'<path d="M91 83l17-8 7 18-17 7z" fill="{d}" stroke="{b}" stroke-width="2"/><path d="M97 86l10-4m-7 9 9-4" stroke="{a}" stroke-width="2"/>'
     torso=f'<path d="M34 59q0-29 29-29t30 29v24q-1 21-30 21T34 83z" fill="{fill}"/>'
     extras=''
+    skin=hair='#000000'
     if world in (0,3):
         silhouettes=[
             f'<path d="M29 49l-5-15 16 5 6-16 13 9 15-13 9 16 17-2-3 17 8 16-10 9 6 15-15 6-5 15-18-5-15 5-9-15-15-3 5-16-8-12z" fill="{fill}"/>',
@@ -151,6 +159,11 @@ def character(world,v,palette):
             f'<path d="M22 71q11-49 43-40 32-8 43 40-22 42-43 30Q41 108 22 71z" fill="{fill}"/><path d="M28 77l-7 15M100 77l8 17" stroke="{c}" stroke-width="6"/>',
         ]
         torso=shapes[v];legs='';arms='';extras=f'<circle cx="42" cy="70" r="4" fill="{d}" opacity=".7"/>'
+    custom=theme_art_casts.body(world,v,fill,palette,color,skin,hair)
+    if custom is not None:torso=custom
+    accessory=theme_art_casts.extras(world,v,palette)
+    if accessory is not None:extras=accessory
+    torso=f'<g id="shape-{v}">{torso}</g>'
     return svg(grad+shadow+legs+arms+torso+eyes+extras+tool)
 
 
@@ -235,8 +248,9 @@ def main():
     content=catalogpath.read_text()
     entries=json.loads(content.split(' = ',1)[1].rsplit(';',1)[0])
     packdir=ROOT/'apps/web/src/features/floor/themes/packs';packdir.mkdir(exist_ok=True)
+    briefs=catalog_props()
     for world,entry in enumerate(entries):
-        pid=entry['id'];palette=entry['palette']
+        pid=entry['id'];palette=entry['palette'];propnames=briefs[pid]
         public=ROOT/f'apps/web/public/floor-themes/{pid}';public.mkdir(parents=True,exist_ok=True)
         source=ROOT/f'design/overlay-themes/{pid}';source.mkdir(parents=True,exist_ok=True)
         background=scene(world,entry);chars=[character(world,v,palette) for v in range(6)]
@@ -246,7 +260,7 @@ def main():
             char=char.replace('width="128" height="128"','width="110" height="110"')
             inner+=char
         thumbnail=svg(inner,800,480,'0 0 1000 600')
-        raw_assets={'scene':background,'thumbnail':thumbnail,**{f'character-{i}':c for i,c in enumerate(chars)},**{f'prop-{i}':prop(i,palette) for i in range(6)}}
+        raw_assets={'scene':background,'thumbnail':thumbnail,**{f'character-{i}':c for i,c in enumerate(chars)},**{f'prop-{i}':prop(name,palette) for i,name in enumerate(propnames)}}
         previous=json.loads((public/'assets.json').read_text())['assets'] if (public/'assets.json').exists() else []
         assets=[]
         for key,value in raw_assets.items():
@@ -261,7 +275,7 @@ def main():
         manifest=dict(schemaVersion=1,packId=pid,version='0.1.0',title=entry['title'],assets=assets)
         (public/'assets.json').write_text(json.dumps(manifest,indent=2)+'\n')
         (public/'NOTICE.txt').write_text('Original Control-Rod vector artwork, authored in tools/build_theme_art.py.\nLicensed under Apache-2.0. No franchise characters, reference images, fonts or audio are included.\nDraft artwork; human art/distribution review remains pending.\n')
-        (source/'source.json').write_text(json.dumps({'packId':pid,'generator':'tools/build_theme_art.py','palette':palette,'status':'draft','sourceAssets':'Editable SVG siblings; identical geometry to hashed public exports'},indent=2)+'\n')
+        (source/'source.json').write_text(json.dumps({'packId':pid,'generator':'tools/build_theme_art.py','palette':palette,'status':'draft','props':propnames,'sourceAssets':'Editable SVG siblings; identical geometry to hashed public exports'},indent=2)+'\n')
         def ref(key):
             a=next(a for a in assets if a['key']==key)
             return {k:v for k,v in {**a,'path':f'/floor-themes/{pid}/{a["path"]}'}.items() if k!='key'}

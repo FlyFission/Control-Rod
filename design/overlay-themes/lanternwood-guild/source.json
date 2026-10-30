@@ -8,5 +8,13 @@
     "#314653"
   ],
   "status": "draft",
+  "props": [
+    "original map",
+    "lantern",
+    "scroll tube",
+    "hand tool",
+    "specimen basket",
+    "seal block"
+  ],
   "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
 }

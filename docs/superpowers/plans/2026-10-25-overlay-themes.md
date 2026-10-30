@@ -297,7 +297,7 @@ type FloorPreferencesV1 = {
 
 ## Planning completion and handoff
 
-This plan deliberately leaves every implementation checkbox unchecked. Source inspection, document validation and builder review are planning evidence only. The next engineering milestone is the shared engine plus first two complete packs, followed by Midnight Bureau; completing all fifteen also requires the art pipeline and individual release evidence. Review the proposed defaults and exact artwork/attribution posture before execution. A native sequential implementation is a reasonable default because the tasks share projection, pack and renderer contracts; no execution method has been selected by the user.
+This plan deliberately leaves every implementation checkbox unchecked. Source inspection, document validation and builder review are planning evidence only. The next engineering milestone is the shared engine plus first two complete packs, followed by Heist Night; completing all fifteen also requires the art pipeline and individual release evidence. Review the proposed defaults and exact artwork/attribution posture before execution. A native sequential implementation is a reasonable default because the tasks share projection, pack and renderer contracts; no execution method has been selected by the user.
 
 ## Execution record, 2026-10-26
 

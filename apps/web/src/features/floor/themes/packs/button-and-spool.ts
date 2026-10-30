@@ -3,8 +3,8 @@ export default {
   "schemaVersion": 1,
   "id": "button-and-spool",
   "version": "0.1.0",
-  "title": "Button & Spool",
-  "description": "Tiny craftspeople make extraordinary use of ordinary things.",
+  "title": "Thimble Town",
+  "description": "A tiny workshop hidden inside the sewing drawer.",
   "moodTags": [
     "Calm"
   ],
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/button-and-spool/thumbnail.027928f075a0.svg",
-      "sha256": "027928f075a0d616a31860019ad8a578cd905cf5f6fb2693cb3ce67278d361c0",
-      "bytes": 15232,
+      "path": "/floor-themes/button-and-spool/thumbnail.9f5cfc901075.svg",
+      "sha256": "9f5cfc901075569c49a95dd8e7fc48647a47c52604a547b187826418eac08f96",
+      "bytes": 15094,
       "width": 800,
       "height": 480,
       "creator": "Codex \u2014 original procedural vector illustration",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/button-and-spool/character-0.f7a773959ac2.svg",
-        "sha256": "f7a773959ac2ab64096eb9a3da0ab9e8919aaef77f9e744d04a9700492de74e1",
-        "bytes": 1231,
+        "path": "/floor-themes/button-and-spool/character-0.532669c5acd4.svg",
+        "sha256": "532669c5acd4d63647051183381ea08bb225e5ab62f364b4105a3ed9fd3683ab",
+        "bytes": 1202,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/button-and-spool/character-1.46267dd6afcd.svg",
-        "sha256": "46267dd6afcdde9464c6d25a1857fac5a3793065c17884695254a7f6e10d30f1",
-        "bytes": 1224,
+        "path": "/floor-themes/button-and-spool/character-1.e4b59ca5a0b8.svg",
+        "sha256": "e4b59ca5a0b86c5fad2f9bd88ef5909102d69c3d500a868ca132cfbbeee9a9f2",
+        "bytes": 1212,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/button-and-spool/character-2.19a807fd010f.svg",
-        "sha256": "19a807fd010f6ed753f73aa39dae33496c089771f973185157283abcf359fb46",
-        "bytes": 1247,
+        "path": "/floor-themes/button-and-spool/character-2.5bb42f42e435.svg",
+        "sha256": "5bb42f42e43586df26ebafa14502a11136bf83c7f5c9c812eac5c01c78909fb8",
+        "bytes": 1239,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/button-and-spool/character-3.45c9ddba8a77.svg",
-        "sha256": "45c9ddba8a776e7e038ce3862c333400a5b241700e6ec8e72babfb221765a17a",
-        "bytes": 1243,
+        "path": "/floor-themes/button-and-spool/character-3.34f48366956b.svg",
+        "sha256": "34f48366956b8cf60911d0a620844f9c5ee707ea0143ef26c18166431cd42170",
+        "bytes": 1200,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/button-and-spool/character-4.dcadea8350d6.svg",
-        "sha256": "dcadea8350d6ba121c613d699fff6cfd579eef5426ef15101d983a908471b772",
-        "bytes": 1225,
+        "path": "/floor-themes/button-and-spool/character-4.7b24b8558179.svg",
+        "sha256": "7b24b8558179cf704e731bdd30154b092b9f9db76374ba347134d570e796b4b1",
+        "bytes": 1197,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/button-and-spool/character-5.8ee5190e7a8f.svg",
-        "sha256": "8ee5190e7a8fcc2476d4455ed1cce676eb85fd33bcd1fb47c3d611a8b7147f96",
-        "bytes": 1245,
+        "path": "/floor-themes/button-and-spool/character-5.4d023a16f1ce.svg",
+        "sha256": "4d023a16f1cef1a391121f4f8fdcc622d081c025f07ab308e05ad1e22263ee31",
+        "bytes": 1227,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -102,9 +102,9 @@ export default {
     ],
     "props": {
       "prop-0": {
-        "path": "/floor-themes/button-and-spool/prop-0.c6c53f5ab7ff.svg",
-        "sha256": "c6c53f5ab7ff76eb7d62c2f7991ce5003e807a82e25e0a56cb4b44e4a9f452e8",
-        "bytes": 324,
+        "path": "/floor-themes/button-and-spool/prop-0.b6208f700322.svg",
+        "sha256": "b6208f70032254b0e000a4a4b9b084acf7b3057db9436da54ff88d441874f596",
+        "bytes": 472,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -112,9 +112,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-1": {
-        "path": "/floor-themes/button-and-spool/prop-1.40fda9e4fbe7.svg",
-        "sha256": "40fda9e4fbe74e37414251273b42b8dff95aac71f3c68b11f281746f0768eb46",
-        "bytes": 342,
+        "path": "/floor-themes/button-and-spool/prop-1.dc0b8cc438c1.svg",
+        "sha256": "dc0b8cc438c14a857c8b6262174f248a3a2aba06b7a13caffa833f619b491c1c",
+        "bytes": 629,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -122,9 +122,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-2": {
-        "path": "/floor-themes/button-and-spool/prop-2.18b67c9f09ac.svg",
-        "sha256": "18b67c9f09ac16b6bb6544289fcbf6e08bcffc6b5fcedefb48b8a02340b9d9fb",
-        "bytes": 369,
+        "path": "/floor-themes/button-and-spool/prop-2.02329f197ea9.svg",
+        "sha256": "02329f197ea952ad213fa8970362b88a31203cb2d06baa3887a4d31982e60e3f",
+        "bytes": 481,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -132,9 +132,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-3": {
-        "path": "/floor-themes/button-and-spool/prop-3.4f40708ec4ee.svg",
-        "sha256": "4f40708ec4ee9504c739ee0fa70f737b428545d39520679bcbd5b78484e843f1",
-        "bytes": 391,
+        "path": "/floor-themes/button-and-spool/prop-3.a6bcc4cbe29b.svg",
+        "sha256": "a6bcc4cbe29b84f542c1f7e05f746231a51a9c52417546e678d38699423c15fb",
+        "bytes": 289,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -142,9 +142,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-4": {
-        "path": "/floor-themes/button-and-spool/prop-4.46f955d80649.svg",
-        "sha256": "46f955d806496de3d521f61f9d8fab26dc273904ff67e4259dd2b15fd5156c54",
-        "bytes": 358,
+        "path": "/floor-themes/button-and-spool/prop-4.890301c45f89.svg",
+        "sha256": "890301c45f89fc713addbada5e22b2c8cd6425b2182fe4e3dd14c53ff49709b3",
+        "bytes": 482,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",
@@ -152,9 +152,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       "prop-5": {
-        "path": "/floor-themes/button-and-spool/prop-5.821945754325.svg",
-        "sha256": "821945754325b8680c649b0637b6a5df85c2637432a1480bdb9dcbaff0ff5898",
-        "bytes": 361,
+        "path": "/floor-themes/button-and-spool/prop-5.fe51305a6559.svg",
+        "sha256": "fe51305a655928c2440bb27035be4922f555e82dd22d41a92579211197356081",
+        "bytes": 653,
         "width": 128,
         "height": 128,
         "creator": "Codex \u2014 original procedural vector illustration",

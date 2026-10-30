@@ -5,7 +5,7 @@ import { TENANCY_DOWN_SQL, TENANCY_TABLES } from "../src/db/migrations/009-tenan
 import { WORKBENCH_DOWN_SQL, WORKBENCH_TABLES } from "../src/db/migrations/010-workbench.js";
 import { ROLES_DOWN_SQL } from "../src/db/migrations/011-roles.js";
 import { verifyChain } from "../src/events.js";
-import { backfillCredentials } from "../src/tenancy.js";
+import { backfillTenancy } from "../src/tenancy.js";
 
 /** Tables that existed before migrations 009 and 010, except the event log, compared separately. */
 async function legacyTables(db: Db): Promise<string[]> {
@@ -39,7 +39,7 @@ export async function assertMigrationsPreserveHistory(db: Db, nonEmpty: string[]
   await db.query(TENANCY_DOWN_SQL);
   expect(await snapshot(db, tables)).toEqual(before);
   await migrate(db);
-  await tx(db, backfillCredentials);
+  await tx(db, backfillTenancy);
   const after = await snapshot(db, tables);
   const { events: afterEvents = [], ...afterRows } = after;
   const { events: beforeEvents = [], ...beforeRows } = before;

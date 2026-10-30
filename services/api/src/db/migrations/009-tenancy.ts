@@ -277,19 +277,9 @@ create trigger preparation_grants_owned after insert on preparation_grants
 create trigger credentials_owned after insert on credentials
   for each row execute function tenancy_own_new_row('credential', 'id');
 
--- Backfill: envelopes only. Signed bodies, events and digests are not read for writing.
-insert into object_owners (object_kind, object_id, org_id)
-  select 'capture', id, 'org_local' from captures
-  union select 'package', id, 'org_local' from packages
-  union select 'run', id, 'org_local' from runs
-  union select 'decision', id, 'org_local' from decisions
-  union select 'preparation', preparation_id, 'org_local' from preparation_snapshots
-  union select 'grant', id, 'org_local' from preparation_grants
-  union select 'credential', id, 'org_local' from credentials;
-insert into members (body)
-  select jsonb_build_object('id', 'mem_' || substr(md5(user_name), 1, 24), 'org_id', 'org_local',
-      'user_name', user_name, 'display_name', user_name, 'status', 'active')
-  from (select distinct user_name from credentials) u;
+-- Existing records get their ownership envelopes, Members and credential records from the
+-- migration.backfill-tenancy command (services/api/src/tenancy.ts backfillTenancy), which runs on
+-- the writer login right after migrations, so data changes go through the command boundary.
 `;
 
 /**

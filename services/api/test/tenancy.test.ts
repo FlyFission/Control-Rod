@@ -7,7 +7,7 @@ import { ROLES_DOWN_SQL } from "../src/db/migrations/011-roles.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import {
-  LOCAL_ORG, addMember, backfillCredentials, bindRepo, createOrganization, createProject, currentCredential,
+  LOCAL_ORG, addMember, backfillTenancy, bindRepo, createOrganization, createProject, currentCredential,
   currentPolicySet, currentQualification, enrollMachine, hardwareFloor, memberIdFor, ownerOf,
   recordCreationMarking, recordCredential, recordDelegation, recordOwner, recordPolicySet, recordQualification,
   setStatus,
@@ -64,6 +64,8 @@ describe("migration 009", () => {
     const up = await snapshot();
     expect(up).toEqual(before);
     expect((await verifyChain(h.db)).ok).toBe(true);
+    // Envelopes, Members and credential records come from the backfill command, idempotently.
+    expect(await tx(h.admin, backfillTenancy)).toBe(1);
 
     for (const c of before.captures) expect(await ownerOf(h.db, "capture", c.id)).toEqual({ object_kind: "capture", object_id: c.id, org_id: LOCAL_ORG });
     for (const p of before.packages) expect((await ownerOf(h.db, "package", p.id))?.org_id).toBe(LOCAL_ORG);
@@ -72,9 +74,8 @@ describe("migration 009", () => {
     const member = await h.db.query("select body from members where id = $1", [memberIdFor(user)]);
     expect(member.rows[0].body).toMatchObject({ org_id: LOCAL_ORG, user_name: user, status: "active" });
 
-    // The credential record is completed in code, appended after the unchanged chain.
-    expect(await tx(h.admin, backfillCredentials)).toBe(1);
-    expect(await tx(h.admin, backfillCredentials)).toBe(0);
+    // The credential record was completed in code, appended after the unchanged chain.
+    expect(await tx(h.admin, backfillTenancy)).toBe(0);
     const after = await snapshot();
     expect(after.events.slice(0, before.events.length)).toEqual(before.events);
     expect((await verifyChain(h.db)).ok).toBe(true);

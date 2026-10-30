@@ -1,4 +1,6 @@
+import { randomBytes } from "node:crypto";
 import pg from "pg";
+import { READER, type RoleSecrets, type RoleUrls, WRITER, assertLogin, provisionRoles, roleUrl, verifyRoles } from "./roles.js";
 import { PREPARATION_PROTOCOL } from "./migrations/006-compatibility.js";
 import { migrate } from "./migrate.js";
 
@@ -6,23 +8,42 @@ export type Db = pg.Pool;
 export type Tx = pg.PoolClient;
 
 /**
- * Applies the schema as the connecting owner (the migrator), then returns the application's pool,
- * which connects as controlrod_reader and cannot write. Writes go through the command executor,
- * whose writer pool is attached here (specification 10.1).
+ * How the application's two logins are obtained: provisioned here with these passwords (a local
+ * install, where the app owns the cluster), or given as connection strings an administrator issued.
  */
-export async function openDb(connectionString: string): Promise<Db> {
-  const migrator = new pg.Pool({ connectionString, max: 2 });
+export interface DbRoles {
+  secrets?: RoleSecrets;
+  urls?: RoleUrls;
+}
+
+/**
+ * Opens the database for the application (specification 10.1). The schema is applied as the
+ * connecting owner (the migrator). The returned pool is logged in as controlrod_reader and cannot
+ * write; the command executor's pool is logged in as controlrod_writer. Startup refuses to continue
+ * if either role is stronger than it should be or a pool is not logged in as its role.
+ */
+export async function openDb(connectionString: string, roles: DbRoles = {}): Promise<Db> {
+  const owner = new pg.Pool({ connectionString, max: 2 });
+  let reader: Db | undefined;
   try {
-    await migrate(migrator);
-    const { backfillCredentials } = await import("../tenancy.js");
-    await tx(migrator, backfillCredentials);
+    const secrets = roles.secrets ?? { reader: randomBytes(24).toString("hex"), writer: randomBytes(24).toString("hex") };
+    if (!roles.urls) await provisionRoles(owner, secrets);
+    await migrate(owner);
+    await verifyRoles(owner);
+    const urls = roles.urls ?? { readerUrl: roleUrl(connectionString, READER, secrets.reader), writerUrl: roleUrl(connectionString, WRITER, secrets.writer) };
+    reader = new pg.Pool({ connectionString: urls.readerUrl, max: 10 });
+    await assertLogin(reader, READER);
+    const { attachWriter, command } = await import("../commands/executor.js");
+    await attachWriter(reader, urls.writerUrl);
+    const { backfillTenancy } = await import("../tenancy.js");
+    await command(reader, "migration.backfill-tenancy", backfillTenancy);
+    return reader;
+  } catch (error) {
+    if (reader) await closeDb(reader).catch(() => undefined);
+    throw error;
   } finally {
-    await migrator.end();
+    await owner.end();
   }
-  const reader = new pg.Pool({ connectionString, max: 10, options: "-c role=controlrod_reader" });
-  const { attachWriter } = await import("../commands/executor.js");
-  attachWriter(reader, connectionString);
-  return reader;
 }
 
 /** Closes the application's pool and its attached writer. */

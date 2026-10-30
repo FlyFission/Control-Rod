@@ -47,6 +47,9 @@ export const COMMANDS = {
   "preparation.refresh-basis": entry("member", "none", "Enroll, edit, resolve preparation"),
   "preparation.confirm": entry("member", "direct", "Confirm requirements"),
 
+  // Startup data changes after migrations.
+  "migration.backfill-tenancy": entry("system", "none", "Migration data change (ownership, members, credential records)"),
+
   // Grants.
   "grant.issue": entry("system", "none", "Grant issue"),
   "grant.begin-use": entry("agent-via-daemon", "none", "Grant begin use"),

@@ -32,17 +32,26 @@ checks the static rules and that this catalog matches the commands executed.
 | `preparation.resolve` | member | none | Enroll, edit, resolve preparation | `preparation/store.ts` resolvePreparation | `POST /packages/:id/preparation/resolutions` |
 | `preparation.refresh-basis` | member | none | Enroll, edit, resolve preparation | `preparation/store.ts` refreshPreparationBasis | `POST /packages/:id/preparation/basis/refresh` |
 | `preparation.confirm` | member | direct | Confirm requirements | `preparation/subjects.ts` confirmRequirements | `POST /packages/:id/preparation/confirm` |
-| `grant.issue` | system | none | Grant issue | `preparation/grants.ts` issuePreparationGrant | internal |
+| `migration.backfill-tenancy` | system | none | Migration data change (ownership, members, credential records) | `db/index.ts` openDb | startup (after migrations) |
+| `grant.issue` | system | none | Grant issue | `preparation/grants.ts` issuePreparationGrant | no production caller yet (declared seam) |
 | `grant.begin-use` | agent-via-daemon | none | Grant begin use | `preparation/grants.ts` beginGrantUse | `POST /runner/preparation-grants/:id/begin` |
 | `grant.finish-use` | agent-via-daemon | none | Grant finalize use | `preparation/grants.ts` finishGrantUse | `POST /runner/preparation-grants/:id/finalize` |
 | `grant.revoke` | member-or-system | none | Grant revoke | `preparation/grants.ts` revokePreparationGrant | `POST /packages/:packageId/preparation-grants/:id/revoke` |
 
 ## Migrations and startup
 
-Migrations run as the connecting owner (the migrator), never as the reader or writer. The one data
-change at startup, completing credential records for passkeys registered before migration 009
-(`backfillCredentials`), runs in the migrator's transaction in `db/index.ts` before the reader and
-writer pools open. The writer role cannot change `schema_migrations`.
+Migrations change the schema and run as the connecting owner (the migrator). Data changes that
+complete a migration run afterwards as commands on the writer login: `migration.backfill-tenancy`
+gives existing records their ownership envelopes, Members and credential records. The writer cannot
+change `schema_migrations` or the lifecycle rule tables. The logins themselves are described in
+[database-roles.md](database-roles.md).
+
+## Reading this table
+
+"Executed in" is where the command runs in source. "Reached from" follows plain function calls up
+to HTTP routes and timers; it is a static trace, not observed execution. A command with no production
+caller is a declared seam: its implementation and tests exist, and nothing in the running app
+invokes it yet.
 
 ## Required links
 

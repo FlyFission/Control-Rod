@@ -204,7 +204,7 @@ describe("immutable preparation storage", () => {
     const schema = `upgrade_${randomUUID().replaceAll("-", "")}`;
     await h.admin.query(`create schema ${schema}`);
     const old = new pg.Pool({
-      ...h.db.options,
+      ...h.admin.options,
       options: `-c search_path=${schema}`,
     });
     try {

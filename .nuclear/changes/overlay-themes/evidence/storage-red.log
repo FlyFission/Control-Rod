@@ -1,0 +1,34 @@
+
+ RUN  v5.0.5 /workspace/Control-Rod/.worktrees/overlay-themes/apps/web
+
+ ❯ src/features/floor/preferences.test.tsx (7 tests | 1 failed) 97ms
+   ❯ viewer preferences (7)
+     × ignores malformed cross-tab updates and accepts valid ones without feedback 67ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/floor/preferences.test.tsx > viewer preferences > ignores malformed cross-tab updates and accepts valid ones without feedback
+AssertionError: expected 'plain' to be 'pocket-lab' // Object.is equality
+
+Expected: "pocket-lab"
+Received: "plain"
+
+ ❯ src/features/floor/preferences.test.tsx:22:46
+     20|   act(()=>result.current.update({motion:'quiet',themeId:'pocket-lab'})…
+     21|   act(()=>window.dispatchEvent(new StorageEvent('storage',{key:'cr.flo…
+     22|   expect(result.current.preferences.themeId).toBe('pocket-lab');
+       |                                              ^
+     23|   act(()=>window.dispatchEvent(new StorageEvent('storage',{key:'cr.flo…
+     24|   expect(result.current.preferences.themeId).toBe('coral-commons');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  18:09:25
+   Duration  1.11s (environment 56%, transform 14%, setup 14%, tests 10%, import 4%, worker 1%)
+
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run src/features/floor/preferences.test.tsx

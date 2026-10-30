@@ -1,0 +1,215 @@
+import type { ThemePackV1 } from "../types.js";
+export default {
+  "schemaVersion": 1,
+  "id": "confectionery-works",
+  "version": "0.1.0",
+  "title": "The Chocolate Factory",
+  "description": "Where every package gets a candy-coated inspection.",
+  "moodTags": [
+    "Whimsical"
+  ],
+  "availability": "development",
+  "tokens": {
+    "backdrop": "#1e1f2f",
+    "surface": "#2a2438",
+    "ink": "#ffffff",
+    "mutedInk": "#d4e0eb",
+    "accent": "#D9618B",
+    "focus": "#ffffff"
+  },
+  "assets": {
+    "scene": {
+      "path": "/floor-themes/confectionery-works/scene.93607084dcfc.svg",
+      "sha256": "93607084dcfc43e3135c638d0d1d458b52d4f615e380d5e2c7fbd4561fe96420",
+      "bytes": 8946,
+      "width": 1000,
+      "height": 600,
+      "creator": "Original procedural vector illustration (Codex, Claude Code)",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    "thumbnail": {
+      "path": "/floor-themes/confectionery-works/thumbnail.8c7fe26d7f90.svg",
+      "sha256": "8c7fe26d7f90f7d459b5faa78a75baf4ebb79a4f458605aa5027917788fc31b5",
+      "bytes": 17080,
+      "width": 800,
+      "height": 480,
+      "creator": "Original procedural vector illustration (Codex, Claude Code)",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    "characters": [
+      {
+        "path": "/floor-themes/confectionery-works/character-0.96326aa4a341.svg",
+        "sha256": "96326aa4a34176f79edcd4d75a4d8b8870eb8cbd0a6d643b1cb49ae14085c23b",
+        "bytes": 1307,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/confectionery-works/character-1.00f27ddc23c5.svg",
+        "sha256": "00f27ddc23c5cd3f452a0da6bf3be6a01e7b5b02b706243056ce03a1fb504ba7",
+        "bytes": 1292,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/confectionery-works/character-2.91671acfe1db.svg",
+        "sha256": "91671acfe1db16d9314ba0de4200b9134c0455b6ce3c8dc71249be27c6ad17d7",
+        "bytes": 1295,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/confectionery-works/character-3.966c88453a47.svg",
+        "sha256": "966c88453a47cee57d56bcb3bc4467b5e9997d44d3fc13a4cf7cc0cc2d664533",
+        "bytes": 1392,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/confectionery-works/character-4.eb731c1bef4d.svg",
+        "sha256": "eb731c1bef4d86c02ec3c4d1165b4fe9864430487ff19e226d91e394397cb3d3",
+        "bytes": 1394,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/confectionery-works/character-5.9ff43f63d94c.svg",
+        "sha256": "9ff43f63d94c59e806a2463a947f0daedae14d4cb15d13fbec67f9e048e3b6b6",
+        "bytes": 1350,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      }
+    ],
+    "props": {
+      "prop-0": {
+        "path": "/floor-themes/confectionery-works/prop-0.16559ffc4d46.svg",
+        "sha256": "16559ffc4d463409eb556990a1730067f5d883ced9fb2f1bde65674043ca5356",
+        "bytes": 497,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-1": {
+        "path": "/floor-themes/confectionery-works/prop-1.0090685738ac.svg",
+        "sha256": "0090685738acbc782abf99f54b4112dee1402a889b97b667232979eba758f133",
+        "bytes": 351,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-2": {
+        "path": "/floor-themes/confectionery-works/prop-2.f77793b75b7a.svg",
+        "sha256": "f77793b75b7acbbcaa6f1a82ef07e21db0d5b05b8f45de0bb4fd776b2095d386",
+        "bytes": 386,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-3": {
+        "path": "/floor-themes/confectionery-works/prop-3.1b2c71b8e392.svg",
+        "sha256": "1b2c71b8e3926b2a9177b7093b36f736e78f8f310684e0d0de60efd6d15efa6c",
+        "bytes": 379,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-4": {
+        "path": "/floor-themes/confectionery-works/prop-4.f3826e0061cd.svg",
+        "sha256": "f3826e0061cd6972e8aca3371786fdbfeef6ee6a5ba83b40037707eea1c94f2c",
+        "bytes": 413,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-5": {
+        "path": "/floor-themes/confectionery-works/prop-5.026d13e42c69.svg",
+        "sha256": "026d13e42c69b538b4c001d9bfe94647a5bdad3f28a3fbd7d86e21a19e149deb",
+        "bytes": 441,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      }
+    }
+  },
+  "stations": {
+    "general": {
+      "x": 20,
+      "y": 20,
+      "w": 300,
+      "h": 240,
+      "label": "recipe desk"
+    },
+    "site": {
+      "x": 340,
+      "y": 20,
+      "w": 320,
+      "h": 240,
+      "label": "invention kitchen"
+    },
+    "archive": {
+      "x": 680,
+      "y": 20,
+      "w": 300,
+      "h": 240,
+      "label": "wrapped-goods shelves"
+    },
+    "verify": {
+      "x": 20,
+      "y": 340,
+      "w": 340,
+      "h": 240,
+      "label": "inspection table"
+    },
+    "office": {
+      "x": 380,
+      "y": 340,
+      "w": 260,
+      "h": 240,
+      "label": "head confectioner desk"
+    },
+    "bench": {
+      "x": 660,
+      "y": 340,
+      "w": 320,
+      "h": 240,
+      "label": "cooling rack"
+    }
+  },
+  "motionProfile": "shared-v1",
+  "signature": "parcel",
+  "credits": [
+    "Original Control-Rod vector artwork \u00b7 Apache-2.0"
+  ]
+} satisfies ThemePackV1;

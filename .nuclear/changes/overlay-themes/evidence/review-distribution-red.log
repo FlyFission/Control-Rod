@@ -1,0 +1,56 @@
+[WebServer] (node:9680) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:9695) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ python3 ../../tools/check_theme_assets.py --root ../..
+[WebServer] (node:9711) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:9726) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:9755) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:9782) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:9796) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:9820) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › e2e/release-distribution.spec.ts:4:1 › release build excludes the draft demo and unapproved public artwork (201ms)
+
+
+  1) [chromium] › e2e/release-distribution.spec.ts:4:1 › release build excludes the draft demo and unapproved public artwork 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: false
+    Received: true
+
+      4 | test('release build excludes the draft demo and unapproved public artwork',async({page})=>{
+      5 |  test.skip(process.env.THEME_TEST_RELEASE!=='true','Run with THEME_TEST_RELEASE=true');
+    > 6 |  expect(existsSync('dist/themes.html')).toBe(false);
+        |                                         ^
+      7 |  expect(existsSync('dist/floor-themes/creature-dispatch')).toBe(false);
+      8 |  await mockFloorApi(page);await page.goto('/floor');await page.locator('.floor-theme-trigger').click();
+      9 |  await expect(page.getByRole('button',{name:'Use Creature Dispatch theme',exact:true})).toBeDisabled();
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/release-distribution.spec.ts:6:41
+
+    Error Context: test-results/release-distribution-relea-36061-d-unapproved-public-artwork-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/release-distribution-relea-36061-d-unapproved-public-artwork-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/release-distribution-relea-36061-d-unapproved-public-artwork-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e/release-distribution.spec.ts:4:1 › release build excludes the draft demo and unapproved public artwork 
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test '--project=chromium' --grep 'release build excludes'

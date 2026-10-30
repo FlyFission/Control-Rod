@@ -1,0 +1,215 @@
+import type { ThemePackV1 } from "../types.js";
+export default {
+  "schemaVersion": 1,
+  "id": "midnight-bureau",
+  "version": "0.1.0",
+  "title": "Heist Night",
+  "description": "A crew of specialists, one careful plan, zero surprises.",
+  "moodTags": [
+    "Cinematic"
+  ],
+  "availability": "development",
+  "tokens": {
+    "backdrop": "#101c27",
+    "surface": "#121e2a",
+    "ink": "#ffffff",
+    "mutedInk": "#d4e0eb",
+    "accent": "#735743",
+    "focus": "#ffffff"
+  },
+  "assets": {
+    "scene": {
+      "path": "/floor-themes/midnight-bureau/scene.be65798340b2.svg",
+      "sha256": "be65798340b2c4e18d4d35db85d8ba48a9abbfcf4919e5aafb8fc3b1c10e9b33",
+      "bytes": 29198,
+      "width": 1000,
+      "height": 600,
+      "creator": "Original procedural vector illustration (Codex, Claude Code)",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    "thumbnail": {
+      "path": "/floor-themes/midnight-bureau/thumbnail.a442d3dae786.svg",
+      "sha256": "a442d3dae7869c9845b695a18b81451432a00096eb6c18daa478de76192042ee",
+      "bytes": 36404,
+      "width": 800,
+      "height": 480,
+      "creator": "Original procedural vector illustration (Codex, Claude Code)",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    "characters": [
+      {
+        "path": "/floor-themes/midnight-bureau/character-0.4131c9c26de2.svg",
+        "sha256": "4131c9c26de2b3d915d9e73edca58d507161aba5dde91ff4941021712e0eb37f",
+        "bytes": 1179,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/midnight-bureau/character-1.25d78fb4b376.svg",
+        "sha256": "25d78fb4b3763d2b3a3d425a14c2ce80ccf73995d004bc49afe32d83d87ff3e7",
+        "bytes": 1172,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/midnight-bureau/character-2.49efbdfe8b89.svg",
+        "sha256": "49efbdfe8b89754e472beaff54e4b16d0e3fc6d71d4fa94e65119560e87dd7c8",
+        "bytes": 1195,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/midnight-bureau/character-3.c2f0eb8db5ab.svg",
+        "sha256": "c2f0eb8db5abf87ead0ea68812d4489a27ff300fdce1b4e885a2e2d4b25299f4",
+        "bytes": 1191,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/midnight-bureau/character-4.6c4feb856ae0.svg",
+        "sha256": "6c4feb856ae0aa8efcd11998330c3dc11495671c0a3d3ba0de7fa43975770d84",
+        "bytes": 1173,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/midnight-bureau/character-5.2f20caa53c99.svg",
+        "sha256": "2f20caa53c995573ac06a3de5bb196e195d9ac33223cdeae6706dcb89e43a36a",
+        "bytes": 1192,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      }
+    ],
+    "props": {
+      "prop-0": {
+        "path": "/floor-themes/midnight-bureau/prop-0.e9b082c3d734.svg",
+        "sha256": "e9b082c3d7342dd51c23639ad09e412b721509ffc3cc81f69456bd78a3b72169",
+        "bytes": 528,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-1": {
+        "path": "/floor-themes/midnight-bureau/prop-1.28742729282b.svg",
+        "sha256": "28742729282bf72ae2b185a39d4cb4cb0497d730f86f1cf6c61f4342ae9417f3",
+        "bytes": 458,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-2": {
+        "path": "/floor-themes/midnight-bureau/prop-2.6f7bfa53af39.svg",
+        "sha256": "6f7bfa53af39e67e52c9545a9c664939a7acefd39affccea8a20a3936c416648",
+        "bytes": 404,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-3": {
+        "path": "/floor-themes/midnight-bureau/prop-3.934795ff57ec.svg",
+        "sha256": "934795ff57ec161693c5243fd104d8b21d01c704baf089a23fa92fb5c00d0521",
+        "bytes": 367,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-4": {
+        "path": "/floor-themes/midnight-bureau/prop-4.f7dcb2c9ac23.svg",
+        "sha256": "f7dcb2c9ac23a0a9fcf18f8e7a2d1319ecdf0698e1e9f3950eb71c6f28e44e6f",
+        "bytes": 460,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-5": {
+        "path": "/floor-themes/midnight-bureau/prop-5.b07f461cac18.svg",
+        "sha256": "b07f461cac186c8c63f14cc79ce392e65db68dca3ba18ce43e2fcca0b92d8365",
+        "bytes": 389,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      }
+    }
+  },
+  "stations": {
+    "general": {
+      "x": 20,
+      "y": 20,
+      "w": 300,
+      "h": 240,
+      "label": "briefing table"
+    },
+    "site": {
+      "x": 340,
+      "y": 20,
+      "w": 320,
+      "h": 240,
+      "label": "operations desk"
+    },
+    "archive": {
+      "x": 680,
+      "y": 20,
+      "w": 300,
+      "h": 240,
+      "label": "dossier vault"
+    },
+    "verify": {
+      "x": 20,
+      "y": 340,
+      "w": 340,
+      "h": 240,
+      "label": "audit table"
+    },
+    "office": {
+      "x": 380,
+      "y": 340,
+      "w": 260,
+      "h": 240,
+      "label": "director desk"
+    },
+    "bench": {
+      "x": 660,
+      "y": 340,
+      "w": 320,
+      "h": 240,
+      "label": "lounge"
+    }
+  },
+  "motionProfile": "shared-v1",
+  "signature": "dossier",
+  "credits": [
+    "Original Control-Rod vector artwork \u00b7 Apache-2.0"
+  ]
+} satisfies ThemePackV1;

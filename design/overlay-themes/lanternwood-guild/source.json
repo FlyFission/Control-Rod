@@ -1,0 +1,20 @@
+{
+  "packId": "lanternwood-guild",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#365D4D",
+    "#A2B67C",
+    "#E8BC70",
+    "#314653"
+  ],
+  "status": "draft",
+  "props": [
+    "original map",
+    "lantern",
+    "scroll tube",
+    "hand tool",
+    "specimen basket",
+    "seal block"
+  ],
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

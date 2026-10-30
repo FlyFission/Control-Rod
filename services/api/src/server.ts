@@ -8,6 +8,7 @@ import { preparationConfig } from "./preparation/config.js";
 import { buildApp } from "./app.js";
 import { hashToken } from "./auth.js";
 import { closeDb, openDb } from "./db/index.js";
+import { localRoleSecrets } from "./db/roles.js";
 
 /**
  * Starts Control Rod on this machine: an embedded Postgres in ~/.controlrod/pg, the control
@@ -39,7 +40,12 @@ if (!dbUrl) {
   await pgServer.start();
   dbUrl = `postgres://controlrod:${pgPassword}@127.0.0.1:${pgPort}/postgres`;
 }
-const db = await openDb(dbUrl);
+// The app reads and writes through two logins of its own (specification 10.1). An administrator of
+// an external database can issue them; otherwise the app creates them, keeping their passwords here.
+const roleUrls = process.env.CONTROLROD_DB_READER_URL && process.env.CONTROLROD_DB_WRITER_URL
+  ? { readerUrl: process.env.CONTROLROD_DB_READER_URL, writerUrl: process.env.CONTROLROD_DB_WRITER_URL }
+  : undefined;
+const db = await openDb(dbUrl, roleUrls ? { urls: roleUrls } : { secrets: localRoleSecrets(join(home, "db-roles.json")) });
 
 const tokenPath = join(home, "daemon.token");
 const token = randomBytes(32).toString("base64url");

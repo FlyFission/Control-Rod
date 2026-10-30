@@ -16,6 +16,9 @@ import pg from "pg";
 const OwnerPool = pg.Pool;
 import { type Db, closeDb, openDb } from "../src/db/index.js";
 
+/** Fixed role passwords for tests: clusters may be shared between test files. */
+export const TEST_ROLE_SECRETS = { reader: "1".repeat(48), writer: "2".repeat(48) };
+
 const openDbRaw = async (url: string) => {
   const c = new pg.Client({ connectionString: url });
   await c.connect();
@@ -67,7 +70,7 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
     await admin.end();
     const url = new URL(external);
     url.pathname = `/${name}`;
-    const db = await openDb(url.toString());
+    const db = await openDb(url.toString(), { secrets: TEST_ROLE_SECRETS });
     const owner = new OwnerPool({ connectionString: url.toString(), max: 4 });
     const app = buildApp({
       ...options,
@@ -106,7 +109,7 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
         if (attempt === 3) throw error;
       }
     }
-    const db = await openDb(`postgres://controlrod@127.0.0.1:${port}/postgres`);
+    const db = await openDb(`postgres://controlrod@127.0.0.1:${port}/postgres`, { secrets: TEST_ROLE_SECRETS });
     const owner = new OwnerPool({ connectionString: `postgres://controlrod@127.0.0.1:${port}/postgres`, max: 4 });
     const app = buildApp({
       ...options,
@@ -142,7 +145,7 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
   });
   await pg.initialise();
   await pg.start();
-  const db = await openDb(`postgres://controlrod:test@127.0.0.1:${port}/postgres`);
+  const db = await openDb(`postgres://controlrod:test@127.0.0.1:${port}/postgres`, { secrets: TEST_ROLE_SECRETS });
   const owner = new OwnerPool({ connectionString: `postgres://controlrod:test@127.0.0.1:${port}/postgres`, max: 4 });
   const app = buildApp({
       ...options,

@@ -91,17 +91,25 @@ def build() -> str:
         reach: set[str] = set()
         for site in where:
             fn = site.split(" ", 1)[1]
-            reach |= callers(files, fn)
+            reach |= {"startup (after migrations)"} if fn == "openDb" else callers(files, fn)
         lines.append(f"| `{name}` | {principal} | {signature} | {spec} | {'<br>'.join(sorted(set(where))) or 'unused'} | "
-                     f"{', '.join(sorted(reach)) or 'internal'} |")
+                     f"{', '.join(sorted(reach)) or 'no production caller yet (declared seam)'} |")
     lines += [
         "",
         "## Migrations and startup",
         "",
-        "Migrations run as the connecting owner (the migrator), never as the reader or writer. The one data",
-        "change at startup, completing credential records for passkeys registered before migration 009",
-        "(`backfillCredentials`), runs in the migrator's transaction in `db/index.ts` before the reader and",
-        "writer pools open. The writer role cannot change `schema_migrations`.",
+        "Migrations change the schema and run as the connecting owner (the migrator). Data changes that",
+        "complete a migration run afterwards as commands on the writer login: `migration.backfill-tenancy`",
+        "gives existing records their ownership envelopes, Members and credential records. The writer cannot",
+        "change `schema_migrations` or the lifecycle rule tables. The logins themselves are described in",
+        "[database-roles.md](database-roles.md).",
+        "",
+        "## Reading this table",
+        "",
+        "\"Executed in\" is where the command runs in source. \"Reached from\" follows plain function calls up",
+        "to HTTP routes and timers; it is a static trace, not observed execution. A command with no production",
+        "caller is a declared seam: its implementation and tests exist, and nothing in the running app",
+        "invokes it yet.",
         "",
         "## Required links",
         "",

@@ -199,7 +199,8 @@ describe.skipIf(!tools)(
       ).rows[0].last_value;
       const before = await snapshot(f.h.db),
         chain = await verifyChain(f.h.db);
-      const connection = new URL(String(f.h.db.options.connectionString));
+      // Backup and restore are operator tasks: they run as the owner, not as the application's reader.
+      const connection = new URL(String(f.h.admin.options.connectionString));
       const environment = {
         ...process.env,
         PGHOST: connection.hostname,

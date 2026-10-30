@@ -324,6 +324,26 @@ export async function recordRegistration(
 }
 
 /**
+ * Completes migration 009 for records that existed before it (command migration.backfill-tenancy):
+ * an ownership envelope for every existing record, a Member for every passkey user, and credential
+ * version 1 for every passkey. Idempotent, and never reads a signed body, event or digest for
+ * writing. Envelopes go to the sole active organization, as the insert triggers do.
+ */
+export async function backfillTenancy(c: Tx): Promise<number> {
+  await c.query(`insert into object_owners (object_kind, object_id, org_id)
+    select k, i, tenancy_sole_org() from (
+      select 'capture' as k, id as i from captures
+      union select 'package', id from packages
+      union select 'run', id from runs
+      union select 'decision', id from decisions
+      union select 'preparation', preparation_id from preparation_snapshots
+      union select 'grant', id from preparation_grants
+      union select 'credential', id from credentials) existing
+    on conflict do nothing`);
+  return backfillCredentials(c);
+}
+
+/**
  * Completes migration 009 for passkeys registered before it: each gets credential version 1,
  * marked registered without attestation, so none is eligible for the hardware key floor until
  * re-enrolled. Idempotent; appends events only for credentials it records.

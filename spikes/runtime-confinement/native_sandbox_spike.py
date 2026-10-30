@@ -36,7 +36,10 @@ def attempt(fn):
     try:
         r = fn(); return "allowed" if r is None else r
     except Exception as e:
-        return type(e).__name__
+        inner = getattr(e, "reason", None)
+        err = getattr(inner, "errno", None) if isinstance(inner, OSError) else getattr(e, "errno", None)
+        exc = inner if isinstance(inner, OSError) else e
+        return "%%s:%%s:%%s" %% (type(exc).__name__, err, str(exc)[:80].replace(":", ";"))
 def read(p):
     return "LEAKED" if "%s" in pathlib.Path(home, p).read_text() else "read-no-canary"
 print(json.dumps({
@@ -61,6 +64,8 @@ CLAUDE_STRICT_FILES = {**CLAUDE_STRICT, "permissions": {
     "deny": ["Read(~/.claude/**)", "Read(~/.codex/**)", "Edit(~/.claude/**)", "Edit(~/.codex/**)"],
     "defaultMode": "acceptEdits",
 }}
+# Negative controls: Control Rod's settings with the login denials removed. Each must leak.
+CLAUDE_WEAKENED = {"sandbox": {**CLAUDE_STRICT["sandbox"], "filesystem": {"denyRead": []}}}
 CLAUDE_DEFAULT = {"sandbox": {"enabled": True, "autoAllowBashIfSandboxed": True}}
 
 
@@ -129,6 +134,11 @@ CODEX_PROFILE_ARGS = [
     "-c", "permissions.control-rod.network.enabled=false",
 ]
 
+# Negative control: the same profile without the login denials. It must leak.
+CODEX_WEAKENED_ARGS = [x for pair in zip(CODEX_PROFILE_ARGS[0::2], CODEX_PROFILE_ARGS[1::2])
+                       if "filesystem=" not in pair[1] for x in pair] + [
+    "-c", 'permissions.control-rod.filesystem={":slash_tmp"="read",":tmpdir"="read"}']
+
 # Control Rod's Codex profile. Permission profiles are ignored when sandbox_mode is set anywhere,
 # so Control Rod sets only default_permissions and never sandbox_mode.
 CODEX_PROFILE = """
@@ -195,15 +205,57 @@ def run_claude_file_tools(claude, deps, settings, extra_args=()):
                 "write_inside_on_host": (work / "inside-write").exists(), "write_inside_result": text(2)[:200]}
 
 
+# Only these errno values count as the sandbox refusing; anything else (a timeout, a TLS error,
+# an unexpected exception) is unverifiable, never a pass.
+ENOENT, EACCES, EPERM, EROFS, ENETUNREACH, ECONNREFUSED, EAI_AGAIN_NAMES = 2, 13, 1, 30, 101, 111, ("gaierror",)
+
+
+def verdict(kind, value):
+    if value is None:
+        return "unverifiable"
+    if value in ("allowed", "LEAKED"):
+        return "allowed"
+    if value == "read-no-canary":
+        return "unverifiable"
+    name, err, message = (str(value).split(":", 2) + ["", ""])[:3]
+    err = int(err) if err.lstrip("-").isdigit() else None
+    # The sandbox's egress proxy answers a refused HTTPS CONNECT with 403; urllib reports it without an errno.
+    if kind == "net" and err is None and "Tunnel connection failed; 403" in message:
+        return "denied"
+    if kind == "read" and err in (ENOENT, EACCES, EPERM):
+        return "denied"
+    if kind == "write" and err in (EACCES, EPERM, EROFS, ENOENT):
+        return "denied"
+    if kind == "net" and (err in (ENETUNREACH, EACCES, EPERM, ECONNREFUSED) or name in EAI_AGAIN_NAMES):
+        return "denied"
+    return "unverifiable"
+
+
+KINDS = {"read_claude_login": "read", "read_codex_login": "read", "raw_tcp_internet": "net", "https_internet": "net",
+         "write_workspace": "write", "write_home": "write", "write_slash_tmp": "write"}
+PROTECTED = {"read_claude_login": "denied", "read_codex_login": "denied", "raw_tcp_internet": "denied",
+             "https_internet": "denied", "write_workspace": "allowed", "write_home": "denied", "write_slash_tmp": "denied"}
+
+
 def protected(run):
     p = run.get("probe") or {}
-    return {
-        "login_files_unreadable": all(p.get(k) not in (None, "LEAKED", "read-no-canary") for k in ("read_claude_login", "read_codex_login")),
-        "no_internet": all(p.get(k) not in (None, "allowed") for k in ("raw_tcp_internet", "https_internet")),
-        "workspace_writable": p.get("write_workspace") == "allowed",
-        "slash_tmp_not_writable": p.get("write_slash_tmp") not in (None, "allowed"),
-        "home_write_never_reaches_host": not run["escape_on_host"],
-    }
+    seen = {k: verdict(KINDS[k], p.get(k)) for k in KINDS}
+    return {"probe_completed": run.get("exit") == 0 and bool(p), "verdicts": seen,
+            "home_write_never_reaches_host": not run["escape_on_host"],
+            "meets_control_rod_policy": run.get("exit") == 0 and bool(p) and seen == PROTECTED and not run["escape_on_host"]}
+
+
+def run_unsandboxed(_unused=None):
+    """Positive control: the same probe with no sandbox must read the canary and reach the internet."""
+    with tempfile.TemporaryDirectory(prefix="s6u-") as tmp:
+        root = pathlib.Path(tmp)
+        home, work = fake_home(root), root / "work"
+        work.mkdir()
+        env = {"HOME": str(home), "PATH": "/usr/bin:/bin", "LANG": "C.UTF-8"}
+        r = subprocess.run(["python3", "-I", "-c", PROBE], cwd=work, env=env, stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True, timeout=60)
+        return {"exit": r.returncode, "probe": last_json(r.stdout), "escape_on_host": (home / "escape-marker").exists(),
+                "stderr_tail": r.stderr[-300:]}
 
 
 def main():
@@ -217,20 +269,39 @@ def main():
               "claude_version": subprocess.run([str(claude), "--version"], capture_output=True, text=True).stdout.strip(),
               "codex_version": subprocess.run([str(codex), "--version"], capture_output=True, text=True).stdout.strip(),
               "runs": {}}
+    report["runs"]["unsandboxed_positive_control"] = run_unsandboxed()
     report["runs"]["claude_default"] = run_claude(claude, deps, CLAUDE_DEFAULT)
+    report["runs"]["claude_weakened_control"] = run_claude(claude, deps, CLAUDE_WEAKENED)
     report["runs"]["claude_control_rod"] = run_claude(claude, deps, CLAUDE_STRICT)
     report["runs"]["codex_default"] = run_codex(codex, None, legacy=True)
     report["runs"]["codex_control_rod"] = run_codex(codex, CODEX_PROFILE, legacy=False)
     report["runs"]["codex_control_rod_overrides"] = run_codex(codex, None, legacy=False, args=CODEX_PROFILE_ARGS)
+    report["runs"]["codex_weakened_control"] = run_codex(codex, None, legacy=False, args=CODEX_WEAKENED_ARGS)
     report["checks"] = {name: protected(run) for name, run in report["runs"].items()}
     report["file_tools"] = {
         "claude_control_rod": run_claude_file_tools(claude, deps, CLAUDE_STRICT),
         "claude_control_rod_permissions": run_claude_file_tools(claude, deps, CLAUDE_STRICT_FILES),
     }
-    report["scope"] = "decoy logins in a throwaway home; scripted provider for Claude; codex sandbox command only; this host only"
+    c = report["checks"]
+    pos = c["unsandboxed_positive_control"]["verdicts"]
+    ft = report["file_tools"]["claude_control_rod_permissions"]
+    report["qualification"] = {
+        "positive_control_reads_and_reaches_internet": c["unsandboxed_positive_control"]["probe_completed"]
+            and all(pos[k] == "allowed" for k in KINDS),
+        "claude_meets_policy": c["claude_control_rod"]["meets_control_rod_policy"],
+        "codex_meets_policy_config_file": c["codex_control_rod"]["meets_control_rod_policy"],
+        "codex_meets_policy_overrides": c["codex_control_rod_overrides"]["meets_control_rod_policy"],
+        "claude_weakened_control_leaks": c["claude_weakened_control"]["verdicts"]["read_claude_login"] == "allowed",
+        "codex_weakened_control_leaks": c["codex_weakened_control"]["verdicts"]["read_codex_login"] == "allowed",
+        "claude_file_tools_refused_outside_and_allowed_inside": ft["exit"] == 0 and not ft["read_login_leaked"]
+            and "denied by your permission settings" in ft["read_result"] and not ft["write_outside_on_host"] and ft["write_inside_on_host"],
+    }
+    report["scope"] = ("decoy logins in a throwaway home; scripted provider for Claude; codex sandbox command only; "
+                       "tests two login folders, Bash, Read and Write only; this host only")
     report["activation"] = "HOLD"
     print(json.dumps(report, indent=2))
+    return 0 if all(report["qualification"].values()) else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

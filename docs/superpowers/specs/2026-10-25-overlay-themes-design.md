@@ -6,7 +6,7 @@ Companions: [catalog](2026-10-25-overlay-themes-catalog.md), [implementation pla
 
 ## 1. Intent and decisions
 
-Make Control-Rod's agent activity enjoyable and immediately legible through fifteen beautiful interchangeable worlds. Users should recognize the creative influences while seeing distinctive Control-Rod artwork. A theme is scenery, characters, props and choreography around real work; it cannot determine what work is accepted.
+Make Control-Rod's agent activity enjoyable and immediately legible through fifteen beautiful interchangeable worlds. Users should recognize each world's genre at a glance while seeing distinctive, original Control-Rod artwork. A theme is scenery, characters, props and choreography around real work; it cannot determine what work is accepted.
 
 User direction: fifteen packs, characterful workers and a strong sense of genre, with the creature-workplace and small-helper worlds first, the heist world next, then the confectionery, woodland-fantasy and café worlds and the expanded collection. Every world is original; the project names no third-party franchise in its code, art, documentation or launch material (see `docs/overlay-themes/originality.md`). No answer was given to the recurring-cast question. Proposed default: six unnamed supporting character variants per world with stable run badges; named recurring personalities are a later editorial choice.
 
@@ -129,7 +129,7 @@ Version-1 pack descriptors are static TypeScript objects checked with `satisfies
 | `stations` | keys `general`, `site`, `verify`, `office`, `bench`, `archive`; decorative label and actor anchor geometry inside canonical bounds |
 | `motionProfile` | literal `shared-v1`; `signature` from `none`, `capsule`, `spark`, `dossier`, `parcel`, `lantern`, `ripple` |
 | `credits` | creator names, source/license notice IDs for shipped assets/fonts |
-| `influenceNoteId` | optional pointer to a separately reviewed editorial note; never user HTML |
+| `influenceNoteId` | reserved and unused: the originality rules publish no influence notes |
 | `releaseRecordId` | checked provenance/release-manifest entry; not self-certified inside the art file |
 
 Artwork is **passive local SVG**, referenced as image URLs with empty decorative alt text; status text is HTML. Never insert raw asset strings through `innerHTML`. Build validation rejects scripts, event attributes, foreignObject, external references, embedded remote fonts, animation elements and data URIs. Local fragment references for gradients/clips are allowed; a maintained XML parser must inspect elements/attributes, not a regex-only sanitizer. This is a repository asset gate, not a claim of supporting arbitrary untrusted SVG uploads.
@@ -152,9 +152,9 @@ Packs read display models only. Props must not receive the API client, auth obje
 
 ## 8. Influence, attribution and release posture
 
-The user's preference is **recognizable creative influence**, not a prohibition on references. Keep explicit franchise names in internal briefs and allow proposed public factual influence notes. Original public names are a design choice, not a legal workaround. Mood/genre/ideas differ from protected particular expression; renaming copied characters is insufficient. “Inspired by,” credits, AI generation and an unofficial disclaimer do not themselves grant copyright/trademark permission. Referencing a name can be lawful depending on context and jurisdiction; this spec supplies no blanket legal determination.
+Amended 2026-10-30 by the owner for open-source release: worlds keep a strong sense of genre, and the repository names no third-party franchise anywhere, including internal briefs, influence notes, credits and launch material. Catalog briefs describe genres only. Mood, genre and ideas are free to use; particular expression is not, and renaming copied characters is insufficient. "Inspired by" notes, credits and unofficial disclaimers grant no permission and are not used. The rules are `docs/overlay-themes/originality.md`; `tools/check_originality.py` enforces the naming part. This spec supplies no legal clearance.
 
-Release data per pack records: asset hashes/creators; reference sources; rights basis (`original`, `licensed`, `public-domain` with verification); intended distribution; reviewed title/thumbnail/art/marketing; optional approved influence note text; attribution decision; reviewer/date/evidence reference; pack/version/hash binding. Public notes are optional, factual, subordinate to original identity, without franchise logos or official-endorsement language. Their exact placement and wording get the same review as artwork. Do not label all concepts approved merely because one pack is approved.
+Release data per pack records: asset hashes/creators; reference sources; rights basis (`original`, `licensed`, `public-domain` with verification); intended distribution; reviewed title/thumbnail/art/marketing; an influence text field that must be empty under the originality rules; attribution decision; reviewer/date/evidence reference; pack/version/hash binding. No public influence notes are published; the release checker refuses a record whose influence text is not empty. Do not label all concepts approved merely because one pack is approved.
 
 Engineering validation requires a complete release record for released packs; it checks records exist and match hashes, **not whether a legal conclusion is correct**. A designated human release owner accepts that record; exact franchise characters/assets or unresolved reference concerns require specific permission or qualified IP review before that pack ships. Other cleared packs continue independently. Proprietary licensed packs stay out of the Apache-distributed bundle unless the license explicitly permits that distribution; attribution does not relicense assets. The engine's source license and each asset license are recorded separately.
 
@@ -181,7 +181,7 @@ Primary U.S. guidance consulted for framing, not pack clearance:
 | OT-11 — Responsive bounded scene | AC-11: all entities fit station bounds, 7th item yields +1, full list retains it, and <960-pixel containers use list without horizontal page overflow |
 | OT-12 — No new work authority or disclosure | AC-12: selecting/previewing/changing motion makes no mutation requests; pack props exclude protected/raw data; assets request only same-origin paths |
 | OT-13 — Asset/performance budgets | AC-13: asset hash/size/SVG validation passes; cold/cached switching and full-load fixtures meet recorded targets or remain explicitly unreleased |
-| OT-14 — Pack-specific rights/attribution | AC-14: missing/stale release record excludes only that pack; an influence note is shown only when approved with matching asset/version binding |
+| OT-14 — Pack-specific rights/attribution | AC-14: missing/stale release record excludes only that pack; a record with non-empty influence text is refused |
 | OT-15 — Gradual rollout and rollback | AC-15: allowlisted waves can be disabled independently; disabling the feature restores the ordinary Floor without dropping task data or changing package bytes |
 
 ## 10. Quality and accessibility acceptance
@@ -192,7 +192,7 @@ Browser matrix: current stable Chrome/Edge, Firefox and Safari desktop; mobile S
 
 ## 11. Rollout, completion and proposed defaults
 
-Wave A: The Monster Mailroom and Little Helpers Laboratory plus engine. Wave B: Heist Night; stabilize the common primitives before increasing pack count. Wave C: The Chocolate Factory, The Lantern Woods Guild, The Coffee House Crew, Tumbletown Rhyme Works. Wave D: Starport Shipyard, Critter Expedition Camp, Blockworks Foundry. Wave E: The Spirit Bathhouse, Thimble Town, Clockwork Stargazers, Reef Town, Cozy Critter Village. Fifteen is the target catalog, not a claim they can all ship in one engineering pass.
+Wave A: The Monster Mailroom and Little Helpers Laboratory plus engine. Wave B: Heist Night; stabilize the common primitives before increasing pack count. Wave C: The Chocolate Factory, The Lantern Woods Guild, The Coffee House Crew, Tumbletown Rhyme Works. Wave D: Starport Shipyard, Critter Expedition Camp, Blockworks Foundry. Wave E: The Cloudspring Baths, Thimble Town, Clockwork Stargazers, Reef Town, Cozy Critter Village. Fifteen is the target catalog, not a claim they can all ship in one engineering pass.
 
 Use static Vite build configuration `VITE_FLOOR_THEMES_ENABLED` (default `false`) and a reviewed static release allowlist. `false` preserves legacy Floor/list behavior; preferences remain harmless. To roll back an individual pack remove it from allowlist and rebuild; its saved ID falls back gracefully. Assets use content hashes; a descriptor version change with modified bytes invalidates the prior release record. No server data rollback exists because the feature writes none.
 

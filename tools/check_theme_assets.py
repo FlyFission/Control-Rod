@@ -103,8 +103,8 @@ def check_release_records(records, manifests):
         seen.add(pid)
         if any(not isinstance(record.get(k),str) or not record[k].strip() for k in ['id','version','title','reviewer','reviewedAt','evidence','distribution']):
             errors.append(f'{pid}: incomplete release decision')
-        if not isinstance(record.get('approvedInfluenceText'),str):
-            errors.append(f'{pid}: missing explicit influence-text decision')
+        if record.get('approvedInfluenceText') != '':
+            errors.append(f'{pid}: influence text must be an explicit empty string (docs/overlay-themes/originality.md)')
         if record.get('version') != manifest.get('version') or record.get('title') != manifest.get('title') or record.get('assets') != [a['sha256'] for a in manifest['assets']]:
             errors.append(f'{pid}: release does not bind actual art, version and title')
     return errors

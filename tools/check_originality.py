@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DENYLIST = ROOT / "tools" / "originality-denylist.sha256"
-MAX_WORDS = 3
+MAX_WORDS = 6  # longest denylist phrase is five words; the canary is four
 SKIP_SUFFIXES = {
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".woff", ".woff2",
     ".ttf", ".otf", ".pdf", ".zip", ".gz", ".wasm",
@@ -45,15 +45,23 @@ def load_denylist(path: Path = DENYLIST) -> set[str]:
 
 
 def find_hits(text: str, denied: set[str]) -> list[tuple[int, int]]:
-    """Return (line number, window size) for each denied phrase found."""
-    hits = []
+    """Return (line number, window size) for each denied phrase found.
+
+    Words are windowed across line breaks, so a phrase split by ordinary text
+    wrapping is still found; the line reported is the phrase's first word.
+    """
+    words: list[str] = []
+    lines: list[int] = []
     for number, line in enumerate(text.splitlines(), start=1):
-        words = normalize_words(line)
-        for size in range(1, MAX_WORDS + 1):
-            for start in range(len(words) - size + 1):
-                if phrase_hash(words[start:start + size]) in denied:
-                    hits.append((number, size))
-    return hits
+        for word in normalize_words(line):
+            words.append(word)
+            lines.append(number)
+    hits = []
+    for size in range(1, MAX_WORDS + 1):
+        for start in range(len(words) - size + 1):
+            if phrase_hash(words[start:start + size]) in denied:
+                hits.append((lines[start], size))
+    return sorted(hits)
 
 
 def tracked_files(root: Path = ROOT) -> list[Path]:

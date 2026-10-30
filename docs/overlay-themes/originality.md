@@ -38,7 +38,7 @@ Adopted 2026-10-30 at the owner's direction. Earlier working titles were already
 | `orbital-shipyard` | Orbital Shipyard | **Starport Shipyard** | Robots, aliens and engineers keeping the fleet flying. |
 | `wildlight-camp` | Wildlight Research Camp | **Critter Expedition Camp** | Your field team is small, furry and very thorough. |
 | `voxel-foundry` | Voxel Foundry | **Blockworks Foundry** | Every deliverable built one cube at a time. |
-| `cloudspring-bathhouse` | Cloudspring Bathhouse | **The Spirit Bathhouse** | Porcelain attendants, steam, and very careful records. |
+| `cloudspring-bathhouse` | Cloudspring Bathhouse | **The Cloudspring Baths** | Porcelain attendants, warm steam and very careful records. |
 | `button-and-spool` | Button & Spool | **Thimble Town** | A tiny workshop hidden inside the sewing drawer. |
 | `clockwork-observatory` | Clockwork Observatory | **Clockwork Stargazers** | Brass automatons charting your work across the sky. |
 | `coral-commons` | Coral Commons | **Reef Town** | An octopus, a seahorse and a very organized crab. |

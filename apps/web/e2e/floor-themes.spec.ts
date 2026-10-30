@@ -179,7 +179,7 @@ test("all fifteen worlds switch without changing work and reduced motion stays s
     "Starport Shipyard",
     "Critter Expedition Camp",
     "Blockworks Foundry",
-    "The Spirit Bathhouse",
+    "The Cloudspring Baths",
     "Thimble Town",
     "Clockwork Stargazers",
     "Reef Town",

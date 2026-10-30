@@ -11,6 +11,15 @@ class OriginalityGateTests(unittest.TestCase):
         denied = {phrase_hash(["glimmer", "kettle"])}
         self.assertEqual(find_hits("A tour of the Glimmer-Kettle works.", denied), [(1, 2)])
 
+    def test_detects_a_phrase_split_across_a_line_break(self):
+        denied = {phrase_hash(["glimmer", "kettle"])}
+        self.assertEqual(find_hits("the old glimmer\nkettle works", denied), [(1, 2)])
+
+    def test_real_denylist_is_wired_in_through_its_canary(self):
+        # Built in reverse so this source file never holds the phrase in scannable order.
+        canary = " ".join(reversed(["canary", "originality", "rod", "control"]))
+        self.assertEqual(find_hits(f"A {canary} line.", load_denylist()), [(1, 4)])
+
     def test_ignores_partial_word_matches(self):
         denied = {phrase_hash(["kettle"])}
         self.assertEqual(find_hits("kettles and teakettle", denied), [])

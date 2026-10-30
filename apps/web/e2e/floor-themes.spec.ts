@@ -165,7 +165,7 @@ test("all fifteen worlds switch without changing work and reduced motion stays s
   await page.goto("/themes.html");
   await expect(
     page.getByText(
-      "Preview — sample activity. This is a demonstration, not live work.",
+      "Preview: sample activity. This is a demonstration, not live work.",
     ),
   ).toBeVisible();
   for (const name of [
@@ -305,7 +305,7 @@ test("stale live data pauses activity and recovery never replays submissions", a
   api.setOffline(true);
   await page.clock.fastForward(31001);
   await expect(
-    page.getByText("Updates unavailable — showing last known activity"),
+    page.getByText("Updates unavailable, showing last known activity"),
   ).toBeVisible();
   await expect(page.locator(".floor-stage")).toHaveClass(/motion-still/);
   api.setOffline(false);
@@ -412,12 +412,12 @@ test("real route limits package queries and marks failed detail coverage", async
     });
   });
   await page.goto("/floor");
-  await expect(page.getByText("Packages 1–30 of 31")).toBeVisible();
+  await expect(page.getByText("Packages 1 to 30 of 31")).toBeVisible();
   await expect(
     page.getByText("Could not load: WP-005.", { exact: false }),
   ).toBeVisible();
   expect(requested.size).toBe(30);
   await page.getByRole("button", { name: "Next packages" }).click();
-  await expect(page.getByText("Packages 31–31 of 31")).toBeVisible();
+  await expect(page.getByText("Packages 31 to 31 of 31")).toBeVisible();
   expect(mutations).toBe(0);
 });

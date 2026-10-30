@@ -38,3 +38,16 @@ A source-grounded, internally consistent, reviewed specification and task plan, 
 The user approved the documents and instructed: **“I love it. Go ahead and execute this out to completion.”** This supersedes the initial documentation-only boundary for this frontend/asset implementation. It does not claim human approval of artwork not yet created, a third-party license, protected-surface changes, or authorization to merge/publish/deploy.
 
 Implementation is isolated on `feat/overlay-themes`, forked from `41d2d0b` (the observed executable buildout plus the planning packet and workspace ignores). The execution ledger, final checks and remaining release decisions are recorded in [execution](execution.md), [verification](verification.md) and [ship](ship.md). The earlier proposed defaults became the implementation basis when the user approved the complete plan. New rulings and the final review fix pass are disclosed in the execution record.
+
+
+## Required links
+
+[Basis](basis.md), [risk](risk.md), [plan](plan.md), [trace](trace.md), [execution](execution.md), [verification](verification.md), [ship](ship.md).
+
+## Exit criteria
+
+Fifteen original worlds are verified as observed, every review finding has a disposition, and the remaining human decisions (art and distribution review, DCO sign-off, merge) are named rather than implied.
+
+## Source-lineage note
+
+Workflow basis: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. Adapted as a local engineering record, not a compliance certification.

@@ -1,15 +1,15 @@
-{"id":"creature-dispatch","title":"Creature Dispatch","actors":36,"frames":1797,"frameP95Ms":16.8,"cachedSwitchMs":113,"coldActivationMs":967,"pass":true}
-{"id":"pocket-lab","title":"Pocket Lab","actors":36,"frames":1797,"frameP95Ms":16.7,"cachedSwitchMs":89,"coldActivationMs":940,"pass":true}
-{"id":"midnight-bureau","title":"Midnight Bureau","actors":36,"frames":1797,"frameP95Ms":16.8,"cachedSwitchMs":134,"coldActivationMs":1008,"pass":true}
-{"id":"confectionery-works","title":"Confectionery Works","actors":36,"frames":1791,"frameP95Ms":16.7,"cachedSwitchMs":111,"coldActivationMs":1005,"pass":true}
-{"id":"lanternwood-guild","title":"Lanternwood Guild","actors":36,"frames":1797,"frameP95Ms":16.7,"cachedSwitchMs":106,"coldActivationMs":959,"pass":true}
-{"id":"corner-cafe","title":"Corner Café","actors":36,"frames":1789,"frameP95Ms":16.7,"cachedSwitchMs":100,"coldActivationMs":925,"pass":true}
-{"id":"tumbletown-workshop","title":"Tumbletown Workshop","actors":36,"frames":1792,"frameP95Ms":16.8,"cachedSwitchMs":91,"coldActivationMs":963,"pass":true}
-{"id":"orbital-shipyard","title":"Orbital Shipyard","actors":36,"frames":1796,"frameP95Ms":16.8,"cachedSwitchMs":139,"coldActivationMs":892,"pass":true}
-{"id":"wildlight-camp","title":"Wildlight Research Camp","actors":36,"frames":1795,"frameP95Ms":16.7,"cachedSwitchMs":167,"coldActivationMs":977,"pass":true}
-{"id":"voxel-foundry","title":"Voxel Foundry","actors":36,"frames":1798,"frameP95Ms":16.7,"cachedSwitchMs":156,"coldActivationMs":898,"pass":true}
-{"id":"cloudspring-bathhouse","title":"Cloudspring Bathhouse","actors":36,"frames":1798,"frameP95Ms":16.8,"cachedSwitchMs":127,"coldActivationMs":921,"pass":true}
-{"id":"button-and-spool","title":"Button & Spool","actors":36,"frames":1793,"frameP95Ms":16.7,"cachedSwitchMs":114,"coldActivationMs":940,"pass":true}
-{"id":"clockwork-observatory","title":"Clockwork Observatory","actors":36,"frames":1792,"frameP95Ms":16.8,"cachedSwitchMs":121,"coldActivationMs":1034,"pass":true}
-{"id":"coral-commons","title":"Coral Commons","actors":36,"frames":1797,"frameP95Ms":16.7,"cachedSwitchMs":167,"coldActivationMs":960,"pass":true}
-{"id":"meadow-post","title":"Meadow Post","actors":36,"frames":1790,"frameP95Ms":16.8,"cachedSwitchMs":90,"coldActivationMs":892,"pass":true}
+{"id":"creature-dispatch","title":"The Monster Mailroom","actors":36,"frames":1799,"frameP95Ms":16.7,"cachedSwitchMs":109,"coldActivationMs":914,"pass":true}
+{"id":"pocket-lab","title":"Little Helpers Laboratory","actors":36,"frames":1799,"frameP95Ms":16.7,"cachedSwitchMs":113,"coldActivationMs":894,"pass":true}
+{"id":"midnight-bureau","title":"Heist Night","actors":36,"frames":1800,"frameP95Ms":16.8,"cachedSwitchMs":130,"coldActivationMs":912,"pass":true}
+{"id":"confectionery-works","title":"The Chocolate Factory","actors":36,"frames":1799,"frameP95Ms":16.7,"cachedSwitchMs":101,"coldActivationMs":899,"pass":true}
+{"id":"lanternwood-guild","title":"The Lantern Woods Guild","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":104,"coldActivationMs":892,"pass":true}
+{"id":"corner-cafe","title":"The Coffee House Crew","actors":36,"frames":1800,"frameP95Ms":16.8,"cachedSwitchMs":106,"coldActivationMs":894,"pass":true}
+{"id":"tumbletown-workshop","title":"Tumbletown Rhyme Works","actors":36,"frames":1798,"frameP95Ms":16.8,"cachedSwitchMs":123,"coldActivationMs":872,"pass":true}
+{"id":"orbital-shipyard","title":"Starport Shipyard","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":224,"coldActivationMs":894,"pass":true}
+{"id":"wildlight-camp","title":"Critter Expedition Camp","actors":36,"frames":1799,"frameP95Ms":16.7,"cachedSwitchMs":108,"coldActivationMs":911,"pass":true}
+{"id":"voxel-foundry","title":"Blockworks Foundry","actors":36,"frames":1799,"frameP95Ms":16.8,"cachedSwitchMs":112,"coldActivationMs":899,"pass":true}
+{"id":"cloudspring-bathhouse","title":"The Cloudspring Baths","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":104,"coldActivationMs":888,"pass":true}
+{"id":"button-and-spool","title":"Thimble Town","actors":36,"frames":1801,"frameP95Ms":16.7,"cachedSwitchMs":122,"coldActivationMs":893,"pass":true}
+{"id":"clockwork-observatory","title":"Clockwork Stargazers","actors":36,"frames":1800,"frameP95Ms":16.8,"cachedSwitchMs":103,"coldActivationMs":867,"pass":true}
+{"id":"coral-commons","title":"Reef Town","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":117,"coldActivationMs":889,"pass":true}
+{"id":"meadow-post","title":"Cozy Critter Village","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":180,"coldActivationMs":894,"pass":true}

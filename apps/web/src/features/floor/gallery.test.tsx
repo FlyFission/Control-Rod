@@ -19,7 +19,7 @@ it("labels sample previews and prevents public activation of draft artwork", () 
   fireEvent.click(
     screen.getByRole("button", { name: `Preview ${THEME_CATALOG[0]!.title}` }),
   );
-  expect(screen.getByText("Preview — sample activity")).toBeDefined();
+  expect(screen.getByText("Preview: sample activity")).toBeDefined();
 });
 it("closes on Escape and can select plain without loading art", async () => {
   const close = vi.fn(),

@@ -78,7 +78,7 @@ export function FloorToolbar({
       <div className="floor-paging">
         <span>
           {total
-            ? `Packages ${index * 30 + 1}–${Math.min((index + 1) * 30, total)} of ${total}`
+            ? `Packages ${index * 30 + 1} to ${Math.min((index + 1) * 30, total)} of ${total}`
             : "No matching work packages"}
         </span>
         <button

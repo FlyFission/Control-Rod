@@ -2,6 +2,13 @@
 
 Date: 2026-10-26. Mode: standard frontend/asset implementation after user approval. Initial planning was delivered 2026-10-25; actual technical results and remaining human/public-release decisions are in verification.md and ship.md.
 
+## Selected mode
+
+- **Mode:** Standard
+- Basis: user-visible frontend and bundled art for an open-source release, with release isolation and third-party rights exposure.
+
+## Risk register
+
 | Risk | Planned control | Evidence / stop condition |
 |---|---|---|
 | Franchise names or likeness reach the public repository or launch posts | Genre only naming, originality rules, hashed denylist scan, cast review at full size | Any scan finding, or a reviewer naming a specific franchise from a cast |
@@ -20,3 +27,16 @@ Date: 2026-10-26. Mode: standard frontend/asset implementation after user approv
 Protected surfaces remain untouched by this planning packet. No complete security, accessibility or legal assurance is claimed by source inspection or document checks.
 
 [Basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship posture](ship.md).
+
+
+## Required links
+
+[Basis](basis.md), [risk](risk.md), [plan](plan.md), [trace](trace.md), [execution](execution.md), [verification](verification.md), [ship](ship.md).
+
+## Exit criteria
+
+Fifteen original worlds are verified as observed, every review finding has a disposition, and the remaining human decisions (art and distribution review, DCO sign-off, merge) are named rather than implied.
+
+## Source-lineage note
+
+Workflow basis: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. Adapted as a local engineering record, not a compliance certification.

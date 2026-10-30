@@ -7,7 +7,8 @@ import EmbeddedPostgres from "embedded-postgres";
 import { preparationConfig } from "./preparation/config.js";
 import { buildApp } from "./app.js";
 import { hashToken } from "./auth.js";
-import { openDb } from "./db/index.js";
+import { closeDb, openDb } from "./db/index.js";
+import { localRoleSecrets, privateDir, privateFile } from "./db/roles.js";
 
 /**
  * Starts Control Rod on this machine: an embedded Postgres in ~/.controlrod/pg, the control
@@ -17,14 +18,13 @@ const home = process.env.CONTROLROD_HOME ?? join(homedir(), ".controlrod");
 const port = Number(process.env.CONTROLROD_PORT ?? 7300);
 const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 mkdirSync(home, { recursive: true, mode: 0o700 });
+privateDir(home);
 
 /** Postgres: CONTROLROD_DATABASE_URL if set (Postgres.app, Homebrew, a server), else embedded in ~/.controlrod/pg. */
 let pgServer: EmbeddedPostgres | null = null;
 let dbUrl = process.env.CONTROLROD_DATABASE_URL ?? "";
 if (!dbUrl) {
-  const pwFile = join(home, "pg.password");
-  if (!existsSync(pwFile)) writeFileSync(pwFile, randomBytes(24).toString("hex"), { mode: 0o600 });
-  const pgPassword = readFileSync(pwFile, "utf8").trim();
+  const pgPassword = privateFile(join(home, "pg.password"), () => randomBytes(24).toString("hex"));
   const pgPort = Number(process.env.CONTROLROD_PG_PORT ?? 7301);
   const pgDir = join(home, "pg");
   pgServer = new EmbeddedPostgres({
@@ -35,11 +35,36 @@ if (!dbUrl) {
     persistent: true,
     onLog: () => undefined,
   });
-  if (!existsSync(join(pgDir, "PG_VERSION"))) await pgServer.initialise();
-  await pgServer.start();
+  if (!existsSync(join(pgDir, "PG_VERSION"))) {
+    // Initialisation briefly writes the owner password to a temporary file; keep it private.
+    const previous = process.umask(0o077);
+    try {
+      await pgServer.initialise();
+    } finally {
+      process.umask(previous);
+    }
+  }
+  // A database stopped a moment ago may still be shutting down; give it a few seconds.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await pgServer.start();
+      break;
+    } catch (error) {
+      if (attempt === 10)
+        throw new Error(`Control Rod could not start its database in ${pgDir}. If Control Rod was just stopped, wait a few seconds and try again. Detail: ${String(error)}`);
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
   dbUrl = `postgres://controlrod:${pgPassword}@127.0.0.1:${pgPort}/postgres`;
 }
-const db = await openDb(dbUrl);
+// The app reads and writes through two logins of its own (specification 10.1). An administrator of
+// an external database can issue them; otherwise the app creates them, keeping their passwords here.
+const roleUrls = process.env.CONTROLROD_DB_READER_URL && process.env.CONTROLROD_DB_WRITER_URL
+  ? { readerUrl: process.env.CONTROLROD_DB_READER_URL, writerUrl: process.env.CONTROLROD_DB_WRITER_URL }
+  : undefined;
+const db = await openDb(dbUrl, roleUrls
+  ? { urls: roleUrls }
+  : { secrets: localRoleSecrets(join(home, "db-roles.json")), ownsCluster: pgServer !== null });
 
 const tokenPath = join(home, "daemon.token");
 const token = randomBytes(32).toString("base64url");
@@ -66,7 +91,7 @@ const app = buildApp({
 
 const stop = async () => {
   await app.close();
-  await db.end();
+  await closeDb(db);
   await pgServer?.stop();
   process.exit(0);
 };

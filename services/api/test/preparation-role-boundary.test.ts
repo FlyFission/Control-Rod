@@ -18,7 +18,7 @@ describe("preparation integration role boundary", () => {
     "does not dispatch inconsistent %s rows as legacy author work",
     async (role) => {
       const p = { ...packageFixture(), id: `WP-${randomUUID()}` };
-      await h.db.query(
+      await h.admin.query(
         "insert into packages(id,revision,status,body) values($1,0,'draft',$2)",
         [p.id, p],
       );
@@ -34,7 +34,7 @@ describe("preparation integration role boundary", () => {
         status: "queued",
         queued_at: new Date().toISOString(),
       };
-      await h.db.query(
+      await h.admin.query(
         "insert into runs(id,package_id,package_revision,role,round,status,body) values($1,$2,0,$3,1,'queued',$4)",
         [run.id, p.id, role, run],
       );
@@ -66,7 +66,7 @@ describe("legacy mutators cannot adopt an unsupported role", () => {
         id: `WP-${randomUUID()}`,
         status: "in-verification",
       };
-      await h.db.query(
+      await h.admin.query(
         "insert into packages(id,revision,status,body) values($1,0,$2,$3)",
         [p.id, p.status, p],
       );
@@ -86,7 +86,7 @@ describe("legacy mutators cannot adopt an unsupported role", () => {
         queued_at: new Date().toISOString(),
         lease_expires_at: lease,
       };
-      await h.db.query(
+      await h.admin.query(
         "insert into runs(id,package_id,package_revision,role,round,status,body,claim_token_hash,lease_expires_at) values($1,$2,0,'unexpected-role',1,$3,$4,$5,$6)",
         [
           run.id,

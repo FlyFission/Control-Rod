@@ -146,5 +146,5 @@ it("rehearses requirements, release, independent-role results and acceptance for
 
 it("migrations 009 and 010 preserve the full preparation history (review R14)", async () => {
   const { assertMigrationsPreserveHistory } = await import("./migration-preservation.js");
-  await assertMigrationsPreserveHistory(f.h.db, ["packages", "decisions", "preparation_snapshots", "preparation_confirmations", "preparation_release_manifests", "preparation_criterion_results"]);
+  await assertMigrationsPreserveHistory(f.h.admin, ["packages", "decisions", "preparation_snapshots", "preparation_confirmations", "preparation_release_manifests", "preparation_criterion_results"]);
 });

@@ -70,14 +70,14 @@ describe("grant concurrency and final database deadlines", () => {
     const v = await create(),
       p = await begin(v, { kind: "write-proposal" });
     expect(p.statusCode, p.body).toBe(200);
-    const holder = await f.h.db.connect();
+    const holder = await f.h.admin.connect();
     await holder.query("begin");
     await holder.query("lock table events in exclusive mode");
     try {
       const response = await finish(v, p.json(), proposal("not acknowledged"));
       expect(response.statusCode, response.body).toBe(409);
       expect(response.json().code).toBe("grant-busy");
-      const observer = await f.h.db.connect();
+      const observer = await f.h.admin.connect();
       try {
         await observer.query("begin");
         await observer.query(
@@ -122,10 +122,10 @@ describe("grant concurrency and final database deadlines", () => {
           "select last_value from preparation_grant_guards_id_seq",
         )
       ).rows[0].last_value;
-      await f.h.db.query(
+      await f.h.admin.query(
         `create function grant_probe_delay() returns trigger language plpgsql as $$ declare remaining double precision; begin select greatest(0,extract(epoch from(expires_at-clock_timestamp()))) into remaining from preparation_grants where id=NEW.grant_id; perform pg_sleep(remaining+0.02); return NEW; end $$`,
       );
-      await f.h.db.query(
+      await f.h.admin.query(
         "create trigger grant_probe_delay before insert on preparation_grant_guards for each row execute function grant_probe_delay()",
       );
       try {
@@ -149,10 +149,10 @@ describe("grant concurrency and final database deadlines", () => {
         ).rowCount;
         expect(count).toBe(mode === "completed-replay" ? 1 : 0);
       } finally {
-        await f.h.db.query(
+        await f.h.admin.query(
           "drop trigger grant_probe_delay on preparation_grant_guards",
         );
-        await f.h.db.query("drop function grant_probe_delay()");
+        await f.h.admin.query("drop function grant_probe_delay()");
       }
     },
   );
@@ -189,13 +189,13 @@ it("bounds the whole authority transaction and relinquishes its row locks", asyn
   const v = await create();
   const { grantTx } = await import("../src/preparation/grant-state.js");
   await expect(
-    grantTx(f.h.db, async (c) => {
+    grantTx(f.h.db, "grant.begin-use", async (c) => {
       await c.query("select id from packages where id=$1 for update", [v.p.id]);
       await c.query("select pg_sleep(3)");
       await c.query("select pg_sleep(3)");
     }),
   ).rejects.toMatchObject({ code: "grant-busy" });
-  const observer = await f.h.db.connect();
+  const observer = await f.h.admin.connect();
   try {
     await observer.query("begin");
     await observer.query(

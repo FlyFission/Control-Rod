@@ -1,6 +1,6 @@
 import { createHash, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -11,7 +11,13 @@ import type { FastifyInstance } from "fastify";
 import { buildApp, type AppOptions } from "../src/app.js";
 import { hashToken } from "../src/auth.js";
 import pg from "pg";
-import { type Db, openDb } from "../src/db/index.js";
+
+/** Captured before any local `pg` (the embedded server) shadows the module. */
+const OwnerPool = pg.Pool;
+import { type Db, closeDb, openDb } from "../src/db/index.js";
+
+/** Fixed role passwords for tests: clusters may be shared between test files. */
+export const TEST_ROLE_SECRETS = { reader: "1".repeat(48), writer: "2".repeat(48) };
 
 const openDbRaw = async (url: string) => {
   const c = new pg.Client({ connectionString: url });
@@ -46,7 +52,10 @@ function freePort(): Promise<number> {
 
 export interface Harness {
   app: FastifyInstance;
+  /** The application's pool: the reader role. Writes go through commands. */
   db: Db;
+  /** The owner (migrator) connection, for tests that deliberately write raw SQL or run DDL. */
+  admin: Db;
   stop(): Promise<void>;
 }
 
@@ -61,7 +70,8 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
     await admin.end();
     const url = new URL(external);
     url.pathname = `/${name}`;
-    const db = await openDb(url.toString());
+    const db = await openDb(url.toString(), { secrets: TEST_ROLE_SECRETS });
+    const owner = new OwnerPool({ connectionString: url.toString(), max: 4 });
     const app = buildApp({
       ...options,
       db,
@@ -72,9 +82,11 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
     return {
       app,
       db,
+      admin: owner,
       async stop() {
         await app.close();
-        await db.end();
+        await closeDb(db);
+        await owner.end();
         const a = await openDbRaw(external);
         await a.query(`drop database if exists ${name}`);
         await a.end();
@@ -85,7 +97,11 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
   if (system && process.getuid?.() !== 0) {
     // CI runners ship PostgreSQL binaries; start a throwaway cluster with them.
     const dir = mkdtempSync(join(tmpdir(), "cr-pg-"));
-    execFileSync(join(system, "initdb"), ["-D", dir, "-U", "controlrod", "--auth=trust", "-E", "UTF8"], { stdio: "ignore" });
+    // Password authentication over TCP, as on a real server, so login checks in tests are genuine.
+    const pwfile = join(dir + "-pw");
+    writeFileSync(pwfile, "test", { mode: 0o600 });
+    execFileSync(join(system, "initdb"), ["-D", dir, "-U", "controlrod", "--auth-host=scram-sha-256", "--auth-local=trust", `--pwfile=${pwfile}`, "-E", "UTF8"], { stdio: "ignore" });
+    rmSync(pwfile, { force: true });
     // Test files run in parallel; a port can be taken between choosing it and binding it, so retry.
     let port = 0;
     for (let attempt = 1; ; attempt++) {
@@ -97,7 +113,8 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
         if (attempt === 3) throw error;
       }
     }
-    const db = await openDb(`postgres://controlrod@127.0.0.1:${port}/postgres`);
+    const db = await openDb(`postgres://controlrod:test@127.0.0.1:${port}/postgres`, { secrets: TEST_ROLE_SECRETS });
+    const owner = new OwnerPool({ connectionString: `postgres://controlrod:test@127.0.0.1:${port}/postgres`, max: 4 });
     const app = buildApp({
       ...options,
       db,
@@ -108,9 +125,11 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
     return {
       app,
       db,
+      admin: owner,
       async stop() {
         await app.close();
-        await db.end();
+        await closeDb(db);
+        await owner.end();
         execFileSync(join(system, "pg_ctl"), ["-D", dir, "-m", "fast", "-w", "stop"], { stdio: "ignore" });
         rmSync(dir, { recursive: true, force: true });
       },
@@ -130,7 +149,8 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
   });
   await pg.initialise();
   await pg.start();
-  const db = await openDb(`postgres://controlrod:test@127.0.0.1:${port}/postgres`);
+  const db = await openDb(`postgres://controlrod:test@127.0.0.1:${port}/postgres`, { secrets: TEST_ROLE_SECRETS });
+  const owner = new OwnerPool({ connectionString: `postgres://controlrod:test@127.0.0.1:${port}/postgres`, max: 4 });
   const app = buildApp({
       ...options,
     db,
@@ -141,9 +161,11 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
   return {
     app,
     db,
+    admin: owner,
     async stop() {
       await app.close();
-      await db.end();
+      await closeDb(db);
+      await owner.end();
       await pg.stop();
       rmSync(dir, { recursive: true, force: true });
     },

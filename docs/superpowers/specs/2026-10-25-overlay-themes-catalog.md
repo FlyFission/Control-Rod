@@ -28,7 +28,7 @@ Each signature below uses one existing shared primitive; a unique illustration a
 
 - **Genre:** friendly monster workplace ensembles; a busy dispatch floor run by gentle creatures. Wave A. ID `creature-dispatch`.
 - **Emotional target:** a bustling, warmhearted creature workplace; capable workers with comic physical variety.
-- **Composition/materials:** stepped parcel depot, frosted capsule tubes, ceramic counters, ribbed metal, soft overhead pools of light. Emphasize parcel routing rather than the source film's recognizable door-floor apparatus.
+- **Composition/materials:** stepped parcel depot, frosted capsule tubes, ceramic counters, ribbed metal, soft overhead pools of light. Emphasize parcel routing; avoid any apparatus or set piece recognizable from an existing work.
 - **Art swatches:** seafoam `#78C5AF`, plum `#60476E`, butter `#F4D79A`, ink `#20323D`. Functional text contrast is checked separately.
 - **Cast order:** broad moss-furred courier; tall velvet moth clerk; squat stone sorter; long-necked feather archivist; round many-footed mechanic; small fin-eared inspector. Original faces and proportions; no likeness of any existing character, costume or insignia.
 - **Stations:** dispatch desk / fabrication dock / parcel archive / inspection counter / supervisor window / waiting platform (order: general/site/archive/verify/office/bench).
@@ -144,9 +144,9 @@ Each signature below uses one existing shared primitive; a unique illustration a
 - **Submission signature:** `parcel`, a component tray slides into place; no simulated percentage or fabricated construction progress.
 - **Candidate description:** “A geometric builder's yard where work takes visible shape.”
 
-## 11. The Spirit Bathhouse
+## 11. The Cloudspring Baths
 
-- **Genre:** atmospheric animated bathhouse settings and spirit-world hospitality. Wave E. ID `cloudspring-bathhouse`.
+- **Genre:** atmospheric hot-spring bathhouses and quiet, unhurried hospitality. Wave E. ID `cloudspring-bathhouse`.
 - **Emotional target:** restorative calm, warmth and deliberate care.
 - **Composition/materials:** an original mountainside retreat, ceramic channels, lacquered timber, translucent screens and slow steam. Quiet mode is especially suited, but motion default still follows global preference.
 - **Art swatches:** jade `#5F8E80`, russet `#A7614D`, lantern `#E2B976`, mist `#EEE9DE`.

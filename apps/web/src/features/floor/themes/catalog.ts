@@ -242,8 +242,8 @@ export const THEME_CATALOG: readonly ThemeRegistryEntry[] = [
   },
   {
     "id": "cloudspring-bathhouse",
-    "title": "The Spirit Bathhouse",
-    "description": "Porcelain attendants, steam, and very careful records.",
+    "title": "The Cloudspring Baths",
+    "description": "Porcelain attendants, warm steam and very careful records.",
     "moodTags": [
       "Calm"
     ],

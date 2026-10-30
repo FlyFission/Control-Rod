@@ -13,7 +13,7 @@ pnpm --filter @control-rod/web run dev:themes
 
 Open the printed local address at `/themes.html`. The preview contains explicitly labelled synthetic work, not live agents or engineering results. Choose **Theme**, then **Use** on any world. **Preview** describes a world without changing your saved selection. Clicking a sample worker displays its sample details. The scene, cast, controls and renderer are the same components used by the real Floor.
 
-The complete collection is The Monster Mailroom, Little Helpers Laboratory, Heist Night, The Chocolate Factory, The Lantern Woods Guild, The Coffee House Crew, Tumbletown Rhyme Works, Starport Shipyard, Critter Expedition Camp, Blockworks Foundry, The Spirit Bathhouse, Thimble Town, Clockwork Stargazers, Reef Town, and Cozy Critter Village.
+The complete collection is The Monster Mailroom, Little Helpers Laboratory, Heist Night, The Chocolate Factory, The Lantern Woods Guild, The Coffee House Crew, Tumbletown Rhyme Works, Starport Shipyard, Critter Expedition Camp, Blockworks Foundry, The Cloudspring Baths, Thimble Town, Clockwork Stargazers, Reef Town, and Cozy Critter Village.
 
 ## Use with live work
 

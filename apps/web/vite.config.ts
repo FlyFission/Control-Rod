@@ -7,8 +7,13 @@ import {
   readdirSync,
   readFileSync,
   mkdirSync,
+  rmSync,
+  writeFileSync,
 } from "node:fs";
-import { resolve } from "node:path";
+import { relative, resolve } from "node:path";
+
+/** Written into every build output so a later build may safely clear it. */
+const BUILD_MARKER = ".control-rod-build";
 
 /** API paths the control plane serves at the same origin; the dev server forwards them. */
 const apiPaths = [
@@ -28,6 +33,10 @@ export default defineConfig(({ mode }) => {
       loadEnv(mode, process.cwd(), "VITE_")["VITE_FLOOR_THEME_DRAFTS"]) ===
     "true";
   let outDir = resolve("dist");
+  let outsideRoot = false;
+  // Set only once buildStart has accepted the output directory; a refused build must
+  // never copy art into, or mark, a directory it does not own.
+  let ownsOutput = false;
   return {
     plugins: [
       react(),
@@ -37,8 +46,33 @@ export default defineConfig(({ mode }) => {
         configResolved(config) {
           // Honour --outDir and build.outDir instead of assuming dist.
           outDir = resolve(config.root, config.build.outDir);
+          const rel = relative(config.root, outDir);
+          outsideRoot = rel.startsWith("..") || resolve(rel) === rel;
+        },
+        buildStart() {
+          ownsOutput = false;
+          // Vite keeps the contents of an output directory outside the project, so a draft
+          // build followed by a release build into the same place would leave draft art and
+          // the demo page behind. Clear outputs this build owns; refuse anything else.
+          if (!outsideRoot || !existsSync(outDir)) {
+            ownsOutput = true;
+            return;
+          }
+          const entries = readdirSync(outDir);
+          if (entries.length === 0) {
+            ownsOutput = true;
+            return;
+          }
+          if (!entries.includes(BUILD_MARKER))
+            throw new Error(
+              `Refusing to build into ${outDir}: it is not empty and was not created by a Control Rod build`,
+            );
+          for (const entry of entries)
+            rmSync(resolve(outDir, entry), { recursive: true, force: true });
+          ownsOutput = true;
         },
         closeBundle() {
+          if (!ownsOutput) return;
           const publicRoot = resolve("public"),
             out = outDir;
           if (!existsSync(publicRoot)) return;
@@ -80,6 +114,10 @@ export default defineConfig(({ mode }) => {
               if (existsSync(resolve(art, id, file)))
                 cpSync(resolve(art, id, file), resolve(destination, file));
           }
+          writeFileSync(
+            resolve(out, BUILD_MARKER),
+            JSON.stringify({ draft: draftBuild }) + "\n",
+          );
         },
       },
     ],

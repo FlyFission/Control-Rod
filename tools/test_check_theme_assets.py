@@ -36,6 +36,25 @@ class AssetGateTests(unittest.TestCase):
                 geometry=[(n.tag.split('}')[-1], tuple(sorted((k,v) for k,v in n.attrib.items() if k in {'d','points','x','y','cx','cy','r','rx','ry','width','height','transform'}))) for n in tree.iter() if n.tag.split('}')[-1] not in {'defs','linearGradient','stop'}]
                 geometries.append(str(geometry))
             self.assertEqual(len(set(geometries)),6,pack)
+    def test_committed_art_is_exactly_what_the_generator_draws_from_named_inputs(self):
+        # Structural tests below compare attributes; this one closes the gaps they leave
+        # (equivalent path syntax, swapped prop files, hand edits) by regenerating every
+        # scene, character and prop from its named inputs and requiring identical bytes.
+        import build_theme_art as art
+        root=Path(__file__).resolve().parents[1]
+        text=(root/'apps/web/src/features/floor/themes/catalog.ts').read_text()
+        entries=json.loads(text.split(' = ',1)[1].rsplit(';',1)[0])
+        briefs=art.catalog_props()
+        packs={p.name for p in (root/'design/overlay-themes').iterdir() if p.is_dir()}
+        self.assertEqual(packs,{e['id'] for e in entries},'design packs must match the catalog exactly')
+        for world,entry in enumerate(entries):
+            source=root/'design/overlay-themes'/entry['id']
+            self.assertEqual((source/'scene.svg').read_text(),art.scene(world,entry),entry['id'])
+            for v in range(6):
+                self.assertEqual((source/f'character-{v}.svg').read_text(),art.character(world,v,entry['palette']),f"{entry['id']} character-{v}")
+            for i,name in enumerate(briefs[entry['id']]):
+                self.assertEqual((source/f'prop-{i}.svg').read_text(),art.prop(name,entry['palette']),f"{entry['id']} prop-{i} ({name})")
+
     def test_every_world_has_its_own_body_geometry(self):
         root=Path(__file__).resolve().parents[1]/'design/overlay-themes'
         owners={}
@@ -47,6 +66,8 @@ class AssetGateTests(unittest.TestCase):
                 self.assertEqual(len(groups),1,f'{pack} character-{i} needs exactly one shape group')
                 shapes=[_geometry(n) for n in groups[0].iter() if n is not groups[0]]
                 self.assertTrue(shapes,f'{pack} character-{i} body is empty')
+                visible=[n for n in groups[0].iter() if n is not groups[0] and n.attrib.get('fill','')!='none' and n.attrib.get('opacity','1') not in {'0','0.0'}]
+                self.assertTrue(visible,f'{pack} character-{i} body draws nothing visible')
                 bodies.append(tuple(shapes))
                 for shape in shapes:
                     owners.setdefault(shape,set()).add(pack)
@@ -71,6 +92,20 @@ class AssetGateTests(unittest.TestCase):
             self.assertEqual(len(set(geometries)),6,f'{pack} repeats a prop')
         reused={g:n for g,n in names_by_geometry.items() if len(n)>1}
         self.assertEqual(reused,{},'one drawing may serve only one named prop')
+
+    def test_preflight_refuses_bad_briefs_before_writing(self):
+        from build_theme_art import preflight
+        entries=[{'id':'one'},{'id':'two'}]
+        good=['lantern','ledger','tray','basket','compass','spool']
+        self.assertEqual(preflight(entries,{'one':good,'two':good}),[])
+        for briefs,expected in [
+            ({'one':good},'no prop brief'),
+            ({'one':good[:5],'two':good},'exactly six'),
+            ({'one':good[:5]+['a prop nobody drew'],'two':good},'no drawing'),
+            ({'one':good,'two':good,'three':good},'no catalog entry'),
+        ]:
+            with self.subTest(expected=expected):
+                self.assertTrue(any(expected in p for p in preflight(entries,briefs)))
 
     def test_accepts_passive_local_gradient(self):
         self.assertEqual(check_svg(b'<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><defs><linearGradient id="a"><stop offset="0" stop-color="#fff"/></linearGradient></defs><path fill="url(#a)" d="M0 0h1"/></svg>'), [])
@@ -102,7 +137,7 @@ class AssetGateTests(unittest.TestCase):
         record=dict(id='review-1',packId='sample',version='0.1.0',title='Sample',assets=['a'*64],reviewer='Example reviewer',reviewedAt='2026-10-26',evidence='record-1',distribution='Apache-2.0',approvedInfluenceText='')
         self.assertEqual(check_release_records([],{'sample':manifest}),[])
         self.assertEqual(check_release_records([record],{'sample':manifest}),[])
-        for changed in [{'assets':['b'*64]},{'title':'A different title'},{'reviewer':''},{'evidence':''},{'packId':'unknown'}]:
+        for changed in [{'assets':['b'*64]},{'title':'A different title'},{'reviewer':''},{'evidence':''},{'packId':'unknown'},{'approvedInfluenceText':'An inspired by note'}]:
             self.assertTrue(check_release_records([{**record,**changed}],{'sample':manifest}))
         self.assertTrue(check_release_records({},{}))
 

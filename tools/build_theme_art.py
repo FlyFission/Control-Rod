@@ -243,12 +243,31 @@ def scene(world,entry):
     return svg(s,1000,600)
 
 
+def preflight(entries,briefs):
+    """Every problem that would stop the build, found before any file is written."""
+    from theme_art_props import PROPS
+    problems=[]
+    ids=[e['id'] for e in entries]
+    if len(set(ids))!=len(ids):problems.append('duplicate pack IDs in catalog.ts')
+    for pid in ids:
+        names=briefs.get(pid)
+        if names is None:problems.append(f'{pid}: no prop brief in the catalog spec');continue
+        if len(names)!=6:problems.append(f'{pid}: prop brief lists {len(names)} props; exactly six are required')
+        for name in names:
+            if name not in PROPS:problems.append(f'{pid}: no drawing for prop {name!r} in tools/theme_art_props.py')
+    for pid in sorted(set(briefs)-set(ids)):problems.append(f'{pid}: prop brief has no catalog entry')
+    return problems
+
+
 def main():
     catalogpath=ROOT/'apps/web/src/features/floor/themes/catalog.ts'
     content=catalogpath.read_text()
     entries=json.loads(content.split(' = ',1)[1].rsplit(';',1)[0])
     packdir=ROOT/'apps/web/src/features/floor/themes/packs';packdir.mkdir(exist_ok=True)
     briefs=catalog_props()
+    problems=preflight(entries,briefs)
+    if problems:
+        raise SystemExit('Nothing written; fix these first:\n'+'\n'.join(problems))
     for world,entry in enumerate(entries):
         pid=entry['id'];palette=entry['palette'];propnames=briefs[pid]
         public=ROOT/f'apps/web/public/floor-themes/{pid}';public.mkdir(parents=True,exist_ok=True)

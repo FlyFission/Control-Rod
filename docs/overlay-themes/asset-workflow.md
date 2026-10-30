@@ -23,7 +23,7 @@ Output names are `<key>.<first12sha256>.svg`; the full SHA-256 and actual byte c
 
 Review every world with the same source-state fixture, at actual scene size, with labels/hit targets, in grayscale and Still mode. Check original silhouettes, readable material/lighting, clear stations, restrained signature effects, long labels, empty/loading/offline scenes and overflow. Include independent keyboard, screen-reader, zoom and contrast review. Automated checks and an author's screenshot inspection do not establish all of these judgments.
 
-Internal design notes can identify influences explicitly. A proposed public influence note is a separate factual editorial choice, not permission for protected expression. Changing a title or adding “inspired by” does not clear copied characters. Keep any unlicensed source references out of the distributed pack. Exact characters, actor likenesses, third-party artwork/music or unresolved similarity concerns require specific permission or qualified review appropriate to intended distribution.
+Design notes describe genres only and never name a third-party franchise, in internal briefs or in public (`docs/overlay-themes/originality.md`). Changing a title or adding “inspired by” does not clear copied characters. Keep any unlicensed source references out of the distributed pack. Exact characters, actor likenesses, third-party artwork/music or unresolved similarity concerns require specific permission or qualified review appropriate to intended distribution.
 
 ## Human release record
 
@@ -31,7 +31,7 @@ All authored packs initially remain `development`. After actual human review, a 
 
 - Stable review ID, pack ID/version and original title.
 - Ordered full asset hashes (scene, thumbnail, six characters, then props).
-- The exact approved optional influence text, or an explicit empty string.
+- `approvedInfluenceText` as an explicit empty string; the release checker refuses any other value.
 - Actual reviewer/date, evidence reference, and authorized distribution.
 
 The gate checks record completeness and hash/title/version binding. It cannot determine whether a reviewer's legal judgment is sound. Do not fill these fields with an agent pretending a human approved the art. A modified art/title/version bundle invalidates its prior record; recapture review for that changed bundle.

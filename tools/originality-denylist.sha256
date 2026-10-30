@@ -1,9 +1,11 @@
 # SHA-256 of normalized phrases that must not appear in repository text.
 # Normalization: NFKD, ASCII, lowercase, words of [a-z0-9] joined by one space.
 # Phrases are kept out of the repository on purpose; see docs/overlay-themes/originality.md.
+# One entry is a harmless canary phrase so tests can prove this real list is wired in.
 006dd75589ff08ed3e7344cdcd5f4cafac137cea8906aa1cc9a169d8ba117bcf
 01317d19c9e63b4236ca81fd1398ca1ad19b99fc62eb1ca50355bddac0e47f0b
 03d4150b90e62d42708621bb24ef977f6eb69adfaca27a56bef074fdf74ff2e5
+084c28786c5bcd949724e65f128346d24544a6682a54daf98c5313765f5c5484
 0e2926612973ce4a3a96b16e44a91d7f4dbaa22bfd8f3bf4bf9a60d25dbbfa24
 12dc5ca19a7485b5007e45417b7c10e50be635275820ef9f3f45191b8d65681b
 160e0a23a3eac4b4d66b55fe3d043a9f00dd212d343e1ef894b3c5ffb49a9088

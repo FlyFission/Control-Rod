@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "DeliverableRevision.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "deliverable_id": {
+            "$ref": "TenancyId.json"
+        },
+        "rung": {
+            "type": "string",
+            "description": "Its status is its rung on the project's ladder."
+        },
+        "package_id": {
+            "type": "string",
+            "description": "Both or neither."
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "deliverable_id",
+        "rung"
+    ],
+    "unevaluatedProperties": false
+}

@@ -35,6 +35,11 @@
         "assertion": {
             "$ref": "PasskeyAssertion.json"
         },
+        "challenge_nonce": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "The one-time nonce the passkey challenge was built from, so the binding of the signature to\nthis subject, kind and revision can be re-verified from the record alone. Absent on decisions\nrecorded before it was kept."
+        },
         "decided_at": {
             "type": "string",
             "format": "date-time"

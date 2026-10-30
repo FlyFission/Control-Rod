@@ -1,0 +1,50 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "IsolationAttestation.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "run_id": {
+            "type": "string"
+        },
+        "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "policy_digest": {
+            "$ref": "Digest.json"
+        },
+        "artifact_digest": {
+            "$ref": "Digest.json"
+        },
+        "claims": {
+            "type": "array",
+            "items": {
+                "$ref": "ClaimObservation.json"
+            },
+            "minItems": 1
+        },
+        "observed_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "run_id",
+        "generation",
+        "policy_digest",
+        "artifact_digest",
+        "claims",
+        "observed_at"
+    ],
+    "description": "Evidence for each mandatory claim, bound to run, generation, policy and artifact. (A)",
+    "unevaluatedProperties": false
+}

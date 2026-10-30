@@ -1,0 +1,60 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "UsageRecord.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "run_id": {
+            "type": "string"
+        },
+        "exploration_id": {
+            "$ref": "TenancyId.json"
+        },
+        "source": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "reported"
+                },
+                {
+                    "type": "string",
+                    "const": "measured"
+                }
+            ],
+            "description": "Whether the runtime reported the figures or Control Rod measured them."
+        },
+        "input_tokens": {
+            "$ref": "Quantity.json"
+        },
+        "output_tokens": {
+            "$ref": "Quantity.json"
+        },
+        "cache_read_tokens": {
+            "$ref": "Quantity.json"
+        },
+        "context_pack_tokens": {
+            "$ref": "Quantity.json"
+        },
+        "wall_time": {
+            "$ref": "Quantity.json"
+        },
+        "cost": {
+            "$ref": "Quantity.json"
+        },
+        "first_pass_accepted": {
+            "type": "boolean"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "source"
+    ],
+    "description": "Reported or measured usage of one run or session. (A)",
+    "unevaluatedProperties": false
+}

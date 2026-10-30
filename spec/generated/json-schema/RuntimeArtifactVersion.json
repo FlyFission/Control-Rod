@@ -1,0 +1,43 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RuntimeArtifactVersion.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "runtime": {
+            "type": "string"
+        },
+        "version": {
+            "type": "string"
+        },
+        "artifact_digest": {
+            "$ref": "Digest.json"
+        },
+        "install_path": {
+            "type": "string"
+        },
+        "probe_ids": {
+            "type": "array",
+            "items": {
+                "$ref": "TenancyId.json"
+            },
+            "minItems": 1
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "runtime",
+        "version",
+        "artifact_digest",
+        "install_path",
+        "probe_ids"
+    ],
+    "description": "One qualified executable. Traces reference this, never the mutable pin. (F)",
+    "unevaluatedProperties": false
+}

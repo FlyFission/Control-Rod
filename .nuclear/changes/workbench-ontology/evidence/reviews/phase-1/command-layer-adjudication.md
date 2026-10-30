@@ -63,6 +63,10 @@ Codex confirmed the extended protocol is used for every command query (including
 
 Codex tried every single statement escape ([command-layer-codex-round6.md](command-layer-codex-round6.md)). Confirmed closed: multiple statements (server refuses), `DO` and `CALL` transaction control (refused inside an open transaction), `PREPARE p AS COMMIT` (invalid), parenthesised transaction commands (syntax error), Unicode whitespace. Two remaining: a line comment ended by a carriage return, and `PREPARE/**/TRANSACTION`. **Fixed**: `firstWord` skips exactly what PostgreSQL skips before the first token (its whitespace set, line comments ended by newline or carriage return, nested block comments, empty statements) and refuses the first word if it is any of `begin`, `start`, `commit`, `end`, `rollback`, `abort`, `savepoint`, `release`, `prepare`, `discard`, `listen`, `notify`, `copy`, whatever follows (tests for both cases and `start transaction`).
 
+## Round 7
+
+Codex confirmed both round 6 bypasses closed and found no remaining single statement bypass of the executor's transaction ownership, considering PostgreSQL's lexer, keyword identifiers, quoted identifiers and `U&` escapes ([command-layer-codex-round7.md](command-layer-codex-round7.md)). Verdict: **MERGE**.
+
 Also fixed while verifying: an immediate restart could fail with a bare `undefined` while the previous embedded database was still stopping; startup now retries for a few seconds and otherwise says why.
 
 Also verified end to end: the real server starts on a fresh embedded database, creates both logins with a private `db-roles.json`, serves requests, and restarts on the existing database.
@@ -73,7 +77,7 @@ Also verified end to end: the real server starts on a fresh embedded database, c
 
 ## Exit criteria
 
-Every finding has a fix and a test, confirmed by a second independent read before merge.
+Every finding has a fix and a test or a recorded disposition, and the independent reviewer's final verdict is merge (round 7).
 
 ## Source-lineage note
 

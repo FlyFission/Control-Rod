@@ -20,8 +20,9 @@
         },
         "package_revision": {
             "type": "integer",
-            "minimum": 1,
-            "maximum": 2147483647
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Intake drafts revision 0; it can be released as is."
         },
         "candidate_id": {
             "$ref": "TenancyId.json"

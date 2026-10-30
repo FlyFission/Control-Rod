@@ -35,6 +35,6 @@
         "path",
         "status"
     ],
-    "description": "A materialized working directory. Its identity is not its path. (L)",
+    "description": "A materialized working directory. Its identity is not its path. An exploration worktree names\nits exploration and no run; a run workspace names its run and no exploration. (L)",
     "unevaluatedProperties": false
 }

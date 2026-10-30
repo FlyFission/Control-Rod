@@ -170,6 +170,15 @@ model Decision {
   reason?: string;
 
   assertion: PasskeyAssertion;
+
+  /**
+   * The one-time nonce the passkey challenge was built from, so the binding of the signature to
+   * this subject, kind and revision can be re-verified from the record alone. Absent on decisions
+   * recorded before it was kept.
+   */
+  @pattern("^[0-9a-f]{32}$")
+  challenge_nonce?: string;
+
   decided_at: utcDateTime;
 }
 

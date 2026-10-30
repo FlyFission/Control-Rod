@@ -111,16 +111,14 @@ async function nextVersion(c: Tx, table: string, id: string): Promise<number> {
 
 export async function createOrganization(c: Tx, org: Organization, actor: Actor): Promise<Organization> {
   checkSchema("Organization.json", org);
-  await c.query("insert into organizations (id, body) values ($1, $2)", [org.id, org]);
+  await c.query("insert into organizations (body) values ($1)", [org]);
   await appendEvent(c, "organization.created", org.id, actor, { status: org.status });
   return org;
 }
 
 export async function addMember(c: Tx, member: Member, actor: Actor): Promise<Member> {
   checkSchema("Member.json", member);
-  await c.query("insert into members (id, org_id, user_name, body) values ($1, $2, $3, $4)", [
-    member.id, member.org_id, member.user_name, member,
-  ]);
+  await c.query("insert into members (body) values ($1)", [member]);
   await appendEvent(c, "member.added", member.id, actor, { org_id: member.org_id });
   return member;
 }
@@ -149,18 +147,21 @@ export async function recordQualification(
   const record: SignerQualification = { ...q, version, effective_at: new Date().toISOString() };
   checkSchema("SignerQualification.json", record);
   const d = digest(record);
-  await c.query(
-    "insert into signer_qualifications (id, version, org_id, member_id, body, digest) values ($1, $2, $3, $4, $5, $6)",
-    [record.id, version, record.org_id, record.member_id, record, d],
-  );
+  await c.query("insert into signer_qualifications (body, digest) values ($1, $2)", [record, d]);
   await appendEvent(c, "signer-qualification.recorded", record.id, actor, { version, member_id: record.member_id, revoked: record.revoked, digest: d });
   return { record, digest: d };
 }
 
-/** The Member's qualification in effect: the latest version, or none when revoked or never issued. */
+/**
+ * The Member's qualification in effect: the latest version of each qualification identity they
+ * hold, ignoring revoked ones. The latest version is chosen before any filter, so a revocation
+ * always wins over an earlier grant.
+ */
 export async function currentQualification(db: Db | Tx, memberId: string): Promise<SignerQualification | null> {
   const r = await db.query<{ body: SignerQualification }>(
-    "select distinct on (id) body from signer_qualifications where member_id = $1 order by id, version desc",
+    `select distinct on (id) body from signer_qualifications
+      where id in (select id from signer_qualifications where member_id = $1)
+      order by id, version desc`,
     [memberId],
   );
   const live = r.rows.map((x) => x.body).filter((q) => !q.revoked);
@@ -177,17 +178,15 @@ export async function recordPolicySet(
   const record: PolicySet = { ...p, version, effective_at: new Date().toISOString() };
   checkSchema("PolicySet.json", record);
   const d = digest(record);
-  await c.query("insert into policy_sets (id, version, org_id, body, digest) values ($1, $2, $3, $4, $5)", [
-    record.id, version, record.org_id, record, d,
-  ]);
+  await c.query("insert into policy_sets (body, digest) values ($1, $2)", [record, d]);
   await appendEvent(c, "policy-set.recorded", record.id, actor, { version, digest: d });
   return { record, digest: d };
 }
 
-/** The policy set in effect for an organization: its latest version, if it has one. */
+/** The policy set in effect for an organization: the greatest version of its one policy identity. */
 export async function currentPolicySet(db: Db | Tx, orgId: string): Promise<{ record: PolicySet; digest: string } | null> {
   const r = await db.query<{ body: PolicySet; digest: string }>(
-    "select body, digest from policy_sets where org_id = $1 order by recorded_at desc, version desc limit 1",
+    "select body, digest from policy_sets where org_id = $1 order by version desc limit 1",
     [orgId],
   );
   return r.rows[0] ? { record: r.rows[0].body, digest: r.rows[0].digest } : null;
@@ -217,10 +216,7 @@ export async function recordCredential(
   if (input.backupEligible !== undefined) record.backup_eligible = input.backupEligible;
   checkSchema("AuthenticatorCredential.json", record);
   const d = digest(record);
-  await c.query(
-    "insert into authenticator_credentials (id, version, org_id, member_id, credential_id, body, digest) values ($1, $2, $3, $4, $5, $6, $7)",
-    [id, version, record.org_id, record.member_id, record.credential_id, record, d],
-  );
+  await c.query("insert into authenticator_credentials (body, digest) values ($1, $2)", [record, d]);
   await appendEvent(c, "authenticator-credential.recorded", id, actor, {
     version, member_id: record.member_id, eligible: record.hardware_floor.eligible, digest: d,
   });
@@ -239,17 +235,14 @@ export async function recordDelegation(c: Tx, d: Delegation, actor: Actor): Prom
   checkSchema("Delegation.json", d);
   if (d.ends_on < d.starts_on) throw new Error("delegation ends before it starts");
   const value = digest(d);
-  await c.query(
-    "insert into delegations (id, org_id, from_member_id, to_member_id, body, digest) values ($1, $2, $3, $4, $5, $6)",
-    [d.id, d.org_id, d.from_member_id, d.to_member_id, d, value],
-  );
+  await c.query("insert into delegations (body, digest) values ($1, $2)", [d, value]);
   await appendEvent(c, "delegation.recorded", d.id, actor, { role: d.role, from: d.from_member_id, to: d.to_member_id, digest: value });
   return { record: d, digest: value };
 }
 
 export async function createProject(c: Tx, p: Project, actor: Actor): Promise<Project> {
   checkSchema("Project.json", p);
-  await c.query("insert into projects (id, org_id, body) values ($1, $2, $3)", [p.id, p.org_id, p]);
+  await c.query("insert into projects (body) values ($1)", [p]);
   await appendEvent(c, "project.created", p.id, actor, { org_id: p.org_id, mode: p.mode });
   return p;
 }
@@ -258,21 +251,35 @@ export async function bindRepo(c: Tx, b: RepoBinding, actor: Actor): Promise<Rep
   checkSchema("RepoBinding.json", b);
   const owner = await c.query<{ org_id: string }>("select org_id from projects where id = $1", [b.project_id]);
   if (owner.rows[0]?.org_id !== b.org_id) throw new Error(`project ${b.project_id} is not in organization ${b.org_id}`);
-  await c.query("insert into repo_bindings (id, org_id, project_id, body) values ($1, $2, $3, $4)", [b.id, b.org_id, b.project_id, b]);
+  await c.query("insert into repo_bindings (body) values ($1)", [b]);
   await appendEvent(c, "repo-binding.created", b.id, actor, { project_id: b.project_id });
   return b;
 }
 
 export async function enrollMachine(c: Tx, m: Machine, actor: Actor): Promise<Machine> {
   checkSchema("Machine.json", m);
-  await c.query("insert into machines (id, org_id, body) values ($1, $2, $3)", [m.id, m.org_id, m]);
+  await c.query("insert into machines (body) values ($1)", [m]);
   await appendEvent(c, "machine.enrolled", m.id, actor, { org_id: m.org_id });
   return m;
 }
 
-/** Records an owner explicitly. Envelopes are immutable; a second owner for one object refuses. */
+/** Where each legacy object kind lives, so an envelope can only name a record that exists. */
+const LEGACY_KINDS: Record<string, [table: string, column: string]> = {
+  capture: ["captures", "id"], package: ["packages", "id"], run: ["runs", "id"], decision: ["decisions", "id"],
+  preparation: ["preparation_snapshots", "preparation_id"], grant: ["preparation_grants", "id"], credential: ["credentials", "id"],
+};
+
+/**
+ * Records an owner explicitly. Envelopes are immutable; a second owner for one object refuses. A
+ * legacy kind must name an existing record, so no envelope can claim an identity before it exists.
+ */
 export async function recordOwner(c: Tx, e: OwnershipEnvelope): Promise<void> {
   checkSchema("OwnershipEnvelope.json", e);
+  const legacy = LEGACY_KINDS[e.object_kind];
+  if (legacy) {
+    const found = await c.query(`select 1 from ${legacy[0]} where ${legacy[1]} = $1 limit 1`, [e.object_id]);
+    if (!found.rowCount) throw new Error(`${e.object_kind} ${e.object_id} does not exist`);
+  }
   await c.query("insert into object_owners (object_kind, object_id, org_id, project_id) values ($1, $2, $3, $4)", [
     e.object_kind, e.object_id, e.org_id, e.project_id ?? null,
   ]);

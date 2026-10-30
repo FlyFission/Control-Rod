@@ -92,7 +92,7 @@ export async function recordSandboxPolicy(c: Tx, body: Body & { version: number 
 
 export async function currentSandboxPolicy(db: Db | Tx, id: string): Promise<{ body: Body & { version: number }; digest: string } | null> {
   const r = await db.query<{ body: Body & { version: number }; digest: string }>(
-    "select body, digest from sandbox_policies where policy_id = $1 order by version desc limit 1",
+    "select body, digest from sandbox_policies where id = $1 order by version desc limit 1",
     [id],
   );
   return r.rows[0] ?? null;

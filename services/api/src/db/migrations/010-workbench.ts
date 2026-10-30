@@ -1,52 +1,110 @@
 // Workbench objects (workbench plan task 1.2; specification 5.7 to 5.10). Additive.
-// Each type has its own table. Link columns are generated from the stored body, so a foreign key
-// can never disagree with the record it belongs to. Frozen (F) and observed (A) rows are append
-// only; lifecycled (L) rows change status only along transitions listed in workbench_transitions.
+// Each type has its own table, and every indexed column is generated from the stored body, so a
+// constraint can never disagree with the record it belongs to. The database enforces:
+// - organization consistency: every reference carries org_id, including references to legacy
+//   records, which go through their ownership envelope (object_owners);
+// - frozen (F) and observed (A) rows are append only; lifecycled (L) rows use the shared
+//   lifecycle_guard from migration 009 (listed transitions, listed mutable fields, no deletes);
+// - relationships the review asked for: a candidate belongs to its attempt set's exact release, a
+//   person verification uses the verifier's own qualification, a runtime pin agrees with its
+//   artifact version, and either or rules (workspace owner, promotion source, SCRAM scope).
 
-/** Every workbench type: table, class, the generated link columns and their constraints. */
-const T = (name: string, cls: "F" | "A" | "L" | "H", links: string, constraints = "") => ({ name, cls, links, constraints });
-const col = (c: string, path = c) => `${c} text generated always as (body->>'${path}') stored`;
-const intcol = (c: string) => `${c} int generated always as ((body->>'${c}')::int) stored`;
+const g = (c: string, path = c) => `${c} text generated always as (body->>'${path}') stored`;
+const gi = (c: string, path = c) => `${c} int generated always as ((body->>'${path}')::int) stored`;
+const gd = (c: string, path = c) => `${c} text generated always as (body->'${path}'->>'value') stored`;
+/** A constant kind column so a legacy link can reference its ownership envelope with org_id. */
+const kindCol = (c: string, kind: string) => `${c} text generated always as ('${kind}') stored`;
+const owned = (kc: string, idc: string) => `foreign key (${kc}, ${idc}, org_id) references object_owners(object_kind, object_id, org_id)`;
 
-const TABLES = [
-  T("explorations", "L", [col("project_id")].join(","), "foreign key (project_id) references projects(id)"),
-  T("workspaces", "L", [col("exploration_id"), col("run_id")].join(","),
-    "foreign key (exploration_id) references explorations(id), foreign key (run_id) references runs(id)"),
-  T("checkpoints", "A", [col("exploration_id"), col("workspace_id"), col("parent_id")].join(","),
-    "foreign key (exploration_id) references explorations(id), foreign key (workspace_id) references workspaces(id), foreign key (parent_id) references checkpoints(id)"),
-  T("source_manifests", "F", ""),
-  T("promotions", "A", [col("checkpoint_id"), col("package_id"), intcol("package_revision")].join(","),
-    "foreign key (checkpoint_id) references checkpoints(id), foreign key (package_id, package_revision) references packages(id, revision)"),
-  T("attempt_sets", "L", [col("package_id"), intcol("package_revision")].join(","),
-    "foreign key (package_id, package_revision) references packages(id, revision)"),
-  T("candidate_assignments", "F", [col("package_id"), intcol("package_revision"), col("attempt_set_id"), intcol("ordinal")].join(","),
-    "foreign key (package_id, package_revision) references packages(id, revision), foreign key (attempt_set_id) references attempt_sets(id), unique (id, attempt_set_id)"),
-  T("selections", "A", [col("attempt_set_id"), col("candidate_id")].join(","),
-    "foreign key (candidate_id, attempt_set_id) references candidate_assignments(id, attempt_set_id)"),
-  T("runtime_probes", "A", [col("machine_id")].join(","), "foreign key (machine_id) references machines(id)"),
-  T("runtime_artifact_versions", "F", ""),
-  T("runtime_pins", "L", [col("artifact_version_id")].join(","),
-    "foreign key (artifact_version_id) references runtime_artifact_versions(id)"),
-  T("isolation_attestations", "A", [col("run_id")].join(","), "foreign key (run_id) references runs(id)"),
-  T("controlled_records", "F", [col("package_id"), intcol("package_revision"), col("candidate_id")].join(","),
-    "foreign key (package_id, package_revision) references packages(id, revision), foreign key (candidate_id) references candidate_assignments(id)"),
-  T("person_verifications", "A", [col("verifier_member_id"), col("qualification_id"), intcol("qualification_version"), col("candidate_id")].join(","),
-    "foreign key (verifier_member_id) references members(id), foreign key (qualification_id, qualification_version) references signer_qualifications(id, version), foreign key (candidate_id) references candidate_assignments(id)"),
-  T("scram_events", "A", [col("pulled_by"), col("project_id")].join(","),
-    "foreign key (pulled_by) references members(id), foreign key (project_id) references projects(id)"),
-  T("comments", "L", [col("reply_to")].join(","), "foreign key (reply_to) references comments(id)"),
-  T("resolutions", "A", [col("comment_id")].join(","), "foreign key (comment_id) references comments(id)"),
-  T("change_requests", "L", ""),
-  T("budgets", "L", ""),
-  T("usage_records", "A", [col("run_id"), col("exploration_id")].join(","),
-    "foreign key (run_id) references runs(id), foreign key (exploration_id) references explorations(id)"),
-  T("budget_reservations", "L", [col("budget_id"), col("run_id")].join(","),
-    "foreign key (budget_id) references budgets(id), foreign key (run_id) references runs(id)"),
-  T("project_deliverables", "H", [col("project_id")].join(","), "foreign key (project_id) references projects(id)"),
-  T("deliverable_revisions", "H", [col("deliverable_id")].join(","), "foreign key (deliverable_id) references project_deliverables(id)"),
-  T("interface_records", "H", ""),
-  T("flow_edge_refs", "H", ""),
-  T("phase_gates", "H", [col("project_id")].join(","), "foreign key (project_id) references projects(id)"),
+interface Table { name: string; cls: "F" | "A" | "L" | "H"; columns: string[]; constraints: string[]; mutable?: string[] }
+const T = (name: string, cls: Table["cls"], columns: string[] = [], constraints: string[] = [], mutable: string[] = []): Table => ({ name, cls, columns, constraints, mutable });
+
+const TABLES: Table[] = [
+  T("explorations", "L", [g("project_id"), g("started_by")], [
+    "foreign key (project_id, org_id) references projects(id, org_id)",
+    "foreign key (started_by, org_id) references members(id, org_id)",
+  ]),
+  T("workspaces", "L", [g("kind"), g("exploration_id"), g("run_id"), kindCol("run_kind", "run")], [
+    "foreign key (exploration_id, org_id) references explorations(id, org_id)",
+    "foreign key (run_id) references runs(id)", owned("run_kind", "run_id"),
+    "check ((kind = 'exploration-worktree' and exploration_id is not null and run_id is null) or (kind = 'run-workspace' and run_id is not null and exploration_id is null))",
+  ], ["lock_holder"]),
+  T("checkpoints", "A", [g("exploration_id"), g("workspace_id"), g("parent_id")], [
+    "foreign key (exploration_id, org_id) references explorations(id, org_id)",
+    "foreign key (workspace_id, org_id) references workspaces(id, org_id)",
+    "foreign key (parent_id, org_id) references checkpoints(id, org_id)",
+  ]),
+  T("source_manifests", "F", [], ["unique (digest, org_id)"]),
+  T("promotions", "A", [g("checkpoint_id"), g("capture_id"), kindCol("capture_kind", "capture"), g("package_id"), gi("package_revision"),
+    kindCol("package_kind", "package"), gd("source_manifest_digest"), g("promoted_by")], [
+    "foreign key (checkpoint_id, org_id) references checkpoints(id, org_id)",
+    "foreign key (capture_id) references captures(id)", owned("capture_kind", "capture_id"),
+    "foreign key (package_id, package_revision) references packages(id, revision)", owned("package_kind", "package_id"),
+    "foreign key (source_manifest_digest, org_id) references source_manifests(digest, org_id)",
+    "foreign key (promoted_by, org_id) references members(id, org_id)",
+    "check (num_nonnulls(checkpoint_id, capture_id) = 1)",
+  ]),
+  T("attempt_sets", "L", [g("package_id"), gi("package_revision"), kindCol("package_kind", "package"), gd("release_digest"), gi("candidates")], [
+    "foreign key (package_id, package_revision) references packages(id, revision)", owned("package_kind", "package_id"),
+    "unique (id, package_id, package_revision, release_digest, org_id)",
+  ]),
+  T("candidate_assignments", "F", [g("package_id"), gi("package_revision"), kindCol("package_kind", "package"), gd("release_digest"),
+    g("attempt_set_id"), gi("ordinal")], [
+    "foreign key (package_id, package_revision) references packages(id, revision)", owned("package_kind", "package_id"),
+    "foreign key (attempt_set_id, package_id, package_revision, release_digest, org_id) references attempt_sets(id, package_id, package_revision, release_digest, org_id)",
+    "unique (id, attempt_set_id, org_id)",
+    "check (attempt_set_id is not null or ordinal = 1)",
+  ]),
+  T("selections", "A", [g("attempt_set_id"), g("candidate_id")], [
+    "foreign key (candidate_id, attempt_set_id, org_id) references candidate_assignments(id, attempt_set_id, org_id)",
+  ]),
+  T("runtime_probes", "A", [g("machine_id"), g("runtime"), gd("artifact_digest"), g("outcome")], [
+    "foreign key (machine_id, org_id) references machines(id, org_id)",
+  ]),
+  T("runtime_artifact_versions", "F", [g("runtime"), gd("artifact_digest")], ["unique (id, runtime, artifact_digest, org_id)"]),
+  T("runtime_pins", "L", [g("artifact_version_id"), g("runtime"), gd("artifact_digest")], [
+    "foreign key (artifact_version_id, runtime, artifact_digest, org_id) references runtime_artifact_versions(id, runtime, artifact_digest, org_id)",
+  ], ["artifact_version_id", "artifact_digest"]),
+  T("isolation_attestations", "A", [g("run_id"), kindCol("run_kind", "run")], [
+    "foreign key (run_id) references runs(id)", owned("run_kind", "run_id"),
+  ]),
+  T("controlled_records", "F", [g("project_id"), g("package_id"), gi("package_revision"), kindCol("package_kind", "package"), g("candidate_id"),
+    g("clearance_decision_id"), kindCol("decision_kind", "decision")], [
+    "foreign key (project_id, org_id) references projects(id, org_id)",
+    "foreign key (package_id, package_revision) references packages(id, revision)", owned("package_kind", "package_id"),
+    "foreign key (candidate_id, org_id) references candidate_assignments(id, org_id)",
+    "foreign key (clearance_decision_id) references decisions(id)", owned("decision_kind", "clearance_decision_id"),
+  ]),
+  T("person_verifications", "A", [g("verifier_member_id"), g("qualification_id"), gi("qualification_version"), g("candidate_id")], [
+    "foreign key (qualification_id, qualification_version, verifier_member_id, org_id) references signer_qualifications(id, version, member_id, org_id)",
+    "foreign key (candidate_id, org_id) references candidate_assignments(id, org_id)",
+  ]),
+  T("scram_events", "A", [g("scope"), g("pulled_by"), g("project_id")], [
+    "foreign key (pulled_by, org_id) references members(id, org_id)",
+    "foreign key (project_id, org_id) references projects(id, org_id)",
+    "check ((scope = 'project') = (project_id is not null))",
+  ]),
+  T("comments", "L", [g("reply_to")], ["foreign key (reply_to, org_id) references comments(id, org_id)"]),
+  T("resolutions", "A", [g("comment_id")], ["foreign key (comment_id, org_id) references comments(id, org_id)"]),
+  T("change_requests", "L"),
+  T("budgets", "L", [], [], ["mode", "limit", "period"]),
+  T("usage_records", "A", [g("run_id"), kindCol("run_kind", "run"), g("exploration_id")], [
+    "foreign key (run_id) references runs(id)", owned("run_kind", "run_id"),
+    "foreign key (exploration_id, org_id) references explorations(id, org_id)",
+  ]),
+  T("budget_reservations", "L", [g("budget_id"), g("run_id"), kindCol("run_kind", "run")], [
+    "foreign key (budget_id, org_id) references budgets(id, org_id)",
+    "foreign key (run_id) references runs(id)", owned("run_kind", "run_id"),
+  ]),
+  T("project_deliverables", "H", [g("project_id")], ["foreign key (project_id, org_id) references projects(id, org_id)"]),
+  T("deliverable_revisions", "H", [g("deliverable_id"), g("package_id"), gi("package_revision"), kindCol("package_kind", "package")], [
+    "foreign key (deliverable_id, org_id) references project_deliverables(id, org_id)",
+    "foreign key (package_id, package_revision) references packages(id, revision)", owned("package_kind", "package_id"),
+    "check ((package_id is null) = (package_revision is null))",
+  ]),
+  T("interface_records", "H"),
+  T("flow_edge_refs", "H"),
+  T("phase_gates", "H", [g("project_id")], ["foreign key (project_id, org_id) references projects(id, org_id)"]),
 ];
 
 /** Allowed lifecycle transitions; anything else is refused by the database. */
@@ -65,93 +123,93 @@ const TRANSITIONS: [string, string, string][] = [
   ["budget_reservations", "reserved", "settled"], ["budget_reservations", "reserved", "released"],
 ];
 
-function table(t: (typeof TABLES)[number]): string {
+function table(t: Table): string {
   const cols = [
-    "id text primary key generated always as (body->>'id') stored",
     "body jsonb not null",
-    "org_id text not null generated always as (body->>'org_id') stored references organizations(id)",
+    `${g("id")} primary key`,
+    `${g("org_id")} not null references organizations(id)`,
     ...(t.cls === "F" ? ["digest text not null unique"] : []),
-    ...(t.cls === "L" ? ["status text not null generated always as (body->>'status') stored"] : []),
-    ...(t.links ? [t.links] : []),
+    ...(t.cls === "L" ? [g("status") + " not null"] : []),
+    ...t.columns,
     "recorded_at timestamptz not null default now()",
-    ...(t.constraints ? [t.constraints] : []),
+    "unique (id, org_id)",
+    ...t.constraints,
   ];
-  const guard =
-    t.cls === "L"
-      ? `create trigger ${t.name}_lifecycle before update or delete on ${t.name}
-  for each row execute function workbench_lifecycle();`
-      : `create trigger ${t.name}_frozen before update or delete on ${t.name}
-  for each row execute function tenancy_append_only();`;
-  return `create table ${t.name} (\n  ${cols.join(",\n  ")}\n);\n${guard}`;
+  const guard = t.cls === "L" ? "lifecycle_guard" : "tenancy_append_only";
+  return `create table ${t.name} (\n  ${cols.join(",\n  ")}\n);\ncreate trigger ${t.name}_guard before update or delete on ${t.name}\n  for each row execute function ${guard}();`;
 }
 
+const quote = (v: string) => `'${v.replaceAll("'", "''")}'`;
+
 export const WORKBENCH_SQL = `
-create table workbench_transitions (
-  table_name text not null,
-  from_status text not null,
-  to_status text not null,
-  primary key (table_name, from_status, to_status)
-);
-insert into workbench_transitions values
-${TRANSITIONS.map(([t, f, to]) => `  ('${t}', '${f}', '${to}')`).join(",\n")};
-
--- A lifecycled row is never deleted, never changes identity, organization or links, and changes
--- status only along a listed transition.
-create function workbench_lifecycle() returns trigger language plpgsql as $$
-begin
-  if tg_op = 'DELETE' then
-    raise exception '% rows are never deleted; retire or end them', tg_table_name;
-  end if;
-  if new.body->>'id' is distinct from old.body->>'id' or new.body->>'org_id' is distinct from old.body->>'org_id' then
-    raise exception '% identity and organization are fixed', tg_table_name;
-  end if;
-  -- Generated columns are not yet computed in a before trigger, so status is read from the body.
-  if new.body->>'status' is distinct from old.body->>'status' and not exists (
-    select 1 from workbench_transitions
-     where table_name = tg_table_name and from_status = old.body->>'status' and to_status = new.body->>'status') then
-    raise exception '% % cannot go from % to %', tg_table_name, old.body->>'id', old.body->>'status', new.body->>'status';
-  end if;
-  return new;
-end $$;
-
 ${TABLES.map(table).join("\n\n")}
 
--- One candidate per ordinal within a release (or attempt set).
+insert into lifecycle_transitions values
+${TRANSITIONS.map(([t, f, to]) => `  (${quote(t)}, ${quote(f)}, ${quote(to)})`).join(",\n")};
+insert into lifecycle_mutable values
+${TABLES.flatMap((t) => (t.mutable ?? []).map((f) => `  (${quote(t.name)}, ${quote(f)})`)).join(",\n")};
+
+-- One candidate per ordinal within a release (or attempt set), never more than the set declared.
 create unique index candidate_assignments_one_ordinal
   on candidate_assignments (package_id, package_revision, coalesce(attempt_set_id, ''), ordinal);
--- Sandbox policies are versioned: the id is "<policy>@<version>", and versions are contiguous.
-create function workbench_contiguous_policy() returns trigger language plpgsql as $$
-declare latest int;
+create function workbench_candidate_ordinal() returns trigger language plpgsql as $$
+declare declared int;
 begin
-  select max((body->>'version')::int) into latest from sandbox_policies
-   where body->>'id' = new.body->>'id';
-  if (new.body->>'version')::int <> coalesce(latest, 0) + 1 then
-    raise exception 'sandbox policy % version % does not follow %', new.body->>'id', new.body->>'version', coalesce(latest, 0);
+  if new.body->>'attempt_set_id' is not null then
+    select candidates into declared from attempt_sets where id = new.body->>'attempt_set_id';
+    if (new.body->>'ordinal')::int > declared then
+      raise exception 'candidate ordinal % exceeds the % candidates attempt set % declared',
+        new.body->>'ordinal', declared, new.body->>'attempt_set_id';
+    end if;
   end if;
   return new;
 end $$;
+create trigger candidate_assignments_ordinal before insert on candidate_assignments
+  for each row execute function workbench_candidate_ordinal();
+
+-- A qualified artifact version cites only passing probes of the same runtime and executable.
+create function workbench_artifact_probes() returns trigger language plpgsql as $$
+declare probe text; ok boolean;
+begin
+  for probe in select jsonb_array_elements_text(new.body->'probe_ids') loop
+    select exists (select 1 from runtime_probes p where p.id = probe and p.org_id = new.body->>'org_id'
+                     and p.runtime = new.body->>'runtime' and p.artifact_digest = new.body->'artifact_digest'->>'value'
+                     and p.outcome = 'pass') into ok;
+    if not ok then
+      raise exception 'artifact version % cites probe %, which is missing or does not show this executable passing', new.body->>'id', probe;
+    end if;
+  end loop;
+  return new;
+end $$;
+create trigger runtime_artifact_versions_probes before insert on runtime_artifact_versions
+  for each row execute function workbench_artifact_probes();
+
+-- Sandbox policies are versioned like the tenancy frozen types: contiguous, holder kept.
 create table sandbox_policies (
   body jsonb not null,
-  policy_id text not null generated always as (body->>'id') stored,
-  version int not null generated always as ((body->>'version')::int) stored,
-  org_id text not null generated always as (body->>'org_id') stored references organizations(id),
+  ${g("id")} not null,
+  ${gi("version")} not null check (version >= 1),
+  ${g("org_id")} not null references organizations(id),
   digest text not null unique,
   recorded_at timestamptz not null default now(),
-  primary key (policy_id, version)
+  primary key (id, version)
 );
 create trigger sandbox_policies_frozen before update or delete on sandbox_policies
   for each row execute function tenancy_append_only();
-create trigger sandbox_policies_contiguous before insert on sandbox_policies
-  for each row execute function workbench_contiguous_policy();
+create trigger sandbox_policies_next before insert on sandbox_policies
+  for each row execute function tenancy_next_version();
 `;
 
 /** Reverses WORKBENCH_SQL. Test and recovery use only: the migration runner is forward only. */
 export const WORKBENCH_DOWN_SQL = `
-drop table sandbox_policies, ${[...TABLES].reverse().map((t) => t.name).join(", ")}, workbench_transitions;
-drop function workbench_contiguous_policy(), workbench_lifecycle();
+drop table sandbox_policies, ${[...TABLES].reverse().map((t) => t.name).join(", ")};
+drop function workbench_artifact_probes(), workbench_candidate_ordinal();
+delete from lifecycle_transitions where table_name in (${TABLES.map((t) => quote(t.name)).join(", ")});
+delete from lifecycle_mutable where table_name in (${TABLES.map((t) => quote(t.name)).join(", ")});
 delete from schema_migrations where version = '010-workbench';
 `;
 
-/** Table names in creation order, for the store and for tests. */
+/** Table names and classes, for the store and for tests. */
 export const WORKBENCH_TABLES = [...TABLES.map((t) => ({ name: t.name, cls: t.cls })), { name: "sandbox_policies", cls: "F" as const }];
 export const WORKBENCH_TRANSITIONS = TRANSITIONS;
+export const WORKBENCH_MUTABLE = Object.fromEntries(TABLES.map((t) => [t.name, t.mutable ?? []]));

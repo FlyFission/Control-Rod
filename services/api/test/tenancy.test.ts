@@ -139,8 +139,22 @@ describe("frozen versions", () => {
     await expect(h.db.query("delete from signer_qualifications where id = 'qual_qp'")).rejects.toThrow(/append only/);
     await expect(h.db.query("delete from object_owners")).rejects.toThrow(/append only/);
     await expect(
-      h.db.query("insert into signer_qualifications (id, version, org_id, member_id, body, digest) select id, 9, org_id, member_id, body, 'x' from signer_qualifications where id = 'qual_qp' and version = 1"),
+      h.db.query("insert into signer_qualifications (body, digest) select jsonb_set(body, '{version}', '9'), 'x' from signer_qualifications where id = 'qual_qp' and version = 1"),
     ).rejects.toThrow(/version 9 does not follow 3/);
+    // R11: indexed columns are generated from the body, so they can never be written apart from it.
+    await expect(
+      h.db.query("insert into signer_qualifications (id, version, org_id, member_id, body, digest) select id, 4, org_id, member_id, body, 'y' from signer_qualifications where id = 'qual_qp' and version = 1"),
+    ).rejects.toThrow(/cannot insert a non-DEFAULT value/);
+  });
+
+  it("R5: a versioned authority keeps its holder; a credential record names the passkey's own user", async () => {
+    const other = memberIdFor("someone-else");
+    await tx(h.db, (c) => addMember(c, { id: other, org_id: LOCAL_ORG, user_name: "someone-else", display_name: "Someone Else", status: "active" }, admin));
+    const latest = (await h.db.query("select body from signer_qualifications where id = 'qual_qp' order by version desc limit 1")).rows[0].body;
+    const { version: _v, effective_at: _e, ...base } = latest;
+    await expect(tx(h.db, (c) => recordQualification(c, { ...base, member_id: other, revoked: false, reason: "moved" }, admin))).rejects.toThrow(/keeps its organization and holder/);
+    const cred = (await h.db.query<{ id: string }>("select id from credentials limit 1")).rows[0]!.id;
+    await expect(tx(h.db, (c) => recordCredential(c, { orgId: LOCAL_ORG, memberId: other, credentialId: cred, format: "none", userVerified: true, attestationVerified: false }, admin))).rejects.toThrow(/belongs to/);
   });
 
   it("keeps every frozen digest recomputable from its stored body", async () => {
@@ -156,6 +170,10 @@ describe("frozen versions", () => {
       for (const r of rows) expect(digest(r.body)).toBe(r.digest);
     }
     expect((await currentPolicySet(h.db, LOCAL_ORG))?.record.version).toBe(1);
+    // R8: one policy identity per organization; the policy in effect is its greatest version.
+    await expect(tx(h.db, (c) => recordPolicySet(c, { id: "pol_other", org_id: LOCAL_ORG, hardware_attestation_formats: [], settings: {}, reason: "second identity" }, admin))).rejects.toThrow(/policy_sets_one_per_org/);
+    await tx(h.db, (c) => recordPolicySet(c, { id: "pol_local", org_id: LOCAL_ORG, hardware_attestation_formats: ["packed", "tpm"], settings: { autonomy_ceiling: "2" }, reason: "tightened" }, admin));
+    expect((await currentPolicySet(h.db, LOCAL_ORG))?.record).toMatchObject({ version: 2, settings: { autonomy_ceiling: "2" } });
   });
 });
 
@@ -172,6 +190,12 @@ describe("lifecycled identities and envelopes", () => {
     await expect(tx(h.db, (c) => recordDelegation(c, { id: "del_late", org_id: LOCAL_ORG, from_member_id: memberIdFor("qualified-person"), to_member_id: memberIdFor("other"), role: "checker", starts_on: "2026-11-02", ends_on: "2026-11-01", reason: "backwards" }, admin))).rejects.toThrow(/ends before it starts/);
   });
 
+  it("R7: lifecycled tenancy rows are guarded in the database, not only in the helper", async () => {
+    await expect(h.db.query("delete from projects where id = 'prj_one'")).rejects.toThrow(/never deleted/);
+    await expect(h.db.query(`update members set body = jsonb_set(body, '{user_name}', '"impostor"') where id = $1`, [memberIdFor("qualified-person")])).rejects.toThrow(/may change only/);
+    await h.db.query(`update members set body = jsonb_set(body, '{display_name}', '"Q. Person"') where id = $1`, [memberIdFor("qualified-person")]);
+  });
+
   it("changes state only through setStatus, each change an event, retirement final", async () => {
     await tx(h.db, (c) => setStatus(c, "machine", "mac_host", "retired", admin, "decommissioned"));
     await expect(tx(h.db, (c) => setStatus(c, "machine", "mac_host", "active", admin, "again"))).rejects.toThrow(/retirement is final/);
@@ -179,11 +203,19 @@ describe("lifecycled identities and envelopes", () => {
     expect(ev.rows[0].body.data).toEqual({ from: "active", to: "retired", reason: "decommissioned" });
   });
 
+  it("R7: a retired machine cannot be reactivated even through raw SQL", async () => {
+    await expect(h.db.query(`update machines set body = jsonb_set(body, '{status}', '"active"') where id = 'mac_host'`)).rejects.toThrow(/cannot go from retired to active/);
+  });
+
   it("keeps ownership and creation markings immutable and beside the record", async () => {
     await tx(h.db, (c) => recordOwner(c, { object_kind: "notebook", object_id: "nb_1", org_id: LOCAL_ORG, project_id: "prj_one" }));
     expect(await ownerOf(h.db, "notebook", "nb_1")).toEqual({ object_kind: "notebook", object_id: "nb_1", org_id: LOCAL_ORG, project_id: "prj_one" });
     await expect(tx(h.db, (c) => recordOwner(c, { object_kind: "notebook", object_id: "nb_1", org_id: "org_second" }))).rejects.toThrow(/duplicate key/);
     await tx(h.db, (c) => recordCreationMarking(c, "notebook", "nb_1", "proprietary", "client drawings"));
+    // R12: a legacy kind must name a record that exists, and no envelope can claim one in advance.
+    await expect(tx(h.db, (c) => recordOwner(c, { object_kind: "capture", object_id: "cap_future", org_id: LOCAL_ORG }))).rejects.toThrow(/does not exist/);
+    await h.db.query("insert into object_owners (object_kind, object_id, org_id) values ('capture', 'cap_claimed', 'org_second')");
+    await expect(h.db.query("insert into captures (id, body, created_at) values ('cap_claimed', '{}', now())")).rejects.toThrow(/already owned by org_second, not org_local/);
     await expect(h.db.query("update object_markings set body = body")).rejects.toThrow(/append only/);
   });
 });

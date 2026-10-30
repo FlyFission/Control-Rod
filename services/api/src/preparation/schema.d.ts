@@ -1115,6 +1115,12 @@ export interface components {
             subject_digest: components["schemas"]["ControlRod.Records.Digest"];
             reason?: string;
             assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+            /**
+             * @description The one-time nonce the passkey challenge was built from, so the binding of the signature to
+             *     this subject, kind and revision can be re-verified from the record alone. Absent on decisions
+             *     recorded before it was kept.
+             */
+            challenge_nonce?: string;
             /** Format: date-time */
             decided_at: string;
         };

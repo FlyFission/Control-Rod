@@ -20,8 +20,9 @@
         },
         "package_revision": {
             "type": "integer",
-            "minimum": 1,
-            "maximum": 2147483647
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Intake drafts revision 0; it can be released as is."
         },
         "source_manifest_digest": {
             "$ref": "Digest.json"
@@ -54,6 +55,6 @@
         "lane",
         "promoted_by"
     ],
-    "description": "A checkpoint or capture becomes a Draft package revision bound to a SourceManifest. (A)",
+    "description": "Exactly one checkpoint or capture becomes a Draft package revision bound to a SourceManifest. (A)",
     "unevaluatedProperties": false
 }

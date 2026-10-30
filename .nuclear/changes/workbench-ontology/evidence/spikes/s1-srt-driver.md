@@ -1,5 +1,7 @@
 # S-1: sandbox-runtime driver per CLI
 
+> **Not adopted.** The owner chose the simpler design in [S-6](s6-native-sandboxes.md): each CLI keeps its normal login and its own command sandbox. This record stays as evidence of what was tried. Finding 1 below is corrected: the owner's Codex login was not harmed.
+
 **Question.** Does sandbox-runtime run each pinned CLI under default deny with broker only egress on macOS, native Linux and WSL2?
 
 **Script.** `spikes/runtime-confinement/srt_driver_spike.py`. Raw output: [s1-srt-driver.json](s1-srt-driver.json).
@@ -32,7 +34,7 @@
 
 ## Findings
 
-1. **Token refresh must never happen inside the boundary (critical for the design).** Codex decided its ChatGPT login was due for refresh (last refresh ten days earlier) and refreshed from inside the sandbox. srt restored the real refresh token on the way to `auth.openai.com`, so the refresh most likely succeeded upstream and rotated the token, but Codex could not write the new tokens back to the read only masked file; its retries then failed with "refresh token was already used". The prompt still answered on the old access token. Consequence: the owner's stored Codex refresh token may now be spent, and the owner may need to run `codex login` again. Design rule for WB-15: the broker owns every credential lifecycle (refresh, rotation, write back); a confined CLI only ever holds a short lived access credential or a sentinel, and refresh endpoints are never on a confined lane's allow list.
+1. **Token refresh must never happen inside the boundary (critical for the design).** Codex decided its ChatGPT login was due for refresh (last refresh ten days earlier) and refreshed from inside the sandbox. Its refresh attempts failed with "refresh token was already used" and it could not write to the read only masked file; the prompt still answered on the existing access token. **Correction:** the owner's login was not harmed; Codex refreshed its own login successfully later the same day. The lesson is the one the owner drew: hiding or relaying a CLI's login fights the CLI's own lifecycle. Leave the login alone and sandbox the commands instead ([S-6](s6-native-sandboxes.md)).
 2. **A denied read region is an empty scratch mount, not a refusal.** Writing into a denied directory "succeeds" inside but never reaches the host. Attestation must test persistence on the host, not the return code inside.
 3. **srt needs `socat` and `ripgrep` on Linux and fails late without them;** the daemon's preflight must check both, plus the seccomp helper being readable under the read policy.
 4. **srt treats the command's own flags as its own** unless the command follows `--`. The driver must always pass `--`.

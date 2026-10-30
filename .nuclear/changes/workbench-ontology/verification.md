@@ -1,6 +1,6 @@
 # Verification: workbench and ontology
 
-Evidence status: **planned** for every WB requirement; this packet holds a specification, plan, Phase 0 records and spike evidence (E-11 to E-16). Spike evidence answers questions; it implements nothing.
+Evidence status: **planned** for every WB requirement; this packet holds a specification, plan, Phase 0 records and spike evidence (E-11 to E-17). Spike evidence answers questions; it implements nothing.
 
 | Evidence ID | Status | Claim and practical limit | Artifact |
 |---|---|---|---|
@@ -13,10 +13,11 @@ Evidence status: **planned** for every WB requirement; this packet holds a speci
 | E-10 | pass | Round 3 confirmation: all three reviewers say yes to Authorization A; residual items they cited for Authorization B were fixed and recorded | `evidence/reviews/round3/`, adjudication round 3 table |
 | E-09 | pass (analysis) | Platform Plan located and its 24 contradictions analysed; each has a disposition in the adjudication, several resolved by declared hooks or gated tasks rather than implemented behaviour | Adjudication, Platform Plan table |
 | E-11 | pass (Claude); not established (Codex) | S-0: Claude Code tools run only in a separate domain through the broker, builtins refused; weakened control fails as expected. WSL2, scripted provider | `evidence/spikes/s0-capability-separation.md` |
-| E-12 | partial | S-1: srt confines both pinned CLIs on WSL2 with masked logins and one allowed host; macOS and native Linux not run; Codex refresh inside the boundary is unsafe | `evidence/spikes/s1-srt-driver.md` |
-| E-13 | pass | S-2: Claude subscription login works through a host broker; the model domain only ever holds a fixture key | `evidence/spikes/s2-model-broker.md` |
+| E-12 | partial (not adopted) | S-1: srt confines both pinned CLIs on WSL2 with masked logins and one allowed host; superseded by E-17 | `evidence/spikes/s1-srt-driver.md` |
+| E-13 | pass (not adopted) | S-2: Claude subscription login works through a host broker; superseded by E-17 | `evidence/spikes/s2-model-broker.md` |
 | E-14 | pass | S-3: PreToolUse and PermissionRequest hooks fire in print mode and the tool is refused | `evidence/spikes/s3-hooks-print-mode.md` |
 | E-15 | pass (Claude); planned (Codex) | S-4: Claude stream-json holds a two turn conversation in one process | `evidence/spikes/s4-structured-sessions.md` |
+| E-17 | pass (WSL2) | S-6: with the user's normal login and each CLI's built-in command sandbox plus Control Rod's settings, commands cannot read login files, reach the internet or write outside the workspace; defaults alone leak login files | `evidence/spikes/s6-native-sandboxes.md` |
 | E-16 | pass | S-5: Codex sandbox starts and enforces nested in bubblewrap and in srt, with `/tmp` exclusions | `evidence/spikes/s5-nesting.md` |
 | E-06 | pending | Kandev reader notes wording check (ADR 0019 condition 3) | Change record evidence, when done |
 | E-07 | planned | All WB requirements | Plan phases |
@@ -38,6 +39,7 @@ Evidence status: **planned** for every WB requirement; this packet holds a speci
 | E-13 | WB-15 | yes | `evidence/spikes/s2-model-broker.json` | Claude Code session | model_broker_spike.py | Claude Code session | Claude Code session | Host shell, bubblewrap | Repository | Claude Code session | Self-check; [Ship limits](ship.md) |
 | E-14 | WB-09 | no | `evidence/spikes/s3-s4-hooks-and-sessions.json` | Claude Code session | session_spike.py | Claude Code session | Claude Code session | Host shell, bubblewrap | Repository | Claude Code session | Self-check; [Ship limits](ship.md) |
 | E-15 | WB-17 | no | `evidence/spikes/s3-s4-hooks-and-sessions.json` | Claude Code session | session_spike.py | Claude Code session | Claude Code session | Host shell, bubblewrap | Repository | Claude Code session | Self-check; [Ship limits](ship.md) |
+| E-17 | WB-15 | yes | `evidence/spikes/s6-native-sandboxes.json` | Claude Code session | native_sandbox_spike.py | Claude Code session | Claude Code session | Host shell, each CLI's sandbox | Repository | Claude Code session | Self-check; [Ship limits](ship.md) |
 | E-16 | WB-15 | no | `evidence/spikes/s5-nesting.json` | Claude Code session | nesting_spike.py | Claude Code session | Claude Code session | Host shell, bubblewrap | Repository | Claude Code session | Self-check; [Ship limits](ship.md) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -55,6 +57,7 @@ Evidence status: **planned** for every WB requirement; this packet holds a speci
 | E-13 | coupled: authoring session | coupled: authoring session | separated: kernel namespaces and the real CLI, observed from the host | separated: owner decides | coupled: local machine | self-check | One WSL2 host at pinned versions; re-run per pin; [Ship limits](ship.md) |
 | E-14 | coupled: authoring session | coupled: authoring session | separated: kernel namespaces and the real CLI, observed from the host | separated: owner decides | coupled: local machine | self-check | One WSL2 host at pinned versions; re-run per pin; [Ship limits](ship.md) |
 | E-15 | coupled: authoring session | coupled: authoring session | separated: kernel namespaces and the real CLI, observed from the host | separated: owner decides | coupled: local machine | self-check | One WSL2 host at pinned versions; re-run per pin; [Ship limits](ship.md) |
+| E-17 | coupled: authoring session | coupled: authoring session | separated: each CLI's own sandbox, observed from the host | separated: owner decides | coupled: local machine | self-check | One WSL2 host at pinned versions; re-run per pin and per run; [Ship limits](ship.md) |
 | E-16 | coupled: authoring session | coupled: authoring session | separated: kernel namespaces and the real CLI, observed from the host | separated: owner decides | coupled: local machine | self-check | One WSL2 host at pinned versions; re-run per pin; [Ship limits](ship.md) |
 
 The author and adjudicator are the same session; independence comes from the outside reviewers on other providers.

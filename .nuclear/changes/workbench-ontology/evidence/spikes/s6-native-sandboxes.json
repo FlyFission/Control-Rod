@@ -1,0 +1,118 @@
+{
+  "spike": "S-6",
+  "claude_version": "2.1.314 (Claude Code)",
+  "codex_version": "codex-cli 0.166.0",
+  "runs": {
+    "claude_default": {
+      "exit": 0,
+      "probe": {
+        "read_claude_login": "LEAKED",
+        "read_codex_login": "LEAKED",
+        "raw_tcp_internet": "OSError",
+        "https_internet": "URLError",
+        "write_workspace": "allowed",
+        "write_home": "OSError",
+        "write_slash_tmp": "OSError"
+      },
+      "tool_result_head": "{\"read_claude_login\": \"LEAKED\", \"read_codex_login\": \"LEAKED\", \"raw_tcp_internet\": \"OSError\", \"https_internet\": \"URLError\", \"write_workspace\": \"allowed\", \"write_home\": \"OSError\", \"write_slash_tmp\": \"OSError\"}\n<sandbox_violations>\ndeny network-outbound example.com:443 (user denied)\n</sandbox_violations>",
+      "escape_on_host": false,
+      "stderr_tail": "[claude-code:unrecognized_model] {\"model\":\"fixture-model\",\"query_source\":\"sdk\"}\n"
+    },
+    "claude_control_rod": {
+      "exit": 0,
+      "probe": {
+        "read_claude_login": "FileNotFoundError",
+        "read_codex_login": "FileNotFoundError",
+        "raw_tcp_internet": "OSError",
+        "https_internet": "URLError",
+        "write_workspace": "allowed",
+        "write_home": "OSError",
+        "write_slash_tmp": "OSError"
+      },
+      "tool_result_head": "{\"read_claude_login\": \"FileNotFoundError\", \"read_codex_login\": \"FileNotFoundError\", \"raw_tcp_internet\": \"OSError\", \"https_internet\": \"URLError\", \"write_workspace\": \"allowed\", \"write_home\": \"OSError\", \"write_slash_tmp\": \"OSError\"}\n<sandbox_violations>\ndeny network-outbound example.com:443 (user denied)\n</sandbox_violations>",
+      "escape_on_host": false,
+      "stderr_tail": "[claude-code:unrecognized_model] {\"model\":\"fixture-model\",\"query_source\":\"sdk\"}\n"
+    },
+    "codex_default": {
+      "exit": 0,
+      "probe": {
+        "read_claude_login": "LEAKED",
+        "read_codex_login": "LEAKED",
+        "raw_tcp_internet": "PermissionError",
+        "https_internet": "URLError",
+        "write_workspace": "allowed",
+        "write_home": "OSError",
+        "write_slash_tmp": "OSError"
+      },
+      "escape_on_host": false,
+      "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s6x-32as89c2/home/.codex\"))\n"
+    },
+    "codex_control_rod": {
+      "exit": 0,
+      "probe": {
+        "read_claude_login": "PermissionError",
+        "read_codex_login": "PermissionError",
+        "raw_tcp_internet": "PermissionError",
+        "https_internet": "URLError",
+        "write_workspace": "allowed",
+        "write_home": "OSError",
+        "write_slash_tmp": "OSError"
+      },
+      "escape_on_host": false,
+      "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s6x-l4oroyx6/home/.codex\"))\n"
+    },
+    "codex_control_rod_overrides": {
+      "exit": 0,
+      "probe": {
+        "read_claude_login": "PermissionError",
+        "read_codex_login": "PermissionError",
+        "raw_tcp_internet": "PermissionError",
+        "https_internet": "URLError",
+        "write_workspace": "allowed",
+        "write_home": "OSError",
+        "write_slash_tmp": "OSError"
+      },
+      "escape_on_host": false,
+      "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s6x-ssu0au25/home/.codex\"))\n"
+    }
+  },
+  "checks": {
+    "claude_default": {
+      "login_files_unreadable": false,
+      "no_internet": true,
+      "workspace_writable": true,
+      "slash_tmp_not_writable": true,
+      "home_write_never_reaches_host": true
+    },
+    "claude_control_rod": {
+      "login_files_unreadable": true,
+      "no_internet": true,
+      "workspace_writable": true,
+      "slash_tmp_not_writable": true,
+      "home_write_never_reaches_host": true
+    },
+    "codex_default": {
+      "login_files_unreadable": false,
+      "no_internet": true,
+      "workspace_writable": true,
+      "slash_tmp_not_writable": true,
+      "home_write_never_reaches_host": true
+    },
+    "codex_control_rod": {
+      "login_files_unreadable": true,
+      "no_internet": true,
+      "workspace_writable": true,
+      "slash_tmp_not_writable": true,
+      "home_write_never_reaches_host": true
+    },
+    "codex_control_rod_overrides": {
+      "login_files_unreadable": true,
+      "no_internet": true,
+      "workspace_writable": true,
+      "slash_tmp_not_writable": true,
+      "home_write_never_reaches_host": true
+    }
+  },
+  "scope": "decoy logins in a throwaway home; scripted provider for Claude; codex sandbox command only; this host only",
+  "activation": "HOLD"
+}

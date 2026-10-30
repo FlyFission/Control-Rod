@@ -1,5 +1,7 @@
 # S-2: subscription login through the model broker
 
+> **Not adopted.** A relay works, but it means Control Rod holding the user's token. The owner chose the simpler design in [S-6](s6-native-sandboxes.md): the CLI keeps its normal login.
+
 **Question.** Do subscription logins work through the model broker, or is an account key path required per lane?
 
 **Script.** `spikes/runtime-confinement/model_broker_spike.py`. Raw output: [s2-model-broker.json](s2-model-broker.json).
@@ -24,11 +26,11 @@ The native Claude CLI runs in the S-0 model domain: no network, no owner home, o
 ## Findings
 
 1. **The broker must not pass a compressed body with its encoding header stripped.** The first run returned HTTP 200 upstream but the client could not parse the reply: the broker removed `Content-Encoding` while passing gzip bytes through. Fixed by asking upstream for `Accept-Encoding: identity`. A production broker either streams verbatim (headers and bytes together) or decodes; never half of each.
-2. **The broker holds the token; refresh must live there too.** The spike reads a still valid access token. A production broker owns refresh and write back on the host side (see [S-1 finding 1](s1-srt-driver.md)).
+2. **A relay has to take over the CLI's login lifecycle** (refresh, rotation, write back). That is the complexity the chosen design avoids.
 
 ## Answer
 
-**Yes for Claude Code:** a subscription login works through a host side broker; no account key is needed for Claude lanes. Codex's ChatGPT login also worked through srt's masking proxy in [S-1](s1-srt-driver.md), with the refresh caveat recorded there.
+**Yes for Claude Code:** a subscription login works through a host side broker. **Not needed:** with the chosen design no account key and no relay are needed for either CLI; each uses its own login ([S-6](s6-native-sandboxes.md)).
 
 ## Limits
 

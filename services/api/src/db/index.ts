@@ -10,6 +10,8 @@ export async function openDb(connectionString: string): Promise<Db> {
   const pool = new pg.Pool({ connectionString, max: 10 });
   try {
     await migrate(pool);
+    const { backfillCredentials } = await import("../tenancy.js");
+    await tx(pool, backfillCredentials);
   } catch (error) {
     await pool.end();
     throw error;

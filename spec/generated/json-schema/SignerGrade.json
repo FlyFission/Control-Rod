@@ -1,0 +1,11 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "SignerGrade.json",
+    "type": "string",
+    "enum": [
+        "safety",
+        "material",
+        "general-service"
+    ],
+    "description": "Grades a signer may sign at."
+}

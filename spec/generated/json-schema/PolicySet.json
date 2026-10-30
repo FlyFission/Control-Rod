@@ -1,0 +1,56 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PolicySet.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "hardware_attestation_formats": {
+            "type": "array",
+            "items": {
+                "$ref": "AttestationFormat.json"
+            },
+            "description": "Attestation formats accepted as evidence of a hardware backed key (docs/sqa/authenticators.md)."
+        },
+        "settings": {
+            "$ref": "#/$defs/RecordString",
+            "description": "Floor settings by name, each a short string value."
+        },
+        "reason": {
+            "type": "string"
+        },
+        "effective_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "id",
+        "version",
+        "org_id",
+        "hardware_attestation_formats",
+        "settings",
+        "reason",
+        "effective_at"
+    ],
+    "description": "Floors and settings in effect. Decisions reference a policy set by digest.",
+    "unevaluatedProperties": false,
+    "$defs": {
+        "RecordString": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {
+                "type": "string"
+            }
+        }
+    }
+}

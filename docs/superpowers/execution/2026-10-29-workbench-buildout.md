@@ -35,6 +35,12 @@ Plan: [workbench buildout plan](../plans/2026-10-29-workbench-buildout.md). Spec
 | 0.10 Authenticator policy | done | `docs/sqa/authenticators.md`, owner approved 2026-10-30 |
 | 0.11 openclaw-office pin and license | done | `WW-AI-Lab/openclaw-office` at `def631a`, MIT, assets are screenshots only; recorded in `docs/patterns/workbench-donors.md` |
 
+## Phase 1 progress
+
+| Task | Status | Evidence |
+|---|---|---|
+| 1.1 Tenancy and people types with storage | done | `spec/tenancy.tsp` (Organization, Member, SignerQualification, AuthenticatorCredential, Delegation, Project, RepoBinding, PolicySet, Machine, OwnershipEnvelope, MarkingEnvelope); migration `009-tenancy` with down script; `services/api/src/tenancy.ts`; `services/api/test/tenancy.test.ts`. Down then up over seeded records leaves every capture, package, run, decision, credential and event byte identical and the chain verifying; frozen versions refuse edits, deletes and version gaps in the database; existing passkeys become credential version 1, ineligible for the hardware floor; new passkeys record their registration evidence. Ownership of records written by pre command layer code comes from a sole active organization trigger that refuses when ownership is ambiguous; task 1.4 replaces it with explicit owners |
+
 ## Exit criteria
 
 Every Phase 0 task is done or waiting on a named owner decision, and every spike has a recorded result or a recorded reason it did not run.

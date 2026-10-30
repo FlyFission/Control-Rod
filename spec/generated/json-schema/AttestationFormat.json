@@ -1,0 +1,15 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AttestationFormat.json",
+    "type": "string",
+    "enum": [
+        "none",
+        "packed",
+        "tpm",
+        "fido-u2f",
+        "android-key",
+        "android-safetynet",
+        "apple"
+    ],
+    "description": "The attestation statement format a registration returned. \"none\" means no attestation."
+}

@@ -305,7 +305,8 @@ describe("review round 3", () => {
     expect(withoutLeadingComments("  /* a /* nested */ b */ -- x\n  commit")).toBe("commit");
     for (const sql of ["select '--'; commit", "select E'\\''; commit; --'", "select 1 as a$t$; commit; select 1 as b$t$", "select 1; select 2"])
       await expect(command(h.db, "runtime.report-status", (c) => c.query(sql)), sql).rejects.toThrow(/cannot insert multiple commands into a prepared statement/);
-    await expect(command(h.db, "runtime.report-status", (c) => c.query("/* note */ -- more\n commit"))).rejects.toThrow(/may not run: commit/);
+    for (const sql of ["/* note */ -- more\n commit", ";COMMIT", " ; ; /* x */ ;rollback", "\n;\tend"])
+      await expect(command(h.db, "runtime.report-status", (c) => c.query(sql)), sql).rejects.toThrow(/may not run/);
     const ok = await command(h.db, "runtime.report-status", async (c) => (await c.query("select 'a;b' as v")).rows[0].v);
     expect(ok).toBe("a;b");
   });

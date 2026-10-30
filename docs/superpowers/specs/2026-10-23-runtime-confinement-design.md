@@ -1,5 +1,7 @@
 # Preparation runtime confinement specification
 
+> **Amended by [ADR 0021](../../adr/0021-native-cli-sandboxes.md)** (Proposed, 2026-10-30): on laptops and developer hosts the agent CLI keeps the user's own login and the credential broker is dropped; agent commands and file tools run in each CLI's own sandbox with Control Rod settings and cannot read the login folders, reach the network or write outside the workspace.
+
 Status: investigation and inactive policy proposal. Parent: [platform buildout](2026-10-23-platform-buildout-design.md), PB-05/06 and GP-15/18. No preparation role is dispatched by the current RunRole contract.
 
 The current daemon removes CONTROLROD variables but otherwise inherits environment/HOME. Claude's recorded sandbox is `none`; Codex's workspace sandbox retains the owner configuration. These are not sufficient preparation-role boundaries.

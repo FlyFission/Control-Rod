@@ -40,12 +40,42 @@ const FORBIDDEN = [
 ];
 const FORBIDDEN_ANYWHERE = /\bset_config\s*\(\s*'(role|session_authorization)'/i;
 
+/**
+ * Splits SQL into statements the way PostgreSQL reads it: semicolons and comment markers inside
+ * single quoted strings, dollar quoted bodies and double quoted identifiers are text, not syntax.
+ * Comments are dropped. Returns each statement, trimmed.
+ */
+export function statements(sql: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let i = 0;
+  while (i < sql.length) {
+    const ch = sql[i]!, next = sql[i + 1];
+    if (ch === "-" && next === "-") { while (i < sql.length && sql[i] !== "\n") i++; cur += " "; continue; }
+    if (ch === "/" && next === "*") {
+      let depth = 1; i += 2;
+      while (i < sql.length && depth) { if (sql[i] === "/" && sql[i + 1] === "*") { depth++; i += 2; } else if (sql[i] === "*" && sql[i + 1] === "/") { depth--; i += 2; } else i++; }
+      cur += " "; continue;
+    }
+    if (ch === "'" || ch === '"') {
+      let j = i + 1;
+      while (j < sql.length) { if (sql[j] === ch) { if (sql[j + 1] === ch) { j += 2; continue; } break; } j++; }
+      cur += sql.slice(i, j + 1); i = j + 1; continue;
+    }
+    if (ch === "$") {
+      const tag = /^\$[A-Za-z_]?[A-Za-z0-9_]*\$/.exec(sql.slice(i))?.[0];
+      if (tag) { const end = sql.indexOf(tag, i + tag.length); const stop = end < 0 ? sql.length : end + tag.length; cur += sql.slice(i, stop); i = stop; continue; }
+    }
+    if (ch === ";") { out.push(cur.trim()); cur = ""; i++; continue; }
+    cur += ch; i++;
+  }
+  out.push(cur.trim());
+  return out.filter((x) => x.length);
+}
+
 function refusal(name: string, text: string): string | null {
-  const bare = text.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
-  if (FORBIDDEN_ANYWHERE.test(bare)) return bare.trim().slice(0, 60);
-  for (const statement of bare.split(";")) {
-    const s = statement.trim();
-    if (FORBIDDEN.some((re) => re.test(s))) return s.slice(0, 60);
+  for (const s of statements(text)) {
+    if (FORBIDDEN.some((re) => re.test(s)) || FORBIDDEN_ANYWHERE.test(s)) return s.slice(0, 60);
   }
   return null;
 }

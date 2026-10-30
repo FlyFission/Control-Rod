@@ -1,6 +1,6 @@
 import { createHash, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -97,7 +97,11 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
   if (system && process.getuid?.() !== 0) {
     // CI runners ship PostgreSQL binaries; start a throwaway cluster with them.
     const dir = mkdtempSync(join(tmpdir(), "cr-pg-"));
-    execFileSync(join(system, "initdb"), ["-D", dir, "-U", "controlrod", "--auth=trust", "-E", "UTF8"], { stdio: "ignore" });
+    // Password authentication over TCP, as on a real server, so login checks in tests are genuine.
+    const pwfile = join(dir + "-pw");
+    writeFileSync(pwfile, "test", { mode: 0o600 });
+    execFileSync(join(system, "initdb"), ["-D", dir, "-U", "controlrod", "--auth-host=scram-sha-256", "--auth-local=trust", `--pwfile=${pwfile}`, "-E", "UTF8"], { stdio: "ignore" });
+    rmSync(pwfile, { force: true });
     // Test files run in parallel; a port can be taken between choosing it and binding it, so retry.
     let port = 0;
     for (let attempt = 1; ; attempt++) {
@@ -109,8 +113,8 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
         if (attempt === 3) throw error;
       }
     }
-    const db = await openDb(`postgres://controlrod@127.0.0.1:${port}/postgres`, { secrets: TEST_ROLE_SECRETS });
-    const owner = new OwnerPool({ connectionString: `postgres://controlrod@127.0.0.1:${port}/postgres`, max: 4 });
+    const db = await openDb(`postgres://controlrod:test@127.0.0.1:${port}/postgres`, { secrets: TEST_ROLE_SECRETS });
+    const owner = new OwnerPool({ connectionString: `postgres://controlrod:test@127.0.0.1:${port}/postgres`, max: 4 });
     const app = buildApp({
       ...options,
       db,

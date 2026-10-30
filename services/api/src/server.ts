@@ -8,7 +8,7 @@ import { preparationConfig } from "./preparation/config.js";
 import { buildApp } from "./app.js";
 import { hashToken } from "./auth.js";
 import { closeDb, openDb } from "./db/index.js";
-import { localRoleSecrets, privateFile } from "./db/roles.js";
+import { localRoleSecrets, privateDir, privateFile } from "./db/roles.js";
 
 /**
  * Starts Control Rod on this machine: an embedded Postgres in ~/.controlrod/pg, the control
@@ -18,6 +18,7 @@ const home = process.env.CONTROLROD_HOME ?? join(homedir(), ".controlrod");
 const port = Number(process.env.CONTROLROD_PORT ?? 7300);
 const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 mkdirSync(home, { recursive: true, mode: 0o700 });
+privateDir(home);
 
 /** Postgres: CONTROLROD_DATABASE_URL if set (Postgres.app, Homebrew, a server), else embedded in ~/.controlrod/pg. */
 let pgServer: EmbeddedPostgres | null = null;
@@ -61,7 +62,9 @@ if (!dbUrl) {
 const roleUrls = process.env.CONTROLROD_DB_READER_URL && process.env.CONTROLROD_DB_WRITER_URL
   ? { readerUrl: process.env.CONTROLROD_DB_READER_URL, writerUrl: process.env.CONTROLROD_DB_WRITER_URL }
   : undefined;
-const db = await openDb(dbUrl, roleUrls ? { urls: roleUrls } : { secrets: localRoleSecrets(join(home, "db-roles.json")) });
+const db = await openDb(dbUrl, roleUrls
+  ? { urls: roleUrls }
+  : { secrets: localRoleSecrets(join(home, "db-roles.json")), ownsCluster: pgServer !== null });
 
 const tokenPath = join(home, "daemon.token");
 const token = randomBytes(32).toString("base64url");

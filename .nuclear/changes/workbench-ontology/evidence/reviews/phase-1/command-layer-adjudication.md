@@ -33,6 +33,19 @@ Codex confirmed SEC-01, SEC-02 and SEC-04 fixed and SEC-03, SEC-05 to SEC-09 par
 | SEC-08 regex checks have limits | **Accepted**: the logins are the boundary; the static rules are a second line, now covering namespace and dynamic imports, other constructors, role changes and transaction control |
 | SEC-09 inventory is static | **Accepted**: the inventory says so and labels declared seams |
 
+## Round 3
+
+Codex found no new blockers and four round 2 items still open ([command-layer-codex-round3.md](command-layer-codex-round3.md)).
+
+| Item | Disposition |
+|---|---|
+| N-03 comment markers inside string literals | **Fixed**: `statements()` splits SQL as PostgreSQL reads it (single quotes with doubled quotes, dollar quoting, double quoted identifiers, nested block comments) before each statement is checked (tests include `select '--'; commit`) |
+| N-09 a login with another password was still reset | **Fixed**: reset only when this installation owns the cluster (its embedded database); on a shared server, startup refuses with what to do. The test cluster now uses password authentication so this runs for real |
+| N-10 column grants and definer functions outside `public` | **Fixed**: the audit uses `has_any_column_privilege` and checks every callable security definer function outside the system schemas (tests) |
+| N-07 a home folder writable by others | **Fixed**: `privateDir` requires a real directory owned by this user and narrows it to 0700 at startup (test) |
+| N-06 migration 011 differs from an unmerged in progress version | **Accepted**: no database outside this branch's tests applied it; the lock starts at merge |
+| SEC-05 scope | **Corrected**: the frozen 009 SQL includes the ownership and Member backfill as well as the seed organization; every later data change goes through commands |
+
 Also fixed while verifying: an immediate restart could fail with a bare `undefined` while the previous embedded database was still stopping; startup now retries for a few seconds and otherwise says why.
 
 Also verified end to end: the real server starts on a fresh embedded database, creates both logins with a private `db-roles.json`, serves requests, and restarts on the existing database.

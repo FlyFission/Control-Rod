@@ -1,23 +1,4 @@
-:root {
-  --ground: #0a0d11;
-  --surface: #0d1117;
-  --panel: #10161e;
-  --line: #1e2733;
-  --line-2: #263241;
-  --text: #e6edf3;
-  --text-2: #c5d0dc;
-  --muted: #8b98a8;
-  --accent: #5cc8ff;
-  --accent-ink: #04141d;
-  --needs: #f2b33d;
-  --waiting: #b89cff;
-  --stuck: #ff7a59;
-  --changed: #ffb347;
-  --done: #3dd68c;
-  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  color-scheme: dark;
-}
+@import "./design/tokens.css";
 
 * {
   box-sizing: border-box;
@@ -463,7 +444,7 @@ nav {
   padding-left: 20px;
 }
 .decide {
-  border-color: #2b6e99;
+  border-color: var(--accent-dim);
 }
 .decide-buttons {
   display: flex;
@@ -600,7 +581,7 @@ nav {
   text-decoration: none;
 }
 .card:hover {
-  border-color: #2b6e99;
+  border-color: var(--accent-dim);
 }
 .card-title {
   font-size: 13px;

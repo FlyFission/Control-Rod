@@ -1,0 +1,49 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Exploration.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "project_id": {
+            "$ref": "TenancyId.json",
+            "description": "Absent for a personal General space."
+        },
+        "lane": {
+            "$ref": "DataLane.json"
+        },
+        "sandbox_policy_digest": {
+            "$ref": "Digest.json"
+        },
+        "started_by": {
+            "$ref": "TenancyId.json"
+        },
+        "status": {
+            "$ref": "ExplorationStatus.json"
+        },
+        "interactive": {
+            "type": "boolean",
+            "description": "A person typed into it; it is never a controlled run."
+        },
+        "unattested": {
+            "type": "boolean",
+            "description": "No isolation attestation backs it."
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "lane",
+        "sandbox_policy_digest",
+        "started_by",
+        "status",
+        "interactive",
+        "unattested"
+    ],
+    "description": "A live session at the administrative tier. Never on the accept path. (L)",
+    "unevaluatedProperties": false
+}

@@ -199,7 +199,8 @@ describe.skipIf(!tools)(
       ).rows[0].last_value;
       const before = await snapshot(f.h.db),
         chain = await verifyChain(f.h.db);
-      const connection = new URL(String(f.h.db.options.connectionString));
+      // Backup and restore are operator tasks: they run as the owner, not as the application's reader.
+      const connection = new URL(String(f.h.admin.options.connectionString));
       const environment = {
         ...process.env,
         PGHOST: connection.hostname,
@@ -211,7 +212,7 @@ describe.skipIf(!tools)(
       const directory = mkdtempSync(join(tmpdir(), "controlrod-restore-")),
         backup = join(directory, "fixture.dump");
       const restoredName = `cr_restore_${randomUUID().replaceAll("-", "")}`;
-      await f.h.db.query(`create database ${restoredName}`);
+      await f.h.admin.query(`create database ${restoredName}`);
       const restoredURL = new URL(connection);
       restoredURL.pathname = `/${restoredName}`;
       const restored = new pg.Pool({
@@ -330,7 +331,7 @@ describe.skipIf(!tools)(
       } finally {
         await app?.close();
         await restored.end();
-        await f.h.db.query(`drop database if exists ${restoredName}`);
+        await f.h.admin.query(`drop database if exists ${restoredName}`);
         rmSync(directory, { recursive: true, force: true });
       }
     }, 120_000);

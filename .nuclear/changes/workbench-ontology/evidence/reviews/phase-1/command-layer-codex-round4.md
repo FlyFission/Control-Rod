@@ -1,0 +1,9 @@
+| Item | Result | Evidence and concrete bypass |
+|---|---|---|
+| N-03 | **Not fixed** | [executor.ts:62](services/api/src/commands/executor.ts:62) handles doubled quotes but ignores escape-string backslashes. SQL `select E'\''; commit; --'` passes inspection as one statement, while PostgreSQL executes `COMMIT`. An earlier command write survives a subsequent exception. |
+| N-07 | **Fixed for the reported home-directory race** | [server.ts:21](services/api/src/server.ts:21) calls `privateDir` before accessing secrets. [roles.ts:49](services/api/src/db/roles.ts:49) rejects links and foreign ownership and removes group/other directory permissions, preventing other users from replacing entries during `privateFile` operations. |
+| N-09 | **Not fixed** | [roles.ts:115](services/api/src/db/roles.ts:115) still resets credentials without checking `ownsCluster` in the duplicate-role handler. Trigger: installation A observes an absent role; B creates it with B’s password; A’s creation receives `42710` and overwrites B’s password. The new test covers existing roles, not this interleaving. |
+| N-10 | **Fixed for the reported gaps** | [roles.ts:142](services/api/src/db/roles.ts:142) and line 146 check column privileges. [roles.ts:155](services/api/src/db/roles.ts:155) checks executable security-definer functions across non-system schemas. |
+| Newly introduced defect | **Major: scanner hides transaction control** | Besides the escape-string bypass above, [executor.ts:65](services/api/src/commands/executor.ts:65) recognizes dollar delimiters inside unquoted identifiers. Trigger: `select 1 as a$t$; commit; select 1 as b$t$`. PostgreSQL sees two valid aliases and executes `COMMIT`; the scanner hides it inside a supposed dollar string. Earlier writes escape rollback. |
+
+BLOCK

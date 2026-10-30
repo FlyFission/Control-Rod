@@ -356,8 +356,10 @@ export async function preparedAcceptanceGuard(
   pkg: PackageRow,
   author: { id: string; body: Record<string, any>; round: number } | null,
   verification: VerificationRecord | null,
+  /** Writers lock the author outputs; a read only snapshot cannot and need not. */
+  lock = true,
 ): Promise<PreparationGuard | undefined> {
-  const guard = await preparedExecutionGuard(c, cfg, pkg, author?.body);
+  const guard = await preparedExecutionGuard(c, cfg, pkg, author?.body, lock);
   if (!guard) return undefined;
   if (!author)
     throw new Refusal(
@@ -365,7 +367,7 @@ export async function preparedAcceptanceGuard(
       "output-required",
       "No author deliverable is available for acceptance",
     );
-  await requireAuthorOutputs(c, author.id, true);
+  await requireAuthorOutputs(c, author.id, lock);
   const p = await preparationForSubject(c, pkg);
   if (!p)
     throw new Refusal(
@@ -378,7 +380,7 @@ export async function preparedAcceptanceGuard(
     pkg,
     author?.round,
     verification,
-    true,
+    lock,
   );
   if (
     results &&

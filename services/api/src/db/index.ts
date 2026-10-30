@@ -1,20 +1,75 @@
+import { randomBytes } from "node:crypto";
 import pg from "pg";
+import { READER, type RoleSecrets, type RoleUrls, WRITER, assertLogin, provisionRoles, roleUrl, verifyRoles } from "./roles.js";
 import { PREPARATION_PROTOCOL } from "./migrations/006-compatibility.js";
 import { migrate } from "./migrate.js";
 
 export type Db = pg.Pool;
 export type Tx = pg.PoolClient;
 
-/** Opens a pool and applies the schema. */
-export async function openDb(connectionString: string): Promise<Db> {
-  const pool = new pg.Pool({ connectionString, max: 10 });
+/**
+ * How the application's two logins are obtained: provisioned here with these passwords (a local
+ * install, where the app owns the cluster), or given as connection strings an administrator issued.
+ */
+export interface DbRoles {
+  secrets?: RoleSecrets;
+  urls?: RoleUrls;
+  /** This installation owns the cluster (its embedded database), so it may reset its own logins. */
+  ownsCluster?: boolean;
+}
+
+/**
+ * Opens the database for the application (specification 10.1). The schema is applied as the
+ * connecting owner (the migrator). The returned pool is logged in as controlrod_reader and cannot
+ * write; the command executor's pool is logged in as controlrod_writer. Startup refuses to continue
+ * if either role is stronger than it should be or a pool is not logged in as its role.
+ */
+export async function openDb(connectionString: string, roles: DbRoles = {}): Promise<Db> {
+  const owner = new pg.Pool({ connectionString, max: 2 });
+  let reader: Db | undefined;
   try {
-    await migrate(pool);
+    const secrets = roles.secrets ?? { reader: randomBytes(24).toString("hex"), writer: randomBytes(24).toString("hex") };
+    if (!roles.urls) await provisionRoles(owner, secrets, { ownsCluster: roles.ownsCluster ?? false });
+    await migrate(owner);
+    const { WRITER_READ_ONLY_TABLES } = await import("./migrations/011-roles.js");
+    await verifyRoles(owner, WRITER_READ_ONLY_TABLES);
+    const urls = roles.urls ?? { readerUrl: roleUrl(connectionString, READER, secrets.reader), writerUrl: roleUrl(connectionString, WRITER, secrets.writer) };
+    reader = new pg.Pool({ connectionString: urls.readerUrl, max: 10 });
+    await assertLogin(reader, READER);
+    const { attachWriter, command } = await import("../commands/executor.js");
+    await attachWriter(reader, urls.writerUrl);
+    const { backfillTenancy } = await import("../tenancy.js");
+    await command(reader, "migration.backfill-tenancy", backfillTenancy);
+    return reader;
   } catch (error) {
-    await pool.end();
+    if (reader) await closeDb(reader).catch(() => undefined);
     throw error;
+  } finally {
+    await owner.end();
   }
-  return pool;
+}
+
+/** Closes the application's pool and its attached writer. */
+export async function closeDb(db: Db): Promise<void> {
+  const { closeWriter } = await import("../commands/executor.js");
+  await closeWriter(db);
+  await db.end();
+}
+
+/** A consistent, read only snapshot on the reader: for reads that must see one moment, without locks. */
+export async function readTx<T>(db: Db, fn: (c: Tx) => Promise<T>): Promise<T> {
+  const c = await db.connect();
+  try {
+    await c.query("begin isolation level repeatable read read only");
+    const out = await fn(c);
+    await c.query("commit");
+    return out;
+  } catch (e) {
+    await c.query("rollback").catch(() => undefined);
+    throw e;
+  } finally {
+    c.release();
+  }
 }
 
 /** Runs `fn` in one serializable-enough transaction (row locks are taken explicitly). */

@@ -1,0 +1,57 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Project.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "name": {
+            "type": "string"
+        },
+        "mode": {
+            "$ref": "Mode.json"
+        },
+        "default_rigor": {
+            "$ref": "RigorMode.json"
+        },
+        "lanes": {
+            "type": "array",
+            "items": {
+                "$ref": "DataLane.json"
+            },
+            "minItems": 1
+        },
+        "qa_overlays": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "autonomy_level": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3,
+            "description": "Autonomy level. Level 4 is never permitted (specification 11.2)."
+        },
+        "status": {
+            "$ref": "LifecycleStatus.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "name",
+        "mode",
+        "default_rigor",
+        "lanes",
+        "qa_overlays",
+        "autonomy_level",
+        "status"
+    ],
+    "description": "A project: its mode, default rigor, admitted lanes, QA overlays and autonomy level.",
+    "unevaluatedProperties": false
+}

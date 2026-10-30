@@ -1,3 +1,4 @@
+import pg from "pg";
 import { validateInputCoverage } from "./inputs.js";
 import { requireAuthorOutputs } from "./artifacts.js";
 import type { Tx } from "../db/index.js";
@@ -15,6 +16,8 @@ export async function preparedExecutionGuard(
     role?: string;
     preparation_manifest_digest?: { algorithm: string; value: string };
   },
+  /** Writers lock what they check; a read only snapshot cannot and need not. */
+  lock = true,
 ): Promise<PreparationGuard | undefined> {
   const prep = await preparationForSubject(c, pkg);
   if (!prep) {
@@ -47,11 +50,11 @@ export async function preparedExecutionGuard(
     if (!["public", "internal"].includes(pkg.body.data_lane))
       throw new Error("This data lane needs an approved confined runtime");
     await validateInputCoverage(c, pkg, prep.snapshot);
-    await resolveBasis(c, cfg, prep.manifest.basis_refs, true);
+    await resolveBasis(c, cfg, prep.manifest.basis_refs, lock);
     if (run?.role === "pre-check") {
       const author = (
         await c.query<{ id: string; status: string }>(
-          "select id,status from runs where package_id=$1 and package_revision=$2 and role='author' order by round desc,created_at desc,id desc limit 1 for share",
+          `select id,status from runs where package_id=$1 and package_revision=$2 and role='author' order by round desc,created_at desc,id desc limit 1${lock ? " for share" : ""}`,
           [pkg.id, pkg.revision],
         )
       ).rows[0];
@@ -72,13 +75,23 @@ export async function preparedExecutionGuard(
       required_checks_complete: false,
       results_pass: false,
     };
-  } catch {
-    throw new Refusal(
-      409,
-      "preparation-stale",
-      "The controlled preparation basis changed, is unavailable, or requires a confined runtime. Return the package for a controlled revision.",
-    );
+  } catch (error) {
+    throw staleUnlessDatabaseFault(error);
   }
+}
+
+/**
+ * A changed or unavailable basis is a stale preparation, which the owner resolves by revising. A
+ * database fault (lost connection, lock timeout, refused privilege) is not, and must surface as a
+ * server error instead of being reported as staleness.
+ */
+export function staleUnlessDatabaseFault(error: unknown): unknown {
+  if (error instanceof pg.DatabaseError) return error;
+  return new Refusal(
+    409,
+    "preparation-stale",
+    "The controlled preparation basis changed, is unavailable, or requires a confined runtime. Return the package for a controlled revision.",
+  );
 }
 
 /** Only immutable controlled contract/checks go to a checker; private preparation context is excluded. */

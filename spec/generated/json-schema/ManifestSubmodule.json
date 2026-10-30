@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ManifestSubmodule.json",
+    "type": "object",
+    "properties": {
+        "path": {
+            "type": "string"
+        },
+        "url": {
+            "type": "string"
+        },
+        "commit": {
+            "$ref": "GitObjectId.json"
+        }
+    },
+    "required": [
+        "path",
+        "url",
+        "commit"
+    ],
+    "unevaluatedProperties": false
+}

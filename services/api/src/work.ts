@@ -8,7 +8,8 @@ import type { Ajv2020 } from "ajv/dist/2020.js";
 import { preparedExecutionGuard, preparedJobInputs, quarantineCompletion } from "./preparation/lifecycle.js";
 import { preparationForSubject, preparedReleaseGuard, persistReleaseManifest } from "./preparation/release.js";
 import { enrollPreparationTx, advancePreparationRevision } from "./preparation/store.js";
-import { type Db, type Tx, tx } from "./db/index.js";
+import { type Db, type Tx, readTx } from "./db/index.js";
+import { command } from "./commands/executor.js";
 import { type Actor, appendEvent } from "./events.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
@@ -89,7 +90,7 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
     disposition: "pending",
   };
   validate(cfg, "Capture.json", capture);
-  return tx(db, async (c) => {
+  return command(db, "capture.create", async (c) => {
     await c.query("insert into captures (id, body, created_at) values ($1, $2, $3)", [capture.id, capture, capture.created_at]);
     for (const f of files) {
       await c.query("insert into attachments (capture_id, name, sha256, bytes) values ($1, $2, $3, $4)", [
@@ -219,7 +220,7 @@ export async function packageOutput(db: Db, id: string, name: string) {
   // is never served; the mismatch goes on the record.
   const actual = sha256(row.bytes);
   if (actual !== row.sha256) {
-    await tx(db, (c) =>
+    await command(db, "output.record-mismatch", (c) =>
       appendEvent(c, "output.mismatch", pkg.id, SYSTEM, { revision: pkg.revision, run: author.id, name, recorded: row.sha256, actual }),
     );
     throw new Refusal(409, "output-changed", "This output changed since it was recorded, so it is not served. The mismatch is on the record.");
@@ -229,7 +230,7 @@ export async function packageOutput(db: Db, id: string, name: string) {
 
 /** Edits a draft. Identity, revision and status are the server's, never the client's. */
 export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: string, body: Json) {
-  return tx(db, async (c) => {
+  return command(db, "draft.edit", async (c) => {
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.status !== "draft") throw new Refusal(409, "wrong-state", "Only a draft can be edited");
@@ -535,7 +536,7 @@ const MAX_LOG_LINES = 500;
 
 /** The daemon asks for work. Only runs whose package is ready are handed out. */
 export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
-  return tx(db, async (c) => {
+  return command(db, "run.claim", async (c) => {
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
     // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
     let cursor: { at: string; id: string } | null = null;
@@ -695,7 +696,7 @@ const LABEL_MAX = 120;
  * the daemon whether the owner asked to stop the run.
  */
 export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string) {
-  return tx(db, async (c) => {
+  return command(db, "run.log", async (c) => {
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
     if (!holdsClaim(row.claim_token_hash, token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
@@ -725,7 +726,7 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
  * run becomes lost, with the reason on the record. Nothing is requeued; the owner decides.
  */
 export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
-  return tx(db, async (c) => {
+  return command(db, "run.sweep-lost", async (c) => {
     const r = await c.query<RunRow>(
       "select * from runs where status = 'running' and lease_expires_at < now() order by created_at,id",
     );
@@ -752,7 +753,7 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
 
 /** The owner queues a new run in place of a lost, failed or stopped one. Repeating is harmless. */
 export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageId: string, runId: string) {
-  return tx(db, async (c) => {
+  return command(db, "run.requeue", async (c) => {
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
     if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
@@ -785,7 +786,7 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
  * as stopped. Until then the run shows as stopping. Repeating is harmless.
  */
 export async function stopRun(db: Db, cfg: WorkConfig, user: string, packageId: string, runId: string) {
-  return tx(db, async (c) => {
+  return command(db, "run.stop", async (c) => {
     const row = await lockRun(c, runId);
     if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
     const human: Actor = { kind: "human", id: user };
@@ -851,7 +852,7 @@ export async function overrideIndependence(
   signed: { subject_digest: string; assertion: Json } | null,
 ) {
   const why = overrideReason(reason);
-  return tx(db, async (c) => {
+  return command(db, "run.override-independence", async (c) => {
     const { row, pkg, digest: d } = await overrideTarget(c, packageId, runId, why, true);
     kernel(
       decide({
@@ -945,7 +946,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
   const key = typeof body?.idempotency_key === "string" ? body.idempotency_key : "";
   if (key.length < 8 || key.length > 100) throw new Refusal(400, "invalid", "A completion needs an idempotency key");
   try {
-    return await tx(db, async (c) => {
+    return await command(db, "run.complete", async (c) => {
       const row = await lockRun(c, runId);
       requireLegacyRun(row);
       if (!holdsClaim(row.claim_token_hash, body.claim_token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
@@ -965,7 +966,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
   } catch (e) {
     if (e instanceof ApplyRefusal) return recordRefused(db, cfg, runId, key, body, e.refusal);
     if (e instanceof LateCompletion) {
-      await tx(db, async c=>{
+      await command(db, "run.complete", async c=>{
         const row=await lockRun(c,runId);
         if(!holdsClaim(row.claim_token_hash,body.claim_token)) throw new Refusal(403,"stale-claim","This claim token does not hold the run");
         const enrolled=Boolean((await c.query("select 1 from preparation_heads where package_id=$1",[row.package_id])).rowCount);
@@ -1053,7 +1054,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
 
 /** Applying a completion was refused: the run ends failed with the refusal as its reason. */
 async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string, body: Json, refusal: Refusal) {
-  return tx(db, async (c) => {
+  return command(db, "run.record-refused", async (c) => {
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
     if (!holdsClaim(row.claim_token_hash, body.claim_token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
@@ -1304,7 +1305,7 @@ export async function decisionSubject(db: Db, id: string, kind: string, revision
     if(!cfg) throw new Refusal(409,"prepared-release-disabled","Prepared release is disabled");
     await preparedReleaseGuard(db,cfg,pkg,s.preparation);
   }
-  if(s.preparation && (kind==="accept" || kind==="accept-with-findings") && cfg) await tx(db,c=>preparedAcceptanceGuard(c,cfg,pkg,s.author,s.verification));
+  if(s.preparation && (kind==="accept" || kind==="accept-with-findings") && cfg) await readTx(db,c=>preparedAcceptanceGuard(c,cfg,pkg,s.author,s.verification,false));
   return {pkg,...s};
 }
 
@@ -1315,9 +1316,9 @@ export async function applyDecision(
   user: string,
   id: string,
   req: { kind: string; package_revision: number; reason?: string },
-  signed: { subject_digest: string; assertion: Json } | null,
+  signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
 ) {
-  return tx(db, async (c) => {
+  return command(db, "decision.apply", async (c) => {
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
@@ -1352,6 +1353,7 @@ export async function applyDecision(
         client_data_json: String(signed?.assertion.response?.clientDataJSON ?? ""),
         signature: String(signed?.assertion.response?.signature ?? ""),
       },
+      ...(signed?.nonce ? { challenge_nonce: signed.nonce } : {}),
       decided_at: now(),
     };
     validate(cfg, "Decision.json", decision);
@@ -1580,7 +1582,9 @@ export async function recordRuntimeStatus(db: Db, raw: unknown): Promise<Runtime
     });
   }
   const value = JSON.stringify({ reported_at: now(), runtimes: list });
-  await db.query("insert into settings (key, value) values ('runtime_status', $1) on conflict (key) do update set value = excluded.value", [value]);
+  await command(db, "runtime.report-status", (c) =>
+    c.query("insert into settings (key, value) values ('runtime_status', $1) on conflict (key) do update set value = excluded.value", [value]),
+  );
   return list;
 }
 

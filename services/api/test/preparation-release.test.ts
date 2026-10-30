@@ -31,7 +31,7 @@ const owner = (
   });
 async function ready() {
   const p = { ...packageFixture(), id: `WP-${randomUUID()}` };
-  await h.db.query(
+  await h.admin.query(
     "insert into packages(id,revision,status,body) values($1,0,'draft',$2)",
     [p.id, p],
   );
@@ -138,7 +138,7 @@ describe("prepared release through the existing authority", () => {
     expect(runs).toHaveLength(1);
     expect(runs[0].body.preparation_manifest_digest.value).toBe(m.digest);
     await expect(
-      h.db.query(
+      h.admin.query(
         "update preparation_release_manifests set body='{}' where package_id=$1",
         [id],
       ),
@@ -162,7 +162,7 @@ describe("prepared release through the existing authority", () => {
   });
   it("refuses release before confirmation and preserves the exact legacy subject shape", async () => {
     const p = { ...packageFixture(), id: `WP-${randomUUID()}` };
-    await h.db.query(
+    await h.admin.query(
       "insert into packages(id,revision,status,body) values($1,0,'draft',$2)",
       [p.id, p],
     );

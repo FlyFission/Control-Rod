@@ -1,0 +1,11 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ChangeRequestStatus.json",
+    "type": "string",
+    "enum": [
+        "proposed",
+        "approved",
+        "rejected",
+        "withdrawn"
+    ]
+}

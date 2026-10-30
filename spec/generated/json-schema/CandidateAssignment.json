@@ -1,0 +1,47 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CandidateAssignment.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Intake drafts revision 0; it can be released as is."
+        },
+        "release_digest": {
+            "$ref": "Digest.json"
+        },
+        "attempt_set_id": {
+            "$ref": "TenancyId.json"
+        },
+        "ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8
+        },
+        "author_assignment": {
+            "$ref": "AgentAssignment.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "package_id",
+        "package_revision",
+        "release_digest",
+        "ordinal",
+        "author_assignment"
+    ],
+    "description": "Identity of one candidate. Every release creates at least one (ordinal 1, no attempt set). (F)",
+    "unevaluatedProperties": false
+}

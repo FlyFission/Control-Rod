@@ -31,7 +31,7 @@ const owner = (
   });
 async function fresh() {
   const p = { ...packageFixture(), id: `WP-${randomUUID()}` };
-  await h.db.query(
+  await h.admin.query(
     "insert into packages(id,revision,status,body) values($1,0,'draft',$2)",
     [p.id, p],
   );
@@ -106,7 +106,7 @@ describe("signed human requirements confirmation", () => {
   it("refuses expired, wrong-purpose and non-human assertions", async () => {
     const { url, view } = await fresh(),
       o = await options(url, view.requirements_digest);
-    await h.db.query(
+    await h.admin.query(
       "update challenges set expires_at=now()-interval '1 minute' where purpose='preparation-confirmation'",
     );
     expect(
@@ -192,7 +192,7 @@ describe("signed human requirements confirmation", () => {
       ).statusCode,
     ).toBe(409);
     o = await options(a.url, a.view.requirements_digest);
-    await h.db.query("update credentials set user_name='different-user'");
+    await h.admin.query("update credentials set user_name='different-user'");
     try {
       expect(
         (
@@ -202,7 +202,7 @@ describe("signed human requirements confirmation", () => {
         ).statusCode,
       ).toBe(403);
     } finally {
-      await h.db.query("update credentials set user_name='owner'");
+      await h.admin.query("update credentials set user_name='owner'");
     }
   });
 });

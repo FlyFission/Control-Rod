@@ -1,0 +1,33 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "MarkingEnvelope.json",
+    "type": "object",
+    "properties": {
+        "object_kind": {
+            "type": "string"
+        },
+        "object_id": {
+            "type": "string"
+        },
+        "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "lane": {
+            "$ref": "DataLane.json"
+        },
+        "reason": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "object_kind",
+        "object_id",
+        "version",
+        "lane",
+        "reason"
+    ],
+    "description": "The lane an object carried when it was created. Immutable; effective markings are derived.",
+    "unevaluatedProperties": false
+}

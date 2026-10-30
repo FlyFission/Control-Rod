@@ -1,0 +1,57 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "SourceManifest.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "files": {
+            "type": "array",
+            "items": {
+                "$ref": "ManifestFile.json"
+            }
+        },
+        "symlink_policy": {
+            "$ref": "SymlinkPolicy.json"
+        },
+        "submodules": {
+            "type": "array",
+            "items": {
+                "$ref": "ManifestSubmodule.json"
+            }
+        },
+        "lfs_resolved": {
+            "type": "boolean",
+            "description": "Large file pointers were replaced by their content before digests were taken."
+        },
+        "excluded": {
+            "type": "array",
+            "items": {
+                "$ref": "ManifestExclusion.json"
+            }
+        },
+        "ignored_inputs": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Ignored paths deliberately included as inputs; every other ignored path is excluded."
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "files",
+        "symlink_policy",
+        "submodules",
+        "lfs_resolved",
+        "excluded",
+        "ignored_inputs"
+    ],
+    "description": "The exact retained input bytes for a promoted revision. Materialized read only for runs. (F)",
+    "unevaluatedProperties": false
+}

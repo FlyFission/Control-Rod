@@ -20,4 +20,4 @@ The design/plan were approved for implementation on 2026-10-26. The implementati
 - [Art authoring and release workflow](overlay-themes/asset-workflow.md)
 - [Execution and remaining review decisions](../.nuclear/changes/overlay-themes/execution.md)
 
-The full platform plan (product, architecture, security, domain model, flows, typicals, experience and business) is maintained as the Control Rod Platform Plan document and summarized by the records here.
+The full platform plan (product, architecture, security, domain model, flows, typicals, experience and business) is the Control Rod Platform Plan, an owner-held document with ten tabs (Overview, Build or borrow, Architecture, Security and compliance, Domain model, Flows, Typicals, Large-project typicals, Experience, Business). It is not public; contributors work from the records here, which cite it by tab. The workbench specification maps each of its sections to the plan in its [Platform Plan alignment table](superpowers/specs/2026-10-29-workbench-ontology-design.md#2-platform-plan-alignment).

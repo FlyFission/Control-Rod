@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ProjectDeliverable.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "project_id": {
+            "$ref": "TenancyId.json"
+        },
+        "discipline": {
+            "type": "string"
+        },
+        "grade": {
+            "$ref": "SignerGrade.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "project_id",
+        "discipline",
+        "grade"
+    ],
+    "description": "A project deliverable. Distinct from a package's Deliverable entry.",
+    "unevaluatedProperties": false
+}

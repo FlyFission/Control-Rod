@@ -1,0 +1,59 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ControlledRecord.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "project_id": {
+            "$ref": "TenancyId.json"
+        },
+        "kind": {
+            "$ref": "ControlledRecordKind.json"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Intake drafts revision 0; it can be released as is."
+        },
+        "candidate_id": {
+            "$ref": "TenancyId.json"
+        },
+        "input_digests": {
+            "type": "array",
+            "items": {
+                "$ref": "Digest.json"
+            },
+            "minItems": 1
+        },
+        "clearance_decision_id": {
+            "type": "string"
+        },
+        "applied_ref": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The observed application: the merged commit, or the issuance record."
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "kind",
+        "package_id",
+        "package_revision",
+        "candidate_id",
+        "input_digests",
+        "clearance_decision_id",
+        "applied_ref"
+    ],
+    "description": "An accepted and applied revision. Created only after application is observed. (F)",
+    "unevaluatedProperties": false
+}

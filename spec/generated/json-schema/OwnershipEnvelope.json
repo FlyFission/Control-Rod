@@ -1,0 +1,27 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "OwnershipEnvelope.json",
+    "type": "object",
+    "properties": {
+        "object_kind": {
+            "type": "string",
+            "description": "The stored object's type, for example \"package\" or \"capture\"."
+        },
+        "object_id": {
+            "type": "string"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "project_id": {
+            "$ref": "TenancyId.json"
+        }
+    },
+    "required": [
+        "object_kind",
+        "object_id",
+        "org_id"
+    ],
+    "description": "Who owns a stored object. Kept beside the record, never inside a signed body.",
+    "unevaluatedProperties": false
+}

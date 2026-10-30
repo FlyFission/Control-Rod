@@ -1,0 +1,66 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PersonVerification.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "verifier_member_id": {
+            "$ref": "TenancyId.json"
+        },
+        "qualification_id": {
+            "$ref": "TenancyId.json"
+        },
+        "qualification_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "candidate_id": {
+            "$ref": "TenancyId.json"
+        },
+        "criteria": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1
+        },
+        "outcome": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "pass"
+                },
+                {
+                    "type": "string",
+                    "const": "fail"
+                },
+                {
+                    "type": "string",
+                    "const": "inconclusive"
+                }
+            ]
+        },
+        "assertion": {
+            "$ref": "PasskeyAssertion.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "verifier_member_id",
+        "qualification_id",
+        "qualification_version",
+        "candidate_id",
+        "criteria",
+        "outcome",
+        "assertion"
+    ],
+    "description": "A qualified person's verification of a candidate for Safety or Material work. (A)",
+    "unevaluatedProperties": false
+}

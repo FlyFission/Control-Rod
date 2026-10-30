@@ -7,7 +7,7 @@ Date: 2026-10-30. Revision 2. Implements the [workbench and ontology specificati
 Two separate approvals:
 
 1. **Authorization A: Phase 0 and spikes.** Phase 0 is documentation, registers, tokens and acceptance cases. Spikes produce evidence only, run in throwaway workspaces, and each spike run needs the owner's go ahead at the time because it starts real agent processes. Authorization A does not require decisions D-1 to D-7; Phase 0 task 0.5 is where they are recorded.
-2. **Authorization B: Phases 1 to 9.** Requires decisions D-1 to D-6 and the D-7 theme contract approval recorded in the basis. Approval of the D-7 catalogue list gates only task 4.9.
+2. **Authorization B: Phases 1 to 9.** Requires decisions D-1 to D-6 and the D-7 theme contract approval recorded in the basis. The D-7 catalogue is PR #12; porting it is task 4.9.
 
 ## How to execute
 
@@ -47,7 +47,7 @@ Authorization B:
 | 0.6 | Design tokens from ascertain.it | `apps/web/src/design/tokens.css`, self hosted fonts | Tokens match source; no third party request | WB-08, Q-9 |
 | 0.7 | Platform Plan references | `docs/README.md` link to the Platform Plan | Links resolve | all |
 | 0.8 | OV acceptance cases | `docs/office-view/acceptance.md`: for each OV P1 item, inputs, expected AgentFigure projection and commands; derived from the scenario spreadsheet if the owner supplies it, otherwise written self contained and owner approved | Owner approval recorded | WB-06 |
-| 0.9 | Theme catalogue stream | `docs/office-view/themes/catalogue.md` (draft list for D-7 if none supplied), art direction brief, asset licensing approach, the structurally different test theme brief | Owner review of the draft list | WB-07 |
+| 0.9 | Theme catalogue stream | Land draft PR #12 (fifteen original worlds, originality guard, distinct casts and props); write the structurally different test theme brief and the mapping from PR #12 stations to the office view's rooms and cube sets | PR #12 merged after its human art and distribution review; mapping approved | WB-07 |
 | 0.10 | Authenticator policy | `docs/sqa/authenticators.md`: which attested authenticator classes count as hardware backed (Q-E) | Owner approval | WB-05 |
 | 0.11 | openclaw-office pin and license check | donor register entry, retained license | Pinned commit and license evidence | WB-23 |
 
@@ -122,7 +122,7 @@ Order matters: the theme contract and harness come before the renderer.
 | 4.6 | AgentFigure projection with full inputs: kernel, run, sandbox, waiting detection (2.9), qualifications and pending signatures (1.5, 1.14), changed inputs (input quality), usage (5.2) | Five states and causes from recorded data only | WB-06 | no |
 | 4.7 | OV P1 items against the acceptance cases of 0.8, on both themes | One passing case per OV-01 to OV-15 and OV-26 | WB-06 | no |
 | 4.8 | Lenses and presenting mode (Spend lens after 5.2) | Spend only under its lens; restricted wing hidden in presenting mode | WB-06 | no |
-| 4.9 | Catalogue themes (after D-7 list approval) | Each passes 4.2 and 4.3; assets registered | WB-07 | no |
+| 4.9 | Port PR #12's fifteen worlds to the office view's room regions as scene data | Each passes 4.2 and 4.3; assets registered; originality and distinct cast tests stay green | WB-07 | no |
 | 4.10 | SCRAM UI on the floor and the phone layout, on the Phase 2.10 backend | Scope shown before firing; signature; stop latency displayed | WB-25 | no |
 | 4.11 | Exceptions overlay past 40 agents and portfolio roll up | Healthy work folds | WB-06 | no |
 

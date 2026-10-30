@@ -330,6 +330,8 @@ export async function recordRegistration(
  * writing. Envelopes go to the sole active organization, as the insert triggers do.
  */
 export async function backfillTenancy(c: Tx): Promise<number> {
+  // Only records with no envelope yet are resolved, so a later second organization never makes
+  // restarts ambiguous; an unowned record with more than one active organization still refuses.
   await c.query(`insert into object_owners (object_kind, object_id, org_id)
     select k, i, tenancy_sole_org() from (
       select 'capture' as k, id as i from captures
@@ -339,6 +341,7 @@ export async function backfillTenancy(c: Tx): Promise<number> {
       union select 'preparation', preparation_id from preparation_snapshots
       union select 'grant', id from preparation_grants
       union select 'credential', id from credentials) existing
+    where not exists (select 1 from object_owners o where o.object_kind = existing.k and o.object_id = existing.i)
     on conflict do nothing`);
   return backfillCredentials(c);
 }

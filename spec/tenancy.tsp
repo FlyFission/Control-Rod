@@ -45,6 +45,17 @@ model Member {
 
   display_name: string;
   status: LifecycleStatus;
+
+  /** The Member's own office theme: a bundled theme and the digest of its manifest when chosen. */
+  office_theme?: OfficeThemeSelection;
+}
+
+@extension("unevaluatedProperties", false)
+model OfficeThemeSelection {
+  @pattern("^[a-z][a-z0-9-]{1,63}$")
+  theme_id: string;
+
+  manifest_digest: Digest;
 }
 
 /** Grades a signer may sign at. */
@@ -166,6 +177,9 @@ model AuthenticatorCredential {
 
   hardware_floor: HardwareFloorVerdict;
 
+  /** A revoked credential signs nothing and cannot sign in. Revocation is a new version. */
+  revoked?: boolean;
+
   @format("date-time")
   recorded_at: string;
 }
@@ -188,6 +202,21 @@ model Delegation {
   ends_on: string;
 
   reason: string;
+}
+
+/** Ends a delegation before its end date. Delegations are frozen; their revocation is its own record. */
+@extension("unevaluatedProperties", false)
+model DelegationRevocation {
+  id: TenancyId;
+  org_id: TenancyId;
+  delegation_id: TenancyId;
+  revoked_by: TenancyId;
+
+  @minLength(1)
+  reason: string;
+
+  @format("date-time")
+  revoked_at: string;
 }
 
 /** A project: its mode, default rigor, admitted lanes, QA overlays and autonomy level. */

@@ -8,10 +8,10 @@ checks the static rules and that this catalog matches the commands executed.
 
 | Command | Principal | Signature | Specification 10.2 row | Executed in | Reached from |
 |---|---|---|---|---|---|
-| `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /auth/login/options`, `POST /auth/register/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/runs/:runId/override-independence/options` |
-| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallenge | `POST /auth/login/verify`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
+| `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /admin/commands/:name/options`, `POST /auth/login/options`, `POST /auth/register/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/runs/:runId/override-independence/options` |
+| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallenge | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
 | `auth.register-credential` | member | none | Register authenticator credential | `auth.ts` registrationVerify | `POST /auth/register/verify` |
-| `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /auth/login/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
+| `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
 | `auth.session-start` | member | none | operational | `auth.ts` startSession | `POST /auth/login/verify`, `POST /auth/register/verify` |
 | `auth.session-end` | member | none | operational | `auth.ts` endSession | `POST /auth/logout` |
 | `capture.create` | member | none | Capture | `work.ts` createCapture | `POST /captures` |
@@ -33,6 +33,25 @@ checks the static rules and that this catalog matches the commands executed.
 | `preparation.refresh-basis` | member | none | Enroll, edit, resolve preparation | `preparation/store.ts` refreshPreparationBasis | `POST /packages/:id/preparation/basis/refresh` |
 | `preparation.confirm` | member | direct | Confirm requirements | `preparation/subjects.ts` confirmRequirements | `POST /packages/:id/preparation/confirm` |
 | `migration.backfill-tenancy` | system | none | Migration data change (ownership, members, credential records) | `db/index.ts` openDb | startup (after migrations) |
+| `admin.org-create` | member | direct | Create organization | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.member-enroll` | member | direct | Enroll Member | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.member-suspend` | member | direct | Suspend Member | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.member-reactivate` | member | direct | Suspend Member (reversal) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.member-remove` | member | direct | Remove Member | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.credential-revoke` | member | direct | Revoke authenticator credential | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.qualification-issue` | member | direct | Issue SignerQualification | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.qualification-revoke` | member | direct | Revoke SignerQualification | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.delegation-create` | member | direct | Delegate | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.delegation-revoke` | member | direct | Revoke delegation | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.project-create` | member | direct | Create project | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.project-update` | member | direct | Set mode, default rigor, lanes, overlays | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.project-set-autonomy` | member | direct | Set autonomy level | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.repo-bind` | member | direct | Bind repository | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.repo-unbind` | member | direct | Unbind repository | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.policy-propose` | member | none | Change policy set (proposal) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.policy-approve` | member | direct | Change policy set | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.budget-set` | member | direct | Set budget | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.theme-select` | member | none | Select office theme | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `grant.issue` | system | none | Grant issue | `preparation/grants.ts` issuePreparationGrant | no production caller yet (declared seam) |
 | `grant.begin-use` | agent-via-daemon | none | Grant begin use | `preparation/grants.ts` beginGrantUse | `POST /runner/preparation-grants/:id/begin` |
 | `grant.finish-use` | agent-via-daemon | none | Grant finalize use | `preparation/grants.ts` finishGrantUse | `POST /runner/preparation-grants/:id/finalize` |

@@ -504,6 +504,9 @@ model ChangeRequest {
 
   proposed_by: Actor;
   status: ChangeRequestStatus;
+
+  /** The proposed content (for a policy change, the policy set body); its digest is subject_digest. */
+  proposal?: Record<unknown>;
 }
 
 /* ---- Budgets and usage ---- */

@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import cookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
@@ -22,6 +22,8 @@ import { grantRoutes } from "./preparation/grant-routes.js";
 import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
+import { ADMIN_COMMANDS, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
+import { currentPolicySet, currentQualification } from "./tenancy.js";
 import {
   Refusal,
   type WorkConfig,
@@ -192,6 +194,43 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post("/auth/logout", async (req, reply) => {
     await endSession(db, req, reply);
     return { registered: await isRegistered(db), signed_in: false };
+  });
+
+  /* ---- administration (specification 10.2) ---- */
+  app.get("/admin", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    const q = await db.query<{ body: unknown }>("select body from members where org_id = $1 order by body->>'user_name'", [caller.orgId]);
+    const projects = await db.query<{ body: unknown }>("select body from projects where org_id = $1 order by body->>'name'", [caller.orgId]);
+    return {
+      me: caller,
+      bootstrap: await needsBootstrap(db, caller.orgId),
+      qualification: await currentQualification(db, caller.memberId),
+      members: q.rows.map((r) => r.body),
+      projects: projects.rows.map((r) => r.body),
+      policy: (await currentPolicySet(db, caller.orgId))?.record ?? null,
+      themes: [...bundledThemes(cfg.root).keys()].sort(),
+      commands: adminCatalog(),
+    };
+  });
+  app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown> } }>("/admin/commands/:name/options", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    if (!ADMIN_COMMANDS[req.params.name]) throw new Refusal(404, "not-found", "No such administrative command");
+    const payload = req.body?.payload ?? {};
+    const subject = adminSubject(req.params.name, caller, payload);
+    const nonce = randomBytes(16).toString("hex");
+    const challenge = new Uint8Array(createHash("sha256").update(`admin|${subject}|${nonce}`).digest());
+    const options = await assertionOptions(db, auth, "admin", { command: req.params.name, member: caller.memberId, subject_digest: subject, nonce }, challenge);
+    return { subject_digest: { algorithm: "sha256", value: subject }, options };
+  });
+  app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown>; assertion?: Record<string, unknown> } }>("/admin/commands/:name", async (req) => {
+    const user = await person(req);
+    const caller = await callerFor(db, user);
+    let signed: string | null = null;
+    if (req.body?.assertion) {
+      const ok = await assertionVerify(db, auth, "admin", req.body.assertion as never);
+      if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId) signed = String(ok.data.subject_digest);
+    }
+    return runAdmin(db, { root: cfg.root }, req.params.name, caller, req.body?.payload ?? {}, signed);
   });
 
   preparationRoutes(app, db, cfg, person, auth);

@@ -98,7 +98,7 @@ describe("digest vectors", () => {
   });
   it("covers every frozen type", () => {
     const frozen = [...Object.values(WORKBENCH).filter((t) => t.cls === "F").map((t) => t.schema), "SandboxPolicy",
-      "SignerQualification", "AuthenticatorCredential", "Delegation", "PolicySet"].sort();
+      "SignerQualification", "AuthenticatorCredential", "Delegation", "DelegationRevocation", "PolicySet"].sort();
     expect(doc.vectors.map((v) => v.type).sort()).toEqual(frozen);
   });
 });

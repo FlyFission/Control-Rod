@@ -31,6 +31,10 @@
         },
         "status": {
             "$ref": "ChangeRequestStatus.json"
+        },
+        "proposal": {
+            "$ref": "#/$defs/RecordUnknown",
+            "description": "The proposed content (for a policy change, the policy set body); its digest is subject_digest."
         }
     },
     "required": [
@@ -44,5 +48,12 @@
         "status"
     ],
     "description": "A change only an authorized person may approve, over an exact subject version. (L)",
-    "unevaluatedProperties": false
+    "unevaluatedProperties": false,
+    "$defs": {
+        "RecordUnknown": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {}
+        }
+    }
 }

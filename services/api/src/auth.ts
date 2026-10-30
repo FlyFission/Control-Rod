@@ -108,7 +108,8 @@ export async function registrationVerify(db: Db, cfg: AuthConfig, body: Registra
 }
 
 async function allowCredentials(db: Db) {
-  const r = await db.query<{ id: string; transports: string[] }>("select id, transports from credentials");
+  // A revoked passkey is never offered.
+  const r = await db.query<{ id: string; transports: string[] }>("select id, transports from credentials where not exists (select 1 from authenticator_credentials a where a.credential_id = credentials.id and (a.body->>'revoked')::boolean is true and a.version = (select max(version) from authenticator_credentials b where b.credential_id = credentials.id))");
   return r.rows.map((x) => ({
     id: x.id,
     transports: x.transports as AuthenticatorTransportFuture[],
@@ -145,7 +146,8 @@ export async function assertionVerify(
   const data = await takeChallenge(db, challenge, purpose);
   if (data === null) return null;
   const r = await db.query<{ id: string; user_name: string; public_key: Buffer; counter: string; transports: string[] }>(
-    "select * from credentials where id = $1",
+    // A revoked passkey cannot sign in or sign anything.
+    "select * from credentials where id = $1 and not exists (select 1 from authenticator_credentials a where a.credential_id = credentials.id and (a.body->>'revoked')::boolean is true and a.version = (select max(version) from authenticator_credentials b where b.credential_id = credentials.id))",
     [body.id],
   );
   const row = r.rows[0];

@@ -8,7 +8,8 @@ import {
   type RegistrationResponseJSON,
 } from "@simplewebauthn/server";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type { Db } from "./db/index.js";
+import { type Db, tx } from "./db/index.js";
+import { recordRegistration } from "./tenancy.js";
 
 export interface AuthConfig {
   rpID: string;
@@ -86,11 +87,18 @@ export async function registrationVerify(db: Db, cfg: AuthConfig, body: Registra
     requireUserVerification: true,
   });
   if (!result.verified) return null;
-  const { credential } = result.registrationInfo;
-  await db.query(
-    "insert into credentials (id, user_name, public_key, counter, transports) values ($1, $2, $3, $4, $5)",
-    [credential.id, String(data.name), Buffer.from(credential.publicKey), credential.counter, credential.transports ?? []],
-  );
+  const info = result.registrationInfo;
+  const { credential } = info;
+  await tx(db, async (c) => {
+    await c.query(
+      "insert into credentials (id, user_name, public_key, counter, transports) values ($1, $2, $3, $4, $5)",
+      [credential.id, String(data.name), Buffer.from(credential.publicKey), credential.counter, credential.transports ?? []],
+    );
+    await recordRegistration(c, {
+      userName: String(data.name), credentialId: credential.id, format: info.fmt, aaguid: info.aaguid,
+      userVerified: info.userVerified, backupEligible: info.credentialDeviceType === "multiDevice",
+    }, { kind: "human", id: String(data.name) });
+  });
   return String(data.name);
 }
 

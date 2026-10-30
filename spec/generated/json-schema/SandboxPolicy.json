@@ -1,0 +1,69 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "SandboxPolicy.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "driver": {
+            "$ref": "SandboxDriver.json"
+        },
+        "denied_read": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1,
+            "description": "Paths agent actions can never read; always includes the CLI login folders."
+        },
+        "writable_roots": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "allowed_hosts": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Hosts agent actions may reach; empty means no network."
+        },
+        "enabled_tools": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Agent tools enabled for the run; anything not listed is off."
+        },
+        "mandatory_claims": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Claims the in-run probe must observe before the verdict counts."
+        }
+    },
+    "required": [
+        "id",
+        "version",
+        "org_id",
+        "driver",
+        "denied_read",
+        "writable_roots",
+        "allowed_hosts",
+        "enabled_tools",
+        "mandatory_claims"
+    ],
+    "description": "What a run's agent actions may touch. Decisions and traces cite its digest. (F per version)",
+    "unevaluatedProperties": false
+}

@@ -1,6 +1,7 @@
 import { createHash, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,6 +30,18 @@ function systemPostgres(): string | null {
   if (!existsSync(base)) return null;
   const versions = readdirSync(base).filter((v) => Number(v)>=17 && existsSync(join(base, v, "bin", "initdb"))).sort((a, b) => Number(b) - Number(a));
   return versions[0] ? join(base, versions[0], "bin") : null;
+}
+
+/** A port the operating system reports free on loopback right now. */
+function freePort(): Promise<number> {
+  return new Promise((resolvePort, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() => (typeof address === "object" && address ? resolvePort(address.port) : reject(new Error("no port"))));
+    });
+  });
 }
 
 export interface Harness {
@@ -72,9 +85,18 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
   if (system && process.getuid?.() !== 0) {
     // CI runners ship PostgreSQL binaries; start a throwaway cluster with them.
     const dir = mkdtempSync(join(tmpdir(), "cr-pg-"));
-    const port = 20000 + Math.floor(Math.random() * 20000);
     execFileSync(join(system, "initdb"), ["-D", dir, "-U", "controlrod", "--auth=trust", "-E", "UTF8"], { stdio: "ignore" });
-    execFileSync(join(system, "pg_ctl"), ["-D", dir, "-o", `-p ${port} -k ${dir} -c listen_addresses=127.0.0.1`, "-w", "start"], { stdio: "ignore" });
+    // Test files run in parallel; a port can be taken between choosing it and binding it, so retry.
+    let port = 0;
+    for (let attempt = 1; ; attempt++) {
+      port = await freePort();
+      try {
+        execFileSync(join(system, "pg_ctl"), ["-D", dir, "-o", `-p ${port} -k ${dir} -c listen_addresses=127.0.0.1`, "-w", "start"], { stdio: "ignore" });
+        break;
+      } catch (error) {
+        if (attempt === 3) throw error;
+      }
+    }
     const db = await openDb(`postgres://controlrod@127.0.0.1:${port}/postgres`);
     const app = buildApp({
       ...options,
@@ -95,7 +117,7 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
     };
   }
   const dir = mkdtempSync(join(tmpdir(), "cr-pg-"));
-  const port = 20000 + Math.floor(Math.random() * 20000);
+  const port = await freePort();
   const pg = new EmbeddedPostgres({
     databaseDir: dir,
     user: "controlrod",

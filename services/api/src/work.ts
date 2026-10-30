@@ -1315,7 +1315,7 @@ export async function applyDecision(
   user: string,
   id: string,
   req: { kind: string; package_revision: number; reason?: string },
-  signed: { subject_digest: string; assertion: Json } | null,
+  signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
 ) {
   return tx(db, async (c) => {
     const pkg = await currentPackage(c, id, true);
@@ -1352,6 +1352,7 @@ export async function applyDecision(
         client_data_json: String(signed?.assertion.response?.clientDataJSON ?? ""),
         signature: String(signed?.assertion.response?.signature ?? ""),
       },
+      ...(signed?.nonce ? { challenge_nonce: signed.nonce } : {}),
       decided_at: now(),
     };
     validate(cfg, "Decision.json", decision);

@@ -1,0 +1,79 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "SignerQualification.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "member_id": {
+            "$ref": "TenancyId.json"
+        },
+        "licenses": {
+            "type": "array",
+            "items": {
+                "$ref": "License.json"
+            }
+        },
+        "disciplines": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "grades": {
+            "type": "array",
+            "items": {
+                "$ref": "SignerGrade.json"
+            }
+        },
+        "roles": {
+            "type": "array",
+            "items": {
+                "$ref": "SignerRole.json"
+            }
+        },
+        "authorities": {
+            "type": "array",
+            "items": {
+                "$ref": "SignerAuthority.json"
+            }
+        },
+        "revoked": {
+            "type": "boolean",
+            "description": "A revoked version grants nothing; revocation is a new version, never a deletion."
+        },
+        "reason": {
+            "type": "string",
+            "description": "Why this version was issued or revoked."
+        },
+        "effective_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "id",
+        "version",
+        "org_id",
+        "member_id",
+        "licenses",
+        "disciplines",
+        "grades",
+        "roles",
+        "authorities",
+        "revoked",
+        "reason",
+        "effective_at"
+    ],
+    "description": "What a Member is qualified to sign and administer. One frozen version per change.",
+    "unevaluatedProperties": false
+}

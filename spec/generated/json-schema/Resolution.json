@@ -1,0 +1,45 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Resolution.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "comment_id": {
+            "$ref": "TenancyId.json"
+        },
+        "resolved_by": {
+            "$ref": "Actor.json"
+        },
+        "cites_kind": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "revision"
+                },
+                {
+                    "type": "string",
+                    "const": "reply"
+                }
+            ]
+        },
+        "cites": {
+            "type": "string",
+            "minLength": 1
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "comment_id",
+        "resolved_by",
+        "cites_kind",
+        "cites"
+    ],
+    "description": "Cites what resolved a comment: a later revision or a reply. (A)",
+    "unevaluatedProperties": false
+}

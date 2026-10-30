@@ -31,59 +31,32 @@ export async function closeWriter(reader: Db): Promise<void> {
 }
 
 /**
- * Statements a command may not issue: the executor owns the transaction, and no command changes
- * its role or session. Checked on every statement in the text, after comments are removed.
+ * Statements a command may not issue: the executor owns the transaction. Each command query is sent
+ * through the extended protocol, where PostgreSQL itself refuses more than one statement, so only the
+ * first keyword of that one statement needs checking, after any leading comments. Role and session
+ * changes need no check here: the writer login belongs to no role, so the database refuses them.
  */
-const FORBIDDEN = [
-  /^(begin|start\s+transaction|commit|end|rollback|abort|savepoint|release|prepare\s+transaction|discard|listen|notify|copy)\b/i,
-  /^(set|reset)\s+(local\s+|session\s+)?(role|session\s+authorization|all)\b/i,
-];
-const FORBIDDEN_ANYWHERE = /\bset_config\s*\(\s*'(role|session_authorization)'/i;
+const FORBIDDEN = /^(begin|start\s+transaction|commit|end|rollback|abort|savepoint|release|prepare\s+transaction|discard|listen|notify|copy)\b/i;
 
-/**
- * Splits SQL into statements the way PostgreSQL reads it: semicolons and comment markers inside
- * single quoted strings, dollar quoted bodies and double quoted identifiers are text, not syntax.
- * Comments are dropped. Returns each statement, trimmed.
- */
-export function statements(sql: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  let i = 0;
-  while (i < sql.length) {
-    const ch = sql[i]!, next = sql[i + 1];
-    if (ch === "-" && next === "-") { while (i < sql.length && sql[i] !== "\n") i++; cur += " "; continue; }
-    if (ch === "/" && next === "*") {
-      let depth = 1; i += 2;
-      while (i < sql.length && depth) { if (sql[i] === "/" && sql[i + 1] === "*") { depth++; i += 2; } else if (sql[i] === "*" && sql[i + 1] === "/") { depth--; i += 2; } else i++; }
-      cur += " "; continue;
+/** The statement with leading whitespace and comments removed (nested block comments included). */
+export function withoutLeadingComments(sql: string): string {
+  let s = sql;
+  for (;;) {
+    s = s.replace(/^\s+/, "");
+    if (s.startsWith("--")) { const nl = s.indexOf("\n"); s = nl < 0 ? "" : s.slice(nl + 1); continue; }
+    if (s.startsWith("/*")) {
+      let depth = 1, i = 2;
+      while (i < s.length && depth) { if (s.startsWith("/*", i)) { depth++; i += 2; } else if (s.startsWith("*/", i)) { depth--; i += 2; } else i++; }
+      s = s.slice(i); continue;
     }
-    if (ch === "'" || ch === '"') {
-      let j = i + 1;
-      while (j < sql.length) { if (sql[j] === ch) { if (sql[j + 1] === ch) { j += 2; continue; } break; } j++; }
-      cur += sql.slice(i, j + 1); i = j + 1; continue;
-    }
-    if (ch === "$") {
-      const tag = /^\$[A-Za-z_]?[A-Za-z0-9_]*\$/.exec(sql.slice(i))?.[0];
-      if (tag) { const end = sql.indexOf(tag, i + tag.length); const stop = end < 0 ? sql.length : end + tag.length; cur += sql.slice(i, stop); i = stop; continue; }
-    }
-    if (ch === ";") { out.push(cur.trim()); cur = ""; i++; continue; }
-    cur += ch; i++;
+    return s;
   }
-  out.push(cur.trim());
-  return out.filter((x) => x.length);
-}
-
-function refusal(name: string, text: string): string | null {
-  for (const s of statements(text)) {
-    if (FORBIDDEN.some((re) => re.test(s)) || FORBIDDEN_ANYWHERE.test(s)) return s.slice(0, 60);
-  }
-  return null;
 }
 
 /**
- * What a command receives: a query function and nothing else, for plain SQL text with values. It
- * stops working when the command ends. This catches mistakes in our own command code; the boundary
- * against everything else is the separate reader and writer logins.
+ * What a command receives: a query function and nothing else, for one plain SQL statement with
+ * values. It stops working when the command ends. This catches mistakes in our own command code; the
+ * boundary against everything else is the separate reader and writer logins.
  */
 function guarded(client: Tx, name: string): { view: Tx; revoke: () => void } {
   let live = true;
@@ -91,9 +64,10 @@ function guarded(client: Tx, name: string): { view: Tx; revoke: () => void } {
     if (!live) throw new Error(`command ${name} has finished; its database client is no longer usable`);
     if (typeof text !== "string") throw new Error(`command ${name} may only pass SQL text to query()`);
     if (values !== undefined && !Array.isArray(values)) throw new Error(`command ${name} may only pass an array of values`);
-    const refused = refusal(name, text);
-    if (refused !== null) throw new Error(`command ${name} may not run: ${refused}`);
-    return values === undefined ? client.query(text) : client.query(text, values);
+    const first = withoutLeadingComments(text);
+    if (FORBIDDEN.test(first)) throw new Error(`command ${name} may not run: ${first.slice(0, 60)}`);
+    // Extended protocol: one statement per query, enforced by PostgreSQL.
+    return client.query({ text, values: (values as unknown[] | undefined) ?? [], queryMode: "extended" } as never);
   };
   // Only query() exists on the view; any other client method is simply absent.
   const view = { query } as unknown as Tx;

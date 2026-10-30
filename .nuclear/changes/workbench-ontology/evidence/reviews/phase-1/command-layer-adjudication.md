@@ -59,6 +59,10 @@ Codex confirmed N-07 and N-10 and showed the SQL scanner could still be fooled (
 
 Codex confirmed the extended protocol is used for every command query (including empty values) and N-09 fixed, and found one remaining bypass: PostgreSQL discards empty statements, so `;COMMIT` passed the leading keyword check ([command-layer-codex-round5.md](command-layer-codex-round5.md)). **Fixed**: leading semicolons are removed with leading whitespace and comments before the check (tests: `;COMMIT`, ` ; ; /* x */ ;rollback`, a tab separated `end`).
 
+## Round 6
+
+Codex tried every single statement escape ([command-layer-codex-round6.md](command-layer-codex-round6.md)). Confirmed closed: multiple statements (server refuses), `DO` and `CALL` transaction control (refused inside an open transaction), `PREPARE p AS COMMIT` (invalid), parenthesised transaction commands (syntax error), Unicode whitespace. Two remaining: a line comment ended by a carriage return, and `PREPARE/**/TRANSACTION`. **Fixed**: `firstWord` skips exactly what PostgreSQL skips before the first token (its whitespace set, line comments ended by newline or carriage return, nested block comments, empty statements) and refuses the first word if it is any of `begin`, `start`, `commit`, `end`, `rollback`, `abort`, `savepoint`, `release`, `prepare`, `discard`, `listen`, `notify`, `copy`, whatever follows (tests for both cases and `start transaction`).
+
 Also fixed while verifying: an immediate restart could fail with a bare `undefined` while the previous embedded database was still stopping; startup now retries for a few seconds and otherwise says why.
 
 Also verified end to end: the real server starts on a fresh embedded database, creates both logins with a private `db-roles.json`, serves requests, and restarts on the existing database.

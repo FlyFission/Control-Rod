@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, lstatSync, openSync, readFileSync, writeSync } from "node:fs";
 import pg from "pg";
 
 /**
@@ -20,15 +20,49 @@ export interface RoleUrls { readerUrl: string; writerUrl: string }
 
 export class RoleSetupError extends Error {}
 
-/** Loads the local role passwords, creating them on first use (mode 0600). */
-export function localRoleSecrets(file: string): RoleSecrets {
-  if (!existsSync(file)) {
-    const fresh: RoleSecrets = { reader: randomBytes(24).toString("hex"), writer: randomBytes(24).toString("hex") };
-    writeFileSync(file, JSON.stringify(fresh), { mode: 0o600 });
+const SECRET = /^[0-9a-f]{48}$/;
+
+/**
+ * Reads a private file, creating it with `create()` on first use. Creation is exclusive (never
+ * follows or replaces an existing path); an existing file must be a regular file, not a link, and
+ * is narrowed to mode 0600 if it was wider.
+ */
+export function privateFile(path: string, create: () => string): string {
+  try {
+    const fd = openSync(path, "wx", 0o600);
+    try { writeSync(fd, create()); } finally { closeSync(fd); }
+  } catch (e) {
+    if ((e as { code?: string }).code !== "EEXIST") throw e;
   }
-  const s = JSON.parse(readFileSync(file, "utf8")) as RoleSecrets;
-  if (!/^[0-9a-f]{48}$/.test(s.reader) || !/^[0-9a-f]{48}$/.test(s.writer)) throw new RoleSetupError(`${file} is not a Control Rod role secrets file`);
+  const st = lstatSync(path);
+  if (!st.isFile()) throw new RoleSetupError(`${path} must be a regular file, not a link or directory`);
+  if (typeof process.getuid === "function" && st.uid !== process.getuid()) throw new RoleSetupError(`${path} is owned by another user`);
+  if ((st.mode & 0o077) !== 0) chmodSync(path, 0o600);
+  return readFileSync(path, "utf8").trim();
+}
+
+/** Loads the local role passwords, creating them on first use. */
+export function localRoleSecrets(file: string): RoleSecrets {
+  const s = JSON.parse(privateFile(file, () => JSON.stringify({ reader: randomBytes(24).toString("hex"), writer: randomBytes(24).toString("hex") }))) as RoleSecrets;
+  assertSecrets(s);
   return s;
+}
+
+function assertSecrets(s: RoleSecrets): void {
+  if (!SECRET.test(s?.reader ?? "") || !SECRET.test(s?.writer ?? "")) throw new RoleSetupError("role passwords must be 48 hexadecimal characters");
+}
+
+/** Whether a login already accepts this password, so provisioning can leave it alone. */
+async function canLogIn(ownerUrl: string, role: string, password: string): Promise<boolean> {
+  const probe = new pg.Pool({ connectionString: roleUrl(ownerUrl, role, password), max: 1, connectionTimeoutMillis: 5000 });
+  try {
+    await probe.query("select 1");
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await probe.end();
+  }
 }
 
 /** The owner's connection string with a role's own login in place of the owner's. */
@@ -40,10 +74,12 @@ export function roleUrl(ownerUrl: string, role: string, password: string): strin
 }
 
 /**
- * Creates or updates both login roles with the given passwords. Needs a connection that may create
- * roles; without one it refuses with the step an administrator must take.
+ * Creates both login roles, or sets a password that does not yet work. A login that already accepts
+ * its password is left alone, so installations sharing a server do not reset each other. Needs a
+ * connection that may create roles; without one it refuses with the step an administrator must take.
  */
 export async function provisionRoles(owner: pg.Pool, secrets: RoleSecrets): Promise<void> {
+  assertSecrets(secrets);
   const me = (await owner.query<{ allowed: boolean }>(
     "select rolsuper or rolcreaterole as allowed from pg_roles where rolname = current_user")).rows[0];
   if (!me?.allowed)
@@ -54,6 +90,7 @@ export async function provisionRoles(owner: pg.Pool, secrets: RoleSecrets): Prom
     const attrs = "login noinherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls";
     // Role names are constants; passwords are hex, checked above, so quoting is safe.
     const exists = (await owner.query("select 1 from pg_roles where rolname = $1", [role])).rowCount;
+    if (exists && (await canLogIn(owner.options.connectionString as string, role, password))) continue;
     try {
       await owner.query(`${exists ? "alter" : "create"} role ${role} ${attrs} password '${password}'`);
     } catch (e) {
@@ -64,8 +101,12 @@ export async function provisionRoles(owner: pg.Pool, secrets: RoleSecrets): Prom
   }
 }
 
-/** Refuses to run unless both roles exist, can log in, and hold no power beyond their grants. */
-export async function verifyRoles(owner: pg.Pool): Promise<void> {
+/**
+ * Refuses to run unless both roles exist, can log in, hold no power beyond their grants, and their
+ * effective privileges are what migration 011 gives them: the reader writes nothing, the writer
+ * writes no rule table, neither owns anything, and no privileged function can act for them.
+ */
+export async function verifyRoles(owner: pg.Pool, writerReadOnly: readonly string[] = []): Promise<void> {
   const rows = (await owner.query<{ rolname: string; strong: boolean; member_of: string[]; members: string[] }>(
     `select r.rolname,
             (r.rolsuper or r.rolcreaterole or r.rolcreatedb or r.rolreplication or r.rolbypassrls or not r.rolcanlogin) as strong,
@@ -79,6 +120,24 @@ export async function verifyRoles(owner: pg.Pool): Promise<void> {
     if (r.member_of.length) throw new RoleSetupError(`database role ${role} is a member of ${r.member_of.join(", ")}; it must belong to no role`);
     if (r.members.some((m) => m === READER || m === WRITER)) throw new RoleSetupError(`database role ${role} has the other Control Rod role as a member`);
   }
+  const audit = (await owner.query<{ problem: string }>(
+    `select format('%s can write %s', $1::text, c.relname) as problem from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relkind in ('r', 'p') and has_table_privilege($1, c.oid, 'insert,update,delete,truncate')
+     union all
+     select format('%s can write %s', $2::text, c.relname) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relname = any($3::text[]) and has_table_privilege($2, c.oid, 'insert,update,delete,truncate')
+     union all
+     select format('%s owns %s', pg_get_userbyid(c.relowner), c.relname) from pg_class c
+        where pg_get_userbyid(c.relowner) in ($1, $2)
+     union all
+     select format('%s owns schema %s', pg_get_userbyid(nspowner), nspname) from pg_namespace where pg_get_userbyid(nspowner) in ($1, $2)
+     union all
+     select format('%s can create in schema public', r) from unnest(array[$1, $2]::text[]) r where has_schema_privilege(r, 'public', 'create')
+     union all
+     select format('security definer function %s in public', p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public' and p.prosecdef`,
+    [READER, WRITER, [...writerReadOnly]])).rows;
+  if (audit.length) throw new RoleSetupError(`database privileges are wider than Control Rod allows: ${audit.map((a) => a.problem).join("; ")}`);
 }
 
 /** Fails if a pool is not logged in as the role it is meant to be. */

@@ -1,6 +1,7 @@
 import type pg from "pg";
 import { type Db, type Tx, tx } from "../db/index.js";
 import { WRITER, assertLogin } from "../db/roles.js";
+import { pendingEvents } from "../events.js";
 import { openWriter } from "../db/writer.js";
 import { COMMANDS, type CommandName } from "./catalog.js";
 
@@ -31,41 +32,41 @@ export async function closeWriter(reader: Db): Promise<void> {
 
 /**
  * Statements a command may not issue: the executor owns the transaction, and no command changes
- * its role or session. Checked on the statement text the command passes to query().
+ * its role or session. Checked on every statement in the text, after comments are removed.
  */
 const FORBIDDEN = [
-  /^\s*(begin|start\s+transaction|commit|end|rollback|abort|savepoint|release|prepare\s+transaction|discard)\b/i,
-  /^\s*(set|reset)\s+(local\s+|session\s+)?(role|session\s+authorization|all)\b/i,
-  /\bset_config\s*\(\s*'(role|session_authorization)'/i,
+  /^(begin|start\s+transaction|commit|end|rollback|abort|savepoint|release|prepare\s+transaction|discard|listen|notify|copy)\b/i,
+  /^(set|reset)\s+(local\s+|session\s+)?(role|session\s+authorization|all)\b/i,
 ];
+const FORBIDDEN_ANYWHERE = /\bset_config\s*\(\s*'(role|session_authorization)'/i;
 
-function statementText(arg: unknown): string {
-  if (typeof arg === "string") return arg;
-  if (arg && typeof arg === "object" && typeof (arg as { text?: unknown }).text === "string") return (arg as { text: string }).text;
-  return "";
+function refusal(name: string, text: string): string | null {
+  const bare = text.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
+  if (FORBIDDEN_ANYWHERE.test(bare)) return bare.trim().slice(0, 60);
+  for (const statement of bare.split(";")) {
+    const s = statement.trim();
+    if (FORBIDDEN.some((re) => re.test(s))) return s.slice(0, 60);
+  }
+  return null;
 }
 
 /**
- * A view of the writer client that works only while its command runs, exposes no release, and
- * refuses transaction control and role changes. Holding it after the command returns gets nothing.
+ * What a command receives: a query function and nothing else, for plain SQL text with values. It
+ * stops working when the command ends. This catches mistakes in our own command code; the boundary
+ * against everything else is the separate reader and writer logins.
  */
 function guarded(client: Tx, name: string): { view: Tx; revoke: () => void } {
   let live = true;
-  const view = new Proxy(client, {
-    get(target, prop, receiver) {
-      if (!live) throw new Error(`command ${name} has finished; its database client is no longer usable`);
-      if (prop === "release" || prop === "connect") throw new Error(`command ${name} cannot ${String(prop)} the writer client`);
-      if (prop === "query")
-        return (...args: unknown[]) => {
-          if (!live) throw new Error(`command ${name} has finished; its database client is no longer usable`);
-          const text = statementText(args[0]);
-          if (FORBIDDEN.some((re) => re.test(text))) throw new Error(`command ${name} may not run: ${text.slice(0, 60)}`);
-          return (target.query as (...a: unknown[]) => unknown).apply(target, args);
-        };
-      const value = Reflect.get(target, prop, receiver);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
+  const query = (text: unknown, values?: unknown) => {
+    if (!live) throw new Error(`command ${name} has finished; its database client is no longer usable`);
+    if (typeof text !== "string") throw new Error(`command ${name} may only pass SQL text to query()`);
+    if (values !== undefined && !Array.isArray(values)) throw new Error(`command ${name} may only pass an array of values`);
+    const refused = refusal(name, text);
+    if (refused !== null) throw new Error(`command ${name} may not run: ${refused}`);
+    return values === undefined ? client.query(text) : client.query(text, values);
+  };
+  // Only query() exists on the view; any other client method is simply absent.
+  const view = { query } as unknown as Tx;
   return { view, revoke: () => { live = false; } };
 }
 
@@ -81,6 +82,8 @@ export async function command<T>(reader: Db, name: CommandName, fn: (c: Tx) => P
       return await fn(view);
     } finally {
       revoke();
+      // Events the command appended are announced by tx() after commit, from the real client.
+      pendingEvents(c).push(...pendingEvents(view).splice(0));
     }
   });
 }

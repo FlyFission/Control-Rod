@@ -138,15 +138,16 @@ describe("database logins", () => {
   });
 
   it("SEC-03: a command's client is unusable after the command and cannot control its transaction", async () => {
-    // Returning the client fails outright: resolving the result touches the revoked view.
-    await expect(command(h.db, "runtime.report-status", async (c) => c)).rejects.toThrow(/no longer usable/);
+    // A returned or captured client is dead once its command ends.
+    const returned = await command(h.db, "runtime.report-status", async (c) => c);
+    expect(() => returned.query("insert into settings (key, value) values ('x', 'y')")).toThrow(/no longer usable/);
     let leaked: { query: (q: string) => unknown } | undefined;
     await command(h.db, "runtime.report-status", async (c) => { leaked = c as never; });
     expect(() => leaked!.query("insert into settings (key, value) values ('x', 'y')")).toThrow(/no longer usable/);
     await expect(command(h.db, "runtime.report-status", (c) => c.query("commit"))).rejects.toThrow(/may not run: commit/);
     await expect(command(h.db, "runtime.report-status", (c) => c.query("begin"))).rejects.toThrow(/may not run: begin/);
     await expect(command(h.db, "runtime.report-status", (c) => c.query("select set_config('role', 'controlrod', false)"))).rejects.toThrow(/may not run/);
-    await expect(command(h.db, "runtime.report-status", async (c) => c.release())).rejects.toThrow(/cannot release/);
+    await expect(command(h.db, "runtime.report-status", async (c) => (c as unknown as { release: () => void }).release())).rejects.toThrow(/not a function/);
   });
 
   it("SEC-04: the writer cannot change the migration record or the lifecycle rules, and can change every other table", async () => {
@@ -197,5 +198,96 @@ describe("faults are not refusals", () => {
     const stale = staleUnlessDatabaseFault(new Error("Release manifest changed or is missing"));
     expect(stale).toBeInstanceOf(Refusal);
     expect(stale).toMatchObject({ status: 409, code: "preparation-stale" });
+  });
+});
+
+describe("review round 2", () => {
+  let h: Harness;
+  beforeAll(async () => {
+    h = await startHarness();
+  }, 120_000);
+  afterAll(async () => h?.stop());
+
+  it("N-01: provisioning refuses a password that is not plain hex", async () => {
+    await expect(provisionRoles(h.admin, { reader: "x'; alter role controlrod_reader superuser; --", writer: "2".repeat(48) })).rejects.toThrow(/48 hexadecimal/);
+    await verifyRoles(h.admin);
+  });
+
+  it("N-02 to N-04: a command gets only plain SQL text through query(), one statement at a time with no transaction control", async () => {
+    const tries: [string, (c: any) => unknown][] = [
+      ["multi statement commit", (c) => c.query("select 1; commit")],
+      ["commented commit", (c) => c.query("/* note */ commit")],
+      ["line comment then rollback", (c) => c.query("-- note\nrollback")],
+      ["query object", (c) => c.query({ text: "select 1" })],
+      ["prepared statement", (c) => c.query({ name: "p1", text: "select 1" })],
+      ["submittable", (c) => c.query({ submit() {} })],
+      ["values not an array", (c) => c.query("select $1", "x")],
+    ];
+    for (const [label, attempt] of tries)
+      await expect(command(h.db, "runtime.report-status", async (c) => attempt(c)), label).rejects.toThrow(/may not run|may only pass/);
+    const exposed = await command(h.db, "runtime.report-status", async (c) => Object.keys(c as object));
+    expect(exposed).toEqual(["query"]);
+  });
+
+  it("N-05: the startup backfill runs with two active organizations once existing records are owned", async () => {
+    const { backfillTenancy } = await import("../src/tenancy.js");
+    const { tx } = await import("../src/db/index.js");
+    await h.admin.query(`insert into organizations (body) values ('{"id":"org_two","name":"Two","status":"active"}')`);
+    try {
+      await tx(h.admin, backfillTenancy);
+    } finally {
+      await h.admin.query(`update organizations set body = jsonb_set(body, '{status}', '"suspended"') where id = 'org_two'`);
+    }
+  });
+
+  it("N-07: secrets files are private regular files", async () => {
+    const { mkdtempSync, statSync, symlinkSync, writeFileSync, chmodSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { privateFile } = await import("../src/db/roles.js");
+    const dir = mkdtempSync(join(tmpdir(), "cr-secret-"));
+    const wide = join(dir, "wide");
+    writeFileSync(wide, "secret");
+    chmodSync(wide, 0o644);
+    expect(privateFile(wide, () => "unused")).toBe("secret");
+    expect(statSync(wide).mode & 0o777).toBe(0o600);
+    const fresh = join(dir, "fresh");
+    expect(privateFile(fresh, () => "made")).toBe("made");
+    expect(statSync(fresh).mode & 0o777).toBe(0o600);
+    symlinkSync(wide, join(dir, "link"));
+    expect(() => privateFile(join(dir, "link"), () => "x")).toThrow(/regular file/);
+  });
+
+  it("N-09: provisioning leaves a login that already works alone", async () => {
+    const hash = async () => (await h.admin.query("select rolpassword from pg_authid where rolname = $1", [READER])).rows[0].rolpassword;
+    const before = await hash();
+    await provisionRoles(h.admin, TEST_ROLE_SECRETS);
+    expect(await hash()).toBe(before);
+  });
+
+  it("N-10: startup refuses privileges wider than the grants", async () => {
+    await h.admin.query(`grant insert on captures to ${READER}`);
+    try {
+      await expect(verifyRoles(h.admin, WRITER_READ_ONLY_TABLES)).rejects.toThrow(/controlrod_reader can write captures/);
+    } finally {
+      await h.admin.query(`revoke insert on captures from ${READER}`);
+    }
+    await verifyRoles(h.admin, WRITER_READ_ONLY_TABLES);
+  });
+
+  it("SEC-07: administrator issued logins open a database without provisioning", async () => {
+    const { openDb, closeDb } = await import("../src/db/index.js");
+    const name = `cr_issued_${Date.now()}`;
+    await h.admin.query(`create database ${name}`);
+    const at = (u: string) => { const x = new URL(u); x.pathname = `/${name}`; return x.toString(); };
+    const ownerUrl = at(h.admin.options.connectionString as string);
+    const db = await openDb(ownerUrl, { urls: {
+      readerUrl: at(roleUrl(ownerUrl, READER, TEST_ROLE_SECRETS.reader)),
+      writerUrl: at(roleUrl(ownerUrl, WRITER, TEST_ROLE_SECRETS.writer)),
+    } });
+    try {
+      expect((await db.query("select current_user as u")).rows[0].u).toBe(READER);
+    } finally {
+      await closeDb(db);
+    }
   });
 });

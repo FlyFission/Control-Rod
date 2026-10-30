@@ -1,11 +1,10 @@
 import { expect } from "vitest";
-import { type Db, tx } from "../src/db/index.js";
-import { migrate } from "../src/db/migrate.js";
+import { type Db, closeDb, openDb } from "../src/db/index.js";
 import { TENANCY_DOWN_SQL, TENANCY_TABLES } from "../src/db/migrations/009-tenancy.js";
 import { WORKBENCH_DOWN_SQL, WORKBENCH_TABLES } from "../src/db/migrations/010-workbench.js";
 import { ROLES_DOWN_SQL } from "../src/db/migrations/011-roles.js";
 import { verifyChain } from "../src/events.js";
-import { backfillTenancy } from "../src/tenancy.js";
+import { TEST_ROLE_SECRETS } from "./harness.js";
 
 /** Tables that existed before migrations 009 and 010, except the event log, compared separately. */
 async function legacyTables(db: Db): Promise<string[]> {
@@ -38,8 +37,9 @@ export async function assertMigrationsPreserveHistory(db: Db, nonEmpty: string[]
   await db.query(WORKBENCH_DOWN_SQL);
   await db.query(TENANCY_DOWN_SQL);
   expect(await snapshot(db, tables)).toEqual(before);
-  await migrate(db);
-  await tx(db, backfillTenancy);
+  // Upgrade through the real startup path: provision logins, migrate, verify, then the backfill command.
+  const upgraded = await openDb(db.options.connectionString as string, { secrets: TEST_ROLE_SECRETS });
+  await closeDb(upgraded);
   const after = await snapshot(db, tables);
   const { events: afterEvents = [], ...afterRows } = after;
   const { events: beforeEvents = [], ...beforeRows } = before;

@@ -29,7 +29,8 @@ export async function openDb(connectionString: string, roles: DbRoles = {}): Pro
     const secrets = roles.secrets ?? { reader: randomBytes(24).toString("hex"), writer: randomBytes(24).toString("hex") };
     if (!roles.urls) await provisionRoles(owner, secrets);
     await migrate(owner);
-    await verifyRoles(owner);
+    const { WRITER_READ_ONLY_TABLES } = await import("./migrations/011-roles.js");
+    await verifyRoles(owner, WRITER_READ_ONLY_TABLES);
     const urls = roles.urls ?? { readerUrl: roleUrl(connectionString, READER, secrets.reader), writerUrl: roleUrl(connectionString, WRITER, secrets.writer) };
     reader = new pg.Pool({ connectionString: urls.readerUrl, max: 10 });
     await assertLogin(reader, READER);

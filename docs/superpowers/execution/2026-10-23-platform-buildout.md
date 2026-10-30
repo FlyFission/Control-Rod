@@ -281,3 +281,13 @@ This session ran as root, so the suite used a disposable PostgreSQL 17.11 cluste
 Ruling: take the minimum per use in `currentGrant`, where the run row is already locked and checked, rather than re-read the run in `beginGrantUse` — cost if wrong: one more field on the grant row type, no authorization change.
 
 All activation gates in "Remaining sequence and authority" are unchanged.
+
+## Owner pilot preparation
+
+The owner asked to run the passkey pilot next. It has to run on the owner's machine: a hardware passkey and real browser cannot be supplied from the cloud session, and no owner computer folder was shared with it. Added `docs/owner-pilot.md`, a step-by-step procedure, and `evidence/owner-pilot/record.md`, a blank record for the owner to fill in. The record states that nothing in it is a result until the owner fills it in.
+
+Smoke check before writing it: on this head, the built API started with `CONTROLROD_GUIDED_PREPARATION=1` and `CONTROLROD_PREPARED_RELEASE=1` against a fresh PostgreSQL 17 database, answered `/health` and served the web app. The passkey flow, guided preparation, release, runs and restore were not exercised by the agent; they are the pilot.
+
+The procedure makes agent execution an explicit owner choice at release, because `pnpm cr start` runs real Claude Code author and checker processes and runtime confinement is not proved. It uses a separate `CONTROLROD_HOME`, keeps the database password in a protected pass file, restores into a new database served by a second API with both flags off and no daemon, and keeps the stale-source check on a throwaway package.
+
+Task 12 operational owner pilot: pending the owner's run. All other gates are unchanged.

@@ -56,6 +56,11 @@ CLAUDE_STRICT = {"sandbox": {
     "filesystem": {"denyRead": ["~/.claude", "~/.codex"]},
     "network": {"allowedDomains": []},
 }}
+# The command sandbox does not cover Claude Code's in-process file tools; permission rules do.
+CLAUDE_STRICT_FILES = {**CLAUDE_STRICT, "permissions": {
+    "deny": ["Read(~/.claude/**)", "Read(~/.codex/**)", "Edit(~/.claude/**)", "Edit(~/.codex/**)"],
+    "defaultMode": "acceptEdits",
+}}
 CLAUDE_DEFAULT = {"sandbox": {"enabled": True, "autoAllowBashIfSandboxed": True}}
 
 
@@ -159,6 +164,37 @@ def run_codex(codex, profile, legacy, args=()):
                 "stderr_tail": r.stderr[-600:]}
 
 
+def run_claude_file_tools(claude, deps, settings, extra_args=()):
+    """Claude Code's Read and Write tools run in the CLI process, outside the command sandbox."""
+    h.provider_calls.clear()
+    with tempfile.TemporaryDirectory(prefix="s6f-") as tmp:
+        root = pathlib.Path(tmp)
+        home, work = fake_home(root), root / "work"
+        work.mkdir()
+        h.ATTEMPTS[:] = [("Read", {"file_path": str(home / ".claude" / ".credentials.json")}),
+                         ("Write", {"file_path": str(home / "escape-write"), "content": "x"}),
+                         ("Write", {"file_path": str(work / "inside-write"), "content": "x"})]
+        server = Tcp(("127.0.0.1", 0), h.Provider)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        env = {"HOME": str(home), "PATH": tool_path(root, deps), "LANG": "C.UTF-8",
+               "ANTHROPIC_API_KEY": h.FIXTURE_KEY, "ANTHROPIC_BASE_URL": f"http://127.0.0.1:{server.server_port}",
+               "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"}
+        r = subprocess.run([str(claude), "-p", "Spike S-6 file tools.", "--tools", "Read,Write",
+                            "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--setting-sources", "",
+                            "--settings", json.dumps(settings), "--no-session-persistence", *extra_args,
+                            "--model", "fixture-model", "--max-turns", "5", "--output-format", "json"],
+                           cwd=work, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120)
+        server.shutdown()
+        results = {b["tool_use_id"]: b for c in h.provider_calls for b in c["tool_results"]}
+        def text(i):
+            c = results.get(f"toolu_s0_{i}", {}).get("content")
+            return c if isinstance(c, str) else " ".join(x.get("text", "") for x in c or [] if isinstance(x, dict))
+        return {"exit": r.returncode,
+                "read_login_leaked": CANARY in text(0), "read_result": text(0)[:200],
+                "write_outside_on_host": (home / "escape-write").exists(), "write_outside_result": text(1)[:200],
+                "write_inside_on_host": (work / "inside-write").exists(), "write_inside_result": text(2)[:200]}
+
+
 def protected(run):
     p = run.get("probe") or {}
     return {
@@ -187,6 +223,10 @@ def main():
     report["runs"]["codex_control_rod"] = run_codex(codex, CODEX_PROFILE, legacy=False)
     report["runs"]["codex_control_rod_overrides"] = run_codex(codex, None, legacy=False, args=CODEX_PROFILE_ARGS)
     report["checks"] = {name: protected(run) for name, run in report["runs"].items()}
+    report["file_tools"] = {
+        "claude_control_rod": run_claude_file_tools(claude, deps, CLAUDE_STRICT),
+        "claude_control_rod_permissions": run_claude_file_tools(claude, deps, CLAUDE_STRICT_FILES),
+    }
     report["scope"] = "decoy logins in a throwaway home; scripted provider for Claude; codex sandbox command only; this host only"
     report["activation"] = "HOLD"
     print(json.dumps(report, indent=2))

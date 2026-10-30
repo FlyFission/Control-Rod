@@ -38,11 +38,14 @@ export async function closeWriter(reader: Db): Promise<void> {
  */
 const FORBIDDEN = /^(begin|start\s+transaction|commit|end|rollback|abort|savepoint|release|prepare\s+transaction|discard|listen|notify|copy)\b/i;
 
-/** The statement with leading whitespace and comments removed (nested block comments included). */
+/**
+ * The statement with leading whitespace, comments (nested block comments included) and empty
+ * statements removed: PostgreSQL discards all three before the first keyword.
+ */
 export function withoutLeadingComments(sql: string): string {
   let s = sql;
   for (;;) {
-    s = s.replace(/^\s+/, "");
+    s = s.replace(/^[\s;]+/, "");
     if (s.startsWith("--")) { const nl = s.indexOf("\n"); s = nl < 0 ? "" : s.slice(nl + 1); continue; }
     if (s.startsWith("/*")) {
       let depth = 1, i = 2;

@@ -144,8 +144,8 @@ describe("database logins", () => {
     let leaked: { query: (q: string) => unknown } | undefined;
     await command(h.db, "runtime.report-status", async (c) => { leaked = c as never; });
     expect(() => leaked!.query("insert into settings (key, value) values ('x', 'y')")).toThrow(/no longer usable/);
-    await expect(command(h.db, "runtime.report-status", (c) => c.query("commit"))).rejects.toThrow(/may not run: commit/);
-    await expect(command(h.db, "runtime.report-status", (c) => c.query("begin"))).rejects.toThrow(/may not run: begin/);
+    await expect(command(h.db, "runtime.report-status", (c) => c.query("commit"))).rejects.toThrow(/may not run a COMMIT statement/);
+    await expect(command(h.db, "runtime.report-status", (c) => c.query("begin"))).rejects.toThrow(/may not run a BEGIN statement/);
     // Role changes are refused by the database: the writer login belongs to no role.
     await expect(command(h.db, "runtime.report-status", (c) => c.query("select set_config('role', 'controlrod', false)"))).rejects.toThrow(/permission denied to set role/);
     await expect(command(h.db, "runtime.report-status", async (c) => (c as unknown as { release: () => void }).release())).rejects.toThrow(/not a function/);
@@ -301,11 +301,14 @@ describe("review round 3", () => {
   afterAll(async () => h?.stop());
 
   it("N-03: one statement per command query, enforced by PostgreSQL, and no leading transaction control", async () => {
-    const { withoutLeadingComments } = await import("../src/commands/executor.js");
-    expect(withoutLeadingComments("  /* a /* nested */ b */ -- x\n  commit")).toBe("commit");
+    const { firstWord } = await import("../src/commands/executor.js");
+    expect(firstWord("  /* a /* nested */ b */ -- x\n  commit")).toBe("commit");
+    expect(firstWord("--x\rCOMMIT")).toBe("commit");
+    expect(firstWord("PREPARE/**/TRANSACTION 'x'")).toBe("prepare");
+    expect(firstWord("\f\v ;; select 1")).toBe("select");
     for (const sql of ["select '--'; commit", "select E'\\''; commit; --'", "select 1 as a$t$; commit; select 1 as b$t$", "select 1; select 2"])
       await expect(command(h.db, "runtime.report-status", (c) => c.query(sql)), sql).rejects.toThrow(/cannot insert multiple commands into a prepared statement/);
-    for (const sql of ["/* note */ -- more\n commit", ";COMMIT", " ; ; /* x */ ;rollback", "\n;\tend"])
+    for (const sql of ["/* note */ -- more\n commit", ";COMMIT", " ; ; /* x */ ;rollback", "\n;\tend", "--x\rCOMMIT", "PREPARE/**/TRANSACTION 'x'", "start transaction"])
       await expect(command(h.db, "runtime.report-status", (c) => c.query(sql)), sql).rejects.toThrow(/may not run/);
     const ok = await command(h.db, "runtime.report-status", async (c) => (await c.query("select 'a;b' as v")).rows[0].v);
     expect(ok).toBe("a;b");

@@ -33,27 +33,32 @@ export async function closeWriter(reader: Db): Promise<void> {
 /**
  * Statements a command may not issue: the executor owns the transaction. Each command query is sent
  * through the extended protocol, where PostgreSQL itself refuses more than one statement, so only the
- * first keyword of that one statement needs checking, after any leading comments. Role and session
- * changes need no check here: the writer login belongs to no role, so the database refuses them.
+ * first word of that one statement needs checking. Role and session changes need no check here: the
+ * writer login belongs to no role, so the database refuses them.
  */
-const FORBIDDEN = /^(begin|start\s+transaction|commit|end|rollback|abort|savepoint|release|prepare\s+transaction|discard|listen|notify|copy)\b/i;
+const FORBIDDEN_FIRST_WORDS = new Set([
+  "begin", "start", "commit", "end", "rollback", "abort", "savepoint", "release", "prepare", "discard", "listen", "notify", "copy",
+]);
 
 /**
- * The statement with leading whitespace, comments (nested block comments included) and empty
- * statements removed: PostgreSQL discards all three before the first keyword.
+ * The first word of a statement, skipping what PostgreSQL skips before it: its whitespace (space,
+ * tab, newline, carriage return, form feed, vertical tab), line comments (ended by a newline or a
+ * carriage return), nested block comments, and empty statements.
  */
-export function withoutLeadingComments(sql: string): string {
-  let s = sql;
-  for (;;) {
-    s = s.replace(/^[\s;]+/, "");
-    if (s.startsWith("--")) { const nl = s.indexOf("\n"); s = nl < 0 ? "" : s.slice(nl + 1); continue; }
-    if (s.startsWith("/*")) {
-      let depth = 1, i = 2;
-      while (i < s.length && depth) { if (s.startsWith("/*", i)) { depth++; i += 2; } else if (s.startsWith("*/", i)) { depth--; i += 2; } else i++; }
-      s = s.slice(i); continue;
+export function firstWord(sql: string): string {
+  let i = 0;
+  while (i < sql.length) {
+    const ch = sql[i]!;
+    if (" \t\n\r\f\v;".includes(ch)) { i++; continue; }
+    if (sql.startsWith("--", i)) { while (i < sql.length && sql[i] !== "\n" && sql[i] !== "\r") i++; continue; }
+    if (sql.startsWith("/*", i)) {
+      let depth = 1; i += 2;
+      while (i < sql.length && depth) { if (sql.startsWith("/*", i)) { depth++; i += 2; } else if (sql.startsWith("*/", i)) { depth--; i += 2; } else i++; }
+      continue;
     }
-    return s;
+    break;
   }
+  return /^[A-Za-z_]+/.exec(sql.slice(i))?.[0].toLowerCase() ?? "";
 }
 
 /**
@@ -67,8 +72,8 @@ function guarded(client: Tx, name: string): { view: Tx; revoke: () => void } {
     if (!live) throw new Error(`command ${name} has finished; its database client is no longer usable`);
     if (typeof text !== "string") throw new Error(`command ${name} may only pass SQL text to query()`);
     if (values !== undefined && !Array.isArray(values)) throw new Error(`command ${name} may only pass an array of values`);
-    const first = withoutLeadingComments(text);
-    if (FORBIDDEN.test(first)) throw new Error(`command ${name} may not run: ${first.slice(0, 60)}`);
+    const first = firstWord(text);
+    if (FORBIDDEN_FIRST_WORDS.has(first)) throw new Error(`command ${name} may not run a ${first.toUpperCase()} statement`);
     // Extended protocol: one statement per query, enforced by PostgreSQL.
     return client.query({ text, values: (values as unknown[] | undefined) ?? [], queryMode: "extended" } as never);
   };

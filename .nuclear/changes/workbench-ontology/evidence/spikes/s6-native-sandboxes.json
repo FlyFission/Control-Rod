@@ -45,7 +45,7 @@
         "write_slash_tmp": "OSError"
       },
       "escape_on_host": false,
-      "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s6x-32as89c2/home/.codex\"))\n"
+      "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s6x-6j7uty9g/home/.codex\"))\n"
     },
     "codex_control_rod": {
       "exit": 0,
@@ -59,7 +59,7 @@
         "write_slash_tmp": "OSError"
       },
       "escape_on_host": false,
-      "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s6x-l4oroyx6/home/.codex\"))\n"
+      "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s6x-lh5hvsph/home/.codex\"))\n"
     },
     "codex_control_rod_overrides": {
       "exit": 0,
@@ -73,7 +73,7 @@
         "write_slash_tmp": "OSError"
       },
       "escape_on_host": false,
-      "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s6x-ssu0au25/home/.codex\"))\n"
+      "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s6x-moqc8rm3/home/.codex\"))\n"
     }
   },
   "checks": {
@@ -111,6 +111,26 @@
       "workspace_writable": true,
       "slash_tmp_not_writable": true,
       "home_write_never_reaches_host": true
+    }
+  },
+  "file_tools": {
+    "claude_control_rod": {
+      "exit": 0,
+      "read_login_leaked": false,
+      "read_result": "Claude requested permissions to read from /tmp/s6f-t7jolfud/home/.claude/.credentials.json, but you haven't granted it yet.",
+      "write_outside_on_host": false,
+      "write_outside_result": "Claude requested permissions to write to /tmp/s6f-t7jolfud/home/escape-write, but you haven't granted it yet.",
+      "write_inside_on_host": false,
+      "write_inside_result": "Claude requested permissions to write to /tmp/s6f-t7jolfud/work/inside-write, but you haven't granted it yet."
+    },
+    "claude_control_rod_permissions": {
+      "exit": 0,
+      "read_login_leaked": false,
+      "read_result": "<tool_use_error>File is in a directory that is denied by your permission settings.</tool_use_error>",
+      "write_outside_on_host": false,
+      "write_outside_result": "Claude requested permissions to write to /tmp/s6f-95voljza/home/escape-write, but you haven't granted it yet.",
+      "write_inside_on_host": true,
+      "write_inside_result": "File created successfully at: /tmp/s6f-95voljza/work/inside-write (file state is current in your context \u2014 no need to Read it back)"
     }
   },
   "scope": "decoy logins in a throwaway home; scripted provider for Claude; codex sandbox command only; this host only",

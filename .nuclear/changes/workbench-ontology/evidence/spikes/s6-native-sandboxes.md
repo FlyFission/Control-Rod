@@ -21,8 +21,12 @@ Each CLI runs twice: with its sandbox on at default settings, then with the sett
 {"sandbox": {"enabled": true, "failIfUnavailable": true, "allowUnsandboxedCommands": false,
   "autoAllowBashIfSandboxed": true,
   "filesystem": {"denyRead": ["~/.claude", "~/.codex"]},
-  "network": {"allowedDomains": []}}}
+  "network": {"allowedDomains": []}},
+ "permissions": {"defaultMode": "acceptEdits",
+  "deny": ["Read(~/.claude/**)", "Read(~/.codex/**)", "Edit(~/.claude/**)", "Edit(~/.codex/**)"]}}
 ```
+
+The `sandbox` block covers commands; the `permissions` block covers Claude Code's own file tools, which run in the CLI process outside the command sandbox.
 
 **Control Rod settings, Codex** (a permission profile passed as `-c` overrides, never written into the user's `config.toml`):
 
@@ -43,14 +47,22 @@ Each CLI runs twice: with its sandbox on at default settings, then with the sett
 | Codex, Control Rod profile in `config.toml` | refused | refused | allowed | refused | refused |
 | Codex, Control Rod profile as `-c` overrides | refused | refused | allowed | refused | refused |
 
+**Claude Code file tools** (Read and Write run inside the CLI, not the command sandbox):
+
+| Settings | Read login file | Write outside workspace | Write inside workspace |
+|---|---|---|---|
+| `sandbox` block only | refused, but only because the file is outside the working folder and a headless run cannot prompt | refused (same reason) | refused (same reason) |
+| `sandbox` plus `permissions` block | **refused by an explicit deny rule** | refused | allowed |
+
 Then one tiny real prompt per CLI, with the owner's normal login and the Control Rod settings: Claude Code answered `OK`; `codex exec` answered `OK`. Codex had refreshed its own login normally earlier the same day (`last_refresh` 2026-10-30T17:53Z), writing its own file as it always does.
 
 ## Findings
 
 1. **The defaults are not enough.** With each sandbox on at default settings, an agent command can read both login files. Network is blocked, so the token cannot be sent directly, but it could be written into the workspace and leave through an output, a diff or a commit. Control Rod must always pass the read denials; they are a requirement, not a hardening option.
 2. **Codex ignores a permission profile whenever `sandbox_mode` is set anywhere** (user config, a profile, or `--sandbox`). Control Rod must set only `default_permissions`, and the preflight must refuse to start a Codex run when the user's config sets `sandbox_mode`, naming the line to remove, because otherwise the protection silently does not apply.
-3. **Claude Code needs `failIfUnavailable: true` and `allowUnsandboxedCommands: false`.** Without them, a host missing bubblewrap or socat runs commands unsandboxed instead of refusing.
-4. **Login stays ordinary.** Neither CLI needed any change to sign in, refresh or answer. Control Rod never reads, stores, relays or hides a token.
+3. **Claude Code's file tools need explicit deny rules.** Without them the login file is protected only incidentally (it is outside the working folder and headless runs cannot prompt); a user setting that adds directories would open it. The `permissions.deny` rules make it a hard refusal.
+4. **Claude Code needs `failIfUnavailable: true` and `allowUnsandboxedCommands: false`.** Without them, a host missing bubblewrap or socat runs commands unsandboxed instead of refusing.
+5. **Login stays ordinary.** Neither CLI needed any change to sign in, refresh or answer. Control Rod never reads, stores, relays or hides a token.
 
 ## Answer
 

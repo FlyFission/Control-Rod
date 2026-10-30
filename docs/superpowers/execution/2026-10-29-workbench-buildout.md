@@ -35,6 +35,19 @@ Plan: [workbench buildout plan](../plans/2026-10-29-workbench-buildout.md). Spec
 | 0.10 Authenticator policy | done | `docs/sqa/authenticators.md`, owner approved 2026-10-30 |
 | 0.11 openclaw-office pin and license | done | `WW-AI-Lab/openclaw-office` at `def631a`, MIT, assets are screenshots only; recorded in `docs/patterns/workbench-donors.md` |
 
+## Spikes
+
+Run 2026-10-30 on the owner's WSL2 host; records and raw output in `.nuclear/changes/workbench-ontology/evidence/spikes/`.
+
+| Spike | Result | Consequence |
+|---|---|---|
+| S-0 | Claude Code: pass (11 of 11, weakened control fails as expected). Codex: not established, no stable switch disables its built in shell | Claude lanes can split model client and tools; Codex confined lanes stay unavailable |
+| S-1 | WSL2: pass for both CLIs with real prompts and masked logins (12 of 12). macOS and native Linux not run | Driver rules: always `--`, close stdin, preflight socat and ripgrep, keep TMPDIR in the workspace, check host persistence. Token refresh must stay with the broker: a refresh inside the boundary likely spent the owner's Codex refresh token |
+| S-2 | Pass for Claude (8 of 8, one real prompt) | No account key needed for Claude lanes; broker must stream verbatim or decode, never half of each |
+| S-3 | Pass | Interim waiting detection for WB-09 |
+| S-4 | Claude stream-json: pass. Codex multi turn: not run | WB-17 interim path for Claude Explore |
+| S-5 | Pass in bubblewrap and srt | Codex sandbox may nest; `/tmp` exclusions mandatory |
+
 ## Exit criteria
 
 Every Phase 0 task is done or waiting on a named owner decision, and every spike has a recorded result or a recorded reason it did not run.

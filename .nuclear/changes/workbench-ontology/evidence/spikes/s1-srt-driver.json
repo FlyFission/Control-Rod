@@ -1,0 +1,77 @@
+{
+  "spike": "S-1",
+  "srt_version": "0.0.81",
+  "bubblewrap": "bubblewrap 0.9.0",
+  "kernel": "6.6.114.1-microsoft-standard-WSL2",
+  "probe": {
+    "exit": 0,
+    "result": {
+      "read_owner_credentials": "FileNotFoundError",
+      "list_owner_home": "allowed",
+      "read_workspace": "allowed",
+      "write_workspace": "allowed",
+      "write_outside": "allowed",
+      "write_system_path": "OSError",
+      "raw_tcp_internet": "OSError",
+      "https_allowed_host": "http_404",
+      "https_denied_host": "URLError",
+      "proxy_env_present": true
+    },
+    "outside_marker_exists": false,
+    "stderr_tail": ""
+  },
+  "claude": {
+    "exit": 0,
+    "native_result": {
+      "subtype": "success",
+      "is_error": false,
+      "result": "OK",
+      "num_turns": 1
+    },
+    "stderr_tail": ""
+  },
+  "codex_starts": {
+    "exit": 0,
+    "stdout": "codex-cli 0.166.0",
+    "stderr_tail": ""
+  },
+  "codex_nested_sandbox": {
+    "exit": 0,
+    "result": {
+      "write_codex_workspace": "allowed",
+      "write_srt_allowed_outside_codex": "OSError"
+    },
+    "escape_marker_on_host": false,
+    "stderr_tail": ""
+  },
+  "codex_exec": {
+    "exit": 0,
+    "event_types": [
+      "error",
+      "item.completed",
+      "thread.started",
+      "turn.completed",
+      "turn.started"
+    ],
+    "agent_text": [
+      "OK"
+    ],
+    "stderr_tail": "89506Z ERROR codex_login::auth::manager: Failed to refresh token: Your access token could not be refreshed because your refresh token was already used. Please log out and sign in again.\n2026-10-30T15:21:36.692151Z ERROR codex_login::auth::manager: Failed to refresh token: Your access token could not be refreshed because your refresh token was already used. Please log out and sign in again.\n2026-10-30T15:21:38.354508Z ERROR codex_login::auth::manager: Failed to refresh token: Your access token could not be refreshed because your refresh token was already used. Please log out and sign in again.\n"
+  },
+  "checks": {
+    "owner_credentials_unreadable": true,
+    "workspace_read_write": true,
+    "write_outside_never_reaches_host": true,
+    "write_system_path_refused": true,
+    "no_raw_internet": true,
+    "allowed_host_reachable_via_proxy": true,
+    "denied_host_refused": true,
+    "claude_answers_with_masked_token": true,
+    "codex_starts_under_srt": true,
+    "codex_sandbox_nests_and_enforces": true,
+    "codex_answers_with_masked_login": true,
+    "token_never_written_to_spike_files": true
+  },
+  "scope": "WSL2 host only; srt CLI; one real prompt; one real Claude prompt and one real Codex prompt",
+  "activation": "HOLD"
+}

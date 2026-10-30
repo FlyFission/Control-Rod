@@ -286,7 +286,7 @@ def main():
             data=value.encode();sha=hashlib.sha256(data).hexdigest();name=f'{key}.{sha[:12]}.svg'
             (public/name).write_bytes(data);(source/f'{key}.svg').write_bytes(data)
             w,h=(1000,600) if key=='scene' else (800,480) if key=='thumbnail' else (128,128)
-            assets.append(dict(key=key,path=name,sha256=sha,bytes=len(data),width=w,height=h,creator='Codex — original procedural vector illustration',rightsBasis='original',licenseNoticeId='Apache-2.0'))
+            assets.append(dict(key=key,path=name,sha256=sha,bytes=len(data),width=w,height=h,creator='Original procedural vector illustration (Codex, Claude Code)',rightsBasis='original',licenseNoticeId='Apache-2.0'))
         current_names={a['path'] for a in assets}
         for old in previous:
             if old['path'] not in current_names and Path(old['path']).name==old['path']:

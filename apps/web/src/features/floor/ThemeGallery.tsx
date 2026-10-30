@@ -168,7 +168,7 @@ export function ThemeGallery({
               </div>
               {preview === e.id && (
                 <div className="floor-preview" role="status">
-                  <strong>Preview — sample activity</strong>
+                  <strong>Preview: sample activity</strong>
                   <p>{e.description}</p>
                   <button
                     type="button"

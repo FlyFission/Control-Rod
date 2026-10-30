@@ -24,7 +24,7 @@ export default {
       "bytes": 10601,
       "width": 1000,
       "height": 600,
-      "creator": "Codex \u2014 original procedural vector illustration",
+      "creator": "Original procedural vector illustration (Codex, Claude Code)",
       "rightsBasis": "original",
       "licenseNoticeId": "Apache-2.0"
     },
@@ -34,7 +34,7 @@ export default {
       "bytes": 17105,
       "width": 800,
       "height": 480,
-      "creator": "Codex \u2014 original procedural vector illustration",
+      "creator": "Original procedural vector illustration (Codex, Claude Code)",
       "rightsBasis": "original",
       "licenseNoticeId": "Apache-2.0"
     },
@@ -45,7 +45,7 @@ export default {
         "bytes": 1113,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       },
@@ -55,7 +55,7 @@ export default {
         "bytes": 901,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       },
@@ -65,7 +65,7 @@ export default {
         "bytes": 900,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       },
@@ -75,7 +75,7 @@ export default {
         "bytes": 926,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       },
@@ -85,7 +85,7 @@ export default {
         "bytes": 1387,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       },
@@ -95,7 +95,7 @@ export default {
         "bytes": 1173,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       }
@@ -107,7 +107,7 @@ export default {
         "bytes": 503,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       },
@@ -117,7 +117,7 @@ export default {
         "bytes": 432,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       },
@@ -127,7 +127,7 @@ export default {
         "bytes": 416,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       },
@@ -137,7 +137,7 @@ export default {
         "bytes": 301,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       },
@@ -147,7 +147,7 @@ export default {
         "bytes": 410,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       },
@@ -157,7 +157,7 @@ export default {
         "bytes": 350,
         "width": 128,
         "height": 128,
-        "creator": "Codex \u2014 original procedural vector illustration",
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
         "rightsBasis": "original",
         "licenseNoticeId": "Apache-2.0"
       }

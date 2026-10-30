@@ -40,10 +40,10 @@ def main():
             errors.append(f"Missing plan coverage OT-{number:02}")
     tasks = re.findall(r"^## Task (\d+):", plan_text, re.MULTILINE)
     if tasks != [str(n) for n in range(1, 14)]:
-        errors.append("Expected tasks 1–13 exactly once and in order")
+        errors.append("Expected tasks 1 to 13 exactly once and in order")
     entries = re.findall(r"^## (\d+)\. ", catalog_text, re.MULTILINE)
     if entries != [str(n) for n in range(1, 16)]:
-        errors.append("Expected catalog entries 1–15 exactly once and in order")
+        errors.append("Expected catalog entries 1 to 15 exactly once and in order")
     ids = re.findall(r"\. ID `([a-z-]+)`\.", catalog_text)
     if len(ids) != 15 or len(set(ids)) != 15:
         errors.append("Expected fifteen distinct catalog IDs")

@@ -31,17 +31,17 @@
 
 ## Review Focus
 
-- Mixed revisions and partial detail-query failures must never show stale acceptance or a false complete worker count (Tasks 2–3).
+- Mixed revisions and partial detail-query failures must never show stale acceptance or a false complete worker count (Tasks 2 to 3).
 - Long labels, unknown roles/statuses, duplicate IDs and multiple rounds must stay legible without dropping active work (Tasks 2, 5).
 - Quota-denied storage, unavailable saved packs and competing tabs must preserve task state and usable defaults (Task 4).
 - Hidden/stale scenes and reconnects must not replay submissions or infer completion from time (Tasks 3, 6).
-- Invalid SVG, failed lazy imports and artwork changes after release review must fail to Plain Floor without disabling navigation (Tasks 1, 7–8, 13).
+- Invalid SVG, failed lazy imports and artwork changes after release review must fail to Plain Floor without disabling navigation (Tasks 1, 7 to 8, 13).
 
 ## Execution entry and dependency order
 
 Documentation delivery does not authorize product implementation. Once execution is requested, use an isolated checkout/worktree and refresh the source pin. Target the accepted executable workbench, presently observed on `buildout/controlled-preparation-20261023` at `465b084a04c6a99bb80c29aa890146eea5a55bd1`; do not implicitly merge that stack into main. Read AGENTS.md and this change record. Reconcile touched seams and rerun baseline web tests/typecheck/build before editing product code; record environment/dependency problems separately from regressions. Do not broaden into dormant preparation activation or protected surfaces.
 
-Order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13. Tasks 2–4 have separable modules, but use this sequential order for a straightforward native implementation. Artwork work can be commissioned against the catalog after Task 1; packaging/release follows validated interfaces. Each task ends with focused checks and a reviewable DCO commit under the actual contributor's identity. Do not manufacture another person's sign-off. No dates, staffing estimates or budget promises are inferred.
+Order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13. Tasks 2 to 4 have separable modules, but use this sequential order for a straightforward native implementation. Artwork work can be commissioned against the catalog after Task 1; packaging/release follows validated interfaces. Each task ends with focused checks and a reviewable DCO commit under the actual contributor's identity. Do not manufacture another person's sign-off. No dates, staffing estimates or budget promises are inferred.
 
 ## File map
 
@@ -72,7 +72,7 @@ Do not change `api/client.ts`, `spec/`, services, daemon or kernel merely to imp
 
 ## Shared interfaces
 
-Define these names in Task 1; later tasks consume them without inventing alternate shapes. `.js` import suffixes follow repository convention. Detailed behavior belongs to spec sections 4–7.
+Define these names in Task 1; later tasks consume them without inventing alternate shapes. `.js` import suffixes follow repository convention. Detailed behavior belongs to spec sections 4 to 7.
 
 ```typescript
 type StationId = 'general'|'site'|'verify'|'office'|'bench'|'archive';
@@ -194,7 +194,7 @@ type FloorPreferencesV1 = {
 
 **Files:** Create `features/floor/{ThemeGallery.tsx,FloorToolbar.tsx,ThemeErrorBoundary.tsx,ThemedFloor.tsx,LegacyFloor.tsx,gallery.test.tsx,integration.test.tsx}`; modify existing `pages/Floor.tsx`; import scoped CSS from ThemedFloor.
 
-**Interfaces:** `ThemeGallery({entries,activeId,onPreview,onActivate,onClose})`; `loadEligibleTheme(id: string): Promise<ThemePackV1>` in registry; `ThemedFloor()` composes Tasks 1–6. `Floor()` branches on `import.meta.env.VITE_FLOOR_THEMES_ENABLED === 'true'` to ThemedFloor or LegacyFloor; test through a pure `isThemeFeatureEnabled(raw: unknown): boolean` exported from registry. Gallery owns no query client; activation state stays above theme error boundary.
+**Interfaces:** `ThemeGallery({entries,activeId,onPreview,onActivate,onClose})`; `loadEligibleTheme(id: string): Promise<ThemePackV1>` in registry; `ThemedFloor()` composes Tasks 1 to 6. `Floor()` branches on `import.meta.env.VITE_FLOOR_THEMES_ENABLED === 'true'` to ThemedFloor or LegacyFloor; test through a pure `isThemeFeatureEnabled(raw: unknown): boolean` exported from registry. Gallery owns no query client; activation state stays above theme error boundary.
 
 - [ ] Write gallery/integration tests: focus trap/return, Escape, static preview label, disabled development packs, successful activation persistence only after load, failed import retains current pack, rapid A→B load race cannot let slow A replace B, missing image falls back, unknown saved ID uses plain, flag false renders legacy Floor, no task mutation or query reset on switch. Assert selection survives a pack change and no POST/PUT/PATCH/DELETE is observed.
 - [ ] Run both focused files; observe failure before integration.
@@ -279,21 +279,21 @@ type FloorPreferencesV1 = {
 
 | Requirement | Tasks | Decisive planned verification |
 |---|---|---|
-| OT-01 | 1, 9–12, 13 | Registry/conformance inventory + actual fifteen-pack art review |
-| OT-02 | 1, 5–6, 8–12 | Descriptor validation + same renderer across all packs |
+| OT-01 | 1, 9 to 12, 13 | Registry/conformance inventory + actual fifteen-pack art review |
+| OT-02 | 1, 5 to 6, 8 to 12 | Descriptor validation + same renderer across all packs |
 | OT-03 | 2, 5, 13 | Source-state matrix including checker success vs acceptance |
 | OT-04 | 2, 7, 13 | Reordered sources/reload/theme-switch identity and selection |
-| OT-05 | 2–3, 13 | Paging/partial-query/revision/capture/duplicate fixtures |
+| OT-05 | 2 to 3, 13 | Paging/partial-query/revision/capture/duplicate fixtures |
 | OT-06 | 5, 7, 13 | Keyboard/dialog/list + actual contrast/zoom/screen reader |
 | OT-07 | 6, 13 | Media/visibility/stale/transition timer tests + Full/Still browser |
-| OT-08 | 1, 5, 7–8, 13 | Schema/import/image/error-boundary fallbacks |
+| OT-08 | 1, 5, 7 to 8, 13 | Schema/import/image/error-boundary fallbacks |
 | OT-09 | 4, 7, 13 | Storage corruption/quota/cross-tab/unavailable preference cases |
 | OT-10 | 3, 6, 13 | Failure/freshness/reconnect rebaseline evidence |
 | OT-11 | 2, 5, 13 | In-bounds slots + overflow equivalence + real container tests |
-| OT-12 | 5, 7–8, 13 | No API props or mutation/external requests; escaped text/passive art |
-| OT-13 | 8–13 | Hash/byte/SVG validation + measured machine/browser targets |
-| OT-14 | 1, 8–13 | Release-record asset/title/note binding + actual human decision |
-| OT-15 | 7, 9–13 | Feature-off build, pack-off fallback and unchanged work records |
+| OT-12 | 5, 7 to 8, 13 | No API props or mutation/external requests; escaped text/passive art |
+| OT-13 | 8 to 13 | Hash/byte/SVG validation + measured machine/browser targets |
+| OT-14 | 1, 8 to 13 | Release-record asset/title/note binding + actual human decision |
+| OT-15 | 7, 9 to 13 | Feature-off build, pack-off fallback and unchanged work records |
 
 ## Planning completion and handoff
 

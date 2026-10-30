@@ -45,7 +45,7 @@ The Floor covers work packages, not pre-package intake captures. Do not label it
 
 The Floor toolbar contains **Theme**, **Motion** (`Full`, `Quiet`, `Still`), and **View** (`Scene`, `List`), followed by package coverage and **Refresh**. Keep the existing app navigation. Theme gallery is a keyboard-operable modal with thumbnail, original title, one-sentence description, mood tags, availability and **Preview**/**Use theme**. The fifteen concepts may appear in a catalog, but only release-eligible packs have an enabled Use button. Unfinished or uncleared packs say **In development**. Plain Floor is always available and is not counted among the fifteen.
 
-Preview is a static image or isolated static sample scene labeled **Preview — sample activity**. It never mounts live queries, sends metrics or affects selection/preferences until Use is pressed. Theme descriptions, attribution notes and availability are real product information; do not show internal validation flags or legal workflow fields.
+Preview is a static image or isolated static sample scene labeled **Preview: sample activity**. It never mounts live queries, sends metrics or affects selection/preferences until Use is pressed. Theme descriptions, attribution notes and availability are real product information; do not show internal validation flags or legal workflow fields.
 
 Switching loads the proposed pack while retaining the current scene. On load failure keep the current pack, show a retryable message, and leave Plain Floor available. On success atomically replace artwork; keep page/filter, selected identity, live data, actor appearance assignments for that pack and focus. Persist only after successful activation. No document reload, query invalidation, mutation, progress replay or success celebration. Gallery closes and focus returns to Theme.
 
@@ -59,11 +59,11 @@ The gallery, toolbar and scene use normal text fonts. Decorative lettering stays
 
 ### Query ownership and paging
 
-`useFloorData()` owns `/packages`, `/office` and page-specific `api.packageView` queries. Default filter: Active (draft, released, in-work, in-verification). Optional All includes accepted/closed packages for inspection. Page size **30**; sort matching packages by canonical ID ascending, then slice. Previous/Next and “Packages 31–60 of 84 matching packages” are ordinary controls. Empty filter results say “No matching work packages.” A selected package is not silently pulled into a different page. Reset to the last valid page when the collection shrinks.
+`useFloorData()` owns `/packages`, `/office` and page-specific `api.packageView` queries. Default filter: Active (draft, released, in-work, in-verification). Optional All includes accepted/closed packages for inspection. Page size **30**; sort matching packages by canonical ID ascending, then slice. Previous/Next and “Packages 31 to 60 of 84 matching packages” are ordinary controls. Empty filter results say “No matching work packages.” A selected package is not silently pulled into a different page. Reset to the last valid page when the collection shrinks.
 
 Fetch no more than **30** detail queries simultaneously. Selected-page details reuse `['views', id]`; office items match both selected package ID and revision. Counts from the full package list are labeled package counts, never worker totals. Office summary links to the full Office view. Missing details are not replaced by fake idle actors. Show “Loaded X of Y selected package details” while incomplete; errors list failed package IDs with Retry. Independent endpoint snapshots are not atomic: omit incompatible revisions and mark them **Updating**, then refetch; never combine newer package status with older run/acceptance data.
 
-Reuse current SSE invalidation. While the Floor is visible, poll its active queries every **15 seconds** with no hidden-tab/background interval. Use query success timestamps, not render time. Mark a snapshot stale if any required source has failed or is more than **30 seconds** old; freeze work/carry/signature motion, retain last known labels, show **Updates unavailable — showing last known activity** and the oldest required successful timestamp. Required sources are package list, office and selected-page details; partial initial loads are Loading, not empty. On tab return refetch before restarting activity motion. Cached snapshots may render immediately with their stale designation. A successful response can remove an absent entity, but elapsed client time alone cannot turn a run into lost/failed/succeeded.
+Reuse current SSE invalidation. While the Floor is visible, poll its active queries every **15 seconds** with no hidden-tab/background interval. Use query success timestamps, not render time. Mark a snapshot stale if any required source has failed or is more than **30 seconds** old; freeze work/carry/signature motion, retain last known labels, show **Updates unavailable, showing last known activity** and the oldest required successful timestamp. Required sources are package list, office and selected-page details; partial initial loads are Loading, not empty. On tab return refetch before restarting activity motion. Cached snapshots may render immediately with their stale designation. A successful response can remove an absent entity, but elapsed client time alone cannot turn a run into lost/failed/succeeded.
 
 ### Identity and entity kinds
 
@@ -168,21 +168,21 @@ Primary U.S. guidance consulted for framing, not pack clearance:
 
 | Requirement | Observable acceptance scenario |
 |---|---|
-| OT-01 — Fifteen distinct art packs and a plain fallback | AC-01: catalog contains exactly the fifteen IDs; Plain Floor remains available independently; incomplete packs cannot be selected |
-| OT-02 — Shared declarative engine | AC-02: every descriptor uses shared-v1; all pack fixtures render without pack-specific component imports or executable callbacks |
-| OT-03 — Authoritative state semantics | AC-03: every RunStatus/office kind, stopping, waiting and accepted-with-findings maps as section 4; a succeeded pre-check never displays Accepted |
-| OT-04 — Stable identity | AC-04: reorder queries, reload, and switch away/back; the same run keeps ID, variant and selection, while distinct runs sharing artwork have distinct badges |
-| OT-05 — Truthful coverage and revision joins | AC-05: 31 packages, failed detail fetch, returned revision, duplicate IDs and pending capture fixtures never produce a false complete/all-agent count |
-| OT-06 — Equivalent accessible operation | AC-06: keyboard-only gallery/tooltip/actor/list flows work; focus survives switching and entity disappearance; contrast/zoom/touch targets meet section 10 |
-| OT-07 — Controlled motion | AC-07: OS reduced motion, Quiet, Still, hidden tab, stale data and tab return enforce section 5; unchanged refetch/theme switch never replay effects |
-| OT-08 — Atomic loading and fallback | AC-08: rejected lazy import, missing actor/scene image and descriptor version mismatch preserve the list, current data and Plain Floor escape |
-| OT-09 — Robust preferences | AC-09: corrupt JSON, denied/quota storage, unavailable theme, schema upgrade and cross-tab updates follow section 7 without losing task state |
-| OT-10 — Freshness and recovery | AC-10: failed/stale partial sources freeze animation; recovery/reconnect establishes a new baseline without inventing work transitions |
-| OT-11 — Responsive bounded scene | AC-11: all entities fit station bounds, 7th item yields +1, full list retains it, and <960-pixel containers use list without horizontal page overflow |
-| OT-12 — No new work authority or disclosure | AC-12: selecting/previewing/changing motion makes no mutation requests; pack props exclude protected/raw data; assets request only same-origin paths |
-| OT-13 — Asset/performance budgets | AC-13: asset hash/size/SVG validation passes; cold/cached switching and full-load fixtures meet recorded targets or remain explicitly unreleased |
-| OT-14 — Pack-specific rights/attribution | AC-14: missing/stale release record excludes only that pack; a record with non-empty influence text is refused |
-| OT-15 — Gradual rollout and rollback | AC-15: allowlisted waves can be disabled independently; disabling the feature restores the ordinary Floor without dropping task data or changing package bytes |
+| OT-01: Fifteen distinct art packs and a plain fallback | AC-01: catalog contains exactly the fifteen IDs; Plain Floor remains available independently; incomplete packs cannot be selected |
+| OT-02: Shared declarative engine | AC-02: every descriptor uses shared-v1; all pack fixtures render without pack-specific component imports or executable callbacks |
+| OT-03: Authoritative state semantics | AC-03: every RunStatus/office kind, stopping, waiting and accepted-with-findings maps as section 4; a succeeded pre-check never displays Accepted |
+| OT-04: Stable identity | AC-04: reorder queries, reload, and switch away/back; the same run keeps ID, variant and selection, while distinct runs sharing artwork have distinct badges |
+| OT-05: Truthful coverage and revision joins | AC-05: 31 packages, failed detail fetch, returned revision, duplicate IDs and pending capture fixtures never produce a false complete/all-agent count |
+| OT-06: Equivalent accessible operation | AC-06: keyboard-only gallery/tooltip/actor/list flows work; focus survives switching and entity disappearance; contrast/zoom/touch targets meet section 10 |
+| OT-07: Controlled motion | AC-07: OS reduced motion, Quiet, Still, hidden tab, stale data and tab return enforce section 5; unchanged refetch/theme switch never replay effects |
+| OT-08: Atomic loading and fallback | AC-08: rejected lazy import, missing actor/scene image and descriptor version mismatch preserve the list, current data and Plain Floor escape |
+| OT-09: Robust preferences | AC-09: corrupt JSON, denied/quota storage, unavailable theme, schema upgrade and cross-tab updates follow section 7 without losing task state |
+| OT-10: Freshness and recovery | AC-10: failed/stale partial sources freeze animation; recovery/reconnect establishes a new baseline without inventing work transitions |
+| OT-11: Responsive bounded scene | AC-11: all entities fit station bounds, 7th item yields +1, full list retains it, and <960-pixel containers use list without horizontal page overflow |
+| OT-12: No new work authority or disclosure | AC-12: selecting/previewing/changing motion makes no mutation requests; pack props exclude protected/raw data; assets request only same-origin paths |
+| OT-13: Asset/performance budgets | AC-13: asset hash/size/SVG validation passes; cold/cached switching and full-load fixtures meet recorded targets or remain explicitly unreleased |
+| OT-14: Pack-specific rights/attribution | AC-14: missing/stale release record excludes only that pack; a record with non-empty influence text is refused |
+| OT-15: Gradual rollout and rollback | AC-15: allowlisted waves can be disabled independently; disabling the feature restores the ordinary Floor without dropping task data or changing package bytes |
 
 ## 10. Quality and accessibility acceptance
 

@@ -168,7 +168,7 @@ export function FloorWorkbench({
       </div>
       {sample && (
         <p className="floor-sample-notice">
-          Preview — sample activity. This is a demonstration, not live work.
+          Preview: sample activity. This is a demonstration, not live work.
         </p>
       )}
       {allowDrafts && (
@@ -197,7 +197,7 @@ export function FloorWorkbench({
           {data.health.state === "healthy"
             ? `${data.loadedDetails} of ${data.requiredDetails} selected package details loaded`
             : data.health.state === "stale"
-              ? "Updates unavailable — showing last known activity"
+              ? "Updates unavailable, showing last known activity"
               : `Loading ${data.loadedDetails} of ${data.requiredDetails} selected package details`}
         </span>
         {data.health.oldestSuccessAt && (

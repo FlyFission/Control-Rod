@@ -85,6 +85,19 @@
       "sha256": "bfdb1415e680891de4fc670e1324af955c9a6b4b8e45e33dc178fc47fd815329"
     },
     {
+      "type": "DelegationRevocation",
+      "body": {
+        "id": "drev_example",
+        "org_id": "org_local",
+        "delegation_id": "del_example",
+        "revoked_by": "mem_a",
+        "reason": "cover no longer needed",
+        "revoked_at": "2026-11-03T09:00:00.000Z"
+      },
+      "canonical": "{\"delegation_id\":\"del_example\",\"id\":\"drev_example\",\"org_id\":\"org_local\",\"reason\":\"cover no longer needed\",\"revoked_at\":\"2026-11-03T09:00:00.000Z\",\"revoked_by\":\"mem_a\"}",
+      "sha256": "3e7ab940d62b95d4d6a1687afa98933f7a1ff9709be412597517503de715b0fa"
+    },
+    {
       "type": "PolicySet",
       "body": {
         "id": "pol_example",

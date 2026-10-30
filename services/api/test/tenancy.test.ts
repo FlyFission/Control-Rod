@@ -4,6 +4,7 @@ import { migrate } from "../src/db/migrate.js";
 import { TENANCY_DOWN_SQL } from "../src/db/migrations/009-tenancy.js";
 import { WORKBENCH_DOWN_SQL } from "../src/db/migrations/010-workbench.js";
 import { ROLES_DOWN_SQL } from "../src/db/migrations/011-roles.js";
+import { ADMINISTRATION_DOWN_SQL } from "../src/db/migrations/012-administration.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import {
@@ -51,6 +52,7 @@ describe("migration 009", () => {
     expect((await verifyChain(h.db)).ok).toBe(true);
 
     // Migrations reverse newest first: the workbench tables depend on tenancy.
+    await h.admin.query(ADMINISTRATION_DOWN_SQL);
     await h.admin.query(ROLES_DOWN_SQL);
     await h.admin.query(WORKBENCH_DOWN_SQL);
     await h.admin.query(TENANCY_DOWN_SQL);

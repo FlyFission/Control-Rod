@@ -48,6 +48,10 @@ EXAMPLES = {
         "id": "pol_example", "version": 1, "org_id": "org_local", "hardware_attestation_formats": ["packed", "tpm"],
         "settings": {"autonomy_ceiling": "3"}, "reason": "initial", "effective_at": "2026-10-30T12:00:00.000Z",
     },
+    "DelegationRevocation": {
+        "id": "drev_example", "org_id": "org_local", "delegation_id": "del_example", "revoked_by": "mem_a",
+        "reason": "cover no longer needed", "revoked_at": "2026-11-03T09:00:00.000Z",
+    },
     "SourceManifest": {
         "id": "man_example", "org_id": "org_local",
         "files": [{"path": "src/a.py", "mode": "file", "digest": D},

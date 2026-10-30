@@ -1,0 +1,37 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "DelegationRevocation.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "delegation_id": {
+            "$ref": "TenancyId.json"
+        },
+        "revoked_by": {
+            "$ref": "TenancyId.json"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 1
+        },
+        "revoked_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "delegation_id",
+        "revoked_by",
+        "reason",
+        "revoked_at"
+    ],
+    "description": "Ends a delegation before its end date. Delegations are frozen; their revocation is its own record.",
+    "unevaluatedProperties": false
+}

@@ -7,7 +7,7 @@ import EmbeddedPostgres from "embedded-postgres";
 import { preparationConfig } from "./preparation/config.js";
 import { buildApp } from "./app.js";
 import { hashToken } from "./auth.js";
-import { openDb } from "./db/index.js";
+import { closeDb, openDb } from "./db/index.js";
 
 /**
  * Starts Control Rod on this machine: an embedded Postgres in ~/.controlrod/pg, the control
@@ -66,7 +66,7 @@ const app = buildApp({
 
 const stop = async () => {
   await app.close();
-  await db.end();
+  await closeDb(db);
   await pgServer?.stop();
   process.exit(0);
 };

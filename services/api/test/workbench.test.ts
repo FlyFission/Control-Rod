@@ -25,12 +25,12 @@ const manifestDigest = { algorithm: "sha256" as const, value: digest(manifest) }
 beforeAll(async () => {
   h = await startHarness();
   // Intake drafts revision 0 and the owner releases it as is (review R1).
-  await h.db.query("insert into captures (id, body, created_at) values ('cap_wb', '{}', now())");
-  await h.db.query("insert into packages (id, revision, status, body) values ('pkg_wb', 0, 'released', '{}')");
-  await h.db.query("insert into packages (id, revision, status, body) values ('pkg_other', 0, 'released', '{}')");
-  await h.db.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ('run_wb', 'pkg_wb', 0, 'author', 1, 'succeeded', '{}')");
-  await h.db.query("insert into decisions (id, package_id, package_revision, kind, body) values ('dec_1', 'pkg_wb', 0, 'accept', '{}')");
-  await tx(h.db, async (c) => {
+  await h.admin.query("insert into captures (id, body, created_at) values ('cap_wb', '{}', now())");
+  await h.admin.query("insert into packages (id, revision, status, body) values ('pkg_wb', 0, 'released', '{}')");
+  await h.admin.query("insert into packages (id, revision, status, body) values ('pkg_other', 0, 'released', '{}')");
+  await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ('run_wb', 'pkg_wb', 0, 'author', 1, 'succeeded', '{}')");
+  await h.admin.query("insert into decisions (id, package_id, package_revision, kind, body) values ('dec_1', 'pkg_wb', 0, 'accept', '{}')");
+  await tx(h.admin, async (c) => {
     for (const [id, name] of [[verifier, "verifier"], [colleague, "colleague"]] as const)
       await addMember(c, { id, org_id: LOCAL_ORG, user_name: name, display_name: name, status: "active" }, owner);
     for (const [id, member] of [["qual_v", verifier], ["qual_c", colleague]] as const)
@@ -43,11 +43,11 @@ beforeAll(async () => {
     await createProject(c, { id: "prj_b", org_id: "org_b", name: "B project", mode: "general", default_rigor: "standard",
       lanes: ["internal"], qa_overlays: [], autonomy_level: 0, status: "active" }, owner);
   });
-  await h.db.query("update organizations set body = jsonb_set(body, '{status}', '\"suspended\"') where id = 'org_b'");
+  await h.admin.query("update organizations set body = jsonb_set(body, '{status}', '\"suspended\"') where id = 'org_b'");
 }, 120_000);
 afterAll(async () => h?.stop());
 
-const put = (k: WorkbenchKind, body: Record<string, unknown>) => tx(h.db, (c) => recordObject(c, k, { ...org, ...body } as never, owner));
+const put = (k: WorkbenchKind, body: Record<string, unknown>) => tx(h.admin, (c) => recordObject(c, k, { ...org, ...body } as never, owner));
 
 /** One valid example of every kind, in dependency order, forming one consistent release. */
 const EXAMPLES: [WorkbenchKind, Record<string, unknown>][] = [
@@ -141,9 +141,9 @@ describe("storage", () => {
 
   it("R2: refuses references across the organization boundary", async () => {
     await expect(put("exploration", { id: "exp_x", project_id: "prj_b", lane: "internal", sandbox_policy_digest: D, started_by: verifier, status: "active", interactive: true, unattested: true })).rejects.toThrow(/project_id_org_id/);
-    await expect(tx(h.db, (c) => recordObject(c, "exploration", { org_id: "org_b", id: "exp_b", project_id: "prj_b", lane: "internal", sandbox_policy_digest: D, started_by: verifier, status: "active", interactive: true, unattested: true } as never, owner))).rejects.toThrow(/started_by_org_id/);
+    await expect(tx(h.admin, (c) => recordObject(c, "exploration", { org_id: "org_b", id: "exp_b", project_id: "prj_b", lane: "internal", sandbox_policy_digest: D, started_by: verifier, status: "active", interactive: true, unattested: true } as never, owner))).rejects.toThrow(/started_by_org_id/);
     // A legacy package owned by org_local cannot be referenced from org_b.
-    await expect(tx(h.db, (c) => recordObject(c, "attempt_set", { org_id: "org_b", id: "set_b", package_id: "pkg_wb", package_revision: 0, release_digest: D, candidates: 2, status: "running" } as never, owner))).rejects.toThrow(/package_kind_package_id_org_id/);
+    await expect(tx(h.admin, (c) => recordObject(c, "attempt_set", { org_id: "org_b", id: "set_b", package_id: "pkg_wb", package_revision: 0, release_digest: D, candidates: 2, status: "running" } as never, owner))).rejects.toThrow(/package_kind_package_id_org_id/);
   });
 
   it("R3: binds candidates to their attempt set's exact release and declared size", async () => {
@@ -186,16 +186,16 @@ describe("storage", () => {
 describe("sandbox policies", () => {
   const policy = { id: "sbx_laptop", org_id: LOCAL_ORG, driver: "native-cli", denied_read: ["~/.claude", "~/.codex"], writable_roots: ["."], allowed_hosts: [], enabled_tools: ["Bash", "Read"], mandatory_claims: ["login-unreadable"] };
   it("versions contiguously, keeps its organization and never edits a version", async () => {
-    await tx(h.db, (c) => recordSandboxPolicy(c, { ...policy, version: 1 }, owner));
-    await expect(tx(h.db, (c) => recordSandboxPolicy(c, { ...policy, version: 3 }, owner))).rejects.toThrow(/version 3 does not follow 1/);
-    await expect(tx(h.db, (c) => recordSandboxPolicy(c, { ...policy, version: 2, denied_read: [] }, owner))).rejects.toThrow(/denied_read/);
-    await expect(tx(h.db, (c) => recordSandboxPolicy(c, { ...policy, org_id: "org_b", version: 2 }, owner))).rejects.toThrow(/keeps its organization/);
-    const v2 = await tx(h.db, (c) => recordSandboxPolicy(c, { ...policy, version: 2, enabled_tools: ["Bash"] }, owner));
+    await tx(h.admin, (c) => recordSandboxPolicy(c, { ...policy, version: 1 }, owner));
+    await expect(tx(h.admin, (c) => recordSandboxPolicy(c, { ...policy, version: 3 }, owner))).rejects.toThrow(/version 3 does not follow 1/);
+    await expect(tx(h.admin, (c) => recordSandboxPolicy(c, { ...policy, version: 2, denied_read: [] }, owner))).rejects.toThrow(/denied_read/);
+    await expect(tx(h.admin, (c) => recordSandboxPolicy(c, { ...policy, org_id: "org_b", version: 2 }, owner))).rejects.toThrow(/keeps its organization/);
+    const v2 = await tx(h.admin, (c) => recordSandboxPolicy(c, { ...policy, version: 2, enabled_tools: ["Bash"] }, owner));
     const cur = await currentSandboxPolicy(h.db, "sbx_laptop");
     expect(cur?.body.version).toBe(2);
     expect(cur?.digest).toBe(v2.digest);
     expect(digest(cur?.body)).toBe(v2.digest);
-    await expect(h.db.query("update sandbox_policies set body = body")).rejects.toThrow(/append only/);
+    await expect(h.admin.query("update sandbox_policies set body = body")).rejects.toThrow(/append only/);
   });
 });
 
@@ -203,37 +203,37 @@ describe("classes", () => {
   it.each(WORKBENCH_TABLES.filter((t) => t.cls !== "L").map((t) => [t.name, t.cls] as const))(
     "%s (%s) refuses update and delete", async (table) => {
       expect((await h.db.query(`select count(*)::int as n from ${table}`)).rows[0].n).toBeGreaterThan(0);
-      await expect(h.db.query(`update ${table} set body = body`)).rejects.toThrow(/append only/);
-      await expect(h.db.query(`delete from ${table}`)).rejects.toThrow(/append only/);
+      await expect(h.admin.query(`update ${table} set body = body`)).rejects.toThrow(/append only/);
+      await expect(h.admin.query(`delete from ${table}`)).rejects.toThrow(/append only/);
     });
 
   it.each(WORKBENCH_TABLES.filter((t) => t.cls === "L").map((t) => [t.name] as const))(
     "%s refuses delete, identity change and protected field rewrites even through raw SQL", async (table) => {
       expect((await h.db.query(`select count(*)::int as n from ${table}`)).rows[0].n).toBeGreaterThan(0);
-      await expect(h.db.query(`delete from ${table}`)).rejects.toThrow(/never deleted/);
-      await expect(h.db.query(`update ${table} set body = jsonb_set(body, '{org_id}', '"org_b"')`)).rejects.toThrow(/may change only/);
+      await expect(h.admin.query(`delete from ${table}`)).rejects.toThrow(/never deleted/);
+      await expect(h.admin.query(`update ${table} set body = jsonb_set(body, '{org_id}', '"org_b"')`)).rejects.toThrow(/may change only/);
       // R6: a field outside the type's mutable list cannot change while the status stays.
-      await expect(h.db.query(`update ${table} set body = body || '{"injected": "x"}'`)).rejects.toThrow(/may change only/);
+      await expect(h.admin.query(`update ${table} set body = body || '{"injected": "x"}'`)).rejects.toThrow(/may change only/);
     });
 
   it("R6: protected evidence and links stay fixed; listed mutable fields may change", async () => {
-    await expect(h.db.query(`update comments set body = jsonb_set(body, '{text}', '"rewritten"') where id = 'com_1'`)).rejects.toThrow(/may change only/);
-    await expect(h.db.query(`update attempt_sets set body = jsonb_set(body, '{release_digest,value}', '"${"b".repeat(64)}"') where id = 'set_1'`)).rejects.toThrow(/may change only/);
-    await expect(h.db.query(`update budget_reservations set body = jsonb_set(body, '{amount,value}', '"500"') where id = 'bres_1'`)).rejects.toThrow(/may change only/);
-    await h.db.query(`update workspaces set body = jsonb_set(body, '{lock_holder}', '"daemon-1"') where id = 'ws_1'`);
+    await expect(h.admin.query(`update comments set body = jsonb_set(body, '{text}', '"rewritten"') where id = 'com_1'`)).rejects.toThrow(/may change only/);
+    await expect(h.admin.query(`update attempt_sets set body = jsonb_set(body, '{release_digest,value}', '"${"b".repeat(64)}"') where id = 'set_1'`)).rejects.toThrow(/may change only/);
+    await expect(h.admin.query(`update budget_reservations set body = jsonb_set(body, '{amount,value}', '"500"') where id = 'bres_1'`)).rejects.toThrow(/may change only/);
+    await h.admin.query(`update workspaces set body = jsonb_set(body, '{lock_holder}', '"daemon-1"') where id = 'ws_1'`);
     expect(WORKBENCH_MUTABLE.workspaces).toEqual(["lock_holder"]);
   });
 
   it("moves lifecycled objects only along listed transitions, each an event", async () => {
-    await tx(h.db, (c) => transition(c, "workspace", "ws_1", "ready", owner, "provisioned"));
-    await expect(tx(h.db, (c) => transition(c, "workspace", "ws_1", "provisioning", owner, "back"))).rejects.toThrow(/cannot go from ready to provisioning/);
-    await tx(h.db, (c) => transition(c, "attempt_set", "set_1", "ready-to-compare", owner, "both done"));
-    await tx(h.db, (c) => transition(c, "attempt_set", "set_1", "selected", owner, "sel_1"));
-    await expect(tx(h.db, (c) => transition(c, "attempt_set", "set_1", "running", owner, "again"))).rejects.toThrow(/cannot go from selected to running/);
-    await tx(h.db, (c) => transition(c, "comment", "com_1", "resolved", owner, "res_1"));
-    await expect(h.db.query("update comments set body = jsonb_set(body, '{status}', '\"open\"') where id = 'com_1'")).rejects.toThrow(/cannot go from resolved to open/);
-    await expect(tx(h.db, (c) => transition(c, "checkpoint", "chk_1", "x", owner, "no"))).rejects.toThrow(/not lifecycled/);
-    await expect(tx(h.db, (c) => transition(c, "budget", "bud_1", "closed", owner, "not a status"))).rejects.toThrow(/Budget.json refused: \/status/);
+    await tx(h.admin, (c) => transition(c, "workspace", "ws_1", "ready", owner, "provisioned"));
+    await expect(tx(h.admin, (c) => transition(c, "workspace", "ws_1", "provisioning", owner, "back"))).rejects.toThrow(/cannot go from ready to provisioning/);
+    await tx(h.admin, (c) => transition(c, "attempt_set", "set_1", "ready-to-compare", owner, "both done"));
+    await tx(h.admin, (c) => transition(c, "attempt_set", "set_1", "selected", owner, "sel_1"));
+    await expect(tx(h.admin, (c) => transition(c, "attempt_set", "set_1", "running", owner, "again"))).rejects.toThrow(/cannot go from selected to running/);
+    await tx(h.admin, (c) => transition(c, "comment", "com_1", "resolved", owner, "res_1"));
+    await expect(h.admin.query("update comments set body = jsonb_set(body, '{status}', '\"open\"') where id = 'com_1'")).rejects.toThrow(/cannot go from resolved to open/);
+    await expect(tx(h.admin, (c) => transition(c, "checkpoint", "chk_1", "x", owner, "no"))).rejects.toThrow(/not lifecycled/);
+    await expect(tx(h.admin, (c) => transition(c, "budget", "bud_1", "closed", owner, "not a status"))).rejects.toThrow(/Budget.json refused: \/status/);
     const ev = await h.db.query("select body->'data' as d from events where body->>'type' = 'attempt-set.status-changed' order by (body->>'seq')::int");
     expect(ev.rows.map((r) => r.d)).toEqual([{ from: "running", to: "ready-to-compare", reason: "both done" }, { from: "ready-to-compare", to: "selected", reason: "sel_1" }]);
   });

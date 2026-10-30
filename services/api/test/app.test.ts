@@ -254,8 +254,8 @@ describe("the record", () => {
     const v = (await asOwner("GET", "/events/verify")).json();
     expect(v.ok).toBe(true);
     expect(v.count).toBeGreaterThan(20);
-    await expect(h.db.query("update events set body = body where seq = 1")).rejects.toThrow(/append-only/);
-    await expect(h.db.query("delete from events where seq = 1")).rejects.toThrow(/append-only/);
+    await expect(h.admin.query("update events set body = body where seq = 1")).rejects.toThrow(/append-only/);
+    await expect(h.admin.query("delete from events where seq = 1")).rejects.toThrow(/append-only/);
   });
 
   it("refuses records the contract does not allow", async () => {
@@ -327,6 +327,6 @@ describe("decision kinds (workbench plan task 1.3)", () => {
 describe("migrations 009 and 010 over real signed history (review R14)", () => {
   it("reverse and reapply without changing any legacy row, signed decision or event", async () => {
     const { assertMigrationsPreserveHistory } = await import("./migration-preservation.js");
-    await assertMigrationsPreserveHistory(h.db, ["captures", "packages", "runs", "outputs", "verifications", "decisions", "credentials", "sessions"]);
+    await assertMigrationsPreserveHistory(h.admin, ["captures", "packages", "runs", "outputs", "verifications", "decisions", "credentials", "sessions"]);
   });
 });

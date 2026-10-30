@@ -1,10 +1,11 @@
 import { randomUUID, createHash, randomBytes } from "node:crypto";
 import type { Db, Tx } from "../db/index.js";
-import { tx } from "../db/index.js";
+import { readTx } from "../db/index.js";
+import { command } from "../commands/executor.js";
 import { appendEvent } from "../events.js";
 import { decidePreparation } from "../kernel.js";
 import { Refusal, type WorkConfig } from "../work.js";
-import { head, lockedPackage } from "./store.js";
+import { head, lockedPackage, snapshotPackage } from "./store.js";
 import { preparationReadiness, preparationSubjects } from "./readiness.js";
 import type { RequirementsConfirmation, WorkPackage } from "./types.js";
 
@@ -16,9 +17,10 @@ export interface VerifiedPreparationAssertion {
   requirements_digest: string;
   assertion: Record<string, unknown>;
 }
-async function requirementsSubject(c: Tx, id: string) {
-  const pkg = await lockedPackage(c, id),
-    snapshot = await head(c, id);
+/** The requirements subject; reads lock the package only when they will write (the reader cannot lock). */
+async function requirementsSubject(c: Tx, id: string, lock = true) {
+  const pkg = await (lock ? lockedPackage(c, id) : snapshotPackage(c, id)),
+    snapshot = await head(c, id, lock);
   if (!snapshot)
     throw new Refusal(404, "not-enrolled", "Enroll preparation first");
   if (pkg.status !== "draft")
@@ -46,8 +48,8 @@ export async function confirmationSubject(
   id: string,
   expected: { algorithm: string; value: string },
 ) {
-  return tx(db, async (c) => {
-    const s = await requirementsSubject(c, id);
+  return readTx(db, async (c) => {
+    const s = await requirementsSubject(c, id, false);
     if (
       expected.algorithm !== "sha256" ||
       expected.value !== s.requirements_digest.value
@@ -88,7 +90,7 @@ export async function confirmRequirements(
   id: string,
   verified: VerifiedPreparationAssertion,
 ) {
-  return tx(db, async (c) => {
+  return command(db, "preparation.confirm", async (c) => {
     const s = await requirementsSubject(c, id);
     if (
       verified.package_id !== id ||

@@ -41,7 +41,7 @@ export async function preparedHarness(options: Partial<AppOptions> = {}) {
     confirm = true,
   ) {
     const p = { ...packageFixture(), id: `WP-${randomUUID()}` };
-    await h.db.query(
+    await h.admin.query(
       "insert into packages(id,revision,status,body) values($1,0,'draft',$2)",
       [p.id, p],
     );
@@ -145,7 +145,7 @@ export async function preparedHarness(options: Partial<AppOptions> = {}) {
       },
     });
   const adminQuery = (sql: string, values?: unknown[]) =>
-    tx(h.db, (c) => c.query(sql, values));
+    tx(h.admin, (c) => c.query(sql, values));
   return {
     h,
     cookie,

@@ -3,6 +3,7 @@ import { type Db, tx } from "../src/db/index.js";
 import { migrate } from "../src/db/migrate.js";
 import { TENANCY_DOWN_SQL, TENANCY_TABLES } from "../src/db/migrations/009-tenancy.js";
 import { WORKBENCH_DOWN_SQL, WORKBENCH_TABLES } from "../src/db/migrations/010-workbench.js";
+import { ROLES_DOWN_SQL } from "../src/db/migrations/011-roles.js";
 import { verifyChain } from "../src/events.js";
 import { backfillCredentials } from "../src/tenancy.js";
 
@@ -24,7 +25,7 @@ async function snapshot(db: Db, tables: string[]) {
 }
 
 /**
- * Reverses migrations 010 and 009 over the history a test built, reapplies them, and checks that
+ * Run with the owner (migrator) connection. Reverses migrations 011, 010 and 009 over the history a test built, reapplies them, and checks that
  * every legacy row and every event is unchanged and the chain verifies. `nonEmpty` names tables
  * that must hold rows, so the comparison can never pass on empty collections (review R14).
  */
@@ -33,6 +34,7 @@ export async function assertMigrationsPreserveHistory(db: Db, nonEmpty: string[]
   const before = await snapshot(db, tables);
   for (const t of [...nonEmpty, "events"]) expect(before[t]?.length ?? 0, `${t} must hold history`).toBeGreaterThan(0);
   expect((await verifyChain(db)).ok).toBe(true);
+  await db.query(ROLES_DOWN_SQL);
   await db.query(WORKBENCH_DOWN_SQL);
   await db.query(TENANCY_DOWN_SQL);
   expect(await snapshot(db, tables)).toEqual(before);

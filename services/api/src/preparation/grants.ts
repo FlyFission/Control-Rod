@@ -40,7 +40,7 @@ export async function issuePreparationGrant(
   runId: string,
   claimToken: unknown,
 ) {
-  return grantTx(db, async (c) => {
+  return grantTx(db, "grant.issue", async (c) => {
     const meta = (
       await c.query<{ package_id: string }>(
         "select package_id from runs where id=$1",
@@ -181,7 +181,7 @@ export async function beginGrantUse(
   intent: PreparationGrantIntent,
 ): Promise<PreparationUsePermit> {
   validateGrantValue(cfg, "PreparationGrantIntent.json", intent);
-  return grantTx(db, async (c) => {
+  return grantTx(db, "grant.begin-use", async (c) => {
     const g = await currentGrant(c, cfg, id, token);
     if (
       intent.kind === "read-input" &&
@@ -224,7 +224,7 @@ export async function finishGrantUse(
   request: PreparationUseFinalize,
 ): Promise<PreparationUseReceipt> {
   validateGrantValue(cfg, "PreparationUseFinalize.json", request);
-  return grantTx(db, async (c) => {
+  return grantTx(db, "grant.finish-use", async (c) => {
     const g = await currentGrant(c, cfg, id, token);
     const use = (
       await c.query<{
@@ -357,7 +357,7 @@ export async function revokePreparationGrant(
   packageId: string,
   user: string,
 ): Promise<{ revoked: boolean }> {
-  return grantTx(db, async (c) => {
+  return grantTx(db, "grant.revoke", async (c) => {
     const g = (
       await c.query<{ package_id: string }>(
         "select package_id from preparation_grants where id=$1",

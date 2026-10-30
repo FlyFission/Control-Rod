@@ -5,18 +5,47 @@ import { migrate } from "./migrate.js";
 export type Db = pg.Pool;
 export type Tx = pg.PoolClient;
 
-/** Opens a pool and applies the schema. */
+/**
+ * Applies the schema as the connecting owner (the migrator), then returns the application's pool,
+ * which connects as controlrod_reader and cannot write. Writes go through the command executor,
+ * whose writer pool is attached here (specification 10.1).
+ */
 export async function openDb(connectionString: string): Promise<Db> {
-  const pool = new pg.Pool({ connectionString, max: 10 });
+  const migrator = new pg.Pool({ connectionString, max: 2 });
   try {
-    await migrate(pool);
+    await migrate(migrator);
     const { backfillCredentials } = await import("../tenancy.js");
-    await tx(pool, backfillCredentials);
-  } catch (error) {
-    await pool.end();
-    throw error;
+    await tx(migrator, backfillCredentials);
+  } finally {
+    await migrator.end();
   }
-  return pool;
+  const reader = new pg.Pool({ connectionString, max: 10, options: "-c role=controlrod_reader" });
+  const { attachWriter } = await import("../commands/executor.js");
+  attachWriter(reader, connectionString);
+  return reader;
+}
+
+/** Closes the application's pool and its attached writer. */
+export async function closeDb(db: Db): Promise<void> {
+  const { closeWriter } = await import("../commands/executor.js");
+  await closeWriter(db);
+  await db.end();
+}
+
+/** A consistent, read only snapshot on the reader: for reads that must see one moment, without locks. */
+export async function readTx<T>(db: Db, fn: (c: Tx) => Promise<T>): Promise<T> {
+  const c = await db.connect();
+  try {
+    await c.query("begin isolation level repeatable read read only");
+    const out = await fn(c);
+    await c.query("commit");
+    return out;
+  } catch (e) {
+    await c.query("rollback").catch(() => undefined);
+    throw e;
+  } finally {
+    c.release();
+  }
 }
 
 /** Runs `fn` in one serializable-enough transaction (row locks are taken explicitly). */

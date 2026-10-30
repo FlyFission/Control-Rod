@@ -1,0 +1,39 @@
+{
+  "spike": "S-0",
+  "claude": "/home/flyfission/.npm-global/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+  "claude_sha256": "4487042b4c4f5d88d4568f68ae98aae0b1ffae58864cf57fb868641bc5f84594",
+  "claude_version": "2.1.314 (Claude Code)",
+  "bubblewrap": "bubblewrap 0.9.0",
+  "checks": {
+    "client_finished": true,
+    "only_broker_tool_advertised": true,
+    "builtin_tool_refused": true,
+    "broker_tool_executed_in_T": true,
+    "tool_has_no_credentials": false,
+    "tool_cannot_reach_model_transport": true,
+    "tool_has_no_internet": false,
+    "tool_cannot_see_owner_home": true,
+    "model_domain_has_no_internet": true,
+    "model_domain_cannot_see_owner_home": true,
+    "provider_saw_only_fixture_key": true
+  },
+  "tool_domain": {
+    "env_has_key": true,
+    "provider_port_from_tool": "ConnectionRefusedError",
+    "internet_from_tool": "reachable",
+    "provider_socket_visible": false,
+    "owner_home_visible": false,
+    "marker_written": true
+  },
+  "model_domain": {
+    "internet_from_model_domain": "OSError",
+    "owner_home_visible_in_model_domain": false,
+    "exit": 0,
+    "stderr": "[claude-code:unrecognized_model] {\"model\":\"fixture-model\",\"query_source\":\"sdk\"}\n"
+  },
+  "provider_requests": 3,
+  "tool_runs": 1,
+  "scope": "real native Claude CLI, scripted offline provider, fixture key; proves domain separation on this host only",
+  "negative_control": true,
+  "activation": "HOLD"
+}

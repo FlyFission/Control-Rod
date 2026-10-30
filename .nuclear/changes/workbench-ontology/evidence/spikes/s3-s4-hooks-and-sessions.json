@@ -1,0 +1,81 @@
+{
+  "spikes": [
+    "S-3",
+    "S-4"
+  ],
+  "claude_version": "2.1.314 (Claude Code)",
+  "S-3": {
+    "pre_tool_use_fired": true,
+    "permission_request_fired": true,
+    "permission_request_payload": {
+      "session_id": "1d10a450-c6f6-40b8-b9c7-cdbf7014b73e",
+      "transcript_path": "/home/sandbox/.claude/projects/-work/1d10a450-c6f6-40b8-b9c7-cdbf7014b73e.jsonl",
+      "cwd": "/work",
+      "prompt_id": "af633cf8-fc00-43a3-9050-c3addf651eb2",
+      "permission_mode": "default",
+      "effort": {
+        "level": "high"
+      },
+      "hook_event_name": "PermissionRequest",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "printf RAN > /work/bash-marker"
+      },
+      "permission_suggestions": [
+        {
+          "type": "addDirectories",
+          "directories": [
+            "/work"
+          ],
+          "destination": "session"
+        }
+      ]
+    },
+    "tool_ran_without_approval": false,
+    "tool_result_is_error": true,
+    "tool_result_text": "Output redirection to '/work/bash-marker' needs approval. The path is inside the working directories for this session ('/work'), and Claude Code asks before a shell command creates, changes or removes files there."
+  },
+  "S-4": {
+    "exit": 0,
+    "result_events": 1,
+    "provider_requests": 2,
+    "event_types": [
+      "assistant",
+      "result"
+    ],
+    "second_request_carries_history": true,
+    "stderr": "[claude-code:unrecognized_model] {\"model\":\"fixture-model\",\"query_source\":\"sdk\"}\n",
+    "request_messages": [
+      [
+        [
+          "user",
+          "turn 1"
+        ],
+        [
+          "system",
+          "# Environment\nYou have been invoked in the following environment: \n - Primary wo"
+        ]
+      ],
+      [
+        [
+          "user",
+          "turn 1"
+        ],
+        [
+          "system",
+          "# Environment\nYou have been invoked in the following environment: \n - Primary wo"
+        ],
+        [
+          "assistant",
+          "done"
+        ],
+        [
+          "user",
+          "turn 2"
+        ]
+      ]
+    ]
+  },
+  "scope": "offline scripted provider, fixture key, this host only",
+  "activation": "HOLD"
+}

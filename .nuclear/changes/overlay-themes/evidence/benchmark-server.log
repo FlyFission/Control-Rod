@@ -1,0 +1,4 @@
+  ➜  Local:   http://127.0.0.1:4181/
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 143: vite preview --host 127.0.0.1 --port 4181 --outDir /workspace/Control-Rod/.worktrees/overlay-themes/.superpowers/sdd/2026-10-25-overlay-themes/benchmark-dist

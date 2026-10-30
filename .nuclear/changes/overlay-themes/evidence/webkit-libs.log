@@ -1,0 +1,11 @@
+W: Unable to read /etc/apt/apt.conf.d/80-applied-apt-retries - open (13: Permission denied)
+E: Unable to locate package libgtk-4-1
+E: Unable to locate package libgraphene-1.0-0
+E: Couldn't find any package by glob 'libgraphene-1.0-0'
+E: Couldn't find any package by regex 'libgraphene-1.0-0'
+E: Unable to locate package libharfbuzz-icu0
+E: Unable to locate package libmanette-0.2-0
+E: Couldn't find any package by glob 'libmanette-0.2-0'
+E: Couldn't find any package by regex 'libmanette-0.2-0'
+E: Unable to locate package libhyphen0
+E: Unable to locate package libgles2

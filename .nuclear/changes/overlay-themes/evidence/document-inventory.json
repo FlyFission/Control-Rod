@@ -1,0 +1,76 @@
+{
+  "baseline": "465b084a04c6a99bb80c29aa890146eea5a55bd1",
+  "scope": "documentation identity only; no product test or rights clearance",
+  "files": [
+    {
+      "path": ".nuclear/changes/overlay-themes/basis.md",
+      "bytes": 4160,
+      "sha256": "ec83c28505bcc89bc2632341456bedcd465029be0b1c8462bba978d9829def4d"
+    },
+    {
+      "path": ".nuclear/changes/overlay-themes/execution.md",
+      "bytes": 6963,
+      "sha256": "12018439de09ab80dce313c3cfd20d7e3daa108350b1bb7cfce59233adc9a7fa"
+    },
+    {
+      "path": ".nuclear/changes/overlay-themes/plan.md",
+      "bytes": 1143,
+      "sha256": "2ccf169a3f760bcd74542e5924af23b8b0325bec0536b86756560ccc23411e2f"
+    },
+    {
+      "path": ".nuclear/changes/overlay-themes/risk.md",
+      "bytes": 2624,
+      "sha256": "6f90a0eabb69ce64321646b38145cd8e6242b681459c1b83e3588c5ba9d1d528"
+    },
+    {
+      "path": ".nuclear/changes/overlay-themes/ship.md",
+      "bytes": 2433,
+      "sha256": "1dc101bc3247a0a15e7f7f7165dc429a747990c888a07e1e028a5192944083c3"
+    },
+    {
+      "path": ".nuclear/changes/overlay-themes/trace.md",
+      "bytes": 2796,
+      "sha256": "6a3deea29e13cc78cb2a5178b041285f4b50b137967ac1720489e8929877a103"
+    },
+    {
+      "path": ".nuclear/changes/overlay-themes/verification.md",
+      "bytes": 5044,
+      "sha256": "0673eca118853feefcbe23401cc038d3bd9d2684285aa5040b9a3264a93579ce"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-25-overlay-themes-design.md",
+      "bytes": 31026,
+      "sha256": "3f09da827580fd8b251f6917489e6b8660cc792acd329f7ad315bce5a8981bb7"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-25-overlay-themes-catalog.md",
+      "bytes": 21801,
+      "sha256": "8de707fce2ea79a1beceaa1f252fddd10e5b1eb9f166b8eb90f774efc64e5a11"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-25-overlay-themes.md",
+      "bytes": 37972,
+      "sha256": "78f0984f0b12df3101f38c18f49d9751c5f02eabf00e6bc8bb0bca2bbf089a9d"
+    },
+    {
+      "path": "docs/README.md",
+      "bytes": 1543,
+      "sha256": "e4893d49c5d26416cf8882eb06ef8c881742a50b520a231f97da9ed6f0362bb9"
+    },
+    {
+      "path": "docs/overlay-themes/user-guide.md",
+      "bytes": 6518,
+      "sha256": "5fb09822bb086210ab4d3d1af1633c93521c2a2ee41436309ec94363cc3f331b"
+    },
+    {
+      "path": "docs/overlay-themes/asset-workflow.md",
+      "bytes": 5213,
+      "sha256": "43778c9711ed2da79b7a6ef1541e9dd44aad765d7ce82980815fe0dcd06df8da"
+    },
+    {
+      "path": ".nuclear/changes/overlay-themes/check_documents.py",
+      "bytes": 3913,
+      "sha256": "24c2f5786f5f139c6a2549f24d7c9c22b2035a2686a33609cc7ea9432a2ed159"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "packId": "confectionery-works",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#643B65",
+    "#B96F47",
+    "#D9618B",
+    "#F7E8CD"
+  ],
+  "status": "draft",
+  "props": [
+    "recipe card",
+    "mixing paddle",
+    "wrapped parcel",
+    "copper scoop",
+    "tasting tray",
+    "ribbon spool"
+  ],
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

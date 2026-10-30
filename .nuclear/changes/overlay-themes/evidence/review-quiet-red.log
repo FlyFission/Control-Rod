@@ -1,0 +1,56 @@
+[WebServer] (node:9433) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:9448) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ python3 ../../tools/check_theme_assets.py --root ../..
+[WebServer] (node:9464) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:9479) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:9508) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:9535) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:9549) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:9573) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › e2e/floor-themes.spec.ts:6:1 › Quiet submission emphasis uses opacity without translation or scale (798ms)
+
+
+  1) [chromium] › e2e/floor-themes.spec.ts:6:1 › Quiet submission emphasis uses opacity without translation or scale 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: false
+
+       9 |  api.finishAuthor();await page.getByRole('button',{name:'Refresh',exact:true}).click();
+      10 |  const effect=page.locator('.floor-signature').first();await effect.waitFor();
+    > 11 |  expect(await effect.evaluate(el=>el.getAnimations().flatMap(a=>a.effect?.getKeyframes()??[]).every(frame=>!frame.transform||frame.transform==='none'))).toBe(true);
+         |                                                                                                                                                          ^
+      12 | });
+      13 |
+      14 | test('short reconnect rebaselines without a submission effect',async({page})=>{
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/floor-themes.spec.ts:11:154
+
+    Error Context: test-results/floor-themes-Quiet-submiss-6010a-ithout-translation-or-scale-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/floor-themes-Quiet-submiss-6010a-ithout-translation-or-scale-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/floor-themes-Quiet-submiss-6010a-ithout-translation-or-scale-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e/floor-themes.spec.ts:6:1 › Quiet submission emphasis uses opacity without translation or scale 
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test '--project=chromium' --grep 'Quiet submission'

@@ -1,0 +1,145 @@
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import hashlib
+import json
+import re
+import xml.etree.ElementTree as ET
+from check_theme_assets import check_svg, check_manifest, check_release_records
+
+GEOMETRY_KEYS={'d','points','x','y','cx','cy','r','rx','ry','width','height','transform','x1','y1','x2','y2'}
+
+
+def _geometry(node):
+    """Shape identity without colour, so recolouring never counts as a new design."""
+    return (node.tag.split('}')[-1], tuple(sorted((k,v) for k,v in node.attrib.items() if k in GEOMETRY_KEYS)))
+
+
+def _catalog_props(path):
+    """Map each pack ID to the six prop names in its catalog brief."""
+    props={}
+    for section in re.split(r'\n## \d+\. ',path.read_text())[1:]:
+        ident=re.search(r'ID `([a-z0-9-]+)`',section)
+        line=re.search(r'\*\*Props:\*\*\s*(.+)',section)
+        if ident and line:
+            props[ident.group(1)]=[p.strip() for p in line.group(1).rstrip('.').split(',')]
+    return props
+
+
+class AssetGateTests(unittest.TestCase):
+    def test_human_and_guild_casts_have_six_distinct_structural_silhouettes(self):
+        root=Path(__file__).resolve().parents[1]/'design/overlay-themes'
+        for pack in ['midnight-bureau','lanternwood-guild','corner-cafe','button-and-spool']:
+            geometries=[]
+            for i in range(6):
+                tree=ET.parse(root/pack/f'character-{i}.svg')
+                geometry=[(n.tag.split('}')[-1], tuple(sorted((k,v) for k,v in n.attrib.items() if k in {'d','points','x','y','cx','cy','r','rx','ry','width','height','transform'}))) for n in tree.iter() if n.tag.split('}')[-1] not in {'defs','linearGradient','stop'}]
+                geometries.append(str(geometry))
+            self.assertEqual(len(set(geometries)),6,pack)
+    def test_committed_art_is_exactly_what_the_generator_draws_from_named_inputs(self):
+        # Structural tests below compare attributes; this one closes the gaps they leave
+        # (equivalent path syntax, swapped prop files, hand edits) by regenerating every
+        # scene, character and prop from its named inputs and requiring identical bytes.
+        import build_theme_art as art
+        root=Path(__file__).resolve().parents[1]
+        text=(root/'apps/web/src/features/floor/themes/catalog.ts').read_text()
+        entries=json.loads(text.split(' = ',1)[1].rsplit(';',1)[0])
+        briefs=art.catalog_props()
+        packs={p.name for p in (root/'design/overlay-themes').iterdir() if p.is_dir()}
+        self.assertEqual(packs,{e['id'] for e in entries},'design packs must match the catalog exactly')
+        for world,entry in enumerate(entries):
+            source=root/'design/overlay-themes'/entry['id']
+            self.assertEqual((source/'scene.svg').read_text(),art.scene(world,entry),entry['id'])
+            for v in range(6):
+                self.assertEqual((source/f'character-{v}.svg').read_text(),art.character(world,v,entry['palette']),f"{entry['id']} character-{v}")
+            for i,name in enumerate(briefs[entry['id']]):
+                self.assertEqual((source/f'prop-{i}.svg').read_text(),art.prop(name,entry['palette']),f"{entry['id']} prop-{i} ({name})")
+
+    def test_every_world_has_its_own_body_geometry(self):
+        root=Path(__file__).resolve().parents[1]/'design/overlay-themes'
+        owners={}
+        for pack in sorted(p.name for p in root.iterdir() if p.is_dir()):
+            bodies=[]
+            for i in range(6):
+                tree=ET.parse(root/pack/f'character-{i}.svg')
+                groups=[n for n in tree.iter() if n.tag.split('}')[-1]=='g' and n.attrib.get('id')==f'shape-{i}']
+                self.assertEqual(len(groups),1,f'{pack} character-{i} needs exactly one shape group')
+                shapes=[_geometry(n) for n in groups[0].iter() if n is not groups[0]]
+                self.assertTrue(shapes,f'{pack} character-{i} body is empty')
+                visible=[n for n in groups[0].iter() if n is not groups[0] and n.attrib.get('fill','')!='none' and n.attrib.get('opacity','1') not in {'0','0.0'}]
+                self.assertTrue(visible,f'{pack} character-{i} body draws nothing visible')
+                bodies.append(tuple(shapes))
+                for shape in shapes:
+                    owners.setdefault(shape,set()).add(pack)
+            self.assertEqual(len(set(bodies)),6,f'{pack} repeats a body within its cast')
+        shared={shape:worlds for shape,worlds in owners.items() if len(worlds)>1}
+        self.assertEqual(shared,{},'body shapes must belong to exactly one world')
+
+    def test_props_follow_each_world_brief(self):
+        root=Path(__file__).resolve().parents[1]
+        briefs=_catalog_props(root/'docs/superpowers/specs/2026-10-25-overlay-themes-catalog.md')
+        self.assertEqual(len(briefs),15)
+        names_by_geometry={}
+        for pack,names in briefs.items():
+            source=json.loads((root/f'design/overlay-themes/{pack}/source.json').read_text())
+            self.assertEqual(source.get('props'),names,f'{pack} props must match its catalog brief in order')
+            geometries=[]
+            for i,name in enumerate(names):
+                tree=ET.parse(root/f'design/overlay-themes/{pack}/prop-{i}.svg')
+                geometry=tuple(_geometry(n) for n in tree.iter() if n.tag.split('}')[-1] not in {'svg','defs','linearGradient','stop'})
+                geometries.append(geometry)
+                names_by_geometry.setdefault(geometry,set()).add(name)
+            self.assertEqual(len(set(geometries)),6,f'{pack} repeats a prop')
+        reused={g:n for g,n in names_by_geometry.items() if len(n)>1}
+        self.assertEqual(reused,{},'one drawing may serve only one named prop')
+
+    def test_preflight_refuses_bad_briefs_before_writing(self):
+        from build_theme_art import preflight
+        entries=[{'id':'one'},{'id':'two'}]
+        good=['lantern','ledger','tray','basket','compass','spool']
+        self.assertEqual(preflight(entries,{'one':good,'two':good}),[])
+        for briefs,expected in [
+            ({'one':good},'no prop brief'),
+            ({'one':good[:5],'two':good},'exactly six'),
+            ({'one':good[:5]+['a prop nobody drew'],'two':good},'no drawing'),
+            ({'one':good,'two':good,'three':good},'no catalog entry'),
+        ]:
+            with self.subTest(expected=expected):
+                self.assertTrue(any(expected in p for p in preflight(entries,briefs)))
+
+    def test_accepts_passive_local_gradient(self):
+        self.assertEqual(check_svg(b'<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><defs><linearGradient id="a"><stop offset="0" stop-color="#fff"/></linearGradient></defs><path fill="url(#a)" d="M0 0h1"/></svg>'), [])
+
+    def test_rejects_executable_or_external_content(self):
+        for content in [b'<script/>', b'<foreignObject/>', b'<style/>', b'<use href="https://tracker.test/a"/>', b'<path onload="x()"/>', b'<path style="fill:red"/>', b'<image href="data:x"/>', b'<animate/>', b'<path fill="url(https://bad.test)"/>']:
+            with self.subTest(content=content):
+                self.assertTrue(check_svg(b'<svg xmlns="http://www.w3.org/2000/svg">'+content+b'</svg>'))
+        self.assertTrue(check_svg(b'<!DOCTYPE svg [<!ENTITY hi "x">]><svg/>'))
+
+    def test_rejects_wrong_hash_and_escape(self):
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            raw=b'<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"/>'
+            (root/'a.svg').write_bytes(raw)
+            asset=dict(key='character-0',path='a.svg',sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw),width=128,height=128,creator='Original artist',rightsBasis='original',licenseNoticeId='Apache-2.0')
+            self.assertEqual(check_manifest(root,{'packId':'sample','version':'0.1.0','schemaVersion':1,'assets':[asset]},complete=False),[])
+            self.assertTrue(check_manifest(root,{'assets':[{**asset,'sha256':'0'*64}]},complete=False))
+            self.assertTrue(check_manifest(root,{'assets':[{**asset,'path':'../a.svg'}]},complete=False))
+            (root/'link.svg').symlink_to(root/'a.svg')
+            self.assertTrue(check_manifest(root,{'assets':[{**asset,'path':'link.svg'}]},complete=False))
+
+    def test_complete_pack_requires_six_characters_and_budgets(self):
+        with TemporaryDirectory() as tmp:
+            self.assertTrue(check_manifest(Path(tmp),{'assets':[]},complete=True))
+
+    def test_public_release_records_must_match_actual_art_and_identity(self):
+        manifest={'packId':'sample','version':'0.1.0','title':'Sample','assets':[{'sha256':'a'*64}]}
+        record=dict(id='review-1',packId='sample',version='0.1.0',title='Sample',assets=['a'*64],reviewer='Example reviewer',reviewedAt='2026-10-26',evidence='record-1',distribution='Apache-2.0',approvedInfluenceText='')
+        self.assertEqual(check_release_records([],{'sample':manifest}),[])
+        self.assertEqual(check_release_records([record],{'sample':manifest}),[])
+        for changed in [{'assets':['b'*64]},{'title':'A different title'},{'reviewer':''},{'evidence':''},{'packId':'unknown'},{'approvedInfluenceText':'An inspired by note'}]:
+            self.assertTrue(check_release_records([{**record,**changed}],{'sample':manifest}))
+        self.assertTrue(check_release_records({},{}))
+
+
+if __name__=='__main__': unittest.main()

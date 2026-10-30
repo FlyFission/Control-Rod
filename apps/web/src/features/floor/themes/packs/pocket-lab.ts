@@ -1,0 +1,215 @@
+import type { ThemePackV1 } from "../types.js";
+export default {
+  "schemaVersion": 1,
+  "id": "pocket-lab",
+  "version": "0.1.0",
+  "title": "Little Helpers Laboratory",
+  "description": "Tiny inventors, enormous equipment.",
+  "moodTags": [
+    "Whimsical"
+  ],
+  "availability": "development",
+  "tokens": {
+    "backdrop": "#162539",
+    "surface": "#1b2e49",
+    "ink": "#ffffff",
+    "mutedInk": "#d4e0eb",
+    "accent": "#E37E6A",
+    "focus": "#ffffff"
+  },
+  "assets": {
+    "scene": {
+      "path": "/floor-themes/pocket-lab/scene.1ae44f138d3b.svg",
+      "sha256": "1ae44f138d3b3b9921ae9c85b48cf68b358abb62fcb62416ca6dc72fb46c3064",
+      "bytes": 9042,
+      "width": 1000,
+      "height": 600,
+      "creator": "Original procedural vector illustration (Codex, Claude Code)",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    "thumbnail": {
+      "path": "/floor-themes/pocket-lab/thumbnail.d8e7b87947ac.svg",
+      "sha256": "d8e7b87947acb20fa5963dde7435c493ca913cbd0e2da6b8cfe6af2b481884a5",
+      "bytes": 16852,
+      "width": 800,
+      "height": 480,
+      "creator": "Original procedural vector illustration (Codex, Claude Code)",
+      "rightsBasis": "original",
+      "licenseNoticeId": "Apache-2.0"
+    },
+    "characters": [
+      {
+        "path": "/floor-themes/pocket-lab/character-0.6dddda887422.svg",
+        "sha256": "6dddda887422840378b14fabbcb5646abfc3183051e746a1a650c1fe5e270609",
+        "bytes": 1262,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/pocket-lab/character-1.6eebef5a8608.svg",
+        "sha256": "6eebef5a8608972a275faf43aee540708e180253b02fe049b158cc61abb0211e",
+        "bytes": 1264,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/pocket-lab/character-2.c2d1999927dd.svg",
+        "sha256": "c2d1999927dd9dbb22547f8e3e0acd4a604d0aa30e1ac20eb8d2e07a919d16cf",
+        "bytes": 1280,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/pocket-lab/character-3.81e5aca237b3.svg",
+        "sha256": "81e5aca237b3d6dde373cd3f4470732ad3b8e32ce608731123a7187bd029939a",
+        "bytes": 1317,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/pocket-lab/character-4.1909da2ef6cc.svg",
+        "sha256": "1909da2ef6cc4d8cffb8501ee2749cd848d1cb0d2a95c8a0835e52fbf13eacf0",
+        "bytes": 1301,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      {
+        "path": "/floor-themes/pocket-lab/character-5.d31f0bced07d.svg",
+        "sha256": "d31f0bced07d9f6efa29a7ce86d72d3506818a25401fd78df21bcccdbbf48597",
+        "bytes": 1282,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      }
+    ],
+    "props": {
+      "prop-0": {
+        "path": "/floor-themes/pocket-lab/prop-0.747416c3df51.svg",
+        "sha256": "747416c3df51d0bfc2b96778a99068cf627ce0b28b492c255abe3b2d620fcdbb",
+        "bytes": 389,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-1": {
+        "path": "/floor-themes/pocket-lab/prop-1.b680fae7c3f7.svg",
+        "sha256": "b680fae7c3f7b131d7a65a78134652855de583ff969db2a364fe5c577c2f3243",
+        "bytes": 354,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-2": {
+        "path": "/floor-themes/pocket-lab/prop-2.c5a277dc1f3d.svg",
+        "sha256": "c5a277dc1f3de4c89e550ca936ecd21faddfa545a135aff189ae527ae585296d",
+        "bytes": 335,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-3": {
+        "path": "/floor-themes/pocket-lab/prop-3.f249b44cf489.svg",
+        "sha256": "f249b44cf489a8bcbfe324414e4790ba6ef7df0e9ec0a826dc3a2c2d2ed0eb17",
+        "bytes": 493,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-4": {
+        "path": "/floor-themes/pocket-lab/prop-4.e1a5bed26838.svg",
+        "sha256": "e1a5bed26838ac0ec56b60efab4767979635fdcf2ee76dfd95c341c8571375fa",
+        "bytes": 431,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      },
+      "prop-5": {
+        "path": "/floor-themes/pocket-lab/prop-5.a0336ede0c2f.svg",
+        "sha256": "a0336ede0c2f6d579fc15eb4cf93f32d83cbebfa3f995d91c8a8103d0a438060",
+        "bytes": 391,
+        "width": 128,
+        "height": 128,
+        "creator": "Original procedural vector illustration (Codex, Claude Code)",
+        "rightsBasis": "original",
+        "licenseNoticeId": "Apache-2.0"
+      }
+    }
+  },
+  "stations": {
+    "general": {
+      "x": 20,
+      "y": 20,
+      "w": 300,
+      "h": 240,
+      "label": "experiment desk"
+    },
+    "site": {
+      "x": 340,
+      "y": 20,
+      "w": 320,
+      "h": 240,
+      "label": "prototype bench"
+    },
+    "archive": {
+      "x": 680,
+      "y": 20,
+      "w": 300,
+      "h": 240,
+      "label": "specimen cabinet"
+    },
+    "verify": {
+      "x": 20,
+      "y": 340,
+      "w": 340,
+      "h": 240,
+      "label": "calibration bay"
+    },
+    "office": {
+      "x": 380,
+      "y": 340,
+      "w": 260,
+      "h": 240,
+      "label": "lead scientist desk"
+    },
+    "bench": {
+      "x": 660,
+      "y": 340,
+      "w": 320,
+      "h": 240,
+      "label": "charging nook"
+    }
+  },
+  "motionProfile": "shared-v1",
+  "signature": "spark",
+  "credits": [
+    "Original Control-Rod vector artwork \u00b7 Apache-2.0"
+  ]
+} satisfies ThemePackV1;

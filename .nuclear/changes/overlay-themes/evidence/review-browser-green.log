@@ -1,0 +1,53 @@
+[WebServer] (node:10197) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:10212) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ python3 ../../tools/check_theme_assets.py --root ../..
+[WebServer] (node:10228) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:10243) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:10272) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:10299) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:10313) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 26 tests using 1 worker
+
+(node:10337) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chromium] › e2e/floor-themes.spec.ts:6:1 › Quiet submission emphasis uses opacity without translation or scale (693ms)
+  ✓   2 [chromium] › e2e/floor-themes.spec.ts:14:1 › short reconnect rebaselines without a submission effect (574ms)
+  ✓   3 [chromium] › e2e/floor-themes.spec.ts:23:1 › a newer cross-tab decision cancels a pending choice even when it selects the current pack (587ms)
+  ✓   4 [chromium] › e2e/floor-themes.spec.ts:32:1 › mobile list keeps complete run identifiers and distinguishes active rounds (210ms)
+  ✓   5 [chromium] › e2e/floor-themes.spec.ts:38:1 › all fifteen worlds switch without changing work and reduced motion stays still (4.1s)
+  ✓   6 [chromium] › e2e/floor-themes.spec.ts:96:1 › gallery keyboard, focus return, list fallback and accessibility (1.9s)
+  ✓   7 [chromium] › e2e/floor-themes.spec.ts:124:1 › failed artwork keeps the current world and explains the failure inside the gallery (657ms)
+  ✓   8 [chromium] › e2e/floor-themes.spec.ts:147:1 › a slower earlier theme never replaces a newer selection (645ms)
+  ✓   9 [chromium] › e2e/floor-themes.spec.ts:178:1 › stale live data pauses activity and recovery never replays submissions (590ms)
+  ✓  10 [chromium] › e2e/floor-themes.spec.ts:202:1 › late image failure uses a plain actor while retaining task access (681ms)
+  ✓  11 [chromium] › e2e/floor-themes.spec.ts:224:1 › real route limits package queries and marks failed detail coverage (1.8s)
+  -  12 [chromium] › e2e/legacy-floor.spec.ts:3:1 › feature-off build preserves legacy navigation without mutations
+  -  13 [chromium] › e2e/release-distribution.spec.ts:4:1 › release build excludes the draft demo and unapproved public artwork
+(node:10582) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  14 [firefox] › e2e/floor-themes.spec.ts:6:1 › Quiet submission emphasis uses opacity without translation or scale (1.9s)
+  ✓  15 [firefox] › e2e/floor-themes.spec.ts:14:1 › short reconnect rebaselines without a submission effect (999ms)
+  ✓  16 [firefox] › e2e/floor-themes.spec.ts:23:1 › a newer cross-tab decision cancels a pending choice even when it selects the current pack (1.4s)
+  ✓  17 [firefox] › e2e/floor-themes.spec.ts:32:1 › mobile list keeps complete run identifiers and distinguishes active rounds (534ms)
+  ✓  18 [firefox] › e2e/floor-themes.spec.ts:38:1 › all fifteen worlds switch without changing work and reduced motion stays still (6.2s)
+  ✓  19 [firefox] › e2e/floor-themes.spec.ts:96:1 › gallery keyboard, focus return, list fallback and accessibility (3.0s)
+  ✓  20 [firefox] › e2e/floor-themes.spec.ts:124:1 › failed artwork keeps the current world and explains the failure inside the gallery (1.0s)
+  ✓  21 [firefox] › e2e/floor-themes.spec.ts:147:1 › a slower earlier theme never replaces a newer selection (1.1s)
+  ✓  22 [firefox] › e2e/floor-themes.spec.ts:178:1 › stale live data pauses activity and recovery never replays submissions (884ms)
+  ✓  23 [firefox] › e2e/floor-themes.spec.ts:202:1 › late image failure uses a plain actor while retaining task access (1.8s)
+  ✓  24 [firefox] › e2e/floor-themes.spec.ts:224:1 › real route limits package queries and marks failed detail coverage (2.0s)
+  -  25 [firefox] › e2e/legacy-floor.spec.ts:3:1 › feature-off build preserves legacy navigation without mutations
+  -  26 [firefox] › e2e/release-distribution.spec.ts:4:1 › release build excludes the draft demo and unapproved public artwork
+
+  4 skipped
+  22 passed (43.8s)

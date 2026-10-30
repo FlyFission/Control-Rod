@@ -110,8 +110,12 @@ export async function provisionRoles(owner: pg.Pool, secrets: RoleSecrets, optio
     try {
       await owner.query(`${exists ? "alter" : "create"} role ${role} ${attrs} password '${password}'`);
     } catch (e) {
-      // Another database on this cluster created it first; set the password on the existing role.
+      // Another installation created it between our check and our create. The same rule applies:
+      // keep a login that accepts our password, reset it only when we own the cluster.
       if ((e as { code?: string }).code !== "42710") throw e;
+      if (await canLogIn(owner.options.connectionString as string, role, password)) continue;
+      if (!options.ownsCluster)
+        throw new RoleSetupError(`database role ${role} was just created on this server by another Control Rod installation with a different password.`);
       await owner.query(`alter role ${role} ${attrs} password '${password}'`);
     }
   }

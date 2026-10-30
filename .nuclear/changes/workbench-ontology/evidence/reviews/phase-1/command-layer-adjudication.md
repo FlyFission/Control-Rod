@@ -46,6 +46,15 @@ Codex found no new blockers and four round 2 items still open ([command-layer-co
 | N-06 migration 011 differs from an unmerged in progress version | **Accepted**: no database outside this branch's tests applied it; the lock starts at merge |
 | SEC-05 scope | **Corrected**: the frozen 009 SQL includes the ownership and Member backfill as well as the seed organization; every later data change goes through commands |
 
+## Round 4
+
+Codex confirmed N-07 and N-10 and showed the SQL scanner could still be fooled (`E'\''` escapes, `$` inside identifiers), plus a creation race in N-09 ([command-layer-codex-round4.md](command-layer-codex-round4.md)).
+
+| Item | Disposition |
+|---|---|
+| N-03 scanner bypasses | **Fixed at the root, by not parsing SQL**: every command query goes through the extended protocol, where PostgreSQL refuses more than one statement; the executor checks only the leading keyword after leading comments. Role changes need no text check because the writer login belongs to no role and the database refuses them (tests: four multi statement tricks refused by the server, a commented `commit` refused, a literal containing `;` allowed) |
+| N-09 concurrent creation | **Fixed**: when another installation creates the role between check and create, the same rule applies: keep a login that accepts our password, reset only when we own the cluster |
+
 Also fixed while verifying: an immediate restart could fail with a bare `undefined` while the previous embedded database was still stopping; startup now retries for a few seconds and otherwise says why.
 
 Also verified end to end: the real server starts on a fresh embedded database, creates both logins with a private `db-roles.json`, serves requests, and restarts on the existing database.

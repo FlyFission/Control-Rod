@@ -146,7 +146,8 @@ describe("database logins", () => {
     expect(() => leaked!.query("insert into settings (key, value) values ('x', 'y')")).toThrow(/no longer usable/);
     await expect(command(h.db, "runtime.report-status", (c) => c.query("commit"))).rejects.toThrow(/may not run: commit/);
     await expect(command(h.db, "runtime.report-status", (c) => c.query("begin"))).rejects.toThrow(/may not run: begin/);
-    await expect(command(h.db, "runtime.report-status", (c) => c.query("select set_config('role', 'controlrod', false)"))).rejects.toThrow(/may not run/);
+    // Role changes are refused by the database: the writer login belongs to no role.
+    await expect(command(h.db, "runtime.report-status", (c) => c.query("select set_config('role', 'controlrod', false)"))).rejects.toThrow(/permission denied to set role/);
     await expect(command(h.db, "runtime.report-status", async (c) => (c as unknown as { release: () => void }).release())).rejects.toThrow(/not a function/);
   });
 
@@ -224,7 +225,7 @@ describe("review round 2", () => {
       ["values not an array", (c) => c.query("select $1", "x")],
     ];
     for (const [label, attempt] of tries)
-      await expect(command(h.db, "runtime.report-status", async (c) => attempt(c)), label).rejects.toThrow(/may not run|may only pass/);
+      await expect(command(h.db, "runtime.report-status", async (c) => attempt(c)), label).rejects.toThrow(/may not run|may only pass|cannot insert multiple commands/);
     const exposed = await command(h.db, "runtime.report-status", async (c) => Object.keys(c as object));
     expect(exposed).toEqual(["query"]);
   });
@@ -299,13 +300,12 @@ describe("review round 3", () => {
   }, 120_000);
   afterAll(async () => h?.stop());
 
-  it("N-03: statements are split the way PostgreSQL reads them", async () => {
-    const { statements } = await import("../src/commands/executor.js");
-    expect(statements("select '--'; commit")).toEqual(["select '--'", "commit"]);
-    expect(statements("select 'a;b', \"c;d\" -- x;y\n; select $$;$$, $t$ ; $t$ /* ; */")).toEqual(["select 'a;b', \"c;d\"", "select $$;$$, $t$ ; $t$"]);
-    expect(statements("select 'it''s; fine'")).toEqual(["select 'it''s; fine'"]);
-    await expect(command(h.db, "runtime.report-status", (c) => c.query("select '--'; commit"))).rejects.toThrow(/may not run: commit/);
-    await expect(command(h.db, "runtime.report-status", (c) => c.query("select $$x$$; rollback"))).rejects.toThrow(/may not run: rollback/);
+  it("N-03: one statement per command query, enforced by PostgreSQL, and no leading transaction control", async () => {
+    const { withoutLeadingComments } = await import("../src/commands/executor.js");
+    expect(withoutLeadingComments("  /* a /* nested */ b */ -- x\n  commit")).toBe("commit");
+    for (const sql of ["select '--'; commit", "select E'\\''; commit; --'", "select 1 as a$t$; commit; select 1 as b$t$", "select 1; select 2"])
+      await expect(command(h.db, "runtime.report-status", (c) => c.query(sql)), sql).rejects.toThrow(/cannot insert multiple commands into a prepared statement/);
+    await expect(command(h.db, "runtime.report-status", (c) => c.query("/* note */ -- more\n commit"))).rejects.toThrow(/may not run: commit/);
     const ok = await command(h.db, "runtime.report-status", async (c) => (await c.query("select 'a;b' as v")).rows[0].v);
     expect(ok).toBe("a;b");
   });

@@ -1,0 +1,30 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "License.json",
+    "type": "object",
+    "properties": {
+        "jurisdiction": {
+            "type": "string",
+            "description": "Issuing jurisdiction, for example \"US-SC\"."
+        },
+        "number": {
+            "type": "string",
+            "description": "License number as issued."
+        },
+        "discipline": {
+            "type": "string"
+        },
+        "expires_on": {
+            "type": "string",
+            "format": "date",
+            "description": "Last day the license is valid, as an ISO date."
+        }
+    },
+    "required": [
+        "jurisdiction",
+        "number",
+        "expires_on"
+    ],
+    "description": "A professional license as the Member recorded it.",
+    "unevaluatedProperties": false
+}

@@ -53,6 +53,7 @@ export const COMMANDS = {
   // Administration (specification 10.2; services/api/src/admin.ts).
   "admin.org-create": entry("member", "direct", "Create organization"),
   "admin.member-enroll": entry("member", "direct", "Enroll Member"),
+  "admin.member-invite": entry("member", "direct", "Enroll Member (new invitation)"),
   "admin.member-suspend": entry("member", "direct", "Suspend Member"),
   "admin.member-reactivate": entry("member", "direct", "Suspend Member (reversal)"),
   "admin.member-remove": entry("member", "direct", "Remove Member"),

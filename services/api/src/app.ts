@@ -168,12 +168,38 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const user = await sessionUser(db, req);
     return { registered: await isRegistered(db), signed_in: user !== null, ...(user ? { user } : {}) };
   });
-  app.post<{ Body: { name?: string } }>("/auth/register/options", async (req) => {
-    if ((await isRegistered(db)) && !(await sessionUser(db, req))) {
-      throw new Refusal(403, "forbidden", "A passkey exists; sign in to add another");
+  /** Proves a signed-in person holds one of their passkeys right now, before they add another. */
+  app.post("/auth/step-up/options", async (req) => {
+    const user = await sessionUser(db, req);
+    if (!user) throw new Refusal(401, "unauthorized", "Sign in first");
+    return { options: await assertionOptions(db, auth, "step-up", { user }) };
+  });
+  /**
+   * Three ways to register a passkey: the very first one (bootstrap); a new person with an
+   * administrator's invitation; or a signed-in Member adding one to their own account, signed with
+   * a passkey they already hold. Nothing else registers.
+   */
+  app.post<{ Body: { name?: string; invitation?: string; step_up?: Record<string, unknown> } }>("/auth/register/options", async (req) => {
+    if (!(await isRegistered(db))) {
+      const name = String(req.body?.name ?? "owner").slice(0, 60) || "owner";
+      return { options: await registrationOptions(db, auth, name, { kind: "first" }) };
     }
-    const name = String(req.body?.name ?? "owner").slice(0, 60) || "owner";
-    return { options: await registrationOptions(db, auth, name) };
+    if (typeof req.body?.invitation === "string") {
+      const hash = createHash("sha256").update(req.body.invitation).digest("hex");
+      const r = await db.query<{ user_name: string }>(
+        `select m.user_name from member_invitations i join members m on m.id = i.member_id
+          where i.token_hash = $1 and i.used_at is null and i.expires_at > now() and m.body->>'status' = 'active'`, [hash]);
+      if (!r.rows[0]) throw new Refusal(403, "invitation-invalid", "This invitation is not valid; ask an administrator for a new one");
+      return { options: await registrationOptions(db, auth, r.rows[0].user_name, { kind: "invitation", invitation_hash: hash }) };
+    }
+    const user = await sessionUser(db, req);
+    if (!user) throw new Refusal(403, "forbidden", "A passkey exists; sign in to add another, or use an invitation");
+    if (req.body?.name !== undefined && req.body.name !== user)
+      throw new Refusal(403, "own-account-only", "You can add a passkey only to your own account; an administrator invites new people");
+    if (!req.body?.step_up) throw new Refusal(403, "step-up-required", "Sign with a passkey you already hold to add another");
+    const ok = await assertionVerify(db, auth, "step-up", req.body.step_up as never);
+    if (!ok || ok.user !== user || ok.data.user !== user) throw new Refusal(403, "step-up-failed", "That signature did not come from your account");
+    return { options: await registrationOptions(db, auth, user, { kind: "additional" }) };
   });
   app.post("/auth/register/verify", async (req, reply) => {
     const user = await registrationVerify(db, auth, req.body as never);
@@ -225,10 +251,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown>; assertion?: Record<string, unknown> } }>("/admin/commands/:name", async (req) => {
     const user = await person(req);
     const caller = await callerFor(db, user);
-    let signed: string | null = null;
+    let signed: { subject: string; credentialId: string } | null = null;
     if (req.body?.assertion) {
       const ok = await assertionVerify(db, auth, "admin", req.body.assertion as never);
-      if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId) signed = String(ok.data.subject_digest);
+      if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId)
+        signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId };
     }
     return runAdmin(db, { root: cfg.root }, req.params.name, caller, req.body?.payload ?? {}, signed);
   });

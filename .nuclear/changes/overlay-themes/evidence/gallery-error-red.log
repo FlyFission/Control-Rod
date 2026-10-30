@@ -1,0 +1,63 @@
+[WebServer] (node:4820) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:4835) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ python3 ../../tools/check_theme_assets.py --root ../..
+[WebServer] (node:4851) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:4866) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:4895) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:4922) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:4936) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:4960) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/floor-themes.spec.ts:30:1 › failed artwork keeps the current world and explains the failure inside the gallery (5.6s)
+
+
+  1) e2e/floor-themes.spec.ts:30:1 › failed artwork keeps the current world and explains the failure inside the gallery 
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByRole('dialog').getByRole('alert')
+    Expected substring: "Could not load Creature Dispatch"
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toContainText" getByRole('dialog').getByRole('alert') with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('alert')
+
+
+      33 |  await page.getByRole('button',{name:/Theme Plain Floor/}).click();
+      34 |  await page.getByRole('button',{name:'Use Creature Dispatch theme',exact:true}).click();
+    > 35 |  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Could not load Creature Dispatch');
+         |                                                            ^
+      36 |  await page.keyboard.press('Escape');await expect(page.getByRole('group',{name:'Plain Floor activity scene'})).toBeVisible();
+      37 |  expect(await page.evaluate(()=>localStorage.getItem('cr.floor.preferences.v1'))).toBeNull();
+      38 | });
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/floor-themes.spec.ts:35:60
+
+    Error Context: test-results/floor-themes-failed-artwor-9a180--failure-inside-the-gallery/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/floor-themes-failed-artwor-9a180--failure-inside-the-gallery/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/floor-themes-failed-artwor-9a180--failure-inside-the-gallery/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e/floor-themes.spec.ts:30:1 › failed artwork keeps the current world and explains the failure inside the gallery 
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test --grep 'failed artwork'

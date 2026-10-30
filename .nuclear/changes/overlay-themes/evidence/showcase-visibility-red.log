@@ -1,0 +1,65 @@
+[WebServer] (node:11753) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:11768) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ python3 ../../tools/check_theme_assets.py --root ../..
+[WebServer] (node:11784) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:11799) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:11828) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:11855) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:11869) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:11893) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › e2e/floor-themes.spec.ts:6:1 › standalone scenes pause when the document is hidden and resume without replay (5.4s)
+
+
+  1) [chromium] › e2e/floor-themes.spec.ts:6:1 › standalone scenes pause when the document is hidden and resume without replay 
+
+    Error: expect(locator).toHaveClass(expected) failed
+
+    Locator: locator('.floor-stage')
+    Expected pattern: /motion-still/
+    Received string:  "floor-stage motion-full signature-none"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveClass" locator('.floor-stage') with timeout 5000ms
+      - waiting for locator('.floor-stage')
+        14 × locator resolved to <div role="group" aria-label="Plain Floor activity scene" class="floor-stage motion-full signature-none">…</div>
+           - unexpected value "floor-stage motion-full signature-none"
+
+
+       7 |  await page.goto('/themes.html');await expect(page.locator('.floor-stage')).toHaveClass(/motion-full/);
+       8 |  await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'));});
+    >  9 |  await expect(page.locator('.floor-stage')).toHaveClass(/motion-still/);
+         |                                             ^
+      10 |  await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'visible'});document.dispatchEvent(new Event('visibilitychange'));});
+      11 |  await expect(page.locator('.floor-stage')).toHaveClass(/motion-full/);await expect(page.locator('.floor-signature')).toHaveCount(0);
+      12 | });
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/floor-themes.spec.ts:9:45
+
+    Error Context: test-results/floor-themes-standalone-sc-cd99d-n-and-resume-without-replay-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/floor-themes-standalone-sc-cd99d-n-and-resume-without-replay-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/floor-themes-standalone-sc-cd99d-n-and-resume-without-replay-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › e2e/floor-themes.spec.ts:6:1 › standalone scenes pause when the document is hidden and resume without replay 
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test '--project=chromium' --grep 'standalone scenes pause'

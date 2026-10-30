@@ -1,0 +1,400 @@
+[WebServer] (node:3413) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:3428) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ python3 ../../tools/check_theme_assets.py --root ../..
+[WebServer] (node:3444) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:3459) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3488) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3515) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:3529) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 3 tests using 1 worker
+
+(node:3553) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/floor-themes.spec.ts:4:1 › all fifteen worlds switch without changing work and reduced motion stays still (4.4s)
+(node:3634) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 e2e/floor-themes.spec.ts:18:1 › gallery keyboard, focus return, list fallback and accessibility (2.1s)
+(node:3736) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  3 e2e/floor-themes.spec.ts:30:1 › real route limits package queries and marks failed detail coverage (2.0s)
+
+
+  1) e2e/floor-themes.spec.ts:4:1 › all fifteen worlds switch without changing work and reduced motion stays still 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('button', { name: /WP-107.*Accepted/ })
+    Expected: visible
+    Error: strict mode violation: getByRole('button', { name: /WP-107.*Accepted/ }) resolved to 2 elements:
+        1) <button type="button" class="floor-actor  action-submitted " aria-label="WP-107 rev 0, author, R-7: Run finished. Accepted reference">…</button> aka getByRole('button', { name: 'WP-107 rev 0, author, R-7:' })
+        2) <button type="button" class="floor-actor  action-idle " aria-label="WP-107 rev 0, package, : Accepted. Accepted reference">…</button> aka getByRole('button', { name: 'WP-107 rev 0, package, :' })
+
+    Call log:
+      - Expect "toBeVisible" getByRole('button', { name: /WP-107.*Accepted/ }) with timeout 5000ms
+      - waiting for getByRole('button', { name: /WP-107.*Accepted/ })
+
+
+      12 |  }
+      13 |  await page.emulateMedia({reducedMotion:'reduce'});await expect(page.locator('.floor-stage')).toHaveClass(/motion-still/);
+    > 14 |  await expect(page.getByRole('button',{name:/WP-107.*Accepted/})).toBeVisible();
+         |                                                                   ^
+      15 |  await expect(page.getByRole('button',{name:/WP-106.*Run finished/})).toBeVisible();
+      16 | });
+      17 |
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/floor-themes.spec.ts:14:67
+
+    Error Context: test-results/floor-themes-all-fifteen-w-0b701--reduced-motion-stays-still/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/floor-themes-all-fifteen-w-0b701--reduced-motion-stays-still/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/floor-themes-all-fifteen-w-0b701--reduced-motion-stays-still/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) e2e/floor-themes.spec.ts:18:1 › gallery keyboard, focus return, list fallback and accessibility 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -   1
+    + Received  + 300
+
+    - Array []
+    + Array [
+    +   Object {
+    +     "description": "Ensure that elements labelled through their content must have their visible text as part of their accessible name",
+    +     "help": "Elements must have their visible text as part of their accessible name",
+    +     "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/label-content-name-mismatch?application=playwright",
+    +     "id": "label-content-name-mismatch",
+    +     "impact": "serious",
+    +     "nodes": Array [
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-106 rev 0, accept, : Awaiting human review. Interface proposal: Ready for human review\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(1) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-108 rev 0, lost, : Lost run. Source review: Run requires attention\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(2) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-105 rev 0, permission, : Needs permission. Accessibility review: A person needs to resolve this request\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(3) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-107 rev 0, package, : Accepted. Accepted reference\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(4) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-101 rev 0, author, R-1: Working. Navigation design\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(5) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-110 rev 0, author, R-10: Waiting. Waiting for the source document\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(6) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-102 rev 0, author, R-2: Working. Landscape brief\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(7) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-103 rev 0, pre-check, R-3: Pre-checking. Independent review\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(8) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-104 rev 0, author, R-4: Queued. Documentation\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(9) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-105 rev 0, author, R-5: Failed. Accessibility review\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(10) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-106 rev 0, author, R-6: Run finished. Interface proposal\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(11) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-107 rev 0, author, R-7: Run finished. Accepted reference\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(12) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-108 rev 0, author, R-8: Lost run. Source review\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(13) > button",
+    +         ],
+    +       },
+    +       Object {
+    +         "all": Array [],
+    +         "any": Array [
+    +           Object {
+    +             "data": null,
+    +             "id": "label-content-name-mismatch",
+    +             "impact": "serious",
+    +             "message": "Text inside the element is not included in the accessible name",
+    +             "relatedNodes": Array [],
+    +           },
+    +         ],
+    +         "failureSummary": "Fix any of the following:
+    +   Text inside the element is not included in the accessible name",
+    +         "html": "<button type=\"button\" class=\"\" aria-label=\"WP-109 rev 0, author, R-9: Stopping. Implementation\">",
+    +         "impact": "serious",
+    +         "none": Array [],
+    +         "target": Array [
+    +           "li:nth-child(14) > button",
+    +         ],
+    +       },
+    +     ],
+    +     "tags": Array [
+    +       "cat.semantics",
+    +       "wcag21a",
+    +       "wcag253",
+    +       "EN-301-549",
+    +       "EN-9.2.5.3",
+    +       "RGAAv4",
+    +       "RGAA-6.1.5",
+    +     ],
+    +   },
+    + ]
+
+      25 |  await expect(page.getByRole('list',{name:'Work package activity'})).toBeVisible();
+      26 |  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+    > 27 |  expect((await new AxeBuilder({page}).include('.floor-workbench').analyze()).violations).toEqual([]);
+         |                                                                                          ^
+      28 | });
+      29 |
+      30 | test('real route limits package queries and marks failed detail coverage',async({page})=>{
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/floor-themes.spec.ts:27:90
+
+    Error Context: test-results/floor-themes-gallery-keybo-f2971--fallback-and-accessibility/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/floor-themes-gallery-keybo-f2971--fallback-and-accessibility/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/floor-themes-gallery-keybo-f2971--fallback-and-accessibility/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    e2e/floor-themes.spec.ts:4:1 › all fifteen worlds switch without changing work and reduced motion stays still 
+    e2e/floor-themes.spec.ts:18:1 › gallery keyboard, focus return, list fallback and accessibility 
+  1 passed (18.6s)
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test

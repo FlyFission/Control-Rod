@@ -1,0 +1,73 @@
+
+ RUN  v5.0.5 /workspace/Control-Rod/.worktrees/overlay-themes/apps/web
+
+ ❯ src/features/floor/projection.test.ts (20 tests | 3 failed) 27ms
+   ❯ authoritative Floor projection (20)
+     × does not borrow acceptance annotations from a different package 5ms
+     × compares terminal timestamps as instants, not lexicographic local times 3ms
+     × does not treat object-key ordering as conflicting work 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/floor/projection.test.ts > authoritative Floor projection > does not borrow acceptance annotations from a different package
+AssertionError: expected 'Accepted with findings' to be 'Accepted' // Object.is equality
+
+Expected: "Accepted"
+Received: "Accepted with findings"
+
+ ❯ src/features/floor/projection.test.ts:33:139
+     31|  it('does not borrow acceptance annotations from a different package',…
+     32|   const v=view({decisions:[{kind:'accept-with-findings',package_id:'WP…
+     33|   expect(projectFloor({packages:[v.package],views:new Map([[v.package.…
+       |                                                                                                                                           ^
+     34|  });
+     35|  it('compares terminal timestamps as instants, not lexicographic local…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/features/floor/projection.test.ts > authoritative Floor projection > compares terminal timestamps as instants, not lexicographic local times
+AssertionError: expected [ 'run:earlier' ] to deeply equal [ 'run:later' ]
+
+- Expected
++ Received
+
+  [
+-   "run:later",
++   "run:earlier",
+  ]
+
+ ❯ src/features/floor/projection.test.ts:37:35
+     35|  it('compares terminal timestamps as instants, not lexicographic local…
+     36|   const m=model([run({id:'earlier',status:'failed',finished_at:'2026-1…
+     37|   expect(m.entities.map(e=>e.id)).toEqual(['run:later']);
+       |                                   ^
+     38|  });
+     39|  it('does not treat object-key ordering as conflicting work',()=>{
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/features/floor/projection.test.ts > authoritative Floor projection > does not treat object-key ordering as conflicting work
+AssertionError: expected 'Status unavailable' to be 'Working' // Object.is equality
+
+Expected: "Working"
+Received: "Status unavailable"
+
+ ❯ src/features/floor/projection.test.ts:41:58
+     39|  it('does not treat object-key ordering as conflicting work',()=>{
+     40|   const original=run();const reordered=Object.fromEntries(Object.entri…
+     41|   expect(model([original,reordered]).entities[0]?.label).toBe('Working…
+       |                                                          ^
+     42|  });
+     43|  it('separates office requests and coalesces duplicate runs',()=>{
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 17 passed (20)
+   Start at  18:16:13
+   Duration  669ms (environment 61%, setup 22%, transform 10%, tests 5%, import 2%, worker 1%)
+
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run src/features/floor/projection.test.ts

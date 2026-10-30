@@ -1,0 +1,37 @@
+
+ RUN  v5.0.5 /workspace/Control-Rod/.worktrees/overlay-themes/apps/web
+
+ ❯ src/features/floor/projection.test.ts (17 tests | 1 failed) 27ms
+   ❯ authoritative Floor projection (17)
+     × is stable under reordering and supports UTF-8 identifiers 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/floor/projection.test.ts > authoritative Floor projection > is stable under reordering and supports UTF-8 identifiers
+AssertionError: expected 4 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 4
+
+ ❯ src/features/floor/projection.test.ts:41:31
+     39|  it('is stable under reordering and supports UTF-8 identifiers',()=>{
+     40|   expect(model([run({id:'B'}),run({id:'A'})]).entities).toEqual(model(…
+     41|   expect(variantForRun('R1')).toBe(2);expect(variantForRun('🪸')).toBe…
+       |                               ^
+     42|  });
+     43|  it('pages all packages and clamps a shrinking collection',()=>{
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 passed (17)
+   Start at  17:53:45
+   Duration  687ms (environment 59%, setup 22%, transform 12%, tests 5%, import 2%, worker 1%)
+
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run src/features/floor/projection.test.ts

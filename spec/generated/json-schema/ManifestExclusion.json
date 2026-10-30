@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ManifestExclusion.json",
+    "type": "object",
+    "properties": {
+        "path": {
+            "type": "string"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 1
+        }
+    },
+    "required": [
+        "path",
+        "reason"
+    ],
+    "unevaluatedProperties": false
+}

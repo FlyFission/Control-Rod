@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { tx } from "../src/db/index.js";
 import { migrate } from "../src/db/migrate.js";
 import { TENANCY_DOWN_SQL } from "../src/db/migrations/009-tenancy.js";
+import { WORKBENCH_DOWN_SQL } from "../src/db/migrations/010-workbench.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import {
@@ -48,12 +49,14 @@ describe("migration 009", () => {
     expect(before.captures.length).toBe(2);
     expect((await verifyChain(h.db)).ok).toBe(true);
 
+    // Migrations reverse newest first: the workbench tables depend on tenancy.
+    await h.db.query(WORKBENCH_DOWN_SQL);
     await h.db.query(TENANCY_DOWN_SQL);
     const down = await snapshot();
     expect(down).toEqual(before);
     expect((await verifyChain(h.db)).ok).toBe(true);
-    const gone = await h.db.query("select to_regclass('organizations') as t");
-    expect(gone.rows[0].t).toBeNull();
+    const gone = await h.db.query("select to_regclass('organizations') as o, to_regclass('explorations') as e");
+    expect(gone.rows[0]).toEqual({ o: null, e: null });
 
     await migrate(h.db);
     const up = await snapshot();

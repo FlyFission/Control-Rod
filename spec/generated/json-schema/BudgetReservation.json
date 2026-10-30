@@ -1,0 +1,35 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "BudgetReservation.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "budget_id": {
+            "$ref": "TenancyId.json"
+        },
+        "run_id": {
+            "type": "string"
+        },
+        "amount": {
+            "$ref": "Quantity.json"
+        },
+        "status": {
+            "$ref": "ReservationStatus.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "budget_id",
+        "run_id",
+        "amount",
+        "status"
+    ],
+    "description": "Budget held for a run before it starts, settled from usage after. (L)",
+    "unevaluatedProperties": false
+}

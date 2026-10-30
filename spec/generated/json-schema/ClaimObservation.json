@@ -1,0 +1,23 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ClaimObservation.json",
+    "type": "object",
+    "properties": {
+        "claim": {
+            "type": "string",
+            "minLength": 1
+        },
+        "result": {
+            "$ref": "ClaimResult.json"
+        },
+        "evidence": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "claim",
+        "result",
+        "evidence"
+    ],
+    "unevaluatedProperties": false
+}

@@ -301,7 +301,7 @@ export async function ownerOf(db: Db | Tx, kind: string, id: string): Promise<Ow
 export async function recordCreationMarking(c: Tx, kind: string, id: string, lane: DataLane, reason: string): Promise<MarkingEnvelope> {
   const m: MarkingEnvelope = { object_kind: kind, object_id: id, version: 1, lane, reason };
   checkSchema("MarkingEnvelope.json", m);
-  await c.query("insert into object_markings (object_kind, object_id, version, body) values ($1, $2, 1, $3)", [kind, id, m]);
+  await c.query("insert into object_markings (body) values ($1)", [m]);
   return m;
 }
 

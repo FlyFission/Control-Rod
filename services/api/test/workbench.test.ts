@@ -130,6 +130,13 @@ describe("storage", () => {
     await expect(put("promotion", { id: "pro_z", checkpoint_id: "chk_2", package_id: "pkg_wb", package_revision: 0, source_manifest_digest: D2, mode: "software", rigor: "standard", grade: "general-service", lane: "internal", promoted_by: verifier })).rejects.toThrow(/source_manifest_digest/);
     await expect(put("controlled_record", { id: "rec_x", kind: "merged-change", package_id: "pkg_wb", package_revision: 0, candidate_id: "cand_2", input_digests: [D], clearance_decision_id: "dec_missing", applied_ref: "d".repeat(40) })).rejects.toThrow(/clearance_decision_id/);
     await expect(put("deliverable_revision", { id: "dr_x", deliverable_id: "pd_1", rung: "x", package_id: "pkg_wb", package_revision: 5 })).rejects.toThrow(/foreign key/);
+    await expect(put("interface_record", { id: "if_x", provider_package_id: "pkg_missing", receiver_package_ids: [], maturity: "identified" })).rejects.toThrow(/provider_package_id/);
+  });
+
+  it("R2: a budget names its own organization or a project inside it", async () => {
+    await expect(put("budget", { id: "bud_x", scope: "organization", scope_id: "org_b", mode: "track", limit: { value: "1", unit: "USD" }, period: "P1M", status: "active" })).rejects.toThrow(/check constraint/);
+    await expect(put("budget", { id: "bud_y", scope: "project", scope_id: "prj_b", mode: "track", limit: { value: "1", unit: "USD" }, period: "P1M", status: "active" })).rejects.toThrow(/project_scope/);
+    await put("budget", { id: "bud_org", scope: "organization", scope_id: LOCAL_ORG, mode: "alert", limit: { value: "1000", unit: "USD" }, period: "P1M", status: "active" });
   });
 
   it("R2: refuses references across the organization boundary", async () => {

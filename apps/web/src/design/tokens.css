@@ -1,0 +1,62 @@
+/*
+ * Control Rod design tokens. Values follow Ascertain's palette
+ * (https://ascertain.it/assets/css/main.css, :root, fetched 2026-10-30) as the
+ * Platform Plan directs: charcoal ground, Cherenkov blue for action and selection,
+ * green for verified, amber for a decision waiting on you. Violet (waiting on
+ * someone else), orange-red (stuck) and the changed-input orange are Control Rod's
+ * own, since Ascertain has no equivalents. Surfaces are Ascertain's translucent
+ * white layers composited over charcoal. Contrast ratios are computed in
+ * .nuclear/changes/workbench-ontology/evidence/phase0/tokens-contrast.txt.
+ * Fonts are self hosted (see docs/third-party/register.md); no third-party request.
+ */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/InterVariable.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/JetBrainsMono-SemiBold.woff2") format("woff2");
+}
+
+:root {
+  --ground: #0a0a0c;
+  --surface: #101012;
+  --panel: #141416;
+  --line: #1e1e1f;
+  --line-2: #2f2f30;
+  --text: #e8f0f8;
+  --text-2: #c5d0dc;
+  --muted: #94a3b8;
+  --accent: #00f2ff;
+  --accent-ink: #001a1c;
+  --accent-dim: #057e86;
+  --needs: #ffaa00;
+  --waiting: #b89cff;
+  --stuck: #ff7a59;
+  --changed: #ffb347;
+  --done: #00ff9d;
+  --idle: #7d8a9a;
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: dark;
+}

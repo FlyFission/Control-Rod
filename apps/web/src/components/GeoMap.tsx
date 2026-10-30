@@ -12,9 +12,11 @@ export default function GeoMap({ data }: { data: unknown }) {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
+    // Leaflet writes colours into SVG attributes, so read the design tokens as values.
+    const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     const layer = L.geoJSON(data as GeoJSON.GeoJsonObject, {
-      style: { color: "#5CC8FF", weight: 2, fillOpacity: 0.12 },
-      pointToLayer: (_f, latlng) => L.circleMarker(latlng, { radius: 6, color: "#F2B33D" }),
+      style: { color: token("--accent"), weight: 2, fillOpacity: 0.12 },
+      pointToLayer: (_f, latlng) => L.circleMarker(latlng, { radius: 6, color: token("--needs") }),
     }).addTo(map);
     const bounds = layer.getBounds();
     if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });

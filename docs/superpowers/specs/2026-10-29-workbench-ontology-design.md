@@ -482,15 +482,17 @@ The plan's design language stands: Ascertain's dark look with a Cherenkov blue a
 
 ## 18. Office themes
 
-The owner requires a set of office view themes (about fifteen), integrated seamlessly and kept current with the office as it evolves. The catalogue is pending the owner (D-7). This section fixes the contract so themes are part of the office from its first line of code.
+The owner requires a set of office view themes (about fifteen), integrated seamlessly and kept current with the office as it evolves. This section fixes the contract so themes are part of the office from its first line of code.
+
+**Implementation status.** Draft PR #12 (`feat/overlay-themes`, change record `.nuclear/changes/overlay-themes/`) implements fifteen original worlds on the current Floor: one shared renderer, passive bundled SVG packs generated in `tools/build_theme_art.py`, viewer motion modes Full, Quiet and Still over one shared motion profile, reduced motion support, a list fallback, atomic theme switching, hashed asset manifests and a release manifest that keeps draft art out of ordinary builds. The catalogue is `docs/superpowers/specs/2026-10-25-overlay-themes-catalog.md`; naming, art and launch rules are `docs/overlay-themes/originality.md`, enforced by `tools/check_originality.py`; every world has its own character bodies and brief matched props, enforced by `tools/test_check_theme_assets.py`. D-7's catalogue question is answered by that PR. The rest of this section is the contract the office view (section 13) keeps when it replaces the six station Floor with the Platform Plan's six cube sets and seven rooms; the PR's packs carry over as scene data and gain room regions then.
 
 **Model.** A theme is **inert scene data** drawn in the scene layer beneath the application owned semantic layer (section 13). It cannot draw a mark, a label, a count or a control, cannot receive pointer events, and cannot overlap the semantic layer. That separation, not token rules alone, is what makes N-13 enforceable.
 
 **Canonical layout.** The application owns one layout graph: semantic room regions (the seven rooms and six cube sets), seat and errand anchors, walking paths and the room names. A theme declares only **decorative geometry inside those regions** (furniture, walls, floor texture, props) and may not move, resize or rename a region, anchor or path.
 
-**What a theme provides**: sanitized SVG or raster art per region and per figure body style (within the figure silhouette the semantic layer outlines), scene palette tokens (backgrounds and decoration only), an optional flavour subtitle per room shown beneath the canonical room name and never replacing it, and its accessibility evidence.
+**What a theme provides**: sanitized SVG or raster art per region and per figure body style (within the figure silhouette the semantic layer outlines), scene palette tokens (backgrounds and decoration only), a themed label per room (for example "Recipe Desk"), and its accessibility evidence. The canonical functional name (for example "General work") is always rendered by the semantic layer beside the themed label, so a reader never has to decode a theme to know what a room does. This matches PR #12's station labels.
 
-**What a theme may never contain or change**: scripts, external references, fonts, CSS, filters that affect other layers, motion of any kind beyond the shared motion whitelist (walking and the working pulse, both owned by the semantic layer and stopped by reduced motion or a hidden tab), the five states and their shapes, gate flag, changed input triangle, loop count, Safety ring, lens colour scales, room meaning, position or name, SCRAM, the needs me count, anything in the case view or decision bar, any digest, refusal or signature surface. Semantic colours follow section 17 in every theme.
+**What a theme may never contain or change**: scripts, external references, fonts, CSS, filters that affect other layers, motion of any kind beyond the shared motion profile (walking and the working pulse, owned by the renderer, with viewer modes Full, Quiet and Still, and stopped by reduced motion or a hidden tab), the five states and their shapes, gate flag, changed input triangle, loop count, Safety ring, lens colour scales, room meaning, position or canonical functional name, SCRAM, the needs me count, anything in the case view or decision bar, any digest, refusal or signature surface. Semantic colours follow section 17 in every theme.
 
 **Validation (mechanical, on every build).** The theme manifest is parsed against a schema; SVG is sanitized and rejected if it contains scripts, event handlers, external hrefs, foreign objects or styles; art is checked to lie inside its declared region; palette tokens are checked against the scene token list; the digest is recomputed.
 
@@ -506,7 +508,7 @@ The owner requires a set of office view themes (about fifteen), integrated seaml
 
 **Switching**: instant, no reload; per Member preference; presenting mode may force the default theme.
 
-**Intellectual property**: original or properly licensed art only, each asset declared in the register (WB-23). No theme imitates a film, television or game franchise. Munder Difflin's themes do, and its `LICENSE-ASSETS` (read at the pinned commit) states its tileset art is LimeZu's "Modern Interiors" under a separate license requiring credit, so none of its art is usable here. The engine idea of a theme configuration over one map renderer is borrowed from Munder Difflin (MIT) as a pattern.
+**Intellectual property**: original or properly licensed art only, each asset declared in the register (WB-23). No theme imitates or names a film, television or game franchise, in art, names, documentation or launch material (`docs/overlay-themes/originality.md`). Munder Difflin's themes do, and its `LICENSE-ASSETS` (read at the pinned commit) states its tileset art is LimeZu's "Modern Interiors" under a separate license requiring credit, so none of its art is usable here. The engine idea of a theme configuration over one map renderer is borrowed from Munder Difflin (MIT) as a pattern.
 
 ## 19. Quality of life
 
@@ -649,7 +651,7 @@ Floor column: **F** non deferrable for any release of the workbench; others may 
 | D-4 | Protected changes for separate signed review (the complete list) | (a) methodology, verdict and clearance split; (b) attempt set lifecycle and candidate keyed subjects; (c) attestation binding the verdict; (d) disclosure gate in claim admission if it touches kernel functions; (e) signing authority evaluation in the kernel; (f) evidence rules E-1 to E-4 in the kernel; (g) PersonVerification guard; (h) red team fixtures for sandbox, brokers and SCRAM; (i) CI and workflow changes: register check, theme harness wiring, performance budgets, merge gate workflows; (j) `policies/` changes for floors |
 | D-5 | Sandbox | ADR 0010 sandbox-runtime driver with broker separation; confined lanes enabled only after S-0 and S-1 |
 | D-6 | Evidence vocabulary | Plan readiness answers as the displayed set; five dimensions internally |
-| D-7 | Office themes | Approve the theme contract now (this gates Phase 4 engine work); approve the catalogue list when drafted in Phase 0 (this gates only catalogue production, plan task 4.9) |
+| D-7 | Office themes | Catalogue decided by draft PR #12 (fifteen original worlds, display names adopted 2026-10-30). Approve this section's theme contract, which gates Phase 4 engine work |
 
 ## 32. Borrowed code policy
 
@@ -677,7 +679,7 @@ Floor column: **F** non deferrable for any release of the workbench; others may 
 | S-4 | Which structured multi turn interfaces are stable in pinned versions until ACP lands? | WB-17 interim path |
 | S-5 | Does Codex's own sandbox start inside the outer driver? | Nesting policy |
 | Q-A | Which deliverable formats matter first after code and PDF? | WB-18 |
-| Q-B | Where is the office themes catalogue, or should it be drafted in Phase 0? | Catalogue production (plan task 4.9) only |
+| Q-B | Answered: the catalogue is draft PR #12 | None |
 | Q-D | Is the office scenario spreadsheet (100 scenarios) available, or should Phase 0 write self contained OV acceptance cases? | WB-06 |
 | Q-E | Which authenticator classes count as hardware backed for the high consequence floor? | WB-05 |
 | Q-C | Which providers may receive each non public lane? | WB-04, WB-15 |

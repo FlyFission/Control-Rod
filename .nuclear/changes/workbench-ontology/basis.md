@@ -21,7 +21,7 @@ The owner's instruction of 2026-10-29 authorizes writing the specification and p
 | D-4 | In principle authorization, for separate signed review, of the complete protected list in spec section 31: (a) decision kind split; (b) attempt set lifecycle and candidate subjects; (c) attestation binding the verdict; (d) disclosure gate in claim admission; (e) signing authority in the kernel; (f) evidence rules E-1 to E-4 in the kernel; (g) PersonVerification guard; (h) red team fixtures; (i) CI and workflow changes (register check, theme harness wiring, performance budgets, merge gate workflows); (j) policies changes | pending |
 | D-5 | Sandbox: ADR 0010 sandbox-runtime driver with broker separation, after S-0 to S-2 | pending |
 | D-6 | Evidence: plan readiness answers displayed; five dimensions internally | pending |
-| D-7 | Office themes: approve the theme contract (gates Phase 4 engine); approve the catalogue list when drafted (gates task 4.9 only) | pending |
+| D-7 | Office themes: catalogue answered by the owner's draft PR #12 (fifteen original worlds, names adopted 2026-10-30); theme contract in spec 18 still to approve | catalogue decided; contract pending |
 
 ## Required links
 

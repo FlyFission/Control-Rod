@@ -290,7 +290,11 @@ describe("decision kinds (workbench plan task 1.3)", () => {
         Buffer.from(body.assertion.authenticator_data, "base64url"),
         createHash("sha256").update(Buffer.from(body.assertion.client_data_json, "base64url")).digest(),
       ]);
-      expect(await verifySignature({ signature: Buffer.from(body.assertion.signature, "base64url"), data, credentialPublicKey: cred.rows[0]!.public_key })).toBe(true);
+      expect(await verifySignature({
+        signature: new Uint8Array(Buffer.from(body.assertion.signature, "base64url")),
+        data: new Uint8Array(data),
+        credentialPublicKey: new Uint8Array(cred.rows[0]!.public_key),
+      })).toBe(true);
       const reading = readDecision(body);
       expect(reading).toMatchObject({ decision_id: body.id, mapping_version: 1, ...expected[body.kind] });
       expect(validate(body)).toBe(true);

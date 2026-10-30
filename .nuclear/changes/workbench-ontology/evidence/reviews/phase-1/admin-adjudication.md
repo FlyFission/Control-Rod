@@ -18,6 +18,20 @@ Independent security review by Codex (codex-cli 0.166.0, read only), 2026-10-30:
 | SEC-14 | Expected refusals surfaced as 500s | Unique, reference and check violations and contract refusals become 409, 404 and 400 refusals; the repository project is checked first | SEC-14 |
 | SEC-15 | Tests could pass for the wrong reason | Fresh sign in after suspension, redemption after revocation, replay with a passkey whose counter stays at zero, and real concurrency | SEC-07, SEC-09, SEC-15, SEC-05, SEC-12 |
 
+## Round 2
+
+Codex confirmed SEC-02 to SEC-06, SEC-08, SEC-09, SEC-11 to SEC-13 fixed and found the rest partial, with one new critical ([admin-codex-round2.md](admin-codex-round2.md)).
+
+| Item | Disposition |
+|---|---|
+| New critical: an invitation for a Member who already had a passkey let its redeemer take over that account | **Fixed**: invitations are only issued for, and only redeemable by, a Member with no passkey yet (checked in the registration transaction) (test) |
+| New major: a pending passkey addition outlived suspension or the revocation of the passkey that authorized it | **Fixed**: completion rechecks, under the organization lock, that the Member is active and the authorizing passkey is valid; departure and credential revocation void every pending challenge of that person (test) |
+| SEC-07 session created in the gap while a suspension commits | **Fixed**: sessions start under the organization lock and only for an active Member; refusals are 401 or 403 answers |
+| SEC-10 non administrative challenges survived | **Fixed**: every signing challenge records who it was issued to (kept beside the data, never returned with it); departure and revocation void all of them (test) |
+| SEC-14 `settings: null` | **Hardened**: `null` was already treated as no settings, never a server error; it is now refused as the wrong shape (test) |
+| SEC-15 test gaps | **Fixed**: replay after a successful first use with a counter that stays at zero, a removed Member signing in with a passkey that was never revoked, and two passkeys revoked at once (tests) |
+| SEC-01 | Closed by the two items above |
+
 ## Required links
 
 [Execution ledger](../../../../../../docs/superpowers/execution/2026-10-29-workbench-buildout.md), [command inventory](../../../../../../docs/commands/inventory.md).

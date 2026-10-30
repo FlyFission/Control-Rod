@@ -32,13 +32,18 @@ export async function isRegistered(db: Db): Promise<boolean> {
   return (r.rowCount ?? 0) > 0;
 }
 
-async function storeChallenge(db: Db, challenge: string, purpose: string, data: object) {
+/**
+ * Stores a challenge. `issuedTo` records which person it was issued to, so ending that person's
+ * access (suspension, removal, revocation) can void every challenge they hold. It is kept beside the
+ * data and never returned with it.
+ */
+async function storeChallenge(db: Db, challenge: string, purpose: string, data: object, issuedTo?: string) {
   await command(db, "auth.challenge-issue", async (c) => {
     await c.query("delete from challenges where expires_at < now()");
     await c.query(
       `insert into challenges (challenge, purpose, data, expires_at)
        values ($1, $2, $3, now() + interval '${CHALLENGE_MINUTES} minutes')`,
-      [challenge, purpose, data],
+      [challenge, purpose, issuedTo === undefined ? data : { ...data, issued_to: issuedTo }],
     );
   });
 }
@@ -55,7 +60,10 @@ export async function takeChallenge(
       [challenge, purpose],
     ),
   );
-  return r.rows[0]?.data ?? null;
+  const data = r.rows[0]?.data;
+  if (!data) return null;
+  const { issued_to: _issuedTo, ...rest } = data;
+  return rest;
 }
 
 function clientChallenge(response: { response: { clientDataJSON: string } }): string {
@@ -73,7 +81,7 @@ function clientChallenge(response: { response: { clientDataJSON: string } }): st
  * invitation for a new person, or a Member adding a passkey to their own account after signing
  * with one they already hold.
  */
-export type RegistrationGrant = { kind: "first" } | { kind: "invitation"; invitation_hash: string } | { kind: "additional" };
+export type RegistrationGrant = { kind: "first" } | { kind: "invitation"; invitation_hash: string } | { kind: "additional"; via: string };
 
 export async function registrationOptions(db: Db, cfg: AuthConfig, name: string, grant: RegistrationGrant) {
   const options = await generateRegistrationOptions({
@@ -83,7 +91,7 @@ export async function registrationOptions(db: Db, cfg: AuthConfig, name: string,
     attestationType: "none",
     authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
   });
-  await storeChallenge(db, options.challenge, "register", { name, ...grant });
+  await storeChallenge(db, options.challenge, "register", { name, ...grant }, name);
   return options;
 }
 
@@ -106,10 +114,25 @@ export async function registrationVerify(db: Db, cfg: AuthConfig, body: Registra
     if (data.kind === "first" && (await c.query("select 1 from credentials limit 1")).rowCount)
       throw new Error("a passkey was registered first by someone else");
     if (data.kind === "invitation") {
+      // An invitation registers a first passkey for an active member, once.
       const used = await c.query(
-        "update member_invitations set used_at = now() where token_hash = $1 and used_at is null and expires_at > now() returning member_id",
-        [String(data.invitation_hash)]);
-      if (!used.rowCount) throw new Error("this invitation was already used or has expired");
+        `update member_invitations i set used_at = now() from members m
+          where i.token_hash = $1 and i.used_at is null and i.expires_at > now()
+            and m.id = i.member_id and m.body->>'status' = 'active' and m.user_name = $2
+            and not exists (select 1 from credentials k where k.user_name = $2)
+          returning i.member_id`,
+        [String(data.invitation_hash), String(data.name)]);
+      if (!used.rowCount) throw new Error("this invitation is no longer valid");
+    }
+    if (data.kind === "additional") {
+      // Still an active member, and the passkey that authorized this is still valid.
+      const ok = await c.query(
+        `select 1 from members m where m.user_name = $1 and m.body->>'status' = 'active'
+           and exists (select 1 from credentials k where k.id = $2 and k.user_name = $1)
+           and not exists (select 1 from authenticator_credentials a where a.credential_id = $2 and (a.body->>'revoked')::boolean is true
+             and a.version = (select max(version) from authenticator_credentials b where b.credential_id = $2))`,
+        [String(data.name), String(data.via)]);
+      if (!ok.rowCount) throw new Error("the account or the passkey that authorized this registration is no longer valid");
     }
     await c.query(
       "insert into credentials (id, user_name, public_key, counter, transports) values ($1, $2, $3, $4, $5)",
@@ -140,6 +163,7 @@ export async function assertionOptions(
   purpose: string,
   data: object,
   challenge?: Uint8Array,
+  issuedTo?: string,
 ) {
   const options = await generateAuthenticationOptions({
     rpID: cfg.rpID,
@@ -147,7 +171,7 @@ export async function assertionOptions(
     userVerification: "required",
     ...(challenge ? { challenge: challenge as Uint8Array<ArrayBuffer> } : {}),
   });
-  await storeChallenge(db, options.challenge, purpose, data);
+  await storeChallenge(db, options.challenge, purpose, data, issuedTo);
   return options;
 }
 
@@ -198,12 +222,18 @@ export async function assertionVerify(
 
 export async function startSession(db: Db, reply: FastifyReply, user: string) {
   const token = b64url(randomBytes(32));
-  await command(db, "auth.session-start", (c) =>
-    c.query(
-      `insert into sessions (token_hash, user_name, expires_at) values ($1, $2, now() + interval '${SESSION_DAYS} days')`,
+  // Under the organization lock, and only for an active member: a suspension that is committing
+  // cannot be outrun by a session created in the gap.
+  const started = await command(db, "auth.session-start", async (c) => {
+    await c.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || coalesce((select org_id from members where user_name = $1), 'org_local')))", [user]);
+    return c.query(
+      `insert into sessions (token_hash, user_name, expires_at)
+       select $1, $2, now() + interval '${SESSION_DAYS} days'
+        where exists (select 1 from members where user_name = $2 and body->>'status' = 'active')`,
       [sha256(token), user],
-    ),
-  );
+    );
+  });
+  if (!started.rowCount) throw new Error("membership is not active");
   reply.setCookie(SESSION_COOKIE, token, {
     path: "/",
     httpOnly: true,

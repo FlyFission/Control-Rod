@@ -291,3 +291,71 @@ describe("review round 2", () => {
     }
   });
 });
+
+describe("review round 3", () => {
+  let h: Harness;
+  beforeAll(async () => {
+    h = await startHarness();
+  }, 120_000);
+  afterAll(async () => h?.stop());
+
+  it("N-03: statements are split the way PostgreSQL reads them", async () => {
+    const { statements } = await import("../src/commands/executor.js");
+    expect(statements("select '--'; commit")).toEqual(["select '--'", "commit"]);
+    expect(statements("select 'a;b', \"c;d\" -- x;y\n; select $$;$$, $t$ ; $t$ /* ; */")).toEqual(["select 'a;b', \"c;d\"", "select $$;$$, $t$ ; $t$"]);
+    expect(statements("select 'it''s; fine'")).toEqual(["select 'it''s; fine'"]);
+    await expect(command(h.db, "runtime.report-status", (c) => c.query("select '--'; commit"))).rejects.toThrow(/may not run: commit/);
+    await expect(command(h.db, "runtime.report-status", (c) => c.query("select $$x$$; rollback"))).rejects.toThrow(/may not run: rollback/);
+    const ok = await command(h.db, "runtime.report-status", async (c) => (await c.query("select 'a;b' as v")).rows[0].v);
+    expect(ok).toBe("a;b");
+  });
+
+  it("N-09: an existing login with another password is reset only by the installation that owns the cluster", async (ctx) => {
+    const other = { reader: "3".repeat(48), writer: "4".repeat(48) };
+    // A trust authenticated test cluster accepts any password, so a mismatch cannot occur there.
+    const wrong = new pg.Pool({ connectionString: roleUrl(h.admin.options.connectionString as string, READER, "5".repeat(48)), max: 1 });
+    const trusts = await wrong.query("select 1").then(() => true, () => false);
+    await wrong.end();
+    if (trusts) ctx.skip();
+    await expect(provisionRoles(h.admin, other)).rejects.toThrow(/another Control Rod installation/);
+    await provisionRoles(h.admin, other, { ownsCluster: true });
+    try {
+      const probe = new pg.Pool({ connectionString: roleUrl(h.admin.options.connectionString as string, READER, other.reader), max: 1 });
+      expect((await probe.query("select current_user as u")).rows[0].u).toBe(READER);
+      await probe.end();
+    } finally {
+      await provisionRoles(h.admin, TEST_ROLE_SECRETS, { ownsCluster: true });
+    }
+  });
+
+  it("N-10: the audit catches column grants and callable security definer functions", async () => {
+    await h.admin.query(`grant update (value) on settings to ${READER}`);
+    try {
+      await expect(verifyRoles(h.admin, WRITER_READ_ONLY_TABLES)).rejects.toThrow(/controlrod_reader can write settings/);
+    } finally {
+      await h.admin.query(`revoke update (value) on settings from ${READER}`);
+    }
+    await h.admin.query("create schema if not exists cr_side");
+    await h.admin.query("create or replace function cr_side.escalate() returns int language sql security definer as 'select 1'");
+    try {
+      await expect(verifyRoles(h.admin, WRITER_READ_ONLY_TABLES)).rejects.toThrow(/can call security definer function cr_side.escalate/);
+    } finally {
+      await h.admin.query("drop schema cr_side cascade");
+    }
+    await verifyRoles(h.admin, WRITER_READ_ONLY_TABLES);
+  });
+
+  it("N-07: the home folder is kept private", async () => {
+    const { mkdtempSync, mkdirSync, statSync, symlinkSync, chmodSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { privateDir } = await import("../src/db/roles.js");
+    const base = mkdtempSync(join(tmpdir(), "cr-home-"));
+    const home = join(base, "home");
+    mkdirSync(home);
+    chmodSync(home, 0o777);
+    privateDir(home);
+    expect(statSync(home).mode & 0o777).toBe(0o700);
+    symlinkSync(home, join(base, "link"));
+    expect(() => privateDir(join(base, "link"))).toThrow(/must be a directory/);
+  });
+});

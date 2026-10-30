@@ -14,6 +14,8 @@ export type Tx = pg.PoolClient;
 export interface DbRoles {
   secrets?: RoleSecrets;
   urls?: RoleUrls;
+  /** This installation owns the cluster (its embedded database), so it may reset its own logins. */
+  ownsCluster?: boolean;
 }
 
 /**
@@ -27,7 +29,7 @@ export async function openDb(connectionString: string, roles: DbRoles = {}): Pro
   let reader: Db | undefined;
   try {
     const secrets = roles.secrets ?? { reader: randomBytes(24).toString("hex"), writer: randomBytes(24).toString("hex") };
-    if (!roles.urls) await provisionRoles(owner, secrets);
+    if (!roles.urls) await provisionRoles(owner, secrets, { ownsCluster: roles.ownsCluster ?? false });
     await migrate(owner);
     const { WRITER_READ_ONLY_TABLES } = await import("./migrations/011-roles.js");
     await verifyRoles(owner, WRITER_READ_ONLY_TABLES);

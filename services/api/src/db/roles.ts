@@ -41,6 +41,17 @@ export function privateFile(path: string, create: () => string): string {
   return readFileSync(path, "utf8").trim();
 }
 
+/**
+ * Keeps the Control Rod home folder private: it must be a real directory owned by this user, and is
+ * narrowed to mode 0700. Secrets files inside it can then not be swapped by anyone else.
+ */
+export function privateDir(path: string): void {
+  const st = lstatSync(path);
+  if (!st.isDirectory()) throw new RoleSetupError(`${path} must be a directory, not a link or file`);
+  if (typeof process.getuid === "function" && st.uid !== process.getuid()) throw new RoleSetupError(`${path} is owned by another user`);
+  if ((st.mode & 0o077) !== 0) chmodSync(path, 0o700);
+}
+
 /** Loads the local role passwords, creating them on first use. */
 export function localRoleSecrets(file: string): RoleSecrets {
   const s = JSON.parse(privateFile(file, () => JSON.stringify({ reader: randomBytes(24).toString("hex"), writer: randomBytes(24).toString("hex") }))) as RoleSecrets;
@@ -74,11 +85,12 @@ export function roleUrl(ownerUrl: string, role: string, password: string): strin
 }
 
 /**
- * Creates both login roles, or sets a password that does not yet work. A login that already accepts
- * its password is left alone, so installations sharing a server do not reset each other. Needs a
- * connection that may create roles; without one it refuses with the step an administrator must take.
+ * Creates both login roles if they are missing. A login that already accepts its password is left
+ * alone. A login that exists with a different password is reset only when this installation owns
+ * the cluster (its embedded database); on a shared server that would lock out another installation,
+ * so it refuses and says what to do. Needs a connection that may create roles.
  */
-export async function provisionRoles(owner: pg.Pool, secrets: RoleSecrets): Promise<void> {
+export async function provisionRoles(owner: pg.Pool, secrets: RoleSecrets, options: { ownsCluster?: boolean } = {}): Promise<void> {
   assertSecrets(secrets);
   const me = (await owner.query<{ allowed: boolean }>(
     "select rolsuper or rolcreaterole as allowed from pg_roles where rolname = current_user")).rows[0];
@@ -91,6 +103,10 @@ export async function provisionRoles(owner: pg.Pool, secrets: RoleSecrets): Prom
     // Role names are constants; passwords are hex, checked above, so quoting is safe.
     const exists = (await owner.query("select 1 from pg_roles where rolname = $1", [role])).rowCount;
     if (exists && (await canLogIn(owner.options.connectionString as string, role, password))) continue;
+    if (exists && !options.ownsCluster)
+      throw new RoleSetupError(
+        `database role ${role} already exists on this server with a different password, probably set by another Control Rod installation. ` +
+        "Use that installation's db-roles.json, or have an administrator issue CONTROLROD_DB_READER_URL and CONTROLROD_DB_WRITER_URL.");
     try {
       await owner.query(`${exists ? "alter" : "create"} role ${role} ${attrs} password '${password}'`);
     } catch (e) {
@@ -122,10 +138,12 @@ export async function verifyRoles(owner: pg.Pool, writerReadOnly: readonly strin
   }
   const audit = (await owner.query<{ problem: string }>(
     `select format('%s can write %s', $1::text, c.relname) as problem from pg_class c join pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'public' and c.relkind in ('r', 'p') and has_table_privilege($1, c.oid, 'insert,update,delete,truncate')
+        where n.nspname = 'public' and c.relkind in ('r', 'p')
+          and (has_table_privilege($1, c.oid, 'insert,update,delete,truncate') or has_any_column_privilege($1, c.oid, 'insert,update'))
      union all
      select format('%s can write %s', $2::text, c.relname) from pg_class c join pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'public' and c.relname = any($3::text[]) and has_table_privilege($2, c.oid, 'insert,update,delete,truncate')
+        where n.nspname = 'public' and c.relname = any($3::text[])
+          and (has_table_privilege($2, c.oid, 'insert,update,delete,truncate') or has_any_column_privilege($2, c.oid, 'insert,update'))
      union all
      select format('%s owns %s', pg_get_userbyid(c.relowner), c.relname) from pg_class c
         where pg_get_userbyid(c.relowner) in ($1, $2)
@@ -134,8 +152,9 @@ export async function verifyRoles(owner: pg.Pool, writerReadOnly: readonly strin
      union all
      select format('%s can create in schema public', r) from unnest(array[$1, $2]::text[]) r where has_schema_privilege(r, 'public', 'create')
      union all
-     select format('security definer function %s in public', p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-        where n.nspname = 'public' and p.prosecdef`,
+     select format('%s can call security definer function %s.%s', r, n.nspname, p.proname)
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace, unnest(array[$1, $2]::text[]) r
+        where p.prosecdef and n.nspname not in ('pg_catalog', 'information_schema') and has_function_privilege(r, p.oid, 'execute')`,
     [READER, WRITER, [...writerReadOnly]])).rows;
   if (audit.length) throw new RoleSetupError(`database privileges are wider than Control Rod allows: ${audit.map((a) => a.problem).join("; ")}`);
 }

@@ -1,6 +1,6 @@
 # Office view acceptance cases (OV P1)
 
-Status: **draft for owner approval** (workbench plan task 0.8). The Platform Plan's scenario spreadsheet (100 scenarios) was not available, so these cases are written from the Platform Plan's office view section (Experience tab) and the workbench specification, sections 13 and 18. Once approved, each case becomes a test or a recorded check in plan task 4.7, run on both the default theme and the structural test theme.
+Status: **approved by the owner on 2026-10-30** (workbench plan task 0.8). The Platform Plan's scenario spreadsheet (100 scenarios) was not available, so these cases are written from the Platform Plan's office view section (Experience tab) and the workbench specification, sections 13 and 18. Once approved, each case becomes a test or a recorded check in plan task 4.7, run on both the default theme and the structural test theme.
 
 Each case states a **given** (fixture state), a **when** (event or action), a **then** (what the floor and its panels must show, derived only from recorded data) and a **never** (the negative check). "Figure" means an AgentFigure projection; "card" means the panel that opens from a figure.
 

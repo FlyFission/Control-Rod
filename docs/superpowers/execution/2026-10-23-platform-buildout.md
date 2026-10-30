@@ -269,3 +269,25 @@ Ruling: use a private checksum-pinned source fallback rather than weaken the PG1
 
 
 Portable bootstrap acceptance: cold source build plus real deadline regression GREEN; warm cache reuse without LD_LIBRARY_PATH or the old manual client override passes API174, web39, types, builds and real restore (proposal bytes, guard sequence, 25-event chain). The private source build/provenance is retained; no system package or protected workflow changed. CI verification must now run on the new head. The deferred permit-metadata Minor and all activation gates remain unchanged.
+
+## Remote CI on the portable head and the permit-lease Minor
+
+CI run 40024424367 on `465b084` passed all seven jobs, including the TypeScript database suite that failed setup on `707b26d`. The portable-bootstrap evidence gate is closed for that head.
+
+The deferred permit-metadata Minor is fixed. The reviewer's reproduction became the regression `caps each new permit and its commit guard at the currently shortened run lease`: a 15-second shortened lease against a 60-second grant. RED: the permit returned the grant expiry (about 45 seconds past the lease); the other 174 tests passed. Fix: `currentGrant` returns the earlier of the grant expiry and the current run lease, and `beginGrantUse` persists, guards and returns that time. GREEN: API 175/175 in 21 files, including the real restore rehearsal; types, build and Prettier pass. No web, Go, contract, kernel, policy, red-team or CI file changed. Raw logs: `evidence/controller-grants/permit-lease-api-red.log` and `-green.log`.
+
+This session ran as root, so the suite used a disposable PostgreSQL 17.11 cluster (PGDG package, run as the `postgres` user) through `TEST_DATABASE_URL` and `CONTROLROD_TEST_PG_BIN`. No production database was touched. This is a self-check by the implementer, not independent review; the change waits for branch CI.
+
+Ruling: take the minimum per use in `currentGrant`, where the run row is already locked and checked, rather than re-read the run in `beginGrantUse` — cost if wrong: one more field on the grant row type, no authorization change.
+
+All activation gates in "Remaining sequence and authority" are unchanged.
+
+## Owner pilot preparation
+
+The owner asked to run the passkey pilot next. It has to run on the owner's machine: a hardware passkey and real browser cannot be supplied from the cloud session, and no owner computer folder was shared with it. Added `docs/owner-pilot.md`, a step-by-step procedure, and `evidence/owner-pilot/record.md`, a blank record for the owner to fill in. The record states that nothing in it is a result until the owner fills it in.
+
+Smoke check before writing it: on this head, the built API started with `CONTROLROD_GUIDED_PREPARATION=1` and `CONTROLROD_PREPARED_RELEASE=1` against a fresh PostgreSQL 17 database, answered `/health` and served the web app. The passkey flow, guided preparation, release, runs and restore were not exercised by the agent; they are the pilot.
+
+The procedure makes agent execution an explicit owner choice at release, because `pnpm cr start` runs real Claude Code author and checker processes and runtime confinement is not proved. It uses a separate `CONTROLROD_HOME`, keeps the database password in a protected pass file, restores into a new database served by a second API with both flags off and no daemon, and keeps the stale-source check on a throwaway package.
+
+Task 12 operational owner pilot: pending the owner's run. All other gates are unchanged.

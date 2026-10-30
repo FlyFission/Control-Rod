@@ -573,3 +573,24 @@ it("preserves retained proposal custody and accurate recovery guidance after lea
       .statusCode,
   ).toBe(409);
 });
+it("caps each new permit and its commit guard at the currently shortened run lease", async () => {
+  const v = await issued();
+  const shorter = new Date(Date.now() + 15_000).toISOString();
+  await f.adminQuery(
+    "update runs set lease_expires_at=$2::timestamptz,body=jsonb_set(body,'{lease_expires_at}',to_jsonb($2::text)) where id=$1",
+    [v.run.id, shorter],
+  );
+  const permit = await begin(v.grant.id, v.token, { kind: "inspect" });
+  expect(permit.statusCode, permit.body).toBe(200);
+  const lease = new Date(shorter).getTime();
+  expect(new Date(permit.json().expires_at).getTime()).toBe(lease);
+  const stored = (
+    await f.h.db.query(
+      "select u.expires_at,g.deadline from preparation_grant_uses u join preparation_grant_guards g on g.use_id=u.id where u.id=$1",
+      [permit.json().use_id],
+    )
+  ).rows;
+  expect(stored).toHaveLength(1);
+  expect(stored[0].expires_at.getTime()).toBe(lease);
+  expect(stored[0].deadline.getTime()).toBe(lease);
+});

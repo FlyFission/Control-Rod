@@ -204,15 +204,15 @@ export async function beginGrantUse(
       useToken = newSecret();
     await c.query(
       "insert into preparation_grant_uses(id,grant_id,token_hash,intent,expires_at) values($1,$2,$3,$4,$5)",
-      [useId, id, rawHash(useToken), intent, g.expires_at],
+      [useId, id, rawHash(useToken), intent, g.use_deadline],
     );
-    await armGrant(c, g, useId, g.expires_at);
+    await armGrant(c, g, useId, g.use_deadline);
     return {
       grant: g.body,
       use_id: useId,
       use_token: useToken,
       intent,
-      expires_at: g.expires_at.toISOString(),
+      expires_at: g.use_deadline.toISOString(),
     };
   });
 }

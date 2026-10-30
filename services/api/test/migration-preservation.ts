@@ -39,8 +39,8 @@ export async function assertMigrationsPreserveHistory(db: Db, nonEmpty: string[]
   await migrate(db);
   await tx(db, backfillCredentials);
   const after = await snapshot(db, tables);
-  const { events: afterEvents, ...afterRows } = after;
-  const { events: beforeEvents, ...beforeRows } = before;
+  const { events: afterEvents = [], ...afterRows } = after;
+  const { events: beforeEvents = [], ...beforeRows } = before;
   expect(afterRows).toEqual(beforeRows);
   // Credential records are completed in code after the migration; they append, never rewrite.
   expect(afterEvents.slice(0, beforeEvents.length)).toEqual(beforeEvents);

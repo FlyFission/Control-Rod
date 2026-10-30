@@ -24,9 +24,9 @@ Two separate approvals:
 ```
 Authorization A:
   0 governance (incl. theme catalogue stream, OV acceptance cases)
-  S-0 (first) -> S-1 -> S-2 ; S-3, S-4, S-5 in any order
+  S-0 (first) -> S-1 -> S-2 ; S-3, S-4, S-5 in any order ; S-6 (supersedes S-1 and S-2 for laptops, ADR 0021)
 Authorization B:
-  1 contracts, storage, command layer, disclosure, authority ──┬── 2 run safety + SCRAM backend ──┬── 6 sandbox + attestation (after S-0..S-2)
+  1 contracts, storage, command layer, disclosure, authority ──┬── 2 run safety + SCRAM backend ──┬── 6 sandbox + attestation (after S-6)
                                                                │                                 └── 7 Explore + promotion (after 6 for confined lanes, S-4)
                                                                ├── 3 design system, Inbox, Case preview
                                                                ├── 5 Roster, Usage, Records, Policies
@@ -58,6 +58,7 @@ Authorization B:
 | S-0 | Capability separation per pinned runtime: model transport apart from every tool, builtin bypasses disabled | `evidence/spikes/s0-capability-separation.md` |
 | S-1 | sandbox-runtime driver with broker only egress for each pinned CLI on macOS, native Linux and WSL2 | `evidence/spikes/s1-srt-driver.md` |
 | S-2 | Subscription login through the model broker versus account key per lane | `evidence/spikes/s2-model-broker.md` |
+| S-6 | Each CLI's own command sandbox with the user's normal login and Control Rod settings | `evidence/spikes/s6-native-sandboxes.md` |
 | S-3 | Claude Code permission hooks in print mode | `evidence/spikes/s3-hooks-print-mode.md` |
 | S-4 | Stable structured multi turn interfaces until ACP | `evidence/spikes/s4-structured-sessions.md` |
 | S-5 | Codex sandbox nested in the outer driver | `evidence/spikes/s5-nesting.md` |
@@ -135,14 +136,14 @@ Order matters: the theme contract and harness come before the renderer.
 | 5.3 | Records: chain, interim seals per spec 11.6, inclusion proofs, unsealed suffix report | WB-20 | no |
 | 5.4 | Policies and Administration screens over the 1.5 commands | WB-05 | **[protected]** for `policies/` |
 
-## Phase 6. Sandbox, attestation, kernel decisions (after S-0, S-1, S-2)
+## Phase 6. Sandbox, attestation, kernel decisions (after S-6)
 
 | Task | Goal | WB | Protected |
 |---|---|---|---|
 | 6.1 | SandboxPolicy resolution per lane and grade | WB-15 | no |
-| 6.2 | sandbox-runtime driver integration (ADR 0010) | WB-15 | **[protected]** red team fixtures |
-| 6.3 | Model broker | WB-15 | **[protected]** red team fixtures |
-| 6.4 | Tool broker; proof tools cannot reach the model broker | WB-15 | **[protected]** red team fixtures |
+| 6.2 | Native sandbox launch for Claude Code and Codex (ADR 0021) on laptops; OCI driver (ADR 0010) on servers | WB-15 | **[protected]** red team fixtures |
+| 6.3 | Run preflight (ADR 0021): pinned CLI signed in, sandbox prerequisites present, Codex `sandbox_mode` absent; refusal names the fix; never an unsandboxed fallback | WB-15 | no |
+| 6.4 | Per run sandbox settings for each CLI (ADR 0021) and the in-run probe through a command and a file tool; red team cases for login reads, network and writes outside the workspace, plus the defaults leak negative control | WB-15 | **[protected]** red team fixtures |
 | 6.5 | Attestation probes and records for mandatory claims | WB-16 | no |
 | 6.6 | Methodology, verdict and clearance split; clearance subject and freshness | WB-05, WB-24 | **[protected]** kernel |
 | 6.7 | Verdict refuses missing or unverifiable mandatory claims; evidence rules E-1 to E-4 | WB-14, WB-16 | **[protected]** kernel |

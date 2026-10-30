@@ -1,6 +1,6 @@
 # Control Rod workbench and ontology specification
 
-Date: 2026-10-30. Revision 2. Status: design specification for owner review. Nothing here is implemented by this document.
+Date: 2026-10-30. Revision 3. Status: design specification for owner review. Nothing here is implemented by this document.
 
 Governing document: the **Control Rod Platform Plan** (Claude Docs, owner artifact "Control Rod Build Plan", tabs Overview, Build or borrow, Architecture, Security and compliance, Domain model, Flows, Typicals, Large-project typicals, Experience, Business). `AGENTS.md` names it as "the plan and architecture"; earlier specifications recorded it as not found. Where this specification and the Platform Plan disagree, the Platform Plan governs unless an accepted ADR amends it. Section 2 maps every part of this specification to the plan.
 
@@ -22,6 +22,14 @@ Revision 0 was reviewed by Codex, OpenCode and Antigravity (Grok could not run) 
 - Interim mechanisms are labelled interim with their return paths: print mode to ACP (ADR 0020), Postgres chain and seals to DSSE and Tessera (ADR 0009).
 - False claims about existing code are corrected (draft edits have no compare-and-swap today; the kernel's Claim actor is Agent).
 - The palette proposal is withdrawn; the plan's design language stands (section 17).
+
+## Revision 3 summary
+
+The owner directed the simplest secure design for agent logins (2026-10-30), recorded as [ADR 0021](../../adr/0021-native-cli-sandboxes.md) (Proposed). Revision 3:
+
+- Agent CLIs keep the user's ordinary login; Control Rod never handles a token. The model broker and credential masking are dropped (23; spikes S-1 and S-2 recorded as not adopted).
+- Every agent action runs in each CLI's own sandbox with settings Control Rod passes on every run; spike S-6 shows the defaults alone let commands read login files, so these settings are mandatory (23).
+- Adds the run preflight and the in-run probe as required behaviour, and per version and per platform rechecks (21, 23, WB-15, WB-16).
 
 ## Revision 2 summary
 
@@ -181,7 +189,7 @@ Deliverable, DeliverableRevision (status = its rung), Register, DesignBasisItem,
 | **RuntimeProbe** | A | Observation of a runtime: artifact digest, version, auth state, outcome |
 | **RuntimePin** | L | Which RuntimeArtifactVersion a role launches; update and rollback are directly signed commands; a change requalifies affected agent baselines |
 | **RuntimeArtifactVersion** | F | Immutable record of one qualified executable: digest, version string, install path, probe evidence; traces reference this, not the mutable pin |
-| **SandboxPolicy** | F | Driver, tier, readable and writable roots, model broker endpoint, tool broker grants, egress allowlist, mandatory claims |
+| **SandboxPolicy** | F | Driver, tier, per runtime sandbox settings Control Rod passes (ADR 0021), denied read paths (login folders always), writable roots, network rule, mandatory claims |
 | **IsolationAttestation** | A | Post launch evidence for each mandatory claim: observed, refuted or unverifiable, bound to run, generation, policy digest, runtime artifact digest |
 | **ControlledRecord** | F | Revision 0's "Baseline", renamed to avoid collision with agent baseline: an accepted and applied revision with its input digests. In Capital Projects it is a deliverable revision at a rung, created when issuance is recorded; in Software mode a merged change, created **only after verified merge evidence** names the resulting commit (clearance alone is authorization, not completion) |
 | **PersonVerification** | A | A qualified person's verification of a candidate's evidence for Safety or Material grade work: verifier Member, qualification version, candidate, criteria covered, outcome, signature. Distinct from the agent pre-check |
@@ -345,7 +353,7 @@ The **clearance subject** binds the verdict decision digest and the exact applic
 ### 11.1 Principals and signing authority
 
 - G-1. Only a passkey backed session of a Member is a person. No request is a person because it arrives on loopback, carries a CLI token, or comes from a process a person started.
-- G-2. Target: the daemon token calls only runner routes; agent environments contain no session cookie, daemon token or provider credential. **Current state**: the daemon strips only `CONTROLROD_` variables and inherits HOME (runtime confinement spec); this is a known gap closed by section 23.
+- G-2. Target: the daemon token calls only runner routes; agent environments contain no session cookie, daemon token or provider credential, and agent commands and file tools cannot read the CLI login folders (ADR 0021). The CLI process itself holds the user's own login, as it does outside Control Rod. **Current state**: the daemon strips only `CONTROLROD_` variables and inherits HOME (runtime confinement spec); this is a known gap closed by section 23.
 - G-3. Agents propose; agents never confirm, approve methodology, release, select, render a verdict, clear, override, pin runtimes, lower lanes or sandbox protection, seal or SCRAM.
 - G-4. A sign or verify control is live only when the Member's SignerQualification covers the discipline, grade and license the subject needs (plan Domain model); `ActionDescriptor` says which is missing.
 - G-5. High consequence decisions need a credentialed person signing with a hardware backed key (plan floor). Eligibility comes only from an AuthenticatorCredential whose registration carried attestation evidence from an authenticator class the policy set lists as hardware backed. Today's registration requests no attestation (`services/api/src/auth.ts`), so **every existing credential is ineligible for this floor** until re-enrolled with attestation; the refusal names the missing evidence. Synced platform passkeys are ineligible unless policy explicitly lists them.
@@ -535,6 +543,8 @@ The owner requires a set of office view themes (about fifteen), integrated seaml
 ## 21. Runtime qualification and pins
 
 - A RuntimePin names a verified executable artifact (digest, version, path). Runs launch that artifact, not whatever is on PATH; a mismatch fails closed. Update and rollback are atomic; a failed update keeps the previous pin. Probes (auth probes patterned on Agent Orchestrator, Apache-2.0) run on start and on a timer.
+- **Run preflight** (ADR 0021): before every run the daemon checks that the CLI is the pinned artifact and signed in, that the host has what the CLI's sandbox needs (bubblewrap on Linux and WSL2, socat for Claude Code), and, for Codex, that no config layer sets `sandbox_mode`. A failure refuses the run with one plain sentence and the fix (for example "Codex is not signed in. Run `codex login`."); it never falls back to an unsandboxed run.
+- A new pinned version is adopted only after the S-6 checks, including the defaults leak negative control, pass on it.
 
 ## 22. Run supervision
 
@@ -557,10 +567,10 @@ The owner requires a set of office view themes (about fifteen), integrated seaml
 
 Continues the runtime confinement specification without weakening it.
 
-- **Drivers** (ADR 0010, unchanged): sandbox-runtime on laptops (macOS and Linux, WSL2 first on Windows); one OCI driver on servers and managed cloud with microVM isolation per runtime class. `SandboxPolicy` is the single policy type across drivers. Spike S-1 covers macOS, native Linux and WSL2.
-- **Capability separation** (runtime confinement spec): the trusted model client and the untrusted tool process are separate capability domains. A **model broker** holds provider credentials and admits only bounded endpoint, model, method, body and response shapes; a **tool broker** grants file and command powers. Tools cannot reach the model broker or its credentials. Native CLIs are offered for a role and lane only after spike S-0 proves this separation for that pinned artifact; otherwise the adapter stays unavailable.
-- Credential injection at the broker (pattern from Omnigent's credential proxy design, Apache-2.0 with NOTICE); default deny egress through the driver's proxy with a fail closed decider in the daemon (ADR 0010).
-- **Attestation**: each policy declares mandatory claims. After launch the daemon probes each and records observed, refuted or unverifiable, bound to run, generation, policy digest and runtime artifact. Any mandatory claim that is refuted, unverifiable, stale or missing refuses the verdict for lanes and grades that require the policy (protected kernel change, D-4). Downgrades are recorded, never silent.
+- **Laptops and developer hosts** ([ADR 0021](../../adr/0021-native-cli-sandboxes.md)): each agent CLI keeps the user's ordinary login and runs on the host as it normally does; everything the agent does runs inside that CLI's own sandbox, with settings Control Rod passes on every run and never writes into the user's files. Claude Code: command sandbox on, `failIfUnavailable`, no unsandboxed fallback, login folders denied, no network, plus Read and Edit deny rules for the login folders because its file tools run outside the command sandbox. Codex: a permission profile passed as overrides that extends `:workspace`, denies the login folders, keeps `/tmp` read only and disables network; `sandbox_mode` is never set. Spike S-6 shows each CLI's defaults let commands read login files, so these settings are mandatory.
+- **Servers and managed cloud** (ADR 0010, unchanged): one OCI driver with microVM isolation per runtime class. `SandboxPolicy` is the single policy type across both.
+- **Capability separation**: the trusted model client (the CLI process) and untrusted agent actions (commands and file tools) are separate domains: actions have no network, no login and no writes outside the workspace. Control Rod does not relay or hold provider credentials. Which provider may receive a lane is decided by the disclosure gate before the run (11.3 M-0); restricted lanes run local only.
+- **Attestation**: each policy declares mandatory claims; for every laptop run they include "agent actions cannot read the login folders", "agent actions have no network" and "agent writes stay in the workspace". After launch the daemon probes each, through both a command and a file tool read, and records observed, refuted or unverifiable, bound to run, generation, policy digest and runtime artifact. Any mandatory claim that is refuted, unverifiable, stale or missing refuses the verdict for lanes and grades that require the policy (protected kernel change, D-4). Downgrades are recorded, never silent.
 - Tier "none" is today's labelled interim state; it is not acceptable for lanes or grades whose policy requires a tier.
 - Host side git hardening (pattern from Scion, Apache-2.0) applies wherever the daemon runs git in an agent writable tree, which begins with Explore and promotion.
 
@@ -613,7 +623,7 @@ Floor column: **F** non deferrable for any release of the workbench; others may 
 | WB-12 | Runtime pins | Launch by verified artifact; mismatch fails closed; atomic update and rollback | F |
 | WB-13 | Markings | Versioned metadata; provenance; declassification by signed change request; export markings | F |
 | WB-14 | Evidence dimensions and readiness | Rules E-1 to E-5 with truth tables; mappings for every existing enum | F |
-| WB-15 | Sandbox via ADR 0010 driver with capability separation | Spike S-0 and S-1 pass; negative tests prove tools cannot reach model transport or credentials | F before enabling confined lanes |
+| WB-15 | Agent actions sandboxed with the user's normal login (ADR 0021; ADR 0010 OCI driver on servers) | Spike S-6 passes per pinned version and platform; run preflight refuses missing pieces with the fix; negative tests prove agent commands and file tools cannot read login folders, reach the network or write outside the workspace, and that each CLI's defaults alone fail those tests | F before enabling confined lanes |
 | WB-16 | Attestation binds the verdict | Mandatory claims positive evidence; refusal otherwise (protected). If no lane or grade yet requires a policy, the row is recorded "not applicable" and no confined lane may be enabled until it passes | F where policy requires |
 | WB-17 | Explore and promotion | ACP or interim structured sessions; SourceManifest retention; headless controlled run from manifest; no typing into controlled runs | |
 | WB-18 | Comments on deliverables | Anchored comments for code, PDF and one non code format; resolution; isolated viewers | |
@@ -649,7 +659,7 @@ Floor column: **F** non deferrable for any release of the workbench; others may 
 | D-2 | Design language | Withdrawn as a choice: the plan's Ascertain look stands. Owner to confirm the token pull from ascertain.it as the first design task |
 | D-3 | Surfaces sequencing | Web plus phone layout in this program; Mobile, Desktop, CLI and connectors at the plan's gates |
 | D-4 | Protected changes for separate signed review (the complete list) | (a) methodology, verdict and clearance split; (b) attempt set lifecycle and candidate keyed subjects; (c) attestation binding the verdict; (d) disclosure gate in claim admission if it touches kernel functions; (e) signing authority evaluation in the kernel; (f) evidence rules E-1 to E-4 in the kernel; (g) PersonVerification guard; (h) red team fixtures for sandbox, brokers and SCRAM; (i) CI and workflow changes: register check, theme harness wiring, performance budgets, merge gate workflows; (j) `policies/` changes for floors |
-| D-5 | Sandbox | ADR 0010 sandbox-runtime driver with broker separation; confined lanes enabled only after S-0 and S-1 |
+| D-5 | Sandbox | Revised by the owner on 2026-10-30: each CLI keeps its ordinary login and its own command sandbox with Control Rod settings (ADR 0021); OCI driver on servers (ADR 0010); confined lanes enabled only after S-6 passes for the pinned version and platform |
 | D-6 | Evidence vocabulary | Plan readiness answers as the displayed set; five dimensions internally |
 | D-7 | Office themes | Catalogue decided by draft PR #12 (fifteen original worlds, display names adopted 2026-10-30). Approve this section's theme contract, which gates Phase 4 engine work |
 
@@ -673,11 +683,12 @@ Floor column: **F** non deferrable for any release of the workbench; others may 
 | ID | Question | Blocks |
 |---|---|---|
 | S-0 | For each pinned native runtime, can model transport be separated from every executable tool, with builtin bypasses disabled? | WB-15, all confined lanes; run first |
-| S-1 | Does sandbox-runtime run each pinned CLI under default deny with broker only egress on macOS, native Linux and WSL2? | WB-15 |
-| S-2 | Do subscription logins work through the model broker, or is an account key path required per lane? | WB-15 |
+| S-1 | Does sandbox-runtime run each pinned CLI under default deny with broker only egress on macOS, native Linux and WSL2? | Answered on WSL2; not adopted (ADR 0021) |
+| S-2 | Do subscription logins work through the model broker, or is an account key path required per lane? | Answered; not adopted (ADR 0021) |
 | S-3 | Do Claude Code permission hooks fire in print mode? | Interim waiting detection only |
 | S-4 | Which structured multi turn interfaces are stable in pinned versions until ACP lands? | WB-17 interim path |
 | S-5 | Does Codex's own sandbox start inside the outer driver? | Nesting policy |
+| S-6 | Do the CLIs' own command sandboxes keep agent actions away from the user's normal login, the network and paths outside the workspace? | WB-15; answered on WSL2 for both CLIs; macOS and native Linux open |
 | Q-A | Which deliverable formats matter first after code and PDF? | WB-18 |
 | Q-B | Answered: the catalogue is draft PR #12 | None |
 | Q-D | Is the office scenario spreadsheet (100 scenarios) available, or should Phase 0 write self contained OV acceptance cases? | WB-06 |

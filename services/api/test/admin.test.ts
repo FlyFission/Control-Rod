@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { qualificationIdFor } from "../src/admin.js";
 import { memberIdFor } from "../src/tenancy.js";
-import { type Harness, ORIGIN, VirtualAuthenticator, signIn, startHarness } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, addOwnPasskey, logIn, registerWithInvitation, signIn, startHarness } from "./harness.js";
 
 /** Administrative commands (workbench plan task 1.5; specification 10.2). */
 let h: Harness;
@@ -24,12 +24,11 @@ async function signed(cookie: string, key: VirtualAuthenticator, name: string, p
 }
 const unsigned = (cookie: string, name: string, payload: Json) => post(cookie, `/admin/commands/${name}`, { payload });
 
-/** Registers a passkey for another user name from a signed-in session, returning that user's session. */
-async function addPerson(owner: string, name: string, key: VirtualAuthenticator): Promise<string> {
-  const o = await post(owner, "/auth/register/options", { name });
-  const r = await post(owner, "/auth/register/verify", key.register(o.json().options));
+/** Enrolls a new person and lets them register with the invitation; returns their session. */
+async function addPerson(name: string, key: VirtualAuthenticator): Promise<string> {
+  const r = await signed(ben, benKey, "member.enroll", { user_name: name });
   expect(r.statusCode, r.body).toBe(200);
-  return `cr_session=${r.cookies.find((c) => c.name === "cr_session")!.value}`;
+  return registerWithInvitation(h.app, r.json().invitation.token, key);
 }
 
 const fullQualification = (member: string) => ({
@@ -57,7 +56,7 @@ describe("bootstrap", () => {
   });
 
   it("does not let a second person bootstrap once an administrator exists", async () => {
-    alice = await addPerson(ben, "alice", aliceKey);
+    alice = await addPerson("alice", aliceKey);
     const r = await signed(alice, aliceKey, "qualification.issue", fullQualification(ALICE));
     expect(r.statusCode).toBe(403);
     expect(r.json().code).toBe("authority-missing");
@@ -102,6 +101,7 @@ describe("authority", () => {
   it.each([
     ["project.create", { name: "x", mode: "general", default_rigor: "quick", lanes: ["internal"], qa_overlays: [] }, "administrator"],
     ["member.enroll", { user_name: "carol" }, "administrator"],
+    ["member.invite", { member_id: "mem_x" }, "administrator"],
     ["project.set-autonomy", { project_id: "prj_x", level: 1 }, "policy"],
     ["budget.set", { scope: "organization", scope_id: "org_local", mode: "track", limit: { value: "1", unit: "USD" }, period: "P1M" }, "policy"],
   ])("refuses %s to a Member without %s authority", async (name, payload, need) => {
@@ -162,9 +162,11 @@ describe("commands", () => {
   });
 
   it("delegates only a held role, and revokes the delegation", async () => {
-    const none = await signed(alice, aliceKey, "delegation.create", { to_member_id: BEN, role: "approver", starts_on: "2026-11-01", ends_on: "2026-11-15", reason: "x" });
+    const none = await signed(alice, aliceKey, "delegation.create", { to_member_id: BEN, role: "approver", discipline: "mechanical", starts_on: "2026-11-01", ends_on: "2026-11-15", reason: "x" });
     expect(none.json().code).toBe("role-missing");
-    const d = await signed(ben, benKey, "delegation.create", { to_member_id: ALICE, role: "approver", starts_on: "2026-11-01", ends_on: "2026-11-15", reason: "leave cover" });
+    expect((await signed(ben, benKey, "delegation.create", { to_member_id: ALICE, role: "approver", discipline: "electrical", starts_on: "2026-11-01", ends_on: "2026-11-15", reason: "x" })).json().code).toBe("discipline-missing");
+    expect((await signed(ben, benKey, "delegation.create", { to_member_id: ALICE, role: "approver", discipline: "mechanical", starts_on: "2026-11-15", ends_on: "2026-11-01", reason: "x" })).json().code).toBe("invalid-dates");
+    const d = await signed(ben, benKey, "delegation.create", { to_member_id: ALICE, role: "approver", discipline: "mechanical", starts_on: "2026-11-01", ends_on: "2026-11-15", reason: "leave cover" });
     expect(d.statusCode, d.body).toBe(200);
     expect((await signed(ben, benKey, "delegation.revoke", { delegation_id: d.json().id, reason: "back early" })).json().revoked).toBe(true);
     expect((await signed(ben, benKey, "delegation.revoke", { delegation_id: d.json().id, reason: "again" })).json().code).toBe("already-revoked");
@@ -173,9 +175,11 @@ describe("commands", () => {
   it("suspends and reactivates a Member, never the last administrator", async () => {
     expect((await signed(ben, benKey, "member.suspend", { member_id: BEN, reason: "x" })).json().code).toBe("last-administrator");
     expect((await signed(ben, benKey, "member.suspend", { member_id: ALICE, reason: "leave" })).json().status).toBe("suspended");
+    // Suspension ends the session at once.
     const blocked = await unsigned(alice, "theme.select", { theme_id: "corner-cafe" });
-    expect(blocked.json().code).toBe("member-inactive");
+    expect(blocked.statusCode).toBe(401);
     expect((await signed(ben, benKey, "member.reactivate", { member_id: ALICE, reason: "back" })).json().status).toBe("active");
+    alice = await logIn(h.app, aliceKey);
   });
 
   it("selects only a bundled office theme, recording its manifest digest", async () => {
@@ -191,7 +195,7 @@ describe("commands", () => {
     const own = (await h.db.query<{ id: string }>("select id from credentials where user_name = 'alice'")).rows[0]!.id;
     expect((await signed(alice, aliceKey, "credential.revoke", { credential_id: own, reason: "lost" })).json().code).toBe("last-credential");
     const spare = new VirtualAuthenticator();
-    await addPerson(alice, "alice", spare);
+    expect((await addOwnPasskey(h.app, alice, aliceKey, spare)).statusCode).toBe(200);
     const r = await signed(alice, aliceKey, "credential.revoke", { credential_id: own, reason: "replaced" });
     expect(r.json()).toMatchObject({ revoked: true, version: 2 });
     const o = await h.app.inject({ method: "POST", url: "/auth/login/options", headers: { origin: ORIGIN } });
@@ -201,7 +205,7 @@ describe("commands", () => {
   });
 
   it("removes a Member: delegations end, sessions end, the membership is retired", async () => {
-    const d = await signed(ben, benKey, "delegation.create", { to_member_id: ALICE, role: "checker", starts_on: "2026-11-01", ends_on: "2026-11-15", reason: "cover" });
+    const d = await signed(ben, benKey, "delegation.create", { to_member_id: ALICE, role: "checker", discipline: "mechanical", starts_on: "2026-11-01", ends_on: "2026-11-15", reason: "cover" });
     const removed = await signed(ben, benKey, "member.remove", { member_id: ALICE, reason: "left the company" });
     expect(removed.json()).toMatchObject({ status: "retired", delegations_revoked: 1 });
     expect((await h.db.query("select 1 from delegation_revocations where delegation_id = $1", [d.json().id])).rowCount).toBe(1);
@@ -210,7 +214,9 @@ describe("commands", () => {
   });
 
   it("enrolls a Member and refuses a second organization for now", async () => {
-    expect((await signed(ben, benKey, "member.enroll", { user_name: "dana", display_name: "Dana" })).json()).toMatchObject({ id: memberIdFor("dana"), status: "active" });
+    const enrolled = (await signed(ben, benKey, "member.enroll", { user_name: "dana", display_name: "Dana" })).json();
+    expect(enrolled.member).toMatchObject({ id: memberIdFor("dana"), status: "active" });
+    expect(enrolled.invitation.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect((await signed(ben, benKey, "org.create", { name: "Second" })).json().code).toBe("multi-organization-later");
   });
 
@@ -219,5 +225,127 @@ describe("commands", () => {
     const n = (await h.db.query("select count(*)::int as n from events where body->>'type' = 'admin.command'")).rows[0].n;
     expect(n).toBeGreaterThan(15);
     expect((await verifyChain(h.db)).ok).toBe(true);
+  });
+});
+
+describe("review findings", () => {
+  let carol: string;
+  const carolKey = new VirtualAuthenticator({ fixedCounter: true });
+  const CAROL = memberIdFor("carol");
+
+  it("SEC-01: a signed-in Member cannot register a passkey for anyone else, or without signing first", async () => {
+    carol = await addPerson("carol", carolKey);
+    const asCarol = (payload: unknown) => post(carol, "/auth/register/options", payload);
+    expect((await asCarol({ name: "ben" })).json().code).toBe("own-account-only");
+    expect((await asCarol({})).json().code).toBe("step-up-required");
+    const s = await post(ben, "/auth/step-up/options", {});
+    expect((await asCarol({ step_up: benKey.assert(s.json().options) })).json().code).toBe("step-up-failed");
+  });
+
+  it("SEC-01: an invitation works once and expires", async () => {
+    const r = await signed(ben, benKey, "member.enroll", { user_name: "erin" });
+    const token = r.json().invitation.token;
+    await registerWithInvitation(h.app, token, new VirtualAuthenticator());
+    const again = await h.app.inject({ method: "POST", url: "/auth/register/options", headers: { origin: ORIGIN }, payload: { invitation: token } });
+    expect(again.json().code).toBe("invitation-invalid");
+    const late = await signed(ben, benKey, "member.invite", { member_id: memberIdFor("erin") });
+    await h.admin.query("update member_invitations set expires_at = now() - interval '1 minute' where member_id = $1 and used_at is null", [memberIdFor("erin")]);
+    const expired = await h.app.inject({ method: "POST", url: "/auth/register/options", headers: { origin: ORIGIN }, payload: { invitation: late.json().invitation.token } });
+    expect(expired.json().code).toBe("invitation-invalid");
+  });
+
+  it("SEC-02: a qualification in another organization cannot be revoked from this one", async () => {
+    await h.admin.query(`insert into organizations (body) values ('{"id":"org_other","name":"Other","status":"suspended"}')`);
+    const other = memberIdFor("outsider");
+    await h.admin.query("insert into members (body) values ($1)", [{ id: other, org_id: "org_other", user_name: "outsider", display_name: "Outsider", status: "active" }]);
+    expect((await signed(ben, benKey, "qualification.revoke", { member_id: other, reason: "x" })).json().code).toBe("not-found");
+  });
+
+  it("SEC-03: bootstrap is used up once the first administrator exists", async () => {
+    const r = await signed(carol, carolKey, "qualification.issue", fullQualification(CAROL));
+    expect(r.json().code).toBe("authority-missing");
+  });
+
+  it("SEC-04: reissuing a qualification cannot drop the last administrator", async () => {
+    const q = { ...fullQualification(BEN), authorities: ["policy"], reason: "drop admin" };
+    expect((await signed(ben, benKey, "qualification.issue", q)).json().code).toBe("last-administrator");
+  });
+
+  it("SEC-05: two administrators suspending each other at once leaves one administrator", async () => {
+    await signed(ben, benKey, "qualification.issue", { ...fullQualification(CAROL), reason: "second administrator" });
+    const payloadA = { member_id: CAROL, reason: "a" }, payloadB = { member_id: BEN, reason: "b" };
+    const oa = await post(ben, "/admin/commands/member.suspend/options", { payload: payloadA });
+    const ob = await post(carol, "/admin/commands/member.suspend/options", { payload: payloadB });
+    const [ra, rb] = await Promise.all([
+      post(ben, "/admin/commands/member.suspend", { payload: payloadA, assertion: benKey.assert(oa.json().options) }),
+      post(carol, "/admin/commands/member.suspend", { payload: payloadB, assertion: carolKey.assert(ob.json().options) }),
+    ]);
+    const codes = [ra, rb].map((r) => (r.statusCode === 200 ? "ok" : r.json().code));
+    // The first to take the lock suspends the other, whose request then finds itself inactive.
+    expect(codes.filter((x) => x === "ok")).toHaveLength(1);
+    expect(["last-administrator", "signed-out", "member-inactive", "signature-revoked", "signature-required"]).toContain(codes.find((x) => x !== "ok"));
+    const admins = (await h.db.query("select count(*)::int as n from members where id in ($1, $2) and body->>'status' = 'active'", [BEN, CAROL])).rows[0].n;
+    expect(admins).toBe(1);
+  });
+
+  it("SEC-07: a suspended Member's session and fresh sign-in are refused", async () => {
+    const suspended = (await h.db.query("select id from members where id in ($1, $2) and body->>'status' = 'suspended'", [BEN, CAROL])).rows[0].id;
+    const [cookie, key] = suspended === CAROL ? [carol, carolKey] : [ben, benKey];
+    expect((await h.app.inject({ method: "GET", url: "/admin", headers: { cookie } })).statusCode).toBe(401);
+    const o = await h.app.inject({ method: "POST", url: "/auth/login/options", headers: { origin: ORIGIN } });
+    const login = await h.app.inject({ method: "POST", url: "/auth/login/verify", headers: { origin: ORIGIN }, payload: key.assert(o.json().options) as object });
+    expect(login.statusCode).toBe(401);
+    // Restore: the remaining administrator reactivates the other and signs back in.
+    const [adminCookie, adminKey] = suspended === CAROL ? [ben, benKey] : [carol, carolKey];
+    expect((await signed(adminCookie, adminKey, "member.reactivate", { member_id: suspended, reason: "restore" })).json().status).toBe("active");
+    const o2 = await h.app.inject({ method: "POST", url: "/auth/login/options", headers: { origin: ORIGIN } });
+    const back = await h.app.inject({ method: "POST", url: "/auth/login/verify", headers: { origin: ORIGIN }, payload: key.assert(o2.json().options) as object });
+    expect(back.statusCode).toBe(200);
+    const cookieBack = `cr_session=${back.cookies.find((c) => c.name === "cr_session")!.value}`;
+    if (suspended === CAROL) carol = cookieBack; else ben = cookieBack;
+  });
+
+  it("SEC-09: a signature obtained before a revocation cannot be redeemed after it", async () => {
+    const payload = { name: "Late project", mode: "general", default_rigor: "quick", lanes: ["internal"], qa_overlays: [] };
+    const o = await post(carol, "/admin/commands/project.create/options", { payload });
+    const assertion = carolKey.assert(o.json().options);
+    await signed(ben, benKey, "qualification.revoke", { member_id: CAROL, reason: "no longer an administrator" });
+    const r = await post(carol, "/admin/commands/project.create", { payload, assertion });
+    expect(r.statusCode).toBe(403);
+    expect(["signature-required", "authority-missing"]).toContain(r.json().code);
+  });
+
+  it("SEC-15: a replayed signature is refused even when the passkey counter stays at zero", async () => {
+    const payload = { theme_id: "corner-cafe" };
+    const o = await post(carol, "/admin/commands/delegation.revoke/options", { payload });
+    const assertion = carolKey.assert(o.json().options);
+    await post(carol, "/admin/commands/delegation.revoke", { payload, assertion });
+    const again = await post(carol, "/admin/commands/delegation.revoke", { payload, assertion });
+    expect(again.json().code).toBe("signature-required");
+  });
+
+  it("SEC-12: one change request is approved once, even when approved twice at the same moment", async () => {
+    const cr = (await unsigned(ben, "policy.propose", { policy: { hardware_attestation_formats: ["packed"], settings: { autonomy_ceiling: "2" } }, reason: "relax" })).json().id;
+    const payload = { change_request_id: cr };
+    const [o1, o2] = [await post(ben, "/admin/commands/policy.approve/options", { payload }), await post(ben, "/admin/commands/policy.approve/options", { payload })];
+    const [r1, r2] = await Promise.all([
+      post(ben, "/admin/commands/policy.approve", { payload, assertion: benKey.assert(o1.json().options) }),
+      post(ben, "/admin/commands/policy.approve", { payload, assertion: benKey.assert(o2.json().options) }),
+    ]);
+    const codes = [r1, r2].map((r) => (r.statusCode === 200 ? "ok" : r.json().code)).sort();
+    expect(codes).toEqual(["not-proposed", "ok"]);
+  });
+
+  it("SEC-13: policy settings are typed; unknown or invalid values are refused", async () => {
+    expect((await unsigned(ben, "policy.propose", { policy: { settings: { autonomy_ceiling: "invalid" } }, reason: "x" })).json().code).toBe("invalid-setting");
+    expect((await unsigned(ben, "policy.propose", { policy: { settings: { autonomy_ceilng: "1" } }, reason: "x" })).json().code).toBe("unknown-setting");
+  });
+
+  it("SEC-14: expected refusals are answers, not server errors", async () => {
+    const dup = await signed(ben, benKey, "member.enroll", { user_name: "carol" });
+    expect(dup.statusCode).toBe(409);
+    expect(dup.json().code).toBe("conflict");
+    const badRepo = await signed(ben, benKey, "repo.bind", { project_id: "prj_missing", url: "https://example.invalid/x.git", default_branch: "main" });
+    expect(badRepo.statusCode).toBeLessThan(500);
   });
 });

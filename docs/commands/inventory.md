@@ -8,10 +8,10 @@ checks the static rules and that this catalog matches the commands executed.
 
 | Command | Principal | Signature | Specification 10.2 row | Executed in | Reached from |
 |---|---|---|---|---|---|
-| `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /admin/commands/:name/options`, `POST /auth/login/options`, `POST /auth/register/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/runs/:runId/override-independence/options` |
-| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallenge | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
+| `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /admin/commands/:name/options`, `POST /auth/login/options`, `POST /auth/register/options`, `POST /auth/step-up/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/runs/:runId/override-independence/options` |
+| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallenge | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
 | `auth.register-credential` | member | none | Register authenticator credential | `auth.ts` registrationVerify | `POST /auth/register/verify` |
-| `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
+| `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
 | `auth.session-start` | member | none | operational | `auth.ts` startSession | `POST /auth/login/verify`, `POST /auth/register/verify` |
 | `auth.session-end` | member | none | operational | `auth.ts` endSession | `POST /auth/logout` |
 | `capture.create` | member | none | Capture | `work.ts` createCapture | `POST /captures` |
@@ -35,6 +35,7 @@ checks the static rules and that this catalog matches the commands executed.
 | `migration.backfill-tenancy` | system | none | Migration data change (ownership, members, credential records) | `db/index.ts` openDb | startup (after migrations) |
 | `admin.org-create` | member | direct | Create organization | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.member-enroll` | member | direct | Enroll Member | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.member-invite` | member | direct | Enroll Member (new invitation) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.member-suspend` | member | direct | Suspend Member | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.member-reactivate` | member | direct | Suspend Member (reversal) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.member-remove` | member | direct | Remove Member | `admin.ts` runAdmin | `POST /admin/commands/:name` |

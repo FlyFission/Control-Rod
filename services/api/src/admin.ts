@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { CommandName } from "./commands/catalog.js";
@@ -110,6 +110,49 @@ async function lastUsableCredential(c: Tx, memberId: string, except: string): Pr
   return true;
 }
 
+const INVITATION_DAYS = 7;
+
+/** Issues a one-time invitation for a Member; the token is returned once and only its hash is kept. */
+async function invite(c: Tx, caller: Caller, memberId: string): Promise<{ token: string; expires_at: string }> {
+  const token = randomBytes(32).toString("base64url");
+  const r = await c.query<{ expires_at: Date }>(
+    `insert into member_invitations (token_hash, member_id, org_id, issued_by, expires_at)
+     values ($1, $2, $3, $4, now() + interval '${INVITATION_DAYS} days') returning expires_at`,
+    [createHash("sha256").update(token).digest("hex"), memberId, caller.orgId, caller.memberId]);
+  await appendEvent(c, "member.invited", memberId, actorOf(caller), { expires_at: r.rows[0]!.expires_at.toISOString() });
+  return { token, expires_at: r.rows[0]!.expires_at.toISOString() };
+}
+
+/** Ends what a Member can do right now: sessions, unredeemed administrative challenges, open invitations. */
+async function endAccess(c: Tx, m: Member): Promise<void> {
+  await c.query("delete from sessions where user_name = $1", [m.user_name]);
+  await c.query("delete from challenges where purpose = 'admin' and data->>'member' = $1", [m.id]);
+  await c.query("update member_invitations set used_at = now() where member_id = $1 and used_at is null", [m.id]);
+}
+
+/** Policy settings Control Rod understands, each with its allowed values. Anything else is refused. */
+const POLICY_SETTINGS: Record<string, RegExp> = { autonomy_ceiling: /^[0-3]$/ };
+
+function checkPolicy(proposal: unknown): { hardware_attestation_formats: string[]; settings: Record<string, string> } {
+  if (!proposal || typeof proposal !== "object") throw new Refusal(400, "invalid", "policy is required");
+  const p = proposal as { hardware_attestation_formats?: unknown; settings?: unknown };
+  const formats = p.hardware_attestation_formats ?? [];
+  const settings = (p.settings ?? {}) as Record<string, unknown>;
+  if (!Array.isArray(formats) || typeof settings !== "object") throw new Refusal(400, "invalid", "policy has the wrong shape");
+  for (const [k, v] of Object.entries(settings)) {
+    const rule = POLICY_SETTINGS[k];
+    if (!rule) throw new Refusal(400, "unknown-setting", `Policy setting ${k} is not one Control Rod understands`);
+    if (typeof v !== "string" || !rule.test(v)) throw new Refusal(400, "invalid-setting", `Policy setting ${k} has an invalid value`);
+  }
+  return { hardware_attestation_formats: formats as string[], settings: settings as Record<string, string> };
+}
+
+/** The autonomy ceiling in effect; an unreadable value fails closed to 0. */
+function autonomyCeiling(settings: Record<string, string> | undefined): number {
+  const v = settings?.autonomy_ceiling ?? "3";
+  return POLICY_SETTINGS.autonomy_ceiling!.test(v) ? Number(v) : 0;
+}
+
 async function revokeDelegationsOf(c: Tx, caller: Caller, memberId: string, reason: string): Promise<number> {
   const r = await c.query<{ id: string }>(
     `select d.id from delegations d where d.org_id = $1 and (d.from_member_id = $2 or d.to_member_id = $2)
@@ -141,7 +184,18 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       const userName = str(p, "user_name")!;
       const m: Member = { id: memberIdFor(userName), org_id: caller.orgId, user_name: userName, display_name: str(p, "display_name", false) ?? userName, status: "active" };
       await addMember(c, m, actorOf(caller));
-      return m;
+      // The new person registers their own passkey with this invitation; nobody registers for them.
+      return { member: m, invitation: await invite(c, caller, m.id) };
+    },
+  },
+
+  "member.invite": {
+    catalog: "admin.member-invite", signature: "direct", need: "administrator",
+    async run(c, caller, p) {
+      const id = str(p, "member_id")!;
+      const m = await member(c, id, caller.orgId);
+      if (m.status !== "active") throw new Refusal(409, "member-not-active", `This member is ${m.status}`);
+      return { member_id: id, invitation: await invite(c, caller, id) };
     },
   },
 
@@ -154,6 +208,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       if ((await administrators(c, caller.orgId, [id])).length === 0)
         throw new Refusal(409, "last-administrator", "This would leave no active administrator");
       await setStatus(c, "member", id, "suspended", actorOf(caller), str(p, "reason")!);
+      await endAccess(c, m);
       return { member_id: id, status: "suspended" };
     },
   },
@@ -178,8 +233,8 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
         throw new Refusal(409, "last-administrator", "This would leave no active administrator");
       // Departure rules: open delegations end, sessions end, and the membership is retired for good.
       const revoked = await revokeDelegationsOf(c, caller, id, `member removed: ${reason}`);
-      await c.query("delete from sessions where user_name = $1", [m.user_name]);
       await setStatus(c, "member", id, "retired", actorOf(caller), reason);
+      await endAccess(c, m);
       return { member_id: id, status: "retired", delegations_revoked: revoked };
     },
   },
@@ -209,10 +264,15 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     async run(c, caller, p) {
       const memberId = str(p, "member_id")!;
       await member(c, memberId, caller.orgId);
+      const before = await currentQualification(c, memberId);
+      const authorities = arr<SignerAuthority>(p, "authorities");
+      if (before?.authorities.includes("administrator") && !authorities.includes("administrator")
+          && (await administrators(c, caller.orgId, [memberId])).length === 0)
+        throw new Refusal(409, "last-administrator", "This would leave no active administrator");
       const q = await recordQualification(c, {
         id: qualificationIdFor(memberId), org_id: caller.orgId, member_id: memberId,
         licenses: arr<License>(p, "licenses"), disciplines: arr<string>(p, "disciplines"), grades: arr<SignerGrade>(p, "grades"),
-        roles: arr<SignerRole>(p, "roles"), authorities: arr<SignerAuthority>(p, "authorities"), revoked: false, reason: str(p, "reason")!,
+        roles: arr<SignerRole>(p, "roles"), authorities, revoked: false, reason: str(p, "reason")!,
       }, actorOf(caller));
       return q.record;
     },
@@ -222,14 +282,15 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     catalog: "admin.qualification-revoke", signature: "direct", need: "administrator+policy",
     async run(c, caller, p) {
       const memberId = str(p, "member_id")!;
+      const target = await member(c, memberId, caller.orgId);
       const cur = await currentQualification(c, memberId);
-      if (!cur) throw new Refusal(404, "not-found", "This member holds no qualification");
+      if (!cur || cur.org_id !== caller.orgId) throw new Refusal(404, "not-found", "This member holds no qualification");
       if (cur.authorities.includes("administrator") && (await administrators(c, caller.orgId, [memberId])).length === 0)
         throw new Refusal(409, "last-administrator", "This would leave no active administrator");
       const { version: _v, effective_at: _e, ...base } = cur;
       const q = await recordQualification(c, { ...base, revoked: true, reason: str(p, "reason")! }, actorOf(caller));
       // Challenges issued on the strength of the revoked qualification can no longer be redeemed.
-      await c.query("delete from challenges where purpose = 'admin' and data->>'member' = $1", [memberId]);
+      await c.query("delete from challenges where purpose = 'admin' and data->>'member' = $1", [target.id]);
       return q.record;
     },
   },
@@ -238,15 +299,24 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     catalog: "admin.delegation-create", signature: "direct", need: "member",
     async run(c, caller, p) {
       const role = str(p, "role")! as SignerRole;
+      const discipline = str(p, "discipline")!;
       const mine = await currentQualification(c, caller.memberId);
       if (!mine?.roles.includes(role)) throw new Refusal(403, "role-missing", `You can delegate only a role you hold; you do not hold ${role}`);
+      if (!mine.disciplines.includes(discipline)) throw new Refusal(403, "discipline-missing", `You can delegate only within a discipline you hold; you do not hold ${discipline}`);
+      const startsOn = str(p, "starts_on")!, endsOn = str(p, "ends_on")!;
+      const days = (Date.parse(endsOn) - Date.parse(startsOn)) / 86_400_000;
+      if (!Number.isFinite(days) || days < 0 || days > 366) throw new Refusal(400, "invalid-dates", "A delegation runs forward from its start, for at most a year");
+      if (p.project_id !== undefined) {
+        const prj = await c.query("select 1 from projects where id = $1 and org_id = $2", [str(p, "project_id")!, caller.orgId]);
+        if (!prj.rowCount) throw new Refusal(404, "not-found", "No such project");
+      }
       const to = str(p, "to_member_id")!;
       const target = await member(c, to, caller.orgId);
       if (target.status !== "active") throw new Refusal(409, "member-inactive", "The delegate is not an active member");
       const d = {
         id: idFor("del"), org_id: caller.orgId, from_member_id: caller.memberId, to_member_id: to, role,
-        ...(p.project_id ? { project_id: str(p, "project_id")! } : {}), ...(p.discipline ? { discipline: str(p, "discipline")! } : {}),
-        starts_on: str(p, "starts_on")!, ends_on: str(p, "ends_on")!, reason: str(p, "reason")!,
+        ...(p.project_id ? { project_id: str(p, "project_id")! } : {}), discipline,
+        starts_on: startsOn, ends_on: endsOn, reason: str(p, "reason")!,
       };
       return (await recordDelegation(c, d, actorOf(caller))).record;
     },
@@ -299,7 +369,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       const level = p.level;
       if (!Number.isInteger(level) || (level as number) < 0) throw new Refusal(400, "invalid", "level must be a whole number");
       if ((level as number) >= 4) throw new Refusal(409, "autonomy-floor", "Autonomy level 4 is never permitted");
-      const ceiling = Number((await currentPolicySet(c, caller.orgId))?.record.settings.autonomy_ceiling ?? 3);
+      const ceiling = autonomyCeiling((await currentPolicySet(c, caller.orgId))?.record.settings);
       if ((level as number) > ceiling) throw new Refusal(409, "autonomy-ceiling", `The organization's policy caps autonomy at ${ceiling}`);
       const r = await c.query<{ body: Record<string, unknown> }>("select body from projects where id = $1 and org_id = $2 for update", [id, caller.orgId]);
       if (!r.rows[0]) throw new Refusal(404, "not-found", "No such project");
@@ -313,6 +383,8 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   "repo.bind": {
     catalog: "admin.repo-bind", signature: "direct", need: "administrator",
     async run(c, caller, p) {
+      const prj = await c.query("select 1 from projects where id = $1 and org_id = $2", [str(p, "project_id")!, caller.orgId]);
+      if (!prj.rowCount) throw new Refusal(404, "not-found", "No such project");
       return bindRepo(c, { id: idFor("rb"), org_id: caller.orgId, project_id: str(p, "project_id")!, url: str(p, "url")!,
         default_branch: str(p, "default_branch")!, status: "active" }, actorOf(caller));
     },
@@ -332,8 +404,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   "policy.propose": {
     catalog: "admin.policy-propose", signature: "none", need: "member",
     async run(c, caller, p) {
-      const proposal = p.policy;
-      if (!proposal || typeof proposal !== "object") throw new Refusal(400, "invalid", "policy is required");
+      const proposal = checkPolicy(p.policy);
       const cr = {
         id: idFor("cr"), org_id: caller.orgId, kind: "policy-change", subject_digest: { algorithm: "sha256", value: digest(proposal) },
         reason: str(p, "reason")!, impact: arr<string>(p, "impact"), proposed_by: actorOf(caller), status: "proposed", proposal,
@@ -352,10 +423,10 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       if (cr.status !== "proposed") throw new Refusal(409, "not-proposed", "This change request is no longer open");
       if (!cr.proposal || digest(cr.proposal) !== cr.subject_digest.value) throw new Refusal(409, "proposal-mismatch", "The proposal does not match its digest");
       const current = await currentPolicySet(c, caller.orgId);
-      const proposal = cr.proposal as { hardware_attestation_formats?: unknown; settings?: unknown };
+      const proposal = checkPolicy(cr.proposal);
       const { record } = await recordPolicySet(c, {
         id: current?.record.id ?? "pol_local", org_id: caller.orgId,
-        hardware_attestation_formats: (proposal.hardware_attestation_formats ?? []) as never, settings: (proposal.settings ?? {}) as never,
+        hardware_attestation_formats: proposal.hardware_attestation_formats as never, settings: proposal.settings,
         reason: `change request ${id}`,
       }, actorOf(caller));
       await transition(c, "change_request", id, "approved", actorOf(caller), `policy set version ${record.version}`);
@@ -390,10 +461,9 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       const manifest = bundledThemes(ctx.root).get(themeId);
       if (!manifest) throw new Refusal(400, "unknown-theme", "Only bundled office themes can be selected");
       const selection = { theme_id: themeId, manifest_digest: { algorithm: "sha256", value: manifest } };
-      const me = await member(c, caller.memberId, caller.orgId);
-      const next = { ...me, office_theme: selection };
-      checkSchema("Member.json", next);
-      await c.query("update members set body = $2 where id = $1", [caller.memberId, next]);
+      checkSchema("OfficeThemeSelection.json", selection);
+      // Only the theme changes; a concurrent status change is never overwritten.
+      await c.query("update members set body = jsonb_set(body, '{office_theme}', $2::jsonb) where id = $1 and body->>'status' = 'active'", [caller.memberId, selection]);
       await appendEvent(c, "member.theme-selected", caller.memberId, actorOf(caller), selection);
       return selection;
     },
@@ -412,34 +482,63 @@ export async function callerFor(db: Db | Tx, userName: string): Promise<Caller> 
   return { userName, memberId: r.rows[0].id, orgId: r.rows[0].org_id };
 }
 
-/** True while no active Member holds administrator authority: the first Member may qualify themselves. */
+/**
+ * True until the organization's first administrator qualification is ever issued. Bootstrap then
+ * belongs to the first Member and is used up for good; losing administrators later does not reopen it.
+ */
 export async function needsBootstrap(c: Tx | Db, orgId: string): Promise<boolean> {
-  const r = await c.query<{ body: SignerQualification }>(
-    "select distinct on (id) body from signer_qualifications where org_id = $1 order by id, version desc", [orgId]);
-  return !r.rows.some(({ body }) => !body.revoked && body.authorities.includes("administrator"));
+  const r = await c.query("select 1 from signer_qualifications where org_id = $1 and body->'authorities' ? 'administrator' limit 1", [orgId]);
+  return !r.rowCount;
+}
+
+/** The organization's first Member, who alone may bootstrap. */
+async function firstMember(c: Tx, orgId: string): Promise<string | undefined> {
+  return (await c.query<{ id: string }>("select id from members where org_id = $1 order by created_at, id limit 1", [orgId])).rows[0]?.id;
+}
+
+/** Expected database refusals become clear answers instead of server errors. */
+function translate(error: unknown): unknown {
+  if (error instanceof Refusal) return error;
+  const code = (error as { code?: string }).code;
+  const message = (error as Error).message ?? "";
+  if (code === "23505") return new Refusal(409, "conflict", "That already exists");
+  if (code === "23503") return new Refusal(404, "reference-missing", "Something this refers to does not exist in your organization");
+  if (code === "23514") return new Refusal(400, "invalid", "That combination is not allowed");
+  if (/\.json refused:|ends before it starts|retirement is final|cannot go from/.test(message)) return new Refusal(400, "invalid", message);
+  return error;
 }
 
 /**
  * Runs an administrative command for a caller. A Direct command must arrive with `signedSubject`,
  * the subject digest its passkey assertion was verified over; anything else refuses.
  */
-export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: Caller, payload: Record<string, unknown>, signedSubject: string | null) {
+export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: Caller, payload: Record<string, unknown>,
+  signed: { subject: string; credentialId: string } | null) {
   const cmd = ADMIN_COMMANDS[name];
   if (!cmd) throw new Refusal(404, "not-found", "No such administrative command");
   if (cmd.signature === "direct") {
-    if (signedSubject === null) throw new Refusal(403, "signature-required", "This command needs your passkey");
-    if (signedSubject !== adminSubject(name, caller, payload)) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
+    if (signed === null) throw new Refusal(403, "signature-required", "This command needs your passkey");
+    if (signed.subject !== adminSubject(name, caller, payload)) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact request");
   }
+  const signedSubject = signed?.subject ?? null;
   return command(db, cmd.catalog, async (c) => {
-    // Bootstrap: while no one is an administrator, the first Member may issue their own qualification.
-    const bootstrap = name === "qualification.issue" && payload.member_id === caller.memberId && (await needsBootstrap(c, caller.orgId));
+    // One administrative command at a time per organization: every invariant below (last
+    // administrator, last passkey, bootstrap, one approval per change request) holds under it.
+    await c.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || $1))", [caller.orgId]);
+    if (signed) {
+      const cred = await currentCredential(c, signed.credentialId);
+      if (!cred || cred.revoked || cred.member_id !== caller.memberId) throw new Refusal(403, "signature-revoked", "The passkey that signed this is no longer valid");
+    }
+    // Bootstrap: until the first administrator exists, the first Member may issue their own qualification.
+    const bootstrap = name === "qualification.issue" && payload.member_id === caller.memberId
+      && (await needsBootstrap(c, caller.orgId)) && (await firstMember(c, caller.orgId)) === caller.memberId;
     await authorize(c, caller, cmd.need, bootstrap);
     const result = await cmd.run(c, caller, payload, ctx);
     await appendEvent(c, "admin.command", name, actorOf(caller), {
-      signature: cmd.signature, ...(signedSubject ? { subject_digest: signedSubject } : {}), ...(bootstrap ? { bootstrap: true } : {}),
+      signature: cmd.signature, ...(signedSubject ? { subject_digest: signedSubject, credential_id: signed!.credentialId } : {}), ...(bootstrap ? { bootstrap: true } : {}),
     });
     return result;
-  });
+  }).catch((e) => { throw translate(e); });
 }
 
 /** Commands and what they need, for the interface. */

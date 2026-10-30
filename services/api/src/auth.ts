@@ -68,7 +68,14 @@ function clientChallenge(response: { response: { clientDataJSON: string } }): st
   }
 }
 
-export async function registrationOptions(db: Db, cfg: AuthConfig, name: string) {
+/**
+ * How a registration was authorized: the very first passkey (bootstrap), an administrator's
+ * invitation for a new person, or a Member adding a passkey to their own account after signing
+ * with one they already hold.
+ */
+export type RegistrationGrant = { kind: "first" } | { kind: "invitation"; invitation_hash: string } | { kind: "additional" };
+
+export async function registrationOptions(db: Db, cfg: AuthConfig, name: string, grant: RegistrationGrant) {
   const options = await generateRegistrationOptions({
     rpName: cfg.rpName,
     rpID: cfg.rpID,
@@ -76,7 +83,7 @@ export async function registrationOptions(db: Db, cfg: AuthConfig, name: string)
     attestationType: "none",
     authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
   });
-  await storeChallenge(db, options.challenge, "register", { name });
+  await storeChallenge(db, options.challenge, "register", { name, ...grant });
   return options;
 }
 
@@ -95,6 +102,15 @@ export async function registrationVerify(db: Db, cfg: AuthConfig, body: Registra
   const info = result.registrationInfo;
   const { credential } = info;
   await command(db, "auth.register-credential", async (c) => {
+    await c.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || coalesce((select org_id from members where user_name = $1), 'org_local')))", [String(data.name)]);
+    if (data.kind === "first" && (await c.query("select 1 from credentials limit 1")).rowCount)
+      throw new Error("a passkey was registered first by someone else");
+    if (data.kind === "invitation") {
+      const used = await c.query(
+        "update member_invitations set used_at = now() where token_hash = $1 and used_at is null and expires_at > now() returning member_id",
+        [String(data.invitation_hash)]);
+      if (!used.rowCount) throw new Error("this invitation was already used or has expired");
+    }
     await c.query(
       "insert into credentials (id, user_name, public_key, counter, transports) values ($1, $2, $3, $4, $5)",
       [credential.id, String(data.name), Buffer.from(credential.publicKey), credential.counter, credential.transports ?? []],
@@ -141,7 +157,7 @@ export async function assertionVerify(
   cfg: AuthConfig,
   purpose: string,
   body: AuthenticationResponseJSON,
-): Promise<{ user: string; data: Record<string, unknown> } | null> {
+): Promise<{ user: string; credentialId: string; data: Record<string, unknown> } | null> {
   const challenge = clientChallenge(body);
   const data = await takeChallenge(db, challenge, purpose);
   if (data === null) return null;
@@ -152,6 +168,9 @@ export async function assertionVerify(
   );
   const row = r.rows[0];
   if (!row) return null;
+  // Only an active Member's passkey signs in or signs anything.
+  const active = await db.query("select 1 from members where user_name = $1 and body->>'status' = 'active'", [row.user_name]);
+  if (!active.rowCount) return null;
   let result;
   try {
     result = await verifyAuthenticationResponse({
@@ -174,7 +193,7 @@ export async function assertionVerify(
   await command(db, "auth.record-assertion", (c) =>
     c.query("update credentials set counter = $2 where id = $1", [row.id, result.authenticationInfo.newCounter]),
   );
-  return { user: row.user_name, data };
+  return { user: row.user_name, credentialId: row.id, data };
 }
 
 export async function startSession(db: Db, reply: FastifyReply, user: string) {
@@ -200,11 +219,13 @@ export async function endSession(db: Db, request: FastifyRequest, reply: Fastify
   reply.clearCookie(SESSION_COOKIE, { path: "/" });
 }
 
+/** The person a session belongs to, only while their membership is active. */
 export async function sessionUser(db: Db, request: FastifyRequest): Promise<string | null> {
   const token = request.cookies[SESSION_COOKIE];
   if (!token) return null;
   const r = await db.query<{ user_name: string }>(
-    "select user_name from sessions where token_hash = $1 and expires_at > now()",
+    `select s.user_name from sessions s join members m on m.user_name = s.user_name
+      where s.token_hash = $1 and s.expires_at > now() and m.body->>'status' = 'active'`,
     [sha256(token)],
   );
   return r.rows[0]?.user_name ?? null;

@@ -9,7 +9,7 @@ import { TEST_ROLE_SECRETS } from "./harness.js";
 
 /** Tables that existed before migrations 009 and 010, except the event log, compared separately. */
 async function legacyTables(db: Db): Promise<string[]> {
-  const added = new Set<string>([...TENANCY_TABLES, ...WORKBENCH_TABLES.map((t) => t.name), "delegation_revocations", "schema_migrations", "events"]);
+  const added = new Set<string>([...TENANCY_TABLES, ...WORKBENCH_TABLES.map((t) => t.name), "delegation_revocations", "member_invitations", "schema_migrations", "events"]);
   const r = await db.query<{ t: string }>(
     "select table_name as t from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' order by table_name",
   );

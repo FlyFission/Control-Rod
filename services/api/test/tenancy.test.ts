@@ -13,7 +13,7 @@ import {
   recordCreationMarking, recordCredential, recordDelegation, recordOwner, recordPolicySet, recordQualification,
   setStatus,
 } from "../src/tenancy.js";
-import { type Harness, ORIGIN, VirtualAuthenticator, signIn, startHarness } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, addOwnPasskey, signIn, startHarness } from "./harness.js";
 
 /** Tenancy, people and authority storage (workbench plan task 1.1). */
 let h: Harness;
@@ -103,9 +103,7 @@ describe("migration 009", () => {
 
 describe("registration", () => {
   it("records a second passkey for the same Member as credential version 1, ineligible for the hardware floor", async () => {
-    const headers = { cookie, origin: ORIGIN };
-    const o = await h.app.inject({ method: "POST", url: "/auth/register/options", headers, payload: { name: "ben" } });
-    const reg = await h.app.inject({ method: "POST", url: "/auth/register/verify", headers, payload: new VirtualAuthenticator().register(o.json().options) });
+    const reg = await addOwnPasskey(h.app, cookie, passkey, new VirtualAuthenticator());
     expect(reg.statusCode).toBe(200);
     const creds = await h.db.query<{ id: string; user_name: string }>("select id, user_name from credentials order by created_at");
     expect(creds.rows.length).toBe(2);

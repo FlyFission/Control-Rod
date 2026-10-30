@@ -233,9 +233,9 @@ type FloorPreferencesV1 = {
 **Interfaces:** Consumes validated ThemePackV1/shared renderer; produces four independently eligible packs with signature parcel/lantern/dossier/capsule. Catalog station/cast order remains stable.
 
 - [ ] Extend parameterized conformance tests with exactly these four IDs; require complete assets and all common states; run before art is present and observe failures.
-- [ ] Produce art against catalog briefs: copper confectionery, woodland craft, original café ensemble, illustrated impossible machinery. Preserve explicit internal influence notes; develop distinct characters, geometry and costume combinations. Create static previews/contact sheets with real UI overlays.
+- [ ] Produce art against catalog briefs: copper confectionery, woodland craft, original café ensemble, illustrated impossible machinery. Keep genre notes only (no franchise names, per `docs/overlay-themes/originality.md`); develop distinct characters, geometry and costume combinations. Create static previews/contact sheets with real UI overlays.
 - [ ] Run asset checker, focused conformance tests and build. Review all four on a shared fixture at scene scale, grayscale, Still and 200% zoom; preserve separate provenance and attribution outcomes per pack.
-- [ ] Record actual review/performance eligibility or precise remaining gaps, then enable only individually eligible entries. Verify an unavailable Seuss-influenced pack cannot suppress a cleared café pack or vice versa.
+- [ ] Record actual review/performance eligibility or precise remaining gaps, then enable only individually eligible entries. Verify an unavailable rhyming-picture-book pack cannot suppress a cleared café pack or vice versa.
 - [ ] Commit the four-pack addition with evidence references.
 
 ## Task 11: Complete space, creature research and construction packs

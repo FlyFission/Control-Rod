@@ -8,7 +8,7 @@ Companions: [catalog](2026-10-25-overlay-themes-catalog.md), [implementation pla
 
 Make Control-Rod's agent activity enjoyable and immediately legible through fifteen beautiful interchangeable worlds. Users should recognize the creative influences while seeing distinctive Control-Rod artwork. A theme is scenery, characters, props and choreography around real work; it cannot determine what work is accepted.
 
-User direction: fifteen packs, characterful workers, strong cultural references, Monsters/Minion-influenced worlds first, Ocean's Eleven next, plus Wonka, Zelda, Friends and the expanded collection. No answer was given to the recurring-cast question. Proposed default: six unnamed supporting character variants per world with stable run badges; named recurring personalities are a later editorial choice.
+User direction: fifteen packs, characterful workers and a strong sense of genre, with the creature-workplace and small-helper worlds first, the heist world next, then the confectionery, woodland-fantasy and café worlds and the expanded collection. Every world is original; the project names no third-party franchise in its code, art, documentation or launch material (see `docs/overlay-themes/originality.md`). No answer was given to the recurring-cast question. Proposed default: six unnamed supporting character variants per world with stable run badges; named recurring personalities are a later editorial choice.
 
 ### Approaches
 
@@ -163,8 +163,6 @@ Primary U.S. guidance consulted for framing, not pack clearance:
 - [Copyright Office: ideas versus expression and derivative rights](https://www.copyright.gov/what-is-copyright/)
 - [Copyright Office: case-specific fair use](https://www.copyright.gov/fair-use/more-info.html)
 - [USPTO: trademark source/sponsorship confusion](https://www.uspto.gov/page/about-trademark-infringement)
-- [Dr. Seuss licensing, including Thing One/Two](https://www.drseussenterprises.com/licensing-and-collaborations)
-- [Minecraft usage guidelines](https://www.minecraft.net/en-us/usage-guidelines)
 
 ## 9. Requirements and acceptance scenarios
 

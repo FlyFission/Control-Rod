@@ -295,6 +295,16 @@ describe("decision kinds (workbench plan task 1.3)", () => {
         data: new Uint8Array(data),
         credentialPublicKey: new Uint8Array(cred.rows[0]!.public_key),
       })).toBe(true);
+      // R15: the signature is bound to this decision's subject, legacy kind and revision.
+      const { decisionChallenge } = await import("../src/work.js");
+      expect(body.challenge_nonce).toMatch(/^[0-9a-f]{32}$/);
+      const signedChallenge = JSON.parse(Buffer.from(body.assertion.client_data_json, "base64url").toString("utf8")).challenge;
+      const bound = (subject: string, kind: string, revision: number) =>
+        Buffer.from(decisionChallenge(subject, kind, revision, body.challenge_nonce)).toString("base64url");
+      expect(signedChallenge).toBe(bound(body.subject_digest.value, body.kind, body.package_revision));
+      expect(signedChallenge).not.toBe(bound("0".repeat(64), body.kind, body.package_revision));
+      expect(signedChallenge).not.toBe(bound(body.subject_digest.value, body.kind === "accept" ? "reject" : "accept", body.package_revision));
+      expect(signedChallenge).not.toBe(bound(body.subject_digest.value, body.kind, body.package_revision + 1));
       const reading = readDecision(body);
       expect(reading).toMatchObject({ decision_id: body.id, mapping_version: 1, ...expected[body.kind] });
       expect(validate(body)).toBe(true);
@@ -311,5 +321,12 @@ describe("decision kinds (workbench plan task 1.3)", () => {
     const { decisionChallenge } = await import("../src/work.js");
     const expected = createHash("sha256").update("abc|accept|0|n1").digest();
     expect(Buffer.from(decisionChallenge("abc", "accept", 0, "n1"))).toEqual(expected);
+  });
+});
+
+describe("migrations 009 and 010 over real signed history (review R14)", () => {
+  it("reverse and reapply without changing any legacy row, signed decision or event", async () => {
+    const { assertMigrationsPreserveHistory } = await import("./migration-preservation.js");
+    await assertMigrationsPreserveHistory(h.db, ["captures", "packages", "runs", "outputs", "verifications", "decisions", "credentials", "sessions"]);
   });
 });

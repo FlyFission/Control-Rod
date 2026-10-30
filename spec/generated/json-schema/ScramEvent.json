@@ -13,7 +13,8 @@
             "$ref": "ScramScope.json"
         },
         "project_id": {
-            "$ref": "TenancyId.json"
+            "$ref": "TenancyId.json",
+            "description": "Present exactly when the scope is a project."
         },
         "pulled_by": {
             "$ref": "TenancyId.json"

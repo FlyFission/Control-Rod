@@ -59,7 +59,10 @@ enum WorkspaceStatus {
   torn_down: "torn-down",
 }
 
-/** A materialized working directory. Its identity is not its path. (L) */
+/**
+ * A materialized working directory. Its identity is not its path. An exploration worktree names
+ * its exploration and no run; a run workspace names its run and no exploration. (L)
+ */
 @extension("unevaluatedProperties", false)
 model Workspace {
   id: TenancyId;
@@ -145,7 +148,7 @@ model SourceManifest {
   ignored_inputs: string[];
 }
 
-/** A checkpoint or capture becomes a Draft package revision bound to a SourceManifest. (A) */
+/** Exactly one checkpoint or capture becomes a Draft package revision bound to a SourceManifest. (A) */
 @extension("unevaluatedProperties", false)
 model Promotion {
   id: TenancyId;
@@ -154,7 +157,8 @@ model Promotion {
   capture_id?: string;
   package_id: string;
 
-  @minValue(1)
+  /** Intake drafts revision 0; it can be released as is. */
+  @minValue(0)
   package_revision: int32;
 
   source_manifest_digest: Digest;
@@ -181,7 +185,8 @@ model AttemptSet {
   org_id: TenancyId;
   package_id: string;
 
-  @minValue(1)
+  /** Intake drafts revision 0; it can be released as is. */
+  @minValue(0)
   package_revision: int32;
 
   release_digest: Digest;
@@ -200,7 +205,8 @@ model CandidateAssignment {
   org_id: TenancyId;
   package_id: string;
 
-  @minValue(1)
+  /** Intake drafts revision 0; it can be released as is. */
+  @minValue(0)
   package_revision: int32;
 
   release_digest: Digest;
@@ -367,7 +373,8 @@ model ControlledRecord {
   kind: ControlledRecordKind;
   package_id: string;
 
-  @minValue(1)
+  /** Intake drafts revision 0; it can be released as is. */
+  @minValue(0)
   package_revision: int32;
 
   candidate_id: TenancyId;
@@ -413,6 +420,8 @@ model ScramEvent {
   id: TenancyId;
   org_id: TenancyId;
   scope: ScramScope;
+
+  /** Present exactly when the scope is a project. */
   project_id?: TenancyId;
   pulled_by: TenancyId;
 
@@ -587,7 +596,10 @@ model DeliverableRevision {
   /** Its status is its rung on the project's ladder. */
   rung: string;
 
+  /** Both or neither. */
   package_id?: string;
+
+  @minValue(0)
   package_revision?: int32;
 }
 

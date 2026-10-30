@@ -1,0 +1,9 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "WorkspaceKind.json",
+    "type": "string",
+    "enum": [
+        "exploration-worktree",
+        "run-workspace"
+    ]
+}

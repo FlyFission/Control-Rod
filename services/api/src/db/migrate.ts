@@ -10,6 +10,7 @@ import { COMPATIBILITY_SQL } from "./migrations/006-compatibility.js";
 import { DEPENDENCY_INPUT_SQL } from "./migrations/007-dependency-inputs.js";
 import { GRANT_SQL } from "./migrations/008-preparation-grants.js";
 import { TENANCY_SQL } from "./migrations/009-tenancy.js";
+import { WORKBENCH_SQL } from "./migrations/010-workbench.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
@@ -21,6 +22,7 @@ export const MIGRATIONS = [
   { version: "007-dependency-inputs", sql: DEPENDENCY_INPUT_SQL },
   { version: "008-preparation-grants", sql: GRANT_SQL },
   { version: "009-tenancy", sql: TENANCY_SQL },
+  { version: "010-workbench", sql: WORKBENCH_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

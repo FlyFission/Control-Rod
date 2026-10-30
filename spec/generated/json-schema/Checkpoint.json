@@ -1,0 +1,47 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Checkpoint.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "exploration_id": {
+            "$ref": "TenancyId.json"
+        },
+        "workspace_id": {
+            "$ref": "TenancyId.json"
+        },
+        "git_tree": {
+            "$ref": "GitObjectId.json"
+        },
+        "content_digest": {
+            "$ref": "Digest.json"
+        },
+        "parent_id": {
+            "$ref": "TenancyId.json"
+        },
+        "actor": {
+            "$ref": "Actor.json"
+        },
+        "captured_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "exploration_id",
+        "workspace_id",
+        "git_tree",
+        "content_digest",
+        "actor",
+        "captured_at"
+    ],
+    "description": "One capture of an exploration's working tree, identified by occurrence. (A)",
+    "unevaluatedProperties": false
+}

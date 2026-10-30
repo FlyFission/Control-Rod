@@ -1,0 +1,40 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Workspace.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "kind": {
+            "$ref": "WorkspaceKind.json"
+        },
+        "exploration_id": {
+            "$ref": "TenancyId.json"
+        },
+        "run_id": {
+            "type": "string"
+        },
+        "path": {
+            "type": "string"
+        },
+        "lock_holder": {
+            "type": "string"
+        },
+        "status": {
+            "$ref": "WorkspaceStatus.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "kind",
+        "path",
+        "status"
+    ],
+    "description": "A materialized working directory. Its identity is not its path. (L)",
+    "unevaluatedProperties": false
+}

@@ -59,7 +59,7 @@ const BACKFILL_ACTOR: Actor = { kind: "system", id: "migration-009-tenancy" };
 
 let validator: Ajv2020 | undefined;
 /** Refuses a body its generated schema rejects, naming the first failing path. */
-function check(schema: string, body: unknown): void {
+export function checkSchema(schema: string, body: unknown): void {
   validator ??= loadValidator();
   const v = validator.getSchema(schema);
   if (!v) throw new Error(`schema ${schema} is not generated`);
@@ -110,14 +110,14 @@ async function nextVersion(c: Tx, table: string, id: string): Promise<number> {
 }
 
 export async function createOrganization(c: Tx, org: Organization, actor: Actor): Promise<Organization> {
-  check("Organization.json", org);
+  checkSchema("Organization.json", org);
   await c.query("insert into organizations (id, body) values ($1, $2)", [org.id, org]);
   await appendEvent(c, "organization.created", org.id, actor, { status: org.status });
   return org;
 }
 
 export async function addMember(c: Tx, member: Member, actor: Actor): Promise<Member> {
-  check("Member.json", member);
+  checkSchema("Member.json", member);
   await c.query("insert into members (id, org_id, user_name, body) values ($1, $2, $3, $4)", [
     member.id, member.org_id, member.user_name, member,
   ]);
@@ -147,7 +147,7 @@ export async function recordQualification(
 ): Promise<{ record: SignerQualification; digest: string }> {
   const version = await nextVersion(c, "signer_qualifications", q.id);
   const record: SignerQualification = { ...q, version, effective_at: new Date().toISOString() };
-  check("SignerQualification.json", record);
+  checkSchema("SignerQualification.json", record);
   const d = digest(record);
   await c.query(
     "insert into signer_qualifications (id, version, org_id, member_id, body, digest) values ($1, $2, $3, $4, $5, $6)",
@@ -175,7 +175,7 @@ export async function recordPolicySet(
 ): Promise<{ record: PolicySet; digest: string }> {
   const version = await nextVersion(c, "policy_sets", p.id);
   const record: PolicySet = { ...p, version, effective_at: new Date().toISOString() };
-  check("PolicySet.json", record);
+  checkSchema("PolicySet.json", record);
   const d = digest(record);
   await c.query("insert into policy_sets (id, version, org_id, body, digest) values ($1, $2, $3, $4, $5)", [
     record.id, version, record.org_id, record, d,
@@ -215,7 +215,7 @@ export async function recordCredential(
   };
   if (input.aaguid !== undefined) record.aaguid = input.aaguid;
   if (input.backupEligible !== undefined) record.backup_eligible = input.backupEligible;
-  check("AuthenticatorCredential.json", record);
+  checkSchema("AuthenticatorCredential.json", record);
   const d = digest(record);
   await c.query(
     "insert into authenticator_credentials (id, version, org_id, member_id, credential_id, body, digest) values ($1, $2, $3, $4, $5, $6, $7)",
@@ -236,7 +236,7 @@ export async function currentCredential(db: Db | Tx, credentialId: string): Prom
 }
 
 export async function recordDelegation(c: Tx, d: Delegation, actor: Actor): Promise<{ record: Delegation; digest: string }> {
-  check("Delegation.json", d);
+  checkSchema("Delegation.json", d);
   if (d.ends_on < d.starts_on) throw new Error("delegation ends before it starts");
   const value = digest(d);
   await c.query(
@@ -248,14 +248,14 @@ export async function recordDelegation(c: Tx, d: Delegation, actor: Actor): Prom
 }
 
 export async function createProject(c: Tx, p: Project, actor: Actor): Promise<Project> {
-  check("Project.json", p);
+  checkSchema("Project.json", p);
   await c.query("insert into projects (id, org_id, body) values ($1, $2, $3)", [p.id, p.org_id, p]);
   await appendEvent(c, "project.created", p.id, actor, { org_id: p.org_id, mode: p.mode });
   return p;
 }
 
 export async function bindRepo(c: Tx, b: RepoBinding, actor: Actor): Promise<RepoBinding> {
-  check("RepoBinding.json", b);
+  checkSchema("RepoBinding.json", b);
   const owner = await c.query<{ org_id: string }>("select org_id from projects where id = $1", [b.project_id]);
   if (owner.rows[0]?.org_id !== b.org_id) throw new Error(`project ${b.project_id} is not in organization ${b.org_id}`);
   await c.query("insert into repo_bindings (id, org_id, project_id, body) values ($1, $2, $3, $4)", [b.id, b.org_id, b.project_id, b]);
@@ -264,7 +264,7 @@ export async function bindRepo(c: Tx, b: RepoBinding, actor: Actor): Promise<Rep
 }
 
 export async function enrollMachine(c: Tx, m: Machine, actor: Actor): Promise<Machine> {
-  check("Machine.json", m);
+  checkSchema("Machine.json", m);
   await c.query("insert into machines (id, org_id, body) values ($1, $2, $3)", [m.id, m.org_id, m]);
   await appendEvent(c, "machine.enrolled", m.id, actor, { org_id: m.org_id });
   return m;
@@ -272,7 +272,7 @@ export async function enrollMachine(c: Tx, m: Machine, actor: Actor): Promise<Ma
 
 /** Records an owner explicitly. Envelopes are immutable; a second owner for one object refuses. */
 export async function recordOwner(c: Tx, e: OwnershipEnvelope): Promise<void> {
-  check("OwnershipEnvelope.json", e);
+  checkSchema("OwnershipEnvelope.json", e);
   await c.query("insert into object_owners (object_kind, object_id, org_id, project_id) values ($1, $2, $3, $4)", [
     e.object_kind, e.object_id, e.org_id, e.project_id ?? null,
   ]);
@@ -293,7 +293,7 @@ export async function ownerOf(db: Db | Tx, kind: string, id: string): Promise<Ow
 /** Records the lane an object carried at creation (version 1). Effective markings arrive in task 1.9. */
 export async function recordCreationMarking(c: Tx, kind: string, id: string, lane: DataLane, reason: string): Promise<MarkingEnvelope> {
   const m: MarkingEnvelope = { object_kind: kind, object_id: id, version: 1, lane, reason };
-  check("MarkingEnvelope.json", m);
+  checkSchema("MarkingEnvelope.json", m);
   await c.query("insert into object_markings (object_kind, object_id, version, body) values ($1, $2, 1, $3)", [kind, id, m]);
   return m;
 }

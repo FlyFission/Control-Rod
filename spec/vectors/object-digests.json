@@ -1,0 +1,247 @@
+{
+  "description": "Generate digest vectors for every frozen (digest addressed) object type.",
+  "generator": "tools/generate_object_vectors.py",
+  "vectors": [
+    {
+      "type": "AuthenticatorCredential",
+      "body": {
+        "id": "cred_example",
+        "version": 1,
+        "org_id": "org_local",
+        "member_id": "mem_example",
+        "credential_id": "Y3JlZGVudGlhbA",
+        "attestation_format": "packed",
+        "aaguid": "00000000-0000-0000-0000-000000000000",
+        "user_verified": true,
+        "backup_eligible": false,
+        "hardware_floor": {
+          "eligible": true,
+          "reason": "packed attestation verified"
+        },
+        "recorded_at": "2026-10-30T12:00:00.000Z"
+      },
+      "canonical": "{\"aaguid\":\"00000000-0000-0000-0000-000000000000\",\"attestation_format\":\"packed\",\"backup_eligible\":false,\"credential_id\":\"Y3JlZGVudGlhbA\",\"hardware_floor\":{\"eligible\":true,\"reason\":\"packed attestation verified\"},\"id\":\"cred_example\",\"member_id\":\"mem_example\",\"org_id\":\"org_local\",\"recorded_at\":\"2026-10-30T12:00:00.000Z\",\"user_verified\":true,\"version\":1}",
+      "sha256": "cd4eef4402857ccc2e59b1080691917901de9402aab8418c74b7b3dccbd6273c"
+    },
+    {
+      "type": "CandidateAssignment",
+      "body": {
+        "id": "cand_example",
+        "org_id": "org_local",
+        "package_id": "pkg_example",
+        "package_revision": 1,
+        "release_digest": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "ordinal": 1,
+        "author_assignment": {
+          "role": "author",
+          "agent_baseline": "baseline-author",
+          "baseline_revision": 1
+        }
+      },
+      "canonical": "{\"author_assignment\":{\"agent_baseline\":\"baseline-author\",\"baseline_revision\":1,\"role\":\"author\"},\"id\":\"cand_example\",\"ordinal\":1,\"org_id\":\"org_local\",\"package_id\":\"pkg_example\",\"package_revision\":1,\"release_digest\":{\"algorithm\":\"sha256\",\"value\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}",
+      "sha256": "ebf048f0a3b6ce3f50d4e9e0c4b203167fbb1e9f1f388a04e78772a74b2d2a4d"
+    },
+    {
+      "type": "ControlledRecord",
+      "body": {
+        "id": "rec_example",
+        "org_id": "org_local",
+        "kind": "merged-change",
+        "package_id": "pkg_example",
+        "package_revision": 1,
+        "candidate_id": "cand_example",
+        "input_digests": [
+          {
+            "algorithm": "sha256",
+            "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "algorithm": "sha256",
+            "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ],
+        "clearance_decision_id": "dec_example",
+        "applied_ref": "dddddddddddddddddddddddddddddddddddddddd"
+      },
+      "canonical": "{\"applied_ref\":\"dddddddddddddddddddddddddddddddddddddddd\",\"candidate_id\":\"cand_example\",\"clearance_decision_id\":\"dec_example\",\"id\":\"rec_example\",\"input_digests\":[{\"algorithm\":\"sha256\",\"value\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},{\"algorithm\":\"sha256\",\"value\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}],\"kind\":\"merged-change\",\"org_id\":\"org_local\",\"package_id\":\"pkg_example\",\"package_revision\":1}",
+      "sha256": "689594748a53ee24e82005597dfaacc8122bf261b41b31f3236e59865c88f7a2"
+    },
+    {
+      "type": "Delegation",
+      "body": {
+        "id": "del_example",
+        "org_id": "org_local",
+        "from_member_id": "mem_a",
+        "to_member_id": "mem_b",
+        "role": "checker",
+        "starts_on": "2026-11-01",
+        "ends_on": "2026-11-15",
+        "reason": "leave cover"
+      },
+      "canonical": "{\"ends_on\":\"2026-11-15\",\"from_member_id\":\"mem_a\",\"id\":\"del_example\",\"org_id\":\"org_local\",\"reason\":\"leave cover\",\"role\":\"checker\",\"starts_on\":\"2026-11-01\",\"to_member_id\":\"mem_b\"}",
+      "sha256": "bfdb1415e680891de4fc670e1324af955c9a6b4b8e45e33dc178fc47fd815329"
+    },
+    {
+      "type": "PolicySet",
+      "body": {
+        "id": "pol_example",
+        "version": 1,
+        "org_id": "org_local",
+        "hardware_attestation_formats": [
+          "packed",
+          "tpm"
+        ],
+        "settings": {
+          "autonomy_ceiling": "3"
+        },
+        "reason": "initial",
+        "effective_at": "2026-10-30T12:00:00.000Z"
+      },
+      "canonical": "{\"effective_at\":\"2026-10-30T12:00:00.000Z\",\"hardware_attestation_formats\":[\"packed\",\"tpm\"],\"id\":\"pol_example\",\"org_id\":\"org_local\",\"reason\":\"initial\",\"settings\":{\"autonomy_ceiling\":\"3\"},\"version\":1}",
+      "sha256": "835ba24a9eec94f9079dbc3741368ea43884527568ff99062d962276dfd65d91"
+    },
+    {
+      "type": "RuntimeArtifactVersion",
+      "body": {
+        "id": "rav_example",
+        "org_id": "org_local",
+        "runtime": "claude-code",
+        "version": "2.1.314",
+        "artifact_digest": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "install_path": "/opt/claude/bin/claude",
+        "probe_ids": [
+          "probe_example"
+        ]
+      },
+      "canonical": "{\"artifact_digest\":{\"algorithm\":\"sha256\",\"value\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"id\":\"rav_example\",\"install_path\":\"/opt/claude/bin/claude\",\"org_id\":\"org_local\",\"probe_ids\":[\"probe_example\"],\"runtime\":\"claude-code\",\"version\":\"2.1.314\"}",
+      "sha256": "3056e28e5a8e6728c5bc5ab0ccc8b0807222d39b67bac0585955127ce306888c"
+    },
+    {
+      "type": "SandboxPolicy",
+      "body": {
+        "id": "sbx_laptop",
+        "version": 1,
+        "org_id": "org_local",
+        "driver": "native-cli",
+        "denied_read": [
+          "~/.claude",
+          "~/.codex",
+          "~/.ssh"
+        ],
+        "writable_roots": [
+          "."
+        ],
+        "allowed_hosts": [],
+        "enabled_tools": [
+          "Bash",
+          "Read",
+          "Edit",
+          "Write",
+          "Grep",
+          "Glob"
+        ],
+        "mandatory_claims": [
+          "login-unreadable",
+          "no-network",
+          "writes-in-workspace"
+        ]
+      },
+      "canonical": "{\"allowed_hosts\":[],\"denied_read\":[\"~/.claude\",\"~/.codex\",\"~/.ssh\"],\"driver\":\"native-cli\",\"enabled_tools\":[\"Bash\",\"Read\",\"Edit\",\"Write\",\"Grep\",\"Glob\"],\"id\":\"sbx_laptop\",\"mandatory_claims\":[\"login-unreadable\",\"no-network\",\"writes-in-workspace\"],\"org_id\":\"org_local\",\"version\":1,\"writable_roots\":[\".\"]}",
+      "sha256": "2f1925126e720ade2c09c1213acb66379f86f0ae761c38fb2ddb7c61f90ba63e"
+    },
+    {
+      "type": "SignerQualification",
+      "body": {
+        "id": "qual_example",
+        "version": 1,
+        "org_id": "org_local",
+        "member_id": "mem_example",
+        "licenses": [
+          {
+            "jurisdiction": "US-SC",
+            "number": "PE-1",
+            "discipline": "mechanical",
+            "expires_on": "2028-06-30"
+          }
+        ],
+        "disciplines": [
+          "mechanical"
+        ],
+        "grades": [
+          "general-service"
+        ],
+        "roles": [
+          "checker"
+        ],
+        "authorities": [
+          "lane"
+        ],
+        "revoked": false,
+        "reason": "initial",
+        "effective_at": "2026-10-30T12:00:00.000Z"
+      },
+      "canonical": "{\"authorities\":[\"lane\"],\"disciplines\":[\"mechanical\"],\"effective_at\":\"2026-10-30T12:00:00.000Z\",\"grades\":[\"general-service\"],\"id\":\"qual_example\",\"licenses\":[{\"discipline\":\"mechanical\",\"expires_on\":\"2028-06-30\",\"jurisdiction\":\"US-SC\",\"number\":\"PE-1\"}],\"member_id\":\"mem_example\",\"org_id\":\"org_local\",\"reason\":\"initial\",\"revoked\":false,\"roles\":[\"checker\"],\"version\":1}",
+      "sha256": "6448ec904a476718a00efe669d09f3d01a260c1cc586c1f9c6b6eb3da65ccb3d"
+    },
+    {
+      "type": "SourceManifest",
+      "body": {
+        "id": "man_example",
+        "org_id": "org_local",
+        "files": [
+          {
+            "path": "src/a.py",
+            "mode": "file",
+            "digest": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          {
+            "path": "bin/run",
+            "mode": "executable",
+            "digest": {
+              "algorithm": "sha256",
+              "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          {
+            "path": "docs/link",
+            "mode": "symlink",
+            "digest": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "link_target": "../README.md"
+          }
+        ],
+        "symlink_policy": "preserve-inside",
+        "submodules": [
+          {
+            "path": "vendor/lib",
+            "url": "https://example.invalid/lib.git",
+            "commit": "cccccccccccccccccccccccccccccccccccccccc"
+          }
+        ],
+        "lfs_resolved": true,
+        "excluded": [
+          {
+            "path": ".env",
+            "reason": "secret"
+          }
+        ],
+        "ignored_inputs": [
+          "build/config.json"
+        ]
+      },
+      "canonical": "{\"excluded\":[{\"path\":\".env\",\"reason\":\"secret\"}],\"files\":[{\"digest\":{\"algorithm\":\"sha256\",\"value\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"mode\":\"file\",\"path\":\"src/a.py\"},{\"digest\":{\"algorithm\":\"sha256\",\"value\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"mode\":\"executable\",\"path\":\"bin/run\"},{\"digest\":{\"algorithm\":\"sha256\",\"value\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},\"link_target\":\"../README.md\",\"mode\":\"symlink\",\"path\":\"docs/link\"}],\"id\":\"man_example\",\"ignored_inputs\":[\"build/config.json\"],\"lfs_resolved\":true,\"org_id\":\"org_local\",\"submodules\":[{\"commit\":\"cccccccccccccccccccccccccccccccccccccccc\",\"path\":\"vendor/lib\",\"url\":\"https://example.invalid/lib.git\"}],\"symlink_policy\":\"preserve-inside\"}",
+      "sha256": "8ac6214fbfac6a6e0c80623c5ab074fe3e79364199bb73a002f68df8502f23e6"
+    }
+  ]
+}

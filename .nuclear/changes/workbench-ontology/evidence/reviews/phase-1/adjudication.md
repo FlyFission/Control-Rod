@@ -20,6 +20,23 @@ Independent review by Codex (codex-cli 0.166.0, read only) of the Phase 1 branch
 | R14 | Migration preservation was tested on empty history | `test/migration-preservation.ts` reverses and reapplies both migrations over the history built by the end to end app test (signed decisions, outputs, verifications), the preparation walkthrough and the grants test, requiring named tables to hold rows | `app.test.ts`, `preparation-walkthrough.test.ts`, `preparation-grants.test.ts` |
 | R15 | Decision tests did not check what was signed | The contract gains an optional `challenge_nonce` and new decisions store it; the test proves each signature's challenge equals the hash of this decision's subject, kind, revision and nonce, and differs for any other. Decisions recorded before this change carry no nonce and stay verifiable only as signatures | `app.test.ts` decision kinds |
 
+## Round 2
+
+Codex confirmed the fixes ([codex-round2.md](codex-round2.md)): seven fixed, eight partially fixed, two new defects. Dispositions:
+
+| Item | Disposition |
+|---|---|
+| New: credential holder checked by a derived id, not the member's user name | **Fixed**: the trigger compares the passkey's user name with the referenced member's |
+| New: migrations 009 and 010 were edited in place, so a database that applied the drafts would refuse startup | **Accepted as stated**: both were never released; no retained database applied them (the owner's pilot runs another branch). Any development database that did must be recreated. From merge on, they are frozen like every other migration |
+| R2 partial: credential ownership, budget scope, interface provider unchecked | **Fixed**: credential records reference the passkey's ownership envelope; organization budgets name their own organization and project budgets a project in it; the interface provider package is checked. Agent budget scopes and interface receiver lists stay identity only until agents and program 5 store them |
+| R5 partial | **Fixed** with the holder check above |
+| R6, R7 partial: allowed changes made by raw SQL append no event | **Deferred to task 1.4 by design**: the command layer gives only the command executor the writer role, so no other path can write; that closes audited writes for every table at once |
+| R8: test was sequential | **Fixed**: three concurrent issuers produce contiguous versions and the greatest is in effect |
+| R11 partial: `object_markings` columns stored apart from the body | **Fixed**: generated from the body |
+| R13 partial: contracts do not express the alternatives | **Accepted**: the database refuses every invalid combination and the contract documents each rule; expressing them as JSON Schema alternatives would split each type into variants for no added enforcement |
+| R15 partial: no signed accept with findings or reject in the end to end flow | **Accepted**: signing and challenge binding share one code path for every kind; the mapping covers all five kinds. Signed coverage of the two remaining kinds lands with the verdict split (6.6) |
+| R1 caveat: fixture inserts a released revision 0 directly | **Accepted**: the end to end app test exercises real intake and release, and the preservation check runs over it |
+
 Also fixed while here: test Postgres ports are now chosen by the operating system with retry, which removes an intermittent suite startup failure seen twice.
 
 ## Required links
@@ -28,7 +45,7 @@ Also fixed while here: test Postgres ports are now chosen by the operating syste
 
 ## Exit criteria
 
-Every finding has a fix and a test, and a second independent read confirms the fixes.
+Every finding has a fix and a test or a recorded disposition, confirmed by a second independent read.
 
 ## Source-lineage note
 

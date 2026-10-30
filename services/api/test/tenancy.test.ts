@@ -170,10 +170,15 @@ describe("frozen versions", () => {
       for (const r of rows) expect(digest(r.body)).toBe(r.digest);
     }
     expect((await currentPolicySet(h.db, LOCAL_ORG))?.record.version).toBe(1);
+    // R8: concurrent issuers serialize; versions stay contiguous and the latest is the greatest.
+    const issue = (n: string) => tx(h.db, (c) => recordPolicySet(c, { id: "pol_local", org_id: LOCAL_ORG, hardware_attestation_formats: ["packed"], settings: { round: n }, reason: `concurrent ${n}` }, admin));
+    const issued = await Promise.all([issue("a"), issue("b"), issue("c")]);
+    expect(issued.map((x) => x.record.version).sort()).toEqual([2, 3, 4]);
+    expect((await currentPolicySet(h.db, LOCAL_ORG))?.record.version).toBe(4);
     // R8: one policy identity per organization; the policy in effect is its greatest version.
     await expect(tx(h.db, (c) => recordPolicySet(c, { id: "pol_other", org_id: LOCAL_ORG, hardware_attestation_formats: [], settings: {}, reason: "second identity" }, admin))).rejects.toThrow(/policy_sets_one_per_org/);
     await tx(h.db, (c) => recordPolicySet(c, { id: "pol_local", org_id: LOCAL_ORG, hardware_attestation_formats: ["packed", "tpm"], settings: { autonomy_ceiling: "2" }, reason: "tightened" }, admin));
-    expect((await currentPolicySet(h.db, LOCAL_ORG))?.record).toMatchObject({ version: 2, settings: { autonomy_ceiling: "2" } });
+    expect((await currentPolicySet(h.db, LOCAL_ORG))?.record).toMatchObject({ version: 5, settings: { autonomy_ceiling: "2" } });
   });
 });
 
@@ -217,6 +222,8 @@ describe("lifecycled identities and envelopes", () => {
     await h.db.query("insert into object_owners (object_kind, object_id, org_id) values ('capture', 'cap_claimed', 'org_second')");
     await expect(h.db.query("insert into captures (id, body, created_at) values ('cap_claimed', '{}', now())")).rejects.toThrow(/already owned by org_second, not org_local/);
     await expect(h.db.query("update object_markings set body = body")).rejects.toThrow(/append only/);
+    // R11: marking columns come from the body too.
+    await expect(h.db.query(`insert into object_markings (object_kind, object_id, version, body) values ('notebook', 'nb_2', 1, '{}')`)).rejects.toThrow(/cannot insert a non-DEFAULT value/);
   });
 });
 

@@ -87,7 +87,13 @@ const TABLES: Table[] = [
   T("comments", "L", [g("reply_to")], ["foreign key (reply_to, org_id) references comments(id, org_id)"]),
   T("resolutions", "A", [g("comment_id")], ["foreign key (comment_id, org_id) references comments(id, org_id)"]),
   T("change_requests", "L"),
-  T("budgets", "L", [], [], ["mode", "limit", "period"]),
+  T("budgets", "L", [g("scope"), g("scope_id"),
+    "project_scope text generated always as (case when body->>'scope' = 'project' then body->>'scope_id' end) stored"], [
+    // An organization budget names its own organization; a project budget names a project in it.
+    // Agent budgets are checked when agents become stored identities.
+    "check (scope <> 'organization' or scope_id = org_id)",
+    "foreign key (project_scope, org_id) references projects(id, org_id)",
+  ], ["mode", "limit", "period"]),
   T("usage_records", "A", [g("run_id"), kindCol("run_kind", "run"), g("exploration_id")], [
     "foreign key (run_id) references runs(id)", owned("run_kind", "run_id"),
     "foreign key (exploration_id, org_id) references explorations(id, org_id)",
@@ -102,7 +108,8 @@ const TABLES: Table[] = [
     "foreign key (package_id, package_revision) references packages(id, revision)", owned("package_kind", "package_id"),
     "check ((package_id is null) = (package_revision is null))",
   ]),
-  T("interface_records", "H"),
+  // Identity only hook (specification 5.9): the provider is checked; receivers arrive with program 5.
+  T("interface_records", "H", [g("provider_package_id"), kindCol("package_kind", "package")], [owned("package_kind", "provider_package_id")]),
   T("flow_edge_refs", "H"),
   T("phase_gates", "H", [g("project_id")], ["foreign key (project_id, org_id) references projects(id, org_id)"]),
 ];

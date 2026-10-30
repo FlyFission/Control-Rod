@@ -113,6 +113,7 @@ create table authenticator_credentials (
   ${g("org_id")} not null,
   ${g("member_id")} not null,
   ${g("credential_id")} not null references credentials(id),
+  credential_kind text generated always as ('credential') stored,
   digest text not null unique,
   recorded_at timestamptz not null default now(),
   primary key (id, version),
@@ -169,22 +170,27 @@ create table object_owners (
   foreign key (project_id, org_id) references projects(id, org_id)
 );
 create index object_owners_by_org on object_owners (org_id, object_kind);
+-- A credential record belongs to the organization that owns the passkey.
+alter table authenticator_credentials add foreign key (credential_kind, credential_id, org_id)
+  references object_owners(object_kind, object_id, org_id);
 create table object_markings (
-  object_kind text not null,
-  object_id text not null,
-  version int not null check (version >= 1),
   body jsonb not null,
+  ${g("object_kind")} not null,
+  ${g("object_id")} not null,
+  ${gi("version")} not null check (version >= 1),
   recorded_at timestamptz not null default now(),
   primary key (object_kind, object_id, version)
 );
 
--- A credential record's Member is the passkey's own user, by the same derivation as code.
+-- A credential record's Member is the passkey's own user: the member's user name must be the one
+-- the passkey was registered under.
 create function tenancy_credential_holder() returns trigger language plpgsql as $$
-declare owner_name text;
+declare owner_name text; member_name text;
 begin
   select user_name into owner_name from credentials where id = new.body->>'credential_id';
-  if new.body->>'member_id' is distinct from 'mem_' || substr(md5(owner_name), 1, 24) then
-    raise exception 'credential % belongs to %, not member %', new.body->>'credential_id', owner_name, new.body->>'member_id';
+  select user_name into member_name from members where id = new.body->>'member_id';
+  if member_name is distinct from owner_name then
+    raise exception 'credential % belongs to %, not member % (%)', new.body->>'credential_id', owner_name, new.body->>'member_id', member_name;
   end if;
   return new;
 end $$;

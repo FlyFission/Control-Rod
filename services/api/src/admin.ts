@@ -123,11 +123,21 @@ async function invite(c: Tx, caller: Caller, memberId: string): Promise<{ token:
   return { token, expires_at: r.rows[0]!.expires_at.toISOString() };
 }
 
-/** Ends what a Member can do right now: sessions, unredeemed administrative challenges, open invitations. */
+/** Voids every challenge issued to a person: signatures and passkey registrations they have not redeemed. */
+async function voidChallenges(c: Tx, m: Member): Promise<void> {
+  await c.query("delete from challenges where data->>'issued_to' = $1 or data->>'member' = $2", [m.user_name, m.id]);
+}
+
+/** Ends what a Member can do right now: sessions, every unredeemed challenge, open invitations. */
 async function endAccess(c: Tx, m: Member): Promise<void> {
   await c.query("delete from sessions where user_name = $1", [m.user_name]);
-  await c.query("delete from challenges where purpose = 'admin' and data->>'member' = $1", [m.id]);
+  await voidChallenges(c, m);
   await c.query("update member_invitations set used_at = now() where member_id = $1 and used_at is null", [m.id]);
+}
+
+/** Whether a Member already holds a passkey. Invitations are only for a person's first one. */
+async function hasPasskey(c: Tx, m: Member): Promise<boolean> {
+  return Boolean((await c.query("select 1 from credentials where user_name = $1 limit 1", [m.user_name])).rowCount);
 }
 
 /** Policy settings Control Rod understands, each with its allowed values. Anything else is refused. */
@@ -137,8 +147,9 @@ function checkPolicy(proposal: unknown): { hardware_attestation_formats: string[
   if (!proposal || typeof proposal !== "object") throw new Refusal(400, "invalid", "policy is required");
   const p = proposal as { hardware_attestation_formats?: unknown; settings?: unknown };
   const formats = p.hardware_attestation_formats ?? [];
-  const settings = (p.settings ?? {}) as Record<string, unknown>;
-  if (!Array.isArray(formats) || typeof settings !== "object") throw new Refusal(400, "invalid", "policy has the wrong shape");
+  const settings = (p.settings === undefined ? {} : p.settings) as Record<string, unknown>;
+  if (!Array.isArray(formats) || settings === null || typeof settings !== "object" || Array.isArray(settings))
+    throw new Refusal(400, "invalid", "policy has the wrong shape");
   for (const [k, v] of Object.entries(settings)) {
     const rule = POLICY_SETTINGS[k];
     if (!rule) throw new Refusal(400, "unknown-setting", `Policy setting ${k} is not one Control Rod understands`);
@@ -195,6 +206,8 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       const id = str(p, "member_id")!;
       const m = await member(c, id, caller.orgId);
       if (m.status !== "active") throw new Refusal(409, "member-not-active", `This member is ${m.status}`);
+      // An invitation registers a first passkey. A member who has one adds more themselves, by signing.
+      if (await hasPasskey(c, m)) throw new Refusal(409, "member-has-passkey", "This member already has a passkey; invitations are for a first passkey only");
       return { member_id: id, invitation: await invite(c, caller, id) };
     },
   },
@@ -255,6 +268,8 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
         attestationVerified: false, revoked: true,
       }, actorOf(caller));
       await appendEvent(c, "authenticator-credential.revoked", record.id, actorOf(caller), { reason, version: record.version });
+      // A registration authorized by signing with this passkey, not yet completed, is void too.
+      await voidChallenges(c, await member(c, cur.member_id, caller.orgId));
       return { credential_id: credentialId, version: record.version, revoked: true };
     },
   },
@@ -290,7 +305,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       const { version: _v, effective_at: _e, ...base } = cur;
       const q = await recordQualification(c, { ...base, revoked: true, reason: str(p, "reason")! }, actorOf(caller));
       // Challenges issued on the strength of the revoked qualification can no longer be redeemed.
-      await c.query("delete from challenges where purpose = 'admin' and data->>'member' = $1", [target.id]);
+      await voidChallenges(c, target);
       return q.record;
     },
   },

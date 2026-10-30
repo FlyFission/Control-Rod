@@ -248,8 +248,8 @@ describe("review findings", () => {
     await registerWithInvitation(h.app, token, new VirtualAuthenticator());
     const again = await h.app.inject({ method: "POST", url: "/auth/register/options", headers: { origin: ORIGIN }, payload: { invitation: token } });
     expect(again.json().code).toBe("invitation-invalid");
-    const late = await signed(ben, benKey, "member.invite", { member_id: memberIdFor("erin") });
-    await h.admin.query("update member_invitations set expires_at = now() - interval '1 minute' where member_id = $1 and used_at is null", [memberIdFor("erin")]);
+    const late = await signed(ben, benKey, "member.enroll", { user_name: "gina" });
+    await h.admin.query("update member_invitations set expires_at = now() - interval '1 minute' where member_id = $1 and used_at is null", [memberIdFor("gina")]);
     const expired = await h.app.inject({ method: "POST", url: "/auth/register/options", headers: { origin: ORIGIN }, payload: { invitation: late.json().invitation.token } });
     expect(expired.json().code).toBe("invitation-invalid");
   });
@@ -347,5 +347,85 @@ describe("review findings", () => {
     expect(dup.json().code).toBe("conflict");
     const badRepo = await signed(ben, benKey, "repo.bind", { project_id: "prj_missing", url: "https://example.invalid/x.git", default_branch: "main" });
     expect(badRepo.statusCode).toBeLessThan(500);
+  });
+});
+
+describe("review round 2", () => {
+  const frank = new VirtualAuthenticator();
+  const FRANK = memberIdFor("frank");
+  let frankCookie: string;
+
+  it("invitations are only for a first passkey: an account with one cannot be taken over", async () => {
+    frankCookie = await addPerson("frank", frank);
+    const r = await signed(ben, benKey, "member.invite", { member_id: FRANK });
+    expect(r.json().code).toBe("member-has-passkey");
+    // An invitation issued earlier cannot be redeemed once the member has a passkey.
+    await h.admin.query(
+      "insert into member_invitations (token_hash, member_id, org_id, issued_by, expires_at) values (encode(sha256('stale-token'), 'hex'), $1, 'org_local', $2, now() + interval '1 day')",
+      [FRANK, BEN]);
+    const o = await h.app.inject({ method: "POST", url: "/auth/register/options", headers: { origin: ORIGIN }, payload: { invitation: "stale-token" } });
+    const v = await h.app.inject({ method: "POST", url: "/auth/register/verify", headers: { origin: ORIGIN }, payload: new VirtualAuthenticator().register(o.json().options) as object });
+    expect(v.statusCode).toBe(403);
+    expect(v.json().code).toBe("registration-refused");
+  });
+
+  it("a pending passkey addition dies with the suspension of its member", async () => {
+    const s = await post(frankCookie, "/auth/step-up/options", {});
+    const o = await post(frankCookie, "/auth/register/options", { step_up: frank.assert(s.json().options) });
+    expect(o.statusCode).toBe(200);
+    await signed(ben, benKey, "member.suspend", { member_id: FRANK, reason: "investigation" });
+    const v = await h.app.inject({ method: "POST", url: "/auth/register/verify", headers: { origin: ORIGIN }, payload: new VirtualAuthenticator().register(o.json().options) as object });
+    expect(v.statusCode).toBeGreaterThanOrEqual(400);
+    expect(v.statusCode).toBeLessThan(500);
+    expect((await h.db.query("select count(*)::int as n from credentials where user_name = 'frank'")).rows[0].n).toBe(1);
+    await signed(ben, benKey, "member.reactivate", { member_id: FRANK, reason: "cleared" });
+    frankCookie = await logIn(h.app, frank);
+  });
+
+  it("revocation voids every challenge issued to the person, not only administrative ones", async () => {
+    await post(frankCookie, "/auth/step-up/options", {});
+    await signed(ben, benKey, "qualification.issue", { member_id: FRANK, licenses: [], disciplines: ["mechanical"], grades: ["general-service"], roles: ["checker"], authorities: [], reason: "checker" });
+    expect((await h.db.query("select count(*)::int as n from challenges where data->>'issued_to' = 'frank'")).rows[0].n).toBeGreaterThan(0);
+    await signed(ben, benKey, "qualification.revoke", { member_id: FRANK, reason: "reassigned" });
+    expect((await h.db.query("select count(*)::int as n from challenges where data->>'issued_to' = 'frank'")).rows[0].n).toBe(0);
+  });
+
+  it("a null policy setting is refused, not a server error", async () => {
+    const r = await unsigned(ben, "policy.propose", { policy: { settings: null }, reason: "x" });
+    expect(r.statusCode).toBe(400);
+  });
+
+  it("a replay is refused after a successful first use, with a passkey whose counter stays at zero", async () => {
+    const zero = new VirtualAuthenticator({ fixedCounter: true });
+    expect((await addOwnPasskey(h.app, ben, benKey, zero)).statusCode).toBe(200);
+    const payload = { name: "Zero counter project", mode: "general", default_rigor: "quick", lanes: ["internal"], qa_overlays: [] };
+    const o = await post(ben, "/admin/commands/project.create/options", { payload });
+    const assertion = zero.assert(o.json().options);
+    expect((await post(ben, "/admin/commands/project.create", { payload, assertion })).statusCode).toBe(200);
+    expect((await post(ben, "/admin/commands/project.create", { payload, assertion })).json().code).toBe("signature-required");
+  });
+
+  it("two passkeys revoked at once never leaves a member with none", async () => {
+    const second = new VirtualAuthenticator();
+    expect((await addOwnPasskey(h.app, frankCookie, frank, second)).statusCode).toBe(200);
+    const ids = (await h.db.query<{ id: string }>("select id from credentials where user_name = 'frank' order by created_at")).rows.map((r) => r.id);
+    expect(ids).toHaveLength(2);
+    const payloads = ids.map((credential_id) => ({ credential_id, reason: "rotate" }));
+    const opts: { json: () => { options: never } }[] = [];
+    for (const p of payloads) opts.push(await post(frankCookie, "/admin/commands/credential.revoke/options", { payload: p }));
+    const results = await Promise.all(payloads.map((p, i) => post(frankCookie, "/admin/commands/credential.revoke", { payload: p, assertion: (i === 0 ? second : frank).assert(opts[i]!.json().options) })));
+    const codes = results.map((r) => (r.statusCode === 200 ? "ok" : r.json().code));
+    expect(codes.filter((c) => c === "ok")).toHaveLength(1);
+    const usable = (await h.db.query(
+      `select count(*)::int as n from (select distinct on (credential_id) body from authenticator_credentials where member_id = $1 order by credential_id, version desc) x
+        where (body->>'revoked')::boolean is not true`, [FRANK])).rows[0].n;
+    expect(usable).toBe(1);
+  });
+
+  it("a removed member cannot sign in again with a passkey that was never revoked", async () => {
+    await signed(ben, benKey, "member.remove", { member_id: FRANK, reason: "left" });
+    const o = await h.app.inject({ method: "POST", url: "/auth/login/options", headers: { origin: ORIGIN } });
+    const login = await h.app.inject({ method: "POST", url: "/auth/login/verify", headers: { origin: ORIGIN }, payload: frank.assert(o.json().options) as object });
+    expect(login.statusCode).toBe(401);
   });
 });

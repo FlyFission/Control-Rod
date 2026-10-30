@@ -172,7 +172,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post("/auth/step-up/options", async (req) => {
     const user = await sessionUser(db, req);
     if (!user) throw new Refusal(401, "unauthorized", "Sign in first");
-    return { options: await assertionOptions(db, auth, "step-up", { user }) };
+    return { options: await assertionOptions(db, auth, "step-up", { user }, undefined, user) };
   });
   /**
    * Three ways to register a passkey: the very first one (bootstrap); a new person with an
@@ -199,12 +199,18 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (!req.body?.step_up) throw new Refusal(403, "step-up-required", "Sign with a passkey you already hold to add another");
     const ok = await assertionVerify(db, auth, "step-up", req.body.step_up as never);
     if (!ok || ok.user !== user || ok.data.user !== user) throw new Refusal(403, "step-up-failed", "That signature did not come from your account");
-    return { options: await registrationOptions(db, auth, user, { kind: "additional" }) };
+    return { options: await registrationOptions(db, auth, user, { kind: "additional", via: ok.credentialId }) };
   });
   app.post("/auth/register/verify", async (req, reply) => {
-    const user = await registrationVerify(db, auth, req.body as never);
+    let user: string | null;
+    try {
+      user = await registrationVerify(db, auth, req.body as never);
+    } catch (e) {
+      if ((e as { code?: string }).code) throw e;
+      throw new Refusal(403, "registration-refused", (e as Error).message);
+    }
     if (!user) throw new Refusal(400, "invalid", "Passkey registration failed");
-    await startSession(db, reply, user);
+    await startSession(db, reply, user).catch(() => { throw new Refusal(403, "member-inactive", "This membership is not active"); });
     return { registered: true, signed_in: true, user };
   });
   app.post("/auth/login/options", async () => {
@@ -214,7 +220,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post("/auth/login/verify", async (req, reply) => {
     const ok = await assertionVerify(db, auth, "login", req.body as never);
     if (!ok) throw new Refusal(401, "invalid", "Passkey sign-in failed");
-    await startSession(db, reply, ok.user);
+    await startSession(db, reply, ok.user).catch(() => { throw new Refusal(401, "invalid", "Passkey sign-in failed"); });
     return { registered: true, signed_in: true, user: ok.user };
   });
   app.post("/auth/logout", async (req, reply) => {
@@ -245,7 +251,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const subject = adminSubject(req.params.name, caller, payload);
     const nonce = randomBytes(16).toString("hex");
     const challenge = new Uint8Array(createHash("sha256").update(`admin|${subject}|${nonce}`).digest());
-    const options = await assertionOptions(db, auth, "admin", { command: req.params.name, member: caller.memberId, subject_digest: subject, nonce }, challenge);
+    const options = await assertionOptions(db, auth, "admin", { command: req.params.name, member: caller.memberId, subject_digest: subject, nonce }, challenge, caller.userName);
     return { subject_digest: { algorithm: "sha256", value: subject }, options };
   });
   app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown>; assertion?: Record<string, unknown> } }>("/admin/commands/:name", async (req) => {
@@ -321,7 +327,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     expected_subject_digest?: { algorithm: string; value: string };
   }
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions/options", async (req) => {
-    await person(req);
+    const issuedTo = await person(req);
     const { kind, package_revision: revision } = req.body ?? ({} as DecisionBody);
     const s = await decisionSubject(db, req.params.id, String(kind), Number(revision), cfg);
     const shown = req.body?.expected_subject_digest?.value;
@@ -335,6 +341,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       "decision",
       { package_id: req.params.id, kind, revision, subject_digest: s.digest, nonce },
       decisionChallenge(s.digest, String(kind), Number(revision), nonce),
+      issuedTo,
     );
     return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
   });
@@ -372,7 +379,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>(
     "/packages/:id/runs/:runId/override-independence/options",
     async (req) => {
-      await person(req);
+      const issuedTo = await person(req);
       const s = await overrideSubject(db, req.params.id, req.params.runId, req.body?.reason);
       const nonce = randomBytes(16).toString("hex");
       const options = await assertionOptions(
@@ -381,6 +388,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
         "override",
         { package_id: req.params.id, run_id: req.params.runId, revision: s.revision, reason: s.reason, subject_digest: s.digest },
         overrideChallenge(s.digest, s.revision, req.params.runId, nonce),
+        issuedTo,
       );
       return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
     },

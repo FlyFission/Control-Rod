@@ -1,0 +1,33 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "DecisionReading.json",
+    "type": "object",
+    "properties": {
+        "decision_id": {
+            "type": "string"
+        },
+        "decision_digest": {
+            "$ref": "Digest.json",
+            "description": "Digest of the stored decision body, which the reading never alters."
+        },
+        "mapping_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "plan_kind": {
+            "$ref": "PlanDecisionKind.json"
+        },
+        "verdict_outcome": {
+            "$ref": "VerdictOutcome.json"
+        }
+    },
+    "required": [
+        "decision_id",
+        "decision_digest",
+        "mapping_version",
+        "plan_kind"
+    ],
+    "description": "A historical decision read through a mapping version. Derived; never stored in place of it.",
+    "unevaluatedProperties": false
+}

@@ -187,3 +187,52 @@ model Event {
   prev?: Digest;
   digest: Digest;
 }
+
+/**
+ * Decision kinds of the Platform Plan (specification 5.5). Additive: the signed Decision record and
+ * its DecisionKind are unchanged, and every historical decision is read through a versioned
+ * DecisionKindMapping. Methodology and clearance have no legacy kind; they arrive with the
+ * protected kernel change (plan 6.6).
+ */
+enum PlanDecisionKind {
+  release: "release",
+  methodology: "methodology",
+  verdict: "verdict",
+  clearance: "clearance",
+}
+
+/** The judgement a verdict records. */
+enum VerdictOutcome {
+  accept: "accept",
+  accept_with_findings: "accept-with-findings",
+  `return`: "return",
+  reject: "reject",
+}
+
+/** One row of a mapping version: how a legacy kind reads as a plan kind. */
+@extension("unevaluatedProperties", false)
+model DecisionKindMapping {
+  @minValue(1)
+  mapping_version: int32;
+
+  legacy_kind: DecisionKind;
+  plan_kind: PlanDecisionKind;
+
+  /** Present exactly when plan_kind is verdict. */
+  verdict_outcome?: VerdictOutcome;
+}
+
+/** A historical decision read through a mapping version. Derived; never stored in place of it. */
+@extension("unevaluatedProperties", false)
+model DecisionReading {
+  decision_id: string;
+
+  /** Digest of the stored decision body, which the reading never alters. */
+  decision_digest: Digest;
+
+  @minValue(1)
+  mapping_version: int32;
+
+  plan_kind: PlanDecisionKind;
+  verdict_outcome?: VerdictOutcome;
+}

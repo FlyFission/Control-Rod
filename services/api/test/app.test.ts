@@ -268,3 +268,44 @@ describe("the record", () => {
     }
   });
 });
+
+describe("decision kinds (workbench plan task 1.3)", () => {
+  it("reads every signed decision through mapping version 1 without changing its bytes or its signature", async () => {
+    const { createHash } = await import("node:crypto");
+    const { verifySignature } = await import("@simplewebauthn/server/helpers");
+    const { readDecision, loadMapping } = await import("../src/decision-kinds.js");
+    const { loadValidator } = await import("../src/schemas.js");
+    const validate = loadValidator().getSchema("Decision.json")!;
+    const before = (await h.db.query<{ id: string; text: string }>("select id, body::text as text from decisions order by id")).rows;
+    expect(new Set(before.map((r) => JSON.parse(r.text).kind))).toEqual(new Set(["release", "accept", "return"]));
+    const expected: Record<string, object> = {
+      release: { plan_kind: "release" },
+      accept: { plan_kind: "verdict", verdict_outcome: "accept" },
+      return: { plan_kind: "verdict", verdict_outcome: "return" },
+    };
+    for (const row of before) {
+      const body = JSON.parse(row.text);
+      const cred = await h.db.query<{ public_key: Buffer }>("select public_key from credentials where id = $1", [body.assertion.credential_id]);
+      const data = Buffer.concat([
+        Buffer.from(body.assertion.authenticator_data, "base64url"),
+        createHash("sha256").update(Buffer.from(body.assertion.client_data_json, "base64url")).digest(),
+      ]);
+      expect(await verifySignature({ signature: Buffer.from(body.assertion.signature, "base64url"), data, credentialPublicKey: cred.rows[0]!.public_key })).toBe(true);
+      const reading = readDecision(body);
+      expect(reading).toMatchObject({ decision_id: body.id, mapping_version: 1, ...expected[body.kind] });
+      expect(validate(body)).toBe(true);
+    }
+    const after = (await h.db.query<{ id: string; text: string }>("select id, body::text as text from decisions order by id")).rows;
+    expect(after).toEqual(before);
+    // Every legacy kind has exactly one row; a kind the mapping lacks refuses.
+    expect([...loadMapping(1).keys()].sort()).toEqual(["accept", "accept-with-findings", "reject", "release", "return"]);
+    expect(() => readDecision({ id: "D-x", kind: "clearance" })).toThrow(/no row for/);
+  });
+
+  it("keeps the signature challenge over the legacy kind", async () => {
+    const { createHash } = await import("node:crypto");
+    const { decisionChallenge } = await import("../src/work.js");
+    const expected = createHash("sha256").update("abc|accept|0|n1").digest();
+    expect(Buffer.from(decisionChallenge("abc", "accept", 0, "n1"))).toEqual(expected);
+  });
+});

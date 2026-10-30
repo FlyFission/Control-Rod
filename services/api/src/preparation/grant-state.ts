@@ -399,7 +399,7 @@ export async function currentGrant(
   cfg: GrantConfig,
   id: string,
   token: unknown,
-): Promise<GrantRow> {
+): Promise<GrantRow & { use_deadline: Date }> {
   const meta = (
     await c.query<{ token_hash: string; package_id: string }>(
       "select token_hash,package_id from preparation_grants where id=$1",
@@ -471,7 +471,10 @@ export async function currentGrant(
     })
   )
     throw stale();
-  return g;
+  // A trusted writer may shorten the run lease below the grant expiry; new uses never outlive either.
+  const use_deadline =
+    r.lease_expires_at! < g.expires_at ? r.lease_expires_at! : g.expires_at;
+  return { ...g, use_deadline };
 }
 /** Every successful response, including receipt replay, arms a commit check. */
 export async function armGrant(

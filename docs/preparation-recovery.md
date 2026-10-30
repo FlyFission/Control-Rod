@@ -1,6 +1,6 @@
 # Preparation pilot, backup and recovery
 
-This is an owner-local pre-alpha rehearsal procedure. Evidence in `.nuclear/changes/platform-buildout/evidence/` uses an ephemeral fixture database, virtual passkeys and a simulated daemon. It does not record an operational owner pilot, independent engineering verification or production deployment.
+This is an owner-local pre-alpha rehearsal procedure. The owner's step-by-step pilot of it is [owner-pilot.md](owner-pilot.md). Evidence in `.nuclear/changes/platform-buildout/evidence/` uses an ephemeral fixture database, virtual passkeys and a simulated daemon. It does not record an operational owner pilot, independent engineering verification or production deployment.
 
 ## Rollout sequence
 

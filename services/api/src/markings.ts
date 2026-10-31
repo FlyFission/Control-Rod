@@ -97,6 +97,40 @@ async function write(c: Tx, m: Omit<Marking, "effective_lane">): Promise<Marking
   return full;
 }
 
+/** The marked objects a preparation basis reference names: a capture, a capture's attachment, or another package. */
+export function basisRef(b: { kind?: unknown; reference?: unknown }, self: string): Ref | null {
+  const ref = String(b.reference ?? "");
+  if (b.kind === "capture" && ref.startsWith("capture:")) return { kind: "capture", id: ref.slice(8) };
+  if (b.kind === "attachment" && ref.startsWith("attachment:")) return { kind: "capture", id: ref.slice(11).split("/")[0]! };
+  if (b.kind === "package" && ref.startsWith("package:") && ref !== `package:${self}`) return { kind: "package", id: ref.slice(8) };
+  return null;
+}
+
+/**
+ * Every object a stored package's content may draw on: its capture, the packages it depends on, and
+ * the captures, attachments and packages in its preparation basis and release manifests.
+ */
+export async function storedSources(q: Db | Tx, id: string): Promise<Ref[]> {
+  const p = (await q.query<{ capture_id: string | null; revision: number }>(
+    "select capture_id, revision from packages where id = $1 order by revision desc limit 1", [id])).rows[0];
+  if (!p) return [];
+  const out: Ref[] = p.capture_id ? [{ kind: "capture", id: p.capture_id }] : [];
+  const deps = await q.query<{ depends_on: string }>(
+    "select depends_on from package_dependencies where package_id = $1 and package_revision = $2 order by depends_on", [id, p.revision]);
+  for (const d of deps.rows) out.push({ kind: "package", id: d.depends_on });
+  const basis = await q.query<{ refs: unknown[] }>(
+    `select s.body->'basis' as refs from preparation_heads h join preparation_snapshots s on s.preparation_id = h.preparation_id and s.revision = h.revision
+      where h.package_id = $1
+     union all
+     select body->'basis_refs' from preparation_release_manifests where package_id = $1`, [id]);
+  for (const row of basis.rows) for (const b of row.refs ?? []) {
+    const r = basisRef(b as never, id);
+    if (r) out.push(r);
+  }
+  const seen = new Set<string>();
+  return out.filter((r) => !seen.has(`${r.kind}/${r.id}`) && seen.add(`${r.kind}/${r.id}`));
+}
+
 /**
  * An object's current marking, recording version 1 from the lane its record carries when it was
  * classified before markings existed. Null for an object with no classified lane.
@@ -109,17 +143,14 @@ export async function ensureMarking(c: Tx, kind: string, id: string, seen = new 
     return isLane(lane) ? write(c, { object_kind: kind, object_id: id, version: 1, lane, reason: "marked from its recorded lane" }) : null;
   }
   if (kind !== "package") return null;
-  const p = (await c.query<{ lane: string; capture_id: string | null; revision: number }>(
-    "select body->>'data_lane' as lane, capture_id, revision from packages where id = $1 order by revision desc limit 1", [id])).rows[0];
+  const p = (await c.query<{ lane: string }>(
+    "select body->>'data_lane' as lane from packages where id = $1 order by revision desc limit 1", [id])).rows[0];
   if (!p || !isLane(p.lane)) return null;
-  // A package marked late gets its provenance edges too: its capture and the packages it depends on,
-  // each marked the same way first, so a later raise of any of them reaches it.
+  // A package marked late gets its provenance edges too: every stored source, each marked the same
+  // way first, so a later raise of any of them reaches it.
   if (seen.has(id)) throw new Error(`package ${id} depends on itself through its sources`);
   seen.add(id);
-  const sources: Ref[] = p.capture_id ? [{ kind: "capture", id: p.capture_id }] : [];
-  const deps = await c.query<{ depends_on: string }>(
-    "select depends_on from package_dependencies where package_id = $1 and package_revision = $2 order by depends_on", [id, p.revision]);
-  for (const d of deps.rows) sources.push({ kind: "package", id: d.depends_on });
+  const sources = await storedSources(c, id);
   const inputs: MarkingInput[] = [];
   for (const s of sources) {
     const sm = await ensureMarking(c, s.kind, s.id, seen);

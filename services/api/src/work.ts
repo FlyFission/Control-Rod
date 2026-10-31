@@ -11,7 +11,7 @@ import { enrollPreparationTx, advancePreparationRevision } from "./preparation/s
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
-import { covers, endOverride, laneOf, markObject, mostSensitive, type Ref } from "./markings.js";
+import { basisRef, covers, endOverride, laneOf, markObject, mostSensitive, storedSources, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -149,10 +149,8 @@ async function transmittedSources(c: Tx, pkg: PackageRow, run: Json): Promise<Re
   if (run.preparation_manifest_digest) {
     const m = await c.query<{ body: Json }>("select body from preparation_release_manifests where digest = $1", [run.preparation_manifest_digest.value]);
     for (const b of m.rows[0]?.body.basis_refs ?? []) {
-      const ref = String(b.reference ?? "");
-      if (b.kind === "capture" && ref.startsWith("capture:")) out.push({ kind: "capture", id: ref.slice(8) });
-      else if (b.kind === "attachment" && ref.startsWith("attachment:")) out.push({ kind: "capture", id: ref.slice(11).split("/")[0]! });
-      else if (b.kind === "package" && ref.startsWith("package:") && ref !== `package:${pkg.id}`) out.push({ kind: "package", id: ref.slice(8) });
+      const r = basisRef(b, pkg.id);
+      if (r) out.push(r);
     }
     return out;
   }
@@ -201,9 +199,7 @@ async function provenanceLane(c: Tx, ref: Ref, seen = new Set<string>()): Promis
   const pkg = await currentPackage(c, ref.id);
   if (!pkg || !isLane(pkg.body.data_lane)) return { missing: ref };
   const lanes: DataLane[] = [pkg.body.data_lane];
-  const sources: Ref[] = pkg.capture_id ? [{ kind: "capture", id: pkg.capture_id }] : [];
-  for (const dep of (await dependenciesReady(c, pkg)).deps) sources.push({ kind: "package", id: dep });
-  for (const s of sources) {
+  for (const s of await storedSources(c, ref.id)) {
     const got = await provenanceLane(c, s, seen);
     if (got.missing) return { missing: got.missing };
     if (got.lane) lanes.push(got.lane);

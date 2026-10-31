@@ -339,7 +339,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions/options", async (req) => {
     const issuedTo = await person(req);
     const { kind, package_revision: revision } = req.body ?? ({} as DecisionBody);
-    const s = await decisionSubject(db, req.params.id, String(kind), Number(revision), cfg);
+    const s = await decisionSubject(db, req.params.id, String(kind), Number(revision), cfg, issuedTo);
     const shown = req.body?.expected_subject_digest?.value;
     if (shown !== undefined && shown !== s.digest) {
       throw new Refusal(409, "changed", "This package changed since you opened it. Reload and review the current version.");
@@ -390,7 +390,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     "/packages/:id/runs/:runId/override-independence/options",
     async (req) => {
       const issuedTo = await person(req);
-      const s = await overrideSubject(db, req.params.id, req.params.runId, req.body?.reason);
+      const s = await overrideSubject(db, req.params.id, req.params.runId, req.body?.reason, issuedTo);
       const nonce = randomBytes(16).toString("hex");
       const options = await assertionOptions(
         db,

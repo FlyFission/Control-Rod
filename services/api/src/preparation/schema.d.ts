@@ -1431,6 +1431,12 @@ export interface components {
             project: string;
             mode: components["schemas"]["ControlRod.Records.Mode"];
             discipline?: string;
+            /**
+             * @description The quality grade signers must hold (workbench specification 5.2). Absent means General service,
+             *     as for every package drafted before grades existed.
+             * @enum {string}
+             */
+            grade?: "safety" | "material" | "general-service";
             status: components["schemas"]["ControlRod.Records.PackageStatus"];
             rigor_mode: components["schemas"]["ControlRod.Records.RigorMode"];
             data_lane: components["schemas"]["ControlRod.Records.DataLane"];

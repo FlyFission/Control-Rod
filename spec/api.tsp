@@ -61,6 +61,14 @@ namespace Captures {
     text: string;
 
     source?: "web" | "cli" | "voice" | "chat";
+
+    /** Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
+    lane?: ControlRod.Records.DataLane;
+  }
+
+  /** Classifies a capture's data lane. Needs lane authority; a capture's lane can be raised, never lowered here. */
+  model Classification {
+    lane: ControlRod.Records.DataLane;
   }
 
   /** The latest intake run for a capture still pending, so a failed intake is never stranded. */
@@ -81,6 +89,7 @@ namespace Captures {
     @statusCode _: 201;
     @body capture: Capture;
   } | Refused;
+  @route("/{id}/classify") @post op classify(@path id: string, @body body: Classification): Capture | Refused;
 }
 
 /** What the web app shows for one package: the revision, its runs, output and decisions. */

@@ -10,7 +10,7 @@ import {
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Db } from "./db/index.js";
 import { command } from "./commands/executor.js";
-import { recordRegistration } from "./tenancy.js";
+import { LOCAL_ORG, grantFoundingAuthorities, recordRegistration } from "./tenancy.js";
 
 export interface AuthConfig {
   rpID: string;
@@ -147,6 +147,8 @@ export async function registrationVerify(db: Db, cfg: AuthConfig, body: Registra
       userName: String(data.name), credentialId: credential.id, format: info.fmt, aaguid: info.aaguid,
       userVerified: info.userVerified, backupEligible: info.credentialDeviceType === "multiDevice",
     }, { kind: "human", id: String(data.name) });
+    // The very first person becomes the organization's founding member, able to run it at once.
+    if (data.kind === "first") await grantFoundingAuthorities(c, LOCAL_ORG);
   });
   return String(data.name);
 }

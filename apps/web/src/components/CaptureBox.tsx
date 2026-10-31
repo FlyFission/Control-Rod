@@ -1,6 +1,8 @@
 import { useRef, useState, type DragEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
+import type { DataLane } from "../api/types.js";
+import { LanePicker } from "./LanePicker.js";
 import { FILE_LIMIT, composeCapture, readBytes, toBase64, type Attached } from "../lib/attachments.js";
 
 /** The capture contract caps what a person types at 20,000 characters. Files ride as attachments. */
@@ -12,10 +14,11 @@ export function CaptureBox() {
   const [files, setFiles] = useState<Attached[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
+  const [lane, setLane] = useState<DataLane>("internal");
   const input = useRef<HTMLInputElement>(null);
 
   const send = useMutation({
-    mutationFn: (body: string) => api.capture({ text: body, source: "web" }),
+    mutationFn: (body: string) => api.capture({ text: body, source: "web", lane }),
     onSuccess: () => {
       setText("");
       setFiles([]);
@@ -117,6 +120,7 @@ export function CaptureBox() {
             </button>
           </span>
         ))}
+        <LanePicker id="capture-lane" value={lane} onChange={setLane} />
         <span className={tooLong ? "count error" : "count muted"} aria-live="polite">
           {typed.length.toLocaleString()} / {CAPTURE_LIMIT.toLocaleString()}
         </span>

@@ -30,6 +30,7 @@ import {
   applyDecision,
   claim,
   complete,
+  classifyCapture,
   createCapture,
   decisionChallenge,
   decisionSubject,
@@ -274,11 +275,15 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await person(req);
     return listCaptures(db);
   });
-  app.post<{ Body: { text?: string; source?: string } }>("/captures", async (req, reply) => {
+  app.post<{ Body: { text?: string; source?: string; lane?: string } }>("/captures", async (req, reply) => {
     const user = await person(req);
     const source = ["web", "cli", "voice", "chat"].includes(String(req.body?.source)) ? String(req.body?.source) : "web";
-    const capture = await createCapture(db, cfg, user, String(req.body?.text ?? ""), source);
+    const capture = await createCapture(db, cfg, user, String(req.body?.text ?? ""), source, req.body?.lane);
     return reply.code(201).send(capture);
+  });
+  app.post<{ Params: { id: string }; Body: { lane?: string } }>("/captures/:id/classify", async (req) => {
+    const user = await person(req);
+    return classifyCapture(db, cfg, user, req.params.id, req.body?.lane);
   });
 
   /* ---- packages ---- */

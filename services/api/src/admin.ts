@@ -8,7 +8,7 @@ import { appendEvent, type Actor } from "./events.js";
 import { digest } from "./kernel.js";
 import {
   type DataLane, type License, type Member, type SignerAuthority, type SignerGrade, type SignerQualification, type SignerRole,
-  addMember, bindRepo, checkSchema, createProject, currentCredential, currentPolicySet, currentQualification, memberIdFor,
+  addMember, bindRepo, checkSchema, qualificationIdFor, createProject, currentCredential, currentPolicySet, currentQualification, memberIdFor,
   recordCredential, recordDelegation, recordPolicySet, recordQualification, setStatus,
 } from "./tenancy.js";
 import { getObject, recordObject, transition } from "./workbench.js";
@@ -51,8 +51,7 @@ const arr = <T>(p: Record<string, unknown>, k: string): T[] => {
 const actorOf = (caller: Caller): Actor => ({ kind: "human", id: caller.memberId });
 const idFor = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "").slice(0, 20)}`;
 
-/** The deterministic id of a Member's one qualification identity, so issues and revocations version it. */
-export const qualificationIdFor = (memberId: string) => `qual_${memberId.slice(4)}`;
+export { qualificationIdFor } from "./tenancy.js";
 
 async function member(c: Tx | Db, id: string, orgId: string): Promise<Member> {
   const r = await c.query<{ body: Member }>("select body from members where id = $1 and org_id = $2", [id, orgId]);

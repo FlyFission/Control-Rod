@@ -13,6 +13,7 @@ export type PackageView = S["PackageView"];
 export type Run = S["ControlRod.Records.Run"];
 export type Artifact = S["ControlRod.Records.Artifact"];
 export type Digest = S["ControlRod.Records.Digest"];
+export type DataLane = S["ControlRod.Records.DataLane"];
 export type Decision = S["ControlRod.Records.Decision"];
 export type DecisionKind = S["ControlRod.Records.DecisionKind"];
 export type DecisionRequest = S["Packages.DecisionRequest"];

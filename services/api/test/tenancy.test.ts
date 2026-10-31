@@ -28,7 +28,7 @@ beforeAll(async () => {
 afterAll(async () => h?.stop());
 
 const capture = (text: string) =>
-  h.app.inject({ method: "POST", url: "/captures", headers: { cookie, origin: ORIGIN }, payload: { text } });
+  h.app.inject({ method: "POST", url: "/captures", headers: { cookie, origin: ORIGIN }, payload: { text, lane: "internal" } });
 
 /** Every signed body, digest and event as stored, for before and after comparison. */
 async function snapshot() {

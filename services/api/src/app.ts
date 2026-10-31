@@ -55,6 +55,9 @@ import {
   runtimeStatus,
   stopRun,
   sweepLost,
+  runEvidence,
+  reconcileSubject,
+  reconcileRun,
   updateDraft,
 } from "./work.js";
 
@@ -162,8 +165,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
 
   // Runs whose daemon stopped renewing its lease are retired as lost: on a timer, and before the
   // office or a claim is read so neither ever shows a dead run as working.
-  const sweep = () => sweepLost(db, cfg).catch(() => undefined);
+  // A failed sweep is logged, never silent: runs it missed are swept on the next pass.
+  const sweep = () => sweepLost(db, cfg).catch((e) => (opts.onError ?? ((err) => console.error("[control-rod] sweep failed:", err)))(e));
   const sweepEvery = opts.sweepSeconds ?? 15;
+  cfg.supervision = { startedAt: Date.now(), sweepSeconds: sweepEvery };
   if (sweepEvery > 0) {
     const timer = setInterval(() => void sweep(), sweepEvery * 1000);
     timer.unref();
@@ -452,6 +457,26 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       return overrideIndependence(db, cfg, user, req.params.id, req.params.runId, reason, signed);
     },
   );
+  /* ---- reconcile an unknown outcome (specification 22) ---- */
+  app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>("/packages/:id/runs/:runId/reconcile/options", async (req) => {
+    const issuedTo = await person(req);
+    const s = await reconcileSubject(db, issuedTo, req.params.id, req.params.runId, req.body?.reason);
+    const nonce = randomBytes(16).toString("hex");
+    const options = await assertionOptions(db, auth, "reconcile", { package_id: req.params.id, run_id: req.params.runId, subject_digest: s.digest, nonce },
+      new Uint8Array(createHash("sha256").update(`${s.digest}|reconcile|${nonce}`).digest()), issuedTo);
+    return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
+  });
+  app.post<{ Params: { id: string; runId: string }; Body: { reason?: string; assertion?: Record<string, unknown> } }>("/packages/:id/runs/:runId/reconcile", async (req) => {
+    const user = await person(req);
+    let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
+    if (req.body?.assertion) {
+      const ok = await assertionVerify(db, auth, "reconcile", req.body.assertion as never);
+      if (ok && ok.user === user && ok.data.package_id === req.params.id && ok.data.run_id === req.params.runId)
+        signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
+    }
+    return reconcileRun(db, cfg, user, req.params.id, req.params.runId, req.body?.reason, signed);
+  });
+
   app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/requeue", async (req, reply) => {
     const user = await person(req);
     return reply.code(201).send(await requeueRun(db, cfg, user, req.params.id, req.params.runId));
@@ -514,10 +539,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (!job) return reply.code(204).send();
     return job;
   });
-  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string } }>("/runner/runs/:id/log", async (req) => {
+  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string; receipt?: unknown } }>("/runner/runs/:id/log", async (req) => {
     daemon(req);
     const lines = Array.isArray(req.body?.lines) ? req.body.lines.map(String) : [];
-    return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined);
+    return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined, req.body?.receipt);
+  });
+  app.post<{ Params: { id: string } }>("/runner/runs/:id/evidence", async (req) => {
+    daemon(req);
+    return runEvidence(db, cfg, req.params.id, req.body ?? {});
   });
   app.post<{ Params: { id: string } }>("/runner/runs/:id/complete", async (req) => {
     daemon(req);

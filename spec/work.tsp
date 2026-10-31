@@ -123,6 +123,97 @@ model Run {
 
   /** The owner let this pre-check run on the author's runtime. Recorded before it ran. */
   independence_override?: OwnerOverride;
+
+  /**
+   * Which attempt this is at its package revision, role and round, counting from 1. Reports from an
+   * attempt a later one superseded are refused (the generation fence, specification 22).
+   */
+  @minValue(1)
+  generation?: int32;
+
+  /** The process the daemon spawned for this run, as it recorded it at spawn. */
+  receipt?: OwnershipReceipt;
+
+  /**
+   * Set when the run was dispatched but its exit or completion was never observed (specification
+   * 9 and 22). It holds requeue until a reconciliation records what happened.
+   */
+  outcome_unknown?: OutcomeUnknown;
+
+  /** What settled an unknown outcome, and the evidence for it. */
+  reconciliation?: Reconciliation;
+
+  /**
+   * Lease renewals granted without a heartbeat (after a controller restart, a machine sleep or an
+   * apparent outage). At most one is granted until a heartbeat proves the run alive, so no number
+   * of restarts keeps a dead run running.
+   */
+  @minValue(0)
+  grace_renewals?: int32;
+}
+
+/**
+ * Proof of which process a daemon started for a run (specification 22). A stop, sweep or kill acts
+ * only while the live process still matches: same boot, same process id, same start time.
+ */
+@extension("unevaluatedProperties", false)
+model OwnershipReceipt {
+  @minValue(1)
+  pid: int32;
+
+  /** The process group the run's process leads. */
+  @minValue(1)
+  pgid: int32;
+
+  /** The process start time in the operating system's own units (Linux: clock ticks since boot). */
+  @minLength(1)
+  @maxLength(64)
+  process_start: string;
+
+  /** The kernel's identifier for this boot; a reboot changes it. */
+  @minLength(1)
+  @maxLength(64)
+  boot_id: string;
+
+  @minValue(1)
+  generation: int32;
+
+  started_at: utcDateTime;
+
+  /**
+   * cgroup: the run has its own systemd user scope, which the daemon can freeze and kill as one
+   * and which reports when it is empty. process-group: the fallback without a user systemd.
+   */
+  containment: "cgroup" | "process-group";
+
+  /** The scope's unit name (cgroup containment). */
+  @maxLength(200)
+  unit?: string;
+}
+
+@extension("unevaluatedProperties", false)
+model OutcomeUnknown {
+  since: utcDateTime;
+
+  @maxLength(300)
+  reason: string;
+}
+
+/** How an unknown outcome was settled. */
+@extension("unevaluatedProperties", false)
+model Reconciliation {
+  /**
+   * completed-late: the daemon's completion arrived after the run was marked lost; it is retained,
+   * never applied. process-gone: the daemon proved from its receipt that the process no longer runs.
+   * abandoned: a person signed that the run will not report, with a reason.
+   */
+  disposition: "completed-late" | "process-gone" | "abandoned";
+
+  @maxLength(2000)
+  evidence: string;
+
+  recorded_at: utcDateTime;
+  by: Actor;
 }
 
 /**

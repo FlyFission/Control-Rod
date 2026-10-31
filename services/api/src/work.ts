@@ -12,7 +12,7 @@ import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
-import { type Actor, appendEvent } from "./events.js";
+import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -29,6 +29,11 @@ export interface WorkConfig {
   ajv: Ajv2020;
   /** Seconds a claim lasts without a heartbeat before the sweep marks the run lost. */
   leaseSeconds?: number;
+  /**
+   * The sweep's memory of the controller (specification 22): when it started, how often the timer
+   * sweeps (0 means only on demand), when it last swept, and whether an outage is being reported.
+   */
+  supervision?: { startedAt: number; sweepSeconds: number; lastSweepAt?: number; outage?: boolean; outageUntil?: number; issued?: Set<string> };
   guidedPreparation?: boolean;
   preparedRelease?: boolean;
   preparationSources?: Record<string,{kind:"document"|"policy";revision:string;path:string}>;
@@ -408,6 +413,10 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
 
 async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: number, role: string, round: number, requeueOf?: string) {
   const manifest=(await c.query<{digest:string}>("select digest from preparation_release_manifests where package_id=$1 and package_revision=$2",[packageId,revision])).rows[0];
+  // The generation fence: each attempt at this revision, role and round is numbered.
+  const attempts = await c.query<{ n: number }>(
+    "select count(*)::int as n from runs where package_id = $1 and package_revision = $2 and role = $3 and round = $4",
+    [packageId, revision, role, round]);
   const run: Json = {
     ...(manifest?{preparation_manifest_digest:{algorithm:"sha256",value:manifest.digest}}:{}),
     schema_version: "0.1.0",
@@ -420,6 +429,7 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
     round,
     status: "queued",
     queued_at: now(),
+    generation: (attempts.rows[0]?.n ?? 0) + 1,
     ...(requeueOf ? { requeue_of: requeueOf } : {}),
   };
   validate(cfg, "Run.json", run);
@@ -838,6 +848,202 @@ const leaseFromNow = (cfg: WorkConfig) => new Date(Date.now() + leaseSeconds(cfg
 const tokenHash = (t: string) => createHash("sha256").update(t).digest();
 
 /** Constant-time check that `token` is the claim token this run was handed. */
+/** Whether the controller looks to have been absent: no sweep for longer than a lease (the machine slept). */
+function controllerAbsent(cfg: WorkConfig): boolean {
+  const sup = cfg.supervision;
+  return Boolean(sup && sup.sweepSeconds > 0 && sup.lastSweepAt !== undefined
+    && Date.now() - sup.lastSweepAt > Math.max(leaseSeconds(cfg), 3 * sup.sweepSeconds) * 1000);
+}
+
+/** Whether most active runs look dead at once right now: an apparent outage (see sweepLost). */
+async function outageNow(c: Tx): Promise<boolean> {
+  const r = await c.query<{ active: number; lapsed: number }>(
+    "select count(*)::int as active, count(*) filter (where lease_expires_at <= clock_timestamp())::int as lapsed from runs where status = 'running'");
+  const { active = 0, lapsed = 0 } = r.rows[0] ?? {};
+  return active >= 3 && lapsed * 2 > active;
+}
+
+/**
+ * Why a heartbeat or completion that reaches a lapsed lease before the sweep may still count, or
+ * null: the lease was granted before this controller started, the controller was absent, or most
+ * runs lapsed together (an apparent outage). The sweep applies the same reasons, so whichever comes
+ * first, a live daemon is never stopped by the controller's own interruption.
+ */
+async function leaseGrace(c: Tx, cfg: WorkConfig, runId: string): Promise<string | null> {
+  const sup = cfg.supervision;
+  if (!sup) return null;
+  if (!sup.issued?.has(runId)) return "the lease was granted before the controller restarted";
+  if (controllerAbsent(cfg)) return "the controller was not sweeping when the lease lapsed";
+  // An outage, once seen, lasts a lease: runs that come back one by one each count, even after
+  // the rest have made the lapsed ones a minority again.
+  if (sup.outageUntil !== undefined && Date.now() < sup.outageUntil) return "most active runs lapsed at once, which looks like an outage";
+  if (await outageNow(c)) {
+    const until = Date.now() + leaseSeconds(cfg) * 1000;
+    afterCommit(c, () => (sup.outageUntil = until));
+    return "most active runs lapsed at once, which looks like an outage";
+  }
+  return null;
+}
+
+/**
+ * Renews a lapsed lease without a heartbeat, counting it on the run (grace_renewals) so the bound
+ * holds across controller restarts.
+ */
+async function renewLease(c: Tx, cfg: WorkConfig, row: { id: string; package_id: string; body: Json }, reason: string): Promise<string> {
+  const lease = leaseFromNow(cfg);
+  issuedLease(c, cfg, row.id);
+  const grace = (row.body.grace_renewals ?? 0) + 1;
+  await c.query(
+    "update runs set lease_expires_at = $2, body = jsonb_set(jsonb_set(body, '{lease_expires_at}', to_jsonb($3::text)), '{grace_renewals}', to_jsonb($4::int)) where id = $1 and status = 'running'",
+    [row.id, lease, lease, grace]);
+  await appendEvent(c, "run.lease-renewed", row.id, SYSTEM, { package: row.package_id, lease_expires_at: lease, reason, grace_renewals: grace });
+  return lease;
+}
+
+/** At most this many lease renewals without a heartbeat; a heartbeat resets the count. */
+const MAX_GRACE_RENEWALS = 1;
+
+/** Notes, once the transaction commits, that this controller process issued or renewed a run's lease. */
+function issuedLease(c: Tx, cfg: WorkConfig, runId: string): void {
+  const sup = cfg.supervision;
+  if (!sup) return;
+  afterCommit(c, () => (sup.issued ??= new Set()).add(runId));
+}
+
+/**
+ * Whether a completion proves every process of the run ended: its scope reported empty (cgroup),
+ * or no process was started at all. Process group containment, or no proof, does not.
+ */
+function provesEnded(row: RunRow, body: Json): boolean {
+  if (body?.containment === "none") return true;
+  const containment = body?.containment ?? row.body.receipt?.containment;
+  return containment === "cgroup" && (row.body.receipt?.containment ?? "cgroup") === "cgroup";
+}
+
+/**
+ * A run that ended without succeeding and without proof that all its processes ended keeps an
+ * unknown outcome, so requeue waits for a person to reconcile (a process that left its group may
+ * still run). Only a cgroup, or a run that started no process, proves it.
+ */
+function holdIfUnproven(row: RunRow, finished: Json, body: Json): void {
+  if (finished.status === "succeeded" || provesEnded(row, body)) return;
+  finished.outcome_unknown = { since: now(), reason: body?.containment === "process-group"
+    ? "process group containment cannot prove every process of the run stopped"
+    : "the daemon sent no proof that every process of the run stopped" };
+}
+
+/** Records the spawn receipt a completion carries, when no log post recorded it first. */
+function takeReceipt(cfg: WorkConfig, row: RunRow, finished: Json, body: Json): void {
+  if (body?.receipt === undefined) return;
+  validate(cfg, "OwnershipReceipt.json", body.receipt);
+  if (body.receipt.generation !== (row.body.generation ?? 1)) throw new Refusal(409, "receipt-mismatch", "The spawn receipt names another attempt of this run");
+  if (row.body.receipt && !sameReceipt(row.body.receipt, body.receipt)) throw new Refusal(409, "receipt-mismatch", "This run already has a different spawn receipt on record");
+  finished.receipt ??= body.receipt;
+}
+
+/** Whether two spawn receipts name the same process of the same attempt. */
+function sameReceipt(a: Json, b: Json): boolean {
+  return a.pid === b.pid && a.pgid === b.pgid && a.process_start === b.process_start && a.boot_id === b.boot_id && a.generation === b.generation
+    && a.containment === b.containment && (a.unit ?? null) === (b.unit ?? null);
+}
+
+/** The generation fence: refuses a report from an attempt that a later attempt superseded. */
+async function requireCurrentGeneration(c: Tx, row: RunRow): Promise<void> {
+  const r = await c.query<{ g: number | null }>(
+    "select max((body->>'generation')::int) as g from runs where package_id = $1 and package_revision = $2 and role = $3 and round = $4",
+    [row.package_id, row.package_revision, row.role, row.round]);
+  const newest = r.rows[0]?.g ?? null;
+  if (newest !== null && (row.body.generation ?? 1) < newest)
+    throw new Refusal(409, "superseded", "A later attempt of this run has started; this attempt can no longer report");
+}
+
+/**
+ * Settles a run's unknown outcome with its evidence (specification 22). Only an unreconciled hold is
+ * settled; the first reconciliation stands. Returns whether this call settled it.
+ */
+async function reconcileTx(c: Tx, cfg: WorkConfig, row: RunRow, disposition: "completed-late" | "process-gone" | "abandoned", evidence: string, by: Actor): Promise<boolean> {
+  const fresh = (await c.query<{ body: Json; status: string }>("select body, status from runs where id = $1", [row.id])).rows[0];
+  if (!fresh?.body.outcome_unknown || fresh.body.reconciliation) return false;
+  const reconciliation = { disposition, evidence: evidence.slice(0, 2000), recorded_at: now(), by };
+  const body = { ...fresh.body, reconciliation };
+  validate(cfg, "Run.json", body);
+  await c.query("update runs set body = $2 where id = $1", [row.id, body]);
+  await appendEvent(c, "run.reconciled", row.id, by, { package: row.package_id, role: row.role, disposition });
+  return true;
+}
+
+/**
+ * A daemon's restart evidence (runner route): from its retained spawn receipt it found the run's
+ * process gone, or stopped it after verifying the receipt. A run still marked running is retired
+ * as lost and settled at once; a lost run's unknown outcome is settled.
+ */
+export async function runEvidence(db: Db, cfg: WorkConfig, runId: string, body: Json) {
+  if (body?.observation !== "process-gone") throw new Refusal(400, "invalid", "observation must be process-gone");
+  validate(cfg, "OwnershipReceipt.json", body?.receipt);
+  return command(db, "run.reconcile-evidence", async (c) => {
+    const row = await lockRun(c, runId);
+    requireLegacyRun(row);
+    if (!holdsClaim(row.claim_token_hash, body.claim_token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
+    const r = body.receipt as Json;
+    if (r.generation !== (row.body.generation ?? 1)) throw new Refusal(409, "receipt-mismatch", "The receipt names another attempt of this run");
+    if (row.body.receipt && !sameReceipt(row.body.receipt, r)) throw new Refusal(409, "receipt-mismatch", "The receipt does not match the one on record for this run");
+    const agent: Actor = { kind: "agent", id: row.body.agent_baseline };
+    // Only a cgroup proves every process of the run gone; process group evidence cannot see a
+    // process that left the group, so it is recorded but leaves the outcome unknown for a person.
+    const whole = r.containment === "cgroup";
+    const evidence = whole
+      ? `After a restart the daemon confirmed scope ${String(r.unit ?? "")} empty (leader ${r.pid}, boot ${r.boot_id}), stopping what it held after verifying its receipt. No completion was reported.`
+      : `After a restart the daemon found leader ${r.pid} and its process group gone (boot ${r.boot_id}); process group containment cannot see processes that left the group.`;
+    if (row.status === "running") {
+      const lost = { ...row.body, status: "lost", finished_at: now(), label: "Lost",
+        error: "The daemon restarted while this run was running; its process is gone and nothing was reported. It can be requeued.",
+        outcome_unknown: { since: now(), reason: "the daemon restarted before the run's completion was reported" } };
+      delete lost.lease_expires_at;
+      validate(cfg, "Run.json", lost);
+      await c.query("update runs set status = 'lost', body = $2 where id = $1", [row.id, lost]);
+      await appendEvent(c, "run.lost", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+    }
+    if (!whole) {
+      await appendEvent(c, "run.evidence", row.id, agent, { package: row.package_id, observation: "process-gone", containment: r.containment, evidence });
+      return { run_id: runId, reconciled: false };
+    }
+    const reconciled = await reconcileTx(c, cfg, row, "process-gone", evidence, agent);
+    return { run_id: runId, reconciled };
+  });
+}
+
+/** What a person signs to settle a run's unknown outcome: the run, its attempt and the reason. */
+export async function reconcileSubject(db: Db, user: string, packageId: string, runId: string, reason: unknown) {
+  const why = typeof reason === "string" ? reason.trim() : "";
+  if (!why) throw new Refusal(400, "reason-required", "Say why the run will not report, for example that its machine was replaced");
+  const r = await db.query<RunRow>("select * from runs where id = $1", [runId]);
+  const row = r.rows[0];
+  if (!row || row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+  if (!row.body.outcome_unknown || row.body.reconciliation) throw new Refusal(409, "not-unknown", "This run's outcome is not unknown; there is nothing to reconcile");
+  await requireAuthority(db, user, "reconcile", needsOf((await currentPackage(db, packageId))?.body ?? {}));
+  return { digest: digest({ act: "reconcile", run_id: runId, generation: row.body.generation ?? 1, reason: why.slice(0, 2000) }), reason: why.slice(0, 2000) };
+}
+
+/** A person's signed reconciliation: the run is abandoned, with the reason as evidence. */
+export async function reconcileRun(db: Db, cfg: WorkConfig, user: string, packageId: string, runId: string, reason: unknown,
+  signed: { subject_digest: string; assertion: Json } | null) {
+  return command(db, "run.reconcile", async (c) => {
+    if (!signed) throw new Refusal(403, "unsigned", "Reconciling an unknown outcome must be signed with your passkey");
+    await lockSigner(c, user, String(signed.assertion.id ?? ""));
+    const row = await lockRun(c, runId);
+    if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+    const why = typeof reason === "string" ? reason.trim().slice(0, 2000) : "";
+    if (!why) throw new Refusal(400, "reason-required", "Say why the run will not report");
+    if (!row.body.outcome_unknown || row.body.reconciliation) throw new Refusal(409, "not-unknown", "This run's outcome is not unknown; there is nothing to reconcile");
+    await requireAuthority(c, user, "reconcile", needsOf((await currentPackage(c, packageId))?.body ?? {}));
+    const expected = digest({ act: "reconcile", run_id: runId, generation: row.body.generation ?? 1, reason: why });
+    if (signed.subject_digest !== expected) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact reconciliation");
+    await reconcileTx(c, cfg, row, "abandoned", `${user} signed that this run will not report: ${why}`, { kind: "human", id: user });
+    const after = (await c.query<{ body: Json; status: string }>("select body, status from runs where id = $1", [runId])).rows[0]!;
+    return { ...after.body, status: after.status };
+  });
+}
+
 function holdsClaim(storedHash: string | null, token: unknown): boolean {
   if (!storedHash || typeof token !== "string" || token.length === 0) return false;
   const want = Buffer.from(storedHash, "hex");
@@ -876,6 +1082,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     lease,
   ]);
   await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round, lease_expires_at: lease });
+  issuedLease(c, cfg, row.id);
   const job = await buildJob(c, cfg, body, runtime);
   return { ...job, claim: { token, lease_expires_at: lease, heartbeat_seconds: heartbeatSeconds(cfg) } };
 }
@@ -908,19 +1115,38 @@ const LABEL_MAX = 120;
  * A log batch from the daemon, which is also its heartbeat: it renews the lease. The reply tells
  * the daemon whether the owner asked to stop the run.
  */
-export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string) {
+export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string, receipt?: unknown) {
   return command(db, "run.log", async (c) => {
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
     if (!holdsClaim(row.claim_token_hash, token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
     if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
-    if((await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount) throw new Refusal(409,"run-lost","The run lease expired; a late heartbeat cannot revive it");
+    await requireCurrentGeneration(c, row);
+    if((await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount) {
+      const why = await leaseGrace(c, cfg, runId);
+      if (!why) throw new Refusal(409,"run-lost","The run lease expired; a late heartbeat cannot revive it");
+      await appendEvent(c, "run.lease-renewed", runId, SYSTEM, { package: row.package_id, reason: `the daemon's heartbeat reached a lapsed lease: ${why}` });
+    }
     // Refuse, never truncate: a line the server drops after acknowledging it is lost for good.
     if (lines.length > MAX_LOG_LINES) {
       throw new Refusal(400, "too-many-lines", `Send at most ${MAX_LOG_LINES} lines per batch`);
     }
     const lease = leaseFromNow(cfg);
     const body = { ...row.body, lease_expires_at: lease, ...(label ? { label: label.slice(0, LABEL_MAX) } : {}) };
+    issuedLease(c, cfg, runId);
+    // A heartbeat proves the run alive: the grace bound starts over.
+    delete body.grace_renewals;
+    if (receipt !== undefined) {
+      validate(cfg, "OwnershipReceipt.json", receipt);
+      const r = receipt as Json;
+      if (r.generation !== (row.body.generation ?? 1)) throw new Refusal(409, "receipt-mismatch", "The spawn receipt names another attempt of this run");
+      if (row.body.receipt && !sameReceipt(row.body.receipt, r)) throw new Refusal(409, "receipt-mismatch", "This run already has a different spawn receipt on record");
+      if (!row.body.receipt) {
+        body.receipt = r;
+        await appendEvent(c, "run.receipt", runId, { kind: "agent", id: row.body.agent_baseline }, { pid: r.pid, boot_id: r.boot_id, generation: r.generation });
+      }
+    }
+    validate(cfg, "Run.json", body);
     await c.query("update runs set log = log || $2::text[], body = $3, lease_expires_at = $4 where id = $1", [
       runId,
       lines.map((l) => l.slice(0, 4000)),
@@ -936,15 +1162,68 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
 
 /**
  * Retires running runs whose lease lapsed: the daemon died, lost its network or was killed. The
- * run becomes lost, with the reason on the record. Nothing is requeued; the owner decides.
+ * run becomes lost with an unknown outcome, which holds requeue until it is reconciled
+ * (specification 22). Nothing is requeued and nothing is terminated; the sweep records facts.
+ *
+ * Two rules keep a controller's own absence from looking like dead runs:
+ * - a lease this controller process never issued or renewed was granted by an earlier one, so its
+ *   lapse may only reflect the restart; it is renewed once instead. So is every lapsed lease after
+ *   a gap between sweeps longer than a lease, as when the machine slept;
+ * - when more than half of at least three active runs look dead in one pass, that is an outage,
+ *   not a fact about the runs: each such run gets one recovery lease and the outage is recorded
+ *   once. A run that lapses again after its recovery lease is a fact, so no outage holds a dead
+ *   run forever.
+ * A heartbeat or completion that reaches a lapsed lease before the sweep does gets the same
+ * treatment (leaseGrace), so a live daemon is never stopped by a controller's own restart.
  */
 export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
   return command(db, "run.sweep-lost", async (c) => {
-    const r = await c.query<RunRow>(
-      "select * from runs where status = 'running' and lease_expires_at < now() order by created_at,id",
+    const sup = cfg.supervision;
+    const slept = controllerAbsent(cfg);
+    if (sup) {
+      const at = Date.now();
+      afterCommit(c, () => (sup.lastSweepAt = at));
+    }
+    const r = await c.query<RunRow & { expired_at: Date }>(
+      "select *, lease_expires_at as expired_at from runs where status = 'running' and lease_expires_at < now() order by created_at,id",
     );
     const lost: string[] = [];
-    for (const candidate of r.rows) {
+    const definite: typeof r.rows = [];
+    const doubtful: typeof r.rows = [];
+    for (const row of r.rows) {
+      // A run already renewed once without a heartbeat gets no more grace, whatever the reason.
+      if ((row.body.grace_renewals ?? 0) >= MAX_GRACE_RENEWALS) { definite.push(row); continue; }
+      const inherited = sup !== undefined && !sup.issued?.has(row.id);
+      if (slept || inherited) {
+        await renewLease(c, cfg, row, slept ? "the controller was not sweeping when this lease lapsed" : "this lease was granted before the controller restarted");
+        continue;
+      }
+      doubtful.push(row);
+    }
+    const active = (await c.query<{ n: number }>("select count(*)::int as n from runs where status = 'running'")).rows[0]?.n ?? 0;
+    let candidates = [...definite, ...doubtful];
+    // An outage heartbeats already recognized still holds for the sweep, within its window.
+    const recognized = sup?.outageUntil !== undefined && Date.now() < sup.outageUntil;
+    if (sup && doubtful.length > 0 && ((active >= 3 && doubtful.length * 2 > active) || recognized)) {
+      for (const row of doubtful) await renewLease(c, cfg, row, "a recovery lease: most active runs stopped answering at once, which looks like an outage");
+      const until = Date.now() + leaseSeconds(cfg) * 1000;
+      afterCommit(c, () => (sup.outageUntil = until));
+      if (!sup.outage) {
+        afterCommit(c, () => (sup.outage = true));
+        await appendEvent(c, "runs.sweep-outage", "runs", SYSTEM, { active, looking_dead: doubtful.length });
+      }
+      candidates = definite;
+    } else if (sup) {
+      afterCommit(c, () => (sup.outage = false));
+    }
+    if (sup) {
+      // Forget runs that are no longer running, so the set stays the size of the live work.
+      if (sup.issued?.size) {
+        const live = new Set((await c.query<{ id: string }>("select id from runs where status = 'running'")).rows.map((x) => x.id));
+        afterCommit(c, () => { for (const id of sup.issued ?? []) if (!live.has(id)) sup.issued?.delete(id); });
+      }
+    }
+    for (const candidate of candidates) {
       const row=await lockRun(c,candidate.id);
       if(row.status!=="running" || !(await c.query("select 1 from runs where id=$1 and lease_expires_at < now()",[row.id])).rowCount) continue;
       const body = {
@@ -952,7 +1231,8 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
         status: "lost",
         finished_at: now(),
         label: "Lost",
-        error: `Runner lost: no heartbeat from the daemon after ${String(row.body.lease_expires_at ?? "its lease")}. ${legacyRun(row) ? "Nothing was recorded from this run; the owner can requeue it." : "This attempt may have retained proposals or receipts. Review its retained evidence; this role cannot be requeued. A retry requires a new authorized attempt."}`,
+        error: `Runner lost: no heartbeat from the daemon after ${String(row.body.lease_expires_at ?? "its lease")}. ${legacyRun(row) ? "Its outcome is unknown until the daemon reports what happened or a person reconciles it; then it can be requeued." : "This attempt may have retained proposals or receipts. Review its retained evidence; this role cannot be requeued. A retry requires a new authorized attempt."}`,
+        outcome_unknown: { since: now(), reason: "the daemon stopped renewing the lease before the run's exit or completion was seen" },
       };
       delete body.lease_expires_at;
       validate(cfg, "Run.json", body);
@@ -977,6 +1257,8 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
     if (!["lost", "failed", "stopped"].includes(row.status)) {
       throw new Refusal(409, "not-requeueable", `A ${row.status} run cannot be requeued`);
     }
+    if (row.body.outcome_unknown && !row.body.reconciliation)
+      throw new Refusal(409, "outcome-unknown", "This run's outcome is unknown: its process may still be running. Reconcile it first");
     if (row.role !== "intake") {
       const pkg = await currentPackage(c, packageId, true);
       const want = row.role === "author" ? ["in-work", "released"] : ["in-verification"];
@@ -1172,7 +1454,8 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
         if (row.completion_key === key) return row.receipt;
         throw new Refusal(409, "already-complete", "This run already has a different completion on record");
       }
-      if (row.status === "lost" || (row.status==="running" && (await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount)) throw new LateCompletion();
+      if (row.status === "running") await requireCurrentGeneration(c, row);
+      if (row.status === "lost" || (row.status==="running" && (await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount && !(await leaseGrace(c, cfg, runId)))) throw new LateCompletion();
       if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
       try {
         return await applyCompletion(c, cfg, row, key, body);
@@ -1188,7 +1471,22 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
         const row=await lockRun(c,runId);
         if(!holdsClaim(row.claim_token_hash,body.claim_token)) throw new Refusal(403,"stale-claim","This claim token does not hold the run");
         const enrolled=Boolean((await c.query("select 1 from preparation_heads where package_id=$1",[row.package_id])).rowCount);
+        // A completion that beats the sweep to an expired run retires it here, so the evidence it
+        // carries settles the hold in the same transaction.
+        if (row.status === "running") {
+          const lostBody = { ...row.body, status: "lost", finished_at: now(), label: "Lost",
+            error: "The daemon's completion arrived after the run's lease lapsed; it is retained with its digests and never applied. The run can be requeued.",
+            outcome_unknown: { since: now(), reason: "the lease lapsed before the completion arrived" } };
+          delete lostBody.lease_expires_at;
+          validate(cfg, "Run.json", lostBody);
+          await c.query("update runs set status = 'lost', body = $2 where id = $1", [runId, lostBody]);
+          await appendEvent(c, "run.lost", runId, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+        }
         const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
+        // A late completion settles the hold only when a cgroup proved the whole run stopped; under
+        // process group containment a process that left the group may still run.
+        if (provesEnded(row, body))
+          await reconcileTx(c, cfg, row, "completed-late", `The daemon's completion (${String(body.status ?? "unknown")}) arrived after the run was marked lost; it is retained with its digests and never applied.`, { kind: "agent", id: row.body.agent_baseline });
         if(!enrolled || fresh) await appendEvent(c,"run.late-completion",runId,SYSTEM,{outputs:(Array.isArray(body.outputs)?body.outputs:[]).slice(0,200).map((o:Json)=>({name:String(o?.name??"").slice(0,200),sha256:sha256(Buffer.from(String(o?.content_base64??""),"base64"))}))});
       });
       throw new Refusal(409, "run-lost", "The lease expired or the run was marked lost before this completion arrived; its digests are on the record");
@@ -1243,6 +1541,8 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     finished.error = "The author run ended without writing anything to out/, so the package does not move. Requeue the run, or return or reject the package.";
   }
   if (body.trace) finished.trace = body.trace;
+  takeReceipt(cfg, row, finished, body);
+  holdIfUnproven(row, finished, body);
   validate(cfg, "Run.json", finished);
   await c.query("update runs set status = $2, body = $3 where id = $1", [runId, finished.status, finished]);
   for (const o of outputs) {
@@ -1294,6 +1594,7 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     validate(cfg, "Run.json", finished);
     const status=refusal.code==="stopped"?"stopped":"failed";
     finished.status=status;
+    holdIfUnproven(row, finished, body);
     await quarantineCompletion(c,runId,key,body,refusal.code);
     const receipt = receiptOf(runId, key, status, [], refusal);
     await c.query("update runs set status = $5, body = $2, completion_key = $3, receipt = $4 where id = $1", [
@@ -1771,7 +2072,9 @@ export async function office(db: Db) {
           package_id: p.id,
           package_revision: p.revision,
           title,
-          detail: `${last.body.role === "pre-check" ? "Pre-check" : "Author"} run lost: the daemon stopped answering. Requeue it, or return or reject the package.`,
+          detail: last.body.outcome_unknown && !last.body.reconciliation
+            ? `${last.body.role === "pre-check" ? "Pre-check" : "Author"} run lost: the daemon stopped answering and its outcome is unknown. Restart the daemon so it can report, or reconcile the run; then requeue it.`
+            : `${last.body.role === "pre-check" ? "Pre-check" : "Author"} run lost: the daemon stopped answering. Requeue it, or return or reject the package.`,
           since: String(last.body.finished_at ?? new Date().toISOString()),
         });
       } else if (failed.rows[0] && last?.status === "failed") {

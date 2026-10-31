@@ -90,7 +90,8 @@ export async function tx<T>(db: Db, fn: (c: Tx) => Promise<T>): Promise<T> {
     );
     const out = await fn(c);
     await c.query("commit");
-    const { bus, pendingEvents } = await import("../events.js");
+    const { bus, pendingEvents, afterCommits } = await import("../events.js");
+    for (const fn of afterCommits(c).splice(0)) fn();
     for (const e of pendingEvents(c).splice(0)) bus.emit("event", e);
     return out;
   } catch (e) {
@@ -102,8 +103,9 @@ export async function tx<T>(db: Db, fn: (c: Tx) => Promise<T>): Promise<T> {
         broken = true;
       }
     }
-    const { pendingEvents } = await import("../events.js");
+    const { pendingEvents, afterCommits } = await import("../events.js");
     pendingEvents(c).splice(0);
+    afterCommits(c).splice(0);
     throw e;
   } finally {
     c.off("error", connectionError);

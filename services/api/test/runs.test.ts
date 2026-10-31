@@ -322,7 +322,8 @@ describe("run custody", () => {
     const office = (await asOwner("GET", "/office")).json() as { kind: string; package_id: string; detail: string }[];
     const item = office.find((o) => o.package_id === id);
     expect(item?.kind).toBe("lost");
-    expect(item?.detail).toMatch(/Requeue/);
+    // Its outcome is unknown until the daemon reports or a person reconciles it.
+    expect(item?.detail).toMatch(/outcome is unknown.*reconcile the run; then requeue it/);
     const row = await runRow(job.run.id);
     expect(row?.status).toBe("lost");
     expect(String(row?.body.error)).toMatch(/Runner lost/);

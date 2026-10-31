@@ -15,7 +15,7 @@ import {
  */
 
 /** Signer actions this module governs: the package decisions, the independence override and person verification. */
-export type SignerAction = "release" | "accept" | "accept-with-findings" | "return" | "reject" | "override-independence" | "verify" | "confirm";
+export type SignerAction = "release" | "accept" | "accept-with-findings" | "return" | "reject" | "override-independence" | "verify" | "confirm" | "reconcile";
 
 const APPROVERS: SignerRole[] = ["approver", "engineer-in-responsible-charge"];
 const REVIEWERS: SignerRole[] = ["checker", ...APPROVERS];
@@ -33,6 +33,8 @@ export const ACTION_ROLES: Record<SignerAction, SignerRole[]> = {
   verify: REVIEWERS,
   // Confirming requirements is the requester's act, or an approver's on their behalf.
   confirm: ["originator", ...APPROVERS],
+  // Settling a run's unknown outcome is a reviewer's act: it lets the work be tried again.
+  reconcile: REVIEWERS,
 };
 
 const ROLE_WORDS: Record<SignerRole, string> = {

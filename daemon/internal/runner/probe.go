@@ -90,7 +90,7 @@ func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) 
 		return st
 	}
 	st.Version = firstLine(out)
-	if art, aerr := ResolveArtifact(runtime); aerr == nil {
+	if art, aerr := resolveArtifact(runtime); aerr == nil {
 		st.Artifact = &art
 	} else {
 		st.Reason = fmt.Sprintf("%s answered but its executable could not be read to record which version it is: %v", runtime, aerr)

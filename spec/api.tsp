@@ -403,6 +403,9 @@ namespace Runner {
 
     /** Custody of this run: present the token on every log and completion. */
     claim: RunClaim;
+
+    /** The artifact this run must launch, when one is pinned for its runtime and role. */
+    runtime_pin?: RuntimePinRef;
   }
 
   /** A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost. */
@@ -440,6 +443,23 @@ namespace Runner {
 
     /** The CLI could say whether a login is present. The probe never signs in. */
     login_checked: boolean;
+
+    /** The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this. */
+    artifact?: RuntimeArtifact;
+  }
+
+  @extension("unevaluatedProperties", false)
+  model RuntimeArtifact {
+    @maxLength(4096) path: string;
+    digest: Digest;
+  }
+
+  /** The artifact a run must launch, from the pin for its runtime and role (specification 21). */
+  @extension("unevaluatedProperties", false)
+  model RuntimePinRef {
+    runtime: string;
+    digest: Digest;
+    version?: string;
   }
 
   @route("/claim") @post op claim(@body body: {

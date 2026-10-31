@@ -116,6 +116,9 @@ model CodeOrStandard {
 model ToolRef {
   name: string;
   version?: string;
+
+  /** SHA-256 of the executable that ran (specification 21: runs launch a verified artifact). */
+  digest?: Digest;
   qualification?: "not-required" | "required-before-use" | "qualified";
 }
 

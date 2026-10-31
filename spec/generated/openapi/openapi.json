@@ -7198,6 +7198,10 @@
           "version": {
             "type": "string"
           },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "SHA-256 of the executable that ran (specification 21: runs launch a verified artifact)."
+          },
           "qualification": {
             "type": "string",
             "enum": [
@@ -7841,6 +7845,10 @@
           "claim": {
             "$ref": "#/components/schemas/Runner.RunClaim",
             "description": "Custody of this run: present the token on every log and completion."
+          },
+          "runtime_pin": {
+            "$ref": "#/components/schemas/Runner.RuntimePinRef",
+            "description": "The artifact this run must launch, when one is pinned for its runtime and role."
           }
         }
       },
@@ -7899,6 +7907,41 @@
         },
         "description": "A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost."
       },
+      "Runner.RuntimeArtifact": {
+        "type": "object",
+        "required": [
+          "path",
+          "digest"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        }
+      },
+      "Runner.RuntimePinRef": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "digest"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "description": "The artifact a run must launch, from the pin for its runtime and role (specification 21)."
+      },
       "Runner.RuntimeStatus": {
         "type": "object",
         "required": [
@@ -7923,6 +7966,10 @@
           "login_checked": {
             "type": "boolean",
             "description": "The CLI could say whether a login is present. The probe never signs in."
+          },
+          "artifact": {
+            "$ref": "#/components/schemas/Runner.RuntimeArtifact",
+            "description": "The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this."
           }
         },
         "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not."

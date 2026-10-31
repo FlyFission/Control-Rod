@@ -1666,6 +1666,8 @@ export interface components {
         "ControlRod.Records.ToolRef": {
             name: string;
             version?: string;
+            /** @description SHA-256 of the executable that ran (specification 21: runs launch a verified artifact). */
+            digest?: components["schemas"]["ControlRod.Records.Digest"];
             /** @enum {string} */
             qualification?: "not-required" | "required-before-use" | "qualified";
         };
@@ -1863,6 +1865,8 @@ export interface components {
             findings?: components["schemas"]["ControlRod.Records.Finding"][];
             /** @description Custody of this run: present the token on every log and completion. */
             claim: components["schemas"]["Runner.RunClaim"];
+            /** @description The artifact this run must launch, when one is pinned for its runtime and role. */
+            runtime_pin?: components["schemas"]["Runner.RuntimePinRef"];
         };
         "Runner.LogReply": {
             /** @description End the agent process when the owner has requested a stop. */
@@ -1885,6 +1889,16 @@ export interface components {
              */
             heartbeat_seconds: number;
         };
+        "Runner.RuntimeArtifact": {
+            path: string;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
+        };
+        /** @description The artifact a run must launch, from the pin for its runtime and role (specification 21). */
+        "Runner.RuntimePinRef": {
+            runtime: string;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
+            version?: string;
+        };
         /** @description The daemon's probe of one runtime it found: whether it is ready for work, and why not. */
         "Runner.RuntimeStatus": {
             runtime: string;
@@ -1893,6 +1907,8 @@ export interface components {
             reason?: string;
             /** @description The CLI could say whether a login is present. The probe never signs in. */
             login_checked: boolean;
+            /** @description The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this. */
+            artifact?: components["schemas"]["Runner.RuntimeArtifact"];
         };
     };
     responses: never;

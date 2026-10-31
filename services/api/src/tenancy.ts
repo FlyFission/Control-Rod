@@ -312,7 +312,7 @@ export async function recordCreationMarking(c: Tx, kind: string, id: string, lan
 /** Records a passkey just registered: its Member (created on first use) and credential version 1. */
 export async function recordRegistration(
   c: Tx,
-  input: { userName: string; credentialId: string; format: AttestationFormat; aaguid?: string; userVerified: boolean; backupEligible: boolean },
+  input: { userName: string; credentialId: string; format: AttestationFormat; aaguid?: string; userVerified: boolean; backupEligible: boolean; attestationVerified?: boolean },
   actor: Actor,
 ): Promise<{ record: AuthenticatorCredential; digest: string }> {
   const owner = await ownerOf(c, "credential", input.credentialId);
@@ -321,10 +321,10 @@ export async function recordRegistration(
   const existing = await c.query("select 1 from members where id = $1", [memberId]);
   if (!existing.rowCount)
     await addMember(c, { id: memberId, org_id: owner.org_id, user_name: input.userName, display_name: input.userName, status: "active" }, actor);
-  // Attestation is not requested at registration yet (task 1.12), so nothing is verified here.
+  // Verified means the attestation chain reached a retained trust anchor (attestation.ts); the floor verdict follows from it.
   return recordCredential(c, { orgId: owner.org_id, memberId, credentialId: input.credentialId, format: input.format,
     ...(input.aaguid !== undefined ? { aaguid: input.aaguid } : {}),
-    userVerified: input.userVerified, backupEligible: input.backupEligible, attestationVerified: false }, actor);
+    userVerified: input.userVerified, backupEligible: input.backupEligible, attestationVerified: input.attestationVerified ?? false }, actor);
 }
 
 /** The deterministic id of a Member's one qualification identity, so issues and revocations version it. */

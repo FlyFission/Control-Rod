@@ -23,6 +23,13 @@ Ineligible credentials still sign everything else; only decisions whose floor re
 
 Re-enroll one security key or Windows Hello credential with attestation once Phase 1 task 1.12 lands, before signing any high-consequence decision.
 
+## How Control Rod enforces it (task 1.12)
+
+- Every registration asks the authenticator for attestation (`attestation: "direct"`). The format and AAGUID are recorded on the AuthenticatorCredential whatever the answer.
+- A credential is eligible only when its statement is `packed`, `tpm` or `fido-u2f`, it is not synced (backup eligible), the format is listed in the current policy set, and its certificate chain verifies against a trust anchor in `~/.controlrod/trust-anchors/` (PEM files; `CONTROLROD_HOME` moves it). Control Rod ships no anchors: the owner adds the vendor roots for the keys they use, for example Yubico's attestation root from Yubico's PKI page. With no anchors, no credential is eligible, and the refusal says so.
+- Safety and Material grade decisions (release, verdicts and the independence override) must be signed with an eligible credential; anything else is refused with `hardware-key-required`, naming the evidence the passkey lacks. Every other decision accepts any registered passkey.
+- To re-enroll, a signed-in Member adds a passkey from the account page by signing with one they already hold; the new credential is evaluated as above. Passkeys recorded before this change carry format `none` and stay ineligible.
+
 ## Change control
 
 Adding or removing an authenticator class is a policy change: a ChangeRequest signed by a Member with policy authority.

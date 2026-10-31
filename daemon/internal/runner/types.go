@@ -47,6 +47,8 @@ type Job struct {
 	Inputs   []NamedFile     `json:"inputs"`
 	Findings json.RawMessage `json:"findings,omitempty"`
 	Claim    RunClaim        `json:"claim"`
+	// RuntimePin is the artifact this run must launch, when the control plane has one pinned.
+	RuntimePin *RuntimePin `json:"runtime_pin,omitempty"`
 }
 
 // Digest is a content digest.
@@ -65,6 +67,8 @@ type Artifact struct {
 type ToolRef struct {
 	Name    string `json:"name"`
 	Version string `json:"version,omitempty"`
+	// Digest is the SHA-256 of the executable that ran.
+	Digest *Digest `json:"digest,omitempty"`
 }
 
 // ExecutionTrace is proof of where outputs came from, recorded by the daemon.

@@ -19,6 +19,8 @@ type RuntimeStatus struct {
 	Reason  string `json:"reason,omitempty"`
 	// LoginChecked is true when the CLI could say whether a login is present.
 	LoginChecked bool `json:"login_checked"`
+	// Artifact is the executable the probe checked: runs launch exactly this file.
+	Artifact *RuntimeArtifact `json:"artifact,omitempty"`
 }
 
 // CommandRunner runs a short command and returns its combined output and exit code. err is set
@@ -88,6 +90,12 @@ func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) 
 		return st
 	}
 	st.Version = firstLine(out)
+	if art, aerr := ResolveArtifact(runtime); aerr == nil {
+		st.Artifact = &art
+	} else {
+		st.Reason = fmt.Sprintf("%s answered but its executable could not be read to record which version it is: %v", runtime, aerr)
+		return st
+	}
 	if runtime == RuntimeCodex {
 		help, hcode, herr := call("login", "--help")
 		if herr == nil && hcode == 0 && hasSubcommand(help, "status") {

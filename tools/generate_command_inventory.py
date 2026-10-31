@@ -22,6 +22,8 @@ OUT = ROOT / "docs" / "commands" / "inventory.md"
 
 ENTRY = re.compile(r'^\s*"([a-z][a-z-]*\.[a-z-]+)":\s*entry\("([a-z-]+)",\s*"([a-z]+)",\s*"([^"]+)"\)', re.M)
 CALL = re.compile(r'\b(?:command|grantTx)\(\s*\w+(?:\.\w+)*\s*,\s*"([a-z][a-z-]*\.[a-z-]+)"')
+# Administrative commands declare their catalog name and all run through runAdmin.
+DECLARED = re.compile(r'\bcatalog:\s*"([a-z][a-z-]*\.[a-z-]+)"')
 FUNC = re.compile(r'^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)', re.M)
 ROUTE = re.compile(r'app\.(get|post|put|delete)(?:<[^(]*?>)?\(\s*"([^"]+)"')
 
@@ -74,6 +76,8 @@ def build() -> str:
     for path, text in files.items():
         for m in CALL.finditer(text):
             sites.setdefault(m.group(1), []).append(f"`{path}` {enclosing(text, m.start())}")
+        for m in DECLARED.finditer(text):
+            sites.setdefault(m.group(1), []).append(f"`{path}` runAdmin")
     lines = [
         "# Command inventory",
         "",

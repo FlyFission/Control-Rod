@@ -50,6 +50,28 @@ export const COMMANDS = {
   // Startup data changes after migrations.
   "migration.backfill-tenancy": entry("system", "none", "Migration data change (ownership, members, credential records)"),
 
+  // Administration (specification 10.2; services/api/src/admin.ts).
+  "admin.org-create": entry("member", "direct", "Create organization"),
+  "admin.member-enroll": entry("member", "direct", "Enroll Member"),
+  "admin.member-invite": entry("member", "direct", "Enroll Member (new invitation)"),
+  "admin.member-suspend": entry("member", "direct", "Suspend Member"),
+  "admin.member-reactivate": entry("member", "direct", "Suspend Member (reversal)"),
+  "admin.member-remove": entry("member", "direct", "Remove Member"),
+  "admin.credential-revoke": entry("member", "direct", "Revoke authenticator credential"),
+  "admin.qualification-issue": entry("member", "direct", "Issue SignerQualification"),
+  "admin.qualification-revoke": entry("member", "direct", "Revoke SignerQualification"),
+  "admin.delegation-create": entry("member", "direct", "Delegate"),
+  "admin.delegation-revoke": entry("member", "direct", "Revoke delegation"),
+  "admin.project-create": entry("member", "direct", "Create project"),
+  "admin.project-update": entry("member", "direct", "Set mode, default rigor, lanes, overlays"),
+  "admin.project-set-autonomy": entry("member", "direct", "Set autonomy level"),
+  "admin.repo-bind": entry("member", "direct", "Bind repository"),
+  "admin.repo-unbind": entry("member", "direct", "Unbind repository"),
+  "admin.policy-propose": entry("member", "none", "Change policy set (proposal)"),
+  "admin.policy-approve": entry("member", "direct", "Change policy set"),
+  "admin.budget-set": entry("member", "direct", "Set budget"),
+  "admin.theme-select": entry("member", "none", "Select office theme"),
+
   // Grants.
   "grant.issue": entry("system", "none", "Grant issue"),
   "grant.begin-use": entry("agent-via-daemon", "none", "Grant begin use"),

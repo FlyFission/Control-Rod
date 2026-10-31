@@ -53,8 +53,8 @@ export function boundaryViolations(files: Record<string, string>): string[] {
 function commandCalls(files: Record<string, string>): Map<string, string[]> {
   const calls = new Map<string, string[]>();
   for (const [path, text] of Object.entries(files))
-    for (const m of text.matchAll(/\b(?:command|grantTx)\(\s*\w+(?:\.\w+)*\s*,\s*"([a-z][a-z-]*\.[a-z-]+)"/g))
-      calls.set(m[1]!, [...(calls.get(m[1]!) ?? []), path]);
+    for (const m of text.matchAll(/\b(?:command|grantTx)\(\s*\w+(?:\.\w+)*\s*,\s*"([a-z][a-z-]*\.[a-z-]+)"|\bcatalog:\s*"([a-z][a-z-]*\.[a-z-]+)"/g))
+      calls.set((m[1] ?? m[2])!, [...(calls.get((m[1] ?? m[2])!) ?? []), path]);
   return calls;
 }
 

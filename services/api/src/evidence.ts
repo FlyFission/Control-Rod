@@ -103,9 +103,12 @@ export function answer(e: CriterionEvidence): Readiness {
 
   // N/A with an approved basis applies only to a criterion with no mandatory check: E-1 makes a
   // mandatory check's missing result unwaivable, so a basis cannot stand in for it. It needs no
-  // executed evidence, and so no independence, but it still needs current freshness.
+  // executed evidence, but it still needs current freshness and the grade's independence.
   if (e.disposition === "approved-na-basis") {
     if (e.mandatory) { reasons.push("a mandatory check cannot be set aside as not applicable; change the check plan by change request instead"); return no(); }
+    // E-2 asks every positive answer for the independence its grade requires; for N/A that is the
+    // independence of whoever established the basis.
+    if (e.independence_required && !e.independence.separated) { reasons.push(`not independent: ${e.independence.unseparated.join("; ")}`); return no(); }
     return fresh ? { criterion_id: e.criterion_id, answer: "N/A WITH APPROVED BASIS", reasons, mapping_version: MAPPING_VERSION } : no();
   }
   if (e.mandatory_inconclusive) { reasons.push("a mandatory check was inconclusive; no disposition can clear it"); return no(); }

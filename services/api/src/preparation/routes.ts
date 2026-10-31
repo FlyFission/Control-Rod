@@ -64,6 +64,7 @@ export function preparationRoutes(
         db,
         req.params.id,
         req.body.expected_requirements_digest,
+        issuedTo,
       );
       const options = await assertionOptions(
         db,

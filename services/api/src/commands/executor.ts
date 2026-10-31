@@ -4,6 +4,7 @@ import { WRITER, assertLogin } from "../db/roles.js";
 import { pendingEvents } from "../events.js";
 import { openWriter } from "../db/writer.js";
 import { COMMANDS, type CommandName } from "./catalog.js";
+import { takeMarkingRead, takeMarkingWrite } from "../marking-lock.js";
 
 /**
  * The command executor (specification 10.1). Every controlled write runs here, in one transaction on
@@ -89,6 +90,8 @@ export async function command<T>(reader: Db, name: CommandName, fn: (c: Tx) => P
   if (!writer) throw new Error("no writer attached to this database");
   return tx(writer, async (c) => {
     await c.query("select set_config('controlrod.command', $1, true)", [name]);
+    const markings = (COMMANDS[name] as { markings?: "write" | "read" }).markings;
+    if (markings) await (markings === "write" ? takeMarkingWrite(c) : takeMarkingRead(c));
     const { view, revoke } = guarded(c, name);
     try {
       return await fn(view);

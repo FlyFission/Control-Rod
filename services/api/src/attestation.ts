@@ -1,3 +1,4 @@
+import { createHash, X509Certificate } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { convertCertBufferToPEM, decodeAttestationObject, isoBase64URL, validateCertificatePath } from "@simplewebauthn/server/helpers";
@@ -30,17 +31,23 @@ export function loadTrustAnchors(dir: string): string[] {
 }
 
 /**
- * Whether a verified registration's attestation chains to a retained trust anchor. `attestationObject`
- * is the base64url value from the registration response.
+ * Whether a verified registration's attestation chains to a retained trust anchor, and which one
+ * (SHA-256 of its DER). `attestationObject` is the base64url value from the registration response.
  */
-export async function attestationAnchored(fmt: string, attestationObject: string, anchors: string[]): Promise<boolean> {
-  if (!CHAINED_FORMATS.has(fmt) || anchors.length === 0) return false;
+export async function attestationAnchored(fmt: string, attestationObject: string, anchors: string[]): Promise<{ verified: boolean; anchor?: string }> {
+  if (!CHAINED_FORMATS.has(fmt) || anchors.length === 0) return { verified: false };
   const stmt = decodeAttestationObject(isoBase64URL.toBuffer(attestationObject)).get("attStmt");
   const x5c = stmt.get("x5c");
-  if (!Array.isArray(x5c) || x5c.length === 0) return false; // self attestation identifies no class
-  try {
-    return await validateCertificatePath(x5c.map((c: Uint8Array) => convertCertBufferToPEM(new Uint8Array(c))), anchors);
-  } catch {
-    return false;
+  if (!Array.isArray(x5c) || x5c.length === 0) return { verified: false }; // self attestation identifies no class
+  const chain = x5c.map((c: Uint8Array) => convertCertBufferToPEM(new Uint8Array(c)));
+  // One anchor at a time, so the record can name the anchor that vouched for the key.
+  for (const anchor of anchors) {
+    try {
+      if (await validateCertificatePath(chain, [anchor]))
+        return { verified: true, anchor: createHash("sha256").update(new X509Certificate(anchor).raw).digest("hex") };
+    } catch {
+      // Not this anchor; try the next.
+    }
   }
+  return { verified: false };
 }

@@ -1,3 +1,4 @@
+import { createHash, X509Certificate } from "node:crypto";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -49,6 +50,10 @@ describe("enrollment", () => {
     const r = await record(hardware);
     expect(r).toMatchObject({ attestation_format: "packed", backup_eligible: false, hardware_floor: { eligible: true, reason: "packed attestation verified" } });
     expect(r.aaguid).toMatch(/^[0-9a-f-]{36}$/);
+    expect(r.attestation_verified).toBe(true);
+    const anchorDer = new X509Certificate(vendor.anchorPem).raw;
+    expect(r.attestation_evidence.trust_anchor_digest.value).toBe(createHash("sha256").update(anchorDer).digest("hex"));
+    expect(r.attestation_evidence.attestation_object.length).toBeGreaterThan(100);
   });
 
   it("refuses the floor to an attestation from an authenticator no anchor vouches for, and to a synced passkey", async () => {

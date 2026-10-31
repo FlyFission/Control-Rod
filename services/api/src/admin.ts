@@ -12,7 +12,7 @@ import {
   recordCredential, recordDelegation, recordPolicySet, recordQualification, setStatus,
 } from "./tenancy.js";
 import { isLane } from "./disclosure.js";
-import { covers, currentMarking, declassify, downstreamOf, effectiveLane, markObject } from "./markings.js";
+import { covers, declassify, downstreamOf, effectiveLane, ensureMarking } from "./markings.js";
 import { teach } from "./refusals.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
@@ -75,20 +75,11 @@ async function administrators(c: Tx, orgId: string, except: string[] = []): Prom
   return ids;
 }
 
-/**
- * An object's current marking. Captures and packages classified before markings existed get their
- * version 1 now, from the lane their record carries.
- */
+/** An object's current marking, or a refusal when it has no classified lane. */
 async function markingFor(c: Tx, kind: string, id: string) {
-  const m = await currentMarking(c, kind, id);
-  if (m) return m;
-  const lane = kind === "capture"
-    ? (await c.query<{ lane: string }>("select body->>'lane' as lane from captures where id = $1", [id])).rows[0]?.lane
-    : kind === "package"
-      ? (await c.query<{ lane: string }>("select body->>'data_lane' as lane from packages where id = $1 order by revision desc limit 1", [id])).rows[0]?.lane
-      : undefined;
-  if (!isLane(lane)) throw new Refusal(404, "not-found", "No classified object of that kind and id");
-  return markObject(c, kind, id, lane, "marked from its recorded lane");
+  const m = await ensureMarking(c, kind, id);
+  if (!m) throw new Refusal(404, "not-found", "No classified object of that kind and id");
+  return m;
 }
 
 /** Refuses unless the caller is an active Member holding what the command needs. */

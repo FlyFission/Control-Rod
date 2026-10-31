@@ -1,5 +1,6 @@
 import type { Db, Tx } from "./db/index.js";
 import { type DataLane, LANE_ORDER, isLane } from "./disclosure.js";
+import { assertMarkingWrite } from "./marking-lock.js";
 import { Refusal } from "./refusal.js";
 import { checkSchema } from "./tenancy.js";
 
@@ -65,41 +66,64 @@ async function markingAt(q: Tx, i: MarkingInput): Promise<Marking> {
 
 /**
  * Computes a marking's effective lane from its own lane, raise, override and its inputs' markings.
- * An override contributes its lane for the inputs its approval covered; an input added after the
- * approval, or more sensitive now than when it was covered, still raises the result.
+ * An override contributes its lane for the exact input versions its approval covered; an input added
+ * after the approval, or changed since, counts at its own effective lane.
  */
 async function compute(q: Tx, m: Omit<Marking, "effective_lane">): Promise<DataLane> {
   const lanes: DataLane[] = [m.override ? m.override.lane : (m.assigned ?? m.lane)];
   for (const i of m.inputs ?? []) {
     const lane = effectiveLane(await markingAt(q, i));
-    if (m.override) {
-      const was = m.override.covered?.find((x) => x.object_kind === i.object_kind && x.object_id === i.object_id);
-      if (was && covers(effectiveLane(await markingAt(q, was)), lane)) continue;
-    }
+    // Covered means the exact input version the approval saw; any other version counts in full.
+    if (m.override?.covered?.some((x) => x.object_kind === i.object_kind && x.object_id === i.object_id && x.version === i.version)) continue;
     lanes.push(lane);
   }
   return mostSensitive(lanes);
 }
 
-/** Serializes marking writers of one object, so versions never collide and reads inside see the latest. */
-async function lock(c: Tx, kind: string, id: string): Promise<void> {
-  await c.query("select pg_advisory_xact_lock(hashtext($1))", [`marking:${kind}/${id}`]);
-}
+/**
+ * One lock for the whole marking graph (marking-lock.ts). Writers (raises, new provenance edges,
+ * declassification and the recomputation they cause) hold it exclusively, so a source read while
+ * adding an edge cannot be raised underneath and recomputations never wait on each other in
+ * different orders. A claim holds it shared while it reads a lane and builds the job. The executor
+ * takes it at the start of each command; here a writer only confirms it is held.
+ */
+const lock = assertMarkingWrite;
 
 async function write(c: Tx, m: Omit<Marking, "effective_lane">): Promise<Marking> {
+  await lock(c);
   const full: Marking = { ...m, effective_lane: await compute(c, m) };
   checkSchema("MarkingEnvelope.json", full);
   await c.query("insert into object_markings (body) values ($1)", [full]);
   return full;
 }
 
-/** The current marking version of each input that has one; unmarked inputs contribute nothing. */
+/**
+ * An object's current marking, recording version 1 from the lane its record carries when it was
+ * classified before markings existed. Null for an object with no classified lane.
+ */
+export async function ensureMarking(c: Tx, kind: string, id: string): Promise<Marking | null> {
+  const m = await currentMarking(c, kind, id);
+  if (m) return m;
+  const lane = kind === "capture"
+    ? (await c.query<{ lane: string }>("select body->>'lane' as lane from captures where id = $1", [id])).rows[0]?.lane
+    : kind === "package"
+      ? (await c.query<{ lane: string }>("select body->>'data_lane' as lane from packages where id = $1 order by revision desc limit 1", [id])).rows[0]?.lane
+      : undefined;
+  if (!isLane(lane)) return null;
+  return write(c, { object_kind: kind, object_id: id, version: 1, lane, reason: "marked from its recorded lane" });
+}
+
+/**
+ * The current marking version of each input. An input with no classified lane is refused: nothing
+ * unclassified may flow into another object, since whatever reads that object would receive it.
+ */
 async function resolve(c: Tx, inputs: Ref[]): Promise<MarkingInput[]> {
   const out: MarkingInput[] = [];
   for (const i of inputs) {
-    const m = await currentMarking(c, i.kind, i.id);
-    if (m && !out.some((o) => o.object_kind === i.kind && o.object_id === i.id))
-      out.push({ object_kind: i.kind, object_id: i.id, version: m.version });
+    if (out.some((o) => o.object_kind === i.kind && o.object_id === i.id)) continue;
+    const m = await ensureMarking(c, i.kind, i.id);
+    if (!m) throw new Refusal(409, "unclassified-source", `${i.kind} ${i.id} has no classified data lane; classify it before using it as a source`);
+    out.push({ object_kind: i.kind, object_id: i.id, version: m.version });
   }
   return out;
 }
@@ -108,11 +132,8 @@ async function resolve(c: Tx, inputs: Ref[]): Promise<MarkingInput[]> {
  * Marks an object at creation with its lane and the objects it was derived from. Marking an object
  * that already has a marking adds inputs or raises; it never lowers (that is a declassification).
  */
-/** Takes the marking lock of an object, so a reader in a transaction sees no raise land before it commits. */
-export const lockMarking = lock;
-
 export async function markObject(c: Tx, kind: string, id: string, lane: DataLane, reason: string, inputs: Ref[] = []): Promise<Marking> {
-  await lock(c, kind, id);
+  await lock(c);
   const existing = await currentMarking(c, kind, id);
   const resolved = await resolve(c, inputs);
   if (!existing) {
@@ -139,7 +160,9 @@ export async function markObject(c: Tx, kind: string, id: string, lane: DataLane
   else if (override) next.override = override;
   if (merged.length) next.inputs = merged;
   const written = await write(c, next);
-  if (effectiveLane(written) !== effectiveLane(existing)) await recomputeDerived(c, kind, id, reason);
+  // Every new version propagates, even at the same lane: a declassification downstream covers exact
+  // input versions, so a changed input must reach it.
+  await recomputeDerived(c, kind, id, reason);
   return written;
 }
 
@@ -195,7 +218,6 @@ async function recomputeDerived(c: Tx, kind: string, id: string, cause: string, 
     if (!progressed) throw new Error(`marking provenance has a cycle among ${[...pending.keys()].join(", ")}`);
   }
   for (const d of ordered) {
-    await lock(c, d.kind, d.id);
     const m = await currentMarking(c, d.kind, d.id);
     if (!m) continue;
     const inputs = await resolve(c, (m.inputs ?? []).map((i) => ({ kind: i.object_kind, id: i.object_id })));
@@ -211,7 +233,7 @@ async function recomputeDerived(c: Tx, kind: string, id: string, cause: string, 
  * a new version with the override, then new versions of everything derived from it.
  */
 export async function declassify(c: Tx, kind: string, id: string, version: number, lane: DataLane, changeRequestId: string): Promise<Marking> {
-  await lock(c, kind, id);
+  await lock(c);
   const m = await currentMarking(c, kind, id);
   if (!m) throw new Refusal(404, "not-found", "This object has no marking");
   if (m.version !== version)

@@ -11,10 +11,10 @@ import { enrollPreparationTx, advancePreparationRevision } from "./preparation/s
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
-import { covers, laneOf, lockMarking, markObject, type Ref } from "./markings.js";
+import { covers, laneOf, markObject, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
-import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
+import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
@@ -309,7 +309,7 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
       .catch((e) => { throw dependencyRefusal(e); });
     // Only a lane the person actually changed is a raise; an untouched lane keeps any declassification.
     const lane = next.data_lane !== pkg.body.data_lane ? next.data_lane : (effective ?? next.data_lane);
-    await markObject(c, "package", id, lane, `draft edited by ${user}`, packageInputs(next));
+    await markObject(c, "package", id, lane, `draft edited by ${user}`, await packageInputs(c, next));
     await appendEvent(c, "package.edited", id, { kind: "human", id: user }, { revision: pkg.revision });
     return { body: next, etag: draftEtag(next) };
   });
@@ -422,12 +422,17 @@ async function checkDependsOn(c: Tx, id: string, body: Json): Promise<void> {
   }
 }
 
-/** The objects a package is derived from, for its marking: its capture, dependencies and cited packages. */
-function packageInputs(body: Json, captureId?: string | null): Ref[] {
+/**
+ * The objects a package is derived from, for its marking: its capture, its dependencies and the
+ * design inputs that name another package. A citation of an ordinary document is not an object here.
+ */
+async function packageInputs(c: Tx, body: Json, captureId?: string | null): Promise<Ref[]> {
   const refs: Ref[] = captureId ? [{ kind: "capture", id: captureId }] : [];
   for (const d of body.depends_on ?? []) refs.push({ kind: "package", id: String(d.package_id) });
-  for (const d of body.design_inputs ?? [])
-    if (typeof d.doc === "string" && !d.doc.startsWith("attachment:") && d.doc !== body.id) refs.push({ kind: "package", id: d.doc });
+  for (const d of body.design_inputs ?? []) {
+    if (typeof d.doc !== "string" || d.doc.startsWith("attachment:") || d.doc === body.id) continue;
+    if ((await c.query("select 1 from packages where id = $1 limit 1", [d.doc])).rowCount) refs.push({ kind: "package", id: d.doc });
+  }
   return refs;
 }
 
@@ -672,9 +677,8 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
               if (!(await dependenciesReady(c, pkg)).ready) continue;
             } else if (pkg.status !== "in-work") continue;
           }
-          // The disclosure gate: only runtimes the package's lane admits may see it. The marking lock
-          // holds off any raise until this claim, and the job built in it, have committed.
-          await lockMarking(c, "package", pkg.id);
+          // The disclosure gate: only runtimes the package's lane admits may see it. The claim holds the
+          // marking lock shared (command catalog), so no raise lands before it and its job commit.
           const lane = await laneOf(c, "package", pkg.id, pkg.body.data_lane);
           const offer = admitted(lane, runtimes);
           if (offer.length === 0) {
@@ -710,10 +714,8 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           return startRun(c, cfg, row, runtime, baseline);
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
-        // Locked like the package above, in the order classification takes them (capture row, then
-        // marking), so a raise waits for this claim and its job to commit.
+        // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
         const bodyLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1 for share", [row.package_id])).rows[0]?.lane;
-        await lockMarking(c, "capture", row.package_id);
         const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
         const intakeOffer = admitted(capLane, runtimes);
         if (intakeOffer.length === 0) {
@@ -971,6 +973,7 @@ export async function overrideIndependence(
 ) {
   const why = overrideReason(reason);
   return command(db, "run.override-independence", async (c) => {
+    if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
     const { row, pkg, digest: d } = await overrideTarget(c, packageId, runId, why, true);
     await requireAuthority(c, user, "override-independence", needsOf(pkg.body));
     if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
@@ -1287,7 +1290,7 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
     await checkDependsOn(c, String(pkg.id), pkg);
     await c.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'draft', $2, $3)", [pkg.id, capture.id, pkg])
       .catch((e) => { throw dependencyRefusal(e); });
-    await markObject(c, "package", String(pkg.id), pkg.data_lane, `drafted by intake from capture ${capture.id}`, packageInputs(pkg, capture.id));
+    await markObject(c, "package", String(pkg.id), pkg.data_lane, `drafted by intake from capture ${capture.id}`, await packageInputs(c, pkg, capture.id));
     await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id });
     if(cfg.guidedPreparation) await enrollPreparationTx(c,cfg,SYSTEM,pkg.id as string,{package_revision:0,idempotency_key:`intake-${capture.id}-${pkg.id}`});
     created.push(pkg.id as string);
@@ -1526,6 +1529,7 @@ export async function applyDecision(
   signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
 ) {
   return command(db, "decision.apply", async (c) => {
+    if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");

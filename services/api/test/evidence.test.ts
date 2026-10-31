@@ -55,6 +55,7 @@ describe("criterion answers (E-1, E-2)", () => {
     ["evidence not retained", { evidence_retained: false }, "NO"],
     ["approved N/A basis on a criterion with no mandatory check", { mandatory: false, completeness: "missing", outcome: "none", disposition: "approved-na-basis" }, "N/A WITH APPROVED BASIS"],
     ["approved N/A basis but stale", { mandatory: false, completeness: "missing", outcome: "none", disposition: "approved-na-basis", freshness: "stale" }, "NO"],
+    ["approved N/A basis without the independence the grade requires", { mandatory: false, completeness: "missing", outcome: "none", disposition: "approved-na-basis", independence: { separated: false, unseparated: ["actor is shared"] } }, "NO"],
     ["approved N/A basis cannot set aside a mandatory check", { completeness: "missing", outcome: "none", disposition: "approved-na-basis" }, "NO"],
     ["fail with disposition, but a mandatory check behind it was inconclusive", { outcome: "fail", disposition: "approved-disposition", mandatory_inconclusive: true }, "NO"],
     ["executed with no outcome", { outcome: "none" }, "NO"],

@@ -14,25 +14,15 @@ checks the static rules and that this catalog matches the commands executed.
 | `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
 | `auth.session-start` | member | none | operational | `auth.ts` startSession | `POST /auth/login/verify`, `POST /auth/register/verify` |
 | `auth.session-end` | member | none | operational | `auth.ts` endSession | `POST /auth/logout` |
-| `capture.create` | member | none | Capture | `work.ts` createCapture | `POST /captures` |
-| `capture.classify` | member | none | Classify lane | `work.ts` classifyCapture | `POST /captures/:id/classify` |
-| `draft.edit` | member | none | Edit draft | `work.ts` updateDraft | `PUT /packages/:id` |
 | `output.record-mismatch` | system | none | Submit output (integrity record) | `work.ts` packageOutput | `GET /packages/:id/outputs/*` |
-| `run.claim` | agent-via-daemon | none | Claim | `work.ts` claim | `POST /runner/claim` |
 | `run.log` | agent-via-daemon | none | Submit output (run log) | `work.ts` runLog | `POST /runner/runs/:id/log` |
-| `run.complete` | agent-via-daemon | none | Submit output, submit pre-check | `work.ts` complete | `POST /runner/runs/:id/complete` |
 | `run.record-refused` | agent-via-daemon | none | Submit output (refused completion record) | `work.ts` recordRefused | `POST /runner/runs/:id/complete` |
 | `run.sweep-lost` | system | none | Sweep lost | `work.ts` sweepLost | timer (lease sweep) |
 | `run.requeue` | member | none | Requeue | `work.ts` requeueRun | `POST /packages/:id/runs/:runId/requeue` |
 | `run.stop` | member | none | Stop run | `work.ts` stopRun | `POST /packages/:id/runs/:runId/stop` |
 | `run.override-independence` | member | direct | Override independence | `work.ts` overrideIndependence | `POST /packages/:id/runs/:runId/override-independence` |
 | `runtime.report-status` | agent-via-daemon | none | Probe runtime | `work.ts` recordRuntimeStatus | `POST /runner/claim` |
-| `decision.apply` | member | direct | Release; Verdict | `work.ts` applyDecision | `POST /packages/:id/decisions` |
 | `verification.record-person` | member | direct | Record person verification | `person-verification.ts` recordPersonVerification | `POST /packages/:id/person-verifications` |
-| `preparation.enroll` | member | none | Enroll, edit, resolve preparation | `preparation/store.ts` enrollPreparation | `POST /packages/:id/preparation` |
-| `preparation.edit` | member | none | Enroll, edit, resolve preparation | `preparation/store.ts` editPreparation | `PUT /packages/:id/preparation` |
-| `preparation.resolve` | member | none | Enroll, edit, resolve preparation | `preparation/store.ts` resolvePreparation | `POST /packages/:id/preparation/resolutions` |
-| `preparation.refresh-basis` | member | none | Enroll, edit, resolve preparation | `preparation/store.ts` refreshPreparationBasis | `POST /packages/:id/preparation/basis/refresh` |
 | `preparation.confirm` | member | direct | Confirm requirements | `preparation/subjects.ts` confirmRequirements | `POST /packages/:id/preparation/confirm` |
 | `migration.backfill-tenancy` | system | none | Migration data change (ownership, members, credential records) | `db/index.ts` openDb | startup (after migrations) |
 | `admin.org-create` | member | direct | Create organization | `admin.ts` runAdmin | `POST /admin/commands/:name` |
@@ -53,8 +43,6 @@ checks the static rules and that this catalog matches the commands executed.
 | `admin.repo-unbind` | member | direct | Unbind repository | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.policy-propose` | member | none | Change policy set (proposal) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.policy-approve` | member | direct | Change policy set | `admin.ts` runAdmin | `POST /admin/commands/:name` |
-| `admin.marking-propose` | member | none | Lower or declassify lane (change request) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
-| `admin.marking-approve` | member | direct | Lower or declassify lane (approval) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.budget-set` | member | direct | Set budget | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.theme-select` | member | none | Select office theme | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `grant.issue` | system | none | Grant issue | `preparation/grants.ts` issuePreparationGrant | no production caller yet (declared seam) |

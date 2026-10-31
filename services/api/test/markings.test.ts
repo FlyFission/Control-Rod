@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { tx } from "../src/db/index.js";
+import { type Tx, tx } from "../src/db/index.js";
+import { takeMarkingWrite } from "../src/marking-lock.js";
 import { currentMarking, declassify, exportLane, markObject, mostSensitive } from "../src/markings.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
@@ -23,6 +24,8 @@ async function signed(name: string, payload: Json) {
   return post(`/admin/commands/${name}`, { payload, assertion: key.assert(o.json().options) });
 }
 const marking = (kind: string, id: string) => currentMarking(h.db, kind, id);
+/** A marking change as a writing command makes it: graph lock first. */
+const write = <T>(fn: (c: Tx) => Promise<T>) => tx(h.admin, async (c) => { await takeMarkingWrite(c); return fn(c); });
 const versions = async (kind: string, id: string) =>
   (await h.db.query<{ body: Json }>("select body from object_markings where object_kind = $1 and object_id = $2 order by version", [kind, id])).rows.map((r) => r.body);
 
@@ -145,7 +148,7 @@ describe("provenance", () => {
   it("lets an input added after a declassification raise the package again", async () => {
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-SECRET', 0, 'accepted', $1)",
       [{ ...(await get(`/packages/${packageId}`)).json().package, id: "WP-SECRET", data_lane: "restricted", depends_on: [], status: "draft" }]);
-    await tx(h.admin, (c) => markObject(c, "package", "WP-SECRET", "restricted", "test"));
+    await write((c) => markObject(c, "package", "WP-SECRET", "restricted", "test"));
     const v = (await get(`/packages/${packageId}`)).json();
     const r = await h.app.inject({ method: "PUT", url: `/packages/${packageId}`, headers: { cookie, origin: ORIGIN, "if-match": v.draft_etag },
       payload: { ...v.package, depends_on: [{ package_id: "WP-SECRET", reason: "needs its loads" }] } });
@@ -155,16 +158,38 @@ describe("provenance", () => {
 
   it("recomputes a diamond in dependency order", async () => {
     // A feeds B and C, and B feeds C; C sorts before B, so a naive order would read B's old marking.
-    await tx(h.admin, async (c) => {
+    await write(async (c) => {
       await markObject(c, "package", "D-A", "restricted", "test");
       await markObject(c, "package", "D-Z", "public", "test", [{ kind: "package", id: "D-A" }]);
       await markObject(c, "package", "D-M", "public", "test", [{ kind: "package", id: "D-A" }, { kind: "package", id: "D-Z" }]);
     });
     expect((await marking("package", "D-M"))?.effective_lane).toBe("restricted");
     const a = await marking("package", "D-A");
-    await tx(h.admin, (c) => declassify(c, "package", "D-A", a!.version, "public", "cr_diamond"));
+    await write((c) => declassify(c, "package", "D-A", a!.version, "public", "cr_diamond"));
     expect((await marking("package", "D-Z"))?.effective_lane).toBe("public");
     expect((await marking("package", "D-M"))?.effective_lane).toBe("public");
+  });
+
+  it("covers only the exact input versions a declassification approved", async () => {
+    await write(async (c) => {
+      await markObject(c, "package", "E-SRC", "restricted", "test");
+      await markObject(c, "package", "E-OUT", "internal", "test", [{ kind: "package", id: "E-SRC" }]);
+    });
+    const out = await marking("package", "E-OUT");
+    await write((c) => declassify(c, "package", "E-OUT", out!.version, "public", "cr_exact"));
+    expect((await marking("package", "E-OUT"))?.effective_lane).toBe("public");
+    // The source takes on another restricted input: same lane, new content the approval never saw.
+    await write(async (c) => {
+      await markObject(c, "package", "E-MORE", "restricted", "test");
+      await markObject(c, "package", "E-SRC", "restricted", "test", [{ kind: "package", id: "E-MORE" }]);
+    });
+    expect((await marking("package", "E-OUT"))?.effective_lane).toBe("restricted");
+  });
+
+  it("refuses an unclassified source and a marking change outside a marking command", async () => {
+    const c = (await post("/captures", { text: "Not classified" })).json();
+    await expect(write((t) => markObject(t, "package", "F-1", "internal", "test", [{ kind: "capture", id: c.id }]))).rejects.toMatchObject({ code: "unclassified-source" });
+    await expect(tx(h.admin, (t) => markObject(t, "package", "F-2", "internal", "test"))).rejects.toThrow(/markings: "write"/);
   });
 
   it("refuses an approval once the marking moved past the version the request named", async () => {

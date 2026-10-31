@@ -121,6 +121,12 @@ describe("migration 013", () => {
     expect((await rows("WP-OLD")).filter((r) => r.package_revision === 1)).toEqual([
       { depends_on: "WP-OLD-BASE", source: "classified-design-input", package_revision: 1 },
     ]);
+    // An explicit dependency on the same target takes over the classified row and survives the citation.
+    await insert("WP-OLD-KEEP", "draft", { design_inputs: [{ doc: "WP-OLD-BASE", revision: "0", use: "loads" }] });
+    await h.admin.query("update packages set body = $1 where id = 'WP-OLD-KEEP'",
+      [body("WP-OLD-KEEP", { design_inputs: [{ doc: "WP-OLD-BASE", revision: "0", use: "loads" }], depends_on: [{ package_id: "WP-OLD-BASE" }] })]);
+    await h.admin.query("update packages set body = $1 where id = 'WP-OLD-KEEP'", [body("WP-OLD-KEEP", { depends_on: [{ package_id: "WP-OLD-BASE" }] })]);
+    expect(await rows("WP-OLD-KEEP")).toEqual([{ depends_on: "WP-OLD-BASE", source: "explicit", package_revision: 0 }]);
     // Dropping the citation drops the classified dependency with it.
     await h.admin.query("update packages set body = $1 where id = 'WP-OLD' and revision = 1", [{ ...body("WP-OLD"), revision: 1 }]);
     expect((await rows("WP-OLD")).filter((r) => r.package_revision === 1)).toEqual([]);

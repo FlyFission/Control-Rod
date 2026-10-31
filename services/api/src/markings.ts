@@ -106,6 +106,31 @@ export function basisRef(b: { kind?: unknown; reference?: unknown }, self: strin
   return null;
 }
 
+/** Source kinds the owner configures (preparation config) rather than records: classified by its `lane`. */
+export const CONFIGURED_KINDS = new Set(["document", "policy", "repository"]);
+
+/**
+ * The lane of a configured source: what the owner's preparation config gives it. The repository
+ * Control Rod runs from (`repository:control-rod`, readable without configuration) is the owner's own
+ * code and defaults to internal unless the config classifies it otherwise.
+ */
+export function configuredLane(lanes: Record<string, DataLane> | undefined, reference: string): DataLane | undefined {
+  return lanes?.[reference] ?? (reference === "repository:control-rod" ? "internal" : undefined);
+}
+
+/** The configured sources a stored package's preparation basis or release manifests pinned, by reference. */
+export async function storedConfigured(q: Db | Tx, id: string): Promise<string[]> {
+  const basis = await q.query<{ refs: unknown[] }>(
+    `select s.body->'basis' as refs from preparation_heads h join preparation_snapshots s on s.preparation_id = h.preparation_id and s.revision = h.revision
+      where h.package_id = $1
+     union all
+     select body->'basis_refs' from preparation_release_manifests where package_id = $1`, [id]);
+  const out = new Set<string>();
+  for (const row of basis.rows) for (const b of (row.refs ?? []) as { kind?: string; reference?: string }[])
+    if (CONFIGURED_KINDS.has(String(b.kind)) && typeof b.reference === "string") out.add(b.reference);
+  return [...out].sort();
+}
+
 /**
  * Every object a stored package's content may draw on: its capture, the packages it depends on, and
  * the captures, attachments and packages in its preparation basis and release manifests.

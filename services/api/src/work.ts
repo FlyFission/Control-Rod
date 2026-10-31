@@ -11,7 +11,7 @@ import { enrollPreparationTx, advancePreparationRevision } from "./preparation/s
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
-import { basisRef, covers, endOverride, laneOf, markObject, mostSensitive, storedSources, type Ref } from "./markings.js";
+import { CONFIGURED_KINDS, basisRef, configuredLane, covers, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -33,6 +33,8 @@ export interface WorkConfig {
   preparedRelease?: boolean;
   preparationSources?: Record<string,{kind:"document"|"policy";revision:string;path:string}>;
   preparationRepositories?: Record<string,string>;
+  /** The data lane the owner classified each configured document, policy and repository source as. */
+  preparationLanes?: Record<string, DataLane>;
 }
 
 const SYSTEM: Actor = { kind: "system", id: "control-plane" };
@@ -151,6 +153,7 @@ async function transmittedSources(c: Tx, pkg: PackageRow, run: Json): Promise<Re
     for (const b of m.rows[0]?.body.basis_refs ?? []) {
       const r = basisRef(b, pkg.id);
       if (r) out.push(r);
+      else if (CONFIGURED_KINDS.has(String(b.kind))) out.push({ kind: String(b.kind), id: String(b.reference) });
     }
     return out;
   }
@@ -165,12 +168,12 @@ async function transmittedSources(c: Tx, pkg: PackageRow, run: Json): Promise<Re
  * declassification of the package lowers the package, never the raw content of its sources. A source
  * with no classified lane holds the run.
  */
-async function dispatchLane(c: Tx, pkg: PackageRow, run: Json): Promise<{ lane?: DataLane; reason: string }> {
-  const own = await provenanceLane(c, { kind: "package", id: pkg.id });
+async function dispatchLane(c: Tx, cfg: WorkConfig, pkg: PackageRow, run: Json): Promise<{ lane?: DataLane; reason: string }> {
+  const own = await provenanceLane(c, cfg, { kind: "package", id: pkg.id });
   if (!own.lane) return { reason: own.missing ? unclassifiedReason(own.missing) : laneHoldReason(undefined) };
   const lanes: DataLane[] = [own.lane];
   for (const src of await transmittedSources(c, pkg, run)) {
-    const got = await provenanceLane(c, src);
+    const got = await provenanceLane(c, cfg, src);
     if (!got.lane) return { reason: unclassifiedReason(got.missing ?? src) };
     lanes.push(got.lane);
   }
@@ -186,10 +189,15 @@ const unclassifiedReason = (r: Ref) =>
  * lane is computed here through its own sources: a package's capture and dependencies, recursively.
  * `missing` names the first source with no classified lane.
  */
-async function provenanceLane(c: Tx, ref: Ref, seen = new Set<string>()): Promise<{ lane?: DataLane; missing?: Ref }> {
+async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<string>()): Promise<{ lane?: DataLane; missing?: Ref }> {
   const key = `${ref.kind}/${ref.id}`;
   if (seen.has(key)) return {};
   seen.add(key);
+  // A configured source takes the lane the owner gave it; it has no marking and no sources of its own.
+  if (CONFIGURED_KINDS.has(ref.kind)) {
+    const lane = configuredLane(cfg.preparationLanes, ref.id);
+    return lane ? { lane } : { missing: ref };
+  }
   const marked = await laneOf(c, ref.kind, ref.id, undefined);
   if (marked) return { lane: marked };
   if (ref.kind === "capture") {
@@ -199,8 +207,9 @@ async function provenanceLane(c: Tx, ref: Ref, seen = new Set<string>()): Promis
   const pkg = await currentPackage(c, ref.id);
   if (!pkg || !isLane(pkg.body.data_lane)) return { missing: ref };
   const lanes: DataLane[] = [pkg.body.data_lane];
-  for (const s of await storedSources(c, ref.id)) {
-    const got = await provenanceLane(c, s, seen);
+  const sources: Ref[] = [...await storedSources(c, ref.id), ...(await storedConfigured(c, ref.id)).map((r) => ({ kind: r.split(":")[0]!, id: r }))];
+  for (const s of sources) {
+    const got = await provenanceLane(c, cfg, s, seen);
     if (got.missing) return { missing: got.missing };
     if (got.lane) lanes.push(got.lane);
   }
@@ -748,7 +757,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           // The disclosure gate: only runtimes that every transmitted source's lane admits may see the
           // job. The claim holds the marking lock shared (command catalog), so no raise lands before it
           // and its job commit.
-          const gate = await dispatchLane(c, pkg, row.body);
+          const gate = await dispatchLane(c, cfg, pkg, row.body);
           if (!gate.lane) {
             await holdRun(c, cfg, row, pkg.id, gate.reason);
             continue;

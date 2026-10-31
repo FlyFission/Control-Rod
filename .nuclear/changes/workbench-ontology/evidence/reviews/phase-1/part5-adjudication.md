@@ -60,3 +60,9 @@ Lock order now, everywhere: marking graph lock (by the executor), administration
 | ID | Disposition | Fix and evidence |
 |---|---|---|
 | P5-27 | Fixed | `storedSources` lists everything a stored package draws on: capture, dependencies, and the captures, attachments and packages in its current preparation basis and every release manifest. Both dispatch (`provenanceLane`) and first marking reconstruction (`ensureMarking`) use it; preparation provenance and prepared job sources share `basisRef`. Test: "follows a legacy prepared dependency to the sources its release manifest pinned". |
+
+## Round 6 (part5-codex-round6.md): closed P5-27 and with it P5-14, P5-23, P5-25; one finding, accepted
+
+| ID | Disposition | Fix and evidence |
+|---|---|---|
+| P5-28 | Fixed | Configured document, policy and repository sources now carry a lane in the owner's preparation config (`preparationLanes`; `repository:control-rod` defaults to internal). A preparation that pins a configured source without a lane is refused (`unclassified-source`); its lane raises the package marking; dispatch and the recursive legacy lookup count every configured source a job or ancestor carries, holding the run when one has no lane. `docs/guided-preparation.md` updated. Tests: "refuses to pin a configured source the owner gave no data lane", config lane parsing. |

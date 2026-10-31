@@ -20,6 +20,20 @@ describe("owner source configuration", () => {
       preparationSources: { "document:brief": { revision: "A" } },
     });
   });
+  it("reads the data lane the owner gave each source and repository", () => {
+    expect(
+      preparationConfig(
+        JSON.stringify({
+          repositories: { "repository:test": { path: "/controlled/repo", lane: "proprietary" } },
+          sources: { "document:brief": { kind: "document", revision: "A", path: "/controlled/brief.md", lane: "internal" } },
+        }),
+      ),
+    ).toMatchObject({
+      preparationRepositories: { "repository:test": "/controlled/repo" },
+      preparationLanes: { "repository:test": "proprietary", "document:brief": "internal" },
+    });
+    expect(() => preparationConfig('{"sources":{"document:brief":{"kind":"document","revision":"A","path":"x","lane":"secret"}}}')).toThrow(/lane/);
+  });
   for (const raw of [
     '{"sources":{},"sources":{}}',
     '{"unknown":true}',

@@ -1,0 +1,7 @@
+P5-27 is closed: `storedSources` includes the current preparation basis and retained release manifests; `ensureMarking` and `provenanceLane` both use it. This closes P5-14/P5-23/P5-25’s reported legacy provenance paths. P5-01, P5-03–P5-13, P5-15–P5-22, P5-24 and P5-26 remain closed. P5-02’s complete prepared-source admission remains incomplete below.
+
+| ID | Severity | Finding | Evidence (file:line) | Fix |
+|---|---|---|---|---|
+| P5-28 | High | **Document, policy and repository sources bypass classification.** `basisRef` silently excludes these supported source kinds from provenance and dispatch checks, although prepared jobs transmit their retained bytes. An internal prepared package can therefore send an unclassified document or repository file to Claude/Codex. Source configuration and digest verification establish identity, not a classified lane. | `services/api/src/markings.ts:101`; `services/api/src/work.ts:150`; `services/api/src/preparation/basis.ts:158`; `services/api/src/preparation/lifecycle.ts:176` | Require classified markings for every supported source kind, include them in provenance and dispatch admission, and refuse transmission until classification exists. |
+
+BLOCK

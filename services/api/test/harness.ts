@@ -182,7 +182,8 @@ export class VirtualAuthenticator {
   private readonly pub: { x: Buffer; y: Buffer };
   private counter = 0;
 
-  constructor() {
+  /** With `fixedCounter`, the signature counter stays 0 (as many passkeys report), so counters never mask replays. */
+  constructor(private readonly opts: { fixedCounter?: boolean } = {}) {
     const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
     this.key = privateKey;
     const jwk = publicKey.export({ format: "jwk" }) as { x: string; y: string };
@@ -192,7 +193,7 @@ export class VirtualAuthenticator {
   private authData(attested: boolean): Buffer {
     const flags = 0x01 | 0x04 | (attested ? 0x40 : 0);
     const count = Buffer.alloc(4);
-    count.writeUInt32BE(++this.counter);
+    count.writeUInt32BE(this.opts.fixedCounter ? 0 : ++this.counter);
     const parts = [sha256(RP_ID), Buffer.from([flags]), count];
     if (attested) {
       const cose = new Map<number, number | Uint8Array>([
@@ -274,4 +275,31 @@ export function withClaim(url: string, payload: Record<string, unknown>): Record
   const out: Record<string, unknown> = { claim_token: claims.get(m[1] ?? "") ?? "", ...payload };
   if (m[2] === "complete" && out.idempotency_key === undefined) out.idempotency_key = randomBytes(12).toString("hex");
   return out;
+}
+
+/** Adds a passkey to the signed-in person's own account: sign with an existing passkey, then register. */
+export async function addOwnPasskey(app: FastifyInstance, cookie: string, existing: VirtualAuthenticator, added: VirtualAuthenticator): Promise<{ statusCode: number; body: string }> {
+  const headers = { cookie, origin: ORIGIN };
+  const s = await app.inject({ method: "POST", url: "/auth/step-up/options", headers });
+  const o = await app.inject({ method: "POST", url: "/auth/register/options", headers, payload: { step_up: existing.assert(s.json().options) } });
+  if (o.statusCode !== 200) throw new Error(`add passkey refused: ${o.body}`);
+  return app.inject({ method: "POST", url: "/auth/register/verify", headers, payload: added.register(o.json().options) });
+}
+
+/** Signs in with a passkey and returns the session cookie. */
+export async function logIn(app: FastifyInstance, key: VirtualAuthenticator): Promise<string> {
+  const o = await app.inject({ method: "POST", url: "/auth/login/options", headers: { origin: ORIGIN } });
+  const r = await app.inject({ method: "POST", url: "/auth/login/verify", headers: { origin: ORIGIN }, payload: key.assert(o.json().options) as object });
+  if (r.statusCode !== 200) throw new Error(`sign in failed: ${r.body}`);
+  return `cr_session=${r.cookies.find((c) => c.name === "cr_session")!.value}`;
+}
+
+/** Registers a new person's first passkey with an administrator's invitation; returns their session cookie. */
+export async function registerWithInvitation(app: FastifyInstance, invitation: string, key: VirtualAuthenticator): Promise<string> {
+  const headers = { origin: ORIGIN };
+  const o = await app.inject({ method: "POST", url: "/auth/register/options", headers, payload: { invitation } });
+  if (o.statusCode !== 200) throw new Error(`invitation refused: ${o.body}`);
+  const r = await app.inject({ method: "POST", url: "/auth/register/verify", headers, payload: key.register(o.json().options) });
+  if (r.statusCode !== 200) throw new Error(`register failed: ${r.body}`);
+  return `cr_session=${r.cookies.find((c) => c.name === "cr_session")!.value}`;
 }

@@ -18,6 +18,10 @@
         },
         "status": {
             "$ref": "LifecycleStatus.json"
+        },
+        "office_theme": {
+            "$ref": "OfficeThemeSelection.json",
+            "description": "The Member's own office theme: a bundled theme and the digest of its manifest when chosen."
         }
     },
     "required": [

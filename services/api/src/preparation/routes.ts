@@ -59,7 +59,7 @@ export function preparationRoutes(
     "/packages/:id/preparation/confirm/options",
     { schema: { body: { $ref: "ConfirmationOptionsRequest.json" } } },
     async (req, reply) => {
-      await person(req);
+      const issuedTo = await person(req);
       const subject = await confirmationSubject(
         db,
         req.params.id,
@@ -71,6 +71,7 @@ export function preparationRoutes(
         "preparation-confirmation",
         subject,
         confirmationChallenge(subject),
+        issuedTo,
       );
       return reply.header("Cache-Control", "no-store").send({
         requirements_digest: {

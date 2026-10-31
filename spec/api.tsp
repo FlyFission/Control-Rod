@@ -17,8 +17,40 @@ model Health {
 }
 
 model ApiError {
+  /** A stable reason code (services/api/src/refusals.ts lists every one). */
   code: string;
+
   message: string;
+
+  /** The one fact that would change the answer (WB-03). */
+  change?: string;
+
+  /** Set when a floor refused: no person, decision or setting lifts it. */
+  floor?: boolean;
+}
+
+/**
+ * One command for an object and the viewing Member (workbench specification 5.7): allowed or
+ * refused, why in words, what would change it, how it is signed and the authority it needs.
+ */
+model ActionDescriptor {
+  /** The command or decision, for example "release" or "draft.edit". */
+  command: string;
+
+  label: string;
+  allowed: boolean;
+  signature: "direct" | "absorbed" | "none";
+
+  /** Any one of these roles or authorities may take it. */
+  authority?: string[];
+
+  /** Qualifications the viewer lacks for it, in words. */
+  missing?: string[];
+
+  reason_code?: string;
+  reason?: string;
+  change?: string;
+  floor?: boolean;
 }
 
 alias Refused = {
@@ -129,6 +161,9 @@ namespace Packages {
 
   /** Edit a draft. Released revisions are never edited; return them to make a new draft. Requires If-Match with the current draft_etag: 428 without it, 409 when stale. */
   @put op update(@path id: string, @header("If-Match") ifMatch: string, @body pkg: WorkPackage): WorkPackage | Refused;
+
+  /** What the viewing person can do with this package now, each allowed or refused with the reason. */
+  @route("/{id}/actions") @get op actions(@path id: string): ActionDescriptor[] | Refused;
 
   @route("/{id}/outputs/{name}")
   @get

@@ -13,6 +13,7 @@ import {
 } from "./tenancy.js";
 import { isLane } from "./disclosure.js";
 import { covers, currentMarking, declassify, downstreamOf, effectiveLane, markObject } from "./markings.js";
+import { teach } from "./refusals.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
 
@@ -617,6 +618,25 @@ export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: 
     });
     return result;
   }).catch((e) => { throw translate(e); });
+}
+
+/**
+ * Each administrative command as an ActionDescriptor for the caller (plan task 1.11): allowed, or
+ * refused with the authority they lack and what would change it. Bootstrap is not shown here; it is
+ * a one time path the first Member takes from the setup screen.
+ */
+export async function adminActions(db: Db, caller: Caller) {
+  const me = await member(db, caller.memberId, caller.orgId);
+  const held = new Set<string>((await currentQualification(db, caller.memberId))?.authorities ?? []);
+  return Object.entries(ADMIN_COMMANDS).map(([name, cmd]) => {
+    const base = { command: name, label: name, signature: cmd.signature, ...(cmd.need === "member" ? {} : { authority: cmd.need.split("+") }) };
+    if (me.status !== "active") return { ...base, allowed: false, reason_code: "member-inactive", reason: teach("member-inactive").sentence, change: teach("member-inactive").change };
+    const missing = cmd.need === "member" ? [] : cmd.need.split("+").filter((a) => !held.has(a));
+    if (!missing.length) return { ...base, allowed: true };
+    const t = teach("authority-missing");
+    return { ...base, allowed: false, missing: missing.map((a) => `${a} authority`), reason_code: "authority-missing",
+      reason: `This needs ${missing.join(" and ")} authority, which your qualification does not include`, change: t.change };
+  });
 }
 
 /** Commands and what they need, for the interface. */

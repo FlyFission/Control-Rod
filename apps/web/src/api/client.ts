@@ -26,9 +26,17 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** The one fact that would change the answer, when the server says. */
+    readonly change?: string,
   ) {
     super(message);
   }
+}
+
+/** A refusal in words for people: what happened, then what would change it. */
+export function explain(e: unknown, fallback: string): string {
+  if (e instanceof ApiError) return e.change ? `${e.message}. ${e.change}`.replace(/\.\. /, ". ") : e.message;
+  return e instanceof Error ? e.message : fallback;
 }
 
 function url(path: string): string {
@@ -55,8 +63,8 @@ async function send<T>(method: string, path: string, body?: unknown, headers: Re
   const text = await res.text();
   const data: unknown = text.length > 0 ? JSON.parse(text) : undefined;
   if (!res.ok) {
-    const err = (data ?? {}) as { code?: string; message?: string };
-    throw new ApiError(res.status, err.code ?? "error", err.message ?? `Request failed (${res.status})`);
+    const err = (data ?? {}) as { code?: string; message?: string; change?: string };
+    throw new ApiError(res.status, err.code ?? "error", err.message ?? `Request failed (${res.status})`, err.change);
   }
   return { data: data as T, etag: res.headers.get("etag") };
 }

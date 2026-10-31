@@ -1,6 +1,7 @@
 import { randomUUID, createHash, randomBytes } from "node:crypto";
 import type { Db, Tx } from "../db/index.js";
 import { readTx } from "../db/index.js";
+import { teach } from "../refusals.js";
 import { command } from "../commands/executor.js";
 import { appendEvent } from "../events.js";
 import { decidePreparation } from "../kernel.js";
@@ -115,7 +116,7 @@ export async function confirmRequirements(
       throw new Refusal(
         403,
         outcome.reason,
-        `Kernel refused requirements confirmation: ${outcome.reason}`,
+        `Requirements confirmation: ${teach(outcome.reason).sentence}`,
       );
     const response = verified.assertion.response as
       Record<string, unknown> | undefined;

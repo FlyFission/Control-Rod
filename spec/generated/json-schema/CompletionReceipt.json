@@ -41,10 +41,19 @@
             "type": "object",
             "properties": {
                 "code": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "A stable reason code (services/api/src/refusals.ts lists every one)."
                 },
                 "message": {
                     "type": "string"
+                },
+                "change": {
+                    "type": "string",
+                    "description": "The one fact that would change the answer (WB-03)."
+                },
+                "floor": {
+                    "type": "boolean",
+                    "description": "Set when a floor refused: no person, decision or setting lifts it."
                 }
             },
             "required": [

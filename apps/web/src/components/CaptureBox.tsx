@@ -1,6 +1,6 @@
 import { useRef, useState, type DragEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client.js";
+import { api, explain } from "../api/client.js";
 import type { DataLane } from "../api/types.js";
 import { LanePicker } from "./LanePicker.js";
 import { FILE_LIMIT, composeCapture, readBytes, toBase64, type Attached } from "../lib/attachments.js";
@@ -24,7 +24,7 @@ export function CaptureBox() {
       setFiles([]);
       void qc.invalidateQueries({ queryKey: ["captures"] });
     },
-    onError: (e) => setError(e instanceof Error ? e.message : "Could not send."),
+    onError: (e) => setError(explain(e, "Could not send.")),
   });
 
   async function attach(list: FileList | null | undefined) {

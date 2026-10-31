@@ -85,6 +85,9 @@ namespace Captures {
 
 /** What the web app shows for one package: the revision, its runs, output and decisions. */
 model PackageView {
+  /** Strong ETag of the current draft's content; send it as If-Match to edit the draft. */
+  draft_etag?: string;
+
   preparation_enabled?: boolean;
   preparation_enrolled?: boolean;
   preparation_release_ready?: boolean;
@@ -109,8 +112,8 @@ namespace Packages {
   @get op list(): WorkPackage[];
   @get op read(@path id: string): PackageView | Refused;
 
-  /** Edit a draft. Released revisions are never edited; return them to make a new draft. */
-  @put op update(@path id: string, @body pkg: WorkPackage): WorkPackage | Refused;
+  /** Edit a draft. Released revisions are never edited; return them to make a new draft. Requires If-Match with the current draft_etag: 428 without it, 409 when stale. */
+  @put op update(@path id: string, @header("If-Match") ifMatch: string, @body pkg: WorkPackage): WorkPackage | Refused;
 
   @route("/{id}/outputs/{name}")
   @get

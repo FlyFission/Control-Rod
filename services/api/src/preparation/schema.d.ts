@@ -238,7 +238,7 @@ export interface paths {
             cookie?: never;
         };
         get: operations["Packages_read"];
-        /** @description Edit a draft. Released revisions are never edited; return them to make a new draft. */
+        /** @description Edit a draft. Released revisions are never edited; return them to make a new draft. Requires If-Match with the current draft_etag: 428 without it, 409 when stale. */
         put: operations["Packages_update"];
         post?: never;
         delete?: never;
@@ -1441,6 +1441,8 @@ export interface components {
         };
         /** @description What the web app shows for one package: the revision, its runs, output and decisions. */
         PackageView: {
+            /** @description Strong ETag of the current draft's content; send it as If-Match to edit the draft. */
+            draft_etag?: string;
             preparation_enabled?: boolean;
             preparation_enrolled?: boolean;
             preparation_release_ready?: boolean;
@@ -2229,7 +2231,9 @@ export interface operations {
     Packages_update: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "If-Match": string;
+            };
             path: {
                 id: string;
             };

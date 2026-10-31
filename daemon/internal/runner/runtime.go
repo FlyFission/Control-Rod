@@ -227,21 +227,31 @@ var ErrTimeout = errors.New("timeout")
 
 // ExecHooks lets the daemon record a spawn receipt and stop a run gracefully.
 type ExecHooks struct {
-	// Started is called once the process exists; it returns the receipt it recorded, if any.
-	Started func(pid int) (SpawnReceipt, bool)
+	// Started is called once the process exists, with its id. It records the spawn receipt; an
+	// error means the run cannot be owned, so it is killed at once (fail closed). A nil receipt
+	// with no error means this platform cannot identify processes.
+	Started func(pid int) (*SpawnReceipt, error)
+	// Snapshot records the run's outputs while it is frozen at the start of a stop; nothing written
+	// after that counts (StopGracefully).
+	Snapshot func()
 	// Timings are the waits of the graceful stop ladder.
 	Timings StopTimings
+	// Linger is how long processes may outlive the leader before the unit is ended. Default 2 s.
+	Linger time.Duration
 }
 
 // Execute runs cmd, sending each stdout line and each stderr line (prefixed "[stderr] ") to
-// sink. When ctx ends it stops the process group gracefully, checked against the spawn receipt
-// (StopGracefully), and returns ctx's cause once the exit is observed. Without a receipt it kills
-// the group directly: the process is still this daemon's unreaped child, so its id cannot have
-// been reused.
+// sink. When ctx ends it stops every process of the run gracefully through its containment unit
+// (StopGracefully) and returns ctx's cause. When the leader exits on its own, processes it left
+// behind are ended too, so the run is over only when its unit is empty. Without a receipt (no
+// process identity on this platform) it kills the daemon's own child directly.
 func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...ExecHooks) error {
 	var h ExecHooks
 	if len(hooks) > 0 {
 		h = hooks[0]
+	}
+	if h.Linger <= 0 {
+		h.Linger = 2 * time.Second
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -253,11 +263,6 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 	}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %w", filepath.Base(cmd.Path), err)
-	}
-	var receipt SpawnReceipt
-	var haveReceipt bool
-	if h.Started != nil {
-		receipt, haveReceipt = h.Started(cmd.Process.Pid)
 	}
 	var wg sync.WaitGroup
 	pump := func(r io.Reader, prefix string) {
@@ -271,33 +276,75 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 	wg.Add(2)
 	go pump(stdout, "")
 	go pump(stderr, "[stderr] ")
-	done := make(chan error, 1)
-	exited := make(chan struct{})
+	pumped := make(chan struct{})
+	go func() { wg.Wait(); close(pumped) }()
+	// The leader is reaped here, not through cmd.Wait, so its exit is seen even while processes it
+	// left behind still hold the output pipes.
+	leader := make(chan *os.ProcessState, 1)
 	go func() {
-		// Reads finish before Wait, as exec requires; the exit counts once Wait has reaped it.
-		wg.Wait()
-		err := cmd.Wait()
-		close(exited)
-		done <- err
+		st, _ := cmd.Process.Wait()
+		leader <- st
 	}()
-	select {
-	case err := <-done:
-		return err
-	case <-ctx.Done():
-		if haveReceipt {
-			StopGracefully(receipt, h.Timings, exited)
-		}
-		select {
-		case <-exited:
-		default:
+	finish := func() {
+		<-pumped
+		_ = stdout.Close()
+		_ = stderr.Close()
+	}
+
+	var receipt SpawnReceipt
+	haveReceipt := false
+	if h.Started != nil {
+		r, rerr := h.Started(cmd.Process.Pid)
+		if rerr != nil {
 			killProcessGroup(cmd)
+			<-leader
+			finish()
+			return fmt.Errorf("the run could not be owned, so it was stopped: %w", rerr)
 		}
-		<-done
+		if r != nil {
+			receipt, haveReceipt = *r, true
+		}
+	}
+	endUnit := func(t StopTimings, snapshot func()) {
+		if haveReceipt {
+			StopGracefully(receipt, t, snapshot)
+			return
+		}
+		if snapshot != nil {
+			snapshot()
+		}
+		killProcessGroup(cmd)
+	}
+
+	var st *os.ProcessState
+	stopped := false
+	select {
+	case st = <-leader:
+	case <-ctx.Done():
+		stopped = true
+		endUnit(h.Timings, h.Snapshot)
+		st = <-leader
+	}
+	// Processes left behind may hold the pipes; give them a moment, then end the unit.
+	select {
+	case <-pumped:
+	case <-time.After(h.Linger):
+		endUnit(StopTimings{AfterHangup: 100 * time.Millisecond, Grace: time.Second}, nil)
+	}
+	if haveReceipt && receipt.Alive() {
+		endUnit(StopTimings{AfterHangup: 100 * time.Millisecond, Grace: time.Second}, nil)
+	}
+	finish()
+	if stopped {
 		if c := context.Cause(ctx); c != nil {
 			return c
 		}
 		return ctx.Err()
 	}
+	if st != nil && !st.Success() {
+		return &exec.ExitError{ProcessState: st}
+	}
+	return nil
 }
 
 // CopyFakeOutputs copies inputs/FAKE_OUT/* into out/ for the fake runtime's copy mode.

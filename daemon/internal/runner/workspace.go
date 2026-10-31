@@ -165,3 +165,42 @@ func Collect(dir string, maxFile, maxTotal int64) ([]NamedFile, []Artifact, erro
 	}
 	return files, arts, nil
 }
+
+// Snapshot copies the files under src into dst (which must not exist), refusing symlinks. A stop
+// takes it while the run is frozen, so it is the outputs exactly as they stood when write
+// authority ended.
+func Snapshot(src, dst string) error {
+	if err := os.MkdirAll(dst, 0o700); err != nil {
+		return err
+	}
+	return filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) && p == src {
+				return nil
+			}
+			return err
+		}
+		rel, rerr := filepath.Rel(src, p)
+		if rerr != nil || rel == "." {
+			return rerr
+		}
+		target := filepath.Join(dst, rel)
+		info, ierr := d.Info()
+		if ierr != nil {
+			return ierr
+		}
+		switch {
+		case info.Mode()&os.ModeSymlink != 0:
+			return fmt.Errorf("%w: %s is a symlink", ErrUnsafePath, rel)
+		case d.IsDir():
+			return os.MkdirAll(target, 0o700)
+		case info.Mode().IsRegular():
+			b, rerr := os.ReadFile(p)
+			if rerr != nil {
+				return rerr
+			}
+			return os.WriteFile(target, b, 0o600)
+		}
+		return nil
+	})
+}

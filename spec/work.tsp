@@ -171,6 +171,16 @@ model OwnershipReceipt {
   generation: int32;
 
   started_at: utcDateTime;
+
+  /**
+   * cgroup: the run has its own systemd user scope, which the daemon can freeze and kill as one
+   * and which reports when it is empty. process-group: the fallback without a user systemd.
+   */
+  containment: "cgroup" | "process-group";
+
+  /** The scope's unit name (cgroup containment). */
+  @maxLength(200)
+  unit?: string;
 }
 
 @extension("unevaluatedProperties", false)

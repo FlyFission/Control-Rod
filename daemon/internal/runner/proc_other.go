@@ -3,9 +3,12 @@
 package runner
 
 import (
+	"errors"
 	"os/exec"
 	"time"
 )
+
+var errNotRunning = errors.New("process has exited")
 
 func setProcessGroup(*exec.Cmd) {}
 
@@ -19,9 +22,17 @@ type StopTimings struct {
 	Grace       time.Duration
 }
 
-// StopGracefully cannot verify a process identity here, so it signals nothing; the caller falls
-// back to killing the process it holds a handle to. Job objects arrive with the Windows daemon.
-func StopGracefully(SpawnReceipt, StopTimings, <-chan struct{}) {}
+// Alive cannot be known here without a process identity.
+func (r SpawnReceipt) Alive() bool { return false }
+
+// StopGracefully cannot verify a process identity here, so it signals nothing; the caller kills
+// the process it holds a handle to. Job objects arrive with the Windows daemon.
+func StopGracefully(_ SpawnReceipt, _ StopTimings, snapshot func()) bool {
+	if snapshot != nil {
+		snapshot()
+	}
+	return false
+}
 
 // killProcessGroup kills the agent process. Child processes need job objects on Windows,
 // which arrive with the Windows daemon in Phase 6.
@@ -30,3 +41,5 @@ func killProcessGroup(cmd *exec.Cmd) {
 		_ = cmd.Process.Kill()
 	}
 }
+
+func processExists(int) bool { return false }

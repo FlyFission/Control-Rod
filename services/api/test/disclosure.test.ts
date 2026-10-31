@@ -148,6 +148,23 @@ describe("every source a job carries", () => {
     expect(await waiting(runId)).toMatch(/restricted lane admits none/);
   });
 
+  it("follows a legacy prepared dependency to the sources its release manifest pinned", async () => {
+    const extra = { schema_version: "0.1.0", id: "C-legacy02", text: "Pinned extra source", source: "web", created_at: new Date().toISOString(), disposition: "package", lane: "restricted" };
+    await h.admin.query("insert into captures (id, body, created_at) values ($1, $2, $3)", [extra.id, extra, extra.created_at]);
+    const base = { ...example(), revision: 0, design_inputs: [], data_lane: "internal" };
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PREP-B', 0, 'accepted', $1)", [{ ...base, id: "WP-PREP-B", status: "draft" }]);
+    const release = { schema_version: "0.1.0", id: "D-prepb001", package_id: "WP-PREP-B", package_revision: 0, kind: "release", actor: { kind: "human", id: "ben" },
+      subject_digest: { algorithm: "sha256", value: "b".repeat(64) }, assertion: { credential_id: "x", authenticator_data: "x", client_data_json: "x", signature: "x" }, decided_at: new Date().toISOString() };
+    await h.admin.query("insert into decisions (id, package_id, package_revision, kind, body) values ($1, 'WP-PREP-B', 0, 'release', $2)", [release.id, release]);
+    await h.admin.query("insert into preparation_release_manifests (package_id, package_revision, digest, body, decision_id) values ('WP-PREP-B', 0, $1, $2, $3)",
+      ["c".repeat(64), { basis_refs: [{ kind: "attachment", reference: `attachment:${extra.id}/drawing.pdf`, revision: "0", digest: { algorithm: "sha256", value: "d".repeat(64) } }] }, release.id]);
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PREP-A', 0, 'released', $1)",
+      [{ ...base, id: "WP-PREP-A", status: "released", depends_on: [{ package_id: "WP-PREP-B" }] }]);
+    const runId = await queueAuthor("WP-PREP-A");
+    expect((await claim(["claude", "codex"])).statusCode).toBe(204);
+    expect(await waiting(runId)).toMatch(/restricted lane admits none/);
+  });
+
   it("judges a dependency's outputs by the dependency's own lane, even when the package was declassified", async () => {
     const base = { ...example(), revision: 0, design_inputs: [] };
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-SECRET-DEP', 0, 'accepted', $1)",

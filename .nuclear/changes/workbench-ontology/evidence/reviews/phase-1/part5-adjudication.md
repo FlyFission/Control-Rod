@@ -54,3 +54,9 @@ Lock order now, everywhere: marking graph lock (by the executor), administration
 |---|---|---|
 | P5-25 | Fixed | At dispatch a package or source without a marking has its lane computed, read only, through its own capture and dependencies recursively (`provenanceLane`); an unclassified ancestor holds the run. A stored package's first marking, whoever writes it, now reconstructs its edges to its capture and dependencies (`ensureMarking`), so later raises propagate. Test: "follows a legacy dependency back to its capture when the capture is raised". |
 | P5-26 | Fixed | An author run that records outputs ends any declassification of its package (`endOverride`), recomputing and propagating; new bytes need a fresh approval. Test: "ends a declassification when the package gains new author output". |
+
+## Round 5 (part5-codex-round5.md): closed P5-01, P5-03 to P5-13, P5-15 to P5-22, P5-24, P5-26; one finding, accepted
+
+| ID | Disposition | Fix and evidence |
+|---|---|---|
+| P5-27 | Fixed | `storedSources` lists everything a stored package draws on: capture, dependencies, and the captures, attachments and packages in its current preparation basis and every release manifest. Both dispatch (`provenanceLane`) and first marking reconstruction (`ensureMarking`) use it; preparation provenance and prepared job sources share `basisRef`. Test: "follows a legacy prepared dependency to the sources its release manifest pinned". |

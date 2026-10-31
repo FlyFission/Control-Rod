@@ -5,7 +5,7 @@ import type { Ajv2020 } from "ajv/dist/2020.js";
 import { type Db, type Tx, readTx } from "../db/index.js";
 import { command } from "../commands/executor.js";
 import { type Actor, appendEvent } from "../events.js";
-import { covers, laneOf, markObject, type Ref } from "../markings.js";
+import { basisRef, covers, laneOf, markObject, type Ref } from "../markings.js";
 import { digest } from "../kernel.js";
 import {
   currentPackage,
@@ -176,13 +176,7 @@ function cas(s: PreparationSnapshot, expected: string | undefined) {
  * (marked as their capture) and other packages. Runs receive these sources, so they are provenance.
  */
 function basisInputs(s: PreparationSnapshot, packageId: string): Ref[] {
-  const out: Ref[] = [];
-  for (const b of s.basis) {
-    if (b.kind === "capture" && b.reference.startsWith("capture:")) out.push({ kind: "capture", id: b.reference.slice(8) });
-    else if (b.kind === "attachment" && b.reference.startsWith("attachment:")) out.push({ kind: "capture", id: b.reference.slice(11).split("/")[0]! });
-    else if (b.kind === "package" && b.reference.startsWith("package:") && b.reference !== `package:${packageId}`) out.push({ kind: "package", id: b.reference.slice(8) });
-  }
-  return out;
+  return s.basis.map((b) => basisRef(b, packageId)).filter((r): r is Ref => r !== null);
 }
 
 async function save(

@@ -23,7 +23,7 @@ export interface Marking {
   reason: string;
   assigned?: DataLane;
   inputs?: MarkingInput[];
-  override?: { lane: DataLane; change_request_id: string; covered?: MarkingInput[] };
+  override?: { lane: DataLane; change_request_id: string; covered?: MarkingInput[]; covered_configured?: { reference: string; lane: DataLane }[] };
   effective_lane?: DataLane;
   change_request_id?: string;
 }
@@ -116,6 +116,33 @@ export const CONFIGURED_KINDS = new Set(["document", "policy", "repository"]);
  */
 export function configuredLane(lanes: Record<string, DataLane> | undefined, reference: string): DataLane | undefined {
   return lanes?.[reference] ?? (reference === "repository:control-rod" ? "internal" : undefined);
+}
+
+/**
+ * The current lane of every configured source in a package's ancestry: its own preparation basis and
+ * manifests and those of every package it draws on, recursively. Null marks a source with no lane.
+ */
+export async function configuredClosure(q: Db | Tx, id: string, lanes: Record<string, DataLane> | undefined): Promise<Map<string, DataLane | null>> {
+  const out = new Map<string, DataLane | null>();
+  const seen = new Set<string>();
+  const walk = async (pkg: string) => {
+    if (seen.has(pkg)) return;
+    seen.add(pkg);
+    for (const r of await storedConfigured(q, pkg)) out.set(r, configuredLane(lanes, r) ?? null);
+    for (const s of await storedSources(q, pkg)) if (s.kind === "package") await walk(s.id);
+  };
+  await walk(id);
+  return out;
+}
+
+/** Whether every configured lane in an ancestry is still classified and no more sensitive than an approval saw. */
+export function configuredStillCovered(now: Map<string, DataLane | null>, covered: { reference: string; lane: DataLane }[] | undefined): boolean {
+  const was = new Map((covered ?? []).map((x) => [x.reference, x.lane]));
+  for (const [ref, lane] of now) {
+    const seen = was.get(ref);
+    if (!lane || !seen || !covers(seen, lane)) return false;
+  }
+  return true;
 }
 
 /** The configured sources a stored package's preparation basis or release manifests pinned, by reference. */
@@ -320,7 +347,8 @@ async function recomputeDerived(c: Tx, kind: string, id: string, cause: string, 
  * Applies an approved declassification to the exact marking version the change request named:
  * a new version with the override, then new versions of everything derived from it.
  */
-export async function declassify(c: Tx, kind: string, id: string, version: number, lane: DataLane, changeRequestId: string): Promise<Marking> {
+export async function declassify(c: Tx, kind: string, id: string, version: number, lane: DataLane, changeRequestId: string,
+  configured: { reference: string; lane: DataLane }[] = []): Promise<Marking> {
   await lock(c);
   const m = await currentMarking(c, kind, id);
   if (!m) throw new Refusal(404, "not-found", "This object has no marking");
@@ -329,7 +357,7 @@ export async function declassify(c: Tx, kind: string, id: string, version: numbe
   if (covers(lane, effectiveLane(m))) throw new Refusal(409, "not-lower", `The object is already ${effectiveLane(m)}; declassification only lowers`);
   const { effective_lane: _e, ...rest } = m;
   const cause = `declassified to ${lane} by change request ${changeRequestId}`;
-  const written = await write(c, { ...rest, version: m.version + 1, override: { lane, change_request_id: changeRequestId, covered: m.inputs ?? [] },
+  const written = await write(c, { ...rest, version: m.version + 1, override: { lane, change_request_id: changeRequestId, covered: m.inputs ?? [], ...(configured.length ? { covered_configured: configured } : {}) },
     change_request_id: changeRequestId, reason: cause });
   await recomputeDerived(c, kind, id, cause, changeRequestId);
   return written;

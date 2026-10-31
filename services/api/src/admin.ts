@@ -12,7 +12,7 @@ import {
   recordCredential, recordDelegation, recordPolicySet, recordQualification, setStatus,
 } from "./tenancy.js";
 import { isLane } from "./disclosure.js";
-import { covers, declassify, downstreamOf, effectiveLane, ensureMarking } from "./markings.js";
+import { configuredClosure, covers, declassify, downstreamOf, effectiveLane, ensureMarking } from "./markings.js";
 import { teach } from "./refusals.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
@@ -38,6 +38,8 @@ interface AdminCommand {
 export interface AdminContext {
   /** The repository root, for bundled theme manifests. */
   root: string;
+  /** Lanes of configured preparation sources, which a declassification records as covered. */
+  preparationLanes?: Record<string, DataLane>;
 }
 
 const str = (p: Record<string, unknown>, k: string, required = true): string | undefined => {
@@ -481,7 +483,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
 
   "marking.approve-declassification": {
     catalog: "admin.marking-approve", signature: "direct", need: "lane",
-    async run(c, caller, p) {
+    async run(c, caller, p, ctx) {
       const id = str(p, "change_request_id")!;
       const cr = await getObject<{ org_id: string; kind: string; status: string; subject_digest: { value: string }; impact: string[];
         proposal?: { object_kind: string; object_id: string; version: number; lane: string } }>(c, "change_request", id);
@@ -494,7 +496,14 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
         throw new Refusal(409, "impact-changed", "What depends on this changed since the request was made; propose it again so the impact is current");
       // Same lock order as classification and the claim: the capture row, then its marking.
       if (prop.object_kind === "capture") await c.query("select 1 from captures where id = $1 for update", [prop.object_id]);
-      const marking = await declassify(c, prop.object_kind, prop.object_id, prop.version, prop.lane, id);
+      // The approval covers the configured sources it can see now, by lane; one with no lane cannot be covered.
+      const configured: { reference: string; lane: DataLane }[] = [];
+      if (prop.object_kind === "package")
+        for (const [reference, l] of await configuredClosure(c, prop.object_id, ctx.preparationLanes)) {
+          if (!l) throw new Refusal(409, "unclassified-source", `${reference} has no data lane in the preparation config; classify it before declassifying what draws on it`);
+          configured.push({ reference, lane: l });
+        }
+      const marking = await declassify(c, prop.object_kind, prop.object_id, prop.version, prop.lane, id, configured);
       // A capture's lane is its own record and may be corrected; a package's signed body never is.
       if (prop.object_kind === "capture")
         await c.query("update captures set body = jsonb_set(body, '{lane}', to_jsonb($2::text)) where id = $1", [prop.object_id, prop.lane]);

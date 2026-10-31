@@ -369,4 +369,18 @@ model MarkingOverride {
 
   /** The input marking versions the approval covered. */
   covered?: MarkingInput[];
+
+  /**
+   * The lane of every configured source (document, policy, repository) in the object's ancestry when
+   * the approval was given. A configured lane raised, added or removed since leaves the override
+   * standing in the record but not at dispatch.
+   */
+  covered_configured?: ConfiguredCoverage[];
+}
+
+/** A configured source and the lane the owner's config gave it. */
+@extension("unevaluatedProperties", false)
+model ConfiguredCoverage {
+  reference: string;
+  lane: DataLane;
 }

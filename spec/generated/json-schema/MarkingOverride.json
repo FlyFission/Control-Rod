@@ -15,6 +15,13 @@
                 "$ref": "MarkingInput.json"
             },
             "description": "The input marking versions the approval covered."
+        },
+        "covered_configured": {
+            "type": "array",
+            "items": {
+                "$ref": "ConfiguredCoverage.json"
+            },
+            "description": "The lane of every configured source (document, policy, repository) in the object's ancestry when\nthe approval was given. A configured lane raised, added or removed since leaves the override\nstanding in the record but not at dispatch."
         }
     },
     "required": [

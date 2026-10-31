@@ -182,6 +182,34 @@ describe("every source a job carries", () => {
     expect(await waiting(runId)).toMatch(/restricted lane admits none/);
   });
 
+  it("lets a declassification stand only while the configured lanes it saw have not risen", async () => {
+    const base = { ...example(), revision: 0, design_inputs: [], data_lane: "internal" };
+    const setUp = async (b: string, a: string, seen: "internal" | "restricted") => {
+      await h.admin.query("insert into packages (id, revision, status, body) values ($1, 0, 'accepted', $2)", [b, { ...base, id: b, status: "draft" }]);
+      const release = { schema_version: "0.1.0", id: `D-${b.slice(-8)}`, package_id: b, package_revision: 0, kind: "release", actor: { kind: "human", id: "ben" },
+        subject_digest: { algorithm: "sha256", value: "e".repeat(64) }, assertion: { credential_id: "x", authenticator_data: "x", client_data_json: "x", signature: "x" }, decided_at: new Date().toISOString() };
+      await h.admin.query("insert into decisions (id, package_id, package_revision, kind, body) values ($1, $2, 0, 'release', $3)", [release.id, b, release]);
+      await h.admin.query("insert into preparation_release_manifests (package_id, package_revision, digest, body, decision_id) values ($1, 0, $2, $3, $4)",
+        [b, `${b}-manifest`, { basis_refs: [{ kind: "document", reference: "document:secret-spec", revision: "A", digest: { algorithm: "sha256", value: "1".repeat(64) } }] }, release.id]);
+      await tx(h.admin, async (c) => {
+        await takeMarkingWrite(c);
+        const m = await markObject(c, "package", b, "restricted", "test");
+        await declassify(c, "package", b, m.version, "internal", `cr_${b.toLowerCase().slice(-6)}`, [{ reference: "document:secret-spec", lane: seen }]);
+      });
+      await h.admin.query("insert into packages (id, revision, status, body) values ($1, 0, 'released', $2)", [a, { ...base, id: a, status: "released", depends_on: [{ package_id: b }] }]);
+      return queueAuthor(a);
+    };
+    // Approved when the document was internal; the config now says restricted, so the override no longer stands.
+    const raised = await setUp("WP-COV-B1", "WP-COV-A1", "internal");
+    expect((await claim(["claude", "codex"])).statusCode).toBe(204);
+    expect(await waiting(raised)).toMatch(/restricted lane admits none/);
+    // Approved with the document already restricted: the approval saw it, so it stands.
+    await setUp("WP-COV-B2", "WP-COV-A2", "restricted");
+    const ok = await claim(["claude", "codex"]);
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json().run.package_id).toBe("WP-COV-A2");
+  });
+
   it("judges a dependency's outputs by the dependency's own lane, even when the package was declassified", async () => {
     const base = { ...example(), revision: 0, design_inputs: [] };
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-SECRET-DEP', 0, 'accepted', $1)",

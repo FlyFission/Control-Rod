@@ -11,7 +11,7 @@ import { enrollPreparationTx, advancePreparationRevision } from "./preparation/s
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
-import { CONFIGURED_KINDS, basisRef, configuredLane, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
+import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -204,10 +204,16 @@ async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<s
     const lane = (await c.query<{ lane: string }>("select body->>'lane' as lane from captures where id = $1", [ref.id])).rows[0]?.lane;
     return isLane(lane) ? { lane } : { missing: ref };
   }
-  // An approved declassification saw the package's sources, configured ones included.
-  if (marking?.override) return { lane: effectiveLane(marking) };
-  const pkg = await currentPackage(c, ref.id);
-  const recorded = marking ? effectiveLane(marking) : pkg?.body.data_lane;
+  // An approved declassification stands while every configured lane in the ancestry is one it saw, at
+  // no higher sensitivity. Otherwise the package is judged without it: its own lane and every source.
+  let recorded: unknown;
+  if (marking?.override) {
+    if (configuredStillCovered(await configuredClosure(c, ref.id, cfg.preparationLanes), marking.override.covered_configured))
+      return { lane: effectiveLane(marking) };
+    recorded = marking.assigned ?? marking.lane;
+  } else {
+    recorded = marking ? effectiveLane(marking) : (await currentPackage(c, ref.id))?.body.data_lane;
+  }
   if (!isLane(recorded)) return { missing: ref };
   // Configured sources are classified in the owner's config, which markings never record, so they are
   // read live: the package's own and, through its package sources, its ancestors'. A marked package's

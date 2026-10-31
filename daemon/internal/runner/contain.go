@@ -1,8 +1,11 @@
 package runner
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"syscall"
 	"time"
@@ -22,20 +25,34 @@ const (
 
 var unitChars = regexp.MustCompile(`[^A-Za-z0-9_-]`)
 
-// UnitName is the systemd scope name for a run attempt. It is deterministic, so a restarted daemon
-// recognizes its own scopes even when a receipt was never written.
-func UnitName(runID string, generation int) string {
-	return fmt.Sprintf("controlrod-run-%s-g%d", unitChars.ReplaceAllString(runID, "_"), max(generation, 1))
+// Namespace names one daemon home: scopes carry it, so a daemon only ever sweeps scopes its own
+// home started (another daemon with another home is left alone). One daemon at a time holds a
+// home (LockHome).
+func Namespace(home string) string {
+	abs, err := filepath.Abs(home)
+	if err != nil {
+		abs = home
+	}
+	sum := sha256.Sum256([]byte(abs))
+	return hex.EncodeToString(sum[:])[:10]
 }
 
-// UnitPrefix starts every run scope's name.
-const UnitPrefix = "controlrod-run-"
+// UnitName is the systemd scope name for a run attempt under a daemon namespace. It is
+// deterministic, so a restarted daemon recognizes its own scopes even when a receipt was never written.
+func UnitName(ns, runID string, generation int) string {
+	return fmt.Sprintf("%s%s-g%d", UnitPrefix(ns), unitChars.ReplaceAllString(runID, "_"), max(generation, 1))
+}
+
+// UnitPrefix starts the name of every run scope of one daemon namespace.
+func UnitPrefix(ns string) string { return "controlrod-run-" + ns + "-" }
 
 // Container launches commands into containment units of one mode.
 type Container struct {
 	Mode string
 	// ScopeParent is the cgroup directory new scopes appear under (cgroup mode).
 	ScopeParent string
+	// NS is the daemon namespace whose scopes this container may sweep.
+	NS string
 }
 
 // Wrap rewrites cmd so it starts inside a new unit named unit.

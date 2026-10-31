@@ -119,15 +119,19 @@ func groupExists(pgid int) bool {
 	return false
 }
 
-// Alive reports whether any process of the run remains. In cgroup mode that is the kernel's own
-// answer for the scope; in process group mode it is the leader (unless it is a zombie) or any
-// member of its group.
+// Alive reports whether any process of the run may remain. In cgroup mode that is the kernel's
+// own answer for the scope, and an unreadable answer counts as alive. In process group mode it is
+// the leader (unless it is a zombie) or any running member of its group: conservative, since the
+// group number alone cannot prove which processes are the run's.
 func (r SpawnReceipt) Alive() bool {
 	if r.Containment == ContainCgroup {
 		return r.unit().cgroupAlive()
 	}
-	return r.Matches() || (r.PGID > 0 && groupExists(r.PGID) && r.bootMatches())
+	return r.Matches() || (r.PGID > 0 && r.bootMatches() && groupExists(r.PGID))
 }
+
+// Pinned returns the receipt marked as held unreaped by this daemon (see waitExitNoReap).
+func (r SpawnReceipt) Pinned() SpawnReceipt { r.pinned = true; return r }
 
 func (r SpawnReceipt) bootMatches() bool {
 	b, err := bootID()
@@ -138,26 +142,74 @@ func (r SpawnReceipt) unit() Unit {
 	return Unit{Mode: r.Containment, Name: r.Unit, Cgroup: r.Cgroup, PGID: r.PGID}
 }
 
-func (r SpawnReceipt) freeze(on bool) {
+// errNoIdentityToSignal means the fallback cannot signal: the group's leader no longer matches the
+// receipt, so the group number alone does not prove whose processes these are.
+var errNoIdentityToSignal = errors.New("the run's leader is gone, so its process group cannot be identified")
+
+// signal sends sig to every process of the run. In process group mode it signals only while the
+// leader still matches the receipt (a live leader keeps its group number from being reused).
+func (r SpawnReceipt) signal(sig syscall.Signal) error {
 	if r.Containment == ContainCgroup {
-		_ = r.unit().cgroupFreeze(on)
-		return
+		r.unit().cgroupSignal(sig)
+		return nil
+	}
+	if !r.pinned && !r.Matches() {
+		return errNoIdentityToSignal
+	}
+	return syscall.Kill(-r.PGID, sig)
+}
+
+// freeze freezes or thaws the run, confirmed: in cgroup mode by the kernel's frozen state, in
+// process group mode (Linux) by every member reporting stopped. Anything unconfirmed is an error.
+func (r SpawnReceipt) freeze(on bool) error {
+	if r.Containment == ContainCgroup {
+		return r.unit().cgroupFreeze(on)
 	}
 	sig := syscall.SIGCONT
 	if on {
 		sig = syscall.SIGSTOP
 	}
-	r.signal(sig)
+	if err := r.signal(sig); err != nil || !on {
+		return err
+	}
+	if runtime.GOOS != "linux" {
+		return errors.New("stopping a process group cannot be confirmed on this platform")
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if groupStopped(r.PGID) {
+			return nil
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return errors.New("the process group did not report stopped")
 }
 
-func (r SpawnReceipt) signal(sig syscall.Signal) {
-	if r.Containment == ContainCgroup {
-		r.unit().cgroupSignal(sig)
-		return
+// groupStopped reports whether every running member of a group is stopped (state T).
+func groupStopped(pgid int) bool {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return false
 	}
-	if r.Alive() {
-		_ = syscall.Kill(-r.PGID, sig)
+	for _, e := range entries {
+		if e.Name()[0] < '0' || e.Name()[0] > '9' {
+			continue
+		}
+		b, err := os.ReadFile("/proc/" + e.Name() + "/stat")
+		if err != nil {
+			continue
+		}
+		s := string(b)
+		i := strings.LastIndexByte(s, ')')
+		if i < 0 {
+			continue
+		}
+		f := strings.Fields(s[i+1:])
+		if len(f) > 2 && f[2] == fmt.Sprint(pgid) && f[0] != "T" && f[0] != "t" && f[0] != "Z" && f[0] != "X" {
+			return false
+		}
 	}
+	return true
 }
 
 func (r SpawnReceipt) kill() {
@@ -165,8 +217,10 @@ func (r SpawnReceipt) kill() {
 		if err := r.unit().cgroupKill(); err == nil {
 			return
 		}
+		r.unit().cgroupSignal(syscall.SIGKILL)
+		return
 	}
-	r.signal(syscall.SIGKILL)
+	_ = r.signal(syscall.SIGKILL)
 }
 
 // StopTimings are the waits of the graceful stop ladder.
@@ -176,6 +230,9 @@ type StopTimings struct {
 	// Grace is how long to wait after SIGTERM before killing every process of the run.
 	Grace time.Duration
 }
+
+// killWait is how long a stop waits for the unit to empty after the final kill.
+var killWait = 10 * time.Second
 
 // waitGone waits until no process of the run remains, or d passes.
 func waitGone(r SpawnReceipt, d time.Duration) bool {
@@ -189,11 +246,13 @@ func waitGone(r SpawnReceipt, d time.Duration) bool {
 	return true
 }
 
-// StopGracefully ends every process of a run (specification 22). Write authority ends first: the
-// run is frozen, snapshot (when given) records the outputs as they stand, and nothing written
-// after that counts. Then the run is thawed for SIGHUP, SIGTERM after a pause, and finally killed
-// after the grace period: atomically through cgroup.kill in cgroup mode. It returns once no
-// process of the run remains, or reports false if one would not go.
+// StopGracefully ends every process of a run (specification 22) and reports whether that was
+// verified. Write authority ends first: the run is frozen (confirmed), snapshot records the outputs
+// as they stand, and nothing written after that counts. If freezing cannot be confirmed, the run
+// is killed first and snapshot afterwards, so the snapshot still follows the last possible write.
+// Otherwise the run is thawed for SIGHUP, SIGTERM after a pause, and finally killed after the grace
+// period: atomically through cgroup.kill in cgroup mode. It returns true only once no process of
+// the run remains.
 func StopGracefully(r SpawnReceipt, t StopTimings, snapshot func()) bool {
 	if !r.Alive() {
 		if snapshot != nil {
@@ -201,21 +260,28 @@ func StopGracefully(r SpawnReceipt, t StopTimings, snapshot func()) bool {
 		}
 		return true
 	}
-	r.freeze(true)
+	if err := r.freeze(true); err != nil {
+		r.kill()
+		gone := waitGone(r, killWait)
+		if snapshot != nil && gone {
+			snapshot()
+		}
+		return gone
+	}
 	if snapshot != nil {
 		snapshot()
 	}
-	r.freeze(false)
-	r.signal(syscall.SIGHUP)
+	_ = r.freeze(false)
+	_ = r.signal(syscall.SIGHUP)
 	if waitGone(r, t.AfterHangup) {
 		return true
 	}
-	r.signal(syscall.SIGTERM)
+	_ = r.signal(syscall.SIGTERM)
 	if waitGone(r, t.Grace) {
 		return true
 	}
 	r.kill()
-	return waitGone(r, 10*time.Second)
+	return waitGone(r, killWait)
 }
 
 // killProcessGroup kills the agent and everything it started. Used only for this daemon's own

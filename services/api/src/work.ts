@@ -12,7 +12,7 @@ import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
-import { type Actor, appendEvent } from "./events.js";
+import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -33,7 +33,7 @@ export interface WorkConfig {
    * The sweep's memory of the controller (specification 22): when it started, how often the timer
    * sweeps (0 means only on demand), when it last swept, and whether an outage is being reported.
    */
-  supervision?: { startedAt: number; sweepSeconds: number; lastSweepAt?: number; outage?: boolean; issued?: Set<string>; recovered?: Set<string> };
+  supervision?: { startedAt: number; sweepSeconds: number; lastSweepAt?: number; outage?: boolean; outageUntil?: number; issued?: Set<string> };
   guidedPreparation?: boolean;
   preparedRelease?: boolean;
   preparationSources?: Record<string,{kind:"document"|"policy";revision:string;path:string}>;
@@ -855,29 +855,59 @@ function controllerAbsent(cfg: WorkConfig): boolean {
     && Date.now() - sup.lastSweepAt > Math.max(leaseSeconds(cfg), 3 * sup.sweepSeconds) * 1000);
 }
 
-/**
- * Whether a lapsed lease may still be honored: this controller never issued or renewed it (it was
- * granted before a restart), or the controller itself was absent. A heartbeat or completion that
- * arrives before the sweep then counts, instead of stopping a live run (see sweepLost).
- */
-function leaseGrace(cfg: WorkConfig, runId: string): boolean {
-  const sup = cfg.supervision;
-  return sup !== undefined && (!sup.issued?.has(runId) || controllerAbsent(cfg));
+/** Whether most active runs look dead at once right now: an apparent outage (see sweepLost). */
+async function outageNow(c: Tx): Promise<boolean> {
+  const r = await c.query<{ active: number; lapsed: number }>(
+    "select count(*)::int as active, count(*) filter (where lease_expires_at <= clock_timestamp())::int as lapsed from runs where status = 'running'");
+  const { active = 0, lapsed = 0 } = r.rows[0] ?? {};
+  return active >= 3 && lapsed * 2 > active;
 }
 
-async function renewLease(c: Tx, cfg: WorkConfig, row: { id: string; package_id: string }, reason: string): Promise<string> {
+/**
+ * Why a heartbeat or completion that reaches a lapsed lease before the sweep may still count, or
+ * null: the lease was granted before this controller started, the controller was absent, or most
+ * runs lapsed together (an apparent outage). The sweep applies the same reasons, so whichever comes
+ * first, a live daemon is never stopped by the controller's own interruption.
+ */
+async function leaseGrace(c: Tx, cfg: WorkConfig, runId: string): Promise<string | null> {
+  const sup = cfg.supervision;
+  if (!sup) return null;
+  if (!sup.issued?.has(runId)) return "the lease was granted before the controller restarted";
+  if (controllerAbsent(cfg)) return "the controller was not sweeping when the lease lapsed";
+  // An outage, once seen, lasts a lease: runs that come back one by one each count, even after
+  // the rest have made the lapsed ones a minority again.
+  if (sup.outageUntil !== undefined && Date.now() < sup.outageUntil) return "most active runs lapsed at once, which looks like an outage";
+  if (await outageNow(c)) {
+    const until = Date.now() + leaseSeconds(cfg) * 1000;
+    afterCommit(c, () => (sup.outageUntil = until));
+    return "most active runs lapsed at once, which looks like an outage";
+  }
+  return null;
+}
+
+/**
+ * Renews a lapsed lease without a heartbeat, counting it on the run (grace_renewals) so the bound
+ * holds across controller restarts.
+ */
+async function renewLease(c: Tx, cfg: WorkConfig, row: { id: string; package_id: string; body: Json }, reason: string): Promise<string> {
   const lease = leaseFromNow(cfg);
-  issuedLease(cfg, row.id);
-  await c.query("update runs set lease_expires_at = $2, body = jsonb_set(body, '{lease_expires_at}', to_jsonb($3::text)) where id = $1 and status = 'running'", [row.id, lease, lease]);
-  await appendEvent(c, "run.lease-renewed", row.id, SYSTEM, { package: row.package_id, lease_expires_at: lease, reason });
+  issuedLease(c, cfg, row.id);
+  const grace = (row.body.grace_renewals ?? 0) + 1;
+  await c.query(
+    "update runs set lease_expires_at = $2, body = jsonb_set(jsonb_set(body, '{lease_expires_at}', to_jsonb($3::text)), '{grace_renewals}', to_jsonb($4::int)) where id = $1 and status = 'running'",
+    [row.id, lease, lease, grace]);
+  await appendEvent(c, "run.lease-renewed", row.id, SYSTEM, { package: row.package_id, lease_expires_at: lease, reason, grace_renewals: grace });
   return lease;
 }
 
-/** Notes that this controller process issued or renewed a run's lease (see sweepLost). */
-function issuedLease(cfg: WorkConfig, runId: string): void {
+/** At most this many lease renewals without a heartbeat; a heartbeat resets the count. */
+const MAX_GRACE_RENEWALS = 1;
+
+/** Notes, once the transaction commits, that this controller process issued or renewed a run's lease. */
+function issuedLease(c: Tx, cfg: WorkConfig, runId: string): void {
   const sup = cfg.supervision;
   if (!sup) return;
-  (sup.issued ??= new Set()).add(runId);
+  afterCommit(c, () => (sup.issued ??= new Set()).add(runId));
 }
 
 /** Whether two spawn receipts name the same process of the same attempt. */
@@ -927,7 +957,12 @@ export async function runEvidence(db: Db, cfg: WorkConfig, runId: string, body: 
     if (r.generation !== (row.body.generation ?? 1)) throw new Refusal(409, "receipt-mismatch", "The receipt names another attempt of this run");
     if (row.body.receipt && !sameReceipt(row.body.receipt, r)) throw new Refusal(409, "receipt-mismatch", "The receipt does not match the one on record for this run");
     const agent: Actor = { kind: "agent", id: row.body.agent_baseline };
-    const evidence = `After a restart the daemon found process ${r.pid} (boot ${r.boot_id}, started ${r.process_start}) gone, or stopped it after verifying its receipt. No completion was reported.`;
+    // Only a cgroup proves every process of the run gone; process group evidence cannot see a
+    // process that left the group, so it is recorded but leaves the outcome unknown for a person.
+    const whole = r.containment === "cgroup";
+    const evidence = whole
+      ? `After a restart the daemon confirmed scope ${String(r.unit ?? "")} empty (leader ${r.pid}, boot ${r.boot_id}), stopping what it held after verifying its receipt. No completion was reported.`
+      : `After a restart the daemon found leader ${r.pid} and its process group gone (boot ${r.boot_id}); process group containment cannot see processes that left the group.`;
     if (row.status === "running") {
       const lost = { ...row.body, status: "lost", finished_at: now(), label: "Lost",
         error: "The daemon restarted while this run was running; its process is gone and nothing was reported. It can be requeued.",
@@ -936,6 +971,10 @@ export async function runEvidence(db: Db, cfg: WorkConfig, runId: string, body: 
       validate(cfg, "Run.json", lost);
       await c.query("update runs set status = 'lost', body = $2 where id = $1", [row.id, lost]);
       await appendEvent(c, "run.lost", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+    }
+    if (!whole) {
+      await appendEvent(c, "run.evidence", row.id, agent, { package: row.package_id, observation: "process-gone", containment: r.containment, evidence });
+      return { run_id: runId, reconciled: false };
     }
     const reconciled = await reconcileTx(c, cfg, row, "process-gone", evidence, agent);
     return { run_id: runId, reconciled };
@@ -1012,7 +1051,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     lease,
   ]);
   await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round, lease_expires_at: lease });
-  issuedLease(cfg, row.id);
+  issuedLease(c, cfg, row.id);
   const job = await buildJob(c, cfg, body, runtime);
   return { ...job, claim: { token, lease_expires_at: lease, heartbeat_seconds: heartbeatSeconds(cfg) } };
 }
@@ -1053,8 +1092,9 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
     if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
     await requireCurrentGeneration(c, row);
     if((await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount) {
-      if (!leaseGrace(cfg, runId)) throw new Refusal(409,"run-lost","The run lease expired; a late heartbeat cannot revive it");
-      await appendEvent(c, "run.lease-renewed", runId, SYSTEM, { package: row.package_id, reason: "the daemon's heartbeat reached a lease granted before the controller restarted" });
+      const why = await leaseGrace(c, cfg, runId);
+      if (!why) throw new Refusal(409,"run-lost","The run lease expired; a late heartbeat cannot revive it");
+      await appendEvent(c, "run.lease-renewed", runId, SYSTEM, { package: row.package_id, reason: `the daemon's heartbeat reached a lapsed lease: ${why}` });
     }
     // Refuse, never truncate: a line the server drops after acknowledging it is lost for good.
     if (lines.length > MAX_LOG_LINES) {
@@ -1062,8 +1102,9 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
     }
     const lease = leaseFromNow(cfg);
     const body = { ...row.body, lease_expires_at: lease, ...(label ? { label: label.slice(0, LABEL_MAX) } : {}) };
-    issuedLease(cfg, runId);
-    cfg.supervision?.recovered?.delete(runId);
+    issuedLease(c, cfg, runId);
+    // A heartbeat proves the run alive: the grace bound starts over.
+    delete body.grace_renewals;
     if (receipt !== undefined) {
       validate(cfg, "OwnershipReceipt.json", receipt);
       const r = receipt as Json;
@@ -1108,7 +1149,10 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
   return command(db, "run.sweep-lost", async (c) => {
     const sup = cfg.supervision;
     const slept = controllerAbsent(cfg);
-    if (sup) sup.lastSweepAt = Date.now();
+    if (sup) {
+      const at = Date.now();
+      afterCommit(c, () => (sup.lastSweepAt = at));
+    }
     const r = await c.query<RunRow & { expired_at: Date }>(
       "select *, lease_expires_at as expired_at from runs where status = 'running' and lease_expires_at < now() order by created_at,id",
     );
@@ -1116,34 +1160,34 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
     const definite: typeof r.rows = [];
     const doubtful: typeof r.rows = [];
     for (const row of r.rows) {
+      // A run already renewed once without a heartbeat gets no more grace, whatever the reason.
+      if ((row.body.grace_renewals ?? 0) >= MAX_GRACE_RENEWALS) { definite.push(row); continue; }
       const inherited = sup !== undefined && !sup.issued?.has(row.id);
       if (slept || inherited) {
         await renewLease(c, cfg, row, slept ? "the controller was not sweeping when this lease lapsed" : "this lease was granted before the controller restarted");
         continue;
       }
-      (sup?.recovered?.has(row.id) ? definite : doubtful).push(row);
+      doubtful.push(row);
     }
     const active = (await c.query<{ n: number }>("select count(*)::int as n from runs where status = 'running'")).rows[0]?.n ?? 0;
     let candidates = [...definite, ...doubtful];
     if (sup && active >= 3 && doubtful.length * 2 > active) {
-      for (const row of doubtful) {
-        await renewLease(c, cfg, row, "a recovery lease: most active runs stopped answering at once, which looks like an outage");
-        (sup.recovered ??= new Set()).add(row.id);
-      }
+      for (const row of doubtful) await renewLease(c, cfg, row, "a recovery lease: most active runs stopped answering at once, which looks like an outage");
+      const until = Date.now() + leaseSeconds(cfg) * 1000;
+      afterCommit(c, () => (sup.outageUntil = until));
       if (!sup.outage) {
-        sup.outage = true;
+        afterCommit(c, () => (sup.outage = true));
         await appendEvent(c, "runs.sweep-outage", "runs", SYSTEM, { active, looking_dead: doubtful.length });
       }
       candidates = definite;
     } else if (sup) {
-      sup.outage = false;
+      afterCommit(c, () => (sup.outage = false));
     }
     if (sup) {
       // Forget runs that are no longer running, so the set stays the size of the live work.
       if (sup.issued?.size) {
         const live = new Set((await c.query<{ id: string }>("select id from runs where status = 'running'")).rows.map((x) => x.id));
-        for (const id of sup.issued) if (!live.has(id)) sup.issued.delete(id);
-        for (const id of sup.recovered ?? []) if (!live.has(id)) sup.recovered?.delete(id);
+        afterCommit(c, () => { for (const id of sup.issued ?? []) if (!live.has(id)) sup.issued?.delete(id); });
       }
     }
     for (const candidate of candidates) {
@@ -1378,7 +1422,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
         throw new Refusal(409, "already-complete", "This run already has a different completion on record");
       }
       if (row.status === "running") await requireCurrentGeneration(c, row);
-      if (row.status === "lost" || (row.status==="running" && !leaseGrace(cfg, runId) && (await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount)) throw new LateCompletion();
+      if (row.status === "lost" || (row.status==="running" && (await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount && !(await leaseGrace(c, cfg, runId)))) throw new LateCompletion();
       if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
       try {
         return await applyCompletion(c, cfg, row, key, body);

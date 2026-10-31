@@ -1590,6 +1590,13 @@ export interface components {
             outcome_unknown?: components["schemas"]["ControlRod.Records.OutcomeUnknown"];
             /** @description What settled an unknown outcome, and the evidence for it. */
             reconciliation?: components["schemas"]["ControlRod.Records.Reconciliation"];
+            /**
+             * Format: int32
+             * @description Lease renewals granted without a heartbeat (after a controller restart, a machine sleep or an
+             *     apparent outage). At most one is granted until a heartbeat proves the run alive, so no number
+             *     of restarts keeps a dead run running.
+             */
+            grace_renewals?: number;
         };
         /** @enum {string} */
         "ControlRod.Records.RunRole": "intake" | "author" | "pre-check" | "requirements-preparer" | "technical-preparer";

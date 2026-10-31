@@ -28,6 +28,10 @@ type SpawnReceipt struct {
 	Containment string `json:"containment"`
 	Unit        string `json:"unit,omitempty"`
 	Cgroup      string `json:"cgroup,omitempty"`
+
+	// pinned is set while this daemon holds the leader unreaped (exited or not): its process group
+	// number cannot be reused, so the fallback may signal the group. Never stored.
+	pinned bool
 }
 
 // Wire is the receipt as the control plane records it: no token, no local paths.
@@ -133,11 +137,7 @@ func (s *Receipts) Put(r SpawnReceipt) error {
 	if err := os.Rename(tmp, s.path(r.RunID)); err != nil {
 		return fmt.Errorf("receipts: %w", err)
 	}
-	if d, err := os.Open(s.dir); err == nil {
-		_ = d.Sync()
-		d.Close()
-	}
-	return nil
+	return syncDir(s.dir)
 }
 
 // Remove forgets a receipt once its process exit has been observed and reported.
@@ -168,4 +168,18 @@ func (s *Receipts) List() ([]SpawnReceipt, error) {
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// syncDir makes a rename in dir durable. Its failure is returned: a caller that retires other
+// evidence after a durable write must know the write may not survive a crash.
+func syncDir(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("sync %s: %w", dir, err)
+	}
+	defer d.Close()
+	if err := d.Sync(); err != nil {
+		return fmt.Errorf("sync %s: %w", dir, err)
+	}
+	return nil
 }

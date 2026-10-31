@@ -72,11 +72,7 @@ func (o *Outbox) Put(e OutboxEntry) error {
 	if err := os.Rename(tmp, p); err != nil {
 		return err
 	}
-	if d, err := os.Open(o.dir); err == nil {
-		_ = d.Sync()
-		d.Close()
-	}
-	return nil
+	return syncDir(o.dir)
 }
 
 // Has reports whether a completion for the run is waiting in the outbox.

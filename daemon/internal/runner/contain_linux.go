@@ -3,7 +3,6 @@
 package runner
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -57,21 +56,37 @@ func DetectContainer(getenv func(string) string) Container {
 	return Container{Mode: ContainGroup}
 }
 
-// populated reports whether any process remains in a cgroup. A cgroup that no longer exists is
-// empty (systemd collects an empty scope).
+// populated reports whether any process may remain in a cgroup. Only a cgroup that no longer
+// exists (systemd collects an empty scope) or reports "populated 0" is empty; any other answer,
+// including an unreadable one, counts as populated, so nothing is assumed gone without proof.
 func populated(dir string) bool {
-	f, err := os.Open(filepath.Join(dir, "cgroup.events"))
-	if err != nil {
+	b, err := os.ReadFile(filepath.Join(dir, "cgroup.events"))
+	if errors.Is(err, os.ErrNotExist) {
 		return false
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		if v, ok := strings.CutPrefix(sc.Text(), "populated "); ok {
-			return strings.TrimSpace(v) == "1"
+	if err != nil {
+		return true
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if v, ok := strings.CutPrefix(line, "populated "); ok {
+			return strings.TrimSpace(v) != "0"
 		}
 	}
-	return false
+	return true
+}
+
+// frozenState reads whether a cgroup reports itself frozen.
+func frozenState(dir string) (bool, error) {
+	b, err := os.ReadFile(filepath.Join(dir, "cgroup.events"))
+	if err != nil {
+		return false, err
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if v, ok := strings.CutPrefix(line, "frozen "); ok {
+			return strings.TrimSpace(v) == "1", nil
+		}
+	}
+	return false, errors.New("cgroup.events has no frozen field")
 }
 
 func cgroupPIDs(dir string) []int {
@@ -110,6 +125,8 @@ func signalPinned(pid int, dir string, sig syscall.Signal) {
 
 func (u Unit) cgroupAlive() bool { return u.Cgroup != "" && populated(u.Cgroup) }
 
+// cgroupFreeze freezes or thaws a cgroup. Freezing is confirmed: it returns only once the kernel
+// reports the cgroup frozen, and any failure to write or read that state is an error.
 func (u Unit) cgroupFreeze(on bool) error {
 	v := "0"
 	if on {
@@ -121,11 +138,13 @@ func (u Unit) cgroupFreeze(on bool) error {
 	if !on {
 		return nil
 	}
-	// Freezing completes asynchronously; wait until the kernel reports the cgroup frozen.
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		b, err := os.ReadFile(filepath.Join(u.Cgroup, "cgroup.events"))
-		if err != nil || strings.Contains(string(b), "frozen 1") || !strings.Contains(string(b), "populated 1") {
+		frozen, err := frozenState(u.Cgroup)
+		if err != nil {
+			return err
+		}
+		if frozen {
 			return nil
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -143,9 +162,9 @@ func (u Unit) cgroupKill() error {
 	return os.WriteFile(filepath.Join(u.Cgroup, "cgroup.kill"), []byte("1"), 0)
 }
 
-// OrphanScopes lists run scopes under the scope parent that still hold processes.
+// OrphanScopes lists this namespace's run scopes under the scope parent that still hold processes.
 func (k Container) OrphanScopes() []Unit {
-	if k.Mode != ContainCgroup || k.ScopeParent == "" {
+	if k.Mode != ContainCgroup || k.ScopeParent == "" || k.NS == "" {
 		return nil
 	}
 	entries, err := os.ReadDir(k.ScopeParent)
@@ -155,7 +174,7 @@ func (k Container) OrphanScopes() []Unit {
 	var out []Unit
 	for _, e := range entries {
 		name := e.Name()
-		if !e.IsDir() || !strings.HasPrefix(name, UnitPrefix) || !strings.HasSuffix(name, ".scope") {
+		if !e.IsDir() || !strings.HasPrefix(name, UnitPrefix(k.NS)) || !strings.HasSuffix(name, ".scope") {
 			continue
 		}
 		dir := filepath.Join(k.ScopeParent, name)

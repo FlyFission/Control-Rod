@@ -6903,6 +6903,12 @@
           "reconciliation": {
             "$ref": "#/components/schemas/ControlRod.Records.Reconciliation",
             "description": "What settled an unknown outcome, and the evidence for it."
+          },
+          "grace_renewals": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "description": "Lease renewals granted without a heartbeat (after a controller restart, a machine sleep or an\napparent outage). At most one is granted until a heartbeat proves the run alive, so no number\nof restarts keeps a dead run running."
           }
         },
         "description": "One agent session working on one package revision in one role."

@@ -43,3 +43,6 @@ func killProcessGroup(cmd *exec.Cmd) {
 }
 
 func processExists(int) bool { return false }
+
+// Pinned is a no-op here.
+func (r SpawnReceipt) Pinned() SpawnReceipt { return r }

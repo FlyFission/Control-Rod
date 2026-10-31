@@ -170,7 +170,8 @@ func Collect(dir string, maxFile, maxTotal int64) ([]NamedFile, []Artifact, erro
 // takes it while the run is frozen, so it is the outputs exactly as they stood when write
 // authority ended.
 func Snapshot(src, dst string) error {
-	if err := os.MkdirAll(dst, 0o700); err != nil {
+	// A fresh destination only: anything already there would not be the run's output.
+	if err := os.Mkdir(dst, 0o700); err != nil {
 		return err
 	}
 	return filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
@@ -193,7 +194,7 @@ func Snapshot(src, dst string) error {
 		case info.Mode()&os.ModeSymlink != 0:
 			return fmt.Errorf("%w: %s is a symlink", ErrUnsafePath, rel)
 		case d.IsDir():
-			return os.MkdirAll(target, 0o700)
+			return os.Mkdir(target, 0o700)
 		case info.Mode().IsRegular():
 			b, rerr := os.ReadFile(p)
 			if rerr != nil {

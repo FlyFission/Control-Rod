@@ -142,6 +142,14 @@ model Run {
 
   /** What settled an unknown outcome, and the evidence for it. */
   reconciliation?: Reconciliation;
+
+  /**
+   * Lease renewals granted without a heartbeat (after a controller restart, a machine sleep or an
+   * apparent outage). At most one is granted until a heartbeat proves the run alive, so no number
+   * of restarts keeps a dead run running.
+   */
+  @minValue(0)
+  grace_renewals?: int32;
 }
 
 /**

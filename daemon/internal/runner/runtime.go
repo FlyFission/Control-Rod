@@ -227,9 +227,10 @@ var ErrTimeout = errors.New("timeout")
 
 // ExecHooks lets the daemon record a spawn receipt and stop a run gracefully.
 type ExecHooks struct {
-	// Started is called once the process exists, with its id. It records the spawn receipt; an
-	// error means the run cannot be owned, so it is killed at once (fail closed). A nil receipt
-	// with no error means this platform cannot identify processes.
+	// Started is called once the process exists, before it can be reaped, with its id. It records
+	// the spawn receipt. An error means the run cannot be owned, so it is stopped at once (fail
+	// closed); a receipt returned with the error names the unit to stop. A nil receipt with no
+	// error means this platform cannot identify processes.
 	Started func(pid int) (*SpawnReceipt, error)
 	// Snapshot records the run's outputs while it is frozen at the start of a stop; nothing written
 	// after that counts (StopGracefully).
@@ -240,11 +241,17 @@ type ExecHooks struct {
 	Linger time.Duration
 }
 
+// ErrUncontained means processes of the run could not be confirmed gone. The run is not over: its
+// receipt must be kept and no completion sent, so its outcome stays unknown until a later sweep
+// confirms the unit empty.
+var ErrUncontained = errors.New("processes of the run could not be confirmed stopped")
+
 // Execute runs cmd, sending each stdout line and each stderr line (prefixed "[stderr] ") to
 // sink. When ctx ends it stops every process of the run gracefully through its containment unit
 // (StopGracefully) and returns ctx's cause. When the leader exits on its own, processes it left
-// behind are ended too, so the run is over only when its unit is empty. Without a receipt (no
-// process identity on this platform) it kills the daemon's own child directly.
+// behind are ended too: the run is over only when its unit is empty, and if that cannot be
+// confirmed Execute returns ErrUncontained. On Linux the leader's exit is observed without reaping
+// it, so its process id and group stay this run's until the very end.
 func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...ExecHooks) error {
 	var h ExecHooks
 	if len(hooks) > 0 {
@@ -278,61 +285,86 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 	go pump(stderr, "[stderr] ")
 	pumped := make(chan struct{})
 	go func() { wg.Wait(); close(pumped) }()
-	// The leader is reaped here, not through cmd.Wait, so its exit is seen even while processes it
-	// left behind still hold the output pipes.
-	leader := make(chan *os.ProcessState, 1)
-	go func() {
-		st, _ := cmd.Process.Wait()
-		leader <- st
-	}()
 	finish := func() {
 		<-pumped
 		_ = stdout.Close()
 		_ = stderr.Close()
 	}
+	fast := StopTimings{AfterHangup: 100 * time.Millisecond, Grace: time.Second}
 
+	// Nothing reaps the leader before the receipt step: until then it is this daemon's unreaped
+	// child, whose id and group cannot have been reused.
 	var receipt SpawnReceipt
 	haveReceipt := false
 	if h.Started != nil {
 		r, rerr := h.Started(cmd.Process.Pid)
 		if rerr != nil {
-			killProcessGroup(cmd)
-			<-leader
+			gone := true
+			if r != nil {
+				gone = StopGracefully(r.Pinned(), fast, nil)
+			} else {
+				killProcessGroup(cmd)
+			}
+			_, _ = cmd.Process.Wait()
+			if !gone {
+				return fmt.Errorf("%w; the run could not be owned: %v", ErrUncontained, rerr)
+			}
 			finish()
 			return fmt.Errorf("the run could not be owned, so it was stopped: %w", rerr)
 		}
 		if r != nil {
-			receipt, haveReceipt = *r, true
+			receipt, haveReceipt = r.Pinned(), true
 		}
 	}
-	endUnit := func(t StopTimings, snapshot func()) {
-		if haveReceipt {
-			StopGracefully(receipt, t, snapshot)
+
+	// The leader's exit, observed without reaping it where the platform allows.
+	exited := make(chan struct{})
+	var reaped *os.ProcessState
+	go func() {
+		if canWaitNoReap && waitExitNoReap(cmd.Process.Pid) == nil {
+			close(exited)
 			return
+		}
+		reaped, _ = cmd.Process.Wait()
+		close(exited)
+	}()
+	endUnit := func(t StopTimings, snapshot func()) bool {
+		if haveReceipt {
+			return StopGracefully(receipt, t, snapshot)
 		}
 		if snapshot != nil {
 			snapshot()
 		}
-		killProcessGroup(cmd)
+		_ = cmd.Process.Kill()
+		return true
 	}
 
-	var st *os.ProcessState
-	stopped := false
+	stopped, contained := false, true
 	select {
-	case st = <-leader:
+	case <-exited:
 	case <-ctx.Done():
 		stopped = true
-		endUnit(h.Timings, h.Snapshot)
-		st = <-leader
+		contained = endUnit(h.Timings, h.Snapshot)
+		<-exited
 	}
 	// Processes left behind may hold the pipes; give them a moment, then end the unit.
 	select {
 	case <-pumped:
 	case <-time.After(h.Linger):
-		endUnit(StopTimings{AfterHangup: 100 * time.Millisecond, Grace: time.Second}, nil)
+		contained = endUnit(fast, nil) && contained
 	}
-	if haveReceipt && receipt.Alive() {
-		endUnit(StopTimings{AfterHangup: 100 * time.Millisecond, Grace: time.Second}, nil)
+	if contained && haveReceipt && receipt.Alive() {
+		contained = endUnit(fast, nil)
+	}
+	st := reaped
+	if st == nil {
+		st, _ = cmd.Process.Wait()
+	}
+	if !contained {
+		// Survivors may hold the pipes; closing our ends releases the readers.
+		_ = stdout.Close()
+		_ = stderr.Close()
+		return ErrUncontained
 	}
 	finish()
 	if stopped {

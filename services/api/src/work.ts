@@ -307,7 +307,9 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
       throw new Refusal(409, "lowering-needs-change-request", `This package is ${effective}; lowering its lane needs a signed change request`);
     await c.query("update packages set body = $3, updated_at = now() where id = $1 and revision = $2", [id, pkg.revision, next])
       .catch((e) => { throw dependencyRefusal(e); });
-    await markObject(c, "package", id, next.data_lane, `draft edited by ${user}`, packageInputs(next));
+    // Only a lane the person actually changed is a raise; an untouched lane keeps any declassification.
+    const lane = next.data_lane !== pkg.body.data_lane ? next.data_lane : (effective ?? next.data_lane);
+    await markObject(c, "package", id, lane, `draft edited by ${user}`, packageInputs(next));
     await appendEvent(c, "package.edited", id, { kind: "human", id: user }, { revision: pkg.revision });
     return { body: next, etag: draftEtag(next) };
   });

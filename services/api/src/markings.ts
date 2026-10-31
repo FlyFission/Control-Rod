@@ -69,6 +69,11 @@ async function compute(q: Tx, m: Omit<Marking, "effective_lane">): Promise<DataL
   return mostSensitive(lanes);
 }
 
+/** Serializes marking writers of one object, so versions never collide and reads inside see the latest. */
+async function lock(c: Tx, kind: string, id: string): Promise<void> {
+  await c.query("select pg_advisory_xact_lock(hashtext($1))", [`marking:${kind}/${id}`]);
+}
+
 async function write(c: Tx, m: Omit<Marking, "effective_lane">): Promise<Marking> {
   const full: Marking = { ...m, effective_lane: await compute(c, m) };
   checkSchema("MarkingEnvelope.json", full);
@@ -92,6 +97,7 @@ async function resolve(c: Tx, inputs: Ref[]): Promise<MarkingInput[]> {
  * that already has a marking adds inputs or raises; it never lowers (that is a declassification).
  */
 export async function markObject(c: Tx, kind: string, id: string, lane: DataLane, reason: string, inputs: Ref[] = []): Promise<Marking> {
+  await lock(c, kind, id);
   const existing = await currentMarking(c, kind, id);
   const resolved = await resolve(c, inputs);
   if (!existing) {
@@ -156,6 +162,7 @@ export async function downstreamOf(q: Db | Tx, kind: string, id: string): Promis
  */
 async function recomputeDerived(c: Tx, kind: string, id: string, cause: string, changeRequestId?: string): Promise<void> {
   for (const d of await downstreamOf(c, kind, id)) {
+    await lock(c, d.kind, d.id);
     const m = await currentMarking(c, d.kind, d.id);
     if (!m) continue;
     const inputs = await resolve(c, (m.inputs ?? []).map((i) => ({ kind: i.object_kind, id: i.object_id })));
@@ -171,6 +178,7 @@ async function recomputeDerived(c: Tx, kind: string, id: string, cause: string, 
  * a new version with the override, then new versions of everything derived from it.
  */
 export async function declassify(c: Tx, kind: string, id: string, version: number, lane: DataLane, changeRequestId: string): Promise<Marking> {
+  await lock(c, kind, id);
   const m = await currentMarking(c, kind, id);
   if (!m) throw new Refusal(404, "not-found", "This object has no marking");
   if (m.version !== version)

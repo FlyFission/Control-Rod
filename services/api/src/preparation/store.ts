@@ -5,6 +5,7 @@ import type { Ajv2020 } from "ajv/dist/2020.js";
 import { type Db, type Tx, readTx } from "../db/index.js";
 import { command } from "../commands/executor.js";
 import { type Actor, appendEvent } from "../events.js";
+import { covers, laneOf, markObject, type Ref } from "../markings.js";
 import { digest } from "../kernel.js";
 import {
   currentPackage,
@@ -170,6 +171,20 @@ function cas(s: PreparationSnapshot, expected: string | undefined) {
       "Preparation changed. Reload and compare before saving.",
     );
 }
+/**
+ * The marked objects a preparation's controlled basis draws on: captures, a capture's attachments
+ * (marked as their capture) and other packages. Runs receive these sources, so they are provenance.
+ */
+function basisInputs(s: PreparationSnapshot, packageId: string): Ref[] {
+  const out: Ref[] = [];
+  for (const b of s.basis) {
+    if (b.kind === "capture" && b.reference.startsWith("capture:")) out.push({ kind: "capture", id: b.reference.slice(8) });
+    else if (b.kind === "attachment" && b.reference.startsWith("attachment:")) out.push({ kind: "capture", id: b.reference.slice(11).split("/")[0]! });
+    else if (b.kind === "package" && b.reference.startsWith("package:") && b.reference !== `package:${packageId}`) out.push({ kind: "package", id: b.reference.slice(8) });
+  }
+  return out;
+}
+
 async function save(
   c: Tx,
   cfg: Config,
@@ -178,6 +193,9 @@ async function save(
   type: string,
 ) {
   validate(cfg, "PreparationSnapshot.json", s);
+  // Every source a run will receive raises the package's effective lane (specification 11.3 M-1).
+  const lane = await laneOf(c, "package", p.id, p.body.data_lane);
+  if (lane) await markObject(c, "package", p.id, lane, `preparation revision ${s.revision}`, basisInputs(s, p.id));
   const subjects = preparationSubjects(s);
   await c.query(
     "insert into preparation_snapshots(preparation_id,revision,package_id,package_revision,content_digest,requirements_digest,body,created_at) values($1,$2,$3,$4,$5,$6,$7,$8)",
@@ -459,6 +477,13 @@ async function appendEdit(
     acceptance_criteria: content.criteria.map((v) => v.statement),
   } as WorkPackage;
   validate(cfg, "WorkPackage.json", pkg);
+  // The package contract's lane follows the draft rule: raised by an edit, lowered only by declassification.
+  if (pkg.data_lane !== p.body.data_lane) {
+    const effective = await laneOf(c, "package", p.id, p.body.data_lane);
+    if (effective && !covers(pkg.data_lane, effective))
+      throw new Refusal(409, "lowering-needs-change-request", `This package is ${effective}; lowering its lane needs a signed change request`);
+    await markObject(c, "package", p.id, pkg.data_lane, `preparation contract raised by ${user}`);
+  }
   for (const b of content.basis)
     if (b.kind === "package" && b.reference === `package:${p.id}`) {
       b.revision = String(p.revision);

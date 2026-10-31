@@ -8,12 +8,19 @@
         },
         "change_request_id": {
             "$ref": "TenancyId.json"
+        },
+        "covered": {
+            "type": "array",
+            "items": {
+                "$ref": "MarkingInput.json"
+            },
+            "description": "The input marking versions the approval covered."
         }
     },
     "required": [
         "lane",
         "change_request_id"
     ],
-    "description": "A declassification approved by a signed change request over an exact marking version.",
+    "description": "A declassification approved by a signed change request over an exact marking version. It covers\nthe input versions the approval saw; an input added later, or raised since, still counts.",
     "unevaluatedProperties": false
 }

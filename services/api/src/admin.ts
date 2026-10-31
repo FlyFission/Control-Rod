@@ -501,6 +501,8 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       const impact = (await downstreamOf(c, prop.object_kind, prop.object_id)).map((d) => `${d.kind}/${d.id}`);
       if (impact.join("\n") !== cr.impact.join("\n"))
         throw new Refusal(409, "impact-changed", "What depends on this changed since the request was made; propose it again so the impact is current");
+      // Same lock order as classification and the claim: the capture row, then its marking.
+      if (prop.object_kind === "capture") await c.query("select 1 from captures where id = $1 for update", [prop.object_id]);
       const marking = await declassify(c, prop.object_kind, prop.object_id, prop.version, prop.lane, id);
       // A capture's lane is its own record and may be corrected; a package's signed body never is.
       if (prop.object_kind === "capture")

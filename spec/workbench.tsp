@@ -407,6 +407,15 @@ model PersonVerification {
 
   outcome: "pass" | "fail" | "inconclusive";
   assertion: PasskeyAssertion;
+
+  /**
+   * The digest the person signed: package, revision, the decision subject (outputs and pre-check)
+   * and author run, sorted criteria and outcome. The challenge was SHA-256 of
+   * "<subject_digest>|person-verification|<challenge_nonce>".
+   */
+  subject_digest?: Digest;
+
+  challenge_nonce?: string;
 }
 
 enum ScramScope {

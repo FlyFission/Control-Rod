@@ -22,6 +22,12 @@ create index package_dependencies_target on package_dependencies (depends_on);
 create function package_dependencies_sync() returns trigger language plpgsql as $$
 declare target text;
 begin
+  -- Classified dependencies last only while the package still cites them.
+  if tg_op = 'UPDATE' and new.body->'design_inputs' is distinct from old.body->'design_inputs' then
+    delete from package_dependencies d
+     where d.package_id = new.id and d.package_revision = new.revision and d.source = 'classified-design-input'
+       and not exists (select 1 from jsonb_array_elements(coalesce(new.body->'design_inputs', '[]'::jsonb)) x where x->>'doc' = d.depends_on);
+  end if;
   -- A new revision of a package that predates depends_on keeps the dependencies classified for it,
   -- as long as it still cites them.
   if tg_op = 'INSERT' and new.revision > 0 then
@@ -33,6 +39,10 @@ begin
   end if;
   if tg_op = 'UPDATE' and new.body->'depends_on' is not distinct from old.body->'depends_on' then
     return new;
+  end if;
+  -- One dependency change at a time, so two concurrent edits cannot each miss the other's half of a cycle.
+  if jsonb_array_length(coalesce(new.body->'depends_on', '[]'::jsonb)) > 0 then
+    perform pg_advisory_xact_lock(hashtext('controlrod-package-dependencies'));
   end if;
   delete from package_dependencies where package_id = new.id and package_revision = new.revision and source = 'explicit';
   for target in select jsonb_array_elements(coalesce(new.body->'depends_on', '[]'::jsonb))->>'package_id' loop

@@ -26,7 +26,7 @@ export interface HardwareFloorVerdict { eligible: boolean; reason: string }
 export interface AuthenticatorCredential {
   id: string; version: number; org_id: string; member_id: string; credential_id: string;
   attestation_format: AttestationFormat; aaguid?: string; user_verified: boolean; backup_eligible?: boolean;
-  hardware_floor: HardwareFloorVerdict; revoked?: boolean; recorded_at: string;
+  hardware_floor: HardwareFloorVerdict; attestation_verified?: boolean; revoked?: boolean; recorded_at: string;
 }
 export interface Delegation {
   id: string; org_id: string; from_member_id: string; to_member_id: string; role: SignerRole;
@@ -214,6 +214,7 @@ export async function recordCredential(
   };
   if (input.aaguid !== undefined) record.aaguid = input.aaguid;
   if (input.backupEligible !== undefined) record.backup_eligible = input.backupEligible;
+  record.attestation_verified = input.attestationVerified;
   if (input.revoked) {
     record.revoked = true;
     record.hardware_floor = { eligible: false, reason: "credential revoked" };

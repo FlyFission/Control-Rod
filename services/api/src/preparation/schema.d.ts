@@ -1394,6 +1394,13 @@ export interface components {
             /** @enum {string} */
             outcome: "pass" | "fail" | "inconclusive";
             assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+            /**
+             * @description The digest the person signed: package, revision, the decision subject (outputs and pre-check)
+             *     and author run, sorted criteria and outcome. The challenge was SHA-256 of
+             *     "<subject_digest>|person-verification|<challenge_nonce>".
+             */
+            subject_digest?: components["schemas"]["ControlRod.Records.Digest"];
+            challenge_nonce?: string;
         };
         /** @description Runtime identity of author and checker, and whether they could be the same. */
         "ControlRod.Records.PreCheckIndependence": {

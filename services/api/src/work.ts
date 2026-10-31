@@ -11,7 +11,7 @@ import { enrollPreparationTx, advancePreparationRevision } from "./preparation/s
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
-import { covers, laneOf, markObject, mostSensitive, type Ref } from "./markings.js";
+import { covers, laneOf, lockMarking, markObject, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -672,7 +672,9 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
               if (!(await dependenciesReady(c, pkg)).ready) continue;
             } else if (pkg.status !== "in-work") continue;
           }
-          // The disclosure gate: only runtimes the package's lane admits may see it.
+          // The disclosure gate: only runtimes the package's lane admits may see it. The marking lock
+          // holds off any raise until this claim, and the job built in it, have committed.
+          await lockMarking(c, "package", pkg.id);
           const lane = await laneOf(c, "package", pkg.id, pkg.body.data_lane);
           const offer = admitted(lane, runtimes);
           if (offer.length === 0) {
@@ -708,7 +710,10 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           return startRun(c, cfg, row, runtime, baseline);
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
-        const bodyLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1", [row.package_id])).rows[0]?.lane;
+        // Locked like the package above, in the order classification takes them (capture row, then
+        // marking), so a raise waits for this claim and its job to commit.
+        const bodyLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1 for share", [row.package_id])).rows[0]?.lane;
+        await lockMarking(c, "capture", row.package_id);
         const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
         const intakeOffer = admitted(capLane, runtimes);
         if (intakeOffer.length === 0) {

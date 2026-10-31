@@ -53,8 +53,10 @@ describe("criterion answers (E-1, E-2)", () => {
     ["missing result with an approved disposition", { completeness: "missing", outcome: "none", disposition: "approved-disposition" }, "NO"],
     ["deferred", { completeness: "missing", outcome: "none", disposition: "deferred" }, "NO"],
     ["evidence not retained", { evidence_retained: false }, "NO"],
-    ["approved N/A basis", { completeness: "missing", outcome: "none", disposition: "approved-na-basis" }, "N/A WITH APPROVED BASIS"],
-    ["approved N/A basis but stale", { completeness: "missing", outcome: "none", disposition: "approved-na-basis", freshness: "stale" }, "NO"],
+    ["approved N/A basis on a criterion with no mandatory check", { mandatory: false, completeness: "missing", outcome: "none", disposition: "approved-na-basis" }, "N/A WITH APPROVED BASIS"],
+    ["approved N/A basis but stale", { mandatory: false, completeness: "missing", outcome: "none", disposition: "approved-na-basis", freshness: "stale" }, "NO"],
+    ["approved N/A basis cannot set aside a mandatory check", { completeness: "missing", outcome: "none", disposition: "approved-na-basis" }, "NO"],
+    ["fail with disposition, but a mandatory check behind it was inconclusive", { outcome: "fail", disposition: "approved-disposition", mandatory_inconclusive: true }, "NO"],
     ["executed with no outcome", { outcome: "none" }, "NO"],
   ])("%s", (_name, e, expected) => {
     expect(ans(e)).toBe(expected);
@@ -90,13 +92,13 @@ describe("mixed, conflicting and empty result sets", () => {
   const pass = mapV1("check-result", "pass"), fail = mapV1("check-result", "fail"), inc = mapV1("check-result", "inconclusive");
   const open = mapV1("check-result", "open"), deferred = mapV1("check-result", "deferred", "late");
   it.each([
-    ["empty", [], { completeness: "missing", outcome: "none", disposition: "none" }],
-    ["all pass", [pass, pass], pass],
-    ["pass and fail conflict", [pass, fail], fail],
-    ["pass and inconclusive", [pass, inc], inc],
-    ["fail and inconclusive", [inc, fail], fail],
-    ["one still open", [pass, open], { completeness: "missing", outcome: "none", disposition: "none" }],
-    ["one deferred", [pass, deferred], { completeness: "missing", outcome: "none", disposition: "deferred" }],
+    ["empty", [], { completeness: "missing", outcome: "none", disposition: "none", inconclusive_present: false }],
+    ["all pass", [pass, pass], { ...pass, inconclusive_present: false }],
+    ["pass and fail conflict", [pass, fail], { ...fail, inconclusive_present: false }],
+    ["pass and inconclusive", [pass, inc], { ...inc, inconclusive_present: true }],
+    ["fail and inconclusive keeps the inconclusive", [inc, fail], { ...fail, inconclusive_present: true }],
+    ["one still open", [pass, open], { completeness: "missing", outcome: "none", disposition: "none", inconclusive_present: false }],
+    ["one deferred", [pass, deferred], { completeness: "missing", outcome: "none", disposition: "deferred", inconclusive_present: false }],
   ] as const)("%s", (_n, results, expected) => {
     expect(combine([...results])).toEqual(expected);
   });

@@ -22,7 +22,7 @@ export interface Marking {
   reason: string;
   assigned?: DataLane;
   inputs?: MarkingInput[];
-  override?: { lane: DataLane; change_request_id: string };
+  override?: { lane: DataLane; change_request_id: string; covered?: MarkingInput[] };
   effective_lane?: DataLane;
   change_request_id?: string;
 }
@@ -56,15 +56,27 @@ export async function laneOf(q: Db | Tx, kind: string, id: string, fallback: unk
   return isLane(fallback) ? fallback : undefined;
 }
 
-/** Computes a marking's effective lane from its own lane, raise, override and its inputs' current markings. */
+async function markingAt(q: Tx, i: MarkingInput): Promise<Marking> {
+  const r = await q.query<{ body: Marking }>(
+    "select body from object_markings where object_kind = $1 and object_id = $2 and version = $3", [i.object_kind, i.object_id, i.version]);
+  if (!r.rows[0]) throw new Error(`marking ${i.object_kind}/${i.object_id} v${i.version} does not exist`);
+  return r.rows[0].body;
+}
+
+/**
+ * Computes a marking's effective lane from its own lane, raise, override and its inputs' markings.
+ * An override contributes its lane for the inputs its approval covered; an input added after the
+ * approval, or more sensitive now than when it was covered, still raises the result.
+ */
 async function compute(q: Tx, m: Omit<Marking, "effective_lane">): Promise<DataLane> {
-  if (m.override) return m.override.lane;
-  const lanes: DataLane[] = [m.assigned ?? m.lane];
+  const lanes: DataLane[] = [m.override ? m.override.lane : (m.assigned ?? m.lane)];
   for (const i of m.inputs ?? []) {
-    const r = await q.query<{ body: Marking }>(
-      "select body from object_markings where object_kind = $1 and object_id = $2 and version = $3", [i.object_kind, i.object_id, i.version]);
-    if (!r.rows[0]) throw new Error(`marking ${i.object_kind}/${i.object_id} v${i.version} does not exist`);
-    lanes.push(effectiveLane(r.rows[0].body));
+    const lane = effectiveLane(await markingAt(q, i));
+    if (m.override) {
+      const was = m.override.covered?.find((x) => x.object_kind === i.object_kind && x.object_id === i.object_id);
+      if (was && covers(effectiveLane(await markingAt(q, was)), lane)) continue;
+    }
+    lanes.push(lane);
   }
   return mostSensitive(lanes);
 }
@@ -96,6 +108,9 @@ async function resolve(c: Tx, inputs: Ref[]): Promise<MarkingInput[]> {
  * Marks an object at creation with its lane and the objects it was derived from. Marking an object
  * that already has a marking adds inputs or raises; it never lowers (that is a declassification).
  */
+/** Takes the marking lock of an object, so a reader in a transaction sees no raise land before it commits. */
+export const lockMarking = lock;
+
 export async function markObject(c: Tx, kind: string, id: string, lane: DataLane, reason: string, inputs: Ref[] = []): Promise<Marking> {
   await lock(c, kind, id);
   const existing = await currentMarking(c, kind, id);
@@ -161,7 +176,25 @@ export async function downstreamOf(q: Db | Tx, kind: string, id: string): Promis
  * current version of each input. Each new version cites the cause (a change request id or reason).
  */
 async function recomputeDerived(c: Tx, kind: string, id: string, cause: string, changeRequestId?: string): Promise<void> {
-  for (const d of await downstreamOf(c, kind, id)) {
+  // Each object is recomputed only after every object in the set it was derived from, so a diamond
+  // (A to B, A to C, B to C) never reads a stale intermediate.
+  const set = await downstreamOf(c, kind, id);
+  const key = (r: Ref) => `${r.kind}/${r.id}`;
+  const pending = new Map(set.map((r) => [key(r), r]));
+  const ordered: Ref[] = [];
+  while (pending.size) {
+    let progressed = false;
+    for (const [k, r] of pending) {
+      const m = await currentMarking(c, r.kind, r.id);
+      const waits = (m?.inputs ?? []).some((i) => pending.has(`${i.object_kind}/${i.object_id}`));
+      if (waits) continue;
+      ordered.push(r);
+      pending.delete(k);
+      progressed = true;
+    }
+    if (!progressed) throw new Error(`marking provenance has a cycle among ${[...pending.keys()].join(", ")}`);
+  }
+  for (const d of ordered) {
     await lock(c, d.kind, d.id);
     const m = await currentMarking(c, d.kind, d.id);
     if (!m) continue;
@@ -186,7 +219,8 @@ export async function declassify(c: Tx, kind: string, id: string, version: numbe
   if (covers(lane, effectiveLane(m))) throw new Refusal(409, "not-lower", `The object is already ${effectiveLane(m)}; declassification only lowers`);
   const { effective_lane: _e, ...rest } = m;
   const cause = `declassified to ${lane} by change request ${changeRequestId}`;
-  const written = await write(c, { ...rest, version: m.version + 1, override: { lane, change_request_id: changeRequestId }, change_request_id: changeRequestId, reason: cause });
+  const written = await write(c, { ...rest, version: m.version + 1, override: { lane, change_request_id: changeRequestId, covered: m.inputs ?? [] },
+    change_request_id: changeRequestId, reason: cause });
   await recomputeDerived(c, kind, id, cause, changeRequestId);
   return written;
 }

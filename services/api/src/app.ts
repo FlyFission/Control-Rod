@@ -22,7 +22,8 @@ import { grantRoutes } from "./preparation/grant-routes.js";
 import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
-import { ADMIN_COMMANDS, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
+import { teach } from "./refusals.js";
+import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
 import {
   Refusal,
@@ -42,6 +43,7 @@ import {
   overrideChallenge,
   overrideIndependence,
   overrideSubject,
+  packageActions,
   packageLane,
   packageOutput,
   packageView,
@@ -119,7 +121,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.setValidatorCompiler(({ schema }) => ajv.compile(schema));
 
   app.setErrorHandler((err, _req, reply) => {
-    if (err instanceof Refusal) return reply.code(err.status).send({ code: err.code, message: err.message });
+    if (err instanceof Refusal) {
+      const taught = teach(err.code);
+      return reply.code(err.status).send({ code: err.code, message: err.message, change: taught.change, ...(taught.floor ? { floor: true } : {}) });
+    }
     const status = (err as { statusCode?: number }).statusCode;
     if (status && status < 500) return reply.code(status).send({ code: "invalid", message: (err as Error).message });
     (opts.onError ?? ((e) => console.error("[control-rod] unhandled error:", e)))(err);
@@ -244,6 +249,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       policy: (await currentPolicySet(db, caller.orgId))?.record ?? null,
       themes: [...bundledThemes(cfg.root).keys()].sort(),
       commands: adminCatalog(),
+      actions: await adminActions(db, caller),
     };
   });
   app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown> } }>("/admin/commands/:name/options", async (req) => {
@@ -301,6 +307,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const ifMatch = typeof req.headers["if-match"] === "string" ? req.headers["if-match"] : undefined;
     const saved = await updateDraft(db, cfg, user, req.params.id, req.body, ifMatch);
     return reply.header("ETag", saved.etag).header("Cache-Control", "no-store").send(saved.body);
+  });
+  app.get<{ Params: { id: string } }>("/packages/:id/actions", async (req) => {
+    const user = await person(req);
+    return packageActions(db, cfg, user, req.params.id);
   });
   app.get<{ Params: { id: string; "*": string } }>("/packages/:id/outputs/*", async (req, reply: FastifyReply) => {
     await person(req);

@@ -1,3 +1,4 @@
+import { explain } from "../api/client.js";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { DecisionKind, PackageView } from "../api/types.js";
@@ -48,7 +49,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
       void qc.invalidateQueries({ queryKey: ["office"] });
       void qc.invalidateQueries({ queryKey: ["packages"] });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The decision was not recorded.");
+      setError(explain(e, "The decision was not recorded."));
     } finally {
       setBusy(false);
     }

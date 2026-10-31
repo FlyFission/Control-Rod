@@ -14,7 +14,8 @@ import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, rais
 import { covers, laneOf, markObject, mostSensitive, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
-import { type SignerAction, needsOf, requireAuthority } from "./authority.js";
+import { ACTION_ROLES, type SignerAction, needsOf, requireAuthority, signingGaps } from "./authority.js";
+import { teach } from "./refusals.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
@@ -50,7 +51,7 @@ function validate(cfg: WorkConfig, schema: string, value: unknown): void {
 
 function kernel(outcome: KernelOutcome, what: string): Status {
   if (!outcome.allowed || outcome.next === null) {
-    throw new Refusal(403, outcome.reason, `Kernel refused ${what}: ${outcome.reason}`);
+    throw new Refusal(403, outcome.reason, `${what}: ${teach(outcome.reason).sentence}`);
   }
   return outcome.next;
 }
@@ -1446,6 +1447,63 @@ export async function decisionSubject(db: Db, id: string, kind: string, revision
   return {pkg,...s};
 }
 
+/** The preparation facts the kernel weighs for a decision on a prepared package; undefined for a legacy one. */
+async function decisionPreparation(c: Tx, cfg: WorkConfig, pkg: PackageRow, s: Awaited<ReturnType<typeof subjectOf>>, kind: string, lock: boolean) {
+  if (!s.preparation) return undefined;
+  if (kind === "release") return preparedReleaseGuard(c, cfg, pkg, s.preparation);
+  if (kind === "accept" || kind === "accept-with-findings") return preparedAcceptanceGuard(c, cfg, pkg, s.author, s.verification, lock);
+  return { requirements_confirmed: Boolean(s.preparation.confirmation), ready_for_release: false, basis_current: false, manifest_matches: false,
+    results_complete: false, required_checks_complete: false, results_pass: false };
+}
+
+const DECISION_LABELS: Record<string, string> = {
+  release: "Release", accept: "Accept", "accept-with-findings": "Accept with findings", return: "Return for revision", reject: "Reject",
+};
+
+/**
+ * What the viewing person can do with a package now (specification 5.7 ActionDescriptor; plan task
+ * 1.11): each decision allowed or refused, with the reason in words, what would change it, how it is
+ * signed and the qualifications it needs. The kernel is asked as if the person had signed, so the
+ * answer is exactly what a signed request would get; nothing is written.
+ */
+export async function packageActions(db: Db, cfg: WorkConfig, user: string, id: string) {
+  return readTx(db, async (c) => {
+    const pkg = await currentPackage(c, id);
+    if (!pkg) throw new Refusal(404, "not-found", "No such package");
+    const s = await subjectOf(c, pkg);
+    const out: Json[] = [];
+    const refused = (base: Json, code: string, message?: string) => {
+      const t = teach(code);
+      return { ...base, allowed: false, reason_code: code, reason: message ?? t.sentence, change: t.change, ...(t.floor ? { floor: true } : {}) };
+    };
+    const preparing = (await c.query("select 1 from preparation_heads where package_id = $1", [id])).rowCount;
+    const edit = { command: "draft.edit", label: "Edit draft", signature: "none" };
+    out.push(pkg.status !== "draft" ? refused(edit, "wrong-state", "Only a draft can be edited")
+      : preparing ? refused(edit, "preparation-edit-required") : { ...edit, allowed: true });
+    for (const kind of Object.keys(HUMAN_ACTIONS)) {
+      const base = { command: kind, label: DECISION_LABELS[kind], signature: "direct", authority: ACTION_ROLES[kind as SignerAction] };
+      const missing = await signingGaps(c, user, kind as SignerAction, needsOf(pkg.body));
+      if (missing.length) {
+        out.push({ ...refused(base, "qualification-missing", `This needs ${missing.join(" and ")}, which your qualification does not include`), missing });
+        continue;
+      }
+      let preparation;
+      try {
+        preparation = await decisionPreparation(c, cfg, pkg, s, kind, false);
+      } catch (e) {
+        if (e instanceof Refusal) { out.push(refused(base, e.code, e.message)); continue; }
+        throw e;
+      }
+      const outcome = decide({
+        status: pkg.status, action: HUMAN_ACTIONS[kind]!, actor_kind: "human", actor_id: user, author_baseline: s.author?.body.agent_baseline,
+        pre_check: s.verification?.outcome, assertion_verified: true, digest_matches: true, reason_given: true, ...(preparation ? { preparation } : {}),
+      });
+      out.push(outcome.allowed ? { ...base, allowed: true } : refused(base, outcome.reason));
+    }
+    return out;
+  });
+}
+
 /** Applies a person's decision. The assertion was verified by the caller against the stored challenge. */
 export async function applyDecision(
   db: Db,
@@ -1463,7 +1521,7 @@ export async function applyDecision(
     // Authority is read inside the writer transaction, so a revocation that lands first is honored.
     await requireAuthority(c, user, req.kind as SignerAction, needsOf(pkg.body));
     const s = await subjectOf(c, pkg);
-    const preparation = s.preparation ? req.kind==="release" ? await preparedReleaseGuard(c,cfg,pkg,s.preparation) : (req.kind==="accept" || req.kind==="accept-with-findings") ? await preparedAcceptanceGuard(c,cfg,pkg,s.author,s.verification) : {requirements_confirmed:Boolean(s.preparation.confirmation),ready_for_release:false,basis_current:false,manifest_matches:false,results_complete:false,required_checks_complete:false,results_pass:false} : undefined;
+    const preparation = await decisionPreparation(c, cfg, pkg, s, req.kind, true);
     const reason = (req.reason ?? "").trim();
     const outcome = decide({
       status: pkg.status,

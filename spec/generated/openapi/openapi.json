@@ -955,6 +955,97 @@
         }
       }
     },
+    "/packages/{id}/actions": {
+      "get": {
+        "operationId": "Packages_actions",
+        "description": "What the viewing person can do with this package now, each allowed or refused with the reason.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActionDescriptor"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/decisions": {
       "post": {
         "operationId": "Packages_decide",
@@ -3405,6 +3496,62 @@
   },
   "components": {
     "schemas": {
+      "ActionDescriptor": {
+        "type": "object",
+        "required": [
+          "command",
+          "label",
+          "allowed",
+          "signature"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "The command or decision, for example \"release\" or \"draft.edit\"."
+          },
+          "label": {
+            "type": "string"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "signature": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "absorbed",
+              "none"
+            ]
+          },
+          "authority": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Any one of these roles or authorities may take it."
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Qualifications the viewer lacks for it, in words."
+          },
+          "reason_code": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "change": {
+            "type": "string"
+          },
+          "floor": {
+            "type": "boolean"
+          }
+        },
+        "description": "One command for an object and the viewing Member (workbench specification 5.7): allowed or\nrefused, why in words, what would change it, how it is signed and the authority it needs."
+      },
       "ApiError": {
         "type": "object",
         "required": [
@@ -3413,10 +3560,19 @@
         ],
         "properties": {
           "code": {
-            "type": "string"
+            "type": "string",
+            "description": "A stable reason code (services/api/src/refusals.ts lists every one)."
           },
           "message": {
             "type": "string"
+          },
+          "change": {
+            "type": "string",
+            "description": "The one fact that would change the answer (WB-03)."
+          },
+          "floor": {
+            "type": "boolean",
+            "description": "Set when a floor refused: no person, decision or setting lifts it."
           }
         }
       },

@@ -40,3 +40,10 @@ Reviewer: Codex CLI, static read only review against `origin/buildout/controlled
 | P5-22 | Fixed | Requirements confirmation needs the originator, approver or engineer in responsible charge role and the grade coverage, checked before the prompt and, after `lockSigner`, in the transaction. |
 
 Lock order now, everywhere: marking graph lock (by the executor), administration lock, then rows.
+
+## Round 3 (part5-codex-round3.md): closed P5-15 and P5-17 to P5-22; two findings, both accepted
+
+| ID | Disposition | Fix and evidence |
+|---|---|---|
+| P5-23 | Fixed | The claim now admits a package run only under the most sensitive of the package's effective lane and the lane of every source its job carries (legacy: capture text and attachments, dependency outputs; prepared: every capture, attachment and package the release manifest pinned), each from its own marking or recorded lane. A source with no classified lane holds the run. This no longer depends on a legacy package's marking having its provenance edges. Test: "holds a legacy package whose capture was never classified". |
+| P5-24 | Fixed | Sources are judged by their own lane at dispatch, so a package's declassification lowers the package but never the raw outputs it carries from a dependency. Test: "judges a dependency's outputs by the dependency's own lane, even when the package was declassified". |

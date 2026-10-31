@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
+import { tx } from "../src/db/index.js";
 import { LANE_RUNTIMES, admits, admitted } from "../src/disclosure.js";
+import { takeMarkingWrite } from "../src/marking-lock.js";
+import { declassify, markObject } from "../src/markings.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, daemonHeaders, signIn, startHarness } from "./harness.js";
 
 /** The disclosure gate (workbench plan task 1.7; specification 11.3 M-0, WB-04). */
@@ -105,5 +108,50 @@ describe("package runs", () => {
     // Scanning again records nothing new.
     await claim(["claude"]);
     expect((await h.db.query("select count(*)::int as n from events where body->>'type' = 'run.waiting' and body->>'subject' = 'R-lane0001'")).rows[0].n).toBe(1);
+  });
+});
+
+describe("every source a job carries", () => {
+  const queueAuthor = async (id: string) => {
+    await h.admin.query("update runs set status = 'stopped' where status = 'queued'");
+    const run = {
+      schema_version: "0.1.0", id: `R-${id.toLowerCase().slice(-8)}`, package_id: id, package_revision: 0, role: "author", agent_baseline: "unassigned",
+      runtime: { kind: "local", provider: "any", model: "any" }, round: 1, status: "queued", queued_at: new Date().toISOString(),
+    };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'author', 1, 'queued', $3)", [run.id, id, run]);
+    return run.id;
+  };
+  const example = () => parse(readFileSync(new URL("../../../spec/examples/work-package.hvac-load-calc.yaml", import.meta.url), "utf8"));
+  const waiting = async (runId: string) => (await h.db.query("select body->>'waiting_reason' as r from runs where id = $1", [runId])).rows[0].r;
+
+  it("holds a legacy package whose capture was never classified", async () => {
+    const c = (await post("/captures", { text: "Never classified" })).json();
+    await h.admin.query("insert into packages (id, revision, status, capture_id, body) values ('WP-SRC-1', 0, 'released', $1, $2)",
+      [c.id, { ...example(), id: "WP-SRC-1", revision: 0, status: "released", data_lane: "internal", design_inputs: [] }]);
+    const runId = await queueAuthor("WP-SRC-1");
+    expect((await claim(["claude", "codex", "fake"])).statusCode).toBe(204);
+    expect(await waiting(runId)).toMatch(new RegExp(`carries capture ${c.id}, which has no classified data lane`));
+  });
+
+  it("judges a dependency's outputs by the dependency's own lane, even when the package was declassified", async () => {
+    const base = { ...example(), revision: 0, design_inputs: [] };
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-SECRET-DEP', 0, 'accepted', $1)",
+      [{ ...base, id: "WP-SECRET-DEP", status: "draft", data_lane: "restricted" }]);
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-OPEN', 0, 'released', $1)",
+      [{ ...base, id: "WP-OPEN", status: "released", data_lane: "internal", depends_on: [{ package_id: "WP-SECRET-DEP" }] }]);
+    // WP-OPEN's own marking is declassified to internal over the restricted dependency.
+    await tx(h.admin, async (c) => {
+      await takeMarkingWrite(c);
+      const m = await markObject(c, "package", "WP-OPEN", "internal", "test", [{ kind: "package", id: "WP-SECRET-DEP" }]);
+      expect(m.effective_lane).toBe("restricted");
+      const d = await declassify(c, "package", "WP-OPEN", m.version, "internal", "cr_open");
+      expect(d.effective_lane).toBe("internal");
+    });
+    const runId = await queueAuthor("WP-OPEN");
+    expect((await claim(["claude", "codex"])).statusCode).toBe(204);
+    expect(await waiting(runId)).toMatch(/restricted lane admits none/);
+    const local = await claim(["fake"]);
+    expect(local.statusCode).toBe(200);
+    expect(local.json().run.package_id).toBe("WP-OPEN");
   });
 });

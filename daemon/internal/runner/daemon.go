@@ -98,6 +98,8 @@ type Daemon struct {
 	active      map[string]bool
 	activeUnits map[string]bool
 	container   Container
+	// ns names this daemon's home in its scope names (Namespace).
+	ns string
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -145,8 +147,11 @@ func New(cfg Config) *Daemon {
 		k := DetectContainer(os.Getenv)
 		cfg.Container = &k
 	}
+	ns := Namespace(cfg.Home)
+	k := *cfg.Container
+	k.NS = ns
 	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger, outbox: NewOutbox(cfg.Home),
-		receipts: NewReceipts(cfg.Home), container: *cfg.Container, quit: context.Background()}
+		receipts: NewReceipts(cfg.Home), container: k, ns: ns, quit: context.Background()}
 }
 
 var (
@@ -175,6 +180,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.log.Warn("runs are contained by process group only: a process that leaves its group is not tracked. Cgroup containment needs Linux with a systemd user manager.")
 	}
 	d.quit = ctx
+	// One daemon per home: two would each treat the other's runs as orphans.
+	unlock, err := LockHome(d.cfg.Home)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	d.sweepOrphans(ctx)
 	d.probe(ctx)
 	go d.probeLoop(ctx)
@@ -590,10 +601,16 @@ func failText(err error) string {
 func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	// Active until the completion is in durable custody, so an orphan sweep never reports a run this
 	// daemon is still finishing.
-	unit := UnitName(job.Run.ID, job.Run.Generation)
+	unit := UnitName(d.ns, job.Run.ID, job.Run.Generation)
 	d.setActive(job.Run.ID, unit, true)
 	defer d.setActive(job.Run.ID, unit, false)
-	comp := d.Execute(ctx, job)
+	comp, err := d.execute(ctx, job)
+	if errors.Is(err, ErrUncontained) {
+		// Not over: keep the receipt and send nothing. The lease lapses, the control plane holds the
+		// outcome as unknown, and the orphan sweep keeps trying until the unit is confirmed empty.
+		d.log.Error("processes of the run could not be confirmed stopped; keeping its receipt and sending no completion", "run", job.Run.ID)
+		return
+	}
 	comp.ClaimToken = job.Claim.Token
 	comp.IdempotencyKey = newKey()
 	e := OutboxEntry{RunID: job.Run.ID, Completion: comp}
@@ -626,21 +643,28 @@ func newKey() string {
 
 // Execute runs one job and returns its completion without sending it.
 func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
+	comp, _ := d.execute(ctx, job)
+	return comp
+}
+
+// execute runs one job. ErrUncontained means processes of the run could not be confirmed gone,
+// so the completion must not be sent.
+func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	started := time.Now().UTC()
 	fail := func(msg string) Completion {
 		return Completion{Status: "failed", Error: msg, Outputs: []NamedFile{}}
 	}
 	runtime := RuntimeFor(job.Run.Runtime.Provider)
 	if runtime == "" || !slices.Contains(d.cfg.Runtimes, runtime) {
-		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider))
+		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
 	}
 	ws, err := Prepare(d.cfg.Home, job)
 	if err != nil {
-		return fail(err.Error())
+		return fail(err.Error()), nil
 	}
 	_, inArts, err := Collect(ws.Inputs, MaxOutputTotal, 1<<40)
 	if err != nil {
-		return fail("read inputs: " + err.Error())
+		return fail("read inputs: " + err.Error()), nil
 	}
 	d.log.Info("run started", "run", job.Run.ID, "role", job.Run.Role, "runtime", runtime, "workspace", ws.Dir)
 
@@ -654,24 +678,41 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 	go func() { d.flushLoop(flushCtx, job, buf, release); close(flushed) }()
 
 	launch := LaunchFor(runtime, job.Run, ws)
-	// A stop freezes the run and snapshots out/ here; that snapshot is then the run's only output.
-	frozen := filepath.Join(ws.Dir, "out.frozen")
+	// A stop freezes the run and snapshots out/ into fresh custody outside the workspace, where the
+	// run cannot write; that snapshot is then the run's only output.
+	var frozen string
 	var snapshotErr error
+	snapshot := func() {
+		parent := filepath.Join(d.cfg.Home, "custody")
+		if err := os.MkdirAll(parent, 0o700); err != nil {
+			snapshotErr = err
+			return
+		}
+		dir, err := os.MkdirTemp(parent, "snapshot-")
+		if err != nil {
+			snapshotErr = err
+			return
+		}
+		frozen = filepath.Join(dir, "out")
+		snapshotErr = Snapshot(ws.Out, frozen)
+	}
 	cmd, err := Command(runtime, job.Run, ws)
 	if err == nil {
 		if cmd == nil {
 			buf.add(`{"type":"result","subtype":"fake-copy"}`)
 			err = CopyFakeOutputs(ws)
 		} else {
-			unit := UnitName(job.Run.ID, job.Run.Generation)
+			unit := UnitName(d.ns, job.Run.ID, job.Run.Generation)
 			d.container.Wrap(cmd, unit)
 			err = Execute(runCtx, cmd, buf.add, ExecHooks{
 				Timings:  d.timings(),
-				Snapshot: func() { snapshotErr = Snapshot(ws.Out, frozen) },
+				Snapshot: snapshot,
 				Started: func(pid int) (*SpawnReceipt, error) {
 					u, lerr := d.container.Locate(pid, unit)
 					if lerr != nil {
-						return nil, lerr
+						// Not seen in its scope: end whatever the scope holds, by name.
+						return &SpawnReceipt{Containment: d.container.Mode, Unit: unit, PGID: pid,
+							Cgroup: filepath.Join(d.container.ScopeParent, unit+".scope")}, lerr
 					}
 					r, rerr := NewReceipt(job.Run.ID, job.Claim.Token, pid, max(job.Run.Generation, 1), u)
 					if errors.Is(rerr, ErrNoIdentity) {
@@ -679,11 +720,12 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 						return nil, nil
 					}
 					if rerr != nil {
-						return nil, rerr
+						return &SpawnReceipt{Containment: u.Mode, Unit: u.Name, Cgroup: u.Cgroup, PGID: pid}, rerr
 					}
-					// Fail closed: a run whose receipt is not durable could outlive this daemon unowned.
+					// Fail closed: a run whose receipt is not durable could outlive this daemon unowned,
+					// so the whole located unit is stopped.
 					if perr := d.receipts.Put(r); perr != nil {
-						return nil, perr
+						return &r, perr
 					}
 					buf.setReceipt(r.Wire())
 					return &r, nil
@@ -705,6 +747,9 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 		}
 		buf.receiptSent(batch.Receipt)
 	}
+	if errors.Is(err, ErrUncontained) {
+		return Completion{}, ErrUncontained
+	}
 
 	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}}
 	if err != nil {
@@ -713,9 +758,11 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 			comp.Status = "stopped"
 		}
 	}
+	// After a stop, the snapshot in custody is the run's only output; everything below reads it.
 	collectFrom := ws.Out
-	if _, serr := os.Stat(frozen); serr == nil {
+	if frozen != "" {
 		collectFrom = frozen
+		defer os.RemoveAll(filepath.Dir(frozen))
 	}
 	if snapshotErr != nil {
 		comp.Status, comp.Error = "failed", "outputs could not be snapshot when the run was stopped: "+snapshotErr.Error()
@@ -734,7 +781,7 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 		inArts = []Artifact{}
 	}
 	attach := func(name string) json.RawMessage {
-		b, err := os.ReadFile(filepath.Join(ws.Out, name))
+		b, err := os.ReadFile(filepath.Join(collectFrom, name))
 		if err != nil || !json.Valid(b) {
 			return nil
 		}
@@ -770,5 +817,5 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 		AllowedTools:    launch.AllowedTools,
 		Sandbox:         launch.Sandbox,
 	}
-	return comp
+	return comp, nil
 }

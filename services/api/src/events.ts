@@ -31,6 +31,21 @@ export function pendingEvents(c: Tx): EventRecord[] {
   return holder[PENDING];
 }
 
+const AFTER = Symbol("afterCommit");
+
+/**
+ * Work to do only once the transaction commits, such as updating memory that must agree with the
+ * database (the sweep's lease bookkeeping). Dropped if the transaction rolls back.
+ */
+export function afterCommit(c: Tx, fn: () => void): void {
+  afterCommits(c).push(fn);
+}
+
+export function afterCommits(c: Tx): (() => void)[] {
+  const holder = c as unknown as { [AFTER]?: (() => void)[] };
+  return (holder[AFTER] ??= []);
+}
+
 /** The digest covers every field except the digest itself, so any edit breaks the chain. */
 function eventDigest(e: Omit<EventRecord, "digest">): string {
   return digest(e);

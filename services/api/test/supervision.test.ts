@@ -154,6 +154,44 @@ describe("ordering races", () => {
   });
 });
 
+describe("round 2 rules", () => {
+  it("records process group evidence but leaves the outcome unknown for a person", async () => {
+    const job = await claimed("WP-SUP-PG");
+    const pg = { ...receipt(), containment: "process-group" };
+    delete (pg as Json).unit;
+    await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], receipt: pg });
+    const r = await daemon(`/runner/runs/${job.run.id}/evidence`, { observation: "process-gone", receipt: pg });
+    expect(r.json()).toEqual({ run_id: job.run.id, reconciled: false });
+    const after = await run(job.run.id);
+    expect(after.status).toBe("lost");
+    expect(after.body.outcome_unknown).toBeDefined();
+    expect(after.body.reconciliation).toBeUndefined();
+    expect((await post(`/packages/WP-SUP-PG/runs/${job.run.id}/requeue`, {})).json().code).toBe("outcome-unknown");
+  });
+
+  it("honors heartbeats that return from an outage before the sweep sees it", async () => {
+    const jobs = [await claimed("WP-HBO-1"), await claimed("WP-HBO-2"), await claimed("WP-HBO-3")];
+    await h.admin.query("update runs set status = 'stopped' where status = 'running' and id <> all($1::text[])", [jobs.map((j) => j.run.id)]);
+    for (const j of jobs) await expire(j.run.id);
+    for (const j of jobs) {
+      const beat = await daemon(`/runner/runs/${j.run.id}/log`, { lines: ["back"] });
+      expect(beat.statusCode, beat.body).toBe(200);
+    }
+    await h.admin.query("update runs set status = 'stopped' where id = any($1::text[])", [jobs.map((j) => j.run.id)]);
+  });
+
+  it("grants no second renewal without a heartbeat, even to a controller that never saw the run", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-SUP-BOUND', 0, 'in-work', $1)",
+      [{ ...example, id: "WP-SUP-BOUND", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [] }]);
+    // Renewed once already by an earlier controller, and never heard from since.
+    const body = { schema_version: "0.1.0", id: "R-bound001", package_id: "WP-SUP-BOUND", package_revision: 0, role: "author", agent_baseline: "author-fake",
+      runtime: { kind: "local", provider: "fake", model: "fake" }, round: 1, status: "running", queued_at: new Date().toISOString(), generation: 1, grace_renewals: 1 };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body, lease_expires_at) values ($1, 'WP-SUP-BOUND', 0, 'author', 1, 'running', $2, now() - interval '1 minute')", [body.id, body]);
+    await sweep();
+    expect((await run(body.id)).status).toBe("lost");
+  });
+});
+
 describe("generation fence", () => {
   it("refuses reports from an attempt a later attempt superseded", async () => {
     const job = await claimed("WP-SUP-FENCE");

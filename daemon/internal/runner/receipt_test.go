@@ -26,9 +26,14 @@ var fast = StopTimings{AfterHangup: 200 * time.Millisecond, Grace: 500 * time.Mi
 // startUnit starts a script in a containment unit of the given mode and records its receipt.
 func startUnit(t *testing.T, k Container, runID, script, dir string) (SpawnReceipt, *exec.Cmd) {
 	t.Helper()
+	return startUnitNS(t, k, "testns", runID, script, dir)
+}
+
+func startUnitNS(t *testing.T, k Container, ns, runID, script, dir string) (SpawnReceipt, *exec.Cmd) {
+	t.Helper()
 	cmd := exec.Command("bash", "-c", script)
 	cmd.Dir = dir
-	unit := UnitName(runID, 1)
+	unit := UnitName(ns, runID, 1)
 	k.Wrap(cmd, unit)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -179,7 +184,7 @@ func TestExecuteEndsProcessesTheLeaderLeftBehind(t *testing.T) {
 		dir := t.TempDir()
 		cmd := exec.Command("bash", "-c", `(sleep 60) & echo started; exit 0`)
 		cmd.Dir = dir
-		unit := UnitName("run-linger-"+k.Mode, 1)
+		unit := UnitName("testns", "run-linger-"+k.Mode, 1)
 		k.Wrap(cmd, unit)
 		var receipt SpawnReceipt
 		done := make(chan error, 1)
@@ -232,7 +237,7 @@ func TestRestartedDaemonStopsOrphansReportsThemAndEndsUnreceiptedScopes(t *testi
 	alive, _ := startUnit(t, k, "run-orphan", "sleep 30", t.TempDir())
 	alive.ClaimToken = "claim-orphan"
 	gone := alive
-	gone.RunID, gone.ClaimToken, gone.ProcessStart, gone.Unit, gone.Cgroup, gone.PGID = "run-stale", "claim-stale", "1", "controlrod-run-none-g1", "/nonexistent", 0
+	gone.RunID, gone.ClaimToken, gone.ProcessStart, gone.Unit, gone.Cgroup, gone.PGID = "run-stale", "claim-stale", "1", UnitName("x", "none", 1), "/nonexistent", 0
 	gone.Containment = ContainGroup
 	store := NewReceipts(home)
 	for _, r := range []SpawnReceipt{alive, gone} {
@@ -240,9 +245,11 @@ func TestRestartedDaemonStopsOrphansReportsThemAndEndsUnreceiptedScopes(t *testi
 			t.Fatal(err)
 		}
 	}
-	var unreceipted SpawnReceipt
+	var unreceipted, foreign SpawnReceipt
 	if k.Mode == ContainCgroup {
-		unreceipted, _ = startUnit(t, k, "run-noreceipt", "sleep 30", t.TempDir())
+		unreceipted, _ = startUnitNS(t, k, Namespace(home), "run-noreceipt", "sleep 30", t.TempDir())
+		// Another daemon's run (another home, another namespace) must never be touched.
+		foreign, _ = startUnitNS(t, k, Namespace(t.TempDir()), "run-foreign", "sleep 30", t.TempDir())
 	}
 	var mu sync.Mutex
 	var reports []map[string]any
@@ -283,6 +290,9 @@ func TestRestartedDaemonStopsOrphansReportsThemAndEndsUnreceiptedScopes(t *testi
 	if k.Mode == ContainCgroup && unreceipted.Alive() {
 		t.Fatal("a run scope with no receipt must be ended by the sweep")
 	}
+	if k.Mode == ContainCgroup && !foreign.Alive() {
+		t.Fatal("a scope from another daemon's namespace was ended")
+	}
 }
 
 func TestReceiptIsSentWithLogsUntilRecordedAndKeptUntilTheOutbox(t *testing.T) {
@@ -314,5 +324,129 @@ func TestReceiptIsSentWithLogsUntilRecordedAndKeptUntilTheOutbox(t *testing.T) {
 	}
 	if left, _ := NewReceipts(home).List(); len(left) != 0 {
 		t.Fatal("the receipt must be removed once the completion is in the outbox")
+	}
+}
+
+func TestSnapshotTakesOnlyAFreshDestinationAndRefusesSymlinks(t *testing.T) {
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "r.md"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "out")
+	if err := os.Mkdir(dst, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := Snapshot(src, dst); err == nil {
+		t.Fatal("a destination that already exists (perhaps prepared by the run) must be refused")
+	}
+	if err := os.Symlink("/etc/passwd", filepath.Join(src, "link")); err != nil {
+		t.Fatal(err)
+	}
+	if err := Snapshot(src, filepath.Join(t.TempDir(), "fresh")); err == nil {
+		t.Fatal("a symlink in the outputs must be refused")
+	}
+}
+
+func TestUnreadableCgroupStateCountsAsAlive(t *testing.T) {
+	dir := t.TempDir()
+	if populated(filepath.Join(dir, "gone")) {
+		t.Fatal("a cgroup that no longer exists is empty")
+	}
+	ev := filepath.Join(dir, "cgroup.events")
+	if err := os.WriteFile(ev, []byte("populated 0\nfrozen 0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if populated(dir) {
+		t.Fatal("populated 0 is empty")
+	}
+	if err := os.WriteFile(ev, []byte("frozen 0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !populated(dir) {
+		t.Fatal("an answer without the populated field is not proof of empty")
+	}
+	if os.Getuid() != 0 {
+		if err := os.Chmod(ev, 0); err != nil {
+			t.Fatal(err)
+		}
+		if !populated(dir) {
+			t.Fatal("an unreadable cgroup counts as populated")
+		}
+	}
+}
+
+func TestExecuteReportsUncontainedWhenTheUnitWillNotEmpty(t *testing.T) {
+	old := killWait
+	killWait = 300 * time.Millisecond
+	defer func() { killWait = old }()
+	// A unit that claims to hold processes forever: the stop cannot be confirmed.
+	fakeUnit := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fakeUnit, "cgroup.events"), []byte("populated 1\nfrozen 1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", "-c", "sleep 30")
+	setProcessGroup(cmd)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { time.Sleep(200 * time.Millisecond); cancel() }()
+	err := Execute(ctx, cmd, func(string) {}, ExecHooks{Timings: StopTimings{AfterHangup: 50 * time.Millisecond, Grace: 50 * time.Millisecond}, Linger: 100 * time.Millisecond,
+		Started: func(pid int) (*SpawnReceipt, error) {
+			return &SpawnReceipt{RunID: "run-u", Containment: ContainCgroup, Cgroup: fakeUnit, PGID: pid}, nil
+		}})
+	_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	if !errors.Is(err, ErrUncontained) {
+		t.Fatalf("got %v, want ErrUncontained", err)
+	}
+}
+
+func TestFallbackSignalsNothingOnAStaleReceiptEvenWhileItsGroupNumberExists(t *testing.T) {
+	r, cmd := startUnit(t, Container{Mode: ContainGroup}, "run-stale-group", "sleep 30", t.TempDir())
+	stale := r
+	stale.ProcessStart = "1"
+	if err := stale.signal(syscall.SIGTERM); !errors.Is(err, errNoIdentityToSignal) {
+		t.Fatalf("got %v", err)
+	}
+	if syscall.Kill(cmd.Process.Pid, 0) != nil {
+		t.Fatal("the group was signalled on the strength of its number alone")
+	}
+}
+
+func TestOneDaemonPerHome(t *testing.T) {
+	home := t.TempDir()
+	unlock, err := LockHome(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+	if _, err := LockHome(home); err == nil || !strings.Contains(err.Error(), "already running") {
+		t.Fatalf("a second daemon on the same home must refuse: %v", err)
+	}
+}
+
+func TestAReceiptWriteFailureEndsTheWholeUnitIncludingEscapedChildren(t *testing.T) {
+	k := cgroupMode(t)
+	dir := t.TempDir()
+	cmd := exec.Command("bash", "-c", `setsid bash -c 'trap "" HUP TERM; exec >/dev/null 2>&1; echo $$ > child.pid; sleep 60' & while [ ! -s child.pid ]; do sleep 0.02; done; sleep 60`)
+	cmd.Dir = dir
+	unit := UnitName("testns", "run-nodisk", 1)
+	k.Wrap(cmd, unit)
+	var located SpawnReceipt
+	err := Execute(context.Background(), cmd, func(string) {}, ExecHooks{Started: func(pid int) (*SpawnReceipt, error) {
+		u, lerr := k.Locate(pid, unit)
+		if lerr != nil {
+			return nil, lerr
+		}
+		waitFile(t, filepath.Join(dir, "child.pid"))
+		r, rerr := NewReceipt("run-nodisk", "tok", pid, 1, u)
+		if rerr != nil {
+			return nil, rerr
+		}
+		located = r
+		return &r, errors.New("disk full")
+	}})
+	if err == nil || !strings.Contains(err.Error(), "could not be owned") {
+		t.Fatalf("got %v", err)
+	}
+	if located.Alive() {
+		t.Fatal("the escaped child survived a receipt failure")
 	}
 }

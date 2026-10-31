@@ -8,10 +8,10 @@ checks the static rules and that this catalog matches the commands executed.
 
 | Command | Principal | Signature | Specification 10.2 row | Executed in | Reached from |
 |---|---|---|---|---|---|
-| `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /admin/commands/:name/options`, `POST /auth/login/options`, `POST /auth/register/options`, `POST /auth/step-up/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/runs/:runId/override-independence/options` |
-| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallengeFor | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
+| `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /admin/commands/:name/options`, `POST /auth/login/options`, `POST /auth/register/options`, `POST /auth/step-up/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/person-verifications/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/runs/:runId/override-independence/options` |
+| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallengeFor | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
 | `auth.register-credential` | member | none | Register authenticator credential | `auth.ts` registrationVerify | `POST /auth/register/verify` |
-| `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
+| `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
 | `auth.session-start` | member | none | operational | `auth.ts` startSession | `POST /auth/login/verify`, `POST /auth/register/verify` |
 | `auth.session-end` | member | none | operational | `auth.ts` endSession | `POST /auth/logout` |
 | `capture.create` | member | none | Capture | `work.ts` createCapture | `POST /captures` |
@@ -28,6 +28,7 @@ checks the static rules and that this catalog matches the commands executed.
 | `run.override-independence` | member | direct | Override independence | `work.ts` overrideIndependence | `POST /packages/:id/runs/:runId/override-independence` |
 | `runtime.report-status` | agent-via-daemon | none | Probe runtime | `work.ts` recordRuntimeStatus | `POST /runner/claim` |
 | `decision.apply` | member | direct | Release; Verdict | `work.ts` applyDecision | `POST /packages/:id/decisions` |
+| `verification.record-person` | member | direct | Record person verification | `person-verification.ts` recordPersonVerification | `POST /packages/:id/person-verifications` |
 | `preparation.enroll` | member | none | Enroll, edit, resolve preparation | `preparation/store.ts` enrollPreparation | `POST /packages/:id/preparation` |
 | `preparation.edit` | member | none | Enroll, edit, resolve preparation | `preparation/store.ts` editPreparation | `PUT /packages/:id/preparation` |
 | `preparation.resolve` | member | none | Enroll, edit, resolve preparation | `preparation/store.ts` resolvePreparation | `POST /packages/:id/preparation/resolutions` |

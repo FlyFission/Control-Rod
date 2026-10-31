@@ -264,6 +264,35 @@ namespace Packages {
     @statusCode _: 201;
     @body decision: Decision;
   } | Refused;
+
+  /** What a qualified checker verified in person (specification 11.5). */
+  model PersonVerificationRequest {
+    @minValue(0) package_revision: int32;
+
+    /** Criterion ids: a prepared package's criteria, or AC-1, AC-2 and so on for acceptance criteria. */
+    @minItems(1) criteria: string[];
+
+    outcome: "pass" | "fail" | "inconclusive";
+  }
+
+  /** Step 1: every rule that needs no signature is checked, then the digest to sign. */
+  @route("/{id}/person-verifications/options")
+  @post
+  op personVerificationOptions(@path id: string, @body body: PersonVerificationRequest): {
+    subject_digest: Digest;
+    options: Record<unknown>;
+  } | Refused;
+
+  /** Step 2: the signed verification, checked again and recorded. */
+  @route("/{id}/person-verifications")
+  @post
+  op recordPersonVerification(@path id: string, @body body: {
+    ...PersonVerificationRequest;
+    assertion: Record<unknown>;
+  }): {
+    @statusCode _: 201;
+    @body record: ControlRod.Records.PersonVerification;
+  } | Refused;
 }
 
 /** One entry in your office: something that needs a person. */

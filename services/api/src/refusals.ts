@@ -103,6 +103,8 @@ export const REASONS: Record<string, Reason> = {
   "invalid-trace": r("The execution trace is invalid.", "Fix the trace so it matches the contract."),
   "output-changed": r("The author's deliverables are missing or no longer match their recorded digests.", "Run the author again so the deliverables and their digests agree."),
   "output-required": r("No author deliverable is available for acceptance.", "Let the author run produce its deliverables first."),
+  "verifier-is-originator": r("You originated this work, so your verification would not be independent.", "Ask a qualified checker who did not capture or edit this work to verify it."),
+  "verification-incomplete": r("A person's verification must cover every mandatory criterion.", "Verify every mandatory criterion the message lists, then sign."),
   "evidence-changed": r("The checker's evidence no longer matches its retained digest.", "Run the check again so fresh evidence is retained."),
 
   // Preparation.

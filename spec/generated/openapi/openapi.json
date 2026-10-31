@@ -1376,6 +1376,248 @@
         }
       }
     },
+    "/packages/{id}/person-verifications": {
+      "post": {
+        "operationId": "Packages_recordPersonVerification",
+        "description": "Step 2: the signed verification, checked again and recorded.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.PersonVerification"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "package_revision": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  },
+                  "criteria": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "description": "Criterion ids: a prepared package's criteria, or AC-1, AC-2 and so on for acceptance criteria."
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "fail",
+                      "inconclusive"
+                    ]
+                  },
+                  "assertion": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "package_revision",
+                  "criteria",
+                  "outcome",
+                  "assertion"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/person-verifications/options": {
+      "post": {
+        "operationId": "Packages_personVerificationOptions",
+        "description": "Step 1: every rule that needs no signature is checked, then the digest to sign.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subject_digest": {
+                      "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "subject_digest",
+                    "options"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Packages.PersonVerificationRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/preparation": {
       "post": {
         "operationId": "Preparations_enroll",
@@ -5909,6 +6151,61 @@
         },
         "description": "A WebAuthn assertion over the decision digest, made by the person's own authenticator."
       },
+      "ControlRod.Records.PersonVerification": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "verifier_member_id",
+          "qualification_id",
+          "qualification_version",
+          "candidate_id",
+          "criteria",
+          "outcome",
+          "assertion"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "org_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "verifier_member_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "qualification_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "qualification_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "candidate_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive"
+            ]
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+          }
+        },
+        "description": "A qualified person's verification of a candidate for Safety or Material work. (A)"
+      },
       "ControlRod.Records.PreCheckIndependence": {
         "type": "object",
         "required": [
@@ -6138,6 +6435,11 @@
             "type": "string"
           }
         }
+      },
+      "ControlRod.Records.TenancyId": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*_[A-Za-z0-9-]{1,64}$",
+        "description": "A stable identifier: a lowercase type prefix, an underscore, then up to 64 letters, digits or hyphens."
       },
       "ControlRod.Records.ToolRef": {
         "type": "object",
@@ -6629,6 +6931,38 @@
             "maxLength": 2000
           }
         }
+      },
+      "Packages.PersonVerificationRequest": {
+        "type": "object",
+        "required": [
+          "package_revision",
+          "criteria",
+          "outcome"
+        ],
+        "properties": {
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "description": "Criterion ids: a prepared package's criteria, or AC-1, AC-2 and so on for acceptance criteria."
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive"
+            ]
+          }
+        },
+        "description": "What a qualified checker verified in person (specification 11.5)."
       },
       "Runner.Completion": {
         "type": "object",

@@ -330,6 +330,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/person-verifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Step 2: the signed verification, checked again and recorded. */
+        post: operations["Packages_recordPersonVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packages/{id}/person-verifications/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Step 1: every rule that needs no signature is checked, then the digest to sign. */
+        post: operations["Packages_personVerificationOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/preparation": {
         parameters: {
             query?: never;
@@ -1347,6 +1381,20 @@ export interface components {
             client_data_json: string;
             signature: string;
         };
+        /** @description A qualified person's verification of a candidate for Safety or Material work. (A) */
+        "ControlRod.Records.PersonVerification": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            verifier_member_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            qualification_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            /** Format: int32 */
+            qualification_version: number;
+            candidate_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            criteria: string[];
+            /** @enum {string} */
+            outcome: "pass" | "fail" | "inconclusive";
+            assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+        };
         /** @description Runtime identity of author and checker, and whether they could be the same. */
         "ControlRod.Records.PreCheckIndependence": {
             /** @enum {string} */
@@ -1430,6 +1478,8 @@ export interface components {
             provider: string;
             model: string;
         };
+        /** @description A stable identifier: a lowercase type prefix, an underscore, then up to 64 letters, digits or hyphens. */
+        "ControlRod.Records.TenancyId": string;
         "ControlRod.Records.ToolRef": {
             name: string;
             version?: string;
@@ -1574,6 +1624,15 @@ export interface components {
         };
         "Packages.OverrideRequest": {
             reason: string;
+        };
+        /** @description What a qualified checker verified in person (specification 11.5). */
+        "Packages.PersonVerificationRequest": {
+            /** Format: int32 */
+            package_revision: number;
+            /** @description Criterion ids: a prepared package's criteria, or AC-1, AC-2 and so on for acceptance criteria. */
+            criteria: string[];
+            /** @enum {string} */
+            outcome: "pass" | "fail" | "inconclusive";
         };
         "Runner.Completion": {
             claim_token: string;
@@ -2762,6 +2821,181 @@ export interface operations {
                 };
                 content: {
                     "*/*": unknown;
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_recordPersonVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int32 */
+                    package_revision: number;
+                    /** @description Criterion ids: a prepared package's criteria, or AC-1, AC-2 and so on for acceptance criteria. */
+                    criteria: string[];
+                    /** @enum {string} */
+                    outcome: "pass" | "fail" | "inconclusive";
+                    assertion: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded and a new resource has been created as a result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Records.PersonVerification"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_personVerificationOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Packages.PersonVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        subject_digest: components["schemas"]["ControlRod.Records.Digest"];
+                        options: {
+                            [key: string]: unknown;
+                        };
+                    };
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */

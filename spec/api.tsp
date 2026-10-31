@@ -82,6 +82,9 @@ namespace Captures {
     ...Capture;
     package_ids?: string[];
     intake?: IntakeState;
+
+    /** The capture's effective lane (specification 11.3 M-3), shown wherever it appears. */
+    effective_lane?: ControlRod.Records.DataLane;
   }
 
   @get op list(): CaptureView[];
@@ -96,6 +99,9 @@ namespace Captures {
 model PackageView {
   /** Strong ETag of the current draft's content; send it as If-Match to edit the draft. */
   draft_etag?: string;
+
+  /** The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1). */
+  effective_lane?: ControlRod.Records.DataLane;
 
   preparation_enabled?: boolean;
   preparation_enrolled?: boolean;

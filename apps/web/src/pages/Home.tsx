@@ -100,6 +100,7 @@ function CaptureRow({ c }: { c: CaptureView }) {
     <li className="capture-row">
       <div className="capture-head">
         <span className={`tag ${disposition}`}>{disposition === "package" ? "Package" : disposition === "answered" ? "Answered" : "Intake"}</span>
+        {c.effective_lane !== undefined && <span className="tag" title="Data lane">{c.effective_lane} lane</span>}
         <span className="muted small">{time(c.created_at)}</span>
       </div>
       {shown.text.length > 0 && <p className="capture-text">{shown.text}</p>}

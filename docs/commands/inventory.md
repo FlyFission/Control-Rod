@@ -52,6 +52,8 @@ checks the static rules and that this catalog matches the commands executed.
 | `admin.repo-unbind` | member | direct | Unbind repository | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.policy-propose` | member | none | Change policy set (proposal) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.policy-approve` | member | direct | Change policy set | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.marking-propose` | member | none | Lower or declassify lane (change request) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.marking-approve` | member | direct | Lower or declassify lane (approval) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.budget-set` | member | direct | Set budget | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.theme-select` | member | none | Select office theme | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `grant.issue` | system | none | Grant issue | `preparation/grants.ts` issuePreparationGrant | no production caller yet (declared seam) |

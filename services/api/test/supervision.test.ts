@@ -192,6 +192,40 @@ describe("round 2 rules", () => {
   });
 });
 
+describe("round 3 rules", () => {
+  const pgReceipt = () => { const r: Json = { ...receipt(), containment: "process-group" }; delete r.unit; return r; };
+
+  it("keeps a failed run under process group containment on hold, and its late completion settles nothing", async () => {
+    const job = await claimed("WP-SUP-PGFAIL");
+    await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], receipt: pgReceipt() });
+    const done = await daemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "boom", idempotency_key: "pg-fail-0001", outputs: [] });
+    expect(done.statusCode, done.body).toBe(200);
+    const after = await run(job.run.id);
+    expect(after.status).toBe("failed");
+    expect(after.body.outcome_unknown.reason).toMatch(/process group containment/);
+    expect((await post(`/packages/WP-SUP-PGFAIL/runs/${job.run.id}/requeue`, {})).json().code).toBe("outcome-unknown");
+
+    const late = await claimed("WP-SUP-PGLATE");
+    await daemon(`/runner/runs/${late.run.id}/log`, { lines: [], receipt: pgReceipt() });
+    await expire(late.run.id);
+    await sweep();
+    await daemon(`/runner/runs/${late.run.id}/complete`, { status: "failed", error: "x", idempotency_key: "pg-late-0001", outputs: [] });
+    expect((await run(late.run.id)).body.reconciliation).toBeUndefined();
+  });
+
+  it("lets the sweep honor an outage heartbeats already recognized", async () => {
+    const jobs = [await claimed("WP-REC-1"), await claimed("WP-REC-2"), await claimed("WP-REC-3")];
+    await h.admin.query("update runs set status = 'stopped' where status = 'running' and id <> all($1::text[])", [jobs.map((j) => j.run.id)]);
+    for (const j of jobs) await expire(j.run.id);
+    for (const j of jobs.slice(0, 2)) expect((await daemon(`/runner/runs/${j.run.id}/log`, { lines: [] })).statusCode).toBe(200);
+    // Only one lapsed run is left, a minority, but the outage is still within its window.
+    await sweep();
+    expect((await run(jobs[2].run.id)).status).toBe("running");
+    expect((await daemon(`/runner/runs/${jobs[2].run.id}/log`, { lines: [] })).statusCode).toBe(200);
+    await h.admin.query("update runs set status = 'stopped' where id = any($1::text[])", [jobs.map((j) => j.run.id)]);
+  });
+});
+
 describe("generation fence", () => {
   it("refuses reports from an attempt a later attempt superseded", async () => {
     const job = await claimed("WP-SUP-FENCE");
@@ -214,17 +248,18 @@ describe("generation fence", () => {
 
 describe("reaper", () => {
   it("treats most active runs looking dead in one pass as an outage and marks none", async () => {
+    const outages = async () => (await h.db.query("select count(*)::int as n from events where body->>'type' = 'runs.sweep-outage'")).rows[0].n as number;
     const jobs = [await claimed("WP-OUT-1"), await claimed("WP-OUT-2"), await claimed("WP-OUT-3")];
     await h.admin.query("update runs set status = 'stopped' where status = 'running' and id <> all($1::text[])", [jobs.map((j) => j.run.id)]);
     for (const j of jobs) await expire(j.run.id);
+    const before = await outages();
     await sweep();
     for (const j of jobs) expect((await run(j.run.id)).status).toBe("running");
-    const outage = await h.db.query("select count(*)::int as n from events where body->>'type' = 'runs.sweep-outage'");
-    expect(outage.rows[0].n).toBe(1);
+    expect(await outages()).toBe(before + 1);
     // They got recovery leases, so a second pass in the same outage finds nothing to do.
     await sweep();
     for (const j of jobs) expect((await run(j.run.id)).status).toBe("running");
-    expect((await h.db.query("select count(*)::int as n from events where body->>'type' = 'runs.sweep-outage'")).rows[0].n).toBe(1);
+    expect(await outages()).toBe(before + 1);
     // Each got one recovery lease. Two daemons come back and heartbeat; the third never does, so its
     // second lapse is a fact even though it is still one of the runs that looked dead together.
     for (const j of jobs.slice(1)) expect((await daemon(`/runner/runs/${j.run.id}/log`, { lines: [] })).statusCode).toBe(200);

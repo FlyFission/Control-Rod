@@ -3,6 +3,7 @@ package runner
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -107,6 +108,10 @@ func (k Container) Locate(pid int, unit string) (Unit, error) {
 }
 
 func hasSuffix(s, suf string) bool { return len(s) >= len(suf) && s[len(s)-len(suf):] == suf }
+
+// errNoIdentityToSignal means the fallback cannot signal: the group's leader no longer matches the
+// receipt (or cannot be pinned), so the group number alone does not prove whose processes these are.
+var errNoIdentityToSignal = errors.New("the run's leader is gone, so its process group cannot be identified")
 
 // Signals of the stop ladder, named so callers need no syscall import.
 var (

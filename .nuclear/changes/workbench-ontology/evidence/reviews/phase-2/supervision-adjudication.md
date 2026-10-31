@@ -31,3 +31,14 @@ Reviewer: Codex CLI, static read only review against `origin/buildout/controlled
 | S1-18 | Fixed | Heartbeats and completions that reach a lapsed lease consider the outage too, and an outage once seen lasts a lease so runs returning one by one all count. Test: "honors heartbeats that return from an outage before the sweep sees it". |
 | S1-19 | Fixed | Lease bookkeeping in memory changes only after commit (`afterCommit`, run by the transaction after commit and dropped on rollback). |
 | S1-20 | Fixed | Renewals without a heartbeat are counted on the run (`grace_renewals`, at most one until a heartbeat proves it alive), so restarts and sleeps cannot keep a dead run running. Test: "grants no second renewal without a heartbeat, even to a controller that never saw the run". |
+
+## Round 3 (supervision-codex-round3.md): closed S1-11, S1-15, S1-16, S1-19, S1-20 (and round 1 S1-04 to S1-06, S1-09); six findings, all accepted
+
+| ID | Disposition | Fix and evidence |
+|---|---|---|
+| S1-21, S1-26 | Fixed | A stop reads `out/` into the daemon's memory while the run is frozen (`Capture`), enforcing the per file and total limits as it reads (`O_NOFOLLOW`, `LimitReader`), and the completion and its attachments come only from that capture; nothing on disk is read after the thaw. Normal collection uses the same bounded capture. Tests: the freeze test reads the capture; `TestCaptureEnforcesLimitsWhileReadingAndRefusesSymlinks` refuses an 8 GiB sparse file quickly. |
+| S1-22 | Fixed | A failed or stopped completion under process group containment keeps an unknown outcome (`holdIfUnproven`), including refused completions, and a late completion settles a hold only when the run was not under process group containment. Test: "keeps a failed run under process group containment on hold, and its late completion settles nothing". |
+| S1-23 | Fixed | An orphan's group is signalled only while a pidfd pins its leader (`withPinnedLeader`), so the group number cannot be reused between the identity check and the signal; off Linux an orphan is not signalled at all. A receipt is marked held unreaped only where the leader is observed without reaping. |
+| S1-24 | Fixed | A stop that cannot be confirmed returns `ErrUncontained` at once; the leader is reaped in the background whenever it goes, and the daemon stops heartbeating, keeps the receipt and sends nothing. |
+| S1-25 | Fixed | The sweep treats lapsed runs as recoverable while an outage recognized by heartbeats is within its window (still bounded by `grace_renewals`). Test: "lets the sweep honor an outage heartbeats already recognized". |
+| S1-17 (Medium, carried) | Fixed | The orphan sweep retires a receipt for an outbox entry only if the outbox directory syncs (`HasDurable`). |

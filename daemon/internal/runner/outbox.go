@@ -75,14 +75,17 @@ func (o *Outbox) Put(e OutboxEntry) error {
 	return syncDir(o.dir)
 }
 
-// Has reports whether a completion for the run is waiting in the outbox.
-func (o *Outbox) Has(runID string) bool {
+// HasDurable reports whether a completion for the run is waiting in the outbox and the outbox
+// directory syncs, so the entry is known to survive a crash.
+func (o *Outbox) HasDurable(runID string) bool {
 	p, err := o.path(runID)
 	if err != nil {
 		return false
 	}
-	_, err = os.Stat(p)
-	return err == nil
+	if _, err := os.Stat(p); err != nil {
+		return false
+	}
+	return syncDir(o.dir) == nil
 }
 
 // Remove deletes a confirmed entry.

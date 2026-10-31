@@ -41,13 +41,17 @@ Codex confirmed the round 2 critical and major fixed, SEC-07 and SEC-15 fixed, a
 | SEC-10 a challenge issued to one person answered with another person's passkey (the decision route compared signer and session, not the challenge's recipient) | **Fixed for every signing purpose**: assertion verification refuses an answer from anyone but the person the challenge was issued to (test). Checking the signer's current qualification on decisions is task 1.14 |
 | SEC-14 a setting named after a built in property (`toString`) reached an inherited function | **Fixed**: only the setting table's own keys are consulted (test) |
 
+## Round 4
+
+Codex confirmed SEC-10 and SEC-14 fixed, no new defects, verdict **MERGE** ([admin-codex-round4.md](admin-codex-round4.md)). It noted the round 3 administrative test submitted a different command than it signed; the test now signs and submits the same command and payload, and the step up case is the one that proves the recipient check.
+
 ## Required links
 
 [Execution ledger](../../../../../../docs/superpowers/execution/2026-10-29-workbench-buildout.md), [command inventory](../../../../../../docs/commands/inventory.md).
 
 ## Exit criteria
 
-Every finding has a fix and a test, confirmed by a second independent read before merge.
+Every finding has a fix and a test or a recorded disposition, and the independent reviewer's final verdict is merge (round 4).
 
 ## Source-lineage note
 

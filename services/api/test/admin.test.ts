@@ -438,8 +438,10 @@ describe("review round 3", () => {
     // Ben's passkey answers Harry's challenge, submitted from Ben's session: refused.
     const r = await post(ben, "/auth/register/options", { step_up: benKey.assert(s.json().options) });
     expect(r.statusCode).toBe(403);
-    const o = await post(harryCookie, "/admin/commands/theme.select/options", { payload: { theme_id: "corner-cafe" } });
-    const crossed = await post(ben, "/admin/commands/project.create", { payload: { theme_id: "corner-cafe" }, assertion: benKey.assert(o.json().options) });
+    // The same holds for an administrative challenge, for the same command and payload.
+    const payload = { name: "Crossed", mode: "general", default_rigor: "quick", lanes: ["internal"], qa_overlays: [] };
+    const o = await post(harryCookie, "/admin/commands/project.create/options", { payload });
+    const crossed = await post(ben, "/admin/commands/project.create", { payload, assertion: benKey.assert(o.json().options) });
     expect(crossed.json().code).toBe("signature-required");
   });
 

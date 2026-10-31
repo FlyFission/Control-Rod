@@ -151,7 +151,7 @@ function checkPolicy(proposal: unknown): { hardware_attestation_formats: string[
   if (!Array.isArray(formats) || settings === null || typeof settings !== "object" || Array.isArray(settings))
     throw new Refusal(400, "invalid", "policy has the wrong shape");
   for (const [k, v] of Object.entries(settings)) {
-    const rule = POLICY_SETTINGS[k];
+    const rule = Object.hasOwn(POLICY_SETTINGS, k) ? POLICY_SETTINGS[k] : undefined;
     if (!rule) throw new Refusal(400, "unknown-setting", `Policy setting ${k} is not one Control Rod understands`);
     if (typeof v !== "string" || !rule.test(v)) throw new Refusal(400, "invalid-setting", `Policy setting ${k} has an invalid value`);
   }

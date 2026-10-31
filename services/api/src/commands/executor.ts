@@ -1,7 +1,7 @@
 import type pg from "pg";
 import { type Db, type Tx, tx } from "../db/index.js";
 import { WRITER, assertLogin } from "../db/roles.js";
-import { pendingEvents } from "../events.js";
+import { afterCommits, pendingEvents } from "../events.js";
 import { openWriter } from "../db/writer.js";
 import { COMMANDS, type CommandName } from "./catalog.js";
 import { takeMarkingRead, takeMarkingWrite } from "../marking-lock.js";
@@ -99,6 +99,7 @@ export async function command<T>(reader: Db, name: CommandName, fn: (c: Tx) => P
       revoke();
       // Events the command appended are announced by tx() after commit, from the real client.
       pendingEvents(c).push(...pendingEvents(view).splice(0));
+      afterCommits(c).push(...afterCommits(view).splice(0));
     }
   });
 }

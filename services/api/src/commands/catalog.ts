@@ -42,6 +42,8 @@ export const COMMANDS = {
   "run.complete": entry("agent-via-daemon", "none", "Submit output, submit pre-check", "write"),
   "run.record-refused": entry("agent-via-daemon", "none", "Submit output (refused completion record)"),
   "run.sweep-lost": entry("system", "none", "Sweep lost"),
+  "run.reconcile-evidence": entry("agent-via-daemon", "none", "Reconcile (daemon restart evidence)"),
+  "run.reconcile": entry("member", "direct", "Reconcile"),
   "run.requeue": entry("member", "none", "Requeue"),
   "run.stop": entry("member", "none", "Stop run"),
   "run.override-independence": entry("member", "direct", "Override independence"),

@@ -52,10 +52,40 @@ func (o *Outbox) Put(e OutboxEntry) error {
 		return err
 	}
 	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, p)
+	if _, err := f.Write(b); err != nil {
+		f.Close()
+		return err
+	}
+	// Synced before the rename and the directory after it: the spawn receipt is removed once this
+	// returns, so the completion must survive a crash.
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, p); err != nil {
+		return err
+	}
+	return syncDir(o.dir)
+}
+
+// HasDurable reports whether a completion for the run is waiting in the outbox and the outbox
+// directory syncs, so the entry is known to survive a crash.
+func (o *Outbox) HasDurable(runID string) bool {
+	p, err := o.path(runID)
+	if err != nil {
+		return false
+	}
+	if _, err := os.Stat(p); err != nil {
+		return false
+	}
+	return syncDir(o.dir) == nil
 }
 
 // Remove deletes a confirmed entry.

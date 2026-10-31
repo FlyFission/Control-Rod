@@ -195,6 +195,14 @@ namespace Packages {
   @post
   op stop(@path id: string, @path runId: string): Run | Refused;
 
+  /** Settle a run's unknown outcome: the person signs that it will not report, with a reason. */
+  @route("/{id}/runs/{runId}/reconcile/options") @post op reconcileOptions(@path id: string, @path runId: string, @body body: { @minLength(1) @maxLength(2000) reason: string }): {
+    subject_digest: Digest;
+    options: Record<unknown>;
+  } | Refused;
+
+  @route("/{id}/runs/{runId}/reconcile") @post op reconcile(@path id: string, @path runId: string, @body body: { @minLength(1) @maxLength(2000) reason: string; assertion: Record<unknown> }): Run | Refused;
+
   model OverrideRequest {
     @minLength(1)
     @maxLength(2000)
@@ -440,7 +448,23 @@ namespace Runner {
     claim_token: string;
     lines: string[];
     label?: string;
+
+    /** The spawn receipt, sent until the control plane has recorded it. */
+    receipt?: OwnershipReceipt;
   }): LogReply | Refused;
+
+  /**
+   * After a restart the daemon reports, from its retained receipts, runs whose process it found gone
+   * (or stopped, after verifying the receipt). The control plane settles their unknown outcome.
+   */
+  @route("/runs/{id}/evidence") @post op evidence(@path id: string, @body body: {
+    claim_token: string;
+    receipt: OwnershipReceipt;
+    observation: "process-gone";
+  }): {
+    run_id: string;
+    reconciled: boolean;
+  } | Refused;
 
   @extension("unevaluatedProperties", false)
   model Completion {
@@ -459,6 +483,17 @@ namespace Runner {
     `package`?: WorkPackage;
     verification?: VerificationRecord;
     criterion_results?: ControlRod.Preparation.CriterionResultSubmission;
+
+    /** The run's spawn receipt, so it is on record even if no log post carried it. */
+    receipt?: OwnershipReceipt;
+
+    /**
+     * What proves the run's processes ended: cgroup (its scope is empty), process-group (the
+     * leader and its group are gone; a process that left the group is not seen) or none (no
+     * process was started). Absent means no proof: a failed or stopped run then keeps an unknown
+     * outcome.
+     */
+    containment?: "cgroup" | "process-group" | "none";
   }
 
   @route("/runs/{id}/complete") @post op complete(@path id: string, @body body: Completion): CompletionReceipt | Refused;

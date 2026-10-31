@@ -517,6 +517,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/runs/{runId}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Packages_reconcile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packages/{id}/runs/{runId}/reconcile/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Settle a run's unknown outcome: the person signs that it will not report, with a reason. */
+        post: operations["Packages_reconcileOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/runs/{runId}/requeue": {
         parameters: {
             query?: never;
@@ -646,6 +679,26 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["Runner_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/runs/{id}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description After a restart the daemon reports, from its retained receipts, runs whose process it found gone
+         *     (or stopped, after verifying the receipt). The control plane settles their unknown outcome.
+         */
+        post: operations["Runner_evidence"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1354,6 +1407,11 @@ export interface components {
          * @enum {string}
          */
         "ControlRod.Records.Mode": "general" | "software" | "capital-projects";
+        "ControlRod.Records.OutcomeUnknown": {
+            /** Format: date-time */
+            since: string;
+            reason: string;
+        };
         /**
          * @description A person's choice to proceed past a hold, with who, when and why, signed with their passkey
          *     over the digest of (package, revision, run, the act and the reason).
@@ -1365,6 +1423,35 @@ export interface components {
             reason: string;
             subject_digest: components["schemas"]["ControlRod.Records.Digest"];
             assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+        };
+        /**
+         * @description Proof of which process a daemon started for a run (specification 22). A stop, sweep or kill acts
+         *     only while the live process still matches: same boot, same process id, same start time.
+         */
+        "ControlRod.Records.OwnershipReceipt": {
+            /** Format: int32 */
+            pid: number;
+            /**
+             * Format: int32
+             * @description The process group the run's process leads.
+             */
+            pgid: number;
+            /** @description The process start time in the operating system's own units (Linux: clock ticks since boot). */
+            process_start: string;
+            /** @description The kernel's identifier for this boot; a reboot changes it. */
+            boot_id: string;
+            /** Format: int32 */
+            generation: number;
+            /** Format: date-time */
+            started_at: string;
+            /**
+             * @description cgroup: the run has its own systemd user scope, which the daemon can freeze and kill as one
+             *     and which reports when it is empty. process-group: the fallback without a user systemd.
+             * @enum {string}
+             */
+            containment: "cgroup" | "process-group";
+            /** @description The scope's unit name (cgroup containment). */
+            unit?: string;
         };
         /** @description A package this one waits for. */
         "ControlRod.Records.PackageDependency": {
@@ -1415,6 +1502,20 @@ export interface components {
             value: string;
             /** @description Unit in Pint-compatible notation, for example "kW" or "degF". */
             unit: string;
+        };
+        /** @description How an unknown outcome was settled. */
+        "ControlRod.Records.Reconciliation": {
+            /**
+             * @description completed-late: the daemon's completion arrived after the run was marked lost; it is retained,
+             *     never applied. process-gone: the daemon proved from its receipt that the process no longer runs.
+             *     abandoned: a person signed that the run will not report, with a reason.
+             * @enum {string}
+             */
+            disposition: "completed-late" | "process-gone" | "abandoned";
+            evidence: string;
+            /** Format: date-time */
+            recorded_at: string;
+            by: components["schemas"]["ControlRod.Records.Actor"];
         };
         "ControlRod.Records.RequiredCustody": {
             /** @enum {string} */
@@ -1474,6 +1575,28 @@ export interface components {
             waiting_reason?: string;
             /** @description The owner let this pre-check run on the author's runtime. Recorded before it ran. */
             independence_override?: components["schemas"]["ControlRod.Records.OwnerOverride"];
+            /**
+             * Format: int32
+             * @description Which attempt this is at its package revision, role and round, counting from 1. Reports from an
+             *     attempt a later one superseded are refused (the generation fence, specification 22).
+             */
+            generation?: number;
+            /** @description The process the daemon spawned for this run, as it recorded it at spawn. */
+            receipt?: components["schemas"]["ControlRod.Records.OwnershipReceipt"];
+            /**
+             * @description Set when the run was dispatched but its exit or completion was never observed (specification
+             *     9 and 22). It holds requeue until a reconciliation records what happened.
+             */
+            outcome_unknown?: components["schemas"]["ControlRod.Records.OutcomeUnknown"];
+            /** @description What settled an unknown outcome, and the evidence for it. */
+            reconciliation?: components["schemas"]["ControlRod.Records.Reconciliation"];
+            /**
+             * Format: int32
+             * @description Lease renewals granted without a heartbeat (after a controller restart, a machine sleep or an
+             *     apparent outage). At most one is granted until a heartbeat proves the run alive, so no number
+             *     of restarts keeps a dead run running.
+             */
+            grace_renewals?: number;
         };
         /** @enum {string} */
         "ControlRod.Records.RunRole": "intake" | "author" | "pre-check" | "requirements-preparer" | "technical-preparer";
@@ -1656,6 +1779,16 @@ export interface components {
             package?: components["schemas"]["ControlRod.Records.WorkPackage"];
             verification?: components["schemas"]["ControlRod.Records.VerificationRecord"];
             criterion_results?: components["schemas"]["ControlRod.Preparation.CriterionResultSubmission"];
+            /** @description The run's spawn receipt, so it is on record even if no log post carried it. */
+            receipt?: components["schemas"]["ControlRod.Records.OwnershipReceipt"];
+            /**
+             * @description What proves the run's processes ended: cgroup (its scope is empty), process-group (the
+             *     leader and its group are gone; a process that left the group is not seen) or none (no
+             *     process was started). Absent means no proof: a failed or stopped run then keeps an unknown
+             *     outcome.
+             * @enum {string}
+             */
+            containment?: "cgroup" | "process-group" | "none";
         };
         /** @description What the control plane recorded for a completion. A repeat with the same key returns it again. */
         "Runner.CompletionReceipt": {
@@ -3949,6 +4082,180 @@ export interface operations {
             };
         };
     };
+    Packages_reconcile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                    assertion: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Records.Run"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_reconcileOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        subject_digest: components["schemas"]["ControlRod.Records.Digest"];
+                        options: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Packages_requeue: {
         parameters: {
             query?: never;
@@ -4593,6 +4900,94 @@ export interface operations {
             };
         };
     };
+    Runner_evidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    claim_token: string;
+                    receipt: components["schemas"]["ControlRod.Records.OwnershipReceipt"];
+                    /** @enum {string} */
+                    observation: "process-gone";
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        run_id: string;
+                        reconciled: boolean;
+                    };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Runner_log: {
         parameters: {
             query?: never;
@@ -4608,6 +5003,8 @@ export interface operations {
                     claim_token: string;
                     lines: string[];
                     label?: string;
+                    /** @description The spawn receipt, sent until the control plane has recorded it. */
+                    receipt?: components["schemas"]["ControlRod.Records.OwnershipReceipt"];
                 };
             };
         };

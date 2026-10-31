@@ -100,6 +100,23 @@ export function availableDecisions(status: string, hasPreCheck: boolean, outcome
 }
 
 /**
+ * Settles a lost run whose outcome is unknown: the person signs that it will not report, with the
+ * reason. Requeue is allowed once it is settled.
+ */
+export async function signReconcile(
+  input: { packageId: string; runId: string; reason: string },
+  passkeys: Passkeys = browserPasskeys,
+  client: Api = api,
+): Promise<{ signed: Digest }> {
+  const reason = input.reason.trim();
+  if (reason.length === 0) throw new Error("Say why the run will not report.");
+  const opts = await client.reconcileOptions(input.packageId, input.runId, reason);
+  const assertion = await passkeys.get(opts.options);
+  await client.reconcileRun(input.packageId, input.runId, { reason, assertion });
+  return { signed: opts.subject_digest };
+}
+
+/**
  * The owner's override for a held pre-check: ask for the digest of the run and the reason, sign
  * it with the passkey, send the signed override. The kernel on the server decides.
  */

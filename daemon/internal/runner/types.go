@@ -27,6 +27,8 @@ type Run struct {
 	AgentBaseline   string     `json:"agent_baseline"`
 	Runtime         RuntimeRef `json:"runtime"`
 	Round           int        `json:"round"`
+	// Generation is which attempt this is at its package revision, role and round (from 1).
+	Generation int `json:"generation,omitempty"`
 }
 
 // RunClaim is the daemon's custody of one run: a token to present on every log and completion,
@@ -96,13 +98,20 @@ type Completion struct {
 	Outputs        []NamedFile     `json:"outputs"`
 	Package        json.RawMessage `json:"package,omitempty"`
 	Verification   json.RawMessage `json:"verification,omitempty"`
+	// Receipt is the run's spawn receipt, so the control plane has it even if no log carried it.
+	Receipt *OwnershipReceipt `json:"receipt,omitempty"`
+	// Containment says what proves the run's processes ended: "cgroup" (its scope is empty),
+	// "process-group" (the leader and its group are gone; a process that left the group is not
+	// seen) or "none" (no process was started). Absent means no proof at all.
+	Containment string `json:"containment,omitempty"`
 }
 
 // LogBatch is the body of POST /runner/runs/{id}/log.
 type LogBatch struct {
-	ClaimToken string   `json:"claim_token"`
-	Lines      []string `json:"lines"`
-	Label      string   `json:"label,omitempty"`
+	ClaimToken string            `json:"claim_token"`
+	Lines      []string          `json:"lines"`
+	Label      string            `json:"label,omitempty"`
+	Receipt    *OwnershipReceipt `json:"receipt,omitempty"`
 }
 
 // LogReply is the control plane's answer to a log post.

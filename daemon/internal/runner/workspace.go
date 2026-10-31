@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -111,12 +112,35 @@ func sha256Hex(b []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Collect reads every regular file under dir in name order. It refuses symlinks and anything
-// that is not a regular file, and enforces the per-file and total caps.
+// Captured is a run's outputs read into the daemon's memory: their bytes, the files to send and
+// their digests. Once captured, nothing the run writes afterwards can change them.
+type Captured struct {
+	Files []NamedFile
+	Arts  []Artifact
+	Raw   map[string][]byte
+}
+
+// Collect returns the regular files under dir, base64 encoded, with their SHA-256 artifacts.
+// Symlinks and special files are refused. Each file and the total are capped.
 func Collect(dir string, maxFile, maxTotal int64) ([]NamedFile, []Artifact, error) {
+	c, err := Capture(dir, maxFile, maxTotal)
+	if err != nil {
+		return nil, nil, err
+	}
+	return c.Files, c.Arts, nil
+}
+
+// Capture reads the regular files under dir into memory, refusing symlinks and special files and
+// enforcing the per file and total limits while it reads (a file that grows past them is refused,
+// never read whole). A stop captures while the run is frozen, so the result is the outputs exactly
+// as they stood when write authority ended (specification 22).
+func Capture(dir string, maxFile, maxTotal int64) (*Captured, error) {
 	var names []string
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) && p == dir {
+				return fs.SkipAll
+			}
 			return err
 		}
 		if p == dir {
@@ -137,31 +161,31 @@ func Collect(dir string, maxFile, maxTotal int64) ([]NamedFile, []Artifact, erro
 		return nil
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	sort.Strings(names)
 	var total int64
-	files := make([]NamedFile, 0, len(names))
-	arts := make([]Artifact, 0, len(names))
+	c := &Captured{Files: make([]NamedFile, 0, len(names)), Arts: make([]Artifact, 0, len(names)), Raw: map[string][]byte{}}
 	for _, n := range names {
-		p := filepath.Join(dir, filepath.FromSlash(n))
-		info, err := os.Lstat(p)
+		f, err := os.OpenFile(filepath.Join(dir, filepath.FromSlash(n)), os.O_RDONLY|syscallNoFollow, 0)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		if info.Size() > maxFile {
-			return nil, nil, fmt.Errorf("output %q is %d bytes, over the %d byte limit", n, info.Size(), maxFile)
+		b, err := io.ReadAll(io.LimitReader(f, maxFile+1))
+		f.Close()
+		if err != nil {
+			return nil, err
 		}
-		total += info.Size()
+		if int64(len(b)) > maxFile {
+			return nil, fmt.Errorf("output %q is over the %d byte limit", n, maxFile)
+		}
+		total += int64(len(b))
 		if total > maxTotal {
-			return nil, nil, fmt.Errorf("outputs exceed the %d byte total limit", maxTotal)
+			return nil, fmt.Errorf("outputs exceed the %d byte total limit", maxTotal)
 		}
-		b, err := os.ReadFile(p)
-		if err != nil {
-			return nil, nil, err
-		}
-		files = append(files, NamedFile{Name: n, ContentBase64: base64.StdEncoding.EncodeToString(b)})
-		arts = append(arts, Artifact{Path: n, Digest: Digest{Algorithm: "sha256", Value: sha256Hex(b)}})
+		c.Raw[n] = b
+		c.Files = append(c.Files, NamedFile{Name: n, ContentBase64: base64.StdEncoding.EncodeToString(b)})
+		c.Arts = append(c.Arts, Artifact{Path: n, Digest: Digest{Algorithm: "sha256", Value: sha256Hex(b)}})
 	}
-	return files, arts, nil
+	return c, nil
 }

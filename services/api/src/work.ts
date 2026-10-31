@@ -11,7 +11,7 @@ import { enrollPreparationTx, advancePreparationRevision } from "./preparation/s
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
-import { covers, laneOf, markObject, mostSensitive, type Ref } from "./markings.js";
+import { covers, endOverride, laneOf, markObject, mostSensitive, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -168,18 +168,47 @@ async function transmittedSources(c: Tx, pkg: PackageRow, run: Json): Promise<Re
  * with no classified lane holds the run.
  */
 async function dispatchLane(c: Tx, pkg: PackageRow, run: Json): Promise<{ lane?: DataLane; reason: string }> {
-  const own = await laneOf(c, "package", pkg.id, pkg.body.data_lane);
-  if (!own) return { reason: laneHoldReason(undefined) };
-  const lanes: DataLane[] = [own];
+  const own = await provenanceLane(c, { kind: "package", id: pkg.id });
+  if (!own.lane) return { reason: own.missing ? unclassifiedReason(own.missing) : laneHoldReason(undefined) };
+  const lanes: DataLane[] = [own.lane];
   for (const src of await transmittedSources(c, pkg, run)) {
-    const fallback = src.kind === "capture"
-      ? (await c.query<{ lane: string }>("select body->>'lane' as lane from captures where id = $1", [src.id])).rows[0]?.lane
-      : (await currentPackage(c, src.id))?.body.data_lane;
-    const lane = await laneOf(c, src.kind, src.id, fallback);
-    if (!lane) return { reason: `This work carries ${src.kind} ${src.id}, which has no classified data lane; a person with lane authority must classify it first.` };
-    lanes.push(lane);
+    const got = await provenanceLane(c, src);
+    if (!got.lane) return { reason: unclassifiedReason(got.missing ?? src) };
+    lanes.push(got.lane);
   }
   return { lane: mostSensitive(lanes), reason: "" };
+}
+
+const unclassifiedReason = (r: Ref) =>
+  `This work carries ${r.kind} ${r.id}, or content derived from it, which has no classified data lane; a person with lane authority must classify it first.`;
+
+/**
+ * An object's lane for disclosure, read only. A marked object has its effective lane, kept current by
+ * propagation. An object marked before markings existed has no edges to propagate through, so its
+ * lane is computed here through its own sources: a package's capture and dependencies, recursively.
+ * `missing` names the first source with no classified lane.
+ */
+async function provenanceLane(c: Tx, ref: Ref, seen = new Set<string>()): Promise<{ lane?: DataLane; missing?: Ref }> {
+  const key = `${ref.kind}/${ref.id}`;
+  if (seen.has(key)) return {};
+  seen.add(key);
+  const marked = await laneOf(c, ref.kind, ref.id, undefined);
+  if (marked) return { lane: marked };
+  if (ref.kind === "capture") {
+    const lane = (await c.query<{ lane: string }>("select body->>'lane' as lane from captures where id = $1", [ref.id])).rows[0]?.lane;
+    return isLane(lane) ? { lane } : { missing: ref };
+  }
+  const pkg = await currentPackage(c, ref.id);
+  if (!pkg || !isLane(pkg.body.data_lane)) return { missing: ref };
+  const lanes: DataLane[] = [pkg.body.data_lane];
+  const sources: Ref[] = pkg.capture_id ? [{ kind: "capture", id: pkg.capture_id }] : [];
+  for (const dep of (await dependenciesReady(c, pkg)).deps) sources.push({ kind: "package", id: dep });
+  for (const s of sources) {
+    const got = await provenanceLane(c, s, seen);
+    if (got.missing) return { missing: got.missing };
+    if (got.lane) lanes.push(got.lane);
+  }
+  return { lane: mostSensitive(lanes) };
 }
 
 /** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
@@ -1205,6 +1234,8 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
       [runId, row.package_id, row.package_revision, o.name, sha256(o.bytes), o.bytes],
     );
   }
+  // New author output is content no declassification has seen: any earlier one stops applying.
+  if (row.role === "author" && outputs.length > 0) await endOverride(c, "package", row.package_id, `new author output from run ${runId}`);
   await appendEvent(c, `run.${finished.status}`, runId, agent, {
     package: row.package_id,
     role: row.role,

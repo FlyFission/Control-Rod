@@ -101,16 +101,47 @@ async function write(c: Tx, m: Omit<Marking, "effective_lane">): Promise<Marking
  * An object's current marking, recording version 1 from the lane its record carries when it was
  * classified before markings existed. Null for an object with no classified lane.
  */
-export async function ensureMarking(c: Tx, kind: string, id: string): Promise<Marking | null> {
+export async function ensureMarking(c: Tx, kind: string, id: string, seen = new Set<string>()): Promise<Marking | null> {
   const m = await currentMarking(c, kind, id);
   if (m) return m;
-  const lane = kind === "capture"
-    ? (await c.query<{ lane: string }>("select body->>'lane' as lane from captures where id = $1", [id])).rows[0]?.lane
-    : kind === "package"
-      ? (await c.query<{ lane: string }>("select body->>'data_lane' as lane from packages where id = $1 order by revision desc limit 1", [id])).rows[0]?.lane
-      : undefined;
-  if (!isLane(lane)) return null;
-  return write(c, { object_kind: kind, object_id: id, version: 1, lane, reason: "marked from its recorded lane" });
+  if (kind === "capture") {
+    const lane = (await c.query<{ lane: string }>("select body->>'lane' as lane from captures where id = $1", [id])).rows[0]?.lane;
+    return isLane(lane) ? write(c, { object_kind: kind, object_id: id, version: 1, lane, reason: "marked from its recorded lane" }) : null;
+  }
+  if (kind !== "package") return null;
+  const p = (await c.query<{ lane: string; capture_id: string | null; revision: number }>(
+    "select body->>'data_lane' as lane, capture_id, revision from packages where id = $1 order by revision desc limit 1", [id])).rows[0];
+  if (!p || !isLane(p.lane)) return null;
+  // A package marked late gets its provenance edges too: its capture and the packages it depends on,
+  // each marked the same way first, so a later raise of any of them reaches it.
+  if (seen.has(id)) throw new Error(`package ${id} depends on itself through its sources`);
+  seen.add(id);
+  const sources: Ref[] = p.capture_id ? [{ kind: "capture", id: p.capture_id }] : [];
+  const deps = await c.query<{ depends_on: string }>(
+    "select depends_on from package_dependencies where package_id = $1 and package_revision = $2 order by depends_on", [id, p.revision]);
+  for (const d of deps.rows) sources.push({ kind: "package", id: d.depends_on });
+  const inputs: MarkingInput[] = [];
+  for (const s of sources) {
+    const sm = await ensureMarking(c, s.kind, s.id, seen);
+    if (!sm) throw new Refusal(409, "unclassified-source", `${s.kind} ${s.id} has no classified data lane; classify it before using it as a source`);
+    inputs.push({ object_kind: s.kind, object_id: s.id, version: sm.version });
+  }
+  return write(c, { object_kind: kind, object_id: id, version: 1, lane: p.lane, reason: "marked from its recorded lane and sources",
+    ...(inputs.length ? { inputs } : {}) });
+}
+
+/**
+ * Ends an object's declassification when it gains content the approval never saw, such as new
+ * author output: a new version without the override, recomputed from its own lane and inputs, which
+ * then propagates. A no-op for an object with no override.
+ */
+export async function endOverride(c: Tx, kind: string, id: string, reason: string): Promise<void> {
+  await lock(c);
+  const m = await currentMarking(c, kind, id);
+  if (!m?.override) return;
+  const { effective_lane: _e, change_request_id: _cr, override: _o, ...rest } = m;
+  await write(c, { ...rest, version: m.version + 1, reason });
+  await recomputeDerived(c, kind, id, reason);
 }
 
 /**
@@ -134,7 +165,8 @@ async function resolve(c: Tx, inputs: Ref[]): Promise<MarkingInput[]> {
  */
 export async function markObject(c: Tx, kind: string, id: string, lane: DataLane, reason: string, inputs: Ref[] = []): Promise<Marking> {
   await lock(c);
-  const existing = await currentMarking(c, kind, id);
+  // A stored package's first marking always carries its own sources (ensureMarking), whoever marks it.
+  const existing = kind === "package" ? await ensureMarking(c, kind, id) : await currentMarking(c, kind, id);
   const resolved = await resolve(c, inputs);
   if (!existing) {
     const m: Omit<Marking, "effective_lane"> = { object_kind: kind, object_id: id, version: 1, lane, reason };

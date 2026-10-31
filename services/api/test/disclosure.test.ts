@@ -130,7 +130,22 @@ describe("every source a job carries", () => {
       [c.id, { ...example(), id: "WP-SRC-1", revision: 0, status: "released", data_lane: "internal", design_inputs: [] }]);
     const runId = await queueAuthor("WP-SRC-1");
     expect((await claim(["claude", "codex", "fake"])).statusCode).toBe(204);
-    expect(await waiting(runId)).toMatch(new RegExp(`carries capture ${c.id}, which has no classified data lane`));
+    expect(await waiting(runId)).toMatch(new RegExp(`carries capture ${c.id}, or content derived from it, which has no classified data lane`));
+  });
+
+  it("follows a legacy dependency back to its capture when the capture is raised", async () => {
+    // A capture from before markings: classified on its record, with no marking row.
+    const c = { schema_version: "0.1.0", id: "C-legacy01", text: "Legacy source", source: "web", created_at: new Date().toISOString(), disposition: "package", lane: "internal" };
+    await h.admin.query("insert into captures (id, body, created_at) values ($1, $2, $3)", [c.id, c, c.created_at]);
+    const base = { ...example(), revision: 0, design_inputs: [], data_lane: "internal" };
+    await h.admin.query("insert into packages (id, revision, status, capture_id, body) values ('WP-LEGACY-B', 0, 'accepted', $1, $2)",
+      [c.id, { ...base, id: "WP-LEGACY-B", status: "draft" }]);
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-LEGACY-A', 0, 'released', $1)",
+      [{ ...base, id: "WP-LEGACY-A", status: "released", depends_on: [{ package_id: "WP-LEGACY-B" }] }]);
+    expect((await post(`/captures/${c.id}/classify`, { lane: "restricted" })).statusCode).toBe(200);
+    const runId = await queueAuthor("WP-LEGACY-A");
+    expect((await claim(["claude", "codex"])).statusCode).toBe(204);
+    expect(await waiting(runId)).toMatch(/restricted lane admits none/);
   });
 
   it("judges a dependency's outputs by the dependency's own lane, even when the package was declassified", async () => {

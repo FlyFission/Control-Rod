@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Tx, tx } from "../src/db/index.js";
 import { takeMarkingWrite } from "../src/marking-lock.js";
-import { currentMarking, declassify, exportLane, markObject, mostSensitive } from "../src/markings.js";
+import { currentMarking, declassify, endOverride, exportLane, markObject, mostSensitive } from "../src/markings.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
 /** Markings, provenance and declassification (workbench plan task 1.9; specification 11.3 M-1 to M-3). */
@@ -184,6 +184,20 @@ describe("provenance", () => {
       await markObject(c, "package", "E-SRC", "restricted", "test", [{ kind: "package", id: "E-MORE" }]);
     });
     expect((await marking("package", "E-OUT"))?.effective_lane).toBe("restricted");
+  });
+
+  it("ends a declassification when the package gains new author output", async () => {
+    await write(async (c) => {
+      await markObject(c, "package", "G-SRC", "restricted", "test");
+      await markObject(c, "package", "G-OUT", "internal", "test", [{ kind: "package", id: "G-SRC" }]);
+    });
+    const m = await marking("package", "G-OUT");
+    await write((c) => declassify(c, "package", "G-OUT", m!.version, "internal", "cr_g"));
+    expect((await marking("package", "G-OUT"))?.effective_lane).toBe("internal");
+    await write((c) => endOverride(c, "package", "G-OUT", "new author output"));
+    const after = await marking("package", "G-OUT");
+    expect(after?.override).toBeUndefined();
+    expect(after?.effective_lane).toBe("restricted");
   });
 
   it("refuses an unclassified source and a marking change outside a marking command", async () => {

@@ -85,6 +85,11 @@ export interface CriterionEvidence {
   independence_required: boolean;
   /** Whether the evidence the result cites is retained and verifies. */
   evidence_retained: boolean;
+  /**
+   * Whether any mandatory check behind it was inconclusive, even when a combined outcome reads as
+   * fail (see `combine`). A mandatory inconclusive check blocks whatever else is true.
+   */
+  mandatory_inconclusive?: boolean;
 }
 
 export interface Readiness { criterion_id: string; answer: Answer; reasons: string[]; mapping_version: number }
@@ -96,10 +101,14 @@ export function answer(e: CriterionEvidence): Readiness {
   const fresh = e.freshness === "current";
   if (!fresh) reasons.push("an input or basis changed since the evidence was produced");
 
-  // N/A with an approved basis needs no executed evidence, and so no independence; it still needs current freshness.
+  // N/A with an approved basis applies only to a criterion with no mandatory check: E-1 makes a
+  // mandatory check's missing result unwaivable, so a basis cannot stand in for it. It needs no
+  // executed evidence, and so no independence, but it still needs current freshness.
   if (e.disposition === "approved-na-basis") {
+    if (e.mandatory) { reasons.push("a mandatory check cannot be set aside as not applicable; change the check plan by change request instead"); return no(); }
     return fresh ? { criterion_id: e.criterion_id, answer: "N/A WITH APPROVED BASIS", reasons, mapping_version: MAPPING_VERSION } : no();
   }
+  if (e.mandatory_inconclusive) { reasons.push("a mandatory check was inconclusive; no disposition can clear it"); return no(); }
   // E-1: missing results and missing retained evidence are never waivable, by any disposition.
   if (e.completeness === "missing") {
     reasons.push(e.disposition === "deferred" ? "the check was deferred; a deferral is never a result" : "a required result is missing");
@@ -141,18 +150,21 @@ export function aggregate(answers: Answer[], setBasisApproved = false): Answer {
 }
 
 /**
- * Combines several results for one criterion (mixed and conflicting sets). Executed only when every
+ * Combines several results for one check or criterion (mixed and conflicting sets). Executed only when every
  * result executed and there is at least one; the outcome is the most adverse: fail, then
  * inconclusive, then pass.
  */
-export function combine(results: Mapped[]): Mapped {
+export function combine(results: Mapped[]): Mapped & { inconclusive_present: boolean } {
+  const inconclusive_present = results.some((r) => r.outcome === "inconclusive");
   if (results.length === 0 || results.some((r) => r.completeness === "missing")) {
     const deferred = results.some((r) => r.disposition === "deferred");
-    return { completeness: "missing", outcome: "none", disposition: deferred ? "deferred" : "none" };
+    return { completeness: "missing", outcome: "none", disposition: deferred ? "deferred" : "none", inconclusive_present };
   }
   const outcomes = results.map((r) => r.outcome);
   const outcome: Outcome = outcomes.includes("fail") ? "fail" : outcomes.includes("inconclusive") ? "inconclusive" : outcomes.includes("pass") ? "pass" : "none";
-  return { completeness: "executed", outcome, disposition: "none" };
+  // A fail outranks an inconclusive result in the outcome, but the inconclusive one is kept: for a
+  // mandatory check it must still block (pass it on as `mandatory_inconclusive`).
+  return { completeness: "executed", outcome, disposition: "none", inconclusive_present };
 }
 
 /**

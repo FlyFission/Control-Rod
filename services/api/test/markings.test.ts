@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { currentMarking, exportLane, mostSensitive } from "../src/markings.js";
+import { tx } from "../src/db/index.js";
+import { currentMarking, declassify, exportLane, markObject, mostSensitive } from "../src/markings.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
 /** Markings, provenance and declassification (workbench plan task 1.9; specification 11.3 M-1 to M-3). */
@@ -139,6 +140,31 @@ describe("provenance", () => {
       payload: { ...before.package, title: "Loads, retitled" } });
     expect(r.statusCode, r.body).toBe(200);
     expect((await get(`/packages/${packageId}`)).json().effective_lane).toBe("client-confidential");
+  });
+
+  it("lets an input added after a declassification raise the package again", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-SECRET', 0, 'accepted', $1)",
+      [{ ...(await get(`/packages/${packageId}`)).json().package, id: "WP-SECRET", data_lane: "restricted", depends_on: [], status: "draft" }]);
+    await tx(h.admin, (c) => markObject(c, "package", "WP-SECRET", "restricted", "test"));
+    const v = (await get(`/packages/${packageId}`)).json();
+    const r = await h.app.inject({ method: "PUT", url: `/packages/${packageId}`, headers: { cookie, origin: ORIGIN, "if-match": v.draft_etag },
+      payload: { ...v.package, depends_on: [{ package_id: "WP-SECRET", reason: "needs its loads" }] } });
+    expect(r.statusCode, r.body).toBe(200);
+    expect((await get(`/packages/${packageId}`)).json().effective_lane).toBe("restricted");
+  });
+
+  it("recomputes a diamond in dependency order", async () => {
+    // A feeds B and C, and B feeds C; C sorts before B, so a naive order would read B's old marking.
+    await tx(h.admin, async (c) => {
+      await markObject(c, "package", "D-A", "restricted", "test");
+      await markObject(c, "package", "D-Z", "public", "test", [{ kind: "package", id: "D-A" }]);
+      await markObject(c, "package", "D-M", "public", "test", [{ kind: "package", id: "D-A" }, { kind: "package", id: "D-Z" }]);
+    });
+    expect((await marking("package", "D-M"))?.effective_lane).toBe("restricted");
+    const a = await marking("package", "D-A");
+    await tx(h.admin, (c) => declassify(c, "package", "D-A", a!.version, "public", "cr_diamond"));
+    expect((await marking("package", "D-Z"))?.effective_lane).toBe("public");
+    expect((await marking("package", "D-M"))?.effective_lane).toBe("public");
   });
 
   it("refuses an approval once the marking moved past the version the request named", async () => {

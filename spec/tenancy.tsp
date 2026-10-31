@@ -177,6 +177,12 @@ model AuthenticatorCredential {
 
   hardware_floor: HardwareFloorVerdict;
 
+  /**
+   * Whether the attestation chain verified against a retained trust anchor at registration. Absent
+   * on records made before it was kept; signing then trusts only the recorded verdict.
+   */
+  attestation_verified?: boolean;
+
   /** A revoked credential signs nothing and cannot sign in. Revocation is a new version. */
   revoked?: boolean;
 
@@ -339,9 +345,15 @@ model MarkingInput {
   version: int32;
 }
 
-/** A declassification approved by a signed change request over an exact marking version. */
+/**
+ * A declassification approved by a signed change request over an exact marking version. It covers
+ * the input versions the approval saw; an input added later, or raised since, still counts.
+ */
 @extension("unevaluatedProperties", false)
 model MarkingOverride {
   lane: DataLane;
   change_request_id: TenancyId;
+
+  /** The input marking versions the approval covered. */
+  covered?: MarkingInput[];
 }

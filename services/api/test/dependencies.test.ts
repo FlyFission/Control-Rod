@@ -121,5 +121,8 @@ describe("migration 013", () => {
     expect((await rows("WP-OLD")).filter((r) => r.package_revision === 1)).toEqual([
       { depends_on: "WP-OLD-BASE", source: "classified-design-input", package_revision: 1 },
     ]);
+    // Dropping the citation drops the classified dependency with it.
+    await h.admin.query("update packages set body = $1 where id = 'WP-OLD' and revision = 1", [{ ...body("WP-OLD"), revision: 1 }]);
+    expect((await rows("WP-OLD")).filter((r) => r.package_revision === 1)).toEqual([]);
   });
 });

@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
+import { tx } from "../src/db/index.js";
+import { appendEvent } from "../src/events.js";
+import { originators } from "../src/person-verification.js";
 import { memberIdFor } from "../src/tenancy.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, registerWithInvitation, signIn, startHarness } from "./harness.js";
 
@@ -92,6 +95,24 @@ describe("recording", () => {
     // A second verification reuses the candidate.
     const again = await verify(carol, carolKey, { package_revision: 0, criteria: ALL, outcome: "inconclusive" });
     expect(again.json().candidate_id).toBe(record.candidate_id);
+  });
+
+  it("binds the signature to the author output it saw", async () => {
+    const o = await post(carol, `/packages/${pkgId}/person-verifications/options`, { package_revision: 0, criteria: ALL, outcome: "pass" });
+    expect(o.statusCode).toBe(200);
+    const assertion = carolKey.assert(o.json().options);
+    const run = { schema_version: "0.1.0", id: "R-pv000002", package_id: pkgId, package_revision: 0, role: "author", agent_baseline: "author",
+      runtime: { kind: "local", provider: "fake", model: "fake" }, round: 2, status: "succeeded", queued_at: new Date().toISOString() };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'author', 2, 'succeeded', $3)", [run.id, pkgId, run]);
+    const r = await post(carol, `/packages/${pkgId}/person-verifications`, { package_revision: 0, criteria: ALL, outcome: "pass", assertion });
+    expect(r.statusCode).toBe(403);
+    expect(r.json().code).toBe("signature-mismatch");
+  });
+
+  it("counts preparation authors as originators", async () => {
+    const pkg = (await h.db.query("select * from packages where id = $1", [pkgId])).rows[0];
+    await tx(h.admin, (c) => appendEvent(c, "preparation.edited", pkgId, { kind: "human", id: "carol" }, {}));
+    expect((await originators(h.db, pkg)).has("carol")).toBe(true);
   });
 
   it("refuses work that is not in verification", async () => {

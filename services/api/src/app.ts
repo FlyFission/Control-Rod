@@ -410,7 +410,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (assertion) {
       const ok = await assertionVerify(db, auth, "person-verification", assertion as never);
       if (ok && ok.user === user && ok.data.package_id === req.params.id && Number(ok.data.revision) === Number(body.package_revision))
-        signed = { subject_digest: String(ok.data.subject_digest), assertion };
+        signed = { subject_digest: String(ok.data.subject_digest), assertion, ...(typeof ok.data.nonce === "string" ? { nonce: ok.data.nonce } : {}) };
     }
     return reply.code(201).send(await recordPersonVerification(db, user, req.params.id, body, signed));
   });

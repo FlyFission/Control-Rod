@@ -6202,6 +6202,13 @@
           },
           "assertion": {
             "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+          },
+          "subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "The digest the person signed: package, revision, the decision subject (outputs and pre-check)\nand author run, sorted criteria and outcome. The challenge was SHA-256 of\n\"<subject_digest>|person-verification|<challenge_nonce>\"."
+          },
+          "challenge_nonce": {
+            "type": "string"
           }
         },
         "description": "A qualified person's verification of a candidate for Safety or Material work. (A)"

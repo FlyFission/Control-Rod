@@ -1,6 +1,8 @@
 import type { Db, Tx } from "./db/index.js";
 import { Refusal } from "./refusal.js";
-import { type SignerGrade, type SignerQualification, type SignerRole, currentCredential, currentQualification, memberIdFor } from "./tenancy.js";
+import {
+  type SignerGrade, type SignerQualification, type SignerRole, DEFAULT_HARDWARE_FORMATS, currentCredential, currentPolicySet, currentQualification, hardwareFloor, memberIdFor,
+} from "./tenancy.js";
 
 /**
  * Signing authority (workbench specification 11.1 G-4; plan task 1.14). A sign or verify control is
@@ -91,21 +93,36 @@ export async function requireAuthority(q: Db | Tx, userName: string, action: Sig
  */
 export const highConsequence = (needs: SubjectNeeds) => needs.grade === "safety" || needs.grade === "material";
 
+/**
+ * The hardware key floor verdict for a credential under the policy in effect now. A policy change
+ * that drops a format takes effect at once; one that adds a format admits a credential whose chain
+ * verified at registration. Records made before `attestation_verified` was kept can only lose
+ * eligibility, never gain it.
+ */
+export async function currentFloor(q: Db | Tx, credentialId: string): Promise<{ eligible: boolean; reason: string }> {
+  const cred = await currentCredential(q, credentialId);
+  if (!cred) return { eligible: false, reason: "no credential record" };
+  if (cred.revoked) return { eligible: false, reason: "credential revoked" };
+  const listed = (await currentPolicySet(q, cred.org_id))?.record.hardware_attestation_formats ?? DEFAULT_HARDWARE_FORMATS;
+  const now = hardwareFloor({ format: cred.attestation_format, attestationVerified: cred.attestation_verified ?? cred.hardware_floor.eligible,
+    backupEligible: cred.backup_eligible, listedFormats: listed });
+  if (cred.attestation_verified === undefined && !cred.hardware_floor.eligible) return cred.hardware_floor;
+  return now;
+}
+
 /** Refuses a high consequence signature made with a credential the hardware key floor does not admit. */
 export async function requireHardwareKey(q: Db | Tx, credentialId: string, needs: SubjectNeeds): Promise<void> {
   if (!highConsequence(needs)) return;
-  const cred = await currentCredential(q, credentialId);
-  if (!cred?.hardware_floor.eligible)
+  const floor = await currentFloor(q, credentialId);
+  if (!floor.eligible)
     throw new Refusal(403, "hardware-key-required",
-      `${GRADE_WORDS[needs.grade!]} work must be signed with an attested hardware key; this passkey is not one (${cred?.hardware_floor.reason ?? "no credential record"})`);
+      `${GRADE_WORDS[needs.grade!]} work must be signed with an attested hardware key; this passkey is not one (${floor.reason})`);
 }
 
-/** Whether the person holds any live credential the hardware key floor admits. */
+/** Whether the person holds any credential the hardware key floor admits under the current policy. */
 export async function holdsHardwareKey(q: Db | Tx, userName: string): Promise<boolean> {
-  const r = await q.query(
-    `select 1 from authenticator_credentials a
-      where a.member_id = $1 and a.version = (select max(version) from authenticator_credentials b where b.id = a.id)
-        and (a.body->'hardware_floor'->>'eligible')::boolean and coalesce((a.body->>'revoked')::boolean, false) = false limit 1`,
-    [memberIdFor(userName)]);
-  return Boolean(r.rowCount);
+  const r = await q.query<{ credential_id: string }>(
+    "select distinct credential_id from authenticator_credentials where member_id = $1", [memberIdFor(userName)]);
+  for (const { credential_id } of r.rows) if ((await currentFloor(q, credential_id)).eligible) return true;
+  return false;
 }

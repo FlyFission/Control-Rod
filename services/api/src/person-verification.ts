@@ -1,13 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
-import { gapsIn, needsOf, requireHardwareKey } from "./authority.js";
+import { needsOf, requireHardwareKey, signingGaps } from "./authority.js";
 import { command } from "./commands/executor.js";
 import type { Db, Tx } from "./db/index.js";
 import type { Actor } from "./events.js";
 import { digest } from "./kernel.js";
 import { preparationForSubject } from "./preparation/release.js";
 import { Refusal } from "./refusal.js";
-import { currentQualification, memberIdFor } from "./tenancy.js";
-import { currentPackage, latestAuthorRun, type PackageRow } from "./work.js";
+import { currentCredential, currentQualification, memberIdFor } from "./tenancy.js";
+import { currentPackage, latestAuthorRun, subjectOf, type PackageRow } from "./work.js";
 import { recordObject } from "./workbench.js";
 
 /**
@@ -44,13 +44,19 @@ export async function mandatoryCriteria(q: Db | Tx, pkg: PackageRow): Promise<{ 
   return { all, mandatory: all };
 }
 
-/** The people who originated the work: whoever made its capture and whoever edited its drafts. */
+/** Events by which a person shapes a package's content: draft edits and every preparation authoring step. */
+const AUTHORING_EVENTS = ["package.edited", "preparation.enrolled", "preparation.edited", "preparation.resolved", "preparation.basis-refreshed", "preparation.revised"];
+
+/**
+ * The people who originated the work: whoever made its capture, edited its drafts, or authored its
+ * preparation (enrolling, editing, resolving questions, refreshing its basis).
+ */
 export async function originators(q: Db | Tx, pkg: PackageRow): Promise<Set<string>> {
   const r = await q.query<{ id: string }>(
     `select distinct body->'actor'->>'id' as id from events
       where body->'actor'->>'kind' = 'human'
-        and ((body->>'type' = 'capture.created' and body->>'subject' = $1) or (body->>'type' = 'package.edited' and body->>'subject' = $2))`,
-    [pkg.capture_id ?? "", pkg.id]);
+        and ((body->>'type' = 'capture.created' and body->>'subject' = $1) or (body->>'type' = any($3::text[]) and body->>'subject' = $2))`,
+    [pkg.capture_id ?? "", pkg.id, AUTHORING_EVENTS]);
   return new Set(r.rows.map((x) => x.id));
 }
 
@@ -95,7 +101,8 @@ async function admissible(q: Db | Tx, user: string, id: string, req: Verificatio
   if (pkg.status !== "in-verification") throw new Refusal(409, "wrong-state", `The package is ${pkg.status}; a person verifies work that is in verification`);
   const author = await latestAuthorRun(q, pkg.id, pkg.revision);
   if (!author || author.status !== "succeeded") throw new Refusal(409, "output-required", "No author deliverable is available to verify");
-  const gaps = gapsIn(await currentQualification(q, memberIdFor(user)), "verify", needsOf(pkg.body));
+  // Includes an inactive or missing membership, read inside the caller's transaction.
+  const gaps = await signingGaps(q, user, "verify", needsOf(pkg.body));
   if (gaps.length) throw new Refusal(403, "qualification-missing", `Verifying this needs ${gaps.join(" and ")}, which your qualification does not include`);
   if ((await originators(q, pkg)).has(user))
     throw new Refusal(403, "verifier-is-originator", "You originated this work, so your verification would not be independent");
@@ -104,32 +111,41 @@ async function admissible(q: Db | Tx, user: string, id: string, req: Verificatio
   if (unknown.length) throw new Refusal(400, "invalid", `This package has no criterion ${unknown.join(", ")}`);
   const missing = mandatory.filter((c) => !req.criteria.includes(c));
   if (missing.length) throw new Refusal(409, "verification-incomplete", `A verification must cover every mandatory criterion; it leaves out ${missing.join(", ")}`);
-  return pkg;
+  // The signature names the exact work verified: the decision subject (outputs and pre-check) and author run.
+  const subject = await subjectOf(q, pkg);
+  const signedDigest = digest({ act: "person-verification", package_id: pkg.id, package_revision: pkg.revision, subject_digest: subject.digest,
+    author_run: author.id, criteria: req.criteria, outcome: req.outcome });
+  return { pkg, signedDigest };
 }
 
 /** Step 1: the digest the person signs, after every rule that can be checked without a signature. */
 export async function personVerificationSubject(db: Db, user: string, id: string, body: unknown) {
   const req = checkRequest(body);
-  const pkg = await admissible(db, user, id, req);
-  return { req, digest: digest({ act: "person-verification", package_id: pkg.id, package_revision: pkg.revision, criteria: req.criteria, outcome: req.outcome }) };
+  const { signedDigest } = await admissible(db, user, id, req);
+  return { req, digest: signedDigest };
 }
 
 /** Step 2: records the signed verification, checking every rule again inside the writer transaction. */
 export async function recordPersonVerification(
   db: Db, user: string, id: string, body: unknown,
-  signed: { subject_digest: string; assertion: Json } | null,
+  signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
 ) {
   const req = checkRequest(body);
   return command(db, "verification.record-person", async (c) => {
     if (!signed) throw new Refusal(403, "unsigned", "A person's verification must be signed with a passkey");
-    const pkg = await admissible(c, user, id, req, true);
-    const expected = digest({ act: "person-verification", package_id: pkg.id, package_revision: pkg.revision, criteria: req.criteria, outcome: req.outcome });
-    if (signed.subject_digest !== expected) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact verification");
-    await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
     const memberId = memberIdFor(user);
-    const q = await currentQualification(c, memberId);
     const m = await c.query<{ org_id: string }>("select org_id from members where id = $1", [memberId]);
-    const orgId = m.rows[0]!.org_id;
+    if (!m.rows[0]) throw new Refusal(403, "not-a-member", "This passkey belongs to no member");
+    const orgId = m.rows[0].org_id;
+    // Under the administration lock, a suspension, removal, revocation or qualification change
+    // either lands before this verification (and refuses it) or after it.
+    await c.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || $1))", [orgId]);
+    const cred = await currentCredential(c, String(signed.assertion.id ?? ""));
+    if (!cred || cred.revoked || cred.member_id !== memberId) throw new Refusal(403, "signature-revoked", "The passkey that signed this is no longer valid");
+    const { pkg, signedDigest } = await admissible(c, user, id, req, true);
+    if (signed.subject_digest !== signedDigest) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact verification");
+    await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
+    const q = await currentQualification(c, memberId);
     const actor: Actor = { kind: "human", id: memberId };
     const candidate = await singleCandidate(c, pkg, orgId, actor);
     const record = {
@@ -141,6 +157,8 @@ export async function recordPersonVerification(
         client_data_json: String(signed.assertion.response?.clientDataJSON ?? ""),
         signature: String(signed.assertion.response?.signature ?? ""),
       },
+      subject_digest: { algorithm: "sha256", value: signedDigest },
+      ...(signed.nonce ? { challenge_nonce: signed.nonce } : {}),
     };
     await recordObject(c, "person_verification", record as never, actor);
     return record;

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { loadTrustAnchors } from "../src/attestation.js";
+import { currentFloor } from "../src/authority.js";
 import { memberIdFor } from "../src/tenancy.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, addOwnPasskey, signIn, startHarness, testAttestation } from "./harness.js";
 
@@ -77,6 +78,17 @@ describe("enrollment", () => {
     expect(refused.json().message).toMatch(/Safety work must be signed with an attested hardware key; this passkey is not one \(registered without attestation/);
     const ok = await release(hardware);
     expect(ok.statusCode, ok.body).toBe(201);
+  });
+
+  it("applies a policy that drops the key's format at once", async () => {
+    const hw = hardware.credentialId.toString("base64url");
+    expect((await currentFloor(h.db, hw)).eligible).toBe(true);
+    const p = await post("/admin/commands/policy.propose", { payload: { policy: { hardware_attestation_formats: ["tpm"], settings: {} }, reason: "TPM only", impact: [] } });
+    expect(p.statusCode, p.body).toBe(200);
+    const payload = { change_request_id: p.json().id };
+    const o = await post("/admin/commands/policy.approve/options", { payload });
+    expect((await post("/admin/commands/policy.approve", { payload, assertion: hardware.assert(o.json().options) })).statusCode).toBe(200);
+    expect(await currentFloor(h.db, hw)).toEqual({ eligible: false, reason: "attestation format packed is not listed as hardware backed" });
   });
 });
 

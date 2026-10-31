@@ -11,7 +11,7 @@ import { enrollPreparationTx, advancePreparationRevision } from "./preparation/s
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
-import { covers, laneOf, markObject, type Ref } from "./markings.js";
+import { covers, laneOf, markObject, mostSensitive, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -137,6 +137,49 @@ export async function classifyCapture(db: Db, cfg: WorkConfig, user: string, id:
     await appendEvent(c, "capture.classified", id, { kind: "human", id: user }, { lane, ...(cap.lane ? { from: cap.lane } : {}) });
     return next;
   });
+}
+
+/**
+ * The objects whose content a package run's job carries besides the package itself: for a legacy
+ * job, its capture (text and attachments) and the outputs of the packages it depends on; for a
+ * prepared job, the captures, attachments and packages its release manifest pinned.
+ */
+async function transmittedSources(c: Tx, pkg: PackageRow, run: Json): Promise<Ref[]> {
+  const out: Ref[] = [];
+  if (run.preparation_manifest_digest) {
+    const m = await c.query<{ body: Json }>("select body from preparation_release_manifests where digest = $1", [run.preparation_manifest_digest.value]);
+    for (const b of m.rows[0]?.body.basis_refs ?? []) {
+      const ref = String(b.reference ?? "");
+      if (b.kind === "capture" && ref.startsWith("capture:")) out.push({ kind: "capture", id: ref.slice(8) });
+      else if (b.kind === "attachment" && ref.startsWith("attachment:")) out.push({ kind: "capture", id: ref.slice(11).split("/")[0]! });
+      else if (b.kind === "package" && ref.startsWith("package:") && ref !== `package:${pkg.id}`) out.push({ kind: "package", id: ref.slice(8) });
+    }
+    return out;
+  }
+  if (pkg.capture_id) out.push({ kind: "capture", id: pkg.capture_id });
+  for (const dep of (await dependenciesReady(c, pkg)).deps) out.push({ kind: "package", id: dep });
+  return out;
+}
+
+/**
+ * The lane a package run is dispatched under: the most sensitive of the package's effective lane and
+ * the effective lane of every source its job carries, each judged by its own marking. A
+ * declassification of the package lowers the package, never the raw content of its sources. A source
+ * with no classified lane holds the run.
+ */
+async function dispatchLane(c: Tx, pkg: PackageRow, run: Json): Promise<{ lane?: DataLane; reason: string }> {
+  const own = await laneOf(c, "package", pkg.id, pkg.body.data_lane);
+  if (!own) return { reason: laneHoldReason(undefined) };
+  const lanes: DataLane[] = [own];
+  for (const src of await transmittedSources(c, pkg, run)) {
+    const fallback = src.kind === "capture"
+      ? (await c.query<{ lane: string }>("select body->>'lane' as lane from captures where id = $1", [src.id])).rows[0]?.lane
+      : (await currentPackage(c, src.id))?.body.data_lane;
+    const lane = await laneOf(c, src.kind, src.id, fallback);
+    if (!lane) return { reason: `This work carries ${src.kind} ${src.id}, which has no classified data lane; a person with lane authority must classify it first.` };
+    lanes.push(lane);
+  }
+  return { lane: mostSensitive(lanes), reason: "" };
 }
 
 /** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
@@ -677,9 +720,15 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
               if (!(await dependenciesReady(c, pkg)).ready) continue;
             } else if (pkg.status !== "in-work") continue;
           }
-          // The disclosure gate: only runtimes the package's lane admits may see it. The claim holds the
-          // marking lock shared (command catalog), so no raise lands before it and its job commit.
-          const lane = await laneOf(c, "package", pkg.id, pkg.body.data_lane);
+          // The disclosure gate: only runtimes that every transmitted source's lane admits may see the
+          // job. The claim holds the marking lock shared (command catalog), so no raise lands before it
+          // and its job commit.
+          const gate = await dispatchLane(c, pkg, row.body);
+          if (!gate.lane) {
+            await holdRun(c, cfg, row, pkg.id, gate.reason);
+            continue;
+          }
+          const lane = gate.lane;
           const offer = admitted(lane, runtimes);
           if (offer.length === 0) {
             await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane));

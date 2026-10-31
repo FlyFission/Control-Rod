@@ -182,6 +182,13 @@ namespace Packages {
     lines: string[];
   } | Refused;
 
+  /** The run's story: its normalized events in order, after a sequence number. */
+  @route("/{id}/runs/{runId}/events")
+  @get
+  op runEvents(@path id: string, @path runId: string, @query after?: int32): {
+    events: { seq: int32; event: NormalizedEvent }[];
+  } | Refused;
+
   /**
    * The owner queues a new run in place of one that was lost, failed or stopped. The old run
    * keeps its record. Repeating returns the run already queued.
@@ -451,6 +458,9 @@ namespace Runner {
 
     /** The spawn receipt, sent until the control plane has recorded it. */
     receipt?: OwnershipReceipt;
+
+    /** Normalized events since the last post. */
+    @maxItems(500) events?: NormalizedEvent[];
   }): LogReply | Refused;
 
   /**

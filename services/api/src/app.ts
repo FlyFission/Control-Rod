@@ -56,6 +56,7 @@ import {
   stopRun,
   sweepLost,
   runEvidence,
+  runEvents,
   reconcileSubject,
   reconcileRun,
   updateDraft,
@@ -341,6 +342,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     reply.header("content-type",type??"application/octet-stream").header("x-content-type-options","nosniff").header("content-security-policy",OUTPUT_CSP);
     if(!type)reply.header("content-disposition","attachment");return reply.send(bytes);
   });
+  app.get<{ Params: { id: string; runId: string }; Querystring: { after?: string } }>("/packages/:id/runs/:runId/events", async (req) => {
+    await person(req);
+    return runEvents(db, req.params.id, req.params.runId, Number(req.query.after ?? 0) || 0);
+  });
   app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/log", async (req) => {
     await person(req);
     return { lines: await runLogLines(db, req.params.id, req.params.runId) };
@@ -539,10 +544,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (!job) return reply.code(204).send();
     return job;
   });
-  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string; receipt?: unknown } }>("/runner/runs/:id/log", async (req) => {
+  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string; receipt?: unknown; events?: unknown } }>("/runner/runs/:id/log", async (req) => {
     daemon(req);
     const lines = Array.isArray(req.body?.lines) ? req.body.lines.map(String) : [];
-    return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined, req.body?.receipt);
+    return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined, req.body?.receipt, req.body?.events);
   });
   app.post<{ Params: { id: string } }>("/runner/runs/:id/evidence", async (req) => {
     daemon(req);

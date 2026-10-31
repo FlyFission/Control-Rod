@@ -112,6 +112,8 @@ type LogBatch struct {
 	Lines      []string          `json:"lines"`
 	Label      string            `json:"label,omitempty"`
 	Receipt    *OwnershipReceipt `json:"receipt,omitempty"`
+	// Events are the normalized events since the last post (specification 20).
+	Events []Event `json:"events,omitempty"`
 }
 
 // LogReply is the control plane's answer to a log post.

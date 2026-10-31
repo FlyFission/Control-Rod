@@ -66,3 +66,9 @@ Lock order now, everywhere: marking graph lock (by the executor), administration
 | ID | Disposition | Fix and evidence |
 |---|---|---|
 | P5-28 | Fixed | Configured document, policy and repository sources now carry a lane in the owner's preparation config (`preparationLanes`; `repository:control-rod` defaults to internal). A preparation that pins a configured source without a lane is refused (`unclassified-source`); its lane raises the package marking; dispatch and the recursive legacy lookup count every configured source a job or ancestor carries, holding the run when one has no lane. `docs/guided-preparation.md` updated. Tests: "refuses to pin a configured source the owner gave no data lane", config lane parsing. |
+
+## Round 7 (part5-codex-round7.md): closed P5-01 and P5-03 to P5-27; one finding, accepted
+
+| ID | Disposition | Fix and evidence |
+|---|---|---|
+| P5-29 | Fixed | Configured lanes live in the owner's config, never in markings, so dispatch reads them live: `provenanceLane` walks every package not covered by an approved declassification through its stored sources, counting its own and its ancestors' configured lanes even when it has a marking. A config raise therefore takes effect at the next dispatch. Test: "reads configured source lanes live through a dependency that already has a marking". |

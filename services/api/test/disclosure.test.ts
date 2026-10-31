@@ -13,7 +13,7 @@ let cookie: string;
 const key = new VirtualAuthenticator();
 
 beforeAll(async () => {
-  h = await startHarness();
+  h = await startHarness({ preparationLanes: { "document:secret-spec": "restricted" } });
   cookie = await signIn(h.app, key);
 }, 120_000);
 afterAll(async () => h?.stop());
@@ -161,6 +161,23 @@ describe("every source a job carries", () => {
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PREP-A', 0, 'released', $1)",
       [{ ...base, id: "WP-PREP-A", status: "released", depends_on: [{ package_id: "WP-PREP-B" }] }]);
     const runId = await queueAuthor("WP-PREP-A");
+    expect((await claim(["claude", "codex"])).statusCode).toBe(204);
+    expect(await waiting(runId)).toMatch(/restricted lane admits none/);
+  });
+
+  it("reads configured source lanes live through a dependency that already has a marking", async () => {
+    const base = { ...example(), revision: 0, design_inputs: [], data_lane: "internal" };
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-CONF-B', 0, 'accepted', $1)", [{ ...base, id: "WP-CONF-B", status: "draft" }]);
+    const release = { schema_version: "0.1.0", id: "D-confb001", package_id: "WP-CONF-B", package_revision: 0, kind: "release", actor: { kind: "human", id: "ben" },
+      subject_digest: { algorithm: "sha256", value: "e".repeat(64) }, assertion: { credential_id: "x", authenticator_data: "x", client_data_json: "x", signature: "x" }, decided_at: new Date().toISOString() };
+    await h.admin.query("insert into decisions (id, package_id, package_revision, kind, body) values ($1, 'WP-CONF-B', 0, 'release', $2)", [release.id, release]);
+    await h.admin.query("insert into preparation_release_manifests (package_id, package_revision, digest, body, decision_id) values ('WP-CONF-B', 0, $1, $2, $3)",
+      ["f".repeat(64), { basis_refs: [{ kind: "document", reference: "document:secret-spec", revision: "A", digest: { algorithm: "sha256", value: "1".repeat(64) } }] }, release.id]);
+    // B gets a marking (as adding it as a dependency would), which records no configured lanes.
+    await tx(h.admin, async (c) => { await takeMarkingWrite(c); await markObject(c, "package", "WP-CONF-B", "internal", "test"); });
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-CONF-A', 0, 'released', $1)",
+      [{ ...base, id: "WP-CONF-A", status: "released", depends_on: [{ package_id: "WP-CONF-B" }] }]);
+    const runId = await queueAuthor("WP-CONF-A");
     expect((await claim(["claude", "codex"])).statusCode).toBe(204);
     expect(await waiting(runId)).toMatch(/restricted lane admits none/);
   });

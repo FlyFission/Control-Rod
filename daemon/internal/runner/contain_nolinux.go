@@ -18,5 +18,5 @@ func (u Unit) cgroupSignal(syscall.Signal) {}
 func (u Unit) cgroupKill() error           { return errors.New("cgroups are Linux only") }
 func (k Container) OrphanScopes() []Unit   { return nil }
 
-// withPinnedLeader has no stable process handle here, so it never authorizes a signal.
-func withPinnedLeader(int, func() bool, func() error) error { return errNoIdentityToSignal }
+// signalLeaderPinned has no stable process handle here, so it never signals.
+func signalLeaderPinned(int, func() bool, syscall.Signal) error { return errNoIdentityToSignal }

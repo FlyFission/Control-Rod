@@ -911,13 +911,34 @@ function issuedLease(c: Tx, cfg: WorkConfig, runId: string): void {
 }
 
 /**
- * A run that ended without succeeding under process group containment keeps an unknown outcome:
- * the leader's exit is known, but a process that left the group may still run, so requeue waits for
- * a person to reconcile. Only a cgroup proves every process of the run stopped.
+ * Whether a completion proves every process of the run ended: its scope reported empty (cgroup),
+ * or no process was started at all. Process group containment, or no proof, does not.
  */
-function holdIfUnproven(row: RunRow, finished: Json): void {
-  if (finished.status === "succeeded" || row.body.receipt?.containment !== "process-group") return;
-  finished.outcome_unknown = { since: now(), reason: "process group containment cannot prove every process of the run stopped" };
+function provesEnded(row: RunRow, body: Json): boolean {
+  if (body?.containment === "none") return true;
+  const containment = body?.containment ?? row.body.receipt?.containment;
+  return containment === "cgroup" && (row.body.receipt?.containment ?? "cgroup") === "cgroup";
+}
+
+/**
+ * A run that ended without succeeding and without proof that all its processes ended keeps an
+ * unknown outcome, so requeue waits for a person to reconcile (a process that left its group may
+ * still run). Only a cgroup, or a run that started no process, proves it.
+ */
+function holdIfUnproven(row: RunRow, finished: Json, body: Json): void {
+  if (finished.status === "succeeded" || provesEnded(row, body)) return;
+  finished.outcome_unknown = { since: now(), reason: body?.containment === "process-group"
+    ? "process group containment cannot prove every process of the run stopped"
+    : "the daemon sent no proof that every process of the run stopped" };
+}
+
+/** Records the spawn receipt a completion carries, when no log post recorded it first. */
+function takeReceipt(cfg: WorkConfig, row: RunRow, finished: Json, body: Json): void {
+  if (body?.receipt === undefined) return;
+  validate(cfg, "OwnershipReceipt.json", body.receipt);
+  if (body.receipt.generation !== (row.body.generation ?? 1)) throw new Refusal(409, "receipt-mismatch", "The spawn receipt names another attempt of this run");
+  if (row.body.receipt && !sameReceipt(row.body.receipt, body.receipt)) throw new Refusal(409, "receipt-mismatch", "This run already has a different spawn receipt on record");
+  finished.receipt ??= body.receipt;
 }
 
 /** Whether two spawn receipts name the same process of the same attempt. */
@@ -1464,7 +1485,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
         const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
         // A late completion settles the hold only when a cgroup proved the whole run stopped; under
         // process group containment a process that left the group may still run.
-        if (row.body.receipt?.containment !== "process-group")
+        if (provesEnded(row, body))
           await reconcileTx(c, cfg, row, "completed-late", `The daemon's completion (${String(body.status ?? "unknown")}) arrived after the run was marked lost; it is retained with its digests and never applied.`, { kind: "agent", id: row.body.agent_baseline });
         if(!enrolled || fresh) await appendEvent(c,"run.late-completion",runId,SYSTEM,{outputs:(Array.isArray(body.outputs)?body.outputs:[]).slice(0,200).map((o:Json)=>({name:String(o?.name??"").slice(0,200),sha256:sha256(Buffer.from(String(o?.content_base64??""),"base64"))}))});
       });
@@ -1520,7 +1541,8 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     finished.error = "The author run ended without writing anything to out/, so the package does not move. Requeue the run, or return or reject the package.";
   }
   if (body.trace) finished.trace = body.trace;
-  holdIfUnproven(row, finished);
+  takeReceipt(cfg, row, finished, body);
+  holdIfUnproven(row, finished, body);
   validate(cfg, "Run.json", finished);
   await c.query("update runs set status = $2, body = $3 where id = $1", [runId, finished.status, finished]);
   for (const o of outputs) {
@@ -1572,7 +1594,7 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     validate(cfg, "Run.json", finished);
     const status=refusal.code==="stopped"?"stopped":"failed";
     finished.status=status;
-    holdIfUnproven(row, finished);
+    holdIfUnproven(row, finished, body);
     await quarantineCompletion(c,runId,key,body,refusal.code);
     const receipt = receiptOf(runId, key, status, [], refusal);
     await c.query("update runs set status = $5, body = $2, completion_key = $3, receipt = $4 where id = $1", [

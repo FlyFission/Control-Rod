@@ -42,3 +42,12 @@ Reviewer: Codex CLI, static read only review against `origin/buildout/controlled
 | S1-24 | Fixed | A stop that cannot be confirmed returns `ErrUncontained` at once; the leader is reaped in the background whenever it goes, and the daemon stops heartbeating, keeps the receipt and sends nothing. |
 | S1-25 | Fixed | The sweep treats lapsed runs as recoverable while an outage recognized by heartbeats is within its window (still bounded by `grace_renewals`). Test: "lets the sweep honor an outage heartbeats already recognized". |
 | S1-17 (Medium, carried) | Fixed | The orphan sweep retires a receipt for an outbox entry only if the outbox directory syncs (`HasDurable`). |
+
+## Round 4 (supervision-codex-round4.md): closed S1-17, S1-21, S1-25, S1-26; four findings, all accepted
+
+| ID | Disposition | Fix and evidence |
+|---|---|---|
+| S1-27 | Fixed | The completion carries the spawn receipt and `containment` (cgroup, process-group, or none when no process started). A failed or stopped run is cleared only on affirmative proof (`provesEnded`: cgroup, or none); no proof or process group keeps an unknown outcome, and a late completion settles a hold only on the same proof. Tests: "holds a failed run whose daemon sent no proof that its processes ended", "records the spawn receipt a completion carries". |
+| S1-28 | Fixed | A pidfd does not reserve the group number, so an orphan under the fallback is signalled only at its leader, through the pidfd (`signalLeaderPinned`); its group is never signalled by number, and remaining members keep the outcome unknown. Test: `TestAnOrphanGroupIsNeverSignalledByNumber`. |
+| S1-29 | Fixed | Draining the output pipes after the leader exits or a stop is bounded (`drained`); a process still holding them past the bound makes the run uncontained instead of blocking supervision. Test: `TestAnEscapedChildHoldingThePipesMakesTheRunUncontainedNotStuck`. |
+| S1-30 | Fixed | On a failed start the launcher, still an unreaped child, is killed by its group directly and reaped within a bound (`reapWithin`), whatever the receipt says. Test: `TestAFailedStartKillsTheLauncherWithinABound`. |

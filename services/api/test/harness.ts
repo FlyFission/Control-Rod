@@ -307,6 +307,8 @@ export function withClaim(url: string, payload: Record<string, unknown>): Record
   if (!m) return payload;
   const out: Record<string, unknown> = { claim_token: claims.get(m[1] ?? "") ?? "", ...payload };
   if (m[2] === "complete" && out.idempotency_key === undefined) out.idempotency_key = randomBytes(12).toString("hex");
+  // A daemon with a user systemd proves its run's scope empty; a test that means otherwise says so.
+  if (m[2] === "complete" && !("containment" in payload)) out.containment = "cgroup";
   return out;
 }
 

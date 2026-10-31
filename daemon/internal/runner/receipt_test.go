@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -463,5 +464,83 @@ func TestAReceiptWriteFailureEndsTheWholeUnitIncludingEscapedChildren(t *testing
 	}
 	if located.Alive() {
 		t.Fatal("the escaped child survived a receipt failure")
+	}
+}
+
+func TestAnEscapedChildHoldingThePipesMakesTheRunUncontainedNotStuck(t *testing.T) {
+	cmd := exec.Command("bash", "-c", `setsid sleep 30 & exit 0`)
+	k := Container{Mode: ContainGroup}
+	k.Wrap(cmd, UnitName("testns", "run-pipes", 1))
+	done := make(chan error, 1)
+	go func() {
+		done <- Execute(context.Background(), cmd, func(string) {}, ExecHooks{Linger: 200 * time.Millisecond, Timings: fast,
+			Started: func(pid int) (*SpawnReceipt, error) {
+				r, err := NewReceipt("run-pipes", "tok", pid, 1, Unit{Mode: ContainGroup})
+				return &r, err
+			}})
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, ErrUncontained) {
+			t.Fatalf("got %v, want ErrUncontained", err)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("a process outside the group holding the pipes kept the run from ever ending")
+	}
+	_ = exec.Command("pkill", "-f", "^sleep 30$").Run()
+}
+
+func TestAFailedStartKillsTheLauncherWithinABound(t *testing.T) {
+	cmd := exec.Command("bash", "-c", `trap '' HUP TERM; sleep 30`)
+	setProcessGroup(cmd)
+	done := make(chan error, 1)
+	go func() {
+		done <- Execute(context.Background(), cmd, func(string) {}, ExecHooks{Started: func(pid int) (*SpawnReceipt, error) {
+			// As if systemd-run never reached its scope: the receipt names a cgroup that does not exist.
+			return &SpawnReceipt{Containment: ContainCgroup, Cgroup: "/sys/fs/cgroup/does-not-exist.scope", PGID: pid}, errors.New("never entered scope")
+		}})
+	}()
+	select {
+	case err := <-done:
+		if err == nil || !strings.Contains(err.Error(), "could not be owned") {
+			t.Fatalf("got %v", err)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("the failed start waited on the launcher forever")
+	}
+	if syscall.Kill(cmd.Process.Pid, 0) == nil {
+		t.Fatal("the launcher was left running")
+	}
+}
+
+func TestAnOrphanGroupIsNeverSignalledByNumber(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command("bash", "-c", `sleep 30 & echo $! > child.pid; wait`)
+	cmd.Dir = dir
+	setProcessGroup(cmd)
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = cmd.Wait() }()
+	waitFile(t, filepath.Join(dir, "child.pid"))
+	r, err := NewReceipt("run-orphan-group", "tok", cmd.Process.Pid, 1, Unit{Mode: ContainGroup})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Not pinned: as after a daemon restart. Only the leader can be reached safely.
+	old := killWait
+	killWait = 300 * time.Millisecond
+	defer func() { killWait = old }()
+	stopped := StopGracefully(r, StopTimings{AfterHangup: 100 * time.Millisecond, Grace: 100 * time.Millisecond}, nil)
+	b, _ := os.ReadFile(filepath.Join(dir, "child.pid"))
+	child := strings.TrimSpace(string(b))
+	var pid int
+	_, _ = fmt.Sscan(child, &pid)
+	defer syscall.Kill(pid, syscall.SIGKILL)
+	if stopped {
+		t.Fatal("a group whose other members were never reached cannot be reported stopped")
+	}
+	if syscall.Kill(pid, 0) != nil {
+		t.Fatal("a group member was signalled by group number")
 	}
 }

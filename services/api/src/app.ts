@@ -64,6 +64,9 @@ import {
 
 export const VERSION = "0.1.0";
 
+/** The most missed events the stream replays on reconnect; further behind gets a loss frame. */
+export const STREAM_REPLAY_MAX = 5000;
+
 export interface AppOptions {
   db: Db;
   /** Where unhandled errors are reported. Default: one line on standard error with the stack. */
@@ -514,19 +517,57 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await person(req);
     return verifyChain(db);
   });
-  app.get("/events/stream", async (req, reply) => {
+  /**
+   * The event stream (specification 27). Durable frames are chain events, each with its sequence as
+   * the SSE id, so a client that reconnects with Last-Event-ID (or ?after=) receives what it missed,
+   * in order. When that history cannot be replayed (too far behind, or a sequence this chain never
+   * reached) the stream says so with a loss frame and the client refreshes. Heartbeats are transient
+   * frames with no id.
+   */
+  app.get<{ Querystring: { after?: string } }>("/events/stream", async (req, reply) => {
     await person(req);
+    const raw = req.headers["last-event-id"] ?? req.query.after;
+    const after = raw === undefined || raw === "" ? undefined : Number(raw);
     reply.hijack();
     const res = reply.raw;
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
     res.write(": connected\n\n");
-    const send = (e: EventRecord) => res.write(`event: event\ndata: ${JSON.stringify(e)}\n\n`);
-    const ping = setInterval(() => res.write(": ping\n\n"), 20000);
-    bus.on("event", send);
+    let lastSent = 0;
+    let replaying = true;
+    const held: EventRecord[] = [];
+    const send = (e: EventRecord) => {
+      if (e.seq <= lastSent) return;
+      lastSent = e.seq;
+      res.write(`id: ${e.seq}\nevent: event\ndata: ${JSON.stringify(e)}\n\n`);
+    };
+    // Subscribe before reading history, so nothing appended meanwhile falls between the two.
+    const onEvent = (e: EventRecord) => (replaying ? held.push(e) : send(e));
+    bus.on("event", onEvent);
+    const ping = setInterval(() => res.write(`event: heartbeat\ndata: ${JSON.stringify({ at: new Date().toISOString() })}\n\n`), 15000);
     req.raw.on("close", () => {
       clearInterval(ping);
-      bus.off("event", send);
+      bus.off("event", onEvent);
     });
+    try {
+      const head = (await db.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from events")).rows[0]!.n;
+      if (after !== undefined) {
+        const valid = Number.isInteger(after) && after >= 0 && after <= head;
+        const behind = valid ? head - after : Infinity;
+        if (!valid || behind > STREAM_REPLAY_MAX) {
+          res.write(`id: ${head}\nevent: loss\ndata: ${JSON.stringify({ after: raw, resume_from: head, reason: valid ? "too far behind to replay" : "no such position in this event log" })}\n\n`);
+          lastSent = head;
+        } else {
+          lastSent = after;
+          const missed = await db.query<{ body: EventRecord }>("select body from events where seq > $1 and seq <= $2 order by seq", [after, head]);
+          for (const r of missed.rows) send(r.body);
+        }
+      } else {
+        lastSent = head;
+      }
+    } finally {
+      replaying = false;
+      for (const e of held.splice(0)) send(e);
+    }
   });
 
   /* ---- runner ---- */

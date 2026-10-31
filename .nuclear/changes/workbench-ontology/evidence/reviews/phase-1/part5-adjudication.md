@@ -78,3 +78,7 @@ Lock order now, everywhere: marking graph lock (by the executor), administration
 | ID | Disposition | Fix and evidence |
 |---|---|---|
 | P5-30 | Fixed | Approving a package declassification records the lane of every configured source in its ancestry (`MarkingOverride.covered_configured`; an unlaned one refuses the approval). At dispatch the override stands only while every configured lane in the ancestry is classified, was seen, and is no more sensitive than it was (`configuredStillCovered`); otherwise the package is judged on its own lane and every source. Test: "lets a declassification stand only while the configured lanes it saw have not risen". |
+
+## Round 9 (part5-codex-round9.md): MERGE
+
+All thirty findings (P5-01 to P5-30) closed; no High or Critical defect remains. Verified at merge: `pnpm typecheck`; API 447 passed, 1 skipped; web 103 passed; command inventory current; change record validates with strict custody.

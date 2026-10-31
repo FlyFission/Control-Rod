@@ -47,3 +47,10 @@ Lock order now, everywhere: marking graph lock (by the executor), administration
 |---|---|---|
 | P5-23 | Fixed | The claim now admits a package run only under the most sensitive of the package's effective lane and the lane of every source its job carries (legacy: capture text and attachments, dependency outputs; prepared: every capture, attachment and package the release manifest pinned), each from its own marking or recorded lane. A source with no classified lane holds the run. This no longer depends on a legacy package's marking having its provenance edges. Test: "holds a legacy package whose capture was never classified". |
 | P5-24 | Fixed | Sources are judged by their own lane at dispatch, so a package's declassification lowers the package but never the raw outputs it carries from a dependency. Test: "judges a dependency's outputs by the dependency's own lane, even when the package was declassified". |
+
+## Round 4 (part5-codex-round4.md): closed P5-03 to P5-13, P5-15, P5-17 to P5-22; two findings, both accepted
+
+| ID | Disposition | Fix and evidence |
+|---|---|---|
+| P5-25 | Fixed | At dispatch a package or source without a marking has its lane computed, read only, through its own capture and dependencies recursively (`provenanceLane`); an unclassified ancestor holds the run. A stored package's first marking, whoever writes it, now reconstructs its edges to its capture and dependencies (`ensureMarking`), so later raises propagate. Test: "follows a legacy dependency back to its capture when the capture is raised". |
+| P5-26 | Fixed | An author run that records outputs ends any declassification of its package (`endOverride`), recomputing and propagating; new bytes need a fresh approval. Test: "ends a declassification when the package gains new author output". |

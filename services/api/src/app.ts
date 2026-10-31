@@ -75,6 +75,7 @@ export interface AppOptions {
   preparedRelease?: boolean;
   preparationSources?: WorkConfig["preparationSources"];
   preparationRepositories?: WorkConfig["preparationRepositories"];
+  preparationLanes?: WorkConfig["preparationLanes"];
   /** Seconds between sweeps for lost runs. Default 15; 0 turns the timer off. */
   sweepSeconds?: number;
 }
@@ -104,7 +105,7 @@ const MIME: Record<string, string> = {
  */
 export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
-  const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.preparationSources?{preparationSources:opts.preparationSources}:{}), ...(opts.preparationRepositories?{preparationRepositories:opts.preparationRepositories}:{}), ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
+  const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.preparationSources?{preparationSources:opts.preparationSources}:{}), ...(opts.preparationRepositories?{preparationRepositories:opts.preparationRepositories}:{}), ...(opts.preparationLanes?{preparationLanes:opts.preparationLanes}:{}), ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
   const parseJson = app.getDefaultJsonParser("error", "error");

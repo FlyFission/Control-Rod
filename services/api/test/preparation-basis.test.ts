@@ -1,9 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { preparationContent } from "../src/preparation/store.js";
+import { packageFixture } from "./preparation-fixtures.js";
 import { preparedHarness } from "./preparation-flow.js";
 let f: Awaited<ReturnType<typeof preparedHarness>>;
 const dir = mkdtempSync(join(tmpdir(), "cr-basis-"));
@@ -30,8 +32,10 @@ beforeAll(async () => {
   f = await preparedHarness({
     preparationSources: {
       "document:test": { kind: "document", revision: "A", path: file },
+      "document:plain": { kind: "document", revision: "A", path: file },
     },
     preparationRepositories: { "repository:test": repository },
+    preparationLanes: { "document:test": "internal", "repository:test": "internal" },
   });
 }, 120_000);
 afterAll(async () => {
@@ -95,6 +99,20 @@ describe("prepared execution basis barriers", () => {
       (await f.owner("GET", `/packages/${p.id}`)).json().package.status,
     ).toBe("in-work");
   });
+  it("refuses to pin a configured source the owner gave no data lane", async () => {
+    const p = { ...packageFixture(), id: `WP-${randomUUID()}` };
+    await f.h.admin.query("insert into packages(id,revision,status,body) values($1,0,'draft',$2)", [p.id, p]);
+    const url = `/packages/${p.id}/preparation`;
+    const enrolled = await f.owner("POST", url, { package_revision: 0, idempotency_key: "plain-source-1" });
+    expect(enrolled.statusCode, enrolled.body).toBeLessThan(300);
+    const v = enrolled.json();
+    const content = preparationContent(v.snapshot);
+    content.basis.push({ kind: "document", reference: "document:plain", revision: "A", digest: { algorithm: "sha256", value: sha("Controlled source") } });
+    const r = await f.owner("PUT", url, content, { "if-match": `"${v.content_digest.value}"` });
+    expect(r.statusCode).toBe(409);
+    expect(r.json()).toMatchObject({ code: "unclassified-source", message: "document:plain has no data lane in the preparation config; the owner must classify it before it can be a source" });
+  });
+
   it("pins document bytes at release, holds changed revisions and never publishes stopped successful output", async () => {
     writeFileSync(file, "Controlled source");
     const p = await f.draft([

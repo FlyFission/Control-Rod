@@ -5,7 +5,8 @@ import type { Ajv2020 } from "ajv/dist/2020.js";
 import { type Db, type Tx, readTx } from "../db/index.js";
 import { command } from "../commands/executor.js";
 import { type Actor, appendEvent } from "../events.js";
-import { basisRef, covers, laneOf, markObject, type Ref } from "../markings.js";
+import { CONFIGURED_KINDS, basisRef, configuredLane, covers, laneOf, markObject, mostSensitive, type Ref } from "../markings.js";
+import type { DataLane } from "../disclosure.js";
 import { digest } from "../kernel.js";
 import {
   currentPackage,
@@ -34,6 +35,7 @@ type ReadConfig = Partial<
     | "preparedRelease"
     | "preparationSources"
     | "preparationRepositories"
+    | "preparationLanes"
   >
 >;
 type Config = { ajv: Ajv2020 } & ReadConfig;
@@ -188,8 +190,16 @@ async function save(
 ) {
   validate(cfg, "PreparationSnapshot.json", s);
   // Every source a run will receive raises the package's effective lane (specification 11.3 M-1).
+  // Configured sources are classified in the owner's config; one without a lane cannot be pinned.
+  const configured: DataLane[] = [];
+  for (const b of s.basis) {
+    if (!CONFIGURED_KINDS.has(b.kind)) continue;
+    const l = configuredLane(cfg.preparationLanes, b.reference);
+    if (!l) throw new Refusal(409, "unclassified-source", `${b.reference} has no data lane in the preparation config; the owner must classify it before it can be a source`);
+    configured.push(l);
+  }
   const lane = await laneOf(c, "package", p.id, p.body.data_lane);
-  if (lane) await markObject(c, "package", p.id, lane, `preparation revision ${s.revision}`, basisInputs(s, p.id));
+  if (lane) await markObject(c, "package", p.id, mostSensitive([lane, ...configured]), `preparation revision ${s.revision}`, basisInputs(s, p.id));
   const subjects = preparationSubjects(s);
   await c.query(
     "insert into preparation_snapshots(preparation_id,revision,package_id,package_revision,content_digest,requirements_digest,body,created_at) values($1,$2,$3,$4,$5,$6,$7,$8)",

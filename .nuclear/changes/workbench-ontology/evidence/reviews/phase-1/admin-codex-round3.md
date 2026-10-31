@@ -1,0 +1,14 @@
+| Confirmation item | Status | Evidence and remaining bypass |
+|---|---|---|
+| Round 2 critical: invitation takeover | Fixed | [admin.ts:210](services/api/src/admin.ts:210) rejects invitations for accounts with passkeys. [auth.ts:119](services/api/src/auth.ts:119) atomically rechecks active membership, invitation validity and absence of credentials under the organization lock. |
+| Round 2 major: pending passkey addition | Fixed | [auth.ts:127](services/api/src/auth.ts:127) rechecks active membership and the authorizing credential under the lock. [admin.ts:272](services/api/src/admin.ts:272) invalidates pending challenges on credential revocation. |
+| SEC-07 | Fixed for the reported session-creation gap | [auth.ts:227](services/api/src/auth.ts:227) serializes session creation with suspension and requires active membership. [app.ts:213](services/api/src/app.ts:213) and [app.ts:223](services/api/src/app.ts:223) translate refusal into 403 or 401. |
+| SEC-10 | Partially fixed | [admin.ts:128](services/api/src/admin.ts:128) deletes challenges tagged to the affected person. **Bypass:** obtain decision options through active member B, revoke A’s qualification while A remains active, then sign B’s challenge with A’s valid passkey and submit using A’s session. [auth.ts:65](services/api/src/auth.ts:65) strips `issued_to`; [app.ts:354](services/api/src/app.ts:354) compares signer to session and subject fields, never the challenge recipient. [work.ts:1328](services/api/src/work.ts:1328) applies an otherwise valid decision without checking current qualification. This remains an existing authorization gap. |
+| SEC-14 | Partially fixed | `settings: null` now produces 400 at [admin.ts:151](services/api/src/admin.ts:151). **Remaining trigger:** `policy.propose` with `{"policy":{"settings":{"toString":"1"}},"reason":"x"}`. The inherited property passes the lookup at [admin.ts:154](services/api/src/admin.ts:154), then `rule.test` throws. [admin.ts:522](services/api/src/admin.ts:522) does not translate that error, so it reaches the 500 handler. |
+| SEC-15 | Fixed for the listed test gaps, by inspection | Successful first execution and zero-counter replay are asserted at [admin.test.ts:398](services/api/test/admin.test.ts:398); concurrent credential revocations and remaining usable credential at [admin.test.ts:408](services/api/test/admin.test.ts:408); removed-member login with an unrevoked passkey at [admin.test.ts:425](services/api/test/admin.test.ts:425). Tests were not run. |
+
+| New critical or major defect introduced by these changes | Concrete trigger |
+|---|---|
+| None established. The remaining findings above predate these changes. No new lock-order cycle was established: challenge consumption commits before registration or session creation acquires the organization lock. | None. Static review only; no files modified or tests run. |
+
+BLOCK

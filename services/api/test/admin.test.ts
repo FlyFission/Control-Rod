@@ -429,3 +429,23 @@ describe("review round 2", () => {
     expect(login.statusCode).toBe(401);
   });
 });
+
+describe("review round 3", () => {
+  it("a challenge issued to one person cannot be answered with another person's passkey", async () => {
+    const harry = new VirtualAuthenticator();
+    const harryCookie = await addPerson("harry", harry);
+    const s = await post(harryCookie, "/auth/step-up/options", {});
+    // Ben's passkey answers Harry's challenge, submitted from Ben's session: refused.
+    const r = await post(ben, "/auth/register/options", { step_up: benKey.assert(s.json().options) });
+    expect(r.statusCode).toBe(403);
+    const o = await post(harryCookie, "/admin/commands/theme.select/options", { payload: { theme_id: "corner-cafe" } });
+    const crossed = await post(ben, "/admin/commands/project.create", { payload: { theme_id: "corner-cafe" }, assertion: benKey.assert(o.json().options) });
+    expect(crossed.json().code).toBe("signature-required");
+  });
+
+  it("a policy setting named after a built in property is refused, not a server error", async () => {
+    const r = await unsigned(ben, "policy.propose", { policy: { settings: { toString: "1" } }, reason: "x" });
+    expect(r.statusCode).toBe(400);
+    expect(r.json().code).toBe("unknown-setting");
+  });
+});

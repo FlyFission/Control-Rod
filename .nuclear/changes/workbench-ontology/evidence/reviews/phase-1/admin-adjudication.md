@@ -32,6 +32,15 @@ Codex confirmed SEC-02 to SEC-06, SEC-08, SEC-09, SEC-11 to SEC-13 fixed and fou
 | SEC-15 test gaps | **Fixed**: replay after a successful first use with a counter that stays at zero, a removed Member signing in with a passkey that was never revoked, and two passkeys revoked at once (tests) |
 | SEC-01 | Closed by the two items above |
 
+## Round 3
+
+Codex confirmed the round 2 critical and major fixed, SEC-07 and SEC-15 fixed, and no new defects ([admin-codex-round3.md](admin-codex-round3.md)). Two older items remained partial:
+
+| Item | Disposition |
+|---|---|
+| SEC-10 a challenge issued to one person answered with another person's passkey (the decision route compared signer and session, not the challenge's recipient) | **Fixed for every signing purpose**: assertion verification refuses an answer from anyone but the person the challenge was issued to (test). Checking the signer's current qualification on decisions is task 1.14 |
+| SEC-14 a setting named after a built in property (`toString`) reached an inherited function | **Fixed**: only the setting table's own keys are consulted (test) |
+
 ## Required links
 
 [Execution ledger](../../../../../../docs/superpowers/execution/2026-10-29-workbench-buildout.md), [command inventory](../../../../../../docs/commands/inventory.md).

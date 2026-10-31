@@ -49,11 +49,16 @@ async function storeChallenge(db: Db, challenge: string, purpose: string, data: 
 }
 
 /** Takes a challenge exactly once. A replayed or expired challenge returns nothing. */
-export async function takeChallenge(
+export async function takeChallenge(db: Db, challenge: string, purpose: string): Promise<Record<string, unknown> | null> {
+  return (await takeChallengeFor(db, challenge, purpose))?.data ?? null;
+}
+
+/** Takes a challenge exactly once, with the person it was issued to (if recorded). */
+async function takeChallengeFor(
   db: Db,
   challenge: string,
   purpose: string,
-): Promise<Record<string, unknown> | null> {
+): Promise<{ data: Record<string, unknown>; issuedTo?: string } | null> {
   const r = await command(db, "auth.challenge-consume", (c) =>
     c.query<{ data: Record<string, unknown> }>(
       "delete from challenges where challenge = $1 and purpose = $2 and expires_at > now() returning data",
@@ -62,8 +67,8 @@ export async function takeChallenge(
   );
   const data = r.rows[0]?.data;
   if (!data) return null;
-  const { issued_to: _issuedTo, ...rest } = data;
-  return rest;
+  const { issued_to: issuedTo, ...rest } = data;
+  return typeof issuedTo === "string" ? { data: rest, issuedTo } : { data: rest };
 }
 
 function clientChallenge(response: { response: { clientDataJSON: string } }): string {
@@ -183,8 +188,9 @@ export async function assertionVerify(
   body: AuthenticationResponseJSON,
 ): Promise<{ user: string; credentialId: string; data: Record<string, unknown> } | null> {
   const challenge = clientChallenge(body);
-  const data = await takeChallenge(db, challenge, purpose);
-  if (data === null) return null;
+  const taken = await takeChallengeFor(db, challenge, purpose);
+  if (taken === null) return null;
+  const { data, issuedTo } = taken;
   const r = await db.query<{ id: string; user_name: string; public_key: Buffer; counter: string; transports: string[] }>(
     // A revoked passkey cannot sign in or sign anything.
     "select * from credentials where id = $1 and not exists (select 1 from authenticator_credentials a where a.credential_id = credentials.id and (a.body->>'revoked')::boolean is true and a.version = (select max(version) from authenticator_credentials b where b.credential_id = credentials.id))",
@@ -192,6 +198,8 @@ export async function assertionVerify(
   );
   const row = r.rows[0];
   if (!row) return null;
+  // A challenge issued to one person can be answered only by that person's passkey.
+  if (issuedTo !== undefined && issuedTo !== row.user_name) return null;
   // Only an active Member's passkey signs in or signs anything.
   const active = await db.query("select 1 from members where user_name = $1 and body->>'status' = 'active'", [row.user_name]);
   if (!active.rowCount) return null;

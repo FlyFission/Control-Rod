@@ -120,7 +120,7 @@ describe("a site job runs end to end under the floors", () => {
     const names = job.inputs.map((i: { name: string }) => i.name);
     expect(names).toContain("attachments/parcel.geojson");
     const parcel = draft("PARCEL", { design_inputs: [{ doc: "attachment:parcel.geojson", revision: "0", use: "boundary" }] });
-    const plan = draft("PLAN", { design_inputs: [{ doc: "PARCEL", revision: "0", use: "boundary" }] });
+    const plan = draft("PLAN", { design_inputs: [{ doc: "PARCEL", revision: "0", use: "boundary" }], depends_on: [{ package_id: "PARCEL", reason: "needs the accepted boundary" }] });
     const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
       status: "succeeded",
       outputs: [
@@ -134,6 +134,7 @@ describe("a site job runs end to end under the floors", () => {
     planId = pkgs.find((p: { id: string }) => p.id.endsWith("-PLAN")).id;
     const planView = (await asOwner("GET", `/packages/${planId}`)).json();
     expect(planView.package.design_inputs[0].doc).toBe(parcelId);
+    expect(planView.package.depends_on).toEqual([{ package_id: parcelId, reason: "needs the accepted boundary" }]);
     const officeKinds = (await asOwner("GET", "/office")).json().map((i: { kind: string }) => i.kind);
     expect(officeKinds.filter((k: string) => k === "release")).toHaveLength(2);
   });

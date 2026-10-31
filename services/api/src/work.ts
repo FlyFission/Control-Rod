@@ -290,7 +290,9 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
     next.agent_assignment = pkg.body.agent_assignment;
     next.verification = pkg.body.verification;
     validate(cfg, "WorkPackage.json", next);
-    await c.query("update packages set body = $3, updated_at = now() where id = $1 and revision = $2", [id, pkg.revision, next]);
+    await checkDependsOn(c, id, next);
+    await c.query("update packages set body = $3, updated_at = now() where id = $1 and revision = $2", [id, pkg.revision, next])
+      .catch((e) => { throw dependencyRefusal(e); });
     await appendEvent(c, "package.edited", id, { kind: "human", id: user }, { revision: pkg.revision });
     return { body: next, etag: draftEtag(next) };
   });
@@ -379,18 +381,35 @@ function runtimeRef(name: string) {
     : { kind: "subscription", provider: name, model: "default" };
 }
 
-/** Dependencies are design inputs that name another package; each must be accepted first. */
-async function dependenciesReady(c: Tx, pkg: Json): Promise<{ ready: boolean; deps: string[] }> {
-  const deps: string[] = [];
-  for (const d of pkg.design_inputs ?? []) {
-    if (typeof d.doc !== "string" || d.doc.startsWith("attachment:")) continue;
-    const r = await currentPackage(c, d.doc);
-    if (r) {
-      deps.push(d.doc);
-      if (r.status !== "accepted") return { ready: false, deps };
-    }
+/**
+ * Whether a package revision may start: every package it depends on is accepted. Dependencies come
+ * from `package_dependencies` (explicit `depends_on`, or classified from design inputs for packages
+ * that predate it); citations never gate. A missing target keeps the package waiting.
+ */
+async function dependenciesReady(c: Tx, pkg: { id: string; revision: number }): Promise<{ ready: boolean; deps: string[] }> {
+  const r = await c.query<{ depends_on: string; status: string | null }>(
+    `select d.depends_on, (select p.status from packages p where p.id = d.depends_on order by p.revision desc limit 1) as status
+       from package_dependencies d where d.package_id = $1 and d.package_revision = $2 order by d.depends_on`,
+    [pkg.id, pkg.revision]);
+  const deps = r.rows.map((x) => x.depends_on);
+  return { ready: r.rows.every((x) => x.status === "accepted"), deps };
+}
+
+/** Refuses a `depends_on` that names this package itself or a package that does not exist. */
+async function checkDependsOn(c: Tx, id: string, body: Json): Promise<void> {
+  for (const d of body.depends_on ?? []) {
+    const target = String(d?.package_id ?? "");
+    if (target === id) throw new Refusal(400, "invalid-dependency", "A package cannot depend on itself");
+    if (!(await c.query("select 1 from packages where id = $1 limit 1", [target])).rowCount)
+      throw new Refusal(400, "unknown-dependency", `This package depends on ${target}, which does not exist`);
   }
-  return { ready: true, deps };
+}
+
+/** A dependency cycle or unknown target the database refused, as a clear answer. */
+function dependencyRefusal(error: unknown): unknown {
+  const code = (error as { code?: string }).code;
+  if (code === "23503" || code === "23514") return new Refusal(400, "invalid-dependency", (error as Error).message);
+  return error;
 }
 
 /**
@@ -526,7 +545,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   if (!pkg) throw new Error("package vanished");
   const role: string = pkg.body.agent_assignment?.[0]?.role ?? "general-author";
   if(!run.preparation_manifest_digest) {
-  const { deps } = await dependenciesReady(c, pkg.body);
+  const { deps } = await dependenciesReady(c, pkg);
   for (const dep of deps) {
     const dp = await currentPackage(c, dep);
     const ar = dp ? await latestAuthorRun(c, dep, dp.revision) : null;
@@ -624,7 +643,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           }
           if (row.role === "author") {
             if (pkg.status === "released") {
-              if (!(await dependenciesReady(c, pkg.body)).ready) continue;
+              if (!(await dependenciesReady(c, pkg)).ready) continue;
             } else if (pkg.status !== "in-work") continue;
           }
           // The disclosure gate: only runtimes the package's lane admits may see it.
@@ -1189,7 +1208,23 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
   const idMap = new Map<string, string>();
   for (const d of drafts) idMap.set(String(d.id), `${prefix}-${String(d.id).replace(/[^A-Za-z0-9-]/g, "").slice(0, 40)}`);
   const created: string[] = [];
-  for (const d of drafts) {
+  // Packages drafted together may depend on each other: insert each after the ones it waits for.
+  const ordered: Json[] = [];
+  const placing = new Set<string>();
+  const place = (d: Json) => {
+    const local = String(d.id);
+    if (ordered.includes(d)) return;
+    if (placing.has(local)) throw new Refusal(400, "invalid-dependency", "Packages drafted together cannot wait on each other");
+    placing.add(local);
+    for (const dep of d.depends_on ?? []) {
+      const other = drafts.find((x: Json) => String(x.id) === String(dep?.package_id));
+      if (other) place(other);
+    }
+    placing.delete(local);
+    ordered.push(d);
+  };
+  for (const d of drafts) place(d);
+  for (const d of ordered) {
     const pkg = {
       ...d,
       schema_version: "0.1.0",
@@ -1197,6 +1232,9 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
       revision: 0,
       status: "draft",
       design_inputs: (d.design_inputs ?? []).map((x: Json) => (idMap.has(x.doc) ? { ...x, doc: idMap.get(x.doc) } : x)),
+      ...(Array.isArray(d.depends_on)
+        ? { depends_on: d.depends_on.map((x: Json) => (idMap.has(String(x?.package_id)) ? { ...x, package_id: idMap.get(String(x.package_id)) } : x)) }
+        : {}),
       agent_assignment: [{ role: String(d.agent_assignment?.[0]?.role ?? "general-author").slice(0, 60), agent_baseline: "author", baseline_revision: 0 }],
       verification: {
         method: "agent-pre-check",
@@ -1206,7 +1244,9 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
       },
     };
     validate(cfg, "WorkPackage.json", pkg);
-    await c.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'draft', $2, $3)", [pkg.id, capture.id, pkg]);
+    await checkDependsOn(c, String(pkg.id), pkg);
+    await c.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'draft', $2, $3)", [pkg.id, capture.id, pkg])
+      .catch((e) => { throw dependencyRefusal(e); });
     await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id });
     if(cfg.guidedPreparation) await enrollPreparationTx(c,cfg,SYSTEM,pkg.id as string,{package_revision:0,idempotency_key:`intake-${capture.id}-${pkg.id}`});
     created.push(pkg.id as string);

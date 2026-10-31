@@ -1288,6 +1288,12 @@ export interface components {
             subject_digest: components["schemas"]["ControlRod.Records.Digest"];
             assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
         };
+        /** @description A package this one waits for. */
+        "ControlRod.Records.PackageDependency": {
+            package_id: string;
+            /** @description Why this package waits for that one. */
+            reason?: string;
+        };
         /** @enum {string} */
         "ControlRod.Records.PackageStatus": "draft" | "released" | "in-work" | "in-verification" | "accepted" | "closed";
         /** @description A WebAuthn assertion over the decision digest, made by the person's own authenticator. */
@@ -1430,7 +1436,10 @@ export interface components {
             objective: string;
             deliverables: components["schemas"]["ControlRod.Records.Deliverable"][];
             exclusions?: string[];
+            /** @description Citations: documents this package relies on. They never decide when the package may start. */
             design_inputs: components["schemas"]["ControlRod.Records.DesignInput"][];
+            /** @description Packages this one waits for: it starts only once each is accepted. Unknown targets are refused. */
+            depends_on?: components["schemas"]["ControlRod.Records.PackageDependency"][];
             assumptions?: components["schemas"]["ControlRod.Records.Assumption"][];
             codes_and_standards?: components["schemas"]["ControlRod.Records.CodeOrStandard"][];
             methodology?: components["schemas"]["ControlRod.Records.Methodology"];

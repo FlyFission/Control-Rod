@@ -1,6 +1,6 @@
 import type { Db, Tx } from "./db/index.js";
 import { Refusal } from "./refusal.js";
-import { type SignerGrade, type SignerQualification, type SignerRole, currentQualification, memberIdFor } from "./tenancy.js";
+import { type SignerGrade, type SignerQualification, type SignerRole, currentCredential, currentQualification, memberIdFor } from "./tenancy.js";
 
 /**
  * Signing authority (workbench specification 11.1 G-4; plan task 1.14). A sign or verify control is
@@ -81,4 +81,29 @@ export function needsOf(body: { grade?: unknown; discipline?: unknown }): Subjec
 export async function requireAuthority(q: Db | Tx, userName: string, action: SignerAction, needs: SubjectNeeds): Promise<void> {
   const gaps = await signingGaps(q, userName, action, needs);
   if (gaps.length) throw new Refusal(403, "qualification-missing", `This needs ${and(gaps)}, which your qualification does not include`);
+}
+
+/**
+ * High consequence work (specification 11.1 G-5, 11.2): Safety and Material grades. Their decisions
+ * must be signed with a credential the hardware key floor admits.
+ */
+export const highConsequence = (needs: SubjectNeeds) => needs.grade === "safety" || needs.grade === "material";
+
+/** Refuses a high consequence signature made with a credential the hardware key floor does not admit. */
+export async function requireHardwareKey(q: Db | Tx, credentialId: string, needs: SubjectNeeds): Promise<void> {
+  if (!highConsequence(needs)) return;
+  const cred = await currentCredential(q, credentialId);
+  if (!cred?.hardware_floor.eligible)
+    throw new Refusal(403, "hardware-key-required",
+      `${GRADE_WORDS[needs.grade!]} work must be signed with an attested hardware key; this passkey is not one (${cred?.hardware_floor.reason ?? "no credential record"})`);
+}
+
+/** Whether the person holds any live credential the hardware key floor admits. */
+export async function holdsHardwareKey(q: Db | Tx, userName: string): Promise<boolean> {
+  const r = await q.query(
+    `select 1 from authenticator_credentials a
+      where a.member_id = $1 and a.version = (select max(version) from authenticator_credentials b where b.id = a.id)
+        and (a.body->'hardware_floor'->>'eligible')::boolean and coalesce((a.body->>'revoked')::boolean, false) = false limit 1`,
+    [memberIdFor(userName)]);
+  return Boolean(r.rowCount);
 }

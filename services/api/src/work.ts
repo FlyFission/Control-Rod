@@ -14,7 +14,7 @@ import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, rais
 import { covers, laneOf, markObject, mostSensitive, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
-import { ACTION_ROLES, type SignerAction, needsOf, requireAuthority, signingGaps } from "./authority.js";
+import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
@@ -966,6 +966,7 @@ export async function overrideIndependence(
   return command(db, "run.override-independence", async (c) => {
     const { row, pkg, digest: d } = await overrideTarget(c, packageId, runId, why, true);
     await requireAuthority(c, user, "override-independence", needsOf(pkg.body));
+    if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
     kernel(
       decide({
         status: pkg.status,
@@ -1487,6 +1488,10 @@ export async function packageActions(db: Db, cfg: WorkConfig, user: string, id: 
         out.push({ ...refused(base, "qualification-missing", `This needs ${missing.join(" and ")}, which your qualification does not include`), missing });
         continue;
       }
+      if (highConsequence(needsOf(pkg.body)) && !(await holdsHardwareKey(c, user))) {
+        out.push({ ...refused(base, "hardware-key-required"), missing: ["an attested hardware key"] });
+        continue;
+      }
       let preparation;
       try {
         preparation = await decisionPreparation(c, cfg, pkg, s, kind, false);
@@ -1520,6 +1525,7 @@ export async function applyDecision(
     if (!(req.kind in HUMAN_ACTIONS)) throw new Refusal(400, "invalid", "Unknown decision");
     // Authority is read inside the writer transaction, so a revocation that lands first is honored.
     await requireAuthority(c, user, req.kind as SignerAction, needsOf(pkg.body));
+    if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
     const s = await subjectOf(c, pkg);
     const preparation = await decisionPreparation(c, cfg, pkg, s, req.kind, true);
     const reason = (req.reason ?? "").trim();

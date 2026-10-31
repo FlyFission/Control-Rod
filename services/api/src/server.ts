@@ -9,6 +9,7 @@ import { buildApp } from "./app.js";
 import { hashToken } from "./auth.js";
 import { closeDb, openDb } from "./db/index.js";
 import { localRoleSecrets, privateDir, privateFile } from "./db/roles.js";
+import { loadTrustAnchors } from "./attestation.js";
 
 /**
  * Starts Control Rod on this machine: an embedded Postgres in ~/.controlrod/pg, the control
@@ -86,6 +87,7 @@ const app = buildApp({
     rpName: "Control Rod",
     origins: [origin, "http://localhost:5173"],
     daemonTokenHash: hashToken(token),
+    trustAnchors: loadTrustAnchors(join(home, "trust-anchors")),
   },
 });
 

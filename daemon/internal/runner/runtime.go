@@ -225,9 +225,24 @@ func ToolVersion(bin string) string {
 // ErrTimeout is returned when a run outlives its timeout.
 var ErrTimeout = errors.New("timeout")
 
+// ExecHooks lets the daemon record a spawn receipt and stop a run gracefully.
+type ExecHooks struct {
+	// Started is called once the process exists; it returns the receipt it recorded, if any.
+	Started func(pid int) (SpawnReceipt, bool)
+	// Timings are the waits of the graceful stop ladder.
+	Timings StopTimings
+}
+
 // Execute runs cmd, sending each stdout line and each stderr line (prefixed "[stderr] ") to
-// sink. When ctx ends it kills the whole process group and returns ctx's cause.
-func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string)) error {
+// sink. When ctx ends it stops the process group gracefully, checked against the spawn receipt
+// (StopGracefully), and returns ctx's cause once the exit is observed. Without a receipt it kills
+// the group directly: the process is still this daemon's unreaped child, so its id cannot have
+// been reused.
+func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...ExecHooks) error {
+	var h ExecHooks
+	if len(hooks) > 0 {
+		h = hooks[0]
+	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -238,6 +253,11 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string)) error {
 	}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %w", filepath.Base(cmd.Path), err)
+	}
+	var receipt SpawnReceipt
+	var haveReceipt bool
+	if h.Started != nil {
+		receipt, haveReceipt = h.Started(cmd.Process.Pid)
 	}
 	var wg sync.WaitGroup
 	pump := func(r io.Reader, prefix string) {
@@ -252,15 +272,26 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string)) error {
 	go pump(stdout, "")
 	go pump(stderr, "[stderr] ")
 	done := make(chan error, 1)
+	exited := make(chan struct{})
 	go func() {
+		// Reads finish before Wait, as exec requires; the exit counts once Wait has reaped it.
 		wg.Wait()
-		done <- cmd.Wait()
+		err := cmd.Wait()
+		close(exited)
+		done <- err
 	}()
 	select {
 	case err := <-done:
 		return err
 	case <-ctx.Done():
-		killProcessGroup(cmd)
+		if haveReceipt {
+			StopGracefully(receipt, h.Timings, exited)
+		}
+		select {
+		case <-exited:
+		default:
+			killProcessGroup(cmd)
+		}
 		<-done
 		if c := context.Cause(ctx); c != nil {
 			return c

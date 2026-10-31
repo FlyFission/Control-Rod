@@ -315,6 +315,31 @@ describe("runs that need the owner", () => {
     expect(canRequeue({ ...lostRun, status: "running" })).toBe(false);
   });
 
+  it("holds requeue on a run whose outcome is unknown and reconciles it with a signed reason", async () => {
+    const unknown: Run = { ...lostRun, id: "R-unk", outcome_unknown: { since: "2026-10-31T00:00:00Z", reason: "lease lapsed" } };
+    const signed: unknown[] = [];
+    let body: { reason?: string } = {};
+    server.use(
+      http.get("*/packages/WP-9/runs/R-unk/log", () => HttpResponse.json({ lines: [] })),
+      http.post("*/packages/WP-9/runs/R-unk/reconcile/options", () => HttpResponse.json({ subject_digest: { algorithm: "sha256", value: "d".repeat(64) }, options: { challenge: "c" } })),
+      http.post("*/packages/WP-9/runs/R-unk/reconcile", async ({ request }) => {
+        body = (await request.json()) as { reason?: string };
+        return HttpResponse.json({ ...unknown, reconciliation: { disposition: "abandoned", evidence: "x", recorded_at: "2026-10-31T00:00:00Z", by: { kind: "human", id: "ben" } } });
+      }),
+    );
+    const keys: Passkeys = { async get(o) { signed.push(o); return { id: "cred-1", response: { signature: "sig" }, type: "public-key" }; }, async create() { return {}; } };
+    await renderPage(<RunCard packageId="WP-9" run={unknown} passkeys={keys} />);
+    expect(canRequeue(unknown)).toBe(false);
+    expect(screen.queryByRole("button", { name: "Requeue this run" })).toBeNull();
+    expect(screen.getByText(/Outcome unknown/)).toBeTruthy();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Why will this run never report?"), "The laptop was wiped");
+    await user.click(screen.getByRole("button", { name: "Sign with passkey and reconcile" }));
+    await waitFor(() => expect(body.reason).toBe("The laptop was wiped"));
+    expect(signed).toHaveLength(1);
+    expect(canRequeue({ ...unknown, reconciliation: { disposition: "abandoned", evidence: "x", recorded_at: "2026-10-31T00:00:00Z", by: { kind: "human", id: "ben" } } })).toBe(true);
+  });
+
   it("stops a running run and shows it as stopping until the daemon confirms", async () => {
     const running: Run = { ...lostRun, id: "R-run", status: "running", label: "Run: cr-example" };
     delete running.error;

@@ -92,6 +92,24 @@
         "independence_override": {
             "$ref": "OwnerOverride.json",
             "description": "The owner let this pre-check run on the author's runtime. Recorded before it ran."
+        },
+        "generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Which attempt this is at its package revision, role and round, counting from 1. Reports from an\nattempt a later one superseded are refused (the generation fence, specification 22)."
+        },
+        "receipt": {
+            "$ref": "OwnershipReceipt.json",
+            "description": "The process the daemon spawned for this run, as it recorded it at spawn."
+        },
+        "outcome_unknown": {
+            "$ref": "OutcomeUnknown.json",
+            "description": "Set when the run was dispatched but its exit or completion was never observed (specification\n9 and 22). It holds requeue until a reconciliation records what happened."
+        },
+        "reconciliation": {
+            "$ref": "Reconciliation.json",
+            "description": "What settled an unknown outcome, and the evidence for it."
         }
     },
     "required": [

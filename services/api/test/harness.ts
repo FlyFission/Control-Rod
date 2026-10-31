@@ -303,7 +303,7 @@ export const claims = new Map<string, string>();
  * idempotency key on a completion. A payload that sets either keeps its own value.
  */
 export function withClaim(url: string, payload: Record<string, unknown>): Record<string, unknown> {
-  const m = /^\/runner\/runs\/([^/]+)\/(log|complete)$/.exec(url);
+  const m = /^\/runner\/runs\/([^/]+)\/(log|complete|evidence)$/.exec(url);
   if (!m) return payload;
   const out: Record<string, unknown> = { claim_token: claims.get(m[1] ?? "") ?? "", ...payload };
   if (m[2] === "complete" && out.idempotency_key === undefined) out.idempotency_key = randomBytes(12).toString("hex");

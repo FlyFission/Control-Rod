@@ -27,6 +27,8 @@ type Run struct {
 	AgentBaseline   string     `json:"agent_baseline"`
 	Runtime         RuntimeRef `json:"runtime"`
 	Round           int        `json:"round"`
+	// Generation is which attempt this is at its package revision, role and round (from 1).
+	Generation int `json:"generation,omitempty"`
 }
 
 // RunClaim is the daemon's custody of one run: a token to present on every log and completion,
@@ -100,9 +102,10 @@ type Completion struct {
 
 // LogBatch is the body of POST /runner/runs/{id}/log.
 type LogBatch struct {
-	ClaimToken string   `json:"claim_token"`
-	Lines      []string `json:"lines"`
-	Label      string   `json:"label,omitempty"`
+	ClaimToken string            `json:"claim_token"`
+	Lines      []string          `json:"lines"`
+	Label      string            `json:"label,omitempty"`
+	Receipt    *OwnershipReceipt `json:"receipt,omitempty"`
 }
 
 // LogReply is the control plane's answer to a log post.

@@ -1,0 +1,32 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Actor.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "human"
+                },
+                {
+                    "type": "string",
+                    "const": "agent"
+                },
+                {
+                    "type": "string",
+                    "const": "system"
+                }
+            ]
+        },
+        "id": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "kind",
+        "id"
+    ],
+    "description": "Who acted. Agents and the system can never hold a human decision right.",
+    "unevaluatedProperties": false
+}

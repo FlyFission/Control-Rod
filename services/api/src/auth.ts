@@ -9,8 +9,9 @@ import {
 } from "@simplewebauthn/server";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Db } from "./db/index.js";
+import { attestationAnchored } from "./attestation.js";
 import { command } from "./commands/executor.js";
-import { recordRegistration } from "./tenancy.js";
+import { LOCAL_ORG, grantFoundingAuthorities, recordRegistration } from "./tenancy.js";
 
 export interface AuthConfig {
   rpID: string;
@@ -18,6 +19,8 @@ export interface AuthConfig {
   origins: string[];
   /** SHA-256 of the daemon token, hex. */
   daemonTokenHash: string;
+  /** PEM trust anchors for authenticator attestation (docs/sqa/authenticators.md). None means nothing is attested. */
+  trustAnchors?: string[];
 }
 
 const SESSION_COOKIE = "cr_session";
@@ -93,7 +96,9 @@ export async function registrationOptions(db: Db, cfg: AuthConfig, name: string,
     rpName: cfg.rpName,
     rpID: cfg.rpID,
     userName: name,
-    attestationType: "none",
+    // Ask for the authenticator's attestation so a hardware key can prove its class. Synced
+    // passkeys usually answer with none, which is recorded as such.
+    attestationType: "direct",
     authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
   });
   await storeChallenge(db, options.challenge, "register", { name, ...grant }, name);
@@ -114,6 +119,7 @@ export async function registrationVerify(db: Db, cfg: AuthConfig, body: Registra
   if (!result.verified) return null;
   const info = result.registrationInfo;
   const { credential } = info;
+  const attested = await attestationAnchored(info.fmt, body.response.attestationObject, cfg.trustAnchors ?? []);
   await command(db, "auth.register-credential", async (c) => {
     await c.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || coalesce((select org_id from members where user_name = $1), 'org_local')))", [String(data.name)]);
     if (data.kind === "first" && (await c.query("select 1 from credentials limit 1")).rowCount)
@@ -145,8 +151,11 @@ export async function registrationVerify(db: Db, cfg: AuthConfig, body: Registra
     );
     await recordRegistration(c, {
       userName: String(data.name), credentialId: credential.id, format: info.fmt, aaguid: info.aaguid,
-      userVerified: info.userVerified, backupEligible: info.credentialDeviceType === "multiDevice",
+      userVerified: info.userVerified, backupEligible: info.credentialDeviceType === "multiDevice", attestationVerified: attested.verified,
+      evidence: { attestation_object: body.response.attestationObject, ...(attested.anchor ? { trust_anchor_digest: { algorithm: "sha256", value: attested.anchor } } : {}) },
     }, { kind: "human", id: String(data.name) });
+    // The very first person becomes the organization's founding member, able to run it at once.
+    if (data.kind === "first") await grantFoundingAuthorities(c, LOCAL_ORG);
   });
   return String(data.name);
 }

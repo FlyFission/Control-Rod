@@ -1,0 +1,20 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AttestationEvidence.json",
+    "type": "object",
+    "properties": {
+        "attestation_object": {
+            "type": "string",
+            "description": "The WebAuthn attestation object exactly as returned (base64url): statement, chain and authenticator data."
+        },
+        "trust_anchor_digest": {
+            "$ref": "Digest.json",
+            "description": "SHA-256 of the DER trust anchor certificate the chain verified against, when it did."
+        }
+    },
+    "required": [
+        "attestation_object"
+    ],
+    "description": "What an authenticator returned at registration, and the trust anchor its chain reached.",
+    "unevaluatedProperties": false
+}

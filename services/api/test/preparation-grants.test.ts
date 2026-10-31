@@ -333,7 +333,8 @@ it("requires a controlled origin pin and rechecks captured bytes rather than mut
     attachment = Buffer.from("Original attachment bytes");
   await f.adminQuery(
     "insert into captures(id,body,created_at) values($1,$2,$3)",
-    [capture.id, capture, capture.created_at],
+    // Classified, as a source must be; the lane is routing, not part of the controlled capture digest.
+    [capture.id, { ...capture, lane: "internal" }, capture.created_at],
   );
   await f.adminQuery(
     "insert into attachments(capture_id,name,sha256,bytes) values($1,'original.txt',$2,$3)",
@@ -474,7 +475,8 @@ it("refuses issuance when a pinned original attachment is missing", async () => 
   const bytes = Buffer.from("Original attachment");
   await f.adminQuery(
     "insert into captures(id,body,created_at) values($1,$2,$3)",
-    [capture.id, capture, capture.created_at],
+    // Classified, as a source must be; the lane is routing, not part of the controlled capture digest.
+    [capture.id, { ...capture, lane: "internal" }, capture.created_at],
   );
   await f.adminQuery(
     "insert into attachments(capture_id,name,sha256,bytes) values($1,'original.txt',$2,$3)",

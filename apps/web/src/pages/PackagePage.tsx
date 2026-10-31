@@ -41,7 +41,9 @@ export function PackagePage({ id }: { id: string }) {
         <div className="pkg-tags">
           <span className="tag">{pkg.mode}</span>
           <span className="tag">{pkg.rigor_mode}</span>
-          <span className="tag">{pkg.data_lane}</span>
+          <span className="tag" title="Data lane: the package's own lane, raised by anything it was derived from">
+            {view.effective_lane ?? pkg.data_lane} lane
+          </span>
           {pkg.discipline !== undefined && <span className="tag">{pkg.discipline}</span>}
         </div>
         <ol className="rungs" aria-label="Status">

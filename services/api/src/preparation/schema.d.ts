@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/captures/{id}/classify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Captures_classify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -247,6 +263,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What the viewing person can do with this package now, each allowed or refused with the reason. */
+        get: operations["Packages_actions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/decisions": {
         parameters: {
             query?: never;
@@ -291,6 +324,40 @@ export interface paths {
         get: operations["Packages_output"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packages/{id}/person-verifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Step 2: the signed verification, checked again and recorded. */
+        post: operations["Packages_recordPersonVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packages/{id}/person-verifications/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Step 1: every rule that needs no signature is checked, then the digest to sign. */
+        post: operations["Packages_personVerificationOptions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -639,9 +706,34 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description One command for an object and the viewing Member (workbench specification 5.7): allowed or
+         *     refused, why in words, what would change it, how it is signed and the authority it needs.
+         */
+        ActionDescriptor: {
+            /** @description The command or decision, for example "release" or "draft.edit". */
+            command: string;
+            label: string;
+            allowed: boolean;
+            /** @enum {string} */
+            signature: "direct" | "absorbed" | "none";
+            /** @description Any one of these roles or authorities may take it. */
+            authority?: string[];
+            /** @description Qualifications the viewer lacks for it, in words. */
+            missing?: string[];
+            reason_code?: string;
+            reason?: string;
+            change?: string;
+            floor?: boolean;
+        };
         ApiError: {
+            /** @description A stable reason code (services/api/src/refusals.ts lists every one). */
             code: string;
             message: string;
+            /** @description The one fact that would change the answer (WB-03). */
+            change?: string;
+            /** @description Set when a floor refused: no person, decision or setting lifts it. */
+            floor?: boolean;
         };
         /** @description WebAuthn options as JSON, passed straight to the browser API. */
         "Auth.Options": {
@@ -671,8 +763,22 @@ export interface components {
             /** @description The direct answer for a quick question. No package, check or approval. */
             answer?: string;
             package_id?: string;
+            /**
+             * @description The data lane a person with lane authority classified this capture into. Until it is set,
+             *     nothing from the capture goes to any runtime or provider (specification 11.3 M-0).
+             */
+            lane?: components["schemas"]["ControlRod.Records.DataLane"];
+            classified_by?: string;
+            /** Format: date-time */
+            classified_at?: string;
             package_ids?: string[];
             intake?: components["schemas"]["Captures.IntakeState"];
+            /** @description The capture's effective lane (specification 11.3 M-3), shown wherever it appears. */
+            effective_lane?: components["schemas"]["ControlRod.Records.DataLane"];
+        };
+        /** @description Classifies a capture's data lane. Needs lane authority; a capture's lane can be raised, never lowered here. */
+        "Captures.Classification": {
+            lane: components["schemas"]["ControlRod.Records.DataLane"];
         };
         /** @description The latest intake run for a capture still pending, so a failed intake is never stranded. */
         "Captures.IntakeState": {
@@ -685,6 +791,8 @@ export interface components {
             text: string;
             /** @enum {string} */
             source?: "web" | "cli" | "voice" | "chat";
+            /** @description Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
+            lane?: components["schemas"]["ControlRod.Records.DataLane"];
         };
         "ControlRod.Preparation.BasisRef": {
             /** @enum {string} */
@@ -1072,6 +1180,14 @@ export interface components {
             /** @description The direct answer for a quick question. No package, check or approval. */
             answer?: string;
             package_id?: string;
+            /**
+             * @description The data lane a person with lane authority classified this capture into. Until it is set,
+             *     nothing from the capture goes to any runtime or provider (specification 11.3 M-0).
+             */
+            lane?: components["schemas"]["ControlRod.Records.DataLane"];
+            classified_by?: string;
+            /** Format: date-time */
+            classified_at?: string;
         };
         "ControlRod.Records.CodeOrStandard": {
             code: string;
@@ -1250,6 +1366,12 @@ export interface components {
             subject_digest: components["schemas"]["ControlRod.Records.Digest"];
             assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
         };
+        /** @description A package this one waits for. */
+        "ControlRod.Records.PackageDependency": {
+            package_id: string;
+            /** @description Why this package waits for that one. */
+            reason?: string;
+        };
         /** @enum {string} */
         "ControlRod.Records.PackageStatus": "draft" | "released" | "in-work" | "in-verification" | "accepted" | "closed";
         /** @description A WebAuthn assertion over the decision digest, made by the person's own authenticator. */
@@ -1258,6 +1380,27 @@ export interface components {
             authenticator_data: string;
             client_data_json: string;
             signature: string;
+        };
+        /** @description A qualified person's verification of a candidate for Safety or Material work. (A) */
+        "ControlRod.Records.PersonVerification": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            verifier_member_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            qualification_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            /** Format: int32 */
+            qualification_version: number;
+            candidate_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            criteria: string[];
+            /** @enum {string} */
+            outcome: "pass" | "fail" | "inconclusive";
+            assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+            /**
+             * @description The digest the person signed: package, revision, the decision subject (outputs and pre-check)
+             *     and author run, sorted criteria and outcome. The challenge was SHA-256 of
+             *     "<subject_digest>|person-verification|<challenge_nonce>".
+             */
+            subject_digest?: components["schemas"]["ControlRod.Records.Digest"];
+            challenge_nonce?: string;
         };
         /** @description Runtime identity of author and checker, and whether they could be the same. */
         "ControlRod.Records.PreCheckIndependence": {
@@ -1342,6 +1485,8 @@ export interface components {
             provider: string;
             model: string;
         };
+        /** @description A stable identifier: a lowercase type prefix, an underscore, then up to 64 letters, digits or hyphens. */
+        "ControlRod.Records.TenancyId": string;
         "ControlRod.Records.ToolRef": {
             name: string;
             version?: string;
@@ -1385,6 +1530,12 @@ export interface components {
             project: string;
             mode: components["schemas"]["ControlRod.Records.Mode"];
             discipline?: string;
+            /**
+             * @description The quality grade signers must hold (workbench specification 5.2). Absent means General service,
+             *     as for every package drafted before grades existed.
+             * @enum {string}
+             */
+            grade?: "safety" | "material" | "general-service";
             status: components["schemas"]["ControlRod.Records.PackageStatus"];
             rigor_mode: components["schemas"]["ControlRod.Records.RigorMode"];
             data_lane: components["schemas"]["ControlRod.Records.DataLane"];
@@ -1392,7 +1543,10 @@ export interface components {
             objective: string;
             deliverables: components["schemas"]["ControlRod.Records.Deliverable"][];
             exclusions?: string[];
+            /** @description Citations: documents this package relies on. They never decide when the package may start. */
             design_inputs: components["schemas"]["ControlRod.Records.DesignInput"][];
+            /** @description Packages this one waits for: it starts only once each is accepted. Unknown targets are refused. */
+            depends_on?: components["schemas"]["ControlRod.Records.PackageDependency"][];
             assumptions?: components["schemas"]["ControlRod.Records.Assumption"][];
             codes_and_standards?: components["schemas"]["ControlRod.Records.CodeOrStandard"][];
             methodology?: components["schemas"]["ControlRod.Records.Methodology"];
@@ -1443,6 +1597,8 @@ export interface components {
         PackageView: {
             /** @description Strong ETag of the current draft's content; send it as If-Match to edit the draft. */
             draft_etag?: string;
+            /** @description The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1). */
+            effective_lane?: components["schemas"]["ControlRod.Records.DataLane"];
             preparation_enabled?: boolean;
             preparation_enrolled?: boolean;
             preparation_release_ready?: boolean;
@@ -1475,6 +1631,15 @@ export interface components {
         };
         "Packages.OverrideRequest": {
             reason: string;
+        };
+        /** @description What a qualified checker verified in person (specification 11.5). */
+        "Packages.PersonVerificationRequest": {
+            /** Format: int32 */
+            package_revision: number;
+            /** @description Criterion ids: a prepared package's criteria, or AC-1, AC-2 and so on for acceptance criteria. */
+            criteria: string[];
+            /** @enum {string} */
+            outcome: "pass" | "fail" | "inconclusive";
         };
         "Runner.Completion": {
             claim_token: string;
@@ -2004,6 +2169,86 @@ export interface operations {
             };
         };
     };
+    Captures_classify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Captures.Classification"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Records.Capture"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Events_list: {
         parameters: {
             query?: {
@@ -2310,6 +2555,82 @@ export interface operations {
             };
         };
     };
+    Packages_actions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionDescriptor"][];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Packages_decide: {
         parameters: {
             query?: never;
@@ -2507,6 +2828,181 @@ export interface operations {
                 };
                 content: {
                     "*/*": unknown;
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_recordPersonVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int32 */
+                    package_revision: number;
+                    /** @description Criterion ids: a prepared package's criteria, or AC-1, AC-2 and so on for acceptance criteria. */
+                    criteria: string[];
+                    /** @enum {string} */
+                    outcome: "pass" | "fail" | "inconclusive";
+                    assertion: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded and a new resource has been created as a result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Records.PersonVerification"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_personVerificationOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Packages.PersonVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        subject_digest: components["schemas"]["ControlRod.Records.Digest"];
+                        options: {
+                            [key: string]: unknown;
+                        };
+                    };
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */

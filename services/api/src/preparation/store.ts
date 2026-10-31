@@ -5,6 +5,8 @@ import type { Ajv2020 } from "ajv/dist/2020.js";
 import { type Db, type Tx, readTx } from "../db/index.js";
 import { command } from "../commands/executor.js";
 import { type Actor, appendEvent } from "../events.js";
+import { CONFIGURED_KINDS, basisRef, configuredLane, covers, laneOf, markObject, mostSensitive, type Ref } from "../markings.js";
+import type { DataLane } from "../disclosure.js";
 import { digest } from "../kernel.js";
 import {
   currentPackage,
@@ -33,6 +35,7 @@ type ReadConfig = Partial<
     | "preparedRelease"
     | "preparationSources"
     | "preparationRepositories"
+    | "preparationLanes"
   >
 >;
 type Config = { ajv: Ajv2020 } & ReadConfig;
@@ -170,6 +173,14 @@ function cas(s: PreparationSnapshot, expected: string | undefined) {
       "Preparation changed. Reload and compare before saving.",
     );
 }
+/**
+ * The marked objects a preparation's controlled basis draws on: captures, a capture's attachments
+ * (marked as their capture) and other packages. Runs receive these sources, so they are provenance.
+ */
+function basisInputs(s: PreparationSnapshot, packageId: string): Ref[] {
+  return s.basis.map((b) => basisRef(b, packageId)).filter((r): r is Ref => r !== null);
+}
+
 async function save(
   c: Tx,
   cfg: Config,
@@ -178,6 +189,17 @@ async function save(
   type: string,
 ) {
   validate(cfg, "PreparationSnapshot.json", s);
+  // Every source a run will receive raises the package's effective lane (specification 11.3 M-1).
+  // Configured sources are classified in the owner's config; one without a lane cannot be pinned.
+  const configured: DataLane[] = [];
+  for (const b of s.basis) {
+    if (!CONFIGURED_KINDS.has(b.kind)) continue;
+    const l = configuredLane(cfg.preparationLanes, b.reference);
+    if (!l) throw new Refusal(409, "unclassified-source", `${b.reference} has no data lane in the preparation config; the owner must classify it before it can be a source`);
+    configured.push(l);
+  }
+  const lane = await laneOf(c, "package", p.id, p.body.data_lane);
+  if (lane) await markObject(c, "package", p.id, mostSensitive([lane, ...configured]), `preparation revision ${s.revision}`, basisInputs(s, p.id));
   const subjects = preparationSubjects(s);
   await c.query(
     "insert into preparation_snapshots(preparation_id,revision,package_id,package_revision,content_digest,requirements_digest,body,created_at) values($1,$2,$3,$4,$5,$6,$7,$8)",
@@ -459,6 +481,13 @@ async function appendEdit(
     acceptance_criteria: content.criteria.map((v) => v.statement),
   } as WorkPackage;
   validate(cfg, "WorkPackage.json", pkg);
+  // The package contract's lane follows the draft rule: raised by an edit, lowered only by declassification.
+  if (pkg.data_lane !== p.body.data_lane) {
+    const effective = await laneOf(c, "package", p.id, p.body.data_lane);
+    if (effective && !covers(pkg.data_lane, effective))
+      throw new Refusal(409, "lowering-needs-change-request", `This package is ${effective}; lowering its lane needs a signed change request`);
+    await markObject(c, "package", p.id, pkg.data_lane, `preparation contract raised by ${user}`);
+  }
   for (const b of content.basis)
     if (b.kind === "package" && b.reference === `package:${p.id}`) {
       b.revision = String(p.revision);

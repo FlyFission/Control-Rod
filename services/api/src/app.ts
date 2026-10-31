@@ -22,7 +22,9 @@ import { grantRoutes } from "./preparation/grant-routes.js";
 import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
-import { ADMIN_COMMANDS, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
+import { teach } from "./refusals.js";
+import { personVerificationSubject, recordPersonVerification } from "./person-verification.js";
+import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
 import {
   Refusal,
@@ -30,6 +32,7 @@ import {
   applyDecision,
   claim,
   complete,
+  classifyCapture,
   createCapture,
   decisionChallenge,
   decisionSubject,
@@ -41,6 +44,8 @@ import {
   overrideChallenge,
   overrideIndependence,
   overrideSubject,
+  packageActions,
+  packageLane,
   packageOutput,
   packageView,
   recordRuntimeStatus,
@@ -70,6 +75,7 @@ export interface AppOptions {
   preparedRelease?: boolean;
   preparationSources?: WorkConfig["preparationSources"];
   preparationRepositories?: WorkConfig["preparationRepositories"];
+  preparationLanes?: WorkConfig["preparationLanes"];
   /** Seconds between sweeps for lost runs. Default 15; 0 turns the timer off. */
   sweepSeconds?: number;
 }
@@ -99,7 +105,7 @@ const MIME: Record<string, string> = {
  */
 export function buildApp(opts: AppOptions): FastifyInstance {
   const ajv = loadValidator();
-  const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.preparationSources?{preparationSources:opts.preparationSources}:{}), ...(opts.preparationRepositories?{preparationRepositories:opts.preparationRepositories}:{}), ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
+  const cfg: WorkConfig = { root: opts.root, ajv, guidedPreparation: opts.guidedPreparation ?? false, preparedRelease: opts.preparedRelease ?? false, ...(opts.preparationSources?{preparationSources:opts.preparationSources}:{}), ...(opts.preparationRepositories?{preparationRepositories:opts.preparationRepositories}:{}), ...(opts.preparationLanes?{preparationLanes:opts.preparationLanes}:{}), ...(opts.leaseSeconds ? { leaseSeconds: opts.leaseSeconds } : {}) };
   const { db, auth } = opts;
   const app = Fastify({ logger: false, bodyLimit: 150 * 1024 * 1024 });
   const parseJson = app.getDefaultJsonParser("error", "error");
@@ -117,7 +123,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.setValidatorCompiler(({ schema }) => ajv.compile(schema));
 
   app.setErrorHandler((err, _req, reply) => {
-    if (err instanceof Refusal) return reply.code(err.status).send({ code: err.code, message: err.message });
+    if (err instanceof Refusal) {
+      const taught = teach(err.code);
+      return reply.code(err.status).send({ code: err.code, message: err.message, change: taught.change, ...(taught.floor ? { floor: true } : {}) });
+    }
     const status = (err as { statusCode?: number }).statusCode;
     if (status && status < 500) return reply.code(status).send({ code: "invalid", message: (err as Error).message });
     (opts.onError ?? ((e) => console.error("[control-rod] unhandled error:", e)))(err);
@@ -242,6 +251,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       policy: (await currentPolicySet(db, caller.orgId))?.record ?? null,
       themes: [...bundledThemes(cfg.root).keys()].sort(),
       commands: adminCatalog(),
+      actions: await adminActions(db, caller),
     };
   });
   app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown> } }>("/admin/commands/:name/options", async (req) => {
@@ -263,7 +273,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId)
         signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId };
     }
-    return runAdmin(db, { root: cfg.root }, req.params.name, caller, req.body?.payload ?? {}, signed);
+    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, req.params.name, caller, req.body?.payload ?? {}, signed);
   });
 
   preparationRoutes(app, db, cfg, person, auth);
@@ -274,11 +284,15 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await person(req);
     return listCaptures(db);
   });
-  app.post<{ Body: { text?: string; source?: string } }>("/captures", async (req, reply) => {
+  app.post<{ Body: { text?: string; source?: string; lane?: string } }>("/captures", async (req, reply) => {
     const user = await person(req);
     const source = ["web", "cli", "voice", "chat"].includes(String(req.body?.source)) ? String(req.body?.source) : "web";
-    const capture = await createCapture(db, cfg, user, String(req.body?.text ?? ""), source);
+    const capture = await createCapture(db, cfg, user, String(req.body?.text ?? ""), source, req.body?.lane);
     return reply.code(201).send(capture);
+  });
+  app.post<{ Params: { id: string }; Body: { lane?: string } }>("/captures/:id/classify", async (req) => {
+    const user = await person(req);
+    return classifyCapture(db, cfg, user, req.params.id, req.body?.lane);
   });
 
   /* ---- packages ---- */
@@ -296,6 +310,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const saved = await updateDraft(db, cfg, user, req.params.id, req.body, ifMatch);
     return reply.header("ETag", saved.etag).header("Cache-Control", "no-store").send(saved.body);
   });
+  app.get<{ Params: { id: string } }>("/packages/:id/actions", async (req) => {
+    const user = await person(req);
+    return packageActions(db, cfg, user, req.params.id);
+  });
   app.get<{ Params: { id: string; "*": string } }>("/packages/:id/outputs/*", async (req, reply: FastifyReply) => {
     await person(req);
     const name = req.params["*"];
@@ -303,6 +321,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
     const type = MIME[ext];
     reply.header("content-type", type ?? "application/octet-stream").header("x-content-type-options", "nosniff");
+    const lane = await packageLane(db, req.params.id);
+    if (lane) reply.header("x-controlrod-lane", lane);
     // Agent outputs are untrusted. Anything a browser could run as a document (SVG, HTML, XML)
     // is served in a sandbox with an opaque origin and no script, so it can never act with the
     // owner's session. PDFs open in the browser's own viewer, which has no access to this origin.
@@ -331,7 +351,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions/options", async (req) => {
     const issuedTo = await person(req);
     const { kind, package_revision: revision } = req.body ?? ({} as DecisionBody);
-    const s = await decisionSubject(db, req.params.id, String(kind), Number(revision), cfg);
+    const s = await decisionSubject(db, req.params.id, String(kind), Number(revision), cfg, issuedTo);
     const shown = req.body?.expected_subject_digest?.value;
     if (shown !== undefined && shown !== s.digest) {
       throw new Refusal(409, "changed", "This package changed since you opened it. Reload and review the current version.");
@@ -374,6 +394,28 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return reply.code(201).send(decision);
   });
 
+  /* ---- person verification (specification 11.5) ---- */
+  app.post<{ Params: { id: string }; Body: Record<string, unknown> }>("/packages/:id/person-verifications/options", async (req) => {
+    const issuedTo = await person(req);
+    const s = await personVerificationSubject(db, issuedTo, req.params.id, req.body);
+    const nonce = randomBytes(16).toString("hex");
+    const options = await assertionOptions(db, auth, "person-verification",
+      { package_id: req.params.id, revision: s.req.package_revision, subject_digest: s.digest, nonce },
+      new Uint8Array(createHash("sha256").update(`${s.digest}|person-verification|${nonce}`).digest()), issuedTo);
+    return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
+  });
+  app.post<{ Params: { id: string }; Body: Record<string, unknown> & { assertion?: Record<string, unknown> } }>("/packages/:id/person-verifications", async (req, reply) => {
+    const user = await person(req);
+    const { assertion, ...body } = req.body ?? {};
+    let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
+    if (assertion) {
+      const ok = await assertionVerify(db, auth, "person-verification", assertion as never);
+      if (ok && ok.user === user && ok.data.package_id === req.params.id && Number(ok.data.revision) === Number(body.package_revision))
+        signed = { subject_digest: String(ok.data.subject_digest), assertion, ...(typeof ok.data.nonce === "string" ? { nonce: ok.data.nonce } : {}) };
+    }
+    return reply.code(201).send(await recordPersonVerification(db, user, req.params.id, body, signed));
+  });
+
   app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/stop", async (req) => {
     const user = await person(req);
     return stopRun(db, cfg, user, req.params.id, req.params.runId);
@@ -382,7 +424,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     "/packages/:id/runs/:runId/override-independence/options",
     async (req) => {
       const issuedTo = await person(req);
-      const s = await overrideSubject(db, req.params.id, req.params.runId, req.body?.reason);
+      const s = await overrideSubject(db, req.params.id, req.params.runId, req.body?.reason, issuedTo);
       const nonce = randomBytes(16).toString("hex");
       const options = await assertionOptions(
         db,

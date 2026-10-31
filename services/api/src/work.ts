@@ -10,21 +10,18 @@ import { preparationForSubject, preparedReleaseGuard, persistReleaseManifest } f
 import { enrollPreparationTx, advancePreparationRevision } from "./preparation/store.js";
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
+import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
+import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
+import { Refusal } from "./refusal.js";
+import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
+import { teach } from "./refusals.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
 type Json = any;
 
-export class Refusal extends Error {
-  constructor(
-    readonly status: 400 | 401 | 403 | 404 | 409 | 428,
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+export { Refusal } from "./refusal.js";
 
 export interface WorkConfig {
   /** Repository root, for packs/. */
@@ -36,6 +33,8 @@ export interface WorkConfig {
   preparedRelease?: boolean;
   preparationSources?: Record<string,{kind:"document"|"policy";revision:string;path:string}>;
   preparationRepositories?: Record<string,string>;
+  /** The data lane the owner classified each configured document, policy and repository source as. */
+  preparationLanes?: Record<string, DataLane>;
 }
 
 const SYSTEM: Actor = { kind: "system", id: "control-plane" };
@@ -54,7 +53,7 @@ function validate(cfg: WorkConfig, schema: string, value: unknown): void {
 
 function kernel(outcome: KernelOutcome, what: string): Status {
   if (!outcome.allowed || outcome.next === null) {
-    throw new Refusal(403, outcome.reason, `Kernel refused ${what}: ${outcome.reason}`);
+    throw new Refusal(403, outcome.reason, `${what}: ${teach(outcome.reason).sentence}`);
   }
   return outcome.next;
 }
@@ -70,7 +69,7 @@ function safeName(name: string): string {
   return base;
 }
 
-export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string) {
+export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string, lane?: unknown) {
   const files: { name: string; bytes: Buffer }[] = [];
   const visible = text
     .replace(FENCE, (_m, name: string, b64: string) => {
@@ -89,9 +88,13 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
     created_at: now(),
     disposition: "pending",
   };
-  validate(cfg, "Capture.json", capture);
   return command(db, "capture.create", async (c) => {
-    await c.query("insert into captures (id, body, created_at) values ($1, $2, $3)", [capture.id, capture, capture.created_at]);
+    // The disclosure gate: only a classified capture goes on to intake, and only a person with lane
+    // authority classifies. Anyone else's capture waits, unclassified, for someone who can.
+    const classified = isLane(lane) && (await hasLaneAuthority(c, user));
+    const body: Json = classified ? { ...capture, lane, classified_by: user, classified_at: capture.created_at } : capture;
+    validate(cfg, "Capture.json", body);
+    await c.query("insert into captures (id, body, created_at) values ($1, $2, $3)", [capture.id, body, capture.created_at]);
     for (const f of files) {
       await c.query("insert into attachments (capture_id, name, sha256, bytes) values ($1, $2, $3, $4)", [
         capture.id,
@@ -100,12 +103,138 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
         f.bytes,
       ]);
     }
-    await queueRun(c, cfg, capture.id, 0, "intake", 1);
+    if (classified) {
+      await markObject(c, "capture", capture.id, lane, `classified at capture by ${user}`);
+      await queueRun(c, cfg, capture.id, 0, "intake", 1);
+    }
     await appendEvent(c, "capture.created", capture.id, { kind: "human", id: user }, {
       attachments: files.map((f) => f.name),
+      ...(classified ? { lane } : { unclassified: true }),
     });
-    return capture;
+    return body;
   });
+}
+
+/**
+ * Classifies a capture's data lane (specification 10.2 "Classify lane"). Needs lane authority. A
+ * first classification releases the capture to intake; a later one may only raise the lane, since
+ * lowering it is a declassification that needs a signed change request.
+ */
+export async function classifyCapture(db: Db, cfg: WorkConfig, user: string, id: string, lane: unknown) {
+  if (!isLane(lane)) throw new Refusal(400, "invalid", "Choose a data lane");
+  return command(db, "capture.classify", async (c) => {
+    if (!(await hasLaneAuthority(c, user))) throw new Refusal(403, "authority-missing", "Classifying a data lane needs lane authority");
+    const r = await c.query<{ body: Json }>("select body from captures where id = $1 for update", [id]);
+    const cap = r.rows[0]?.body;
+    if (!cap) throw new Refusal(404, "not-found", "No such capture");
+    // Measured against the effective lane, which a declassification may have lowered.
+    const current = await laneOf(c, "capture", id, cap.lane);
+    if (current !== undefined && !raises(current, lane))
+      throw new Refusal(409, "lowering-needs-change-request", "Lowering a data lane is a declassification; it needs a signed change request");
+    const next = { ...cap, lane, classified_by: user, classified_at: now() };
+    validate(cfg, "Capture.json", next);
+    await c.query("update captures set body = $2 where id = $1", [id, next]);
+    await markObject(c, "capture", id, lane, `classified by ${user}`);
+    if (cap.lane === undefined) await queueRun(c, cfg, id, 0, "intake", 1);
+    await appendEvent(c, "capture.classified", id, { kind: "human", id: user }, { lane, ...(cap.lane ? { from: cap.lane } : {}) });
+    return next;
+  });
+}
+
+/**
+ * The objects whose content a package run's job carries besides the package itself: for a legacy
+ * job, its capture (text and attachments) and the outputs of the packages it depends on; for a
+ * prepared job, the captures, attachments and packages its release manifest pinned.
+ */
+async function transmittedSources(c: Tx, pkg: PackageRow, run: Json): Promise<Ref[]> {
+  const out: Ref[] = [];
+  if (run.preparation_manifest_digest) {
+    const m = await c.query<{ body: Json }>("select body from preparation_release_manifests where digest = $1", [run.preparation_manifest_digest.value]);
+    for (const b of m.rows[0]?.body.basis_refs ?? []) {
+      const r = basisRef(b, pkg.id);
+      if (r) out.push(r);
+      else if (CONFIGURED_KINDS.has(String(b.kind))) out.push({ kind: String(b.kind), id: String(b.reference) });
+    }
+    return out;
+  }
+  if (pkg.capture_id) out.push({ kind: "capture", id: pkg.capture_id });
+  for (const dep of (await dependenciesReady(c, pkg)).deps) out.push({ kind: "package", id: dep });
+  return out;
+}
+
+/**
+ * The lane a package run is dispatched under: the most sensitive of the package's effective lane and
+ * the effective lane of every source its job carries, each judged by its own marking. A
+ * declassification of the package lowers the package, never the raw content of its sources. A source
+ * with no classified lane holds the run.
+ */
+async function dispatchLane(c: Tx, cfg: WorkConfig, pkg: PackageRow, run: Json): Promise<{ lane?: DataLane; reason: string }> {
+  const own = await provenanceLane(c, cfg, { kind: "package", id: pkg.id });
+  if (!own.lane) return { reason: own.missing ? unclassifiedReason(own.missing) : laneHoldReason(undefined) };
+  const lanes: DataLane[] = [own.lane];
+  for (const src of await transmittedSources(c, pkg, run)) {
+    const got = await provenanceLane(c, cfg, src);
+    if (!got.lane) return { reason: unclassifiedReason(got.missing ?? src) };
+    lanes.push(got.lane);
+  }
+  return { lane: mostSensitive(lanes), reason: "" };
+}
+
+const unclassifiedReason = (r: Ref) =>
+  `This work carries ${r.kind} ${r.id}, or content derived from it, which has no classified data lane; a person with lane authority must classify it first.`;
+
+/**
+ * An object's lane for disclosure, read only. A marked object has its effective lane, kept current by
+ * propagation. An object marked before markings existed has no edges to propagate through, so its
+ * lane is computed here through its own sources: a package's capture and dependencies, recursively.
+ * `missing` names the first source with no classified lane.
+ */
+async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<string>()): Promise<{ lane?: DataLane; missing?: Ref }> {
+  const key = `${ref.kind}/${ref.id}`;
+  if (seen.has(key)) return {};
+  seen.add(key);
+  // A configured source takes the lane the owner gave it; it has no marking and no sources of its own.
+  if (CONFIGURED_KINDS.has(ref.kind)) {
+    const lane = configuredLane(cfg.preparationLanes, ref.id);
+    return lane ? { lane } : { missing: ref };
+  }
+  const marking = await currentMarking(c, ref.kind, ref.id);
+  if (ref.kind === "capture") {
+    if (marking) return { lane: effectiveLane(marking) };
+    const lane = (await c.query<{ lane: string }>("select body->>'lane' as lane from captures where id = $1", [ref.id])).rows[0]?.lane;
+    return isLane(lane) ? { lane } : { missing: ref };
+  }
+  // An approved declassification stands while every configured lane in the ancestry is one it saw, at
+  // no higher sensitivity. Otherwise the package is judged without it: its own lane and every source.
+  let recorded: unknown;
+  if (marking?.override) {
+    if (configuredStillCovered(await configuredClosure(c, ref.id, cfg.preparationLanes), marking.override.covered_configured))
+      return { lane: effectiveLane(marking) };
+    recorded = marking.assigned ?? marking.lane;
+  } else {
+    recorded = marking ? effectiveLane(marking) : (await currentPackage(c, ref.id))?.body.data_lane;
+  }
+  if (!isLane(recorded)) return { missing: ref };
+  // Configured sources are classified in the owner's config, which markings never record, so they are
+  // read live: the package's own and, through its package sources, its ancestors'. A marked package's
+  // capture and package sources are already in its effective lane, but are still walked for theirs.
+  const lanes: DataLane[] = [recorded];
+  const sources: Ref[] = [...await storedSources(c, ref.id), ...(await storedConfigured(c, ref.id)).map((r) => ({ kind: r.split(":")[0]!, id: r }))];
+  for (const s of sources) {
+    const got = await provenanceLane(c, cfg, s, seen);
+    if (got.missing) return { missing: got.missing };
+    if (got.lane) lanes.push(got.lane);
+  }
+  return { lane: mostSensitive(lanes) };
+}
+
+/** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
+async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; body: Json }, subject: string, reason: string) {
+  if (row.body.waiting_reason === reason) return;
+  const held = { ...row.body, waiting_reason: reason };
+  validate(cfg, "Run.json", held);
+  await c.query("update runs set body = $2 where id = $1", [row.id, held]);
+  await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: subject, role: row.role, reason });
 }
 
 /* ---------- packages ---------- */
@@ -134,7 +263,7 @@ export async function listPackages(db: Db): Promise<Json[]> {
   return r.rows.map((x) => ({ ...x.body, status: x.status }));
 }
 
-async function latestAuthorRun(q: Db | Tx, id: string, rev: number) {
+export async function latestAuthorRun(q: Db | Tx, id: string, rev: number) {
   const r = await q.query<{ id: string; round: number; status: string; body: Json }>(
     `select id, round, status, body from runs where package_id = $1 and package_revision = $2 and role = 'author'
      order by round desc, created_at desc limit 1`,
@@ -190,8 +319,10 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     "select body from decisions where package_id = $1 order by created_at",
     [id],
   );
+  const lane = await laneOf(db, "package", id, pkg.body.data_lane);
   return {
     ...(pkg.status === "draft" ? { draft_etag: draftEtag(pkg.body) } : {}),
+    ...(lane ? { effective_lane: lane } : {}),
     package: { ...pkg.body, status: pkg.status },
     runs: runs.rows.map((r) => ({ ...r.body, status: r.status })),
     outputs: s.outputs.map((o) => ({ path: o.name, digest: { algorithm: "sha256", value: o.sha256 } })),
@@ -204,6 +335,12 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     preparation_enrolled: Boolean(s.preparation),
     preparation_release_ready: Boolean(cfg?.preparedRelease && s.preparation?.manifest && s.preparation.blockers.length===0),
   };
+}
+
+/** A package's effective lane, which every view and download shows (specification 11.3 M-3). */
+export async function packageLane(db: Db, id: string): Promise<DataLane | undefined> {
+  const pkg = await currentPackage(db, id);
+  return pkg ? laneOf(db, "package", id, pkg.body.data_lane) : undefined;
 }
 
 export async function packageOutput(db: Db, id: string, name: string) {
@@ -252,7 +389,16 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
     next.agent_assignment = pkg.body.agent_assignment;
     next.verification = pkg.body.verification;
     validate(cfg, "WorkPackage.json", next);
-    await c.query("update packages set body = $3, updated_at = now() where id = $1 and revision = $2", [id, pkg.revision, next]);
+    await checkDependsOn(c, id, next);
+    // A draft's lane may be raised by editing it; lowering below the effective lane is a declassification.
+    const effective = await laneOf(c, "package", id, pkg.body.data_lane);
+    if (effective && !covers(next.data_lane, effective))
+      throw new Refusal(409, "lowering-needs-change-request", `This package is ${effective}; lowering its lane needs a signed change request`);
+    await c.query("update packages set body = $3, updated_at = now() where id = $1 and revision = $2", [id, pkg.revision, next])
+      .catch((e) => { throw dependencyRefusal(e); });
+    // Only a lane the person actually changed is a raise; an untouched lane keeps any declassification.
+    const lane = next.data_lane !== pkg.body.data_lane ? next.data_lane : (effective ?? next.data_lane);
+    await markObject(c, "package", id, lane, `draft edited by ${user}`, await packageInputs(c, next));
     await appendEvent(c, "package.edited", id, { kind: "human", id: user }, { revision: pkg.revision });
     return { body: next, etag: draftEtag(next) };
   });
@@ -341,18 +487,49 @@ function runtimeRef(name: string) {
     : { kind: "subscription", provider: name, model: "default" };
 }
 
-/** Dependencies are design inputs that name another package; each must be accepted first. */
-async function dependenciesReady(c: Tx, pkg: Json): Promise<{ ready: boolean; deps: string[] }> {
-  const deps: string[] = [];
-  for (const d of pkg.design_inputs ?? []) {
-    if (typeof d.doc !== "string" || d.doc.startsWith("attachment:")) continue;
-    const r = await currentPackage(c, d.doc);
-    if (r) {
-      deps.push(d.doc);
-      if (r.status !== "accepted") return { ready: false, deps };
-    }
+/**
+ * Whether a package revision may start: every package it depends on is accepted. Dependencies come
+ * from `package_dependencies` (explicit `depends_on`, or classified from design inputs for packages
+ * that predate it); citations never gate. A missing target keeps the package waiting.
+ */
+async function dependenciesReady(c: Tx, pkg: { id: string; revision: number }): Promise<{ ready: boolean; deps: string[] }> {
+  const r = await c.query<{ depends_on: string; status: string | null }>(
+    `select d.depends_on, (select p.status from packages p where p.id = d.depends_on order by p.revision desc limit 1) as status
+       from package_dependencies d where d.package_id = $1 and d.package_revision = $2 order by d.depends_on`,
+    [pkg.id, pkg.revision]);
+  const deps = r.rows.map((x) => x.depends_on);
+  return { ready: r.rows.every((x) => x.status === "accepted"), deps };
+}
+
+/** Refuses a `depends_on` that names this package itself or a package that does not exist. */
+async function checkDependsOn(c: Tx, id: string, body: Json): Promise<void> {
+  for (const d of body.depends_on ?? []) {
+    const target = String(d?.package_id ?? "");
+    if (target === id) throw new Refusal(400, "invalid-dependency", "A package cannot depend on itself");
+    if (!(await c.query("select 1 from packages where id = $1 limit 1", [target])).rowCount)
+      throw new Refusal(400, "unknown-dependency", `This package depends on ${target}, which does not exist`);
   }
-  return { ready: true, deps };
+}
+
+/**
+ * The objects a package is derived from, for its marking: its capture, its dependencies and the
+ * design inputs that name another package. A citation of an ordinary document is not an object here.
+ */
+async function packageInputs(c: Tx, body: Json, captureId?: string | null): Promise<Ref[]> {
+  const refs: Ref[] = captureId ? [{ kind: "capture", id: captureId }] : [];
+  for (const d of body.depends_on ?? []) refs.push({ kind: "package", id: String(d.package_id) });
+  for (const d of body.design_inputs ?? []) {
+    if (typeof d.doc !== "string" || d.doc.startsWith("attachment:") || d.doc === body.id) continue;
+    if ((await c.query("select 1 from packages where id = $1 limit 1", [d.doc])).rowCount) refs.push({ kind: "package", id: d.doc });
+  }
+  return refs;
+}
+
+/** A dependency cycle or unknown target the database refused, as a clear answer. */
+function dependencyRefusal(error: unknown): unknown {
+  const code = (error as { code?: string }).code;
+  if (code === "23503" || code === "23514") return new Refusal(400, "invalid-dependency", (error as Error).message);
+  return error;
 }
 
 /**
@@ -488,7 +665,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   if (!pkg) throw new Error("package vanished");
   const role: string = pkg.body.agent_assignment?.[0]?.role ?? "general-author";
   if(!run.preparation_manifest_digest) {
-  const { deps } = await dependenciesReady(c, pkg.body);
+  const { deps } = await dependenciesReady(c, pkg);
   for (const dep of deps) {
     const dp = await currentPackage(c, dep);
     const ar = dp ? await latestAuthorRun(c, dep, dp.revision) : null;
@@ -586,16 +763,30 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           }
           if (row.role === "author") {
             if (pkg.status === "released") {
-              if (!(await dependenciesReady(c, pkg.body)).ready) continue;
+              if (!(await dependenciesReady(c, pkg)).ready) continue;
             } else if (pkg.status !== "in-work") continue;
+          }
+          // The disclosure gate: only runtimes that every transmitted source's lane admits may see the
+          // job. The claim holds the marking lock shared (command catalog), so no raise lands before it
+          // and its job commit.
+          const gate = await dispatchLane(c, cfg, pkg, row.body);
+          if (!gate.lane) {
+            await holdRun(c, cfg, row, pkg.id, gate.reason);
+            continue;
+          }
+          const lane = gate.lane;
+          const offer = admitted(lane, runtimes);
+          if (offer.length === 0) {
+            await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane));
+            continue;
           }
           let runtime: string | null;
           if (row.role === "pre-check") {
             if (pkg.status !== "in-verification") continue;
             const a = await latestAuthorRun(c, pkg.id, pkg.revision);
             const authorRuntime = runtimeName(a?.body.runtime?.provider);
-            runtime = pickChecker(runtimes, authorRuntime, verifiedOverride(row.body));
-            if (!runtime && runtimes.includes(authorRuntime) && !row.body.waiting_reason) {
+            runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body));
+            if (!runtime && offer.includes(authorRuntime) && !row.body.waiting_reason) {
               // Held, not skipped silently: say why on the run and in the office, once.
               const held = { ...row.body, waiting_reason: WAITING_FOR_INDEPENDENT_RUNTIME };
               validate(cfg, "Run.json", held);
@@ -603,7 +794,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
               await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: pkg.id, role: row.role, reason: held.waiting_reason, author_runtime: authorRuntime });
             }
           } else {
-            runtime = pickRuntime(runtimes);
+            runtime = pickRuntime(offer);
           }
           if (!runtime) continue;
           const baseline = `${row.role === "pre-check" ? "checker" : "author"}-${runtime}`;
@@ -617,7 +808,16 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           }
           return startRun(c, cfg, row, runtime, baseline);
         }
-        const runtime = pickRuntime(runtimes);
+        // Intake reads the capture and its attachments: only a runtime its lane admits may.
+        // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
+        const bodyLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1 for share", [row.package_id])).rows[0]?.lane;
+        const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
+        const intakeOffer = admitted(capLane, runtimes);
+        if (intakeOffer.length === 0) {
+          await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane));
+          continue;
+        }
+        const runtime = pickRuntime(intakeOffer);
         if (!runtime) continue;
         const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
         if(!locked.rows[0]) continue;row=locked.rows[0];
@@ -839,9 +1039,11 @@ const overrideReason = (reason: unknown) => {
 };
 
 /** Step 1 of the override: the digest to sign. Refused for anything but a held pre-check. */
-export async function overrideSubject(db: Db, packageId: string, runId: string, reason: unknown) {
+export async function overrideSubject(db: Db, packageId: string, runId: string, reason: unknown, user?: string) {
   const why = overrideReason(reason);
   const t = await overrideTarget(db, packageId, runId, why);
+  // Refused before any passkey prompt when the person could not sign it anyway.
+  if (user !== undefined) await requireAuthority(db, user, "override-independence", needsOf(t.pkg.body));
   if (t.row.status !== "queued" || t.pkg.status !== "in-verification") throw new Refusal(409, "wrong-state", `The pre-check is ${t.row.status}`);
   return { digest: t.digest, revision: t.pkg.revision, reason: why };
 }
@@ -866,7 +1068,10 @@ export async function overrideIndependence(
 ) {
   const why = overrideReason(reason);
   return command(db, "run.override-independence", async (c) => {
+    if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
     const { row, pkg, digest: d } = await overrideTarget(c, packageId, runId, why, true);
+    await requireAuthority(c, user, "override-independence", needsOf(pkg.body));
+    if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
     kernel(
       decide({
         status: pkg.status,
@@ -1046,6 +1251,8 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
       [runId, row.package_id, row.package_revision, o.name, sha256(o.bytes), o.bytes],
     );
   }
+  // New author output is content no declassification has seen: any earlier one stops applying.
+  if (row.role === "author" && outputs.length > 0) await endOverride(c, "package", row.package_id, `new author output from run ${runId}`);
   await appendEvent(c, `run.${finished.status}`, runId, agent, {
     package: row.package_id,
     role: row.role,
@@ -1138,7 +1345,23 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
   const idMap = new Map<string, string>();
   for (const d of drafts) idMap.set(String(d.id), `${prefix}-${String(d.id).replace(/[^A-Za-z0-9-]/g, "").slice(0, 40)}`);
   const created: string[] = [];
-  for (const d of drafts) {
+  // Packages drafted together may depend on each other: insert each after the ones it waits for.
+  const ordered: Json[] = [];
+  const placing = new Set<string>();
+  const place = (d: Json) => {
+    const local = String(d.id);
+    if (ordered.includes(d)) return;
+    if (placing.has(local)) throw new Refusal(400, "invalid-dependency", "Packages drafted together cannot wait on each other");
+    placing.add(local);
+    for (const dep of d.depends_on ?? []) {
+      const other = drafts.find((x: Json) => String(x.id) === String(dep?.package_id));
+      if (other) place(other);
+    }
+    placing.delete(local);
+    ordered.push(d);
+  };
+  for (const d of drafts) place(d);
+  for (const d of ordered) {
     const pkg = {
       ...d,
       schema_version: "0.1.0",
@@ -1146,6 +1369,9 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
       revision: 0,
       status: "draft",
       design_inputs: (d.design_inputs ?? []).map((x: Json) => (idMap.has(x.doc) ? { ...x, doc: idMap.get(x.doc) } : x)),
+      ...(Array.isArray(d.depends_on)
+        ? { depends_on: d.depends_on.map((x: Json) => (idMap.has(String(x?.package_id)) ? { ...x, package_id: idMap.get(String(x.package_id)) } : x)) }
+        : {}),
       agent_assignment: [{ role: String(d.agent_assignment?.[0]?.role ?? "general-author").slice(0, 60), agent_baseline: "author", baseline_revision: 0 }],
       verification: {
         method: "agent-pre-check",
@@ -1154,8 +1380,14 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
         required_custody: { decisive_evidence_generated_by: "verifier", preparer_may_present: false },
       },
     };
+    // An agent never lowers a lane: a package is at least as sensitive as the request it came from.
+    const capLane = await laneOf(c, "capture", capture.id, capture.lane);
+    if (capLane && isLane(pkg.data_lane) && !covers(pkg.data_lane, capLane)) pkg.data_lane = capLane;
     validate(cfg, "WorkPackage.json", pkg);
-    await c.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'draft', $2, $3)", [pkg.id, capture.id, pkg]);
+    await checkDependsOn(c, String(pkg.id), pkg);
+    await c.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'draft', $2, $3)", [pkg.id, capture.id, pkg])
+      .catch((e) => { throw dependencyRefusal(e); });
+    await markObject(c, "package", String(pkg.id), pkg.data_lane, `drafted by intake from capture ${capture.id}`, await packageInputs(c, pkg, capture.id));
     await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id });
     if(cfg.guidedPreparation) await enrollPreparationTx(c,cfg,SYSTEM,pkg.id as string,{package_revision:0,idempotency_key:`intake-${capture.id}-${pkg.id}`});
     created.push(pkg.id as string);
@@ -1308,11 +1540,12 @@ export function decisionChallenge(subjectDigest: string, kind: string, revision:
   return new Uint8Array(createHash("sha256").update(`${subjectDigest}|${kind}|${revision}|${nonce}`).digest());
 }
 
-export async function decisionSubject(db: Db, id: string, kind: string, revision: number, cfg?: WorkConfig) {
+export async function decisionSubject(db: Db, id: string, kind: string, revision: number, cfg?: WorkConfig, user?: string) {
   if (!(kind in HUMAN_ACTIONS)) throw new Refusal(400, "invalid", "Unknown decision");
   const pkg = await currentPackage(db, id);
   if (!pkg) throw new Refusal(404, "not-found", "No such package");
   if (pkg.revision !== revision) throw new Refusal(409, "stale", "That revision is no longer current");
+  if (user !== undefined) await requireAuthority(db, user, kind as SignerAction, needsOf(pkg.body));
   const s=await subjectOf(db,pkg);
   if(kind==="release" && s.preparation) {
     if(!cfg) throw new Refusal(409,"prepared-release-disabled","Prepared release is disabled");
@@ -1320,6 +1553,67 @@ export async function decisionSubject(db: Db, id: string, kind: string, revision
   }
   if(s.preparation && (kind==="accept" || kind==="accept-with-findings") && cfg) await readTx(db,c=>preparedAcceptanceGuard(c,cfg,pkg,s.author,s.verification,false));
   return {pkg,...s};
+}
+
+/** The preparation facts the kernel weighs for a decision on a prepared package; undefined for a legacy one. */
+async function decisionPreparation(c: Tx, cfg: WorkConfig, pkg: PackageRow, s: Awaited<ReturnType<typeof subjectOf>>, kind: string, lock: boolean) {
+  if (!s.preparation) return undefined;
+  if (kind === "release") return preparedReleaseGuard(c, cfg, pkg, s.preparation);
+  if (kind === "accept" || kind === "accept-with-findings") return preparedAcceptanceGuard(c, cfg, pkg, s.author, s.verification, lock);
+  return { requirements_confirmed: Boolean(s.preparation.confirmation), ready_for_release: false, basis_current: false, manifest_matches: false,
+    results_complete: false, required_checks_complete: false, results_pass: false };
+}
+
+const DECISION_LABELS: Record<string, string> = {
+  release: "Release", accept: "Accept", "accept-with-findings": "Accept with findings", return: "Return for revision", reject: "Reject",
+};
+
+/**
+ * What the viewing person can do with a package now (specification 5.7 ActionDescriptor; plan task
+ * 1.11): each decision allowed or refused, with the reason in words, what would change it, how it is
+ * signed and the qualifications it needs. The kernel is asked as if the person had signed, so the
+ * answer is exactly what a signed request would get; nothing is written.
+ */
+export async function packageActions(db: Db, cfg: WorkConfig, user: string, id: string) {
+  return readTx(db, async (c) => {
+    const pkg = await currentPackage(c, id);
+    if (!pkg) throw new Refusal(404, "not-found", "No such package");
+    const s = await subjectOf(c, pkg);
+    const out: Json[] = [];
+    const refused = (base: Json, code: string, message?: string) => {
+      const t = teach(code);
+      return { ...base, allowed: false, reason_code: code, reason: message ?? t.sentence, change: t.change, ...(t.floor ? { floor: true } : {}) };
+    };
+    const preparing = (await c.query("select 1 from preparation_heads where package_id = $1", [id])).rowCount;
+    const edit = { command: "draft.edit", label: "Edit draft", signature: "none" };
+    out.push(pkg.status !== "draft" ? refused(edit, "wrong-state", "Only a draft can be edited")
+      : preparing ? refused(edit, "preparation-edit-required") : { ...edit, allowed: true });
+    for (const kind of Object.keys(HUMAN_ACTIONS)) {
+      const base = { command: kind, label: DECISION_LABELS[kind], signature: "direct", authority: ACTION_ROLES[kind as SignerAction] };
+      const missing = await signingGaps(c, user, kind as SignerAction, needsOf(pkg.body));
+      if (missing.length) {
+        out.push({ ...refused(base, "qualification-missing", `This needs ${missing.join(" and ")}, which your qualification does not include`), missing });
+        continue;
+      }
+      if (highConsequence(needsOf(pkg.body)) && !(await holdsHardwareKey(c, user))) {
+        out.push({ ...refused(base, "hardware-key-required"), missing: ["an attested hardware key"] });
+        continue;
+      }
+      let preparation;
+      try {
+        preparation = await decisionPreparation(c, cfg, pkg, s, kind, false);
+      } catch (e) {
+        if (e instanceof Refusal) { out.push(refused(base, e.code, e.message)); continue; }
+        throw e;
+      }
+      const outcome = decide({
+        status: pkg.status, action: HUMAN_ACTIONS[kind]!, actor_kind: "human", actor_id: user, author_baseline: s.author?.body.agent_baseline,
+        pre_check: s.verification?.outcome, assertion_verified: true, digest_matches: true, reason_given: true, ...(preparation ? { preparation } : {}),
+      });
+      out.push(outcome.allowed ? { ...base, allowed: true } : refused(base, outcome.reason));
+    }
+    return out;
+  });
 }
 
 /** Applies a person's decision. The assertion was verified by the caller against the stored challenge. */
@@ -1332,11 +1626,16 @@ export async function applyDecision(
   signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
 ) {
   return command(db, "decision.apply", async (c) => {
+    if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
+    if (!(req.kind in HUMAN_ACTIONS)) throw new Refusal(400, "invalid", "Unknown decision");
+    // Authority is read inside the writer transaction, so a revocation that lands first is honored.
+    await requireAuthority(c, user, req.kind as SignerAction, needsOf(pkg.body));
+    if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
     const s = await subjectOf(c, pkg);
-    const preparation = s.preparation ? req.kind==="release" ? await preparedReleaseGuard(c,cfg,pkg,s.preparation) : (req.kind==="accept" || req.kind==="accept-with-findings") ? await preparedAcceptanceGuard(c,cfg,pkg,s.author,s.verification) : {requirements_confirmed:Boolean(s.preparation.confirmation),ready_for_release:false,basis_current:false,manifest_matches:false,results_complete:false,required_checks_complete:false,results_pass:false} : undefined;
+    const preparation = await decisionPreparation(c, cfg, pkg, s, req.kind, true);
     const reason = (req.reason ?? "").trim();
     const outcome = decide({
       status: pkg.status,
@@ -1557,9 +1856,16 @@ export async function listCaptures(db: Db) {
       order by c.created_at desc limit 200`,
   );
   const links=await db.query<{capture_id:string;id:string}>("select distinct capture_id,id from packages where capture_id=any($1::text[]) order by id",[r.rows.map(x=>x.body.id)]);
+  const marked = await db.query<{ id: string; lane: DataLane }>(
+    `select distinct on (object_id) object_id as id, coalesce(body->>'effective_lane', body->>'lane') as lane
+       from object_markings where object_kind = 'capture' and object_id = any($1::text[]) order by object_id, version desc`,
+    [r.rows.map((x) => x.body.id)]);
+  const lanes = new Map<string, DataLane>(marked.rows.map((m) => [m.id, m.lane]));
+  for (const x of r.rows) if (!lanes.has(x.body.id) && isLane(x.body.lane)) lanes.set(x.body.id, x.body.lane);
   return r.rows.map((x) => {
     const package_ids=links.rows.filter(p=>p.capture_id===x.body.id).map(p=>p.id);
-    const base={...x.body,...(package_ids.length?{package_ids}:{})};
+    const lane = lanes.get(x.body.id);
+    const base={...x.body,...(package_ids.length?{package_ids}:{}),...(lane?{effective_lane:lane}:{})};
     // Only a pending capture carries its intake state; an answered or packaged one is done.
     if (x.body.disposition !== "pending" || !x.run_id || !x.run_status) return base;
     const error = typeof x.run_body?.error === "string" ? x.run_body.error : undefined;

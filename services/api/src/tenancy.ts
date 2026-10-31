@@ -26,8 +26,9 @@ export interface HardwareFloorVerdict { eligible: boolean; reason: string }
 export interface AuthenticatorCredential {
   id: string; version: number; org_id: string; member_id: string; credential_id: string;
   attestation_format: AttestationFormat; aaguid?: string; user_verified: boolean; backup_eligible?: boolean;
-  hardware_floor: HardwareFloorVerdict; revoked?: boolean; recorded_at: string;
+  hardware_floor: HardwareFloorVerdict; attestation_verified?: boolean; attestation_evidence?: AttestationEvidence; revoked?: boolean; recorded_at: string;
 }
+export interface AttestationEvidence { attestation_object: string; trust_anchor_digest?: { algorithm: "sha256"; value: string } }
 export interface Delegation {
   id: string; org_id: string; from_member_id: string; to_member_id: string; role: SignerRole;
   project_id?: string; discipline?: string; starts_on: string; ends_on: string; reason: string;
@@ -196,7 +197,7 @@ export async function recordCredential(
   c: Tx,
   input: {
     orgId: string; memberId: string; credentialId: string; format: AttestationFormat; aaguid?: string;
-    userVerified: boolean; backupEligible?: boolean; attestationVerified: boolean; revoked?: boolean;
+    userVerified: boolean; backupEligible?: boolean; attestationVerified: boolean; revoked?: boolean; evidence?: AttestationEvidence;
   },
   actor: Actor,
 ): Promise<{ record: AuthenticatorCredential; digest: string }> {
@@ -214,6 +215,8 @@ export async function recordCredential(
   };
   if (input.aaguid !== undefined) record.aaguid = input.aaguid;
   if (input.backupEligible !== undefined) record.backup_eligible = input.backupEligible;
+  record.attestation_verified = input.attestationVerified;
+  if (input.evidence) record.attestation_evidence = input.evidence;
   if (input.revoked) {
     record.revoked = true;
     record.hardware_floor = { eligible: false, reason: "credential revoked" };
@@ -312,7 +315,8 @@ export async function recordCreationMarking(c: Tx, kind: string, id: string, lan
 /** Records a passkey just registered: its Member (created on first use) and credential version 1. */
 export async function recordRegistration(
   c: Tx,
-  input: { userName: string; credentialId: string; format: AttestationFormat; aaguid?: string; userVerified: boolean; backupEligible: boolean },
+  input: { userName: string; credentialId: string; format: AttestationFormat; aaguid?: string; userVerified: boolean; backupEligible: boolean;
+    attestationVerified?: boolean; evidence?: AttestationEvidence },
   actor: Actor,
 ): Promise<{ record: AuthenticatorCredential; digest: string }> {
   const owner = await ownerOf(c, "credential", input.credentialId);
@@ -321,10 +325,38 @@ export async function recordRegistration(
   const existing = await c.query("select 1 from members where id = $1", [memberId]);
   if (!existing.rowCount)
     await addMember(c, { id: memberId, org_id: owner.org_id, user_name: input.userName, display_name: input.userName, status: "active" }, actor);
-  // Attestation is not requested at registration yet (task 1.12), so nothing is verified here.
+  // Verified means the attestation chain reached a retained trust anchor (attestation.ts); the floor verdict follows from it.
   return recordCredential(c, { orgId: owner.org_id, memberId, credentialId: input.credentialId, format: input.format,
     ...(input.aaguid !== undefined ? { aaguid: input.aaguid } : {}),
-    userVerified: input.userVerified, backupEligible: input.backupEligible, attestationVerified: false }, actor);
+    userVerified: input.userVerified, backupEligible: input.backupEligible, attestationVerified: input.attestationVerified ?? false,
+    ...(input.evidence ? { evidence: input.evidence } : {}) }, actor);
+}
+
+/** The deterministic id of a Member's one qualification identity, so issues and revocations version it. */
+export const qualificationIdFor = (memberId: string) => `qual_${memberId.slice(4)}`;
+
+const FOUNDING_ACTOR: Actor = { kind: "system", id: "founding-member" };
+
+/**
+ * Makes an organization's first Member able to run it: administrator, lane and policy authority,
+ * recorded as their qualification version 1. Only while no administrator qualification has ever
+ * existed in the organization, so it happens once. Licenses, disciplines and signing roles are not
+ * granted; the person records those themselves.
+ */
+export async function grantFoundingAuthorities(c: Tx, orgId: string): Promise<boolean> {
+  const ever = await c.query("select 1 from signer_qualifications where org_id = $1 and body->'authorities' ? 'administrator' limit 1", [orgId]);
+  if (ever.rowCount) return false;
+  const first = (await c.query<{ id: string }>("select id from members where org_id = $1 and body->>'status' = 'active' order by created_at, id limit 1", [orgId])).rows[0];
+  if (!first) return false;
+  await recordQualification(c, {
+    // Enough to run a General service package end to end on a fresh install: originate, check and
+    // approve. Safety and Material grades, disciplines and licenses are facts only the person can
+    // record, so they start empty.
+    id: qualificationIdFor(first.id), org_id: orgId, member_id: first.id, licenses: [], disciplines: [], grades: ["general-service"],
+    roles: ["originator", "checker", "approver"], authorities: ["administrator", "lane", "policy"], revoked: false,
+    reason: "founding member of the organization",
+  }, FOUNDING_ACTOR);
+  return true;
 }
 
 /**
@@ -347,7 +379,10 @@ export async function backfillTenancy(c: Tx): Promise<number> {
       union select 'credential', id from credentials) existing
     where not exists (select 1 from object_owners o where o.object_kind = existing.k and o.object_id = existing.i)
     on conflict do nothing`);
-  return backfillCredentials(c);
+  const recorded = await backfillCredentials(c);
+  // An installation from before founding authorities gives its first Member the same start.
+  await grantFoundingAuthorities(c, LOCAL_ORG);
+  return recorded;
 }
 
 /**

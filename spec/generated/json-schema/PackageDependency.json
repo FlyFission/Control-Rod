@@ -1,0 +1,20 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PackageDependency.json",
+    "type": "object",
+    "properties": {
+        "package_id": {
+            "type": "string",
+            "minLength": 1
+        },
+        "reason": {
+            "type": "string",
+            "description": "Why this package waits for that one."
+        }
+    },
+    "required": [
+        "package_id"
+    ],
+    "description": "A package this one waits for.",
+    "unevaluatedProperties": false
+}

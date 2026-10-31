@@ -1,6 +1,6 @@
-import { createHash, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
+import { createHash, createPrivateKey, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -60,7 +60,10 @@ export interface Harness {
 }
 
 /** A real Postgres per test file and the real app. Nothing is mocked but the authenticator and the daemon. */
-export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"> = {}): Promise<Harness> {
+export async function startHarness(
+  given: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"|"preparationLanes"> & { trustAnchors?: string[] } = {},
+): Promise<Harness> {
+  const { trustAnchors, ...options } = given;
   const external = process.env.TEST_DATABASE_URL;
   if (external) {
     // A fresh database per test file on a Postgres the caller provides (CI service or local server).
@@ -76,7 +79,7 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
       ...options,
       db,
       root,
-      auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN) },
+      auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
     });
     await app.ready();
     return {
@@ -119,7 +122,7 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
       ...options,
       db,
       root,
-      auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN) },
+      auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
     });
     await app.ready();
     return {
@@ -155,7 +158,7 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
       ...options,
     db,
     root,
-    auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN) },
+    auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
   });
   await app.ready();
   return {
@@ -175,6 +178,27 @@ export async function startHarness(options: Pick<AppOptions,"guidedPreparation"|
 const b64url = (b: Uint8Array | Buffer) => Buffer.from(b).toString("base64url");
 const sha256 = (b: Uint8Array | Buffer | string) => createHash("sha256").update(b).digest();
 
+/** A packed attestation for a test authenticator: the attestation key, its certificate chain (DER) and AAGUID. */
+export interface TestAttestation { key: KeyObject; x5c: Buffer[]; aaguid: Buffer; anchorPem: string }
+
+/**
+ * A throwaway attestation CA and an authenticator certificate it issued, shaped as the WebAuthn
+ * packed format requires (subject OU "Authenticator Attestation", not a CA, AAGUID extension).
+ */
+export function testAttestation(dir = mkdtempSync(join(tmpdir(), "cr-att-"))): TestAttestation {
+  const run = (args: string[]) => execFileSync("openssl", args, { cwd: dir, stdio: "pipe" });
+  const aaguid = randomBytes(16);
+  run(["ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", "ca.key"]);
+  run(["req", "-x509", "-new", "-key", "ca.key", "-subj", "/C=US/O=Test Vendor/CN=Test Attestation Root", "-days", "30", "-out", "ca.pem",
+    "-addext", "basicConstraints=critical,CA:TRUE", "-addext", "keyUsage=critical,keyCertSign"]);
+  run(["ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", "leaf.key"]);
+  run(["req", "-new", "-key", "leaf.key", "-subj", "/C=US/O=Test Vendor/OU=Authenticator Attestation/CN=Test Key", "-out", "leaf.csr"]);
+  writeFileSync(join(dir, "leaf.ext"), `basicConstraints=critical,CA:FALSE\n1.3.6.1.4.1.45724.1.1.4=DER:0410${aaguid.toString("hex")}\n`);
+  run(["x509", "-req", "-in", "leaf.csr", "-CA", "ca.pem", "-CAkey", "ca.key", "-CAcreateserial", "-days", "30", "-extfile", "leaf.ext", "-outform", "DER", "-out", "leaf.der"]);
+  const key = createPrivateKey(readFileSync(join(dir, "leaf.key")));
+  return { key, x5c: [readFileSync(join(dir, "leaf.der"))], aaguid, anchorPem: readFileSync(join(dir, "ca.pem"), "utf8") };
+}
+
 /** A software passkey: ES256, user present and verified, signing exactly what it is asked to. */
 export class VirtualAuthenticator {
   readonly credentialId = randomBytes(16);
@@ -182,8 +206,12 @@ export class VirtualAuthenticator {
   private readonly pub: { x: Buffer; y: Buffer };
   private counter = 0;
 
-  /** With `fixedCounter`, the signature counter stays 0 (as many passkeys report), so counters never mask replays. */
-  constructor(private readonly opts: { fixedCounter?: boolean } = {}) {
+  /**
+   * With `fixedCounter`, the signature counter stays 0 (as many passkeys report), so counters never mask replays.
+   * With `attestation`, registration returns a packed attestation signed by that key and carrying that chain;
+   * `synced` marks the credential backup eligible, as a synced passkey is.
+   */
+  constructor(private readonly opts: { fixedCounter?: boolean; attestation?: TestAttestation; synced?: boolean } = {}) {
     const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
     this.key = privateKey;
     const jwk = publicKey.export({ format: "jwk" }) as { x: string; y: string };
@@ -191,7 +219,7 @@ export class VirtualAuthenticator {
   }
 
   private authData(attested: boolean): Buffer {
-    const flags = 0x01 | 0x04 | (attested ? 0x40 : 0);
+    const flags = 0x01 | 0x04 | (attested ? 0x40 : 0) | (this.opts.synced ? 0x08 | 0x10 : 0);
     const count = Buffer.alloc(4);
     count.writeUInt32BE(this.opts.fixedCounter ? 0 : ++this.counter);
     const parts = [sha256(RP_ID), Buffer.from([flags]), count];
@@ -205,17 +233,22 @@ export class VirtualAuthenticator {
       ]);
       const len = Buffer.alloc(2);
       len.writeUInt16BE(this.credentialId.length);
-      parts.push(Buffer.alloc(16), len, this.credentialId, Buffer.from(isoCBOR.encode(cose)));
+      parts.push(Buffer.from(this.opts.attestation?.aaguid ?? Buffer.alloc(16)), len, this.credentialId, Buffer.from(isoCBOR.encode(cose)));
     }
     return Buffer.concat(parts);
   }
 
   register(options: { challenge: string }) {
     const clientData = Buffer.from(JSON.stringify({ type: "webauthn.create", challenge: options.challenge, origin: ORIGIN }));
+    const authData = this.authData(true);
+    const a = this.opts.attestation;
+    const attStmt = a
+      ? new Map<string, unknown>([["alg", -7], ["sig", sign("sha256", Buffer.concat([authData, sha256(clientData)]), a.key)], ["x5c", a.x5c]])
+      : new Map();
     const att = new Map<string, unknown>([
-      ["fmt", "none"],
-      ["attStmt", new Map()],
-      ["authData", this.authData(true)],
+      ["fmt", a ? "packed" : "none"],
+      ["attStmt", attStmt],
+      ["authData", authData],
     ]);
     return {
       id: b64url(this.credentialId),

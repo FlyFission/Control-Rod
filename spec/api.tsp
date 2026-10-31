@@ -17,8 +17,40 @@ model Health {
 }
 
 model ApiError {
+  /** A stable reason code (services/api/src/refusals.ts lists every one). */
   code: string;
+
   message: string;
+
+  /** The one fact that would change the answer (WB-03). */
+  change?: string;
+
+  /** Set when a floor refused: no person, decision or setting lifts it. */
+  floor?: boolean;
+}
+
+/**
+ * One command for an object and the viewing Member (workbench specification 5.7): allowed or
+ * refused, why in words, what would change it, how it is signed and the authority it needs.
+ */
+model ActionDescriptor {
+  /** The command or decision, for example "release" or "draft.edit". */
+  command: string;
+
+  label: string;
+  allowed: boolean;
+  signature: "direct" | "absorbed" | "none";
+
+  /** Any one of these roles or authorities may take it. */
+  authority?: string[];
+
+  /** Qualifications the viewer lacks for it, in words. */
+  missing?: string[];
+
+  reason_code?: string;
+  reason?: string;
+  change?: string;
+  floor?: boolean;
 }
 
 alias Refused = {
@@ -61,6 +93,14 @@ namespace Captures {
     text: string;
 
     source?: "web" | "cli" | "voice" | "chat";
+
+    /** Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
+    lane?: ControlRod.Records.DataLane;
+  }
+
+  /** Classifies a capture's data lane. Needs lane authority; a capture's lane can be raised, never lowered here. */
+  model Classification {
+    lane: ControlRod.Records.DataLane;
   }
 
   /** The latest intake run for a capture still pending, so a failed intake is never stranded. */
@@ -74,6 +114,9 @@ namespace Captures {
     ...Capture;
     package_ids?: string[];
     intake?: IntakeState;
+
+    /** The capture's effective lane (specification 11.3 M-3), shown wherever it appears. */
+    effective_lane?: ControlRod.Records.DataLane;
   }
 
   @get op list(): CaptureView[];
@@ -81,12 +124,16 @@ namespace Captures {
     @statusCode _: 201;
     @body capture: Capture;
   } | Refused;
+  @route("/{id}/classify") @post op classify(@path id: string, @body body: Classification): Capture | Refused;
 }
 
 /** What the web app shows for one package: the revision, its runs, output and decisions. */
 model PackageView {
   /** Strong ETag of the current draft's content; send it as If-Match to edit the draft. */
   draft_etag?: string;
+
+  /** The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1). */
+  effective_lane?: ControlRod.Records.DataLane;
 
   preparation_enabled?: boolean;
   preparation_enrolled?: boolean;
@@ -114,6 +161,9 @@ namespace Packages {
 
   /** Edit a draft. Released revisions are never edited; return them to make a new draft. Requires If-Match with the current draft_etag: 428 without it, 409 when stale. */
   @put op update(@path id: string, @header("If-Match") ifMatch: string, @body pkg: WorkPackage): WorkPackage | Refused;
+
+  /** What the viewing person can do with this package now, each allowed or refused with the reason. */
+  @route("/{id}/actions") @get op actions(@path id: string): ActionDescriptor[] | Refused;
 
   @route("/{id}/outputs/{name}")
   @get
@@ -213,6 +263,35 @@ namespace Packages {
   }): {
     @statusCode _: 201;
     @body decision: Decision;
+  } | Refused;
+
+  /** What a qualified checker verified in person (specification 11.5). */
+  model PersonVerificationRequest {
+    @minValue(0) package_revision: int32;
+
+    /** Criterion ids: a prepared package's criteria, or AC-1, AC-2 and so on for acceptance criteria. */
+    @minItems(1) criteria: string[];
+
+    outcome: "pass" | "fail" | "inconclusive";
+  }
+
+  /** Step 1: every rule that needs no signature is checked, then the digest to sign. */
+  @route("/{id}/person-verifications/options")
+  @post
+  op personVerificationOptions(@path id: string, @body body: PersonVerificationRequest): {
+    subject_digest: Digest;
+    options: Record<unknown>;
+  } | Refused;
+
+  /** Step 2: the signed verification, checked again and recorded. */
+  @route("/{id}/person-verifications")
+  @post
+  op recordPersonVerification(@path id: string, @body body: {
+    ...PersonVerificationRequest;
+    assertion: Record<unknown>;
+  }): {
+    @statusCode _: 201;
+    @body record: ControlRod.Records.PersonVerification;
   } | Refused;
 }
 

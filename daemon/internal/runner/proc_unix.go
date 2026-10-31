@@ -152,9 +152,10 @@ func (r SpawnReceipt) signal(sig syscall.Signal) error {
 	if r.pinned {
 		return syscall.Kill(-r.PGID, sig)
 	}
-	// Not held by this daemon (an orphan after a restart): signal only while a pidfd pins the
-	// leader, so its group number cannot be reused between the identity check and the signal.
-	return withPinnedLeader(r.PID, r.Matches, func() error { return syscall.Kill(-r.PGID, sig) })
+	// Not held by this daemon (an orphan after a restart): only the leader is signalled, through a
+	// pidfd. What it left in its group cannot be reached safely by number; it stays alive in the
+	// receipt's eyes (Alive), so the run's outcome stays unknown for a person to reconcile.
+	return signalLeaderPinned(r.PID, r.Matches, sig)
 }
 
 // freeze freezes or thaws the run, confirmed: in cgroup mode by the kernel's frozen state, in

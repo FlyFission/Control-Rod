@@ -1779,6 +1779,16 @@ export interface components {
             package?: components["schemas"]["ControlRod.Records.WorkPackage"];
             verification?: components["schemas"]["ControlRod.Records.VerificationRecord"];
             criterion_results?: components["schemas"]["ControlRod.Preparation.CriterionResultSubmission"];
+            /** @description The run's spawn receipt, so it is on record even if no log post carried it. */
+            receipt?: components["schemas"]["ControlRod.Records.OwnershipReceipt"];
+            /**
+             * @description What proves the run's processes ended: cgroup (its scope is empty), process-group (the
+             *     leader and its group are gone; a process that left the group is not seen) or none (no
+             *     process was started). Absent means no proof: a failed or stopped run then keeps an unknown
+             *     outcome.
+             * @enum {string}
+             */
+            containment?: "cgroup" | "process-group" | "none";
         };
         /** @description What the control plane recorded for a completion. A repeat with the same key returns it again. */
         "Runner.CompletionReceipt": {

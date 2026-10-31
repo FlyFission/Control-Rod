@@ -125,10 +125,11 @@ func signalPinned(pid int, dir string, sig syscall.Signal) {
 
 func (u Unit) cgroupAlive() bool { return u.Cgroup != "" && populated(u.Cgroup) }
 
-// withPinnedLeader runs fn while a pidfd holds the leader process: its process id, and so the
-// process group number it leads, cannot be reused until fn returns. fn runs only if the pinned
-// process still matches the identity check.
-func withPinnedLeader(pid int, matches func() bool, fn func() error) error {
+// signalLeaderPinned signals one process through a pidfd, only if the pinned process still matches
+// the identity check. The pidfd names that exact process, so a reused id is never signalled. It
+// reaches only the leader: a pidfd does not reserve the leader's process group number, so the
+// group is never signalled by number on the strength of it.
+func signalLeaderPinned(pid int, matches func() bool, sig syscall.Signal) error {
 	fd, _, errno := syscall.Syscall(sysPidfdOpen, uintptr(pid), 0, 0)
 	if errno != 0 {
 		return errNoIdentityToSignal
@@ -137,7 +138,10 @@ func withPinnedLeader(pid int, matches func() bool, fn func() error) error {
 	if !matches() {
 		return errNoIdentityToSignal
 	}
-	return fn()
+	if _, _, e := syscall.Syscall6(sysPidfdSendSignal, fd, uintptr(sig), 0, 0, 0, 0); e != 0 {
+		return e
+	}
+	return nil
 }
 
 // cgroupFreeze freezes or thaws a cgroup. Freezing is confirmed: it returns only once the kernel

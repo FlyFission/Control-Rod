@@ -192,13 +192,33 @@ describe("round 2 rules", () => {
   });
 });
 
+describe("round 4 rules", () => {
+  it("holds a failed run whose daemon sent no proof that its processes ended", async () => {
+    const job = await claimed("WP-SUP-NOPROOF");
+    const done = await daemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "x", idempotency_key: "noproof-0001", outputs: [], containment: undefined });
+    expect(done.statusCode, done.body).toBe(200);
+    expect((await run(job.run.id)).body.outcome_unknown.reason).toMatch(/no proof/);
+  });
+
+  it("records the spawn receipt a completion carries, and clears no hold for a run that started no process", async () => {
+    const job = await claimed("WP-SUP-RCPTDONE");
+    await daemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "x", idempotency_key: "rcptdone-01", outputs: [], receipt: receipt() });
+    const after = await run(job.run.id);
+    expect(after.body.receipt).toMatchObject({ pid: 4242, containment: "cgroup" });
+    expect(after.body.outcome_unknown).toBeUndefined();
+    const none = await claimed("WP-SUP-NOPROC");
+    await daemon(`/runner/runs/${none.run.id}/complete`, { status: "failed", error: "no runtime", idempotency_key: "noproc-0001", outputs: [], containment: "none" });
+    expect((await run(none.run.id)).body.outcome_unknown).toBeUndefined();
+  });
+});
+
 describe("round 3 rules", () => {
   const pgReceipt = () => { const r: Json = { ...receipt(), containment: "process-group" }; delete r.unit; return r; };
 
   it("keeps a failed run under process group containment on hold, and its late completion settles nothing", async () => {
     const job = await claimed("WP-SUP-PGFAIL");
     await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], receipt: pgReceipt() });
-    const done = await daemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "boom", idempotency_key: "pg-fail-0001", outputs: [] });
+    const done = await daemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "boom", idempotency_key: "pg-fail-0001", outputs: [], containment: "process-group" });
     expect(done.statusCode, done.body).toBe(200);
     const after = await run(job.run.id);
     expect(after.status).toBe("failed");
@@ -209,7 +229,7 @@ describe("round 3 rules", () => {
     await daemon(`/runner/runs/${late.run.id}/log`, { lines: [], receipt: pgReceipt() });
     await expire(late.run.id);
     await sweep();
-    await daemon(`/runner/runs/${late.run.id}/complete`, { status: "failed", error: "x", idempotency_key: "pg-late-0001", outputs: [] });
+    await daemon(`/runner/runs/${late.run.id}/complete`, { status: "failed", error: "x", idempotency_key: "pg-late-0001", outputs: [], containment: "process-group" });
     expect((await run(late.run.id)).body.reconciliation).toBeUndefined();
   });
 

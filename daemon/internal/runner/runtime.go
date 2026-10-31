@@ -285,10 +285,30 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 	go pump(stderr, "[stderr] ")
 	pumped := make(chan struct{})
 	go func() { wg.Wait(); close(pumped) }()
-	finish := func() {
-		<-pumped
+	// drained waits a bounded time for the output pipes to close. A process still holding them
+	// after the run's unit was handled is outside what containment can see, so the run is then
+	// uncontained rather than waited on forever.
+	drained := func(d time.Duration) bool {
+		ok := true
+		select {
+		case <-pumped:
+		case <-time.After(d):
+			ok = false
+		}
 		_ = stdout.Close()
 		_ = stderr.Close()
+		return ok
+	}
+	// reapWithin waits a bounded time for the leader to be reaped.
+	reapWithin := func(d time.Duration) bool {
+		done := make(chan struct{})
+		go func() { _, _ = cmd.Process.Wait(); close(done) }()
+		select {
+		case <-done:
+			return true
+		case <-time.After(d):
+			return false
+		}
 	}
 	fast := StopTimings{AfterHangup: 100 * time.Millisecond, Grace: time.Second}
 
@@ -302,18 +322,14 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 			gone := true
 			if r != nil {
 				gone = StopGracefully(r.Pinned(), fast, nil)
-			} else {
-				killProcessGroup(cmd)
 			}
-			if !gone {
-				// Do not block on a leader that would not stop; reap it whenever it goes.
-				go func() { _, _ = cmd.Process.Wait() }()
-				_ = stdout.Close()
-				_ = stderr.Close()
+			// The launcher itself is still this daemon's unreaped child (it may never have reached its
+			// scope): kill its group directly, then wait for it within a bound.
+			killProcessGroup(cmd)
+			gone = reapWithin(10*time.Second) && gone
+			if !gone || !drained(time.Second) {
 				return fmt.Errorf("%w; the run could not be owned: %v", ErrUncontained, rerr)
 			}
-			_, _ = cmd.Process.Wait()
-			finish()
 			return fmt.Errorf("the run could not be owned, so it was stopped: %w", rerr)
 		}
 		if r != nil {
@@ -383,7 +399,9 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 	if st == nil {
 		st, _ = cmd.Process.Wait()
 	}
-	finish()
+	if !drained(h.Linger) {
+		return ErrUncontained
+	}
 	if stopped {
 		if c := context.Cause(ctx); c != nil {
 			return c

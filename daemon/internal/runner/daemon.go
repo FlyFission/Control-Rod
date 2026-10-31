@@ -678,6 +678,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	go func() { d.flushLoop(flushCtx, job, buf, release); close(flushed) }()
 
 	launch := LaunchFor(runtime, job.Run, ws)
+	var spawned *SpawnReceipt
 	// A stop freezes the run and reads out/ into the daemon's memory while it is frozen; that
 	// capture is then the run's only output, and nothing on disk is read again.
 	var frozen *Captured
@@ -721,6 +722,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 						return &r, perr
 					}
 					buf.setReceipt(r.Wire())
+					spawned = &r
 					return &r, nil
 				}})
 		}
@@ -745,6 +747,13 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 
 	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}}
+	switch {
+	case cmd == nil:
+		comp.Containment = "none"
+	case spawned != nil:
+		w := spawned.Wire()
+		comp.Receipt, comp.Containment = &w, spawned.Containment
+	}
 	if err != nil {
 		comp.Status, comp.Error = "failed", failText(err)
 		if errors.Is(err, errStopped) {

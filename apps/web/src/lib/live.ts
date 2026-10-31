@@ -47,22 +47,20 @@ export function useLiveEvents(enabled: boolean): void {
       if (timer === undefined) timer = setTimeout(flush, 300);
     };
 
-    // After a dropped connection the stream does not replay what was missed, so refresh everything.
-    let opened = false;
-    const onOpen = () => {
-      if (opened) {
-        window.dispatchEvent(new Event(LIVE_GAP_EVENT));
-        void qc.invalidateQueries();
-      }
-      opened = true;
+    // The browser reconnects with the last event id and the stream replays what was missed. Only
+    // when it cannot (a loss frame) is everything refreshed.
+    const onLoss = () => {
+      window.dispatchEvent(new Event(LIVE_GAP_EVENT));
+      void qc.invalidateQueries();
     };
     const onError = () => window.dispatchEvent(new Event(LIVE_GAP_EVENT));
-    source.addEventListener("open", onOpen);
+    source.addEventListener("loss", onLoss);
     source.addEventListener("error", onError);
     source.addEventListener("message", onMessage);
     source.addEventListener("event", onMessage as EventListener);
     return () => {
       if (timer !== undefined) clearTimeout(timer);
+      source.removeEventListener("loss", onLoss);
       source.close();
     };
   }, [enabled, qc]);

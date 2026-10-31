@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ReadinessAnswer.json",
+    "type": "string",
+    "enum": [
+        "YES",
+        "YES BY APPROVED DISPOSITION",
+        "N/A WITH APPROVED BASIS",
+        "NO"
+    ],
+    "description": "The displayed readiness answer per criterion and gate, derived from the evidence dimensions."
+}

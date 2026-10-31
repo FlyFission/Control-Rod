@@ -632,3 +632,24 @@ model PhaseGate {
   project_id: TenancyId;
   criteria_ids: string[];
 }
+
+/* ---- Evidence dimensions and readiness (specification 8, 11.4) ---- */
+
+/** The displayed readiness answer per criterion and gate, derived from the evidence dimensions. */
+enum ReadinessAnswer {
+  yes: "YES",
+  yes_by_approved_disposition: "YES BY APPROVED DISPOSITION",
+  na_with_approved_basis: "N/A WITH APPROVED BASIS",
+  no: "NO",
+}
+
+/** One criterion's readiness answer, with the reasons it is not positive and the mapping version read. */
+@extension("unevaluatedProperties", false)
+model CriterionReadiness {
+  criterion_id: string;
+  answer: ReadinessAnswer;
+  reasons: string[];
+
+  @minValue(1)
+  mapping_version: int32;
+}

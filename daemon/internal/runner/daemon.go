@@ -43,6 +43,10 @@ type Config struct {
 	ProbeInterval time.Duration
 	// Probe runs the probe commands; nil means ExecRunner.
 	Probe CommandRunner
+	// StopAfterHangup and StopGrace are the waits of the graceful stop ladder (SIGHUP, then
+	// SIGTERM, then SIGKILL). Defaults 2 seconds and 10 seconds.
+	StopAfterHangup time.Duration
+	StopGrace       time.Duration
 }
 
 // Home returns CONTROLROD_HOME, or ~/.controlrod.
@@ -79,11 +83,16 @@ type Daemon struct {
 	client *Client
 	log    *slog.Logger
 	outbox *Outbox
+	// receipts are the spawn receipts of runs whose process exit is not yet observed.
+	receipts *Receipts
 	// quit ends when Run is asked to stop; completion retries stop waiting then.
 	quit context.Context
 
 	probeMu sync.Mutex
 	status  []RuntimeStatus
+
+	activeMu sync.Mutex
+	active   map[string]bool
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -121,7 +130,14 @@ func New(cfg Config) *Daemon {
 	if cfg.Probe == nil {
 		cfg.Probe = ExecRunner
 	}
-	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger, outbox: NewOutbox(cfg.Home), quit: context.Background()}
+	if cfg.StopAfterHangup <= 0 {
+		cfg.StopAfterHangup = 2 * time.Second
+	}
+	if cfg.StopGrace <= 0 {
+		cfg.StopGrace = 10 * time.Second
+	}
+	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger, outbox: NewOutbox(cfg.Home),
+		receipts: NewReceipts(cfg.Home), quit: context.Background()}
 }
 
 var (
@@ -147,6 +163,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 	d.log.Info("daemon started", "api", d.cfg.API, "runtimes", strings.Join(d.cfg.Runtimes, ","), "parallel", d.cfg.Parallel)
 	d.quit = ctx
+	d.sweepOrphans(ctx)
 	d.probe(ctx)
 	go d.probeLoop(ctx)
 	outboxDone := make(chan struct{})
@@ -254,6 +271,7 @@ func (d *Daemon) outboxLoop(ctx context.Context) {
 	defer t.Stop()
 	for {
 		d.drainOutbox(ctx)
+		d.sweepOrphans(ctx)
 		select {
 		case <-ctx.Done():
 			return
@@ -306,13 +324,108 @@ func (d *Daemon) deliver(e OutboxEntry) bool {
 	}
 }
 
-// logBuffer collects raw lines and the latest label between flushes.
+// timings is the graceful stop ladder this daemon uses.
+func (d *Daemon) timings() StopTimings {
+	return StopTimings{AfterHangup: d.cfg.StopAfterHangup, Grace: d.cfg.StopGrace}
+}
+
+// sweepOrphans settles runs whose spawn receipts outlived the daemon that made them: it stops a
+// process only while the receipt still matches it, then tells the control plane the process is
+// gone. Receipts for runs this daemon is running now are left alone.
+func (d *Daemon) sweepOrphans(ctx context.Context) {
+	list, err := d.receipts.List()
+	if err != nil {
+		d.log.Warn("receipts", "err", err)
+		return
+	}
+	for _, r := range list {
+		if ctx.Err() != nil {
+			return
+		}
+		if d.isActive(r.RunID) {
+			continue
+		}
+		if r.Matches() {
+			d.log.Warn("stopping a run process left by an earlier daemon", "run", r.RunID, "pid", r.PID)
+			gone := make(chan struct{})
+			stopWatch := make(chan struct{})
+			go func() {
+				defer close(gone)
+				for r.Matches() {
+					select {
+					case <-stopWatch:
+						return
+					case <-time.After(100 * time.Millisecond):
+					}
+				}
+			}()
+			StopGracefully(r, d.timings(), gone)
+			close(stopWatch)
+			if r.Matches() {
+				d.log.Error("a run process left by an earlier daemon would not stop; leaving its receipt", "run", r.RunID, "pid", r.PID)
+				continue
+			}
+		}
+		reply, err := d.client.Evidence(ctx, r)
+		var refused *RefusedError
+		switch {
+		case err == nil:
+			d.log.Info("reported a run process gone after restart", "run", r.RunID, "reconciled", reply.Reconciled)
+		case errors.As(err, &refused):
+			d.log.Info("control plane no longer needs evidence for this run", "run", r.RunID, "err", err)
+		default:
+			d.log.Warn("could not report a run process gone; will retry", "run", r.RunID, "err", err)
+			continue
+		}
+		RestoreWrite(r.Workspace)
+		d.receipts.Remove(r.RunID)
+	}
+}
+
+func (d *Daemon) isActive(runID string) bool {
+	d.activeMu.Lock()
+	defer d.activeMu.Unlock()
+	return d.active[runID]
+}
+
+func (d *Daemon) setActive(runID string, on bool) {
+	d.activeMu.Lock()
+	defer d.activeMu.Unlock()
+	if d.active == nil {
+		d.active = map[string]bool{}
+	}
+	if on {
+		d.active[runID] = true
+	} else {
+		delete(d.active, runID)
+	}
+}
+
+// logBuffer collects raw lines and the latest label between flushes, and the spawn receipt until
+// the control plane has recorded it.
 type logBuffer struct {
-	mu    sync.Mutex
-	lines []string
-	label string
-	model string
-	dirty bool
+	mu      sync.Mutex
+	lines   []string
+	label   string
+	model   string
+	dirty   bool
+	receipt *OwnershipReceipt
+}
+
+func (b *logBuffer) setReceipt(r OwnershipReceipt) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.receipt = &r
+	b.dirty = true
+}
+
+// receiptSent forgets the receipt once a log post carrying it succeeded.
+func (b *logBuffer) receiptSent(r *OwnershipReceipt) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if r != nil && b.receipt == r {
+		b.receipt = nil
+	}
 }
 
 func (b *logBuffer) add(line string) {
@@ -356,12 +469,12 @@ func (b *logBuffer) take() (LogBatch, bool) {
 		size += len(b.lines[n])
 		n++
 	}
-	batch := LogBatch{Lines: append([]string(nil), b.lines[:n]...), Label: b.label}
+	batch := LogBatch{Lines: append([]string(nil), b.lines[:n]...), Label: b.label, Receipt: b.receipt}
 	if batch.Lines == nil {
 		batch.Lines = []string{}
 	}
 	b.lines = b.lines[n:]
-	b.dirty = len(b.lines) > 0
+	b.dirty = len(b.lines) > 0 || b.receipt != nil
 	if !b.dirty {
 		b.lines = nil
 	}
@@ -424,10 +537,12 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 				buf.putBack(batch.Lines)
 			case reply.Stop:
 				last = time.Now()
+				buf.receiptSent(batch.Receipt)
 				d.log.Info("owner asked to stop the run", "run", job.Run.ID)
 				stop(errStopped)
 			default:
 				last = time.Now()
+				buf.receiptSent(batch.Receipt)
 			}
 		}
 	}
@@ -517,7 +632,24 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 			buf.add(`{"type":"result","subtype":"fake-copy"}`)
 			err = CopyFakeOutputs(ws)
 		} else {
-			err = Execute(runCtx, cmd, buf.add)
+			d.setActive(job.Run.ID, true)
+			err = Execute(runCtx, cmd, buf.add, ExecHooks{Timings: d.timings(), Started: func(pid int) (SpawnReceipt, bool) {
+				r, rerr := NewReceipt(job.Run.ID, job.Claim.Token, pid, max(job.Run.Generation, 1), ws.Dir)
+				if rerr != nil {
+					d.log.Warn("no spawn receipt; the run can only be stopped by this daemon", "run", job.Run.ID, "err", rerr)
+					return SpawnReceipt{}, false
+				}
+				if perr := d.receipts.Put(r); perr != nil {
+					d.log.Warn("spawn receipt not retained", "run", job.Run.ID, "err", perr)
+				}
+				buf.setReceipt(r.Wire())
+				return r, true
+			}})
+			// The exit is observed: the receipt has done its job, and the daemon may write again
+			// (a graceful stop revoked write access before signalling).
+			RestoreWrite(ws.Dir)
+			d.receipts.Remove(job.Run.ID)
+			d.setActive(job.Run.ID, false)
 		}
 	}
 	stopFlush()
@@ -533,6 +665,7 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 			d.log.Warn("log upload failed", "run", job.Run.ID, "err", lerr)
 			break
 		}
+		buf.receiptSent(batch.Receipt)
 	}
 
 	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}}

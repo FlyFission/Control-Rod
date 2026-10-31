@@ -1,0 +1,49 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "OwnershipReceipt.json",
+    "type": "object",
+    "properties": {
+        "pid": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "pgid": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "The process group the run's process leads."
+        },
+        "process_start": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The process start time in the operating system's own units (Linux: clock ticks since boot)."
+        },
+        "boot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The kernel's identifier for this boot; a reboot changes it."
+        },
+        "generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "started_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "pid",
+        "pgid",
+        "process_start",
+        "boot_id",
+        "generation",
+        "started_at"
+    ],
+    "description": "Proof of which process a daemon started for a run (specification 22). A stop, sweep or kill acts\nonly while the live process still matches: same boot, same process id, same start time.",
+    "unevaluatedProperties": false
+}

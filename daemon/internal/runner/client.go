@@ -136,6 +136,37 @@ func (c *Client) Log(ctx context.Context, runID string, batch LogBatch) (LogRepl
 	}
 }
 
+// EvidenceReply is the control plane's answer to restart evidence.
+type EvidenceReply struct {
+	RunID      string `json:"run_id"`
+	Reconciled bool   `json:"reconciled"`
+}
+
+// Evidence reports, after a restart, that a run's process is gone, with the receipt that proves
+// which process it was. A refusal is final: the control plane no longer needs this evidence.
+func (c *Client) Evidence(ctx context.Context, r SpawnReceipt) (EvidenceReply, error) {
+	path := "/runner/runs/" + r.RunID + "/evidence"
+	body := map[string]any{"claim_token": r.ClaimToken, "receipt": r.Wire(), "observation": "process-gone"}
+	resp, err := c.post(ctx, path, body, 30*time.Second)
+	if err != nil {
+		return EvidenceReply{}, err
+	}
+	defer resp.Body.Close()
+	switch {
+	case resp.StatusCode/100 == 2:
+		var e EvidenceReply
+		if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<16)).Decode(&e); err != nil {
+			return EvidenceReply{}, fmt.Errorf("decode evidence reply: %w", err)
+		}
+		return e, nil
+	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500:
+		return EvidenceReply{}, statusError(path, resp)
+	default:
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return EvidenceReply{}, &RefusedError{Status: resp.StatusCode, Body: strings.TrimSpace(string(msg))}
+	}
+}
+
 // Complete reports the end of a run with its outputs and trace. A network error, 408, 429 or a
 // server error may be retried with the same idempotency key; any other refusal is a
 // *RefusedError.

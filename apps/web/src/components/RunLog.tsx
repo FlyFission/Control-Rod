@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client.js";
+import { api, explain } from "../api/client.js";
 import type { Run } from "../api/types.js";
 import { isVisible } from "../lib/live.js";
-import { type Passkeys, browserPasskeys, signOverride } from "../lib/decide.js";
+import { type Passkeys, browserPasskeys, signOverride, signReconcile } from "../lib/decide.js";
 import { time } from "../lib/format.js";
 import { StateMark, type StateKind } from "./StateMark.js";
 
@@ -42,9 +42,49 @@ export function runStatusText(run: Run): string {
   }
 }
 
-/** Only supported legacy runs can be queued again by the owner, once. */
+/** A lost run whose exit or completion was never seen holds requeue until it is reconciled. */
+export function outcomeUnknown(run: Run): boolean {
+  return run.outcome_unknown !== undefined && run.reconciliation === undefined;
+}
+
+/** Only supported legacy runs can be queued again by the owner, once, and never while their outcome is unknown. */
 export function canRequeue(run: Run): boolean {
-  return ["intake", "author", "pre-check"].includes(run.role) && (run.status === "lost" || run.status === "failed" || run.status === "stopped") && run.requeued_as === undefined;
+  return ["intake", "author", "pre-check"].includes(run.role) && (run.status === "lost" || run.status === "failed" || run.status === "stopped")
+    && run.requeued_as === undefined && !outcomeUnknown(run);
+}
+
+/**
+ * A lost run with an unknown outcome: its process may still be running somewhere. Restarting the
+ * daemon usually settles it on its own; otherwise the owner signs why it will not report.
+ */
+function Reconcile({ packageId, run, passkeys }: { packageId: string; run: Run; passkeys: Passkeys }) {
+  const qc = useQueryClient();
+  const [reason, setReason] = useState("");
+  const go = useMutation({
+    mutationFn: () => signReconcile({ packageId, runId: run.id, reason }, passkeys),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["package", packageId] }),
+  });
+  if (!outcomeUnknown(run)) return null;
+  return (
+    <div className="run-hold">
+      <p className="small">
+        Outcome unknown: the daemon stopped answering before this run finished, so its process may still be running. Restart the daemon and it
+        reports what happened on its own. If the daemon will never come back, say why and sign.
+      </p>
+      <label className="small" htmlFor={`reconcile-${run.id}`}>
+        Why will this run never report?
+      </label>
+      <textarea id={`reconcile-${run.id}`} value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
+      <button type="button" className="btn small" disabled={reason.trim().length === 0 || go.isPending} onClick={() => go.mutate()}>
+        Sign with passkey and reconcile
+      </button>
+      {go.isError && (
+        <p className="error" role="alert">
+          {explain(go.error, "The run was not reconciled.")}
+        </p>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -140,6 +180,8 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packag
           </p>
         )}
         {run.requeued_as !== undefined && <p className="muted small">Requeued as {run.requeued_as}</p>}
+        {run.reconciliation !== undefined && <p className="muted small">Reconciled ({run.reconciliation.disposition}): {run.reconciliation.evidence}</p>}
+        <Reconcile packageId={packageId} run={run} passkeys={passkeys} />
         {run.independence_override !== undefined && (
           <p className="muted small">
             Owner override by {run.independence_override.by}: {run.independence_override.reason}

@@ -8,16 +8,18 @@ checks the static rules and that this catalog matches the commands executed.
 
 | Command | Principal | Signature | Specification 10.2 row | Executed in | Reached from |
 |---|---|---|---|---|---|
-| `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /admin/commands/:name/options`, `POST /auth/login/options`, `POST /auth/register/options`, `POST /auth/step-up/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/person-verifications/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/runs/:runId/override-independence/options` |
-| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallengeFor | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
+| `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /admin/commands/:name/options`, `POST /auth/login/options`, `POST /auth/register/options`, `POST /auth/step-up/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/person-verifications/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/runs/:runId/override-independence/options`, `POST /packages/:id/runs/:runId/reconcile/options` |
+| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallengeFor | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence`, `POST /packages/:id/runs/:runId/reconcile` |
 | `auth.register-credential` | member | none | Register authenticator credential | `auth.ts` registrationVerify | `POST /auth/register/verify` |
-| `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
+| `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence`, `POST /packages/:id/runs/:runId/reconcile` |
 | `auth.session-start` | member | none | operational | `auth.ts` startSession | `POST /auth/login/verify`, `POST /auth/register/verify` |
 | `auth.session-end` | member | none | operational | `auth.ts` endSession | `POST /auth/logout` |
 | `output.record-mismatch` | system | none | Submit output (integrity record) | `work.ts` packageOutput | `GET /packages/:id/outputs/*` |
 | `run.log` | agent-via-daemon | none | Submit output (run log) | `work.ts` runLog | `POST /runner/runs/:id/log` |
 | `run.record-refused` | agent-via-daemon | none | Submit output (refused completion record) | `work.ts` recordRefused | `POST /runner/runs/:id/complete` |
 | `run.sweep-lost` | system | none | Sweep lost | `work.ts` sweepLost | timer (lease sweep) |
+| `run.reconcile-evidence` | agent-via-daemon | none | Reconcile (daemon restart evidence) | `work.ts` runEvidence | `POST /runner/runs/:id/evidence` |
+| `run.reconcile` | member | direct | Reconcile | `work.ts` reconcileRun | `POST /packages/:id/runs/:runId/reconcile` |
 | `run.requeue` | member | none | Requeue | `work.ts` requeueRun | `POST /packages/:id/runs/:runId/requeue` |
 | `run.stop` | member | none | Stop run | `work.ts` stopRun | `POST /packages/:id/runs/:runId/stop` |
 | `run.override-independence` | member | direct | Override independence | `work.ts` overrideIndependence | `POST /packages/:id/runs/:runId/override-independence` |

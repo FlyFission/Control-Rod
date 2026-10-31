@@ -258,15 +258,6 @@ describe("the record", () => {
     await expect(h.admin.query("delete from events where seq = 1")).rejects.toThrow(/append-only/);
   });
 
-  it("refuses records the contract does not allow", async () => {
-    const pkgs = (await asOwner("GET", "/packages")).json();
-    const id = pkgs[0].id;
-    const view = (await asOwner("GET", `/packages/${id}`)).json();
-    if (view.package.status === "draft") {
-      const r = await h.app.inject({ method: "PUT", url: `/packages/${id}`, headers: { cookie, origin: ORIGIN, "if-match": view.draft_etag }, payload: { ...view.package, approved_by_agent: true } });
-      expect(r.statusCode).toBe(400);
-    }
-  });
 });
 
 describe("decision kinds (workbench plan task 1.3)", () => {

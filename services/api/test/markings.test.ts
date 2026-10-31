@@ -132,6 +132,15 @@ describe("provenance", () => {
     expect(again.json().code).toBe("not-proposed");
   });
 
+  it("keeps a declassification when a draft is edited without touching its lane", async () => {
+    const before = (await get(`/packages/${packageId}`)).json();
+    expect(before.effective_lane).toBe("client-confidential");
+    const r = await h.app.inject({ method: "PUT", url: `/packages/${packageId}`, headers: { cookie, origin: ORIGIN, "if-match": before.draft_etag },
+      payload: { ...before.package, title: "Loads, retitled" } });
+    expect(r.statusCode, r.body).toBe(200);
+    expect((await get(`/packages/${packageId}`)).json().effective_lane).toBe("client-confidential");
+  });
+
   it("refuses an approval once the marking moved past the version the request named", async () => {
     const c = (await post("/captures", { text: "Moves later", lane: "proprietary" })).json();
     const p = (await post("/admin/commands/marking.propose-declassification",

@@ -273,7 +273,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId)
         signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId };
     }
-    return runAdmin(db, { root: cfg.root }, req.params.name, caller, req.body?.payload ?? {}, signed);
+    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, req.params.name, caller, req.body?.payload ?? {}, signed);
   });
 
   preparationRoutes(app, db, cfg, person, auth);

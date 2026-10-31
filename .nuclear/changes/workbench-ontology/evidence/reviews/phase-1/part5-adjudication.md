@@ -72,3 +72,9 @@ Lock order now, everywhere: marking graph lock (by the executor), administration
 | ID | Disposition | Fix and evidence |
 |---|---|---|
 | P5-29 | Fixed | Configured lanes live in the owner's config, never in markings, so dispatch reads them live: `provenanceLane` walks every package not covered by an approved declassification through its stored sources, counting its own and its ancestors' configured lanes even when it has a marking. A config raise therefore takes effect at the next dispatch. Test: "reads configured source lanes live through a dependency that already has a marking". |
+
+## Round 8 (part5-codex-round8.md): closed P5-01 and P5-03 to P5-27; one finding, accepted
+
+| ID | Disposition | Fix and evidence |
+|---|---|---|
+| P5-30 | Fixed | Approving a package declassification records the lane of every configured source in its ancestry (`MarkingOverride.covered_configured`; an unlaned one refuses the approval). At dispatch the override stands only while every configured lane in the ancestry is classified, was seen, and is no more sensitive than it was (`configuredStillCovered`); otherwise the package is judged on its own lane and every source. Test: "lets a declassification stand only while the configured lanes it saw have not risen". |

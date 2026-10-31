@@ -60,7 +60,6 @@ export function useLiveEvents(enabled: boolean): void {
     source.addEventListener("event", onMessage as EventListener);
     return () => {
       if (timer !== undefined) clearTimeout(timer);
-      source.removeEventListener("loss", onLoss);
       source.close();
     };
   }, [enabled, qc]);

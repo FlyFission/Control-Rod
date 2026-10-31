@@ -19,6 +19,10 @@
         "login_checked": {
             "type": "boolean",
             "description": "The CLI could say whether a login is present. The probe never signs in."
+        },
+        "artifact": {
+            "$ref": "RuntimeArtifact.json",
+            "description": "The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this."
         }
     },
     "required": [

@@ -577,11 +577,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     // left out even if it is also listed.
     const status = await recordRuntimeStatus(db, req.body?.runtime_status);
     const notReady = new Set(status.filter((s) => !s.ready).map((s) => s.runtime));
+    const artifacts = new Map(status.filter((s) => s.artifact).map((s) => [s.runtime, s.artifact!.digest.value]));
     const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])
       .map(String)
       .filter((r) => ["claude", "codex", "fake"].includes(r) && !notReady.has(r));
     await sweep();
-    const job = await claim(db, cfg, runtimes);
+    const job = await claim(db, cfg, runtimes, artifacts);
     if (!job) return reply.code(204).send();
     return job;
   });

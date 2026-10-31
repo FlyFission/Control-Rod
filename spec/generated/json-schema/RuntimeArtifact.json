@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RuntimeArtifact.json",
+    "type": "object",
+    "properties": {
+        "path": {
+            "type": "string",
+            "maxLength": 4096
+        },
+        "digest": {
+            "$ref": "Digest.json"
+        }
+    },
+    "required": [
+        "path",
+        "digest"
+    ],
+    "unevaluatedProperties": false
+}

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { migrate } from "../src/db/migrate.js";
 import { DEPENDENCIES_DOWN_SQL } from "../src/db/migrations/013-dependencies.js";
+import { RUN_EVENTS_DOWN_SQL } from "../src/db/migrations/014-run-events.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, daemonHeaders, signIn, startHarness } from "./harness.js";
 
 /** Explicit package dependencies (workbench plan task 1.8; specification 7 "depends on"). */
@@ -102,6 +103,8 @@ describe("editing a draft", () => {
 
 describe("migration 013", () => {
   it("classifies design inputs that named a package before it as dependencies, and later revisions inherit them", async () => {
+    // Later migrations come off first, as a real rollback would take them.
+    await h.admin.query(RUN_EVENTS_DOWN_SQL);
     await h.admin.query(DEPENDENCIES_DOWN_SQL);
     await insert("WP-OLD-BASE", "accepted");
     await insert("WP-OLD", "released", {

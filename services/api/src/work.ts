@@ -16,6 +16,7 @@ import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
+import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
@@ -735,7 +736,22 @@ const CLAIM_PAGE = 50;
 const MAX_LOG_LINES = 500;
 
 /** The daemon asks for work. Only runs whose package is ready are handed out. */
-export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
+/**
+ * Leaves out of an offer every runtime whose role has a pin the daemon's installed artifact does
+ * not match (specification 21), and says why when that leaves nothing.
+ */
+async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<string, string>): Promise<{ offer: string[]; reason?: string }> {
+  const out: string[] = [];
+  const blocked: string[] = [];
+  for (const r of offer) {
+    const pin = await activePin(c, r, role);
+    if (!pin || pin.artifact_digest.value === artifacts.get(r)) out.push(r);
+    else blocked.push(`${r} here is not the pinned version (${String(artifacts.get(r) ?? "unknown").slice(0, 12)}, pinned ${String(pin.artifact_digest.value).slice(0, 12)})`);
+  }
+  return out.length || !blocked.length ? { offer: out } : { offer: out, reason: `${blocked.join("; ")}. An administrator pins the installed version, or the pinned one is reinstalled.` };
+}
+
+export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map()) {
   return command(db, "run.claim", async (c) => {
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
     // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
@@ -785,11 +801,17 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
             continue;
           }
           const lane = gate.lane;
-          const offer = admitted(lane, runtimes);
-          if (offer.length === 0) {
+          const admittedHere = admitted(lane, runtimes);
+          if (admittedHere.length === 0) {
             await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane));
             continue;
           }
+          const pinned = await pinnedOffer(c, admittedHere, row.role, artifacts);
+          if (pinned.reason) {
+            await holdRun(c, cfg, row, pkg.id, pinned.reason);
+            continue;
+          }
+          const offer = pinned.offer;
           let runtime: string | null;
           if (row.role === "pre-check") {
             if (pkg.status !== "in-verification") continue;
@@ -822,12 +844,17 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
         // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
         const bodyLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1 for share", [row.package_id])).rows[0]?.lane;
         const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
-        const intakeOffer = admitted(capLane, runtimes);
-        if (intakeOffer.length === 0) {
+        const admittedIntake = admitted(capLane, runtimes);
+        if (admittedIntake.length === 0) {
           await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane));
           continue;
         }
-        const runtime = pickRuntime(intakeOffer);
+        const pinnedIntake = await pinnedOffer(c, admittedIntake, "intake", artifacts);
+        if (pinnedIntake.reason) {
+          await holdRun(c, cfg, row, row.package_id, pinnedIntake.reason);
+          continue;
+        }
+        const runtime = pickRuntime(pinnedIntake.offer);
         if (!runtime) continue;
         const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
         if(!locked.rows[0]) continue;row=locked.rows[0];
@@ -1128,7 +1155,9 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
   await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round, lease_expires_at: lease });
   issuedLease(c, cfg, row.id);
   const job = await buildJob(c, cfg, body, runtime);
-  return { ...job, claim: { token, lease_expires_at: lease, heartbeat_seconds: heartbeatSeconds(cfg) } };
+  const pin = await activePin(c, runtime, row.role);
+  return { ...job, claim: { token, lease_expires_at: lease, heartbeat_seconds: heartbeatSeconds(cfg) },
+    ...(pin ? { runtime_pin: { runtime, digest: pin.artifact_digest } } : {}) };
 }
 
 type RunRow = {
@@ -2231,6 +2260,11 @@ export interface RuntimeStatus {
   version?: string;
   reason?: string;
   login_checked: boolean;
+  artifact?: ProbeArtifact;
+}
+
+function validArtifact(a: Json): boolean {
+  return Boolean(a && typeof a.path === "string" && a.digest?.algorithm === "sha256" && /^[0-9a-f]{64}$/.test(String(a.digest?.value)));
 }
 
 /** Keeps the daemon's latest probe of each runtime, cleaned to plain short fields. */
@@ -2246,12 +2280,14 @@ export async function recordRuntimeStatus(db: Db, raw: unknown): Promise<Runtime
       ...(typeof x.version === "string" && x.version ? { version: x.version.slice(0, 200) } : {}),
       ...(typeof x.reason === "string" && x.reason ? { reason: x.reason.slice(0, 300) } : {}),
       login_checked: x.login_checked === true,
+      ...(validArtifact(x.artifact) ? { artifact: { path: String(x.artifact.path).slice(0, 4096), digest: { algorithm: "sha256" as const, value: x.artifact.digest.value } } } : {}),
     });
   }
   const value = JSON.stringify({ reported_at: now(), runtimes: list });
-  await command(db, "runtime.report-status", (c) =>
-    c.query("insert into settings (key, value) values ('runtime_status', $1) on conflict (key) do update set value = excluded.value", [value]),
-  );
+  await command(db, "runtime.report-status", async (c) => {
+    await c.query("insert into settings (key, value) values ('runtime_status', $1) on conflict (key) do update set value = excluded.value", [value]);
+    await recordProbes(c, list);
+  });
   return list;
 }
 

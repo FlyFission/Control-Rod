@@ -28,6 +28,9 @@ type RuntimePin struct {
 // maxArtifactBytes bounds the file a probe will hash.
 const maxArtifactBytes = 1 << 30
 
+// resolveArtifact is how probes and launches find an executable; tests replace it.
+var resolveArtifact = ResolveArtifact
+
 // ResolveArtifact finds a runtime's executable on PATH, follows symlinks to the real file, and
 // hashes it.
 func ResolveArtifact(name string) (RuntimeArtifact, error) {
@@ -74,7 +77,7 @@ var ErrArtifactMismatch = errors.New("runtime artifact mismatch")
 // artifact: the pinned one when a pin exists, otherwise the one the last probe reported. It
 // returns the absolute path to execute. A mismatch fails closed with a sentence a person can act on.
 func VerifyLaunch(runtime string, pin *RuntimePin, probed *RuntimeArtifact) (string, Digest, error) {
-	got, err := ResolveArtifact(runtime)
+	got, err := resolveArtifact(runtime)
 	if err != nil {
 		return "", Digest{}, fmt.Errorf("%w: %s cannot be found or read: %v", ErrArtifactMismatch, runtime, err)
 	}

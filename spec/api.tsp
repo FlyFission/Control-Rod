@@ -448,6 +448,11 @@ namespace Runner {
     artifact?: RuntimeArtifact;
   }
 
+  /**
+   * A runtime's native executable and its SHA-256. A runtime whose npm launcher wraps a platform
+   * binary with helper files (Codex) is identified by a digest over that whole platform directory.
+   * Script launchers whose own digest would not identify what runs are refused.
+   */
   @extension("unevaluatedProperties", false)
   model RuntimeArtifact {
     @maxLength(4096) path: string;

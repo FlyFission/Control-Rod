@@ -12,7 +12,11 @@ import (
 // Three signals count:
 //   - velocity: more tool calls in one minute than a person could follow;
 //   - repetition: the same tool with the same input, again and again in a row;
-//   - no progress: many tool calls with no file change and no message for a long stretch.
+//   - no progress: many tool calls with no file change and no message for a long stretch. An edit
+//     counts as a file change only once its tool call has finished successfully.
+//
+// The breaker sees every event, including ones admission later drops from telemetry, so a flood
+// cannot hide a runaway.
 type Breaker struct {
 	mu     sync.Mutex
 	policy BreakerPolicy
@@ -24,7 +28,15 @@ type Breaker struct {
 	lastWork   time.Time
 	warned     map[string]bool
 	tripReason string
+	// edits are edit tool calls still waiting for their result, by call id.
+	edits map[string]bool
 }
+
+// editTools are the tools whose successful result is a change to a file.
+var editTools = map[string]bool{"Edit": true, "MultiEdit": true, "Write": true, "NotebookEdit": true}
+
+// maxOpenEdits bounds the edit calls the breaker remembers while waiting for their results.
+const maxOpenEdits = 256
 
 // BreakerPolicy sets the breaker's thresholds. Warn levels are where a warning is raised; trip
 // levels stop the run.
@@ -40,7 +52,7 @@ var DefaultBreakerPolicy = BreakerPolicy{VelocityWarn: 60, VelocityTrip: 120, Re
 
 // NewBreaker returns a breaker for one run.
 func NewBreaker(p BreakerPolicy, start time.Time) *Breaker {
-	return &Breaker{policy: p, lastWork: start, warned: map[string]bool{}}
+	return &Breaker{policy: p, lastWork: start, warned: map[string]bool{}, edits: map[string]bool{}}
 }
 
 // Verdict is what the breaker decided about the events it was just given.
@@ -69,12 +81,21 @@ func (b *Breaker) Observe(events []Event, now time.Time) Verdict {
 		switch e.Kind {
 		case EvFileChange, EvMessage:
 			b.sinceWork, b.lastWork = 0, now
+		case EvToolEnd:
+			// Claude Code reports file changes as tool calls: an edit is progress once it succeeded.
+			if b.edits[e.CallID] {
+				delete(b.edits, e.CallID)
+				if e.OK != nil && *e.OK {
+					b.sinceWork, b.lastWork = 0, now
+				}
+			}
 		case EvToolStart:
-			// An edit or write counts as progress too: Claude Code reports file changes as tool calls.
-			if e.Summary != "" && len(e.Summary) > 5 && e.Summary[:5] == "Edit:" {
-				b.sinceWork, b.lastWork = 0, now
-			} else {
-				b.sinceWork++
+			b.sinceWork++
+			if editTools[e.Tool] && e.CallID != "" {
+				if len(b.edits) >= maxOpenEdits {
+					clear(b.edits)
+				}
+				b.edits[e.CallID] = true
 			}
 			b.starts = append(b.starts, now)
 			cut := 0

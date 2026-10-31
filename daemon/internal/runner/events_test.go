@@ -1,3 +1,5 @@
+//go:build unix
+
 package runner
 
 import (
@@ -6,6 +8,8 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -177,5 +181,41 @@ func TestBreakerStopsARunawayRun(t *testing.T) {
 	}
 	if len(notices) != 2 || !strings.HasPrefix(notices[0], "Breaker warning") || !strings.HasPrefix(notices[1], "Breaker tripped") {
 		t.Fatalf("notices %v", notices)
+	}
+}
+
+func TestHookTailSkipsAnOversizedRecordAndResumesWhereTheLoopStopped(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "hooks.jsonl")
+	appendTo := func(s string) {
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		if _, err := f.WriteString(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	req := func(tool string) string { return `{"tool_name":"` + tool + `","tool_input":{"command":"ls"}}` + "\n" }
+	h := &hookTail{path: path}
+	appendTo(req("Bash") + `{"tool_name":"Wri`)
+	if got := h.next(t0); len(got) != 1 || got[0].Tool != "Bash" {
+		t.Fatalf("whole lines only: %+v", got)
+	}
+	// The rest of the partial record arrives, then one larger than a read, then a normal one.
+	appendTo(`te","tool_input":{}}` + "\n")
+	appendTo(`{"tool_name":"Bash","tool_input":{"command":"` + strings.Repeat("x", maxHookRead+10) + `"}}` + "\n")
+	appendTo(req("Read"))
+	// The same tail continues (as the final drain does after the flush loop), so nothing repeats.
+	got := h.next(t0)
+	var kinds []string
+	for _, e := range got {
+		kinds = append(kinds, e.Kind+":"+e.Tool)
+	}
+	if strings.Join(kinds, ",") != "permission_request:Write,notice:,permission_request:Read" {
+		t.Fatalf("got %v", kinds)
+	}
+	if again := h.next(t0); len(again) != 0 {
+		t.Fatalf("nothing is reported twice: %+v", again)
 	}
 }

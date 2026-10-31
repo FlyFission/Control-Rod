@@ -1,9 +1,12 @@
+//go:build unix
+
 package runner
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"slices"
@@ -46,6 +49,7 @@ type ans = struct {
 const loginHelp = "Manage login\n\nUsage: codex login [OPTIONS] [COMMAND]\n\nCommands:\n  status  Show login status\n  help    Print this message\n"
 
 func TestProbeRefusesARuntimeWhoseVersionDoesNotAnswer(t *testing.T) {
+	stubArtifact(t)
 	s := answers(map[string]ans{"claude --version": {"segfault", 139}})
 	st := Probe(context.Background(), RuntimeClaude, "", s.run)
 	if st.Ready || !strings.Contains(st.Reason, "did not answer") {
@@ -57,7 +61,19 @@ func TestProbeRefusesARuntimeWhoseVersionDoesNotAnswer(t *testing.T) {
 	}
 }
 
+// stubArtifact makes probes resolve every runtime to a fixed artifact, so tests do not depend on
+// what is installed on the machine running them.
+func stubArtifact(t *testing.T) {
+	t.Helper()
+	old := resolveArtifact
+	resolveArtifact = func(string) (RuntimeArtifact, error) {
+		return RuntimeArtifact{Path: "/opt/runtime", Digest: Digest{Algorithm: "sha256", Value: strings.Repeat("a", 64)}}, nil
+	}
+	t.Cleanup(func() { resolveArtifact = old })
+}
+
 func TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand(t *testing.T) {
+	stubArtifact(t)
 	out := answers(map[string]ans{
 		"codex --version":    {"codex-cli 0.163.0", 0},
 		"codex login --help": {loginHelp, 0},
@@ -92,6 +108,7 @@ func TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand(t *testing.T
 }
 
 func TestTheDaemonOffersOnlyReadyRuntimesAndReportsTheRest(t *testing.T) {
+	stubArtifact(t)
 	api, srv := newFakeAPI(t)
 	s := answers(map[string]ans{"codex --version": {"codex-cli 0.163.0", 0}, "codex login --help": {loginHelp, 0}, "codex login status": {"Not logged in", 1}})
 	d := New(Config{
@@ -124,5 +141,17 @@ func TestTheDaemonOffersOnlyReadyRuntimesAndReportsTheRest(t *testing.T) {
 	}
 	if len(req.RuntimeStatus) != 2 || req.RuntimeStatus[0].Ready || !strings.Contains(req.RuntimeStatus[0].Reason, "not signed in") {
 		t.Errorf("status %+v", req.RuntimeStatus)
+	}
+}
+
+func TestProbeRefusesARuntimeStartedByAScriptItCannotPin(t *testing.T) {
+	old := resolveArtifact
+	resolveArtifact = func(string) (RuntimeArtifact, error) {
+		return RuntimeArtifact{}, fmt.Errorf("%w: claude starts through the script /x/cli.js", ErrUnsupportedLauncher)
+	}
+	defer func() { resolveArtifact = old }()
+	st := Probe(context.Background(), RuntimeClaude, "", answers(map[string]ans{"claude --version": {"2.1.0 (Claude Code)", 0}}).run)
+	if st.Ready || st.Artifact != nil || !strings.Contains(st.Reason, "identify by digest") {
+		t.Fatalf("a script launcher is not ready, in plain words: %+v", st)
 	}
 }

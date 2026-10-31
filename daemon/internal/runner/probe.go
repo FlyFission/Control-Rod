@@ -92,6 +92,9 @@ func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) 
 	st.Version = firstLine(out)
 	if art, aerr := resolveArtifact(runtime); aerr == nil {
 		st.Artifact = &art
+	} else if errors.Is(aerr, ErrUnsupportedLauncher) {
+		st.Reason = fmt.Sprintf("%s answered, but Control Rod can only run a runtime it can identify by digest: %v", runtime, aerr)
+		return st
 	} else {
 		st.Reason = fmt.Sprintf("%s answered but its executable could not be read to record which version it is: %v", runtime, aerr)
 		return st

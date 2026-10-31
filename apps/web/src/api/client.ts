@@ -36,20 +36,29 @@ function url(path: string): string {
 }
 
 async function call<T>(method: string, path: string, body?: unknown, headers: Record<string,string> = {}): Promise<T> {
+  return (await send<T>(method, path, body, headers)).data;
+}
+
+/** Like `call`, and also returns the response's ETag. */
+async function callTagged<T>(method: string, path: string, body?: unknown, headers: Record<string,string> = {}): Promise<{ data: T; etag: string | null }> {
+  return send<T>(method, path, body, headers);
+}
+
+async function send<T>(method: string, path: string, body?: unknown, headers: Record<string,string> = {}): Promise<{ data: T; etag: string | null }> {
   const init: RequestInit = { method, credentials: "same-origin", headers: { ...headers } };
   if (body !== undefined) {
     init.headers = { ...headers, "content-type": "application/json" };
     init.body = JSON.stringify(body);
   }
   const res = await fetch(url(path), init);
-  if (res.status === 204) return undefined as T;
+  if (res.status === 204) return { data: undefined as T, etag: res.headers.get("etag") };
   const text = await res.text();
   const data: unknown = text.length > 0 ? JSON.parse(text) : undefined;
   if (!res.ok) {
     const err = (data ?? {}) as { code?: string; message?: string };
     throw new ApiError(res.status, err.code ?? "error", err.message ?? `Request failed (${res.status})`);
   }
-  return data as T;
+  return { data: data as T, etag: res.headers.get("etag") };
 }
 
 const enc = encodeURIComponent;
@@ -98,7 +107,8 @@ export const api = {
     ),
   packages: () => call<WorkPackage[]>("GET", "/packages"),
   packageView: (id: string) => call<PackageView>("GET", `/packages/${enc(id)}`),
-  updatePackage: (pkg: WorkPackage) => call<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg),
+  /** Saves a draft the caller loaded with `etag`; a stale tag is refused so no edit is lost. */
+  updatePackage: (pkg: WorkPackage, etag: string) => callTagged<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg, { "if-match": etag }),
   runLog: (id: string, runId: string) =>
     call<{ lines: string[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/log`),
   stopRun: (id: string, runId: string) => call<Run>("POST", `/packages/${enc(id)}/runs/${enc(runId)}/stop`),

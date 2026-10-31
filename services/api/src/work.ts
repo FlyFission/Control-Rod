@@ -191,6 +191,7 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     [id],
   );
   return {
+    ...(pkg.status === "draft" ? { draft_etag: draftEtag(pkg.body) } : {}),
     package: { ...pkg.body, status: pkg.status },
     runs: runs.rows.map((r) => ({ ...r.body, status: r.status })),
     outputs: s.outputs.map((o) => ({ path: o.name, digest: { algorithm: "sha256", value: o.sha256 } })),
@@ -229,19 +230,31 @@ export async function packageOutput(db: Db, id: string, name: string) {
 }
 
 /** Edits a draft. Identity, revision and status are the server's, never the client's. */
-export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: string, body: Json) {
+/** Strong ETag of a draft: its content digest, quoted. Any change to the draft changes it. */
+export function draftEtag(body: Json): string {
+  return `"${digest(body)}"`;
+}
+
+/**
+ * Edits a draft by compare and swap: the caller sends the ETag of the draft it edited, and the edit
+ * applies only if the draft is still exactly that. The check runs under the package's row lock, so
+ * of two concurrent edits from the same draft exactly one lands.
+ */
+export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: string, body: Json, ifMatch: string | undefined) {
   return command(db, "draft.edit", async (c) => {
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.status !== "draft") throw new Refusal(409, "wrong-state", "Only a draft can be edited");
     if ((await c.query("select 1 from preparation_heads where package_id=$1", [id])).rowCount) throw new Refusal(409,"preparation-edit-required","Use preparation editing to keep the controlled contract and criteria together");
+    if (ifMatch === undefined) throw new Refusal(428, "precondition-required", "Send the draft's ETag in If-Match");
+    if (ifMatch !== draftEtag(pkg.body)) throw new Refusal(409, "stale", "This draft changed since you opened it. Reload and review it before saving.");
     const next = { ...body, id: pkg.id, revision: pkg.revision, status: "draft", schema_version: "0.1.0" };
     next.agent_assignment = pkg.body.agent_assignment;
     next.verification = pkg.body.verification;
     validate(cfg, "WorkPackage.json", next);
     await c.query("update packages set body = $3, updated_at = now() where id = $1 and revision = $2", [id, pkg.revision, next]);
     await appendEvent(c, "package.edited", id, { kind: "human", id: user }, { revision: pkg.revision });
-    return next;
+    return { body: next, etag: draftEtag(next) };
   });
 }
 

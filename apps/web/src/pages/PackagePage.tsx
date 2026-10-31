@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client.js";
+import { ApiError, api } from "../api/client.js";
 import type { PackageView, VerificationRecord, WorkPackage } from "../api/types.js";
 import { CriterionCoverage } from "../components/preparation/CriterionCoverage.js";
 import { PreparationPanel } from "../components/preparation/PreparationPanel.js";
@@ -83,7 +83,7 @@ export function PackagePage({ id }: { id: string }) {
             )}
           </section>
           <PreparationPanel pkg={pkg} enabled={view.preparation_enabled ?? false} enrolled={view.preparation_enrolled ?? false} />
-          <Criteria pkg={pkg} enrolled={view.preparation_enrolled ?? false} />
+          <Criteria pkg={pkg} etag={view.draft_etag} enrolled={view.preparation_enrolled ?? false} />
           <section className="panel" aria-labelledby="runs-title">
             <h2 id="runs-title">Runs</h2>
             {view.runs.length === 0 && <p className="muted">No runs yet.</p>}
@@ -112,20 +112,43 @@ export function PackagePage({ id }: { id: string }) {
   );
 }
 
-/** Acceptance criteria. Editable while the package is a draft; fixed once released. */
-function Criteria({ pkg, enrolled }: { pkg: WorkPackage; enrolled:boolean }) {
+/**
+ * Acceptance criteria. Editable while the package is a draft; fixed once released. Editing works on
+ * the draft as it was when editing began: background refreshes never replace what is being typed, and
+ * a save that finds the draft changed says so and keeps the text, instead of losing it.
+ */
+export function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: string | undefined; enrolled:boolean }) {
   const qc = useQueryClient();
-  const editable = pkg.status === "draft" && !enrolled;
+  const editable = pkg.status === "draft" && !enrolled && etag !== undefined;
   const [text, setText] = useState(pkg.acceptance_criteria.join("\n"));
   const [editing, setEditing] = useState(false);
-  useEffect(() => setText(pkg.acceptance_criteria.join("\n")), [pkg.acceptance_criteria]);
+  const [base, setBase] = useState<{ pkg: WorkPackage; etag: string } | null>(null);
+  useEffect(() => {
+    if (!editing) setText(pkg.acceptance_criteria.join("\n"));
+  }, [pkg.acceptance_criteria, editing]);
+  const startEditing = () => {
+    setBase({ pkg, etag: etag! });
+    setText(pkg.acceptance_criteria.join("\n"));
+    setEditing(true);
+  };
+  const loadLatest = () => {
+    setBase({ pkg, etag: etag! });
+    setText(pkg.acceptance_criteria.join("\n"));
+    save.reset();
+  };
   const save = useMutation({
-    mutationFn: (criteria: string[]) => api.updatePackage({ ...pkg, acceptance_criteria: criteria }),
-    onSuccess: () => {
+    mutationFn: (criteria: string[]) => api.updatePackage({ ...base!.pkg, acceptance_criteria: criteria }, base!.etag),
+    onSuccess: ({ data, etag: saved }) => {
+      // The save answers with the draft as stored and its new tag; the page shows them at once, so a
+      // later edit never starts from the old tag, even if the background refresh fails.
+      qc.setQueryData<PackageView>(["package", pkg.id], (old) =>
+        old ? { ...old, package: data, ...(saved ? { draft_etag: saved } : {}) } : old);
       setEditing(false);
+      setBase(null);
       void qc.invalidateQueries({ queryKey: ["package", pkg.id] });
     },
   });
+  const stale = save.error instanceof ApiError && save.error.code === "stale";
   const criteria = text
     .split("\n")
     .map((l) => l.trim())
@@ -135,7 +158,7 @@ function Criteria({ pkg, enrolled }: { pkg: WorkPackage; enrolled:boolean }) {
       <div className="panel-head">
         <h2 id="crit-title">Acceptance criteria</h2>
         {editable && !editing && (
-          <button type="button" className="btn ghost small" onClick={() => setEditing(true)}>
+          <button type="button" className="btn ghost small" onClick={startEditing}>
             Edit
           </button>
         )}
@@ -155,11 +178,18 @@ function Criteria({ pkg, enrolled }: { pkg: WorkPackage; enrolled:boolean }) {
             >
               Save
             </button>
-            <button type="button" className="btn ghost small" onClick={() => setEditing(false)}>
+            <button type="button" className="btn ghost small" onClick={() => { setEditing(false); setBase(null); save.reset(); }}>
               Cancel
             </button>
           </div>
-          {save.isError && (
+          {stale ? (
+            <div role="alert" className="error">
+              <p>These criteria changed since you started editing. Your text is still here.</p>
+              <button type="button" className="btn ghost small" onClick={loadLatest}>
+                Load the latest criteria
+              </button>
+            </div>
+          ) : save.isError && (
             <p role="alert" className="error">
               {save.error instanceof Error ? save.error.message : "Could not save."}
             </p>

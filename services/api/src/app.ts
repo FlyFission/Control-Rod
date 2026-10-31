@@ -290,9 +290,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await person(req);
     return { ...await packageView(db, req.params.id, cfg), preparation_enabled: cfg.guidedPreparation };
   });
-  app.put<{ Params: { id: string } }>("/packages/:id", async (req) => {
+  app.put<{ Params: { id: string } }>("/packages/:id", async (req, reply) => {
     const user = await person(req);
-    return updateDraft(db, cfg, user, req.params.id, req.body);
+    const ifMatch = typeof req.headers["if-match"] === "string" ? req.headers["if-match"] : undefined;
+    const saved = await updateDraft(db, cfg, user, req.params.id, req.body, ifMatch);
+    return reply.header("ETag", saved.etag).header("Cache-Control", "no-store").send(saved.body);
   });
   app.get<{ Params: { id: string; "*": string } }>("/packages/:id/outputs/*", async (req, reply: FastifyReply) => {
     await person(req);

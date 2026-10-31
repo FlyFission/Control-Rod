@@ -15,7 +15,7 @@ import {
  */
 
 /** Signer actions this module governs: the package decisions, the independence override and person verification. */
-export type SignerAction = "release" | "accept" | "accept-with-findings" | "return" | "reject" | "override-independence" | "verify";
+export type SignerAction = "release" | "accept" | "accept-with-findings" | "return" | "reject" | "override-independence" | "verify" | "confirm";
 
 const APPROVERS: SignerRole[] = ["approver", "engineer-in-responsible-charge"];
 const REVIEWERS: SignerRole[] = ["checker", ...APPROVERS];
@@ -31,6 +31,8 @@ export const ACTION_ROLES: Record<SignerAction, SignerRole[]> = {
   "override-independence": APPROVERS,
   // A person verification is a checker's act (specification 11.5).
   verify: REVIEWERS,
+  // Confirming requirements is the requester's act, or an approver's on their behalf.
+  confirm: ["originator", ...APPROVERS],
 };
 
 const ROLE_WORDS: Record<SignerRole, string> = {
@@ -79,6 +81,19 @@ export async function signingGaps(q: Db | Tx, userName: string, action: SignerAc
 export function needsOf(body: { grade?: unknown; discipline?: unknown }): SubjectNeeds {
   const grade = body.grade === "safety" || body.grade === "material" || body.grade === "general-service" ? body.grade : undefined;
   return { grade, discipline: typeof body.discipline === "string" ? body.discipline : undefined };
+}
+
+/**
+ * Serializes a signed act with administration (suspension, removal, credential revocation,
+ * qualification and policy changes) and confirms the signing passkey is still the person's own and
+ * not revoked. Call it first in the writer transaction; authority checks after it see a settled state.
+ */
+export async function lockSigner(q: Tx, userName: string, credentialId: string): Promise<void> {
+  const m = await q.query<{ id: string; org_id: string }>("select id, org_id from members where user_name = $1", [userName]);
+  if (!m.rows[0]) throw new Refusal(403, "not-a-member", "This passkey belongs to no member");
+  await q.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || $1))", [m.rows[0].org_id]);
+  const cred = await currentCredential(q, credentialId);
+  if (!cred || cred.revoked || cred.member_id !== m.rows[0].id) throw new Refusal(403, "signature-revoked", "The passkey that signed this is no longer valid");
 }
 
 /** Refuses, naming every missing qualification, unless the person may take this action on the subject. */

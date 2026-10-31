@@ -24,3 +24,19 @@ Reviewer: Codex CLI, static read only review against `origin/buildout/controlled
 | P5-11 | Fixed | The trigger drops a classified dependency when its citation is removed. Test in dependencies migration case. |
 | P5-12 | Fixed | Dependency changes take one advisory lock before the cycle check. |
 | P5-13 | Fixed | Derived markings recompute in topological order, refusing a provenance cycle. Test: "recomputes a diamond in dependency order". |
+
+## Round 2 (part5-codex-round2.md): closed P5-03 to P5-07 and P5-09 to P5-13; nine findings, all accepted
+
+| ID | Disposition | Fix and evidence |
+|---|---|---|
+| P5-14 | Fixed | An unclassified source is refused (`unclassified-source`); objects classified before markings get version 1 from their recorded lane (`ensureMarking`), and plain document citations are not treated as objects. Test: "refuses an unclassified source". Preparation fixtures now classify their captures. |
+| P5-15 | Fixed | One marking graph lock: commands that may change markings take it exclusively and the claim takes it shared, both first, through a `markings` flag on the command catalog read by the executor. A marking write outside such a command throws. Test: "refuses ... a marking change outside a marking command". |
+| P5-16 | Fixed | An override covers exact input versions, and every new marking version propagates, even at the same lane. Test: "covers only the exact input versions a declassification approved". |
+| P5-17 | Fixed | Decisions and the independence override take the administration lock and recheck the signing passkey first (`lockSigner`), as person verification does. Test: "refuses a decision signed with a passkey revoked after the prompt". |
+| P5-18 | Fixed | An explicit dependency on a classified target promotes the row to explicit. Test in the dependencies migration case. |
+| P5-19 | Fixed | By P5-15: one graph lock taken before any row lock, so no ordering among objects exists to invert. |
+| P5-20 | Fixed | N/A also requires the grade's independence. Truth table row added. |
+| P5-21 | Fixed | Credentials keep the attestation object and the SHA-256 of the trust anchor that verified it (`attestation_evidence`). Test asserts the anchor digest. |
+| P5-22 | Fixed | Requirements confirmation needs the originator, approver or engineer in responsible charge role and the grade coverage, checked before the prompt and, after `lockSigner`, in the transaction. |
+
+Lock order now, everywhere: marking graph lock (by the executor), administration lock, then rows.

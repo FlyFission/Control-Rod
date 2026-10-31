@@ -151,7 +151,8 @@ export async function registrationVerify(db: Db, cfg: AuthConfig, body: Registra
     );
     await recordRegistration(c, {
       userName: String(data.name), credentialId: credential.id, format: info.fmt, aaguid: info.aaguid,
-      userVerified: info.userVerified, backupEligible: info.credentialDeviceType === "multiDevice", attestationVerified: attested,
+      userVerified: info.userVerified, backupEligible: info.credentialDeviceType === "multiDevice", attestationVerified: attested.verified,
+      evidence: { attestation_object: body.response.attestationObject, ...(attested.anchor ? { trust_anchor_digest: { algorithm: "sha256", value: attested.anchor } } : {}) },
     }, { kind: "human", id: String(data.name) });
     // The very first person becomes the organization's founding member, able to run it at once.
     if (data.kind === "first") await grantFoundingAuthorities(c, LOCAL_ORG);

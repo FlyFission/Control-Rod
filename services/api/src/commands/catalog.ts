@@ -12,9 +12,16 @@ interface Entry {
   signature: Signature;
   /** The specification 10.2 row, or "operational" for session and challenge bookkeeping. */
   spec: string;
+  /**
+   * Whether the command may change markings ("write") or reads lanes to disclose content ("read").
+   * The executor takes the marking graph lock first for these, so every command acquires it before
+   * any row lock and none can deadlock on it (services/api/src/markings.ts).
+   */
+  markings?: "write" | "read";
 }
 
-const entry = (principal: Principal, signature: Signature, spec: string): Entry => ({ principal, signature, spec });
+const entry = (principal: Principal, signature: Signature, spec: string, markings?: "write" | "read"): Entry =>
+  ({ principal, signature, spec, ...(markings ? { markings } : {}) });
 
 export const COMMANDS = {
   // Authentication bookkeeping. Credential registration is a 10.2 row; the rest is operational.
@@ -26,27 +33,27 @@ export const COMMANDS = {
   "auth.session-end": entry("member", "none", "operational"),
 
   // Work.
-  "capture.create": entry("member", "none", "Capture"),
-  "capture.classify": entry("member", "none", "Classify lane"),
-  "draft.edit": entry("member", "none", "Edit draft"),
+  "capture.create": entry("member", "none", "Capture", "write"),
+  "capture.classify": entry("member", "none", "Classify lane", "write"),
+  "draft.edit": entry("member", "none", "Edit draft", "write"),
   "output.record-mismatch": entry("system", "none", "Submit output (integrity record)"),
-  "run.claim": entry("agent-via-daemon", "none", "Claim"),
+  "run.claim": entry("agent-via-daemon", "none", "Claim", "read"),
   "run.log": entry("agent-via-daemon", "none", "Submit output (run log)"),
-  "run.complete": entry("agent-via-daemon", "none", "Submit output, submit pre-check"),
+  "run.complete": entry("agent-via-daemon", "none", "Submit output, submit pre-check", "write"),
   "run.record-refused": entry("agent-via-daemon", "none", "Submit output (refused completion record)"),
   "run.sweep-lost": entry("system", "none", "Sweep lost"),
   "run.requeue": entry("member", "none", "Requeue"),
   "run.stop": entry("member", "none", "Stop run"),
   "run.override-independence": entry("member", "direct", "Override independence"),
   "runtime.report-status": entry("agent-via-daemon", "none", "Probe runtime"),
-  "decision.apply": entry("member", "direct", "Release; Verdict"),
+  "decision.apply": entry("member", "direct", "Release; Verdict", "write"),
   "verification.record-person": entry("member", "direct", "Record person verification"),
 
   // Preparation.
-  "preparation.enroll": entry("member", "none", "Enroll, edit, resolve preparation"),
-  "preparation.edit": entry("member", "none", "Enroll, edit, resolve preparation"),
-  "preparation.resolve": entry("member", "none", "Enroll, edit, resolve preparation"),
-  "preparation.refresh-basis": entry("member", "none", "Enroll, edit, resolve preparation"),
+  "preparation.enroll": entry("member", "none", "Enroll, edit, resolve preparation", "write"),
+  "preparation.edit": entry("member", "none", "Enroll, edit, resolve preparation", "write"),
+  "preparation.resolve": entry("member", "none", "Enroll, edit, resolve preparation", "write"),
+  "preparation.refresh-basis": entry("member", "none", "Enroll, edit, resolve preparation", "write"),
   "preparation.confirm": entry("member", "direct", "Confirm requirements"),
 
   // Startup data changes after migrations.
@@ -71,8 +78,8 @@ export const COMMANDS = {
   "admin.repo-unbind": entry("member", "direct", "Unbind repository"),
   "admin.policy-propose": entry("member", "none", "Change policy set (proposal)"),
   "admin.policy-approve": entry("member", "direct", "Change policy set"),
-  "admin.marking-propose": entry("member", "none", "Lower or declassify lane (change request)"),
-  "admin.marking-approve": entry("member", "direct", "Lower or declassify lane (approval)"),
+  "admin.marking-propose": entry("member", "none", "Lower or declassify lane (change request)", "write"),
+  "admin.marking-approve": entry("member", "direct", "Lower or declassify lane (approval)", "write"),
   "admin.budget-set": entry("member", "direct", "Set budget"),
   "admin.theme-select": entry("member", "none", "Select office theme"),
 

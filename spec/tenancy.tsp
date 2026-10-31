@@ -183,11 +183,24 @@ model AuthenticatorCredential {
    */
   attestation_verified?: boolean;
 
+  /** The registration's attestation, kept so the verdict can be checked again later. */
+  attestation_evidence?: AttestationEvidence;
+
   /** A revoked credential signs nothing and cannot sign in. Revocation is a new version. */
   revoked?: boolean;
 
   @format("date-time")
   recorded_at: string;
+}
+
+/** What an authenticator returned at registration, and the trust anchor its chain reached. */
+@extension("unevaluatedProperties", false)
+model AttestationEvidence {
+  /** The WebAuthn attestation object exactly as returned (base64url): statement, chain and authenticator data. */
+  attestation_object: string;
+
+  /** SHA-256 of the DER trust anchor certificate the chain verified against, when it did. */
+  trust_anchor_digest?: Digest;
 }
 
 /** A dated, scoped transfer of a role. Nothing is approved on a timeout. */

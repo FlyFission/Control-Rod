@@ -1,12 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
-import { needsOf, requireHardwareKey, signingGaps } from "./authority.js";
+import { lockSigner, needsOf, requireHardwareKey, signingGaps } from "./authority.js";
 import { command } from "./commands/executor.js";
 import type { Db, Tx } from "./db/index.js";
 import type { Actor } from "./events.js";
 import { digest } from "./kernel.js";
 import { preparationForSubject } from "./preparation/release.js";
 import { Refusal } from "./refusal.js";
-import { currentCredential, currentQualification, memberIdFor } from "./tenancy.js";
+import { currentQualification, memberIdFor } from "./tenancy.js";
 import { currentPackage, latestAuthorRun, subjectOf, type PackageRow } from "./work.js";
 import { recordObject } from "./workbench.js";
 
@@ -133,15 +133,11 @@ export async function recordPersonVerification(
   const req = checkRequest(body);
   return command(db, "verification.record-person", async (c) => {
     if (!signed) throw new Refusal(403, "unsigned", "A person's verification must be signed with a passkey");
-    const memberId = memberIdFor(user);
-    const m = await c.query<{ org_id: string }>("select org_id from members where id = $1", [memberId]);
-    if (!m.rows[0]) throw new Refusal(403, "not-a-member", "This passkey belongs to no member");
-    const orgId = m.rows[0].org_id;
     // Under the administration lock, a suspension, removal, revocation or qualification change
     // either lands before this verification (and refuses it) or after it.
-    await c.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || $1))", [orgId]);
-    const cred = await currentCredential(c, String(signed.assertion.id ?? ""));
-    if (!cred || cred.revoked || cred.member_id !== memberId) throw new Refusal(403, "signature-revoked", "The passkey that signed this is no longer valid");
+    await lockSigner(c, user, String(signed.assertion.id ?? ""));
+    const memberId = memberIdFor(user);
+    const orgId = (await c.query<{ org_id: string }>("select org_id from members where id = $1", [memberId])).rows[0]!.org_id;
     const { pkg, signedDigest } = await admissible(c, user, id, req, true);
     if (signed.subject_digest !== signedDigest) throw new Refusal(403, "signature-mismatch", "The signature does not cover this exact verification");
     await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));

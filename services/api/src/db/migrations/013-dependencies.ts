@@ -63,7 +63,9 @@ begin
       ) select 1 from reach where id = new.id) then
       raise exception 'package % and % would wait on each other', new.id, target using errcode = '23514';
     end if;
-    insert into package_dependencies values (new.id, new.revision, target, 'explicit') on conflict do nothing;
+    -- A classified row for the same target becomes explicit, so dropping the citation later keeps it.
+    insert into package_dependencies values (new.id, new.revision, target, 'explicit')
+      on conflict (package_id, package_revision, depends_on) do update set source = 'explicit';
   end loop;
   return new;
 end $$;

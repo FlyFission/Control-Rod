@@ -4,7 +4,7 @@ import { parse } from "yaml";
 import { gapsIn } from "../src/authority.js";
 import type { SignerQualification } from "../src/tenancy.js";
 import { memberIdFor } from "../src/tenancy.js";
-import { type Harness, ORIGIN, VirtualAuthenticator, registerWithInvitation, signIn, startHarness } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, addOwnPasskey, registerWithInvitation, signIn, startHarness } from "./harness.js";
 
 /** Signing authority in commands (workbench plan task 1.14; specification 11.1 G-4, WB-05). */
 const q = (over: Partial<SignerQualification> = {}): SignerQualification => ({
@@ -80,6 +80,20 @@ describe("decisions", () => {
     const r = await options(ben, "WP-SAFE", "release");
     expect(r.statusCode).toBe(403);
     expect(r.json().message).toBe("This needs the Safety grade, the mechanical-hvac discipline and a current professional license for mechanical-hvac, which your qualification does not include");
+  });
+
+  it("refuses a decision signed with a passkey revoked after the prompt", async () => {
+    const second = new VirtualAuthenticator();
+    expect((await addOwnPasskey(h.app, ben, benKey, second)).statusCode).toBe(200);
+    const o = await options(ben, "WP-GS", "release");
+    const assertion = second.assert(o.json().options);
+    const revoked = await signed(ben, benKey, "credential.revoke", { credential_id: second.credentialId.toString("base64url"), reason: "lost" });
+    expect(revoked.statusCode, revoked.body).toBe(200);
+    const r = await post(ben, "/packages/WP-GS/decisions", { kind: "release", package_revision: 0, assertion });
+    // Refused at assertion verification; lockSigner covers a revocation landing after verification.
+    expect(r.statusCode).toBe(403);
+    expect(["unsigned", "signature-revoked"]).toContain(r.json().code);
+    expect((await h.db.query("select count(*)::int as n from decisions where package_id = 'WP-GS'")).rows[0].n).toBe(0);
   });
 
   it("checks again inside the decision, so a revocation after the prompt is honored", async () => {

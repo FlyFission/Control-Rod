@@ -9,6 +9,10 @@ Independent review by Codex (codex-cli 0.166.0, read only), 2026-10-30: [draft-c
 | CAS-03 | The concurrency test might not contend | An owner connection holds the package row; both edits are confirmed waiting on that lock in `pg_stat_activity` before it is released; one lands, the other is `stale`, and exactly one edit event is recorded | `services/api/test/draft-cas.test.ts` |
 | CAS-04 | An existing contract refusal test could skip its assertion | Replaced by an unconditional test on a dedicated draft that also checks the draft is unchanged | `draft-cas.test.ts` |
 
+## Round 2
+
+Codex confirmed CAS-01, CAS-03 and CAS-04 fixed ([draft-cas-codex-round2.md](draft-cas-codex-round2.md)). CAS-02 remained: awaiting the invalidation hides refetch errors, so a failed reload could still close the editor without the new tag. **Fixed**: the save's own response (the stored draft and its ETag header) goes straight into the page's cache before the editor closes, so the next edit always starts from the saved tag; the background refresh is only for everything else. Test: `criteria.test.tsx` mounts the real package query, fails the reload, and checks the second save sends the tag the first save returned.
+
 ## Required links
 
 [Execution ledger](../../../../../../docs/superpowers/execution/2026-10-29-workbench-buildout.md).

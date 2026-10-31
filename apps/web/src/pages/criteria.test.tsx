@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../api/client.js";
 import { describe, expect, it } from "vitest";
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
-import { pkg } from "../test/fixtures.js";
+import { pkg, view } from "../test/fixtures.js";
 import { Criteria } from "./PackagePage.js";
 
 /** Draft compare and swap in the criteria editor (workbench plan task 1.6). */
@@ -57,6 +59,39 @@ describe("criteria editor", () => {
     expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("My unsaved criterion");
     await user.click(screen.getByRole("button", { name: "Load the latest criteria" }));
     expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Their new criterion");
+  });
+
+  it("after a save, the next edit uses the saved tag even when the reload fails", async () => {
+    const saved = `"${"c".repeat(64)}"`;
+    const seen: (string | null)[] = [];
+    let gets = 0;
+    server.use(
+      http.get("*/packages/:id", () => {
+        gets += 1;
+        return gets === 1 ? HttpResponse.json(view({ draft_etag: TAG }, { status: "draft", acceptance_criteria: ["Loads within 5 percent"] }))
+          : HttpResponse.json({ code: "error", message: "down" }, { status: 500 });
+      }),
+      http.put("*/packages/:id", async ({ request }) => {
+        seen.push(request.headers.get("if-match"));
+        const body = (await request.json()) as { acceptance_criteria: string[] };
+        return HttpResponse.json({ ...draft, acceptance_criteria: body.acceptance_criteria }, { headers: { ETag: saved } });
+      }),
+    );
+    function Page() {
+      const q = useQuery({ queryKey: ["package", draft.id], queryFn: () => api.packageView(draft.id) });
+      return q.data ? <Criteria pkg={q.data.package} etag={q.data.draft_etag} enrolled={false} /> : null;
+    }
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.clear(screen.getByRole("textbox"));
+    await user.type(screen.getByRole("textbox"), "First save");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.clear(screen.getByRole("textbox"));
+    await user.type(screen.getByRole("textbox"), "Second save");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(seen).toEqual([TAG, saved]));
   });
 
   it("offers no edit without a tag", async () => {

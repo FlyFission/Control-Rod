@@ -138,11 +138,14 @@ export function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: str
   };
   const save = useMutation({
     mutationFn: (criteria: string[]) => api.updatePackage({ ...base!.pkg, acceptance_criteria: criteria }, base!.etag),
-    onSuccess: async () => {
-      // Stay in the editor until the fresh draft and its new tag have arrived.
-      await qc.invalidateQueries({ queryKey: ["package", pkg.id] });
+    onSuccess: ({ data, etag: saved }) => {
+      // The save answers with the draft as stored and its new tag; the page shows them at once, so a
+      // later edit never starts from the old tag, even if the background refresh fails.
+      qc.setQueryData<PackageView>(["package", pkg.id], (old) =>
+        old ? { ...old, package: data, ...(saved ? { draft_etag: saved } : {}) } : old);
       setEditing(false);
       setBase(null);
+      void qc.invalidateQueries({ queryKey: ["package", pkg.id] });
     },
   });
   const stale = save.error instanceof ApiError && save.error.code === "stale";

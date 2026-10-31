@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "MarkingOverride.json",
+    "type": "object",
+    "properties": {
+        "lane": {
+            "$ref": "DataLane.json"
+        },
+        "change_request_id": {
+            "$ref": "TenancyId.json"
+        }
+    },
+    "required": [
+        "lane",
+        "change_request_id"
+    ],
+    "description": "A declassification approved by a signed change request over an exact marking version.",
+    "unevaluatedProperties": false
+}

@@ -10,22 +10,16 @@ import { preparationForSubject, preparedReleaseGuard, persistReleaseManifest } f
 import { enrollPreparationTx, advancePreparationRevision } from "./preparation/store.js";
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
-import { admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
+import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
+import { covers, laneOf, markObject, mostSensitive, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
+import { Refusal } from "./refusal.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
 type Json = any;
 
-export class Refusal extends Error {
-  constructor(
-    readonly status: 400 | 401 | 403 | 404 | 409 | 428,
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+export { Refusal } from "./refusal.js";
 
 export interface WorkConfig {
   /** Repository root, for packs/. */
@@ -105,7 +99,10 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
         f.bytes,
       ]);
     }
-    if (classified) await queueRun(c, cfg, capture.id, 0, "intake", 1);
+    if (classified) {
+      await markObject(c, "capture", capture.id, lane, `classified at capture by ${user}`);
+      await queueRun(c, cfg, capture.id, 0, "intake", 1);
+    }
     await appendEvent(c, "capture.created", capture.id, { kind: "human", id: user }, {
       attachments: files.map((f) => f.name),
       ...(classified ? { lane } : { unclassified: true }),
@@ -126,11 +123,14 @@ export async function classifyCapture(db: Db, cfg: WorkConfig, user: string, id:
     const r = await c.query<{ body: Json }>("select body from captures where id = $1 for update", [id]);
     const cap = r.rows[0]?.body;
     if (!cap) throw new Refusal(404, "not-found", "No such capture");
-    if (cap.lane !== undefined && !raises(cap.lane, lane))
+    // Measured against the effective lane, which a declassification may have lowered.
+    const current = await laneOf(c, "capture", id, cap.lane);
+    if (current !== undefined && !raises(current, lane))
       throw new Refusal(409, "lowering-needs-change-request", "Lowering a data lane is a declassification; it needs a signed change request");
     const next = { ...cap, lane, classified_by: user, classified_at: now() };
     validate(cfg, "Capture.json", next);
     await c.query("update captures set body = $2 where id = $1", [id, next]);
+    await markObject(c, "capture", id, lane, `classified by ${user}`);
     if (cap.lane === undefined) await queueRun(c, cfg, id, 0, "intake", 1);
     await appendEvent(c, "capture.classified", id, { kind: "human", id: user }, { lane, ...(cap.lane ? { from: cap.lane } : {}) });
     return next;
@@ -228,8 +228,10 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     "select body from decisions where package_id = $1 order by created_at",
     [id],
   );
+  const lane = await laneOf(db, "package", id, pkg.body.data_lane);
   return {
     ...(pkg.status === "draft" ? { draft_etag: draftEtag(pkg.body) } : {}),
+    ...(lane ? { effective_lane: lane } : {}),
     package: { ...pkg.body, status: pkg.status },
     runs: runs.rows.map((r) => ({ ...r.body, status: r.status })),
     outputs: s.outputs.map((o) => ({ path: o.name, digest: { algorithm: "sha256", value: o.sha256 } })),
@@ -242,6 +244,12 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     preparation_enrolled: Boolean(s.preparation),
     preparation_release_ready: Boolean(cfg?.preparedRelease && s.preparation?.manifest && s.preparation.blockers.length===0),
   };
+}
+
+/** A package's effective lane, which every view and download shows (specification 11.3 M-3). */
+export async function packageLane(db: Db, id: string): Promise<DataLane | undefined> {
+  const pkg = await currentPackage(db, id);
+  return pkg ? laneOf(db, "package", id, pkg.body.data_lane) : undefined;
 }
 
 export async function packageOutput(db: Db, id: string, name: string) {
@@ -291,8 +299,13 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
     next.verification = pkg.body.verification;
     validate(cfg, "WorkPackage.json", next);
     await checkDependsOn(c, id, next);
+    // A draft's lane may be raised by editing it; lowering below the effective lane is a declassification.
+    const effective = await laneOf(c, "package", id, pkg.body.data_lane);
+    if (effective && !covers(next.data_lane, effective))
+      throw new Refusal(409, "lowering-needs-change-request", `This package is ${effective}; lowering its lane needs a signed change request`);
     await c.query("update packages set body = $3, updated_at = now() where id = $1 and revision = $2", [id, pkg.revision, next])
       .catch((e) => { throw dependencyRefusal(e); });
+    await markObject(c, "package", id, next.data_lane, `draft edited by ${user}`, packageInputs(next));
     await appendEvent(c, "package.edited", id, { kind: "human", id: user }, { revision: pkg.revision });
     return { body: next, etag: draftEtag(next) };
   });
@@ -403,6 +416,15 @@ async function checkDependsOn(c: Tx, id: string, body: Json): Promise<void> {
     if (!(await c.query("select 1 from packages where id = $1 limit 1", [target])).rowCount)
       throw new Refusal(400, "unknown-dependency", `This package depends on ${target}, which does not exist`);
   }
+}
+
+/** The objects a package is derived from, for its marking: its capture, dependencies and cited packages. */
+function packageInputs(body: Json, captureId?: string | null): Ref[] {
+  const refs: Ref[] = captureId ? [{ kind: "capture", id: captureId }] : [];
+  for (const d of body.depends_on ?? []) refs.push({ kind: "package", id: String(d.package_id) });
+  for (const d of body.design_inputs ?? [])
+    if (typeof d.doc === "string" && !d.doc.startsWith("attachment:") && d.doc !== body.id) refs.push({ kind: "package", id: d.doc });
+  return refs;
 }
 
 /** A dependency cycle or unknown target the database refused, as a clear answer. */
@@ -647,9 +669,10 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
             } else if (pkg.status !== "in-work") continue;
           }
           // The disclosure gate: only runtimes the package's lane admits may see it.
-          const offer = admitted(pkg.body.data_lane, runtimes);
+          const lane = await laneOf(c, "package", pkg.id, pkg.body.data_lane);
+          const offer = admitted(lane, runtimes);
           if (offer.length === 0) {
-            await holdRun(c, cfg, row, pkg.id, laneHoldReason(pkg.body.data_lane));
+            await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane));
             continue;
           }
           let runtime: string | null;
@@ -681,7 +704,8 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           return startRun(c, cfg, row, runtime, baseline);
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
-        const capLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1", [row.package_id])).rows[0]?.lane;
+        const bodyLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1", [row.package_id])).rows[0]?.lane;
+        const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
         const intakeOffer = admitted(capLane, runtimes);
         if (intakeOffer.length === 0) {
           await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane));
@@ -1243,10 +1267,14 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
         required_custody: { decisive_evidence_generated_by: "verifier", preparer_may_present: false },
       },
     };
+    // An agent never lowers a lane: a package is at least as sensitive as the request it came from.
+    const capLane = await laneOf(c, "capture", capture.id, capture.lane);
+    if (capLane && isLane(pkg.data_lane) && !covers(pkg.data_lane, capLane)) pkg.data_lane = capLane;
     validate(cfg, "WorkPackage.json", pkg);
     await checkDependsOn(c, String(pkg.id), pkg);
     await c.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'draft', $2, $3)", [pkg.id, capture.id, pkg])
       .catch((e) => { throw dependencyRefusal(e); });
+    await markObject(c, "package", String(pkg.id), pkg.data_lane, `drafted by intake from capture ${capture.id}`, packageInputs(pkg, capture.id));
     await appendEvent(c, "package.drafted", pkg.id, agent, { capture: capture.id });
     if(cfg.guidedPreparation) await enrollPreparationTx(c,cfg,SYSTEM,pkg.id as string,{package_revision:0,idempotency_key:`intake-${capture.id}-${pkg.id}`});
     created.push(pkg.id as string);
@@ -1648,9 +1676,16 @@ export async function listCaptures(db: Db) {
       order by c.created_at desc limit 200`,
   );
   const links=await db.query<{capture_id:string;id:string}>("select distinct capture_id,id from packages where capture_id=any($1::text[]) order by id",[r.rows.map(x=>x.body.id)]);
+  const marked = await db.query<{ id: string; lane: DataLane }>(
+    `select distinct on (object_id) object_id as id, coalesce(body->>'effective_lane', body->>'lane') as lane
+       from object_markings where object_kind = 'capture' and object_id = any($1::text[]) order by object_id, version desc`,
+    [r.rows.map((x) => x.body.id)]);
+  const lanes = new Map<string, DataLane>(marked.rows.map((m) => [m.id, m.lane]));
+  for (const x of r.rows) if (!lanes.has(x.body.id) && isLane(x.body.lane)) lanes.set(x.body.id, x.body.lane);
   return r.rows.map((x) => {
     const package_ids=links.rows.filter(p=>p.capture_id===x.body.id).map(p=>p.id);
-    const base={...x.body,...(package_ids.length?{package_ids}:{})};
+    const lane = lanes.get(x.body.id);
+    const base={...x.body,...(package_ids.length?{package_ids}:{}),...(lane?{effective_lane:lane}:{})};
     // Only a pending capture carries its intake state; an answered or packaged one is done.
     if (x.body.disposition !== "pending" || !x.run_id || !x.run_status) return base;
     const error = typeof x.run_body?.error === "string" ? x.run_body.error : undefined;

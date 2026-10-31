@@ -11,6 +11,8 @@ import {
   addMember, bindRepo, checkSchema, qualificationIdFor, createProject, currentCredential, currentPolicySet, currentQualification, memberIdFor,
   recordCredential, recordDelegation, recordPolicySet, recordQualification, setStatus,
 } from "./tenancy.js";
+import { isLane } from "./disclosure.js";
+import { covers, currentMarking, declassify, downstreamOf, effectiveLane, markObject } from "./markings.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
 
@@ -22,7 +24,7 @@ import { Refusal } from "./work.js";
  */
 
 export interface Caller { userName: string; memberId: string; orgId: string }
-type Need = "administrator" | "policy" | "administrator+policy" | "member";
+type Need = "administrator" | "policy" | "administrator+policy" | "lane" | "member";
 
 interface AdminCommand {
   catalog: CommandName;
@@ -70,6 +72,22 @@ async function administrators(c: Tx, orgId: string, except: string[] = []): Prom
     if (m.status === "active") ids.push(q.member_id);
   }
   return ids;
+}
+
+/**
+ * An object's current marking. Captures and packages classified before markings existed get their
+ * version 1 now, from the lane their record carries.
+ */
+async function markingFor(c: Tx, kind: string, id: string) {
+  const m = await currentMarking(c, kind, id);
+  if (m) return m;
+  const lane = kind === "capture"
+    ? (await c.query<{ lane: string }>("select body->>'lane' as lane from captures where id = $1", [id])).rows[0]?.lane
+    : kind === "package"
+      ? (await c.query<{ lane: string }>("select body->>'data_lane' as lane from packages where id = $1 order by revision desc limit 1", [id])).rows[0]?.lane
+      : undefined;
+  if (!isLane(lane)) throw new Refusal(404, "not-found", "No classified object of that kind and id");
+  return markObject(c, kind, id, lane, "marked from its recorded lane");
 }
 
 /** Refuses unless the caller is an active Member holding what the command needs. */
@@ -445,6 +463,52 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       }, actorOf(caller));
       await transition(c, "change_request", id, "approved", actorOf(caller), `policy set version ${record.version}`);
       return record;
+    },
+  },
+
+  "marking.propose-declassification": {
+    catalog: "admin.marking-propose", signature: "none", need: "member",
+    async run(c, caller, p) {
+      const kind = str(p, "object_kind")!;
+      const id = str(p, "object_id")!;
+      const lane = p.lane;
+      if (!isLane(lane)) throw new Refusal(400, "invalid", "Choose the lane to declassify to");
+      const m = await markingFor(c, kind, id);
+      if (covers(lane, effectiveLane(m))) throw new Refusal(409, "not-lower", `This is already ${effectiveLane(m)}; a declassification only lowers`);
+      // The proposal names the exact marking version, and lists everything downstream before approval.
+      const proposal = { object_kind: kind, object_id: id, version: m.version, from: effectiveLane(m), lane };
+      const impact = (await downstreamOf(c, kind, id)).map((d) => `${d.kind}/${d.id}`);
+      const cr = {
+        id: idFor("cr"), org_id: caller.orgId, kind: "declassification", subject_digest: { algorithm: "sha256", value: digest(proposal) },
+        reason: str(p, "reason")!, impact, proposed_by: actorOf(caller), status: "proposed", proposal,
+      };
+      await recordObject(c, "change_request", cr as never, actorOf(caller));
+      return cr;
+    },
+  },
+
+  "marking.approve-declassification": {
+    catalog: "admin.marking-approve", signature: "direct", need: "lane",
+    async run(c, caller, p) {
+      const id = str(p, "change_request_id")!;
+      const cr = await getObject<{ org_id: string; kind: string; status: string; subject_digest: { value: string }; impact: string[];
+        proposal?: { object_kind: string; object_id: string; version: number; lane: string } }>(c, "change_request", id);
+      if (!cr || cr.org_id !== caller.orgId || cr.kind !== "declassification") throw new Refusal(404, "not-found", "No such declassification request");
+      if (cr.status !== "proposed") throw new Refusal(409, "not-proposed", "This change request is no longer open");
+      const prop = cr.proposal;
+      if (!prop || digest(prop) !== cr.subject_digest.value || !isLane(prop.lane)) throw new Refusal(409, "proposal-mismatch", "The proposal does not match its digest");
+      const impact = (await downstreamOf(c, prop.object_kind, prop.object_id)).map((d) => `${d.kind}/${d.id}`);
+      if (impact.join("\n") !== cr.impact.join("\n"))
+        throw new Refusal(409, "impact-changed", "What depends on this changed since the request was made; propose it again so the impact is current");
+      const marking = await declassify(c, prop.object_kind, prop.object_id, prop.version, prop.lane, id);
+      // A capture's lane is its own record and may be corrected; a package's signed body never is.
+      if (prop.object_kind === "capture")
+        await c.query("update captures set body = jsonb_set(body, '{lane}', to_jsonb($2::text)) where id = $1", [prop.object_id, prop.lane]);
+      await transition(c, "change_request", id, "approved", actorOf(caller), `declassified to ${prop.lane}`);
+      await appendEvent(c, "marking.declassified", `${prop.object_kind}/${prop.object_id}`, actorOf(caller), {
+        change_request: id, from_version: prop.version, version: marking.version, lane: prop.lane, impact,
+      });
+      return marking;
     },
   },
 

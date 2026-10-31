@@ -3524,6 +3524,10 @@
           },
           "intake": {
             "$ref": "#/components/schemas/Captures.IntakeState"
+          },
+          "effective_lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane",
+            "description": "The capture's effective lane (specification 11.3 M-3), shown wherever it appears."
           }
         }
       },
@@ -6353,6 +6357,10 @@
           "draft_etag": {
             "type": "string",
             "description": "Strong ETag of the current draft's content; send it as If-Match to edit the draft."
+          },
+          "effective_lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane",
+            "description": "The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1)."
           },
           "preparation_enabled": {
             "type": "boolean"

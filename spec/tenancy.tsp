@@ -294,7 +294,11 @@ model OwnershipEnvelope {
   project_id?: TenancyId;
 }
 
-/** The lane an object carried when it was created. Immutable; effective markings are derived. */
+/**
+ * One version of an object's marking (workbench specification 11.3 M-1, M-2). `lane` is the lane the
+ * object carried when it was created and is the same in every version. Each later version records
+ * why the effective lane was computed again; no version is ever edited.
+ */
 @extension("unevaluatedProperties", false)
 model MarkingEnvelope {
   object_kind: string;
@@ -305,4 +309,39 @@ model MarkingEnvelope {
 
   lane: DataLane;
   reason: string;
+
+  /** A lane a person with lane authority raised the object to. Never lower than an earlier one. */
+  assigned?: DataLane;
+
+  /** The input marking versions the effective lane was computed from (provenance edges). */
+  inputs?: MarkingInput[];
+
+  /** An approved declassification of this object: it then contributes this lane, whatever its inputs. */
+  override?: MarkingOverride;
+
+  /**
+   * The most sensitive of the assigned (or creation) lane and every input's effective lane, or the
+   * override's lane. Absent on versions recorded before task 1.9, where it equals `lane`.
+   */
+  effective_lane?: DataLane;
+
+  /** The approved change request that caused this version, when one did. */
+  change_request_id?: TenancyId;
+}
+
+/** A provenance edge: the marking version of an object another object was derived from. */
+@extension("unevaluatedProperties", false)
+model MarkingInput {
+  object_kind: string;
+  object_id: string;
+
+  @minValue(1)
+  version: int32;
+}
+
+/** A declassification approved by a signed change request over an exact marking version. */
+@extension("unevaluatedProperties", false)
+model MarkingOverride {
+  lane: DataLane;
+  change_request_id: TenancyId;
 }

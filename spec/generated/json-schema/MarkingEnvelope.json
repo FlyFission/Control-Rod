@@ -19,6 +19,29 @@
         },
         "reason": {
             "type": "string"
+        },
+        "assigned": {
+            "$ref": "DataLane.json",
+            "description": "A lane a person with lane authority raised the object to. Never lower than an earlier one."
+        },
+        "inputs": {
+            "type": "array",
+            "items": {
+                "$ref": "MarkingInput.json"
+            },
+            "description": "The input marking versions the effective lane was computed from (provenance edges)."
+        },
+        "override": {
+            "$ref": "MarkingOverride.json",
+            "description": "An approved declassification of this object: it then contributes this lane, whatever its inputs."
+        },
+        "effective_lane": {
+            "$ref": "DataLane.json",
+            "description": "The most sensitive of the assigned (or creation) lane and every input's effective lane, or the\noverride's lane. Absent on versions recorded before task 1.9, where it equals `lane`."
+        },
+        "change_request_id": {
+            "$ref": "TenancyId.json",
+            "description": "The approved change request that caused this version, when one did."
         }
     },
     "required": [
@@ -28,6 +51,6 @@
         "lane",
         "reason"
     ],
-    "description": "The lane an object carried when it was created. Immutable; effective markings are derived.",
+    "description": "One version of an object's marking (workbench specification 11.3 M-1, M-2). `lane` is the lane the\nobject carried when it was created and is the same in every version. Each later version records\nwhy the effective lane was computed again; no version is ever edited.",
     "unevaluatedProperties": false
 }

@@ -697,6 +697,8 @@ export interface components {
             classified_at?: string;
             package_ids?: string[];
             intake?: components["schemas"]["Captures.IntakeState"];
+            /** @description The capture's effective lane (specification 11.3 M-3), shown wherever it appears. */
+            effective_lane?: components["schemas"]["ControlRod.Records.DataLane"];
         };
         /** @description Classifies a capture's data lane. Needs lane authority; a capture's lane can be raised, never lowered here. */
         "Captures.Classification": {
@@ -1490,6 +1492,8 @@ export interface components {
         PackageView: {
             /** @description Strong ETag of the current draft's content; send it as If-Match to edit the draft. */
             draft_etag?: string;
+            /** @description The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1). */
+            effective_lane?: components["schemas"]["ControlRod.Records.DataLane"];
             preparation_enabled?: boolean;
             preparation_enrolled?: boolean;
             preparation_release_ready?: boolean;

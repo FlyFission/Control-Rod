@@ -42,6 +42,7 @@ import {
   overrideChallenge,
   overrideIndependence,
   overrideSubject,
+  packageLane,
   packageOutput,
   packageView,
   recordRuntimeStatus,
@@ -308,6 +309,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
     const type = MIME[ext];
     reply.header("content-type", type ?? "application/octet-stream").header("x-content-type-options", "nosniff");
+    const lane = await packageLane(db, req.params.id);
+    if (lane) reply.header("x-controlrod-lane", lane);
     // Agent outputs are untrusted. Anything a browser could run as a document (SVG, HTML, XML)
     // is served in a sandbox with an opaque origin and no script, so it can never act with the
     // owner's session. PDFs open in the browser's own viewer, which has no access to this origin.

@@ -755,11 +755,19 @@
       },
       "put": {
         "operationId": "Packages_update",
-        "description": "Edit a draft. Released revisions are never edited; return them to make a new draft.",
+        "description": "Edit a draft. Released revisions are never edited; return them to make a new draft. Requires If-Match with the current draft_etag: 428 without it, 409 when stale.",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
             "required": true,
             "schema": {
               "type": "string"
@@ -6182,6 +6190,10 @@
           "subject_digest"
         ],
         "properties": {
+          "draft_etag": {
+            "type": "string",
+            "description": "Strong ETag of the current draft's content; send it as If-Match to edit the draft."
+          },
           "preparation_enabled": {
             "type": "boolean"
           },

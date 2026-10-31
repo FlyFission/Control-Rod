@@ -98,7 +98,8 @@ export const api = {
     ),
   packages: () => call<WorkPackage[]>("GET", "/packages"),
   packageView: (id: string) => call<PackageView>("GET", `/packages/${enc(id)}`),
-  updatePackage: (pkg: WorkPackage) => call<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg),
+  /** Saves a draft the caller loaded with `etag`; a stale tag is refused so no edit is lost. */
+  updatePackage: (pkg: WorkPackage, etag: string) => call<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg, { "if-match": etag }),
   runLog: (id: string, runId: string) =>
     call<{ lines: string[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/log`),
   stopRun: (id: string, runId: string) => call<Run>("POST", `/packages/${enc(id)}/runs/${enc(runId)}/stop`),

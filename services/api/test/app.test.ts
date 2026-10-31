@@ -263,7 +263,7 @@ describe("the record", () => {
     const id = pkgs[0].id;
     const view = (await asOwner("GET", `/packages/${id}`)).json();
     if (view.package.status === "draft") {
-      const r = await asOwner("PUT", `/packages/${id}`, { ...view.package, approved_by_agent: true });
+      const r = await h.app.inject({ method: "PUT", url: `/packages/${id}`, headers: { cookie, origin: ORIGIN, "if-match": view.draft_etag }, payload: { ...view.package, approved_by_agent: true } });
       expect(r.statusCode).toBe(400);
     }
   });

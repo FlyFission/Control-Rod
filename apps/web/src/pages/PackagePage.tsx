@@ -83,7 +83,7 @@ export function PackagePage({ id }: { id: string }) {
             )}
           </section>
           <PreparationPanel pkg={pkg} enabled={view.preparation_enabled ?? false} enrolled={view.preparation_enrolled ?? false} />
-          <Criteria pkg={pkg} enrolled={view.preparation_enrolled ?? false} />
+          <Criteria pkg={pkg} etag={view.draft_etag} enrolled={view.preparation_enrolled ?? false} />
           <section className="panel" aria-labelledby="runs-title">
             <h2 id="runs-title">Runs</h2>
             {view.runs.length === 0 && <p className="muted">No runs yet.</p>}
@@ -113,14 +113,14 @@ export function PackagePage({ id }: { id: string }) {
 }
 
 /** Acceptance criteria. Editable while the package is a draft; fixed once released. */
-function Criteria({ pkg, enrolled }: { pkg: WorkPackage; enrolled:boolean }) {
+function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: string | undefined; enrolled:boolean }) {
   const qc = useQueryClient();
-  const editable = pkg.status === "draft" && !enrolled;
+  const editable = pkg.status === "draft" && !enrolled && etag !== undefined;
   const [text, setText] = useState(pkg.acceptance_criteria.join("\n"));
   const [editing, setEditing] = useState(false);
   useEffect(() => setText(pkg.acceptance_criteria.join("\n")), [pkg.acceptance_criteria]);
   const save = useMutation({
-    mutationFn: (criteria: string[]) => api.updatePackage({ ...pkg, acceptance_criteria: criteria }),
+    mutationFn: (criteria: string[]) => api.updatePackage({ ...pkg, acceptance_criteria: criteria }, etag!),
     onSuccess: () => {
       setEditing(false);
       void qc.invalidateQueries({ queryKey: ["package", pkg.id] });

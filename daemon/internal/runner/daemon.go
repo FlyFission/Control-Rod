@@ -290,6 +290,17 @@ func (d *Daemon) probeLoop(ctx context.Context) {
 	}
 }
 
+// probedArtifact is the executable the last probe checked for a runtime, if any.
+func (d *Daemon) probedArtifact(runtime string) *RuntimeArtifact {
+	for _, s := range d.runtimeStatus() {
+		if s.Runtime == runtime && s.Artifact != nil {
+			a := *s.Artifact
+			return &a
+		}
+	}
+	return nil
+}
+
 func (d *Daemon) runtimeStatus() []RuntimeStatus {
 	d.probeMu.Lock()
 	defer d.probeMu.Unlock()
@@ -798,6 +809,20 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		}
 	}
 	cmd, err := Command(runtime, job.Run, ws)
+	var launched *Digest
+	if err == nil && cmd != nil && runtime != RuntimeFake {
+		// Launch by digest (specification 21): the exact file the pin (or, unpinned, the last probe)
+		// names, checked again now, executed by its absolute path.
+		path, dig, verr := VerifyLaunch(runtime, job.RuntimePin, d.probedArtifact(runtime))
+		if verr != nil {
+			err = verr
+			if job.RuntimePin == nil {
+				d.probe(context.Background())
+			}
+		} else {
+			cmd.Path, cmd.Args[0], launched = path, path, &dig
+		}
+	}
 	if err == nil {
 		if cmd == nil {
 			buf.add(`{"type":"result","subtype":"fake-copy"}`)
@@ -930,7 +955,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		PackageID:       job.Run.PackageID,
 		PackageRevision: job.Run.PackageRevision,
 		AgentBaseline:   job.Run.AgentBaseline,
-		Tool:            ToolRef{Name: bin, Version: version},
+		Tool:            ToolRef{Name: bin, Version: version, Digest: launched},
 		Inputs:          inArts,
 		Outputs:         outArts,
 		StartedAt:       started.Format(time.RFC3339),

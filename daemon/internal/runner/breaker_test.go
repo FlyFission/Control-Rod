@@ -6,7 +6,9 @@ import (
 	"time"
 )
 
-func call(tool, digest string) Event { return Event{Kind: EvToolStart, Tool: tool, InputDigest: digest, Summary: "Run: x"} }
+func call(tool, digest string) Event {
+	return Event{Kind: EvToolStart, Tool: tool, InputDigest: digest, Summary: "Run: x"}
+}
 
 func TestBreakerWarnsThenTripsOnRepetition(t *testing.T) {
 	b := NewBreaker(BreakerPolicy{RepeatWarn: 3, RepeatTrip: 5}, t0)

@@ -460,6 +460,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/runs/{runId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The run's story: its normalized events in order, after a sequence number. */
+        get: operations["Packages_runEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/runs/{runId}/log": {
         parameters: {
             query?: never;
@@ -1407,6 +1424,35 @@ export interface components {
          * @enum {string}
          */
         "ControlRod.Records.Mode": "general" | "software" | "capital-projects";
+        /**
+         * @description One normalized thing an agent did (specification 20), built by the daemon from each runtime's own
+         *     output so the browser only renders. Text is clipped; tool inputs are kept as a digest and a short
+         *     plain summary, never in full.
+         */
+        "ControlRod.Records.NormalizedEvent": {
+            /** @enum {string} */
+            kind: "message" | "tool_start" | "tool_end" | "file_change" | "permission_request" | "usage" | "error" | "exit" | "dropped" | "notice";
+            /** Format: date-time */
+            at: string;
+            tool?: string;
+            summary?: string;
+            input_digest?: string;
+            call_id?: string;
+            ok?: boolean;
+            path?: string;
+            text?: string;
+            /** Format: int32 */
+            input_tokens?: number;
+            /** Format: int32 */
+            output_tokens?: number;
+            /** Format: int32 */
+            cached_tokens?: number;
+            /**
+             * Format: int32
+             * @description How many events admission refused before this one (kind dropped).
+             */
+            dropped?: number;
+        };
         "ControlRod.Records.OutcomeUnknown": {
             /** Format: date-time */
             since: string;
@@ -1597,6 +1643,13 @@ export interface components {
              *     of restarts keeps a dead run running.
              */
             grace_renewals?: number;
+            /**
+             * @description Whether this run can show that it needs a person's permission (plan task 2.9). observed: a
+             *     Claude Code PermissionRequest hook reports each request. not-observable: Codex exec mode gives
+             *     no such signal, so a refused action shows only as a failed tool call.
+             * @enum {string}
+             */
+            permission_waits?: "observed" | "not-observable";
         };
         /** @enum {string} */
         "ControlRod.Records.RunRole": "intake" | "author" | "pre-check" | "requirements-preparer" | "technical-preparer";
@@ -3831,6 +3884,91 @@ export interface operations {
             };
         };
     };
+    Packages_runEvents: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        events: {
+                            /** Format: int32 */
+                            seq: number;
+                            event: components["schemas"]["ControlRod.Records.NormalizedEvent"];
+                        }[];
+                    };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Packages_runLog: {
         parameters: {
             query?: never;
@@ -5005,6 +5143,8 @@ export interface operations {
                     label?: string;
                     /** @description The spawn receipt, sent until the control plane has recorded it. */
                     receipt?: components["schemas"]["ControlRod.Records.OwnershipReceipt"];
+                    /** @description Normalized events since the last post. */
+                    events?: components["schemas"]["ControlRod.Records.NormalizedEvent"][];
                 };
             };
         };

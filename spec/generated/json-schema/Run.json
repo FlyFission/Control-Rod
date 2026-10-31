@@ -116,6 +116,19 @@
             "minimum": 0,
             "maximum": 2147483647,
             "description": "Lease renewals granted without a heartbeat (after a controller restart, a machine sleep or an\napparent outage). At most one is granted until a heartbeat proves the run alive, so no number\nof restarts keeps a dead run running."
+        },
+        "permission_waits": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "observed"
+                },
+                {
+                    "type": "string",
+                    "const": "not-observable"
+                }
+            ],
+            "description": "Whether this run can show that it needs a person's permission (plan task 2.9). observed: a\nClaude Code PermissionRequest hook reports each request. not-observable: Codex exec mode gives\nno such signal, so a refused action shows only as a failed tool call."
         }
     },
     "required": [

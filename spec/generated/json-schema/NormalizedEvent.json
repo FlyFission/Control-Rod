@@ -1,0 +1,109 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "NormalizedEvent.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "message"
+                },
+                {
+                    "type": "string",
+                    "const": "tool_start"
+                },
+                {
+                    "type": "string",
+                    "const": "tool_end"
+                },
+                {
+                    "type": "string",
+                    "const": "file_change"
+                },
+                {
+                    "type": "string",
+                    "const": "permission_request"
+                },
+                {
+                    "type": "string",
+                    "const": "usage"
+                },
+                {
+                    "type": "string",
+                    "const": "error"
+                },
+                {
+                    "type": "string",
+                    "const": "exit"
+                },
+                {
+                    "type": "string",
+                    "const": "dropped"
+                },
+                {
+                    "type": "string",
+                    "const": "notice"
+                }
+            ]
+        },
+        "at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "tool": {
+            "type": "string",
+            "maxLength": 60
+        },
+        "summary": {
+            "type": "string",
+            "maxLength": 120
+        },
+        "input_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+        },
+        "call_id": {
+            "type": "string",
+            "maxLength": 80
+        },
+        "ok": {
+            "type": "boolean"
+        },
+        "path": {
+            "type": "string",
+            "maxLength": 2100
+        },
+        "text": {
+            "type": "string",
+            "maxLength": 2100
+        },
+        "input_tokens": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "output_tokens": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "cached_tokens": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "dropped": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "How many events admission refused before this one (kind dropped)."
+        }
+    },
+    "required": [
+        "kind",
+        "at"
+    ],
+    "description": "One normalized thing an agent did (specification 20), built by the daemon from each runtime's own\noutput so the browser only renders. Text is clipped; tool inputs are kept as a digest and a short\nplain summary, never in full.",
+    "unevaluatedProperties": false
+}

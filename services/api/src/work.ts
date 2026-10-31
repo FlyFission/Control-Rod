@@ -900,6 +900,49 @@ async function renewLease(c: Tx, cfg: WorkConfig, row: { id: string; package_id:
   return lease;
 }
 
+/** The most normalized events one run keeps; past it a single dropped marker records the overflow. */
+const MAX_RUN_EVENTS = 20000;
+
+/**
+ * Stores a log post's normalized events in order (specification 20). A permission request becomes
+ * a run.waiting event naming the tool and the digest of its input (plan task 2.9), and a breaker
+ * notice becomes run.breaker, so both reach the office and the stream.
+ */
+async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown): Promise<void> {
+  if (!Array.isArray(raw)) throw new Refusal(400, "invalid", "events must be a list");
+  if (raw.length > 500) throw new Refusal(400, "too-many-lines", "Send at most 500 events per batch");
+  for (const e of raw) validate(cfg, "NormalizedEvent.json", e);
+  const next = (await c.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from run_events where run_id = $1", [row.id])).rows[0]!.n;
+  let seq = next;
+  for (const e of raw as Json[]) {
+    if (seq >= MAX_RUN_EVENTS) {
+      if (seq === MAX_RUN_EVENTS) {
+        seq++;
+        await c.query("insert into run_events (run_id, seq, body) values ($1, $2, $3)",
+          [row.id, seq, { kind: "notice", at: now(), text: `This run produced more than ${MAX_RUN_EVENTS} events; later ones are in the raw log only.` }]);
+      }
+      break;
+    }
+    seq++;
+    await c.query("insert into run_events (run_id, seq, body) values ($1, $2, $3)", [row.id, seq, e]);
+    const agent: Actor = { kind: "agent", id: row.body.agent_baseline };
+    if (e.kind === "permission_request")
+      await appendEvent(c, "run.waiting", row.id, agent, { package: row.package_id, role: row.role, tool: e.tool, summary: e.summary,
+        input_digest: e.input_digest, observed: "PermissionRequest hook; print mode refuses the tool, so the run continues without it" });
+    if (e.kind === "notice" && typeof e.text === "string" && e.text.startsWith("Breaker"))
+      await appendEvent(c, "run.breaker", row.id, agent, { package: row.package_id, role: row.role, text: e.text });
+  }
+}
+
+/** A run's normalized events after a sequence number, in order (the run story; the raw log is beside it). */
+export async function runEvents(db: Db, packageId: string, runId: string, after = 0) {
+  const r = await db.query<{ package_id: string }>("select package_id from runs where id = $1", [runId]);
+  if (!r.rows[0] || r.rows[0].package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+  const ev = await db.query<{ seq: number; body: Json }>(
+    "select seq, body from run_events where run_id = $1 and seq > $2 order by seq limit 2000", [runId, Math.max(0, Math.floor(after))]);
+  return { events: ev.rows.map((x) => ({ seq: x.seq, event: x.body })) };
+}
+
 /** At most this many lease renewals without a heartbeat; a heartbeat resets the count. */
 const MAX_GRACE_RENEWALS = 1;
 
@@ -1072,6 +1115,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     started_at: now(),
     label: "Starting",
     lease_expires_at: lease,
+    ...(runtime === "claude" ? { permission_waits: "observed" } : runtime === "codex" ? { permission_waits: "not-observable" } : {}),
   };
   delete body.waiting_reason;
   validate(cfg, "Run.json", body);
@@ -1115,7 +1159,7 @@ const LABEL_MAX = 120;
  * A log batch from the daemon, which is also its heartbeat: it renews the lease. The reply tells
  * the daemon whether the owner asked to stop the run.
  */
-export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string, receipt?: unknown) {
+export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string, receipt?: unknown, events?: unknown) {
   return command(db, "run.log", async (c) => {
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
@@ -1147,6 +1191,7 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
       }
     }
     validate(cfg, "Run.json", body);
+    if (events !== undefined) await recordRunEvents(c, cfg, row, events);
     await c.query("update runs set log = log || $2::text[], body = $3, lease_expires_at = $4 where id = $1", [
       runId,
       lines.map((l) => l.slice(0, 4000)),

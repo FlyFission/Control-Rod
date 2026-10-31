@@ -2,7 +2,9 @@ package runner
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -127,14 +129,55 @@ func CodexArgs(ws *Workspace, model string, network bool) []string {
 	return append(args, Prompt)
 }
 
-// ClaudeArgs is the argument list for a Claude Code run in headless print mode.
+// ClaudeArgs is the argument list for a Claude Code run in headless print mode. With a hook file,
+// a PermissionRequest hook records each permission request there (spike S-3 showed the hook fires
+// in print mode and the tool is refused, so this observes a refusal; it is not an approval channel).
 func ClaudeArgs(ws *Workspace, model string) []string {
 	args := []string{"-p", Prompt, "--output-format", "stream-json", "--verbose",
 		"--permission-mode", ClaudePermissionMode, "--allowedTools", allowedTools(ws)}
 	if model != "" {
 		args = append(args, "--model", model)
 	}
+	if ws.HookFile != "" {
+		args = append(args, "--settings", PermissionHookSettings(ws.HookFile))
+	}
 	return args
+}
+
+// PermissionHookSettings is the --settings value that appends each PermissionRequest hook payload,
+// one JSON object per line, to file.
+func PermissionHookSettings(file string) string {
+	quoted := "'" + strings.ReplaceAll(file, "'", `'\''`) + "'"
+	settings := map[string]any{"hooks": map[string]any{"PermissionRequest": []any{map[string]any{
+		"matcher": "*",
+		"hooks":   []any{map[string]any{"type": "command", "command": "{ cat; echo; } >> " + quoted}},
+	}}}}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	_ = enc.Encode(settings)
+	return strings.TrimSpace(buf.String())
+}
+
+// PermissionEvents reads hook payloads (one JSON object per line) into permission_request events.
+func PermissionEvents(data []byte, now time.Time) []Event {
+	var out []Event
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var p struct {
+			Tool  string         `json:"tool_name"`
+			Input map[string]any `json:"tool_input"`
+		}
+		if json.Unmarshal([]byte(line), &p) != nil || p.Tool == "" {
+			continue
+		}
+		out = append(out, Event{Kind: EvPermission, At: now.UTC().Format(time.RFC3339Nano), Tool: token(p.Tool, 60),
+			Summary: toolLabel(p.Tool, p.Input), InputDigest: digestOf(p.Input)})
+	}
+	return out
 }
 
 // ClaudePermissionMode is the permission mode every Claude Code run starts in.

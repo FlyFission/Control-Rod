@@ -1,6 +1,11 @@
 package runner
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -89,5 +94,88 @@ func TestAdmissionCountsWhatItRefuses(t *testing.T) {
 	later := a.Admit([]Event{{Kind: EvMessage, At: "y"}}, t0.Add(5*time.Second))
 	if len(later) != 2 || later[0].Kind != EvDropped || later[0].Dropped != 7 || later[1].Kind != EvMessage {
 		t.Fatalf("got %+v", later)
+	}
+}
+
+func TestPermissionHookSettingsAndPayloads(t *testing.T) {
+	var settings struct {
+		Hooks map[string][]struct {
+			Matcher string `json:"matcher"`
+			Hooks   []struct{ Type, Command string }
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal([]byte(PermissionHookSettings("/home/x/it's/hooks.jsonl")), &settings); err != nil {
+		t.Fatal(err)
+	}
+	hook := settings.Hooks["PermissionRequest"][0]
+	if hook.Matcher != "*" || hook.Hooks[0].Type != "command" || hook.Hooks[0].Command != `{ cat; echo; } >> '/home/x/it'\''s/hooks.jsonl'` {
+		t.Fatalf("settings %+v", settings)
+	}
+	ws := &Workspace{Dir: "/w", Inputs: "/w/inputs", Out: "/w/out", HookFile: "/h/r.jsonl"}
+	args := strings.Join(ClaudeArgs(ws, ""), " ")
+	if !strings.Contains(args, "--settings") {
+		t.Fatal("a hook file must be passed to Claude Code as settings")
+	}
+	payload := `{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"}}` + "\n" + `not json` + "\n"
+	got := PermissionEvents([]byte(payload), t0)
+	if len(got) != 1 || got[0].Kind != EvPermission || got[0].Tool != "Bash" || got[0].Summary != "Run: rm" || len(got[0].InputDigest) != 64 {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestDaemonSendsNormalizedEventsAndTheExit(t *testing.T) {
+	home := t.TempDir()
+	script := `echo '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Write","input":{"file_path":"out/r.md"}}]}}'; echo done > out/r.md`
+	job := &Job{Run: testRun("run-events", "author"), Inputs: []NamedFile{{Name: "BRIEF.md", ContentBase64: b64("x")}, {Name: "FAKE.sh", ContentBase64: b64(script)}}}
+	api, srv := newFakeAPI(t, job)
+	var logs bytes.Buffer
+	cancel, stopped := startDaemon(t, srv, home, time.Minute, &logs)
+	api.wait(t, 1)
+	cancel()
+	<-stopped
+	api.mu.Lock()
+	defer api.mu.Unlock()
+	var kinds []string
+	for _, b := range api.logs["run-events"] {
+		for _, e := range b.Events {
+			kinds = append(kinds, e.Kind)
+		}
+	}
+	if got := strings.Join(kinds, ","); got != "tool_start,exit" {
+		t.Fatalf("events %q", got)
+	}
+}
+
+func TestBreakerStopsARunawayRun(t *testing.T) {
+	home := t.TempDir()
+	line := `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t","name":"Bash","input":{"command":"ls"}}]}}`
+	script := `for i in $(seq 1 50); do echo '` + line + `'; sleep 0.02; done; sleep 30`
+	job := &Job{Run: testRun("run-runaway", "author"), Inputs: []NamedFile{{Name: "BRIEF.md", ContentBase64: b64("x")}, {Name: "FAKE.sh", ContentBase64: b64(script)}}}
+	api, srv := newFakeAPI(t, job)
+	d := New(Config{API: srv.URL, Token: testToken, Home: home, Parallel: 1, Timeout: time.Minute, PollInterval: 20 * time.Millisecond,
+		LogInterval: 20 * time.Millisecond, Runtimes: []string{RuntimeFake}, StopAfterHangup: 100 * time.Millisecond, StopGrace: 500 * time.Millisecond,
+		Breaker: &BreakerPolicy{RepeatWarn: 3, RepeatTrip: 6}, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	go func() { _ = d.Run(ctx); close(stopped) }()
+	api.wait(t, 1)
+	cancel()
+	<-stopped
+	api.mu.Lock()
+	defer api.mu.Unlock()
+	c := api.done["run-runaway"]
+	if c.Status != "failed" || !strings.Contains(c.Error, "breaker: the same Bash call with the same input 6 times in a row") {
+		t.Fatalf("completion %q %q", c.Status, c.Error)
+	}
+	var notices []string
+	for _, b := range api.logs["run-runaway"] {
+		for _, e := range b.Events {
+			if e.Kind == EvNotice {
+				notices = append(notices, e.Text)
+			}
+		}
+	}
+	if len(notices) != 2 || !strings.HasPrefix(notices[0], "Breaker warning") || !strings.HasPrefix(notices[1], "Breaker tripped") {
+		t.Fatalf("notices %v", notices)
 	}
 }

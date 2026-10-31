@@ -47,7 +47,7 @@ describe("bootstrap", () => {
     const state = (await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } })).json();
     expect(state.bootstrap).toBe(false);
     expect(state.themes).toContain("corner-cafe");
-    expect(state.qualification).toMatchObject({ version: 1, authorities: ["administrator", "lane", "policy"], roles: [], reason: "founding member of the organization" });
+    expect(state.qualification).toMatchObject({ version: 1, authorities: ["administrator", "lane", "policy"], roles: ["originator", "checker", "approver"], grades: ["general-service"], disciplines: [], licenses: [], reason: "founding member of the organization" });
     const r = await signed(ben, benKey, "qualification.issue", fullQualification(BEN));
     expect(r.statusCode, r.body).toBe(200);
     expect(r.json()).toMatchObject({ id: qualificationIdFor(BEN), version: 2, roles: ["checker", "approver"] });

@@ -27,6 +27,23 @@
         "discipline": {
             "type": "string"
         },
+        "grade": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "safety"
+                },
+                {
+                    "type": "string",
+                    "const": "material"
+                },
+                {
+                    "type": "string",
+                    "const": "general-service"
+                }
+            ],
+            "description": "The quality grade signers must hold (workbench specification 5.2). Absent means General service,\nas for every package drafted before grades existed."
+        },
         "status": {
             "$ref": "PackageStatus.json"
         },

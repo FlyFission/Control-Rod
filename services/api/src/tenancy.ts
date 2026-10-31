@@ -344,8 +344,12 @@ export async function grantFoundingAuthorities(c: Tx, orgId: string): Promise<bo
   const first = (await c.query<{ id: string }>("select id from members where org_id = $1 and body->>'status' = 'active' order by created_at, id limit 1", [orgId])).rows[0];
   if (!first) return false;
   await recordQualification(c, {
-    id: qualificationIdFor(first.id), org_id: orgId, member_id: first.id, licenses: [], disciplines: [], grades: [], roles: [],
-    authorities: ["administrator", "lane", "policy"], revoked: false, reason: "founding member of the organization",
+    // Enough to run a General service package end to end on a fresh install: originate, check and
+    // approve. Safety and Material grades, disciplines and licenses are facts only the person can
+    // record, so they start empty.
+    id: qualificationIdFor(first.id), org_id: orgId, member_id: first.id, licenses: [], disciplines: [], grades: ["general-service"],
+    roles: ["originator", "checker", "approver"], authorities: ["administrator", "lane", "policy"], revoked: false,
+    reason: "founding member of the organization",
   }, FOUNDING_ACTOR);
   return true;
 }

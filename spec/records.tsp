@@ -194,6 +194,13 @@ model WorkPackage {
   project: string;
   mode: Mode;
   discipline?: string;
+
+  /**
+   * The quality grade signers must hold (workbench specification 5.2). Absent means General service,
+   * as for every package drafted before grades existed.
+   */
+  grade?: "safety" | "material" | "general-service";
+
   status: PackageStatus;
   rigor_mode: RigorMode;
   data_lane: DataLane;

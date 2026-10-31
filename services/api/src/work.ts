@@ -14,6 +14,7 @@ import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, rais
 import { covers, laneOf, markObject, mostSensitive, type Ref } from "./markings.js";
 import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
+import { type SignerAction, needsOf, requireAuthority } from "./authority.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
@@ -933,9 +934,11 @@ const overrideReason = (reason: unknown) => {
 };
 
 /** Step 1 of the override: the digest to sign. Refused for anything but a held pre-check. */
-export async function overrideSubject(db: Db, packageId: string, runId: string, reason: unknown) {
+export async function overrideSubject(db: Db, packageId: string, runId: string, reason: unknown, user?: string) {
   const why = overrideReason(reason);
   const t = await overrideTarget(db, packageId, runId, why);
+  // Refused before any passkey prompt when the person could not sign it anyway.
+  if (user !== undefined) await requireAuthority(db, user, "override-independence", needsOf(t.pkg.body));
   if (t.row.status !== "queued" || t.pkg.status !== "in-verification") throw new Refusal(409, "wrong-state", `The pre-check is ${t.row.status}`);
   return { digest: t.digest, revision: t.pkg.revision, reason: why };
 }
@@ -961,6 +964,7 @@ export async function overrideIndependence(
   const why = overrideReason(reason);
   return command(db, "run.override-independence", async (c) => {
     const { row, pkg, digest: d } = await overrideTarget(c, packageId, runId, why, true);
+    await requireAuthority(c, user, "override-independence", needsOf(pkg.body));
     kernel(
       decide({
         status: pkg.status,
@@ -1427,11 +1431,12 @@ export function decisionChallenge(subjectDigest: string, kind: string, revision:
   return new Uint8Array(createHash("sha256").update(`${subjectDigest}|${kind}|${revision}|${nonce}`).digest());
 }
 
-export async function decisionSubject(db: Db, id: string, kind: string, revision: number, cfg?: WorkConfig) {
+export async function decisionSubject(db: Db, id: string, kind: string, revision: number, cfg?: WorkConfig, user?: string) {
   if (!(kind in HUMAN_ACTIONS)) throw new Refusal(400, "invalid", "Unknown decision");
   const pkg = await currentPackage(db, id);
   if (!pkg) throw new Refusal(404, "not-found", "No such package");
   if (pkg.revision !== revision) throw new Refusal(409, "stale", "That revision is no longer current");
+  if (user !== undefined) await requireAuthority(db, user, kind as SignerAction, needsOf(pkg.body));
   const s=await subjectOf(db,pkg);
   if(kind==="release" && s.preparation) {
     if(!cfg) throw new Refusal(409,"prepared-release-disabled","Prepared release is disabled");
@@ -1454,6 +1459,9 @@ export async function applyDecision(
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
+    if (!(req.kind in HUMAN_ACTIONS)) throw new Refusal(400, "invalid", "Unknown decision");
+    // Authority is read inside the writer transaction, so a revocation that lands first is honored.
+    await requireAuthority(c, user, req.kind as SignerAction, needsOf(pkg.body));
     const s = await subjectOf(c, pkg);
     const preparation = s.preparation ? req.kind==="release" ? await preparedReleaseGuard(c,cfg,pkg,s.preparation) : (req.kind==="accept" || req.kind==="accept-with-findings") ? await preparedAcceptanceGuard(c,cfg,pkg,s.author,s.verification) : {requirements_confirmed:Boolean(s.preparation.confirmation),ready_for_release:false,basis_current:false,manifest_matches:false,results_complete:false,required_checks_complete:false,results_pass:false} : undefined;
     const reason = (req.reason ?? "").trim();

@@ -6157,6 +6157,15 @@
           "discipline": {
             "type": "string"
           },
+          "grade": {
+            "type": "string",
+            "enum": [
+              "safety",
+              "material",
+              "general-service"
+            ],
+            "description": "The quality grade signers must hold (workbench specification 5.2). Absent means General service,\nas for every package drafted before grades existed."
+          },
           "status": {
             "$ref": "#/components/schemas/ControlRod.Records.PackageStatus"
           },

@@ -910,6 +910,16 @@ function issuedLease(c: Tx, cfg: WorkConfig, runId: string): void {
   afterCommit(c, () => (sup.issued ??= new Set()).add(runId));
 }
 
+/**
+ * A run that ended without succeeding under process group containment keeps an unknown outcome:
+ * the leader's exit is known, but a process that left the group may still run, so requeue waits for
+ * a person to reconcile. Only a cgroup proves every process of the run stopped.
+ */
+function holdIfUnproven(row: RunRow, finished: Json): void {
+  if (finished.status === "succeeded" || row.body.receipt?.containment !== "process-group") return;
+  finished.outcome_unknown = { since: now(), reason: "process group containment cannot prove every process of the run stopped" };
+}
+
 /** Whether two spawn receipts name the same process of the same attempt. */
 function sameReceipt(a: Json, b: Json): boolean {
   return a.pid === b.pid && a.pgid === b.pgid && a.process_start === b.process_start && a.boot_id === b.boot_id && a.generation === b.generation
@@ -1171,7 +1181,9 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
     }
     const active = (await c.query<{ n: number }>("select count(*)::int as n from runs where status = 'running'")).rows[0]?.n ?? 0;
     let candidates = [...definite, ...doubtful];
-    if (sup && active >= 3 && doubtful.length * 2 > active) {
+    // An outage heartbeats already recognized still holds for the sweep, within its window.
+    const recognized = sup?.outageUntil !== undefined && Date.now() < sup.outageUntil;
+    if (sup && doubtful.length > 0 && ((active >= 3 && doubtful.length * 2 > active) || recognized)) {
       for (const row of doubtful) await renewLease(c, cfg, row, "a recovery lease: most active runs stopped answering at once, which looks like an outage");
       const until = Date.now() + leaseSeconds(cfg) * 1000;
       afterCommit(c, () => (sup.outageUntil = until));
@@ -1450,7 +1462,10 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
           await appendEvent(c, "run.lost", runId, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
         }
         const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
-        await reconcileTx(c, cfg, row, "completed-late", `The daemon's completion (${String(body.status ?? "unknown")}) arrived after the run was marked lost; it is retained with its digests and never applied.`, { kind: "agent", id: row.body.agent_baseline });
+        // A late completion settles the hold only when a cgroup proved the whole run stopped; under
+        // process group containment a process that left the group may still run.
+        if (row.body.receipt?.containment !== "process-group")
+          await reconcileTx(c, cfg, row, "completed-late", `The daemon's completion (${String(body.status ?? "unknown")}) arrived after the run was marked lost; it is retained with its digests and never applied.`, { kind: "agent", id: row.body.agent_baseline });
         if(!enrolled || fresh) await appendEvent(c,"run.late-completion",runId,SYSTEM,{outputs:(Array.isArray(body.outputs)?body.outputs:[]).slice(0,200).map((o:Json)=>({name:String(o?.name??"").slice(0,200),sha256:sha256(Buffer.from(String(o?.content_base64??""),"base64"))}))});
       });
       throw new Refusal(409, "run-lost", "The lease expired or the run was marked lost before this completion arrived; its digests are on the record");
@@ -1505,6 +1520,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
     finished.error = "The author run ended without writing anything to out/, so the package does not move. Requeue the run, or return or reject the package.";
   }
   if (body.trace) finished.trace = body.trace;
+  holdIfUnproven(row, finished);
   validate(cfg, "Run.json", finished);
   await c.query("update runs set status = $2, body = $3 where id = $1", [runId, finished.status, finished]);
   for (const o of outputs) {
@@ -1556,6 +1572,7 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     validate(cfg, "Run.json", finished);
     const status=refusal.code==="stopped"?"stopped":"failed";
     finished.status=status;
+    holdIfUnproven(row, finished);
     await quarantineCompletion(c,runId,key,body,refusal.code);
     const receipt = receiptOf(runId, key, status, [], refusal);
     await c.query("update runs set status = $5, body = $2, completion_key = $3, receipt = $4 where id = $1", [

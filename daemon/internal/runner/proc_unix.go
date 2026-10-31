@@ -142,10 +142,6 @@ func (r SpawnReceipt) unit() Unit {
 	return Unit{Mode: r.Containment, Name: r.Unit, Cgroup: r.Cgroup, PGID: r.PGID}
 }
 
-// errNoIdentityToSignal means the fallback cannot signal: the group's leader no longer matches the
-// receipt, so the group number alone does not prove whose processes these are.
-var errNoIdentityToSignal = errors.New("the run's leader is gone, so its process group cannot be identified")
-
 // signal sends sig to every process of the run. In process group mode it signals only while the
 // leader still matches the receipt (a live leader keeps its group number from being reused).
 func (r SpawnReceipt) signal(sig syscall.Signal) error {
@@ -153,10 +149,12 @@ func (r SpawnReceipt) signal(sig syscall.Signal) error {
 		r.unit().cgroupSignal(sig)
 		return nil
 	}
-	if !r.pinned && !r.Matches() {
-		return errNoIdentityToSignal
+	if r.pinned {
+		return syscall.Kill(-r.PGID, sig)
 	}
-	return syscall.Kill(-r.PGID, sig)
+	// Not held by this daemon (an orphan after a restart): signal only while a pidfd pins the
+	// leader, so its group number cannot be reused between the identity check and the signal.
+	return withPinnedLeader(r.PID, r.Matches, func() error { return syscall.Kill(-r.PGID, sig) })
 }
 
 // freeze freezes or thaws the run, confirmed: in cgroup mode by the kernel's frozen state, in

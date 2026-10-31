@@ -158,24 +158,23 @@ func TestStopFreezesTheRunAndOnlyTheSnapshotCounts(t *testing.T) {
 	r, _ := startUnit(t, k, "run-freeze", script, dir)
 	waitFile(t, filepath.Join(out, "log.txt"))
 	time.Sleep(100 * time.Millisecond)
-	frozen := filepath.Join(dir, "out.frozen")
+	var captured *Captured
 	if !StopGracefully(r, fast, func() {
-		if err := Snapshot(out, frozen); err != nil {
+		c, err := Capture(out, MaxOutputFile, MaxOutputTotal)
+		if err != nil {
 			t.Error(err)
 		}
+		captured = c
 	}) {
 		t.Fatal("the stop did not finish")
 	}
-	snap, err := os.ReadFile(filepath.Join(frozen, "log.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	snap := captured.Raw["log.txt"]
 	live, _ := os.ReadFile(filepath.Join(out, "log.txt"))
 	if strings.Contains(string(snap), "after-stop") || !strings.Contains(string(live), "after-stop") {
-		t.Fatal("writes after write authority ended must be in the live file only, never the snapshot")
+		t.Fatal("writes after write authority ended must be on disk only, never in the capture")
 	}
 	if !bytes.HasPrefix(live, snap) {
-		t.Fatal("the snapshot is the output exactly as it stood when the run was frozen")
+		t.Fatal("the capture is the output exactly as it stood when the run was frozen")
 	}
 }
 
@@ -327,22 +326,38 @@ func TestReceiptIsSentWithLogsUntilRecordedAndKeptUntilTheOutbox(t *testing.T) {
 	}
 }
 
-func TestSnapshotTakesOnlyAFreshDestinationAndRefusesSymlinks(t *testing.T) {
+func TestCaptureEnforcesLimitsWhileReadingAndRefusesSymlinks(t *testing.T) {
 	src := t.TempDir()
 	if err := os.WriteFile(filepath.Join(src, "r.md"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	dst := filepath.Join(t.TempDir(), "out")
-	if err := os.Mkdir(dst, 0o700); err != nil {
+	c, err := Capture(src, MaxOutputFile, MaxOutputTotal)
+	if err != nil || string(c.Raw["r.md"]) != "x" || len(c.Files) != 1 {
+		t.Fatalf("capture %+v %v", c, err)
+	}
+	// A huge sparse file is refused after reading just past the limit, never read whole.
+	big, err := os.Create(filepath.Join(src, "huge.bin"))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := Snapshot(src, dst); err == nil {
-		t.Fatal("a destination that already exists (perhaps prepared by the run) must be refused")
+	if err := big.Truncate(8 << 30); err != nil {
+		t.Fatal(err)
+	}
+	big.Close()
+	start := time.Now()
+	if _, err := Capture(src, MaxOutputFile, MaxOutputTotal); err == nil || !strings.Contains(err.Error(), "over the") {
+		t.Fatalf("got %v", err)
+	}
+	if time.Since(start) > 5*time.Second {
+		t.Fatal("the capture read far past the limit")
+	}
+	if err := os.Remove(filepath.Join(src, "huge.bin")); err != nil {
+		t.Fatal(err)
 	}
 	if err := os.Symlink("/etc/passwd", filepath.Join(src, "link")); err != nil {
 		t.Fatal(err)
 	}
-	if err := Snapshot(src, filepath.Join(t.TempDir(), "fresh")); err == nil {
+	if _, err := Capture(src, MaxOutputFile, MaxOutputTotal); err == nil {
 		t.Fatal("a symlink in the outputs must be refused")
 	}
 }

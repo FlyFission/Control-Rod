@@ -372,7 +372,7 @@ func (d *Daemon) sweepOrphans(ctx context.Context) {
 		if d.isActive(r.RunID) {
 			continue
 		}
-		if d.outbox.Has(r.RunID) {
+		if d.outbox.HasDurable(r.RunID) {
 			d.receipts.Remove(r.RunID)
 			continue
 		}
@@ -678,23 +678,16 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	go func() { d.flushLoop(flushCtx, job, buf, release); close(flushed) }()
 
 	launch := LaunchFor(runtime, job.Run, ws)
-	// A stop freezes the run and snapshots out/ into fresh custody outside the workspace, where the
-	// run cannot write; that snapshot is then the run's only output.
-	var frozen string
+	// A stop freezes the run and reads out/ into the daemon's memory while it is frozen; that
+	// capture is then the run's only output, and nothing on disk is read again.
+	var frozen *Captured
 	var snapshotErr error
 	snapshot := func() {
-		parent := filepath.Join(d.cfg.Home, "custody")
-		if err := os.MkdirAll(parent, 0o700); err != nil {
-			snapshotErr = err
-			return
+		c, err := Capture(ws.Out, MaxOutputFile, MaxOutputTotal)
+		frozen, snapshotErr = c, err
+		if err == nil && frozen == nil {
+			frozen = &Captured{Raw: map[string][]byte{}}
 		}
-		dir, err := os.MkdirTemp(parent, "snapshot-")
-		if err != nil {
-			snapshotErr = err
-			return
-		}
-		frozen = filepath.Join(dir, "out")
-		snapshotErr = Snapshot(ws.Out, frozen)
 	}
 	cmd, err := Command(runtime, job.Run, ws)
 	if err == nil {
@@ -758,21 +751,24 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			comp.Status = "stopped"
 		}
 	}
-	// After a stop, the snapshot in custody is the run's only output; everything below reads it.
-	collectFrom := ws.Out
-	if frozen != "" {
-		collectFrom = frozen
-		defer os.RemoveAll(filepath.Dir(frozen))
-	}
+	// After a stop, the capture taken while frozen is the run's only output.
 	if snapshotErr != nil {
 		comp.Status, comp.Error = "failed", "outputs could not be snapshot when the run was stopped: "+snapshotErr.Error()
 	}
-	files, outArts, cerr := Collect(collectFrom, MaxOutputFile, MaxOutputTotal)
-	if cerr != nil {
-		comp.Status, comp.Error, files, outArts = "failed", "collect outputs: "+cerr.Error(), nil, nil
+	captured := frozen
+	if captured == nil && snapshotErr == nil {
+		c, cerr := Capture(ws.Out, MaxOutputFile, MaxOutputTotal)
+		if cerr != nil {
+			comp.Status, comp.Error = "failed", "collect outputs: "+cerr.Error()
+		}
+		captured = c
 	}
-	if files != nil {
-		comp.Outputs = files
+	var outArts []Artifact
+	if captured != nil {
+		if captured.Files != nil {
+			comp.Outputs = captured.Files
+		}
+		outArts = captured.Arts
 	}
 	if outArts == nil {
 		outArts = []Artifact{}
@@ -781,8 +777,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		inArts = []Artifact{}
 	}
 	attach := func(name string) json.RawMessage {
-		b, err := os.ReadFile(filepath.Join(collectFrom, name))
-		if err != nil || !json.Valid(b) {
+		if captured == nil {
+			return nil
+		}
+		b, ok := captured.Raw[name]
+		if !ok || !json.Valid(b) {
 			return nil
 		}
 		return b

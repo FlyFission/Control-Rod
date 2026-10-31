@@ -305,15 +305,23 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 			} else {
 				killProcessGroup(cmd)
 			}
-			_, _ = cmd.Process.Wait()
 			if !gone {
+				// Do not block on a leader that would not stop; reap it whenever it goes.
+				go func() { _, _ = cmd.Process.Wait() }()
+				_ = stdout.Close()
+				_ = stderr.Close()
 				return fmt.Errorf("%w; the run could not be owned: %v", ErrUncontained, rerr)
 			}
+			_, _ = cmd.Process.Wait()
 			finish()
 			return fmt.Errorf("the run could not be owned, so it was stopped: %w", rerr)
 		}
 		if r != nil {
-			receipt, haveReceipt = r.Pinned(), true
+			// Held unreaped only where the leader's exit can be observed without reaping it.
+			receipt, haveReceipt = *r, true
+			if canWaitNoReap {
+				receipt = receipt.Pinned()
+			}
 		}
 	}
 
@@ -345,7 +353,9 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 	case <-ctx.Done():
 		stopped = true
 		contained = endUnit(h.Timings, h.Snapshot)
-		<-exited
+		if contained {
+			<-exited
+		}
 	}
 	// Processes left behind may hold the pipes; give them a moment, then end the unit.
 	select {
@@ -356,15 +366,22 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 	if contained && haveReceipt && receipt.Alive() {
 		contained = endUnit(fast, nil)
 	}
-	st := reaped
-	if st == nil {
-		st, _ = cmd.Process.Wait()
-	}
 	if !contained {
-		// Survivors may hold the pipes; closing our ends releases the readers.
+		// Return at once: the caller keeps the receipt and sends nothing. Survivors may hold the
+		// pipes, so our ends are closed; the leader is reaped whenever it goes.
+		go func() {
+			<-exited
+			if reaped == nil {
+				_, _ = cmd.Process.Wait()
+			}
+		}()
 		_ = stdout.Close()
 		_ = stderr.Close()
 		return ErrUncontained
+	}
+	st := reaped
+	if st == nil {
+		st, _ = cmd.Process.Wait()
 	}
 	finish()
 	if stopped {

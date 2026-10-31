@@ -452,8 +452,8 @@ func (d *Daemon) isActiveUnit(unit string) bool {
 }
 
 // logBuffer collects raw lines, normalized events and the latest label between flushes, and the
-// spawn receipt until the control plane has recorded it. Events pass admission (bounded
-// telemetry) and the breaker on the way in.
+// spawn receipt until the control plane has recorded it. Events pass the breaker, which sees all
+// of them, and then admission (bounded telemetry) on the way in.
 type logBuffer struct {
 	mu      sync.Mutex
 	lines   []string
@@ -518,12 +518,13 @@ func (b *logBuffer) addEvents(events []Event) {
 		return
 	}
 	now := b.clock()
-	if b.admit != nil {
-		events = b.admit.Admit(events, now)
-	}
+	// The breaker sees everything the run did; admission only bounds what is kept as telemetry.
 	var verdict Verdict
 	if b.breaker != nil {
 		verdict = b.breaker.Observe(events, now)
+	}
+	if b.admit != nil {
+		events = b.admit.Admit(events, now)
 	}
 	at := now.UTC().Format(time.RFC3339Nano)
 	for _, w := range verdict.Warnings {
@@ -624,10 +625,9 @@ func (b *logBuffer) putBack(lines []string) {
 // flushLoop posts log batches about once a LogInterval. With nothing to send it still posts an
 // empty batch every heartbeat, which renews the run's lease. If the control plane no longer holds
 // the run, it ends the run through stop.
-func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop context.CancelCauseFunc, hookFile string) {
+func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop context.CancelCauseFunc, hooks *hookTail) {
 	t := time.NewTicker(d.cfg.LogInterval)
 	defer t.Stop()
-	var hookOffset int64
 	hb := time.Duration(job.Claim.HeartbeatSeconds) * time.Second
 	if d.cfg.Heartbeat > 0 {
 		hb = d.cfg.Heartbeat
@@ -641,9 +641,7 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if hookFile != "" {
-				buf.addEvents(PermissionEvents(tailLines(hookFile, &hookOffset), time.Now()))
-			}
+			buf.addEvents(hooks.next(time.Now()))
 			batch, ok := buf.take()
 			if !ok {
 				if time.Since(last) < hb {
@@ -793,7 +791,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	defer cancel()
 	flushCtx, stopFlush := context.WithCancel(context.Background())
 	flushed := make(chan struct{})
-	go func() { d.flushLoop(flushCtx, job, buf, release, ws.HookFile); close(flushed) }()
+	hooks := &hookTail{path: ws.HookFile}
+	go func() { d.flushLoop(flushCtx, job, buf, release, hooks); close(flushed) }()
 
 	launch := LaunchFor(runtime, job.Run, ws)
 	var spawned *SpawnReceipt
@@ -812,15 +811,18 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	var launched *Digest
 	if err == nil && cmd != nil && runtime != RuntimeFake {
 		// Launch by digest (specification 21): the exact file the pin (or, unpinned, the last probe)
-		// names, checked again now, executed by its absolute path.
-		path, dig, verr := VerifyLaunch(runtime, job.RuntimePin, d.probedArtifact(runtime))
+		// names, checked again now and executed from the descriptor whose bytes were hashed.
+		verified, verr := VerifyLaunch(runtime, job.RuntimePin, d.probedArtifact(runtime))
 		if verr != nil {
 			err = verr
 			if job.RuntimePin == nil {
 				d.probe(context.Background())
 			}
 		} else {
-			cmd.Path, cmd.Args[0], launched = path, path, &dig
+			// The child inherits the open descriptor; the daemon's copy closes once the run ends.
+			defer verified.Close()
+			verified.Apply(cmd)
+			launched = &verified.Digest
 		}
 	}
 	if err == nil {
@@ -861,10 +863,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	stopFlush()
 	<-flushed
-	if ws.HookFile != "" {
-		var off int64
-		buf.addEvents(PermissionEvents(tailLines(ws.HookFile, &off), time.Now()))
-	}
+	// The flush loop has stopped; finish reading the hook file from where it left off.
+	buf.addEvents(hooks.next(time.Now()))
 	exit := Event{Kind: EvExit, At: time.Now().UTC().Format(time.RFC3339Nano), Text: "exited"}
 	if err != nil {
 		exit.Text = failText(err)
@@ -970,25 +970,63 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	return comp, nil
 }
 
-// tailLines reads whole lines appended to path since *offset and advances it. A partial last line
-// waits for the next call.
-func tailLines(path string, offset *int64) []byte {
-	f, err := os.Open(path)
+// maxHookRead bounds one read of the permission hook file, and so the size of one record.
+const maxHookRead = 1 << 20
+
+// hookTail follows the permission hook file: the flush loop reads it while the run works and the
+// final drain continues from the same place, so no request is reported twice or missed.
+type hookTail struct {
+	path     string
+	offset   int64
+	skipping bool // inside a record larger than maxHookRead, discarding to its end
+}
+
+// next returns whole lines appended since the last call, and the events they report. A partial
+// last line waits for the next call. A record larger than maxHookRead is skipped to its end with a
+// notice, so one oversized request cannot stop every later one from being read.
+func (h *hookTail) next(now time.Time) []Event {
+	if h == nil || h.path == "" {
+		return nil
+	}
+	f, err := os.Open(h.path)
 	if err != nil {
 		return nil
 	}
 	defer f.Close()
-	if _, err := f.Seek(*offset, io.SeekStart); err != nil {
-		return nil
+	var out []Event
+	for {
+		if _, err := f.Seek(h.offset, io.SeekStart); err != nil {
+			return out
+		}
+		b, err := io.ReadAll(io.LimitReader(f, maxHookRead))
+		if err != nil || len(b) == 0 {
+			return out
+		}
+		if h.skipping {
+			i := bytes.IndexByte(b, '\n')
+			if i < 0 {
+				h.offset += int64(len(b))
+				continue
+			}
+			h.offset += int64(i + 1)
+			h.skipping = false
+			continue
+		}
+		end := bytes.LastIndexByte(b, '\n')
+		if end < 0 {
+			if len(b) < maxHookRead {
+				return out // a record still being written
+			}
+			h.offset += int64(len(b))
+			h.skipping = true
+			out = append(out, Event{Kind: EvNotice, At: now.UTC().Format(time.RFC3339Nano),
+				Text: "A permission request was too large to read and was skipped."})
+			continue
+		}
+		h.offset += int64(end + 1)
+		out = append(out, PermissionEvents(b[:end+1], now)...)
+		if len(b) < maxHookRead {
+			return out
+		}
 	}
-	b, err := io.ReadAll(io.LimitReader(f, 1<<20))
-	if err != nil || len(b) == 0 {
-		return nil
-	}
-	end := bytes.LastIndexByte(b, '\n')
-	if end < 0 {
-		return nil
-	}
-	*offset += int64(end + 1)
-	return b[:end+1]
 }

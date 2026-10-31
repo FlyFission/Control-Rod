@@ -1889,6 +1889,11 @@ export interface components {
              */
             heartbeat_seconds: number;
         };
+        /**
+         * @description A runtime's native executable and its SHA-256. A runtime whose npm launcher wraps a platform
+         *     binary with helper files (Codex) is identified by a digest over that whole platform directory.
+         *     Script launchers whose own digest would not identify what runs are refused.
+         */
         "Runner.RuntimeArtifact": {
             path: string;
             digest: components["schemas"]["ControlRod.Records.Digest"];

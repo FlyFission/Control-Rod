@@ -1,6 +1,6 @@
 import { request } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { STREAM_REPLAY_MAX } from "../src/app.js";
+import { bus } from "../src/events.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, signIn, startHarness } from "./harness.js";
 
 /** The resumable event stream (workbench plan task 2.8; specification 27, WB-11). */
@@ -8,8 +8,11 @@ let h: Harness;
 let cookie: string;
 let port = 0;
 
+/** A small replay limit, so overflow is exercised with real history rather than stood in for. */
+const REPLAY_MAX = 20;
+
 beforeAll(async () => {
-  h = await startHarness();
+  h = await startHarness({ streamReplayMax: REPLAY_MAX });
   cookie = await signIn(h.app, new VirtualAuthenticator());
   await h.app.listen({ port: 0, host: "127.0.0.1" });
   port = (h.app.server.address() as { port: number }).port;
@@ -93,16 +96,41 @@ describe("resume", () => {
     expect(JSON.parse(loss.data!)).toMatchObject({ resume_from: now, reason: "no such position in this event log" });
   });
 
-  it("sends a loss frame when a client is too far behind to replay", async () => {
+  it("sends a loss frame when a valid position is too far behind to replay", async () => {
+    const before = await head();
+    for (let i = 0; (await head()) - before <= REPLAY_MAX; i++) await capture(`backlog ${i}`);
+    expect((await head()) - before).toBeGreaterThan(REPLAY_MAX);
     const now = await head();
-    if (now <= STREAM_REPLAY_MAX) {
-      // Too few events to be too far behind: an invalid position stands in, already covered above.
-      const frames = await stream({ "last-event-id": "-5" }, (f) => f.some((x) => x.event === "loss"));
-      expect(frames.some((f) => f.event === "loss")).toBe(true);
-      return;
-    }
-    const frames = await stream({ "last-event-id": "0" }, (f) => f.some((x) => x.event === "loss"));
-    expect(JSON.parse(frames.find((f) => f.event === "loss")!.data!).reason).toBe("too far behind to replay");
+    const frames = await stream({ "last-event-id": String(before) }, (f) => f.some((x) => x.event === "loss"));
+    const loss = frames.find((f) => f.event === "loss")!;
+    expect(loss.id).toBe(String(now));
+    expect(JSON.parse(loss.data!)).toMatchObject({ resume_from: now, reason: "too far behind to replay" });
+    expect(frames.some((f) => f.event === "event" && Number(f.id) <= now)).toBe(false);
+  });
+
+  it("sends events in sequence order from storage even when commit notices arrive out of order", async () => {
+    const before = await head();
+    await capture("first");
+    const mid = await head();
+    // Only the later event is announced, as if its commit notice overtook the earlier ones: the
+    // stream still sends everything committed, in order, with nothing skipped.
+    const last = (await h.db.query<{ body: { seq: number } }>("select body from events where seq = $1", [mid])).rows[0]!.body;
+    const frames = await stream({ "last-event-id": String(before) }, (f) => f.filter((x) => x.event === "event").length >= mid - before);
+    bus.emit("event", last);
+    const seqs = frames.filter((f) => f.event === "event").map((f) => Number(f.id));
+    expect(seqs).toEqual(Array.from({ length: mid - before }, (_, i) => before + i + 1));
+  });
+
+  it("gives a new client a checkpoint at the head, so a reconnect before any event resumes from it", async () => {
+    const now = await head();
+    const frames = await stream({}, (f) => f.some((x) => x.event === "checkpoint"));
+    const cp = frames.find((f) => f.event === "checkpoint")!;
+    expect(cp.id).toBe(String(now));
+    expect(JSON.parse(cp.data!)).toEqual({ head: now });
+    // Reconnecting with that id (what the browser does) replays what was committed in between.
+    await capture("between connections");
+    const again = await stream({ "last-event-id": cp.id! }, (f) => f.some((x) => x.event === "event"));
+    expect(Number(again.find((f) => f.event === "event")!.id)).toBe(now + 1);
   });
 
   it("starts at the head with no position, so a fresh client replays nothing", async () => {

@@ -47,8 +47,10 @@ export function useLiveEvents(enabled: boolean): void {
       if (timer === undefined) timer = setTimeout(flush, 300);
     };
 
-    // The browser reconnects with the last event id and the stream replays what was missed. Only
-    // when it cannot (a loss frame) is everything refreshed.
+    // The browser reconnects with the last event id and the stream replays what was missed. The
+    // stream opens with a checkpoint frame carrying the head id, so a reconnect before any event
+    // still resumes from a known place. Only when replay is impossible (a loss frame) is everything
+    // refreshed.
     const onLoss = () => {
       window.dispatchEvent(new Event(LIVE_GAP_EVENT));
       void qc.invalidateQueries();

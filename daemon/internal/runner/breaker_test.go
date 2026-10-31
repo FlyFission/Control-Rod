@@ -1,3 +1,5 @@
+//go:build unix
+
 package runner
 
 import (
@@ -79,5 +81,43 @@ func TestBreakerTripsOnNoProgressAndProgressResetsIt(t *testing.T) {
 	v := b.Observe([]Event{call("Grep", "z")}, t0.Add(2*time.Minute))
 	if !strings.Contains(v.Trip, "with no file change or message") {
 		t.Fatalf("trip %q", v.Trip)
+	}
+}
+
+func TestOnlyASucceededEditCountsAsProgress(t *testing.T) {
+	b := NewBreaker(BreakerPolicy{StallCalls: 5, StallFor: time.Minute}, t0)
+	yes, no := true, false
+	at := t0.Add(2 * time.Minute)
+	// Edits that fail, or never report a result, are not progress.
+	for i := 0; i < 4; i++ {
+		id := string(rune('a' + i))
+		b.Observe([]Event{{Kind: EvToolStart, Tool: "Edit", InputDigest: id, CallID: id}}, at)
+		b.Observe([]Event{{Kind: EvToolEnd, Tool: "Edit", CallID: id, OK: &no}}, at)
+	}
+	v := b.Observe([]Event{{Kind: EvToolStart, Tool: "Edit", InputDigest: "e", CallID: "e"}}, at)
+	if !strings.Contains(v.Trip, "no file change") {
+		t.Fatalf("failed and unfinished edits must not reset the stall: %q", v.Trip)
+	}
+
+	b = NewBreaker(BreakerPolicy{StallCalls: 5, StallFor: time.Minute}, t0)
+	for i := 0; i < 4; i++ {
+		b.Observe([]Event{call("Grep", string(rune('a'+i)))}, at)
+	}
+	b.Observe([]Event{{Kind: EvToolStart, Tool: "Write", InputDigest: "w", CallID: "w"}}, at)
+	b.Observe([]Event{{Kind: EvToolEnd, Tool: "Write", CallID: "w", OK: &yes}}, at)
+	if v := b.Observe([]Event{call("Grep", "z")}, at); v.Trip != "" {
+		t.Fatalf("a succeeded write is progress: %q", v.Trip)
+	}
+}
+
+func TestTheBreakerSeesEventsAdmissionDrops(t *testing.T) {
+	tripped := ""
+	buf := &logBuffer{admit: NewAdmission(1, 1), breaker: NewBreaker(BreakerPolicy{RepeatTrip: 8}, t0),
+		now: func() time.Time { return t0 }, onTrip: func(r string) { tripped = r }}
+	for i := 0; i < 8; i++ {
+		buf.addEvents([]Event{call("Bash", "same")})
+	}
+	if !strings.Contains(tripped, "8 times in a row") {
+		t.Fatalf("a flood admission refuses must still trip the breaker: %q", tripped)
 	}
 }

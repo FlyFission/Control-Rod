@@ -170,6 +170,7 @@ describe("human manual preparation API", () => {
   it("auto-enrolls every package from one capture and retains all capture links", async () => {
     const c = (
       await owner("POST", "/captures", {
+        lane: "internal",
         text: "Prepare two controlled reports",
         source: "web",
       })

@@ -27,6 +27,7 @@ export const COMMANDS = {
 
   // Work.
   "capture.create": entry("member", "none", "Capture"),
+  "capture.classify": entry("member", "none", "Classify lane"),
   "draft.edit": entry("member", "none", "Edit draft"),
   "output.record-mismatch": entry("system", "none", "Submit output (integrity record)"),
   "run.claim": entry("agent-via-daemon", "none", "Claim"),

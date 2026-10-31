@@ -89,7 +89,7 @@ describe("access", () => {
 
 describe("a quick question is answered without a package", () => {
   it("answers and counts it", async () => {
-    const c = await asOwner("POST", "/captures", { text: "What does IFD stand for?" });
+    const c = await asOwner("POST", "/captures", { lane: "internal", text: "What does IFD stand for?" });
     expect(c.statusCode).toBe(201);
     const job = await claim();
     expect(job.run.role).toBe("intake");
@@ -113,7 +113,7 @@ describe("a site job runs end to end under the floors", () => {
 
   it("takes an attachment and drafts dependent packages", async () => {
     const fence = '```attachment name="parcel.geojson" encoding="base64"\n' + b64('{"type":"Feature"}') + "\n```";
-    const c = await asOwner("POST", "/captures", { text: `Site a facility for this project.\n${fence}` });
+    const c = await asOwner("POST", "/captures", { lane: "internal", text: `Site a facility for this project.\n${fence}` });
     expect(c.statusCode, c.body).toBe(201);
     expect(c.json().text).toContain("[attachment: parcel.geojson]");
     const job = await claim();

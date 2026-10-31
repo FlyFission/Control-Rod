@@ -502,6 +502,103 @@
         }
       }
     },
+    "/captures/{id}/classify": {
+      "post": {
+        "operationId": "Captures_classify",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Capture"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Captures.Classification"
+              }
+            }
+          }
+        }
+      }
+    },
     "/events": {
       "get": {
         "operationId": "Events_list",
@@ -3408,6 +3505,17 @@
           "package_id": {
             "type": "string"
           },
+          "lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane",
+            "description": "The data lane a person with lane authority classified this capture into. Until it is set,\nnothing from the capture goes to any runtime or provider (specification 11.3 M-0)."
+          },
+          "classified_by": {
+            "type": "string"
+          },
+          "classified_at": {
+            "type": "string",
+            "format": "date-time"
+          },
           "package_ids": {
             "type": "array",
             "items": {
@@ -3418,6 +3526,18 @@
             "$ref": "#/components/schemas/Captures.IntakeState"
           }
         }
+      },
+      "Captures.Classification": {
+        "type": "object",
+        "required": [
+          "lane"
+        ],
+        "properties": {
+          "lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane"
+          }
+        },
+        "description": "Classifies a capture's data lane. Needs lane authority; a capture's lane can be raised, never lowered here."
       },
       "Captures.IntakeState": {
         "type": "object",
@@ -3458,6 +3578,10 @@
               "voice",
               "chat"
             ]
+          },
+          "lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane",
+            "description": "Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified."
           }
         }
       },
@@ -5001,6 +5125,17 @@
           },
           "package_id": {
             "type": "string"
+          },
+          "lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane",
+            "description": "The data lane a person with lane authority classified this capture into. Until it is set,\nnothing from the capture goes to any runtime or provider (specification 11.3 M-0)."
+          },
+          "classified_by": {
+            "type": "string"
+          },
+          "classified_at": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "description": "Something a person said they want done, before intake turns it into a package."

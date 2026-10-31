@@ -39,6 +39,15 @@ model Capture {
   answer?: string;
 
   package_id?: string;
+
+  /**
+   * The data lane a person with lane authority classified this capture into. Until it is set,
+   * nothing from the capture goes to any runtime or provider (specification 11.3 M-0).
+   */
+  lane?: DataLane;
+
+  classified_by?: string;
+  classified_at?: utcDateTime;
 }
 
 enum RunRole {

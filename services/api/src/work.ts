@@ -10,6 +10,7 @@ import { preparationForSubject, preparedReleaseGuard, persistReleaseManifest } f
 import { enrollPreparationTx, advancePreparationRevision } from "./preparation/store.js";
 import { type Db, type Tx, readTx } from "./db/index.js";
 import { command } from "./commands/executor.js";
+import { admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
 import { type Actor, appendEvent } from "./events.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
@@ -70,7 +71,7 @@ function safeName(name: string): string {
   return base;
 }
 
-export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string) {
+export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string, lane?: unknown) {
   const files: { name: string; bytes: Buffer }[] = [];
   const visible = text
     .replace(FENCE, (_m, name: string, b64: string) => {
@@ -89,9 +90,13 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
     created_at: now(),
     disposition: "pending",
   };
-  validate(cfg, "Capture.json", capture);
   return command(db, "capture.create", async (c) => {
-    await c.query("insert into captures (id, body, created_at) values ($1, $2, $3)", [capture.id, capture, capture.created_at]);
+    // The disclosure gate: only a classified capture goes on to intake, and only a person with lane
+    // authority classifies. Anyone else's capture waits, unclassified, for someone who can.
+    const classified = isLane(lane) && (await hasLaneAuthority(c, user));
+    const body: Json = classified ? { ...capture, lane, classified_by: user, classified_at: capture.created_at } : capture;
+    validate(cfg, "Capture.json", body);
+    await c.query("insert into captures (id, body, created_at) values ($1, $2, $3)", [capture.id, body, capture.created_at]);
     for (const f of files) {
       await c.query("insert into attachments (capture_id, name, sha256, bytes) values ($1, $2, $3, $4)", [
         capture.id,
@@ -100,12 +105,45 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
         f.bytes,
       ]);
     }
-    await queueRun(c, cfg, capture.id, 0, "intake", 1);
+    if (classified) await queueRun(c, cfg, capture.id, 0, "intake", 1);
     await appendEvent(c, "capture.created", capture.id, { kind: "human", id: user }, {
       attachments: files.map((f) => f.name),
+      ...(classified ? { lane } : { unclassified: true }),
     });
-    return capture;
+    return body;
   });
+}
+
+/**
+ * Classifies a capture's data lane (specification 10.2 "Classify lane"). Needs lane authority. A
+ * first classification releases the capture to intake; a later one may only raise the lane, since
+ * lowering it is a declassification that needs a signed change request.
+ */
+export async function classifyCapture(db: Db, cfg: WorkConfig, user: string, id: string, lane: unknown) {
+  if (!isLane(lane)) throw new Refusal(400, "invalid", "Choose a data lane");
+  return command(db, "capture.classify", async (c) => {
+    if (!(await hasLaneAuthority(c, user))) throw new Refusal(403, "authority-missing", "Classifying a data lane needs lane authority");
+    const r = await c.query<{ body: Json }>("select body from captures where id = $1 for update", [id]);
+    const cap = r.rows[0]?.body;
+    if (!cap) throw new Refusal(404, "not-found", "No such capture");
+    if (cap.lane !== undefined && !raises(cap.lane, lane))
+      throw new Refusal(409, "lowering-needs-change-request", "Lowering a data lane is a declassification; it needs a signed change request");
+    const next = { ...cap, lane, classified_by: user, classified_at: now() };
+    validate(cfg, "Capture.json", next);
+    await c.query("update captures set body = $2 where id = $1", [id, next]);
+    if (cap.lane === undefined) await queueRun(c, cfg, id, 0, "intake", 1);
+    await appendEvent(c, "capture.classified", id, { kind: "human", id: user }, { lane, ...(cap.lane ? { from: cap.lane } : {}) });
+    return next;
+  });
+}
+
+/** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
+async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; body: Json }, subject: string, reason: string) {
+  if (row.body.waiting_reason === reason) return;
+  const held = { ...row.body, waiting_reason: reason };
+  validate(cfg, "Run.json", held);
+  await c.query("update runs set body = $2 where id = $1", [row.id, held]);
+  await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: subject, role: row.role, reason });
 }
 
 /* ---------- packages ---------- */
@@ -589,13 +627,19 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
               if (!(await dependenciesReady(c, pkg.body)).ready) continue;
             } else if (pkg.status !== "in-work") continue;
           }
+          // The disclosure gate: only runtimes the package's lane admits may see it.
+          const offer = admitted(pkg.body.data_lane, runtimes);
+          if (offer.length === 0) {
+            await holdRun(c, cfg, row, pkg.id, laneHoldReason(pkg.body.data_lane));
+            continue;
+          }
           let runtime: string | null;
           if (row.role === "pre-check") {
             if (pkg.status !== "in-verification") continue;
             const a = await latestAuthorRun(c, pkg.id, pkg.revision);
             const authorRuntime = runtimeName(a?.body.runtime?.provider);
-            runtime = pickChecker(runtimes, authorRuntime, verifiedOverride(row.body));
-            if (!runtime && runtimes.includes(authorRuntime) && !row.body.waiting_reason) {
+            runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body));
+            if (!runtime && offer.includes(authorRuntime) && !row.body.waiting_reason) {
               // Held, not skipped silently: say why on the run and in the office, once.
               const held = { ...row.body, waiting_reason: WAITING_FOR_INDEPENDENT_RUNTIME };
               validate(cfg, "Run.json", held);
@@ -603,7 +647,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
               await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: pkg.id, role: row.role, reason: held.waiting_reason, author_runtime: authorRuntime });
             }
           } else {
-            runtime = pickRuntime(runtimes);
+            runtime = pickRuntime(offer);
           }
           if (!runtime) continue;
           const baseline = `${row.role === "pre-check" ? "checker" : "author"}-${runtime}`;
@@ -617,7 +661,14 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
           }
           return startRun(c, cfg, row, runtime, baseline);
         }
-        const runtime = pickRuntime(runtimes);
+        // Intake reads the capture and its attachments: only a runtime its lane admits may.
+        const capLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1", [row.package_id])).rows[0]?.lane;
+        const intakeOffer = admitted(capLane, runtimes);
+        if (intakeOffer.length === 0) {
+          await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane));
+          continue;
+        }
+        const runtime = pickRuntime(intakeOffer);
         if (!runtime) continue;
         const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
         if(!locked.rows[0]) continue;row=locked.rows[0];

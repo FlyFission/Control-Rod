@@ -327,6 +327,29 @@ export async function recordRegistration(
     userVerified: input.userVerified, backupEligible: input.backupEligible, attestationVerified: false }, actor);
 }
 
+/** The deterministic id of a Member's one qualification identity, so issues and revocations version it. */
+export const qualificationIdFor = (memberId: string) => `qual_${memberId.slice(4)}`;
+
+const FOUNDING_ACTOR: Actor = { kind: "system", id: "founding-member" };
+
+/**
+ * Makes an organization's first Member able to run it: administrator, lane and policy authority,
+ * recorded as their qualification version 1. Only while no administrator qualification has ever
+ * existed in the organization, so it happens once. Licenses, disciplines and signing roles are not
+ * granted; the person records those themselves.
+ */
+export async function grantFoundingAuthorities(c: Tx, orgId: string): Promise<boolean> {
+  const ever = await c.query("select 1 from signer_qualifications where org_id = $1 and body->'authorities' ? 'administrator' limit 1", [orgId]);
+  if (ever.rowCount) return false;
+  const first = (await c.query<{ id: string }>("select id from members where org_id = $1 and body->>'status' = 'active' order by created_at, id limit 1", [orgId])).rows[0];
+  if (!first) return false;
+  await recordQualification(c, {
+    id: qualificationIdFor(first.id), org_id: orgId, member_id: first.id, licenses: [], disciplines: [], grades: [], roles: [],
+    authorities: ["administrator", "lane", "policy"], revoked: false, reason: "founding member of the organization",
+  }, FOUNDING_ACTOR);
+  return true;
+}
+
 /**
  * Completes migration 009 for records that existed before it (command migration.backfill-tenancy):
  * an ownership envelope for every existing record, a Member for every passkey user, and credential
@@ -347,7 +370,10 @@ export async function backfillTenancy(c: Tx): Promise<number> {
       union select 'credential', id from credentials) existing
     where not exists (select 1 from object_owners o where o.object_kind = existing.k and o.object_id = existing.i)
     on conflict do nothing`);
-  return backfillCredentials(c);
+  const recorded = await backfillCredentials(c);
+  // An installation from before founding authorities gives its first Member the same start.
+  await grantFoundingAuthorities(c, LOCAL_ORG);
+  return recorded;
 }
 
 /**

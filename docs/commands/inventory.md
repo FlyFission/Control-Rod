@@ -9,12 +9,13 @@ checks the static rules and that this catalog matches the commands executed.
 | Command | Principal | Signature | Specification 10.2 row | Executed in | Reached from |
 |---|---|---|---|---|---|
 | `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /admin/commands/:name/options`, `POST /auth/login/options`, `POST /auth/register/options`, `POST /auth/step-up/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/runs/:runId/override-independence/options` |
-| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallenge | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
+| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallengeFor | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
 | `auth.register-credential` | member | none | Register authenticator credential | `auth.ts` registrationVerify | `POST /auth/register/verify` |
 | `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /packages/:id/decisions`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence` |
 | `auth.session-start` | member | none | operational | `auth.ts` startSession | `POST /auth/login/verify`, `POST /auth/register/verify` |
 | `auth.session-end` | member | none | operational | `auth.ts` endSession | `POST /auth/logout` |
 | `capture.create` | member | none | Capture | `work.ts` createCapture | `POST /captures` |
+| `capture.classify` | member | none | Classify lane | `work.ts` classifyCapture | `POST /captures/:id/classify` |
 | `draft.edit` | member | none | Edit draft | `work.ts` updateDraft | `PUT /packages/:id` |
 | `output.record-mismatch` | system | none | Submit output (integrity record) | `work.ts` packageOutput | `GET /packages/:id/outputs/*` |
 | `run.claim` | agent-via-daemon | none | Claim | `work.ts` claim | `POST /runner/claim` |

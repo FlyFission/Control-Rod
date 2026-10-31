@@ -30,7 +30,7 @@ describe("capture", () => {
     const user = userEvent.setup();
     await user.type(screen.getByRole("textbox", { name: "What needs doing?" }), "Site a facility on parcel 12");
     await user.click(screen.getByRole("button", { name: "Send" }));
-    await waitFor(() => expect(body).toEqual({ text: "Site a facility on parcel 12", source: "web" }));
+    await waitFor(() => expect(body).toEqual({ text: "Site a facility on parcel 12", source: "web", lane: "internal" }));
     await waitFor(() => expect((screen.getByRole("textbox", { name: "What needs doing?" }) as HTMLTextAreaElement).value).toBe(""));
   });
 
@@ -487,5 +487,22 @@ describe("stranded intake", () => {
     expect(await screen.findByText(/Intake failed: model unavailable/)).toBeTruthy();
     await userEvent.setup().click(screen.getByRole("button", { name: "Retry intake" }));
     await waitFor(() => expect(requeued).toBe("R-9"));
+  });
+});
+
+describe("data lanes", () => {
+  it("sends the chosen lane and says a sensitive lane stays on this computer", async () => {
+    let body: unknown;
+    server.use(http.post("*/captures", async ({ request }) => {
+      body = await request.json();
+      return HttpResponse.json({ schema_version: "0.1.0", id: "C-9", text: "x", source: "web", created_at: "2026-10-22T10:00:00Z", disposition: "pending" }, { status: 201 });
+    }));
+    await renderPage(<CaptureBox />);
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Data lane"), "proprietary");
+    expect(screen.getByText(/Stays on this computer until a provider is approved/)).toBeTruthy();
+    await user.type(screen.getByRole("textbox"), "Client drawings");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(body).toMatchObject({ text: "Client drawings", lane: "proprietary" }));
   });
 });

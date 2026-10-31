@@ -116,6 +116,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/captures/{id}/classify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Captures_classify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events": {
         parameters: {
             query?: never;
@@ -671,8 +687,20 @@ export interface components {
             /** @description The direct answer for a quick question. No package, check or approval. */
             answer?: string;
             package_id?: string;
+            /**
+             * @description The data lane a person with lane authority classified this capture into. Until it is set,
+             *     nothing from the capture goes to any runtime or provider (specification 11.3 M-0).
+             */
+            lane?: components["schemas"]["ControlRod.Records.DataLane"];
+            classified_by?: string;
+            /** Format: date-time */
+            classified_at?: string;
             package_ids?: string[];
             intake?: components["schemas"]["Captures.IntakeState"];
+        };
+        /** @description Classifies a capture's data lane. Needs lane authority; a capture's lane can be raised, never lowered here. */
+        "Captures.Classification": {
+            lane: components["schemas"]["ControlRod.Records.DataLane"];
         };
         /** @description The latest intake run for a capture still pending, so a failed intake is never stranded. */
         "Captures.IntakeState": {
@@ -685,6 +713,8 @@ export interface components {
             text: string;
             /** @enum {string} */
             source?: "web" | "cli" | "voice" | "chat";
+            /** @description Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
+            lane?: components["schemas"]["ControlRod.Records.DataLane"];
         };
         "ControlRod.Preparation.BasisRef": {
             /** @enum {string} */
@@ -1072,6 +1102,14 @@ export interface components {
             /** @description The direct answer for a quick question. No package, check or approval. */
             answer?: string;
             package_id?: string;
+            /**
+             * @description The data lane a person with lane authority classified this capture into. Until it is set,
+             *     nothing from the capture goes to any runtime or provider (specification 11.3 M-0).
+             */
+            lane?: components["schemas"]["ControlRod.Records.DataLane"];
+            classified_by?: string;
+            /** Format: date-time */
+            classified_at?: string;
         };
         "ControlRod.Records.CodeOrStandard": {
             code: string;
@@ -1941,6 +1979,86 @@ export interface operations {
         responses: {
             /** @description The request has succeeded and a new resource has been created as a result. */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Records.Capture"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Captures_classify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Captures.Classification"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

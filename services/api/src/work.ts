@@ -174,7 +174,7 @@ export async function listPackages(db: Db): Promise<Json[]> {
   return r.rows.map((x) => ({ ...x.body, status: x.status }));
 }
 
-async function latestAuthorRun(q: Db | Tx, id: string, rev: number) {
+export async function latestAuthorRun(q: Db | Tx, id: string, rev: number) {
   const r = await q.query<{ id: string; round: number; status: string; body: Json }>(
     `select id, round, status, body from runs where package_id = $1 and package_revision = $2 and role = 'author'
      order by round desc, created_at desc limit 1`,

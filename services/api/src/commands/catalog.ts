@@ -40,6 +40,7 @@ export const COMMANDS = {
   "run.override-independence": entry("member", "direct", "Override independence"),
   "runtime.report-status": entry("agent-via-daemon", "none", "Probe runtime"),
   "decision.apply": entry("member", "direct", "Release; Verdict"),
+  "verification.record-person": entry("member", "direct", "Record person verification"),
 
   // Preparation.
   "preparation.enroll": entry("member", "none", "Enroll, edit, resolve preparation"),

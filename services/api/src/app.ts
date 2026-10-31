@@ -23,6 +23,7 @@ import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
 import { teach } from "./refusals.js";
+import { personVerificationSubject, recordPersonVerification } from "./person-verification.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
 import {
@@ -390,6 +391,28 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       ...(body.reason ? { reason: String(body.reason) } : {}),
     }, signed);
     return reply.code(201).send(decision);
+  });
+
+  /* ---- person verification (specification 11.5) ---- */
+  app.post<{ Params: { id: string }; Body: Record<string, unknown> }>("/packages/:id/person-verifications/options", async (req) => {
+    const issuedTo = await person(req);
+    const s = await personVerificationSubject(db, issuedTo, req.params.id, req.body);
+    const nonce = randomBytes(16).toString("hex");
+    const options = await assertionOptions(db, auth, "person-verification",
+      { package_id: req.params.id, revision: s.req.package_revision, subject_digest: s.digest, nonce },
+      new Uint8Array(createHash("sha256").update(`${s.digest}|person-verification|${nonce}`).digest()), issuedTo);
+    return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
+  });
+  app.post<{ Params: { id: string }; Body: Record<string, unknown> & { assertion?: Record<string, unknown> } }>("/packages/:id/person-verifications", async (req, reply) => {
+    const user = await person(req);
+    const { assertion, ...body } = req.body ?? {};
+    let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
+    if (assertion) {
+      const ok = await assertionVerify(db, auth, "person-verification", assertion as never);
+      if (ok && ok.user === user && ok.data.package_id === req.params.id && Number(ok.data.revision) === Number(body.package_revision))
+        signed = { subject_digest: String(ok.data.subject_digest), assertion };
+    }
+    return reply.code(201).send(await recordPersonVerification(db, user, req.params.id, body, signed));
   });
 
   app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/stop", async (req) => {

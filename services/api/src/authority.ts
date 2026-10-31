@@ -12,8 +12,8 @@ import { type SignerGrade, type SignerQualification, type SignerRole, currentCre
  * protected change (plan task 1.14, Phase 6).
  */
 
-/** Signer actions this module governs: the package decisions and the independence override. */
-export type SignerAction = "release" | "accept" | "accept-with-findings" | "return" | "reject" | "override-independence";
+/** Signer actions this module governs: the package decisions, the independence override and person verification. */
+export type SignerAction = "release" | "accept" | "accept-with-findings" | "return" | "reject" | "override-independence" | "verify";
 
 const APPROVERS: SignerRole[] = ["approver", "engineer-in-responsible-charge"];
 const REVIEWERS: SignerRole[] = ["checker", ...APPROVERS];
@@ -27,6 +27,8 @@ export const ACTION_ROLES: Record<SignerAction, SignerRole[]> = {
   return: REVIEWERS,
   reject: REVIEWERS,
   "override-independence": APPROVERS,
+  // A person verification is a checker's act (specification 11.5).
+  verify: REVIEWERS,
 };
 
 const ROLE_WORDS: Record<SignerRole, string> = {

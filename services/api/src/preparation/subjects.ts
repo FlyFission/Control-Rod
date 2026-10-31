@@ -1,6 +1,8 @@
 import { randomUUID, createHash, randomBytes } from "node:crypto";
 import type { Db, Tx } from "../db/index.js";
 import { readTx } from "../db/index.js";
+import { teach } from "../refusals.js";
+import { lockSigner, needsOf, requireAuthority } from "../authority.js";
 import { command } from "../commands/executor.js";
 import { appendEvent } from "../events.js";
 import { decidePreparation } from "../kernel.js";
@@ -47,9 +49,12 @@ export async function confirmationSubject(
   db: Db,
   id: string,
   expected: { algorithm: string; value: string },
+  user?: string,
 ) {
   return readTx(db, async (c) => {
     const s = await requirementsSubject(c, id, false);
+    // Refused before any passkey prompt when the person could not sign it anyway.
+    if (user !== undefined) await requireAuthority(c, user, "confirm", needsOf(s.pkg.body));
     if (
       expected.algorithm !== "sha256" ||
       expected.value !== s.requirements_digest.value
@@ -91,7 +96,9 @@ export async function confirmRequirements(
   verified: VerifiedPreparationAssertion,
 ) {
   return command(db, "preparation.confirm", async (c) => {
+    await lockSigner(c, user, String(verified.assertion.id ?? ""));
     const s = await requirementsSubject(c, id);
+    await requireAuthority(c, user, "confirm", needsOf(s.pkg.body));
     if (
       verified.package_id !== id ||
       verified.package_revision !== s.pkg.revision ||
@@ -115,7 +122,7 @@ export async function confirmRequirements(
       throw new Refusal(
         403,
         outcome.reason,
-        `Kernel refused requirements confirmation: ${outcome.reason}`,
+        `Requirements confirmation: ${teach(outcome.reason).sentence}`,
       );
     const response = verified.assertion.response as
       Record<string, unknown> | undefined;

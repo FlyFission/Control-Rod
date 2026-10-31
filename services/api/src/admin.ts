@@ -8,9 +8,12 @@ import { appendEvent, type Actor } from "./events.js";
 import { digest } from "./kernel.js";
 import {
   type DataLane, type License, type Member, type SignerAuthority, type SignerGrade, type SignerQualification, type SignerRole,
-  addMember, bindRepo, checkSchema, createProject, currentCredential, currentPolicySet, currentQualification, memberIdFor,
+  addMember, bindRepo, checkSchema, qualificationIdFor, createProject, currentCredential, currentPolicySet, currentQualification, memberIdFor,
   recordCredential, recordDelegation, recordPolicySet, recordQualification, setStatus,
 } from "./tenancy.js";
+import { isLane } from "./disclosure.js";
+import { configuredClosure, covers, declassify, downstreamOf, effectiveLane, ensureMarking } from "./markings.js";
+import { teach } from "./refusals.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
 
@@ -22,7 +25,7 @@ import { Refusal } from "./work.js";
  */
 
 export interface Caller { userName: string; memberId: string; orgId: string }
-type Need = "administrator" | "policy" | "administrator+policy" | "member";
+type Need = "administrator" | "policy" | "administrator+policy" | "lane" | "member";
 
 interface AdminCommand {
   catalog: CommandName;
@@ -35,6 +38,8 @@ interface AdminCommand {
 export interface AdminContext {
   /** The repository root, for bundled theme manifests. */
   root: string;
+  /** Lanes of configured preparation sources, which a declassification records as covered. */
+  preparationLanes?: Record<string, DataLane>;
 }
 
 const str = (p: Record<string, unknown>, k: string, required = true): string | undefined => {
@@ -51,8 +56,7 @@ const arr = <T>(p: Record<string, unknown>, k: string): T[] => {
 const actorOf = (caller: Caller): Actor => ({ kind: "human", id: caller.memberId });
 const idFor = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "").slice(0, 20)}`;
 
-/** The deterministic id of a Member's one qualification identity, so issues and revocations version it. */
-export const qualificationIdFor = (memberId: string) => `qual_${memberId.slice(4)}`;
+export { qualificationIdFor } from "./tenancy.js";
 
 async function member(c: Tx | Db, id: string, orgId: string): Promise<Member> {
   const r = await c.query<{ body: Member }>("select body from members where id = $1 and org_id = $2", [id, orgId]);
@@ -71,6 +75,13 @@ async function administrators(c: Tx, orgId: string, except: string[] = []): Prom
     if (m.status === "active") ids.push(q.member_id);
   }
   return ids;
+}
+
+/** An object's current marking, or a refusal when it has no classified lane. */
+async function markingFor(c: Tx, kind: string, id: string) {
+  const m = await ensureMarking(c, kind, id);
+  if (!m) throw new Refusal(404, "not-found", "No classified object of that kind and id");
+  return m;
 }
 
 /** Refuses unless the caller is an active Member holding what the command needs. */
@@ -449,6 +460,61 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     },
   },
 
+  "marking.propose-declassification": {
+    catalog: "admin.marking-propose", signature: "none", need: "member",
+    async run(c, caller, p) {
+      const kind = str(p, "object_kind")!;
+      const id = str(p, "object_id")!;
+      const lane = p.lane;
+      if (!isLane(lane)) throw new Refusal(400, "invalid", "Choose the lane to declassify to");
+      const m = await markingFor(c, kind, id);
+      if (covers(lane, effectiveLane(m))) throw new Refusal(409, "not-lower", `This is already ${effectiveLane(m)}; a declassification only lowers`);
+      // The proposal names the exact marking version, and lists everything downstream before approval.
+      const proposal = { object_kind: kind, object_id: id, version: m.version, from: effectiveLane(m), lane };
+      const impact = (await downstreamOf(c, kind, id)).map((d) => `${d.kind}/${d.id}`);
+      const cr = {
+        id: idFor("cr"), org_id: caller.orgId, kind: "declassification", subject_digest: { algorithm: "sha256", value: digest(proposal) },
+        reason: str(p, "reason")!, impact, proposed_by: actorOf(caller), status: "proposed", proposal,
+      };
+      await recordObject(c, "change_request", cr as never, actorOf(caller));
+      return cr;
+    },
+  },
+
+  "marking.approve-declassification": {
+    catalog: "admin.marking-approve", signature: "direct", need: "lane",
+    async run(c, caller, p, ctx) {
+      const id = str(p, "change_request_id")!;
+      const cr = await getObject<{ org_id: string; kind: string; status: string; subject_digest: { value: string }; impact: string[];
+        proposal?: { object_kind: string; object_id: string; version: number; lane: string } }>(c, "change_request", id);
+      if (!cr || cr.org_id !== caller.orgId || cr.kind !== "declassification") throw new Refusal(404, "not-found", "No such declassification request");
+      if (cr.status !== "proposed") throw new Refusal(409, "not-proposed", "This change request is no longer open");
+      const prop = cr.proposal;
+      if (!prop || digest(prop) !== cr.subject_digest.value || !isLane(prop.lane)) throw new Refusal(409, "proposal-mismatch", "The proposal does not match its digest");
+      const impact = (await downstreamOf(c, prop.object_kind, prop.object_id)).map((d) => `${d.kind}/${d.id}`);
+      if (impact.join("\n") !== cr.impact.join("\n"))
+        throw new Refusal(409, "impact-changed", "What depends on this changed since the request was made; propose it again so the impact is current");
+      // Same lock order as classification and the claim: the capture row, then its marking.
+      if (prop.object_kind === "capture") await c.query("select 1 from captures where id = $1 for update", [prop.object_id]);
+      // The approval covers the configured sources it can see now, by lane; one with no lane cannot be covered.
+      const configured: { reference: string; lane: DataLane }[] = [];
+      if (prop.object_kind === "package")
+        for (const [reference, l] of await configuredClosure(c, prop.object_id, ctx.preparationLanes)) {
+          if (!l) throw new Refusal(409, "unclassified-source", `${reference} has no data lane in the preparation config; classify it before declassifying what draws on it`);
+          configured.push({ reference, lane: l });
+        }
+      const marking = await declassify(c, prop.object_kind, prop.object_id, prop.version, prop.lane, id, configured);
+      // A capture's lane is its own record and may be corrected; a package's signed body never is.
+      if (prop.object_kind === "capture")
+        await c.query("update captures set body = jsonb_set(body, '{lane}', to_jsonb($2::text)) where id = $1", [prop.object_id, prop.lane]);
+      await transition(c, "change_request", id, "approved", actorOf(caller), `declassified to ${prop.lane}`);
+      await appendEvent(c, "marking.declassified", `${prop.object_kind}/${prop.object_id}`, actorOf(caller), {
+        change_request: id, from_version: prop.version, version: marking.version, lane: prop.lane, impact,
+      });
+      return marking;
+    },
+  },
+
   "budget.set": {
     catalog: "admin.budget-set", signature: "direct", need: "policy",
     async run(c, caller, p) {
@@ -554,6 +620,25 @@ export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: 
     });
     return result;
   }).catch((e) => { throw translate(e); });
+}
+
+/**
+ * Each administrative command as an ActionDescriptor for the caller (plan task 1.11): allowed, or
+ * refused with the authority they lack and what would change it. Bootstrap is not shown here; it is
+ * a one time path the first Member takes from the setup screen.
+ */
+export async function adminActions(db: Db, caller: Caller) {
+  const me = await member(db, caller.memberId, caller.orgId);
+  const held = new Set<string>((await currentQualification(db, caller.memberId))?.authorities ?? []);
+  return Object.entries(ADMIN_COMMANDS).map(([name, cmd]) => {
+    const base = { command: name, label: name, signature: cmd.signature, ...(cmd.need === "member" ? {} : { authority: cmd.need.split("+") }) };
+    if (me.status !== "active") return { ...base, allowed: false, reason_code: "member-inactive", reason: teach("member-inactive").sentence, change: teach("member-inactive").change };
+    const missing = cmd.need === "member" ? [] : cmd.need.split("+").filter((a) => !held.has(a));
+    if (!missing.length) return { ...base, allowed: true };
+    const t = teach("authority-missing");
+    return { ...base, allowed: false, missing: missing.map((a) => `${a} authority`), reason_code: "authority-missing",
+      reason: `This needs ${missing.join(" and ")} authority, which your qualification does not include`, change: t.change };
+  });
 }
 
 /** Commands and what they need, for the interface. */

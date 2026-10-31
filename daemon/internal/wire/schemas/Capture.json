@@ -63,6 +63,17 @@
         },
         "package_id": {
             "type": "string"
+        },
+        "lane": {
+            "$ref": "DataLane.json",
+            "description": "The data lane a person with lane authority classified this capture into. Until it is set,\nnothing from the capture goes to any runtime or provider (specification 11.3 M-0)."
+        },
+        "classified_by": {
+            "type": "string"
+        },
+        "classified_at": {
+            "type": "string",
+            "format": "date-time"
         }
     },
     "required": [

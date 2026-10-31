@@ -1,0 +1,32 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CriterionReadiness.json",
+    "type": "object",
+    "properties": {
+        "criterion_id": {
+            "type": "string"
+        },
+        "answer": {
+            "$ref": "ReadinessAnswer.json"
+        },
+        "reasons": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "mapping_version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "criterion_id",
+        "answer",
+        "reasons",
+        "mapping_version"
+    ],
+    "description": "One criterion's readiness answer, with the reasons it is not positive and the mapping version read.",
+    "unevaluatedProperties": false
+}

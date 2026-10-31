@@ -5,6 +5,7 @@ import { TENANCY_DOWN_SQL } from "../src/db/migrations/009-tenancy.js";
 import { WORKBENCH_DOWN_SQL } from "../src/db/migrations/010-workbench.js";
 import { ROLES_DOWN_SQL } from "../src/db/migrations/011-roles.js";
 import { ADMINISTRATION_DOWN_SQL } from "../src/db/migrations/012-administration.js";
+import { DEPENDENCIES_DOWN_SQL } from "../src/db/migrations/013-dependencies.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import {
@@ -28,7 +29,7 @@ beforeAll(async () => {
 afterAll(async () => h?.stop());
 
 const capture = (text: string) =>
-  h.app.inject({ method: "POST", url: "/captures", headers: { cookie, origin: ORIGIN }, payload: { text } });
+  h.app.inject({ method: "POST", url: "/captures", headers: { cookie, origin: ORIGIN }, payload: { text, lane: "internal" } });
 
 /** Every signed body, digest and event as stored, for before and after comparison. */
 async function snapshot() {
@@ -52,6 +53,7 @@ describe("migration 009", () => {
     expect((await verifyChain(h.db)).ok).toBe(true);
 
     // Migrations reverse newest first: the workbench tables depend on tenancy.
+    await h.admin.query(DEPENDENCIES_DOWN_SQL);
     await h.admin.query(ADMINISTRATION_DOWN_SQL);
     await h.admin.query(ROLES_DOWN_SQL);
     await h.admin.query(WORKBENCH_DOWN_SQL);

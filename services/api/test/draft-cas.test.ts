@@ -54,17 +54,18 @@ describe("draft compare and swap", () => {
     const v = await view(DRAFT.id);
     const edits = async () => (await h.db.query("select count(*)::int as n from events where body->>'type' = 'package.edited' and body->>'subject' = $1", [DRAFT.id])).rows[0].n;
     const before = await edits();
-    // Hold the package row so both edits queue behind it, then release them together.
+    // Hold the package row so both edits queue (one on the row, the other behind it on the marking
+    // graph lock every draft edit takes first), then release them together.
     const holder = await h.admin.connect();
     await holder.query("begin");
     await holder.query("select 1 from packages where id = $1 for update", [DRAFT.id]);
     const pending = [put(DRAFT.id, { ...v.package, title: "Edit A" }, v.draft_etag), put(DRAFT.id, { ...v.package, title: "Edit B" }, v.draft_etag)];
     for (let i = 0; i < 100; i++) {
-      const waiting = (await h.admin.query("select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and query like '%from packages where id%for update%'")).rows[0].n;
+      const waiting = (await h.admin.query("select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and (query like '%from packages where id%for update%' or query like '%pg_advisory_xact_lock%')")).rows[0].n;
       if (waiting >= 2) break;
       await new Promise((r) => setTimeout(r, 50));
     }
-    expect((await h.admin.query("select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and query like '%from packages where id%for update%'")).rows[0].n).toBe(2);
+    expect((await h.admin.query("select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and (query like '%from packages where id%for update%' or query like '%pg_advisory_xact_lock%')")).rows[0].n).toBe(2);
     await holder.query("commit");
     holder.release();
     const results = await Promise.all(pending);

@@ -43,16 +43,17 @@ beforeAll(async () => {
 afterAll(async () => h?.stop());
 
 describe("bootstrap", () => {
-  it("lets the first Member qualify themselves while no one is an administrator, once", async () => {
+  it("starts the first Member with founding authorities, who then records their own roles", async () => {
     const state = (await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } })).json();
-    expect(state.bootstrap).toBe(true);
+    expect(state.bootstrap).toBe(false);
     expect(state.themes).toContain("corner-cafe");
+    expect(state.qualification).toMatchObject({ version: 1, authorities: ["administrator", "lane", "policy"], roles: ["originator", "checker", "approver"], grades: ["general-service"], disciplines: [], licenses: [], reason: "founding member of the organization" });
     const r = await signed(ben, benKey, "qualification.issue", fullQualification(BEN));
     expect(r.statusCode, r.body).toBe(200);
-    expect(r.json()).toMatchObject({ id: qualificationIdFor(BEN), version: 1, authorities: ["administrator", "lane", "policy"] });
+    expect(r.json()).toMatchObject({ id: qualificationIdFor(BEN), version: 2, roles: ["checker", "approver"] });
     const ev = await h.db.query("select body->'data' as d from events where body->>'type' = 'admin.command' and body->>'subject' = 'qualification.issue'");
-    expect(ev.rows[0].d).toMatchObject({ signature: "direct", bootstrap: true });
-    expect((await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } })).json().bootstrap).toBe(false);
+    expect(ev.rows[0].d).toMatchObject({ signature: "direct" });
+    expect(ev.rows[0].d.bootstrap).toBeUndefined();
   });
 
   it("does not let a second person bootstrap once an administrator exists", async () => {

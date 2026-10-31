@@ -27,6 +27,23 @@
         "discipline": {
             "type": "string"
         },
+        "grade": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "safety"
+                },
+                {
+                    "type": "string",
+                    "const": "material"
+                },
+                {
+                    "type": "string",
+                    "const": "general-service"
+                }
+            ],
+            "description": "The quality grade signers must hold (workbench specification 5.2). Absent means General service,\nas for every package drafted before grades existed."
+        },
         "status": {
             "$ref": "PackageStatus.json"
         },
@@ -62,7 +79,15 @@
             "type": "array",
             "items": {
                 "$ref": "DesignInput.json"
-            }
+            },
+            "description": "Citations: documents this package relies on. They never decide when the package may start."
+        },
+        "depends_on": {
+            "type": "array",
+            "items": {
+                "$ref": "PackageDependency.json"
+            },
+            "description": "Packages this one waits for: it starts only once each is accepted. Unknown targets are refused."
         },
         "assumptions": {
             "type": "array",

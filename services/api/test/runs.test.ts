@@ -83,7 +83,7 @@ async function decide(id: string, kind: string, revision: number, reason?: strin
 
 /** Captures a request, lets intake draft one package with the given role, and releases it. */
 async function releasedPackage(key: string, role = "general-author"): Promise<string> {
-  const c = await asOwner("POST", "/captures", { text: `Make ${key}` });
+  const c = await asOwner("POST", "/captures", { lane: "internal", text: `Make ${key}` });
   expect(c.statusCode, c.body).toBe(201);
   const job = await claim();
   if (!job) throw new Error("no intake job");
@@ -158,7 +158,7 @@ async function eventsOf(subject: string) {
 
 describe("what actually ran", () => {
   it("keeps runtime mode and models in the trace and flags a model the run did not ask for", async () => {
-    await asOwner("POST", "/captures", { text: "Which model ran?" });
+    await asOwner("POST", "/captures", { lane: "internal", text: "Which model ran?" });
     const job = (await claim()) as Job;
     expect(job.run.role).toBe("intake");
     const t = trace(job, {
@@ -201,7 +201,7 @@ describe("serving outputs", () => {
 
 describe("same-origin check on cookie routes", () => {
   const post = (headers: Record<string, string>) =>
-    h.app.inject({ method: "POST", url: "/captures", headers: { cookie, ...headers }, payload: { text: "Origin check" } });
+    h.app.inject({ method: "POST", url: "/captures", headers: { cookie, ...headers }, payload: { text: "Origin check", lane: "internal" } });
 
   it("refuses state changes from another origin, another local port, a cross-site fetch or no browser marks", async () => {
     for (const headers of [
@@ -572,7 +572,7 @@ describe("runtime readiness", () => {
 
 describe("review findings on #3", () => {
   it("refuses decision options when the package changed after the person opened it", async () => {
-    const c = await asOwner("POST", "/captures", { text: "Make STALE1" });
+    const c = await asOwner("POST", "/captures", { lane: "internal", text: "Make STALE1" });
     expect(c.statusCode, c.body).toBe(201);
     const job = await claim();
     if (!job) throw new Error("no intake job");
@@ -593,7 +593,7 @@ describe("review findings on #3", () => {
   });
 
   it("drafts one package when intake sends the same draft as a file and as the package field", async () => {
-    const c = await asOwner("POST", "/captures", { text: "Make DUP1" });
+    const c = await asOwner("POST", "/captures", { lane: "internal", text: "Make DUP1" });
     expect(c.statusCode, c.body).toBe(201);
     const job = await claim();
     if (!job) throw new Error("no intake job");
@@ -721,7 +721,7 @@ describe("pack files and site briefs", () => {
 
 describe("claim scan", () => {
   it("finds work queued behind more than a page of held runs", async () => {
-    const c = await asOwner("POST", "/captures", { text: "Make HELD1" });
+    const c = await asOwner("POST", "/captures", { lane: "internal", text: "Make HELD1" });
     expect(c.statusCode, c.body).toBe(201);
     const intake = await claim();
     if (!intake) throw new Error("no intake job");
@@ -738,7 +738,7 @@ describe("claim scan", () => {
         [`R-held-${round}`, id, round],
       );
     }
-    const fresh = await asOwner("POST", "/captures", { text: "Answer after the held ones" });
+    const fresh = await asOwner("POST", "/captures", { lane: "internal", text: "Answer after the held ones" });
     expect(fresh.statusCode, fresh.body).toBe(201);
     const job = await claim();
     expect(job?.run.role).toBe("intake");
@@ -782,7 +782,7 @@ describe("capture provenance", () => {
 
   it("keeps captures with the same four-character prefix in distinct package namespaces", async () => {
     for (const captureId of ["C-abcd1111", "C-abcd2222"]) {
-      const created = await asOwner("POST", "/captures", { text: "Same local package name" });
+      const created = await asOwner("POST", "/captures", { lane: "internal", text: "Same local package name" });
       expect(created.statusCode).toBe(201);
       const originalId = created.json().id;
       // Controlled valid capture IDs make the collision deterministic.
@@ -865,7 +865,7 @@ describe("pre-check evidence custody", () => {
 
 describe("stranded intake", () => {
   it("shows a failed intake on its capture and lets the owner retry it", async () => {
-    const c = await asOwner("POST", "/captures", { text: "Intake will fail" });
+    const c = await asOwner("POST", "/captures", { lane: "internal", text: "Intake will fail" });
     expect(c.statusCode, c.body).toBe(201);
     const capId = c.json().capture?.id ?? c.json().id;
     const job = await claim();

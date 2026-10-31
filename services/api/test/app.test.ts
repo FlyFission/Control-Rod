@@ -89,7 +89,7 @@ describe("access", () => {
 
 describe("a quick question is answered without a package", () => {
   it("answers and counts it", async () => {
-    const c = await asOwner("POST", "/captures", { text: "What does IFD stand for?" });
+    const c = await asOwner("POST", "/captures", { lane: "internal", text: "What does IFD stand for?" });
     expect(c.statusCode).toBe(201);
     const job = await claim();
     expect(job.run.role).toBe("intake");
@@ -113,14 +113,14 @@ describe("a site job runs end to end under the floors", () => {
 
   it("takes an attachment and drafts dependent packages", async () => {
     const fence = '```attachment name="parcel.geojson" encoding="base64"\n' + b64('{"type":"Feature"}') + "\n```";
-    const c = await asOwner("POST", "/captures", { text: `Site a 50 MW data center on this parcel.\n${fence}` });
+    const c = await asOwner("POST", "/captures", { lane: "internal", text: `Site a 50 MW data center on this parcel.\n${fence}` });
     expect(c.statusCode, c.body).toBe(201);
     expect(c.json().text).toContain("[attachment: parcel.geojson]");
     const job = await claim();
     const names = job.inputs.map((i: { name: string }) => i.name);
     expect(names).toContain("attachments/parcel.geojson");
     const parcel = draft("PARCEL", { design_inputs: [{ doc: "attachment:parcel.geojson", revision: "0", use: "boundary" }] });
-    const plan = draft("PLAN", { design_inputs: [{ doc: "PARCEL", revision: "0", use: "boundary" }] });
+    const plan = draft("PLAN", { design_inputs: [{ doc: "PARCEL", revision: "0", use: "boundary" }], depends_on: [{ package_id: "PARCEL", reason: "needs the accepted boundary" }] });
     const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
       status: "succeeded",
       outputs: [
@@ -134,6 +134,7 @@ describe("a site job runs end to end under the floors", () => {
     planId = pkgs.find((p: { id: string }) => p.id.endsWith("-PLAN")).id;
     const planView = (await asOwner("GET", `/packages/${planId}`)).json();
     expect(planView.package.design_inputs[0].doc).toBe(parcelId);
+    expect(planView.package.depends_on).toEqual([{ package_id: parcelId, reason: "needs the accepted boundary" }]);
     const officeKinds = (await asOwner("GET", "/office")).json().map((i: { kind: string }) => i.kind);
     expect(officeKinds.filter((k: string) => k === "release")).toHaveLength(2);
   });

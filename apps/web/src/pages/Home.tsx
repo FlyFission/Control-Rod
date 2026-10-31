@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
+import type { DataLane } from "../api/types.js";
+import { LanePicker } from "../components/LanePicker.js";
 import { api } from "../api/client.js";
 import type { CaptureView, CrEvent, Metrics } from "../api/types.js";
 import { CaptureBox } from "../components/CaptureBox.js";
@@ -56,6 +58,24 @@ function RecentCaptures() {
   );
 }
 
+/** An unclassified capture: no AI runtime sees it until a person with lane authority picks its lane. */
+function Classify({ id }: { id: string }) {
+  const qc = useQueryClient();
+  const [lane, setLane] = useState<DataLane>("internal");
+  const save = useMutation({
+    mutationFn: () => api.classifyCapture(id, lane),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["captures"] }),
+  });
+  return (
+    <div className="capture-intake" role="status">
+      <span>Needs a data lane before any AI sees it.</span>{" "}
+      <LanePicker id={`lane-${id}`} value={lane} onChange={setLane} />{" "}
+      <button type="button" className="btn small" onClick={() => save.mutate()} disabled={save.isPending}>Classify</button>
+      {save.isError && <span className="error small"> {save.error instanceof Error ? save.error.message : "Could not classify."}</span>}
+    </div>
+  );
+}
+
 /** Intake states the owner can recover from with a retry. */
 const RETRYABLE = new Set(["failed", "lost", "stopped"]);
 
@@ -80,9 +100,11 @@ function CaptureRow({ c }: { c: CaptureView }) {
     <li className="capture-row">
       <div className="capture-head">
         <span className={`tag ${disposition}`}>{disposition === "package" ? "Package" : disposition === "answered" ? "Answered" : "Intake"}</span>
+        {c.effective_lane !== undefined && <span className="tag" title="Data lane">{c.effective_lane} lane</span>}
         <span className="muted small">{time(c.created_at)}</span>
       </div>
       {shown.text.length > 0 && <p className="capture-text">{shown.text}</p>}
+      {!c.lane && <Classify id={c.id} />}
       {disposition === "pending" && intake !== undefined && RETRYABLE.has(intake.status) && (
         <div className="capture-intake" role="alert">
           <span>

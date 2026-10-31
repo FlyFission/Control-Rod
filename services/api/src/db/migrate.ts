@@ -13,6 +13,7 @@ import { TENANCY_SQL } from "./migrations/009-tenancy.js";
 import { WORKBENCH_SQL } from "./migrations/010-workbench.js";
 import { ROLES_SQL } from "./migrations/011-roles.js";
 import { ADMINISTRATION_SQL } from "./migrations/012-administration.js";
+import { DEPENDENCIES_SQL } from "./migrations/013-dependencies.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
@@ -27,6 +28,7 @@ export const MIGRATIONS = [
   { version: "010-workbench", sql: WORKBENCH_SQL },
   { version: "011-roles", sql: ROLES_SQL },
   { version: "012-administration", sql: ADMINISTRATION_SQL },
+  { version: "013-dependencies", sql: DEPENDENCIES_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

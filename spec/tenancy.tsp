@@ -177,11 +177,30 @@ model AuthenticatorCredential {
 
   hardware_floor: HardwareFloorVerdict;
 
+  /**
+   * Whether the attestation chain verified against a retained trust anchor at registration. Absent
+   * on records made before it was kept; signing then trusts only the recorded verdict.
+   */
+  attestation_verified?: boolean;
+
+  /** The registration's attestation, kept so the verdict can be checked again later. */
+  attestation_evidence?: AttestationEvidence;
+
   /** A revoked credential signs nothing and cannot sign in. Revocation is a new version. */
   revoked?: boolean;
 
   @format("date-time")
   recorded_at: string;
+}
+
+/** What an authenticator returned at registration, and the trust anchor its chain reached. */
+@extension("unevaluatedProperties", false)
+model AttestationEvidence {
+  /** The WebAuthn attestation object exactly as returned (base64url): statement, chain and authenticator data. */
+  attestation_object: string;
+
+  /** SHA-256 of the DER trust anchor certificate the chain verified against, when it did. */
+  trust_anchor_digest?: Digest;
 }
 
 /** A dated, scoped transfer of a role. Nothing is approved on a timeout. */
@@ -294,7 +313,11 @@ model OwnershipEnvelope {
   project_id?: TenancyId;
 }
 
-/** The lane an object carried when it was created. Immutable; effective markings are derived. */
+/**
+ * One version of an object's marking (workbench specification 11.3 M-1, M-2). `lane` is the lane the
+ * object carried when it was created and is the same in every version. Each later version records
+ * why the effective lane was computed again; no version is ever edited.
+ */
 @extension("unevaluatedProperties", false)
 model MarkingEnvelope {
   object_kind: string;
@@ -305,4 +328,59 @@ model MarkingEnvelope {
 
   lane: DataLane;
   reason: string;
+
+  /** A lane a person with lane authority raised the object to. Never lower than an earlier one. */
+  assigned?: DataLane;
+
+  /** The input marking versions the effective lane was computed from (provenance edges). */
+  inputs?: MarkingInput[];
+
+  /** An approved declassification of this object: it then contributes this lane, whatever its inputs. */
+  override?: MarkingOverride;
+
+  /**
+   * The most sensitive of the assigned (or creation) lane and every input's effective lane, or the
+   * override's lane. Absent on versions recorded before task 1.9, where it equals `lane`.
+   */
+  effective_lane?: DataLane;
+
+  /** The approved change request that caused this version, when one did. */
+  change_request_id?: TenancyId;
+}
+
+/** A provenance edge: the marking version of an object another object was derived from. */
+@extension("unevaluatedProperties", false)
+model MarkingInput {
+  object_kind: string;
+  object_id: string;
+
+  @minValue(1)
+  version: int32;
+}
+
+/**
+ * A declassification approved by a signed change request over an exact marking version. It covers
+ * the input versions the approval saw; an input added later, or raised since, still counts.
+ */
+@extension("unevaluatedProperties", false)
+model MarkingOverride {
+  lane: DataLane;
+  change_request_id: TenancyId;
+
+  /** The input marking versions the approval covered. */
+  covered?: MarkingInput[];
+
+  /**
+   * The lane of every configured source (document, policy, repository) in the object's ancestry when
+   * the approval was given. A configured lane raised, added or removed since leaves the override
+   * standing in the record but not at dispatch.
+   */
+  covered_configured?: ConfiguredCoverage[];
+}
+
+/** A configured source and the lane the owner's config gave it. */
+@extension("unevaluatedProperties", false)
+model ConfiguredCoverage {
+  reference: string;
+  lane: DataLane;
 }

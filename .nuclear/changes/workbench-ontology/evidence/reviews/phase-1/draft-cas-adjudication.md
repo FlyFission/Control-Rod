@@ -13,13 +13,17 @@ Independent review by Codex (codex-cli 0.166.0, read only), 2026-10-30: [draft-c
 
 Codex confirmed CAS-01, CAS-03 and CAS-04 fixed ([draft-cas-codex-round2.md](draft-cas-codex-round2.md)). CAS-02 remained: awaiting the invalidation hides refetch errors, so a failed reload could still close the editor without the new tag. **Fixed**: the save's own response (the stored draft and its ETag header) goes straight into the page's cache before the editor closes, so the next edit always starts from the saved tag; the background refresh is only for everything else. Test: `criteria.test.tsx` mounts the real package query, fails the reload, and checks the second save sends the tag the first save returned.
 
+## Round 3
+
+Codex confirmed CAS-02 fixed, no new defects, verdict **MERGE** ([draft-cas-codex-round3.md](draft-cas-codex-round3.md)).
+
 ## Required links
 
 [Execution ledger](../../../../../../docs/superpowers/execution/2026-10-29-workbench-buildout.md).
 
 ## Exit criteria
 
-Every finding has a fix and a test, confirmed by a second independent read before merge.
+Every finding has a fix and a test, and the independent reviewer's final verdict is merge (round 3).
 
 ## Source-lineage note
 

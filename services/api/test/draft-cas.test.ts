@@ -50,17 +50,38 @@ describe("draft compare and swap", () => {
     expect((await view(DRAFT.id)).package.title).toBe("Edited once");
   });
 
-  it("lets exactly one of two concurrent edits from the same draft land", async () => {
+  it("lets exactly one of two contending edits from the same draft land", async () => {
     const v = await view(DRAFT.id);
-    const results = await Promise.all([
-      put(DRAFT.id, { ...v.package, title: "Edit A" }, v.draft_etag),
-      put(DRAFT.id, { ...v.package, title: "Edit B" }, v.draft_etag),
-    ]);
+    const edits = async () => (await h.db.query("select count(*)::int as n from events where body->>'type' = 'package.edited' and body->>'subject' = $1", [DRAFT.id])).rows[0].n;
+    const before = await edits();
+    // Hold the package row so both edits queue behind it, then release them together.
+    const holder = await h.admin.connect();
+    await holder.query("begin");
+    await holder.query("select 1 from packages where id = $1 for update", [DRAFT.id]);
+    const pending = [put(DRAFT.id, { ...v.package, title: "Edit A" }, v.draft_etag), put(DRAFT.id, { ...v.package, title: "Edit B" }, v.draft_etag)];
+    for (let i = 0; i < 100; i++) {
+      const waiting = (await h.admin.query("select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and query like '%from packages where id%for update%'")).rows[0].n;
+      if (waiting >= 2) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect((await h.admin.query("select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and query like '%from packages where id%for update%'")).rows[0].n).toBe(2);
+    await holder.query("commit");
+    holder.release();
+    const results = await Promise.all(pending);
     expect(results.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    expect(results.find((r) => r.statusCode === 409)!.json().code).toBe("stale");
     const winner = results.find((r) => r.statusCode === 200)!.json().title;
     expect((await view(DRAFT.id)).package.title).toBe(winner);
-    const edits = await h.db.query("select count(*)::int as n from events where body->>'type' = 'package.edited' and body->>'subject' = $1", [DRAFT.id]);
-    expect(edits.rows[0].n).toBe(2);
+    expect(await edits()).toBe(before + 1);
+  });
+
+  it("refuses a record the contract does not allow, leaving the draft as it was", async () => {
+    const v = await view(DRAFT.id);
+    const r = await put(DRAFT.id, { ...v.package, approved_by_agent: true }, v.draft_etag);
+    expect(r.statusCode).toBe(400);
+    const after = await view(DRAFT.id);
+    expect(after.package).toEqual(v.package);
+    expect(after.draft_etag).toBe(v.draft_etag);
   });
 
   it("offers no tag for a released package and refuses edits to it", async () => {

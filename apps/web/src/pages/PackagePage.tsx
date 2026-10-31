@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client.js";
+import { ApiError, api } from "../api/client.js";
 import type { PackageView, VerificationRecord, WorkPackage } from "../api/types.js";
 import { CriterionCoverage } from "../components/preparation/CriterionCoverage.js";
 import { PreparationPanel } from "../components/preparation/PreparationPanel.js";
@@ -112,20 +112,40 @@ export function PackagePage({ id }: { id: string }) {
   );
 }
 
-/** Acceptance criteria. Editable while the package is a draft; fixed once released. */
-function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: string | undefined; enrolled:boolean }) {
+/**
+ * Acceptance criteria. Editable while the package is a draft; fixed once released. Editing works on
+ * the draft as it was when editing began: background refreshes never replace what is being typed, and
+ * a save that finds the draft changed says so and keeps the text, instead of losing it.
+ */
+export function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: string | undefined; enrolled:boolean }) {
   const qc = useQueryClient();
   const editable = pkg.status === "draft" && !enrolled && etag !== undefined;
   const [text, setText] = useState(pkg.acceptance_criteria.join("\n"));
   const [editing, setEditing] = useState(false);
-  useEffect(() => setText(pkg.acceptance_criteria.join("\n")), [pkg.acceptance_criteria]);
+  const [base, setBase] = useState<{ pkg: WorkPackage; etag: string } | null>(null);
+  useEffect(() => {
+    if (!editing) setText(pkg.acceptance_criteria.join("\n"));
+  }, [pkg.acceptance_criteria, editing]);
+  const startEditing = () => {
+    setBase({ pkg, etag: etag! });
+    setText(pkg.acceptance_criteria.join("\n"));
+    setEditing(true);
+  };
+  const loadLatest = () => {
+    setBase({ pkg, etag: etag! });
+    setText(pkg.acceptance_criteria.join("\n"));
+    save.reset();
+  };
   const save = useMutation({
-    mutationFn: (criteria: string[]) => api.updatePackage({ ...pkg, acceptance_criteria: criteria }, etag!),
-    onSuccess: () => {
+    mutationFn: (criteria: string[]) => api.updatePackage({ ...base!.pkg, acceptance_criteria: criteria }, base!.etag),
+    onSuccess: async () => {
+      // Stay in the editor until the fresh draft and its new tag have arrived.
+      await qc.invalidateQueries({ queryKey: ["package", pkg.id] });
       setEditing(false);
-      void qc.invalidateQueries({ queryKey: ["package", pkg.id] });
+      setBase(null);
     },
   });
+  const stale = save.error instanceof ApiError && save.error.code === "stale";
   const criteria = text
     .split("\n")
     .map((l) => l.trim())
@@ -135,7 +155,7 @@ function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: string | u
       <div className="panel-head">
         <h2 id="crit-title">Acceptance criteria</h2>
         {editable && !editing && (
-          <button type="button" className="btn ghost small" onClick={() => setEditing(true)}>
+          <button type="button" className="btn ghost small" onClick={startEditing}>
             Edit
           </button>
         )}
@@ -155,11 +175,18 @@ function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: string | u
             >
               Save
             </button>
-            <button type="button" className="btn ghost small" onClick={() => setEditing(false)}>
+            <button type="button" className="btn ghost small" onClick={() => { setEditing(false); setBase(null); save.reset(); }}>
               Cancel
             </button>
           </div>
-          {save.isError && (
+          {stale ? (
+            <div role="alert" className="error">
+              <p>These criteria changed since you started editing. Your text is still here.</p>
+              <button type="button" className="btn ghost small" onClick={loadLatest}>
+                Load the latest criteria
+              </button>
+            </div>
+          ) : save.isError && (
             <p role="alert" className="error">
               {save.error instanceof Error ? save.error.message : "Could not save."}
             </p>

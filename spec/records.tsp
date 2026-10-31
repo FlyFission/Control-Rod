@@ -86,6 +86,16 @@ model DesignInput {
   use: string;
 }
 
+/** A package this one waits for. */
+@extension("unevaluatedProperties", false)
+model PackageDependency {
+  @minLength(1)
+  package_id: string;
+
+  /** Why this package waits for that one. */
+  reason?: string;
+}
+
 @extension("unevaluatedProperties", false)
 model Assumption {
   id: string;
@@ -194,7 +204,11 @@ model WorkPackage {
   deliverables: Deliverable[];
 
   exclusions?: string[];
+  /** Citations: documents this package relies on. They never decide when the package may start. */
   design_inputs: DesignInput[];
+
+  /** Packages this one waits for: it starts only once each is accepted. Unknown targets are refused. */
+  depends_on?: PackageDependency[];
   assumptions?: Assumption[];
   codes_and_standards?: CodeOrStandard[];
   methodology?: Methodology;

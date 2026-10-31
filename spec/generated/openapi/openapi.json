@@ -5697,6 +5697,23 @@
         },
         "description": "A person's choice to proceed past a hold, with who, when and why, signed with their passkey\nover the digest of (package, revision, run, the act and the reason)."
       },
+      "ControlRod.Records.PackageDependency": {
+        "type": "object",
+        "required": [
+          "package_id"
+        ],
+        "properties": {
+          "package_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this package waits for that one."
+          }
+        },
+        "description": "A package this one waits for."
+      },
       "ControlRod.Records.PackageStatus": {
         "type": "string",
         "enum": [
@@ -6171,7 +6188,15 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ControlRod.Records.DesignInput"
-            }
+            },
+            "description": "Citations: documents this package relies on. They never decide when the package may start."
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.PackageDependency"
+            },
+            "description": "Packages this one waits for: it starts only once each is accepted. Unknown targets are refused."
           },
           "assumptions": {
             "type": "array",

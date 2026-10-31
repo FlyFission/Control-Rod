@@ -62,7 +62,15 @@
             "type": "array",
             "items": {
                 "$ref": "DesignInput.json"
-            }
+            },
+            "description": "Citations: documents this package relies on. They never decide when the package may start."
+        },
+        "depends_on": {
+            "type": "array",
+            "items": {
+                "$ref": "PackageDependency.json"
+            },
+            "description": "Packages this one waits for: it starts only once each is accepted. Unknown targets are refused."
         },
         "assumptions": {
             "type": "array",

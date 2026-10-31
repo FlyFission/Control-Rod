@@ -47,6 +47,9 @@ type Config struct {
 	// SIGTERM, then SIGKILL). Defaults 2 seconds and 10 seconds.
 	StopAfterHangup time.Duration
 	StopGrace       time.Duration
+	// Container is how runs are contained; nil detects it (cgroup scopes where a systemd user
+	// manager can start them, the process group otherwise).
+	Container *Container
 }
 
 // Home returns CONTROLROD_HOME, or ~/.controlrod.
@@ -91,8 +94,10 @@ type Daemon struct {
 	probeMu sync.Mutex
 	status  []RuntimeStatus
 
-	activeMu sync.Mutex
-	active   map[string]bool
+	activeMu    sync.Mutex
+	active      map[string]bool
+	activeUnits map[string]bool
+	container   Container
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -136,8 +141,12 @@ func New(cfg Config) *Daemon {
 	if cfg.StopGrace <= 0 {
 		cfg.StopGrace = 10 * time.Second
 	}
+	if cfg.Container == nil {
+		k := DetectContainer(os.Getenv)
+		cfg.Container = &k
+	}
 	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger, outbox: NewOutbox(cfg.Home),
-		receipts: NewReceipts(cfg.Home), quit: context.Background()}
+		receipts: NewReceipts(cfg.Home), container: *cfg.Container, quit: context.Background()}
 }
 
 var (
@@ -161,7 +170,10 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if len(d.cfg.Runtimes) == 0 {
 		return errors.New("no agent runtime found: install Claude Code or Codex")
 	}
-	d.log.Info("daemon started", "api", d.cfg.API, "runtimes", strings.Join(d.cfg.Runtimes, ","), "parallel", d.cfg.Parallel)
+	d.log.Info("daemon started", "api", d.cfg.API, "runtimes", strings.Join(d.cfg.Runtimes, ","), "parallel", d.cfg.Parallel, "containment", d.container.Mode)
+	if d.container.Mode != ContainCgroup {
+		d.log.Warn("runs are contained by process group only: a process that leaves its group is not tracked. Cgroup containment needs Linux with a systemd user manager.")
+	}
 	d.quit = ctx
 	d.sweepOrphans(ctx)
 	d.probe(ctx)
@@ -329,40 +341,34 @@ func (d *Daemon) timings() StopTimings {
 	return StopTimings{AfterHangup: d.cfg.StopAfterHangup, Grace: d.cfg.StopGrace}
 }
 
-// sweepOrphans settles runs whose spawn receipts outlived the daemon that made them: it stops a
-// process only while the receipt still matches it, then tells the control plane the process is
-// gone. Receipts for runs this daemon is running now are left alone.
+// sweepOrphans settles runs whose spawn receipts outlived the daemon that made them. A run whose
+// completion is already in the outbox needs nothing more: its exit was observed. Otherwise every
+// process left in the run's unit is stopped, and once the unit is empty the control plane is told
+// the process is gone. Scopes named for runs that have no receipt (the daemon died between spawn
+// and receipt) are ended too: the name proves they are this daemon's. Runs active now are left alone.
 func (d *Daemon) sweepOrphans(ctx context.Context) {
 	list, err := d.receipts.List()
 	if err != nil {
 		d.log.Warn("receipts", "err", err)
 		return
 	}
+	known := map[string]bool{}
 	for _, r := range list {
+		known[r.Unit] = true
 		if ctx.Err() != nil {
 			return
 		}
 		if d.isActive(r.RunID) {
 			continue
 		}
-		if r.Matches() {
-			d.log.Warn("stopping a run process left by an earlier daemon", "run", r.RunID, "pid", r.PID)
-			gone := make(chan struct{})
-			stopWatch := make(chan struct{})
-			go func() {
-				defer close(gone)
-				for r.Matches() {
-					select {
-					case <-stopWatch:
-						return
-					case <-time.After(100 * time.Millisecond):
-					}
-				}
-			}()
-			StopGracefully(r, d.timings(), gone)
-			close(stopWatch)
-			if r.Matches() {
-				d.log.Error("a run process left by an earlier daemon would not stop; leaving its receipt", "run", r.RunID, "pid", r.PID)
+		if d.outbox.Has(r.RunID) {
+			d.receipts.Remove(r.RunID)
+			continue
+		}
+		if r.Alive() {
+			d.log.Warn("stopping a run left by an earlier daemon", "run", r.RunID, "pid", r.PID, "containment", r.Containment)
+			if !StopGracefully(r, d.timings(), nil) {
+				d.log.Error("a run left by an earlier daemon would not stop; keeping its receipt", "run", r.RunID, "pid", r.PID)
 				continue
 			}
 		}
@@ -377,8 +383,14 @@ func (d *Daemon) sweepOrphans(ctx context.Context) {
 			d.log.Warn("could not report a run process gone; will retry", "run", r.RunID, "err", err)
 			continue
 		}
-		RestoreWrite(r.Workspace)
 		d.receipts.Remove(r.RunID)
+	}
+	for _, u := range d.container.OrphanScopes() {
+		if known[u.Name] || d.isActiveUnit(u.Name) {
+			continue
+		}
+		d.log.Warn("ending a run scope that has no receipt", "unit", u.Name)
+		StopGracefully(SpawnReceipt{Containment: ContainCgroup, Unit: u.Name, Cgroup: u.Cgroup}, d.timings(), nil)
 	}
 }
 
@@ -388,17 +400,24 @@ func (d *Daemon) isActive(runID string) bool {
 	return d.active[runID]
 }
 
-func (d *Daemon) setActive(runID string, on bool) {
+func (d *Daemon) setActive(runID, unit string, on bool) {
 	d.activeMu.Lock()
 	defer d.activeMu.Unlock()
 	if d.active == nil {
-		d.active = map[string]bool{}
+		d.active, d.activeUnits = map[string]bool{}, map[string]bool{}
 	}
 	if on {
-		d.active[runID] = true
+		d.active[runID], d.activeUnits[unit] = true, true
 	} else {
 		delete(d.active, runID)
+		delete(d.activeUnits, unit)
 	}
+}
+
+func (d *Daemon) isActiveUnit(unit string) bool {
+	d.activeMu.Lock()
+	defer d.activeMu.Unlock()
+	return d.activeUnits[unit]
 }
 
 // logBuffer collects raw lines and the latest label between flushes, and the spawn receipt until
@@ -569,12 +588,21 @@ func failText(err error) string {
 // becomes a failed completion. The completion is written to the outbox first and kept there
 // until the control plane confirms or refuses it.
 func (d *Daemon) Handle(ctx context.Context, job *Job) {
+	// Active until the completion is in durable custody, so an orphan sweep never reports a run this
+	// daemon is still finishing.
+	unit := UnitName(job.Run.ID, job.Run.Generation)
+	d.setActive(job.Run.ID, unit, true)
+	defer d.setActive(job.Run.ID, unit, false)
 	comp := d.Execute(ctx, job)
 	comp.ClaimToken = job.Claim.Token
 	comp.IdempotencyKey = newKey()
 	e := OutboxEntry{RunID: job.Run.ID, Completion: comp}
 	if err := d.outbox.Put(e); err != nil {
 		d.log.Warn("outbox write failed; sending without it", "run", job.Run.ID, "err", err)
+	} else {
+		// The completion is now in durable custody; the spawn receipt has done its job. If the outbox
+		// write failed the receipt stays, so a restart can still report the exit.
+		d.receipts.Remove(job.Run.ID)
 	}
 	wait := d.cfg.RetryBase
 	for attempt := 1; ; attempt++ {
@@ -626,30 +654,40 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 	go func() { d.flushLoop(flushCtx, job, buf, release); close(flushed) }()
 
 	launch := LaunchFor(runtime, job.Run, ws)
+	// A stop freezes the run and snapshots out/ here; that snapshot is then the run's only output.
+	frozen := filepath.Join(ws.Dir, "out.frozen")
+	var snapshotErr error
 	cmd, err := Command(runtime, job.Run, ws)
 	if err == nil {
 		if cmd == nil {
 			buf.add(`{"type":"result","subtype":"fake-copy"}`)
 			err = CopyFakeOutputs(ws)
 		} else {
-			d.setActive(job.Run.ID, true)
-			err = Execute(runCtx, cmd, buf.add, ExecHooks{Timings: d.timings(), Started: func(pid int) (SpawnReceipt, bool) {
-				r, rerr := NewReceipt(job.Run.ID, job.Claim.Token, pid, max(job.Run.Generation, 1), ws.Dir)
-				if rerr != nil {
-					d.log.Warn("no spawn receipt; the run can only be stopped by this daemon", "run", job.Run.ID, "err", rerr)
-					return SpawnReceipt{}, false
-				}
-				if perr := d.receipts.Put(r); perr != nil {
-					d.log.Warn("spawn receipt not retained", "run", job.Run.ID, "err", perr)
-				}
-				buf.setReceipt(r.Wire())
-				return r, true
-			}})
-			// The exit is observed: the receipt has done its job, and the daemon may write again
-			// (a graceful stop revoked write access before signalling).
-			RestoreWrite(ws.Dir)
-			d.receipts.Remove(job.Run.ID)
-			d.setActive(job.Run.ID, false)
+			unit := UnitName(job.Run.ID, job.Run.Generation)
+			d.container.Wrap(cmd, unit)
+			err = Execute(runCtx, cmd, buf.add, ExecHooks{
+				Timings:  d.timings(),
+				Snapshot: func() { snapshotErr = Snapshot(ws.Out, frozen) },
+				Started: func(pid int) (*SpawnReceipt, error) {
+					u, lerr := d.container.Locate(pid, unit)
+					if lerr != nil {
+						return nil, lerr
+					}
+					r, rerr := NewReceipt(job.Run.ID, job.Claim.Token, pid, max(job.Run.Generation, 1), u)
+					if errors.Is(rerr, ErrNoIdentity) {
+						d.log.Warn("no process identity on this platform; the run can only be stopped by this daemon", "run", job.Run.ID)
+						return nil, nil
+					}
+					if rerr != nil {
+						return nil, rerr
+					}
+					// Fail closed: a run whose receipt is not durable could outlive this daemon unowned.
+					if perr := d.receipts.Put(r); perr != nil {
+						return nil, perr
+					}
+					buf.setReceipt(r.Wire())
+					return &r, nil
+				}})
 		}
 	}
 	stopFlush()
@@ -675,7 +713,14 @@ func (d *Daemon) Execute(ctx context.Context, job *Job) Completion {
 			comp.Status = "stopped"
 		}
 	}
-	files, outArts, cerr := Collect(ws.Out, MaxOutputFile, MaxOutputTotal)
+	collectFrom := ws.Out
+	if _, serr := os.Stat(frozen); serr == nil {
+		collectFrom = frozen
+	}
+	if snapshotErr != nil {
+		comp.Status, comp.Error = "failed", "outputs could not be snapshot when the run was stopped: "+snapshotErr.Error()
+	}
+	files, outArts, cerr := Collect(collectFrom, MaxOutputFile, MaxOutputTotal)
 	if cerr != nil {
 		comp.Status, comp.Error, files, outArts = "failed", "collect outputs: "+cerr.Error(), nil, nil
 	}

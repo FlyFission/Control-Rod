@@ -33,7 +33,7 @@ export interface WorkConfig {
    * The sweep's memory of the controller (specification 22): when it started, how often the timer
    * sweeps (0 means only on demand), when it last swept, and whether an outage is being reported.
    */
-  supervision?: { startedAt: number; sweepSeconds: number; lastSweepAt?: number; outage?: boolean; issued?: Set<string> };
+  supervision?: { startedAt: number; sweepSeconds: number; lastSweepAt?: number; outage?: boolean; issued?: Set<string>; recovered?: Set<string> };
   guidedPreparation?: boolean;
   preparedRelease?: boolean;
   preparationSources?: Record<string,{kind:"document"|"policy";revision:string;path:string}>;
@@ -848,6 +848,31 @@ const leaseFromNow = (cfg: WorkConfig) => new Date(Date.now() + leaseSeconds(cfg
 const tokenHash = (t: string) => createHash("sha256").update(t).digest();
 
 /** Constant-time check that `token` is the claim token this run was handed. */
+/** Whether the controller looks to have been absent: no sweep for longer than a lease (the machine slept). */
+function controllerAbsent(cfg: WorkConfig): boolean {
+  const sup = cfg.supervision;
+  return Boolean(sup && sup.sweepSeconds > 0 && sup.lastSweepAt !== undefined
+    && Date.now() - sup.lastSweepAt > Math.max(leaseSeconds(cfg), 3 * sup.sweepSeconds) * 1000);
+}
+
+/**
+ * Whether a lapsed lease may still be honored: this controller never issued or renewed it (it was
+ * granted before a restart), or the controller itself was absent. A heartbeat or completion that
+ * arrives before the sweep then counts, instead of stopping a live run (see sweepLost).
+ */
+function leaseGrace(cfg: WorkConfig, runId: string): boolean {
+  const sup = cfg.supervision;
+  return sup !== undefined && (!sup.issued?.has(runId) || controllerAbsent(cfg));
+}
+
+async function renewLease(c: Tx, cfg: WorkConfig, row: { id: string; package_id: string }, reason: string): Promise<string> {
+  const lease = leaseFromNow(cfg);
+  issuedLease(cfg, row.id);
+  await c.query("update runs set lease_expires_at = $2, body = jsonb_set(body, '{lease_expires_at}', to_jsonb($3::text)) where id = $1 and status = 'running'", [row.id, lease, lease]);
+  await appendEvent(c, "run.lease-renewed", row.id, SYSTEM, { package: row.package_id, lease_expires_at: lease, reason });
+  return lease;
+}
+
 /** Notes that this controller process issued or renewed a run's lease (see sweepLost). */
 function issuedLease(cfg: WorkConfig, runId: string): void {
   const sup = cfg.supervision;
@@ -857,7 +882,8 @@ function issuedLease(cfg: WorkConfig, runId: string): void {
 
 /** Whether two spawn receipts name the same process of the same attempt. */
 function sameReceipt(a: Json, b: Json): boolean {
-  return a.pid === b.pid && a.pgid === b.pgid && a.process_start === b.process_start && a.boot_id === b.boot_id && a.generation === b.generation;
+  return a.pid === b.pid && a.pgid === b.pgid && a.process_start === b.process_start && a.boot_id === b.boot_id && a.generation === b.generation
+    && a.containment === b.containment && (a.unit ?? null) === (b.unit ?? null);
 }
 
 /** The generation fence: refuses a report from an attempt that a later attempt superseded. */
@@ -1026,7 +1052,10 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
     if (!holdsClaim(row.claim_token_hash, token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
     if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
     await requireCurrentGeneration(c, row);
-    if((await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount) throw new Refusal(409,"run-lost","The run lease expired; a late heartbeat cannot revive it");
+    if((await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount) {
+      if (!leaseGrace(cfg, runId)) throw new Refusal(409,"run-lost","The run lease expired; a late heartbeat cannot revive it");
+      await appendEvent(c, "run.lease-renewed", runId, SYSTEM, { package: row.package_id, reason: "the daemon's heartbeat reached a lease granted before the controller restarted" });
+    }
     // Refuse, never truncate: a line the server drops after acknowledging it is lost for good.
     if (lines.length > MAX_LOG_LINES) {
       throw new Refusal(400, "too-many-lines", `Send at most ${MAX_LOG_LINES} lines per batch`);
@@ -1034,6 +1063,7 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
     const lease = leaseFromNow(cfg);
     const body = { ...row.body, lease_expires_at: lease, ...(label ? { label: label.slice(0, LABEL_MAX) } : {}) };
     issuedLease(cfg, runId);
+    cfg.supervision?.recovered?.delete(runId);
     if (receipt !== undefined) {
       validate(cfg, "OwnershipReceipt.json", receipt);
       const r = receipt as Json;
@@ -1068,43 +1098,52 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
  *   lapse may only reflect the restart; it is renewed once instead. So is every lapsed lease after
  *   a gap between sweeps longer than a lease, as when the machine slept;
  * - when more than half of at least three active runs look dead in one pass, that is an outage,
- *   not a fact about the runs: nothing is marked, and the outage is recorded once.
+ *   not a fact about the runs: each such run gets one recovery lease and the outage is recorded
+ *   once. A run that lapses again after its recovery lease is a fact, so no outage holds a dead
+ *   run forever.
+ * A heartbeat or completion that reaches a lapsed lease before the sweep does gets the same
+ * treatment (leaseGrace), so a live daemon is never stopped by a controller's own restart.
  */
 export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
   return command(db, "run.sweep-lost", async (c) => {
     const sup = cfg.supervision;
-    const nowMs = Date.now();
-    const slept = Boolean(sup && sup.sweepSeconds > 0 && sup.lastSweepAt !== undefined
-        && nowMs - sup.lastSweepAt > Math.max(leaseSeconds(cfg), 3 * sup.sweepSeconds) * 1000);
-    if (sup) sup.lastSweepAt = nowMs;
+    const slept = controllerAbsent(cfg);
+    if (sup) sup.lastSweepAt = Date.now();
     const r = await c.query<RunRow & { expired_at: Date }>(
       "select *, lease_expires_at as expired_at from runs where status = 'running' and lease_expires_at < now() order by created_at,id",
     );
     const lost: string[] = [];
-    const candidates: typeof r.rows = [];
+    const definite: typeof r.rows = [];
+    const doubtful: typeof r.rows = [];
     for (const row of r.rows) {
       const inherited = sup !== undefined && !sup.issued?.has(row.id);
-      if (!slept && !inherited) { candidates.push(row); continue; }
-      const lease = leaseFromNow(cfg);
-      issuedLease(cfg, row.id);
-      await c.query("update runs set lease_expires_at = $2, body = jsonb_set(body, '{lease_expires_at}', to_jsonb($3::text)) where id = $1 and status = 'running'", [row.id, lease, lease]);
-      await appendEvent(c, "run.lease-renewed", row.id, SYSTEM, { package: row.package_id, lease_expires_at: lease,
-        reason: slept ? "the controller was not sweeping when this lease lapsed" : "this lease was granted before the controller restarted" });
+      if (slept || inherited) {
+        await renewLease(c, cfg, row, slept ? "the controller was not sweeping when this lease lapsed" : "this lease was granted before the controller restarted");
+        continue;
+      }
+      (sup?.recovered?.has(row.id) ? definite : doubtful).push(row);
     }
     const active = (await c.query<{ n: number }>("select count(*)::int as n from runs where status = 'running'")).rows[0]?.n ?? 0;
-    if (active >= 3 && candidates.length * 2 > active) {
-      if (sup && !sup.outage) {
-        sup.outage = true;
-        await appendEvent(c, "runs.sweep-outage", "runs", SYSTEM, { active, looking_dead: candidates.length });
+    let candidates = [...definite, ...doubtful];
+    if (sup && active >= 3 && doubtful.length * 2 > active) {
+      for (const row of doubtful) {
+        await renewLease(c, cfg, row, "a recovery lease: most active runs stopped answering at once, which looks like an outage");
+        (sup.recovered ??= new Set()).add(row.id);
       }
-      return lost;
+      if (!sup.outage) {
+        sup.outage = true;
+        await appendEvent(c, "runs.sweep-outage", "runs", SYSTEM, { active, looking_dead: doubtful.length });
+      }
+      candidates = definite;
+    } else if (sup) {
+      sup.outage = false;
     }
     if (sup) {
-      sup.outage = false;
       // Forget runs that are no longer running, so the set stays the size of the live work.
       if (sup.issued?.size) {
         const live = new Set((await c.query<{ id: string }>("select id from runs where status = 'running'")).rows.map((x) => x.id));
         for (const id of sup.issued) if (!live.has(id)) sup.issued.delete(id);
+        for (const id of sup.recovered ?? []) if (!live.has(id)) sup.recovered?.delete(id);
       }
     }
     for (const candidate of candidates) {
@@ -1339,7 +1378,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
         throw new Refusal(409, "already-complete", "This run already has a different completion on record");
       }
       if (row.status === "running") await requireCurrentGeneration(c, row);
-      if (row.status === "lost" || (row.status==="running" && (await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount)) throw new LateCompletion();
+      if (row.status === "lost" || (row.status==="running" && !leaseGrace(cfg, runId) && (await c.query("select 1 from runs where id=$1 and (lease_expires_at is null or lease_expires_at<=clock_timestamp())",[runId])).rowCount)) throw new LateCompletion();
       if (row.status !== "running") throw new Refusal(409, "not-running", `The run is ${row.status}`);
       try {
         return await applyCompletion(c, cfg, row, key, body);
@@ -1355,6 +1394,17 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
         const row=await lockRun(c,runId);
         if(!holdsClaim(row.claim_token_hash,body.claim_token)) throw new Refusal(403,"stale-claim","This claim token does not hold the run");
         const enrolled=Boolean((await c.query("select 1 from preparation_heads where package_id=$1",[row.package_id])).rowCount);
+        // A completion that beats the sweep to an expired run retires it here, so the evidence it
+        // carries settles the hold in the same transaction.
+        if (row.status === "running") {
+          const lostBody = { ...row.body, status: "lost", finished_at: now(), label: "Lost",
+            error: "The daemon's completion arrived after the run's lease lapsed; it is retained with its digests and never applied. The run can be requeued.",
+            outcome_unknown: { since: now(), reason: "the lease lapsed before the completion arrived" } };
+          delete lostBody.lease_expires_at;
+          validate(cfg, "Run.json", lostBody);
+          await c.query("update runs set status = 'lost', body = $2 where id = $1", [runId, lostBody]);
+          await appendEvent(c, "run.lost", runId, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+        }
         const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
         await reconcileTx(c, cfg, row, "completed-late", `The daemon's completion (${String(body.status ?? "unknown")}) arrived after the run was marked lost; it is retained with its digests and never applied.`, { kind: "agent", id: row.body.agent_baseline });
         if(!enrolled || fresh) await appendEvent(c,"run.late-completion",runId,SYSTEM,{outputs:(Array.isArray(body.outputs)?body.outputs:[]).slice(0,200).map((o:Json)=>({name:String(o?.name??"").slice(0,200),sha256:sha256(Buffer.from(String(o?.content_base64??""),"base64"))}))});

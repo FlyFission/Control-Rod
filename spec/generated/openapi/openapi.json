@@ -6506,7 +6506,8 @@
           "process_start",
           "boot_id",
           "generation",
-          "started_at"
+          "started_at",
+          "containment"
         ],
         "properties": {
           "pid": {
@@ -6540,6 +6541,19 @@
           "started_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "containment": {
+            "type": "string",
+            "enum": [
+              "cgroup",
+              "process-group"
+            ],
+            "description": "cgroup: the run has its own systemd user scope, which the daemon can freeze and kill as one\nand which reports when it is empty. process-group: the fallback without a user systemd."
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The scope's unit name (cgroup containment)."
           }
         },
         "description": "Proof of which process a daemon started for a run (specification 22). A stop, sweep or kill acts\nonly while the live process still matches: same boot, same process id, same start time."

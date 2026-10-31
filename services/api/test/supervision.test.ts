@@ -19,7 +19,7 @@ afterAll(async () => h?.stop());
 const post = (url: string, payload: unknown) => h.app.inject({ method: "POST", url, headers: { cookie, origin: ORIGIN }, payload: payload as object });
 const daemon = (url: string, payload: Json) => h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: withClaim(url, payload) });
 const run = async (id: string) => (await h.db.query<{ status: string; body: Json }>("select status, body from runs where id = $1", [id])).rows[0]!;
-const receipt = (generation = 1, pid = 4242) => ({ pid, pgid: pid, process_start: "123456", boot_id: "boot-1", generation, started_at: new Date().toISOString() });
+const receipt = (generation = 1, pid = 4242) => ({ pid, pgid: pid, process_start: "123456", boot_id: "boot-1", generation, started_at: new Date().toISOString(), containment: "cgroup", unit: `controlrod-run-x-g${generation}` });
 /** Reading the office runs the sweep first, as the app does before showing anything. */
 const sweep = async () => { await h.app.inject({ method: "GET", url: "/office", headers: { cookie } }); };
 
@@ -123,6 +123,37 @@ describe("outcome unknown and reconcile", () => {
   });
 });
 
+describe("ordering races", () => {
+  it("honors a heartbeat that reaches a lease from before a restart ahead of the first sweep", async () => {
+    // A run an earlier controller started, whose daemon is alive and heartbeats first.
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-SUP-HB', 0, 'in-work', $1)",
+      [{ ...example, id: "WP-SUP-HB", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [] }]);
+    const body = { schema_version: "0.1.0", id: "R-hbfirst1", package_id: "WP-SUP-HB", package_revision: 0, role: "author", agent_baseline: "author-fake",
+      runtime: { kind: "local", provider: "fake", model: "fake" }, round: 1, status: "running", queued_at: new Date().toISOString(), generation: 1 };
+    const { createHash } = await import("node:crypto");
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body, claim_token_hash, lease_expires_at) values ($1, 'WP-SUP-HB', 0, 'author', 1, 'running', $2, $3, now() - interval '5 minutes')",
+      [body.id, body, createHash("sha256").update("hb-token").digest("hex")]);
+    claims.set(body.id, "hb-token");
+    const beat = await daemon(`/runner/runs/${body.id}/log`, { lines: ["still working"] });
+    expect(beat.statusCode, beat.body).toBe(200);
+    expect(beat.json().stop).toBe(false);
+    await sweep();
+    expect((await run(body.id)).status).toBe("running");
+    await h.admin.query("update runs set status = 'stopped' where id = $1", [body.id]);
+  });
+
+  it("retires and settles a run whose late completion beats the sweep", async () => {
+    const job = await claimed("WP-SUP-BEAT");
+    await expire(job.run.id);
+    const late = await daemon(`/runner/runs/${job.run.id}/complete`, { status: "succeeded", idempotency_key: "beat-key-001", outputs: [] });
+    expect(late.json().code).toBe("run-lost");
+    const after = await run(job.run.id);
+    expect(after.status).toBe("lost");
+    expect(after.body.reconciliation.disposition).toBe("completed-late");
+    expect((await post(`/packages/WP-SUP-BEAT/runs/${job.run.id}/requeue`, {})).statusCode).toBe(201);
+  });
+});
+
 describe("generation fence", () => {
   it("refuses reports from an attempt a later attempt superseded", async () => {
     const job = await claimed("WP-SUP-FENCE");
@@ -152,13 +183,17 @@ describe("reaper", () => {
     for (const j of jobs) expect((await run(j.run.id)).status).toBe("running");
     const outage = await h.db.query("select count(*)::int as n from events where body->>'type' = 'runs.sweep-outage'");
     expect(outage.rows[0].n).toBe(1);
-    // A second pass in the same outage records nothing new.
+    // They got recovery leases, so a second pass in the same outage finds nothing to do.
     await sweep();
+    for (const j of jobs) expect((await run(j.run.id)).status).toBe("running");
     expect((await h.db.query("select count(*)::int as n from events where body->>'type' = 'runs.sweep-outage'")).rows[0].n).toBe(1);
-    // One of three looking dead is a fact about that run.
-    for (const j of jobs.slice(1)) await h.admin.query("update runs set lease_expires_at = now() + interval '1 minute' where id = $1", [j.run.id]);
+    // Each got one recovery lease. Two daemons come back and heartbeat; the third never does, so its
+    // second lapse is a fact even though it is still one of the runs that looked dead together.
+    for (const j of jobs.slice(1)) expect((await daemon(`/runner/runs/${j.run.id}/log`, { lines: [] })).statusCode).toBe(200);
+    await expire(jobs[0].run.id);
     await sweep();
     expect((await run(jobs[0].run.id)).status).toBe("lost");
+    expect((await run(jobs[0].run.id)).body.outcome_unknown).toBeDefined();
     for (const j of jobs.slice(1)) expect((await run(j.run.id)).status).toBe("running");
     await h.admin.query("update runs set status = 'stopped' where id = any($1::text[]) and status = 'running'", [jobs.map((j) => j.run.id)]);
   });

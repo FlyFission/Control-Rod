@@ -1444,6 +1444,14 @@ export interface components {
             generation: number;
             /** Format: date-time */
             started_at: string;
+            /**
+             * @description cgroup: the run has its own systemd user scope, which the daemon can freeze and kill as one
+             *     and which reports when it is empty. process-group: the fallback without a user systemd.
+             * @enum {string}
+             */
+            containment: "cgroup" | "process-group";
+            /** @description The scope's unit name (cgroup containment). */
+            unit?: string;
         };
         /** @description A package this one waits for. */
         "ControlRod.Records.PackageDependency": {

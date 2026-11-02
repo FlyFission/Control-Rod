@@ -15,3 +15,16 @@ Reviewer: Codex CLI (read-only, ephemeral). Evidence: `shell-codex-round1.md` an
 | Medium: since you last looked | Partly fixed here | The comment now says the cursor is kept per browser. The digest itself moves to the server in task 3.3 (the next PR), which removes the single page limit. |
 
 Verification after round 1 fixes: API 495 passed, 1 skipped; web 121 passed; build passes.
+
+## Round 2 (verdict MERGE)
+
+P3A-01 to P3A-05 closed; no new High or Critical findings. The Mediums are fixed before merge:
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| Medium: Home and End | Fixed | The palette no longer takes Home and End; they move the caret in the search text, as in any editable combobox. |
+| Medium: package list failure | Fixed | Packages and Registers say the packages could not be loaded (or refreshed), with a retry, and state that there are none only after a successful answer. |
+
+The manual keyboard, screen reader and zoom pass of specification Q-8 is recorded with the Phase 3 exit review, not in this PR.
+
+Final verification: API 495 passed, 1 skipped; web 121 passed; build passes.

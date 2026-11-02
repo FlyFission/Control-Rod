@@ -1,12 +1,14 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -50,6 +52,8 @@ type Config struct {
 	// Container is how runs are contained; nil detects it (cgroup scopes where a systemd user
 	// manager can start them, the process group otherwise).
 	Container *Container
+	// Breaker sets the runaway breaker's thresholds; nil means DefaultBreakerPolicy.
+	Breaker *BreakerPolicy
 }
 
 // Home returns CONTROLROD_HOME, or ~/.controlrod.
@@ -153,6 +157,11 @@ func New(cfg Config) *Daemon {
 	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger, outbox: NewOutbox(cfg.Home),
 		receipts: NewReceipts(cfg.Home), container: k, ns: ns, quit: context.Background()}
 }
+
+// errBreaker is a run stopped by the breaker, with the reason.
+type errBreaker struct{ reason string }
+
+func (e errBreaker) Error() string { return "breaker: " + e.reason }
 
 var (
 	errShutdown = errors.New("daemon shutdown")
@@ -268,6 +277,18 @@ func (d *Daemon) probe(ctx context.Context) {
 	}
 }
 
+// markNotReady withdraws a runtime from offers without running anything, until the next probe.
+func (d *Daemon) markNotReady(runtime, reason string) {
+	d.probeMu.Lock()
+	defer d.probeMu.Unlock()
+	for i := range d.status {
+		if d.status[i].Runtime == runtime {
+			d.status[i].Ready, d.status[i].Reason, d.status[i].Artifact = false, reason, nil
+		}
+	}
+	d.log.Warn(reason+". It is not offered for work until it is probed again.", "runtime", runtime)
+}
+
 func (d *Daemon) probeLoop(ctx context.Context) {
 	t := time.NewTicker(d.cfg.ProbeInterval)
 	defer t.Stop()
@@ -279,6 +300,34 @@ func (d *Daemon) probeLoop(ctx context.Context) {
 			d.probe(ctx)
 		}
 	}
+}
+
+// probedArtifact is the executable the last probe checked for a runtime, if any.
+func (d *Daemon) probedArtifact(runtime string) *RuntimeArtifact {
+	for _, s := range d.runtimeStatus() {
+		if s.Runtime == runtime && s.Artifact != nil {
+			a := *s.Artifact
+			return &a
+		}
+	}
+	return nil
+}
+
+// verifiedVersion is the version recorded for the artifact a run launched: the probe's, when the
+// probe saw that same digest, otherwise the pin's. Empty when neither names it.
+func (d *Daemon) verifiedVersion(runtime string, launched *Digest, pin *RuntimePin) string {
+	if launched == nil {
+		return ""
+	}
+	for _, s := range d.runtimeStatus() {
+		if s.Runtime == runtime && s.Artifact != nil && s.Artifact.Digest.Value == launched.Value {
+			return s.Version
+		}
+	}
+	if pin != nil && pin.Digest.Value == launched.Value {
+		return pin.Version
+	}
+	return ""
 }
 
 func (d *Daemon) runtimeStatus() []RuntimeStatus {
@@ -431,15 +480,33 @@ func (d *Daemon) isActiveUnit(unit string) bool {
 	return d.activeUnits[unit]
 }
 
-// logBuffer collects raw lines and the latest label between flushes, and the spawn receipt until
-// the control plane has recorded it.
+// logBuffer collects raw lines, normalized events and the latest label between flushes, and the
+// spawn receipt until the control plane has recorded it. Events pass the breaker, which sees all
+// of them, and then admission (bounded telemetry) on the way in.
 type logBuffer struct {
 	mu      sync.Mutex
 	lines   []string
+	events  []Event
 	label   string
 	model   string
 	dirty   bool
 	receipt *OwnershipReceipt
+
+	// nextIdx is the index the next kept event gets (Event.idx).
+	nextIdx int
+
+	admit   *Admission
+	breaker *Breaker
+	// onTrip stops the run when the breaker trips; called outside the lock.
+	onTrip func(reason string)
+	now    func() time.Time
+}
+
+func (b *logBuffer) clock() time.Time {
+	if b.now != nil {
+		return b.now()
+	}
+	return time.Now()
 }
 
 func (b *logBuffer) setReceipt(r OwnershipReceipt) {
@@ -459,8 +526,9 @@ func (b *logBuffer) receiptSent(r *OwnershipReceipt) {
 }
 
 func (b *logBuffer) add(line string) {
+	now := b.clock()
+	events := Normalize(line, now)
 	b.mu.Lock()
-	defer b.mu.Unlock()
 	b.lines = append(b.lines, line)
 	if l := LabelFor(line); l != "" {
 		b.label = l
@@ -469,6 +537,50 @@ func (b *logBuffer) add(line string) {
 		b.model = ReportedModel(line)
 	}
 	b.dirty = true
+	b.mu.Unlock()
+	b.addEvents(events)
+}
+
+// maxHeldEvents bounds unsent events while uploads fail; the oldest go first, counted.
+const maxHeldEvents = 5000
+
+// addEvents admits events, lets the breaker see them, and keeps them for the next post.
+func (b *logBuffer) addEvents(events []Event) {
+	if len(events) == 0 {
+		return
+	}
+	now := b.clock()
+	// The breaker sees everything the run did; admission only bounds what is kept as telemetry.
+	var verdict Verdict
+	if b.breaker != nil {
+		verdict = b.breaker.Observe(events, now)
+	}
+	if b.admit != nil {
+		events = b.admit.Admit(events, now)
+	}
+	at := now.UTC().Format(time.RFC3339Nano)
+	for _, w := range verdict.Warnings {
+		events = append(events, Event{Kind: EvNotice, At: at, Text: "Breaker warning: " + w})
+	}
+	if verdict.Trip != "" {
+		events = append(events, Event{Kind: EvNotice, At: at, Text: "Breaker tripped: " + verdict.Trip + ". The run is being stopped."})
+	}
+	b.mu.Lock()
+	for i := range events {
+		events[i].idx = b.nextIdx
+		b.nextIdx++
+	}
+	b.events = append(b.events, events...)
+	// The oldest go first. The gap they leave in the indexes is how the control plane learns of
+	// them: it records a dropped event in their place.
+	if over := len(b.events) - maxHeldEvents; over > 0 {
+		b.events = b.events[over:]
+	}
+	b.dirty = true
+	b.mu.Unlock()
+	if verdict.Trip != "" && b.onTrip != nil {
+		b.onTrip(verdict.Trip)
+	}
 }
 
 func (b *logBuffer) reportedModel() string {
@@ -500,11 +612,21 @@ func (b *logBuffer) take() (LogBatch, bool) {
 		n++
 	}
 	batch := LogBatch{Lines: append([]string(nil), b.lines[:n]...), Label: b.label, Receipt: b.receipt}
+	// A batch carries consecutive events only, so events_from places every one of them.
+	if len(b.events) > 0 {
+		k := 1
+		for k < len(b.events) && k < MaxEventBatch && b.events[k].idx == b.events[0].idx+k {
+			k++
+		}
+		batch.Events = append([]Event(nil), b.events[:k]...)
+		batch.EventsFrom = b.events[0].idx
+		b.events = b.events[k:]
+	}
 	if batch.Lines == nil {
 		batch.Lines = []string{}
 	}
 	b.lines = b.lines[n:]
-	b.dirty = len(b.lines) > 0 || b.receipt != nil
+	b.dirty = len(b.lines) > 0 || len(b.events) > 0 || b.receipt != nil
 	if !b.dirty {
 		b.lines = nil
 	}
@@ -513,6 +635,43 @@ func (b *logBuffer) take() (LogBatch, bool) {
 
 // maxHeldLines bounds how many unsent lines the daemon keeps while uploads fail.
 const maxHeldLines = 20000
+
+// MaxEventBatch is the most events one log post carries.
+const MaxEventBatch = 500
+
+// sent records that the control plane accepted a batch.
+func (b *logBuffer) sent(batch LogBatch) {
+	b.receiptSent(batch.Receipt)
+}
+
+// leftEvents takes the events no post delivered, for the completion: the newest consecutive run
+// of at most MaxEventBatch (the exit event is last), placed by the index of its first. Older ones
+// left out show as a gap, which the control plane records as dropped.
+func (b *logBuffer) leftEvents() ([]Event, int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	events := b.events
+	b.events = nil
+	if len(events) == 0 {
+		return nil, 0
+	}
+	start := len(events) - 1
+	for start > 0 && len(events)-start < MaxEventBatch && events[start-1].idx == events[start].idx-1 {
+		start--
+	}
+	return events[start:], events[start].idx
+}
+
+// putBackEvents returns a failed batch's events to the front of the buffer.
+func (b *logBuffer) putBackEvents(events []Event) {
+	if len(events) == 0 {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.events = append(append(make([]Event, 0, len(events)+len(b.events)), events...), b.events...)
+	b.dirty = true
+}
 
 // putBack returns a batch whose upload failed to the front of the buffer, so it is sent again
 // with the next upload. After an ambiguous failure the server may see a line twice; a missing line
@@ -533,7 +692,7 @@ func (b *logBuffer) putBack(lines []string) {
 // flushLoop posts log batches about once a LogInterval. With nothing to send it still posts an
 // empty batch every heartbeat, which renews the run's lease. If the control plane no longer holds
 // the run, it ends the run through stop.
-func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop context.CancelCauseFunc) {
+func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop context.CancelCauseFunc, hooks *hookTail) {
 	t := time.NewTicker(d.cfg.LogInterval)
 	defer t.Stop()
 	hb := time.Duration(job.Claim.HeartbeatSeconds) * time.Second
@@ -549,6 +708,7 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			buf.addEvents(hooks.next(time.Now()))
 			batch, ok := buf.take()
 			if !ok {
 				if time.Since(last) < hb {
@@ -565,14 +725,15 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 			case err != nil:
 				d.log.Warn("log upload failed; keeping the lines for the next upload", "run", job.Run.ID, "err", err)
 				buf.putBack(batch.Lines)
+				buf.putBackEvents(batch.Events)
 			case reply.Stop:
 				last = time.Now()
-				buf.receiptSent(batch.Receipt)
+				buf.sent(batch)
 				d.log.Info("owner asked to stop the run", "run", job.Run.ID)
 				stop(errStopped)
 			default:
 				last = time.Now()
-				buf.receiptSent(batch.Receipt)
+				buf.sent(batch)
 			}
 		}
 	}
@@ -589,6 +750,8 @@ func failText(err error) string {
 		return "run lost: " + errLost.Error()
 	case errors.Is(err, errStopped):
 		return errStopped.Error()
+	case errors.As(err, new(errBreaker)):
+		return err.Error()
 	case errors.As(err, &exit):
 		return fmt.Sprintf("agent exited with status %d", exit.ExitCode())
 	}
@@ -668,14 +831,35 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	d.log.Info("run started", "run", job.Run.ID, "role", job.Run.Role, "runtime", runtime, "workspace", ws.Dir)
 
-	buf := &logBuffer{}
 	held, release := context.WithCancelCause(ctx)
+	policy := DefaultBreakerPolicy
+	if d.cfg.Breaker != nil {
+		policy = *d.cfg.Breaker
+	}
+	buf := &logBuffer{admit: NewAdmission(20, 200), breaker: NewBreaker(policy, time.Now()), onTrip: func(reason string) {
+		d.log.Warn("breaker tripped; stopping the run", "run", job.Run.ID, "reason", reason)
+		release(errBreaker{reason})
+	}}
 	defer release(nil)
+	switch runtime {
+	case RuntimeClaude:
+		// Interim waiting detection (plan task 2.9): the PermissionRequest hook writes here.
+		hooks := filepath.Join(d.cfg.Home, "hooks")
+		if err := os.MkdirAll(hooks, 0o700); err == nil {
+			ws.HookFile = filepath.Join(hooks, job.Run.ID+".jsonl")
+			_ = os.Remove(ws.HookFile)
+			defer os.Remove(ws.HookFile)
+		}
+	case RuntimeCodex:
+		buf.addEvents([]Event{{Kind: EvNotice, At: time.Now().UTC().Format(time.RFC3339Nano),
+			Text: "Permission waits are not observable in Codex exec mode; a refused action shows as a failed tool call."}})
+	}
 	runCtx, cancel := context.WithTimeoutCause(held, d.cfg.Timeout, ErrTimeout)
 	defer cancel()
 	flushCtx, stopFlush := context.WithCancel(context.Background())
 	flushed := make(chan struct{})
-	go func() { d.flushLoop(flushCtx, job, buf, release); close(flushed) }()
+	hooks := &hookTail{path: ws.HookFile}
+	go func() { d.flushLoop(flushCtx, job, buf, release, hooks); close(flushed) }()
 
 	launch := LaunchFor(runtime, job.Run, ws)
 	var spawned *SpawnReceipt
@@ -691,6 +875,26 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		}
 	}
 	cmd, err := Command(runtime, job.Run, ws)
+	var launched *Digest
+	var verified *VerifiedLaunch
+	if err == nil && cmd != nil && runtime != RuntimeFake {
+		// Launch by digest (specification 21): the exact file the pin (or, unpinned, the last probe)
+		// names, checked again now and executed from the descriptor whose bytes were hashed.
+		v, verr := VerifyLaunch(runtime, job.RuntimePin, d.probedArtifact(runtime))
+		if verr != nil {
+			err = verr
+			if job.RuntimePin == nil {
+				// Not offered again until the next scheduled probe requalifies it; nothing runs now.
+				d.markNotReady(runtime, verr.Error())
+			}
+		} else {
+			// The child inherits the open descriptor; the daemon's copy closes once the run ends.
+			verified = v
+			defer verified.Close()
+			verified.Apply(cmd)
+			launched = &verified.Digest
+		}
+	}
 	if err == nil {
 		if cmd == nil {
 			buf.add(`{"type":"result","subtype":"fake-copy"}`)
@@ -701,6 +905,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			err = Execute(runCtx, cmd, buf.add, ExecHooks{
 				Timings:  d.timings(),
 				Snapshot: snapshot,
+				// The runtime's guard must still hold at the moment it starts.
+				BeforeStart: verified.Ready,
 				Started: func(pid int) (*SpawnReceipt, error) {
 					u, lerr := d.container.Locate(pid, unit)
 					if lerr != nil {
@@ -721,6 +927,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					if perr := d.receipts.Put(r); perr != nil {
 						return &r, perr
 					}
+					// Fail closed: a run not proven to execute the verified bytes is stopped whole.
+					if cerr := verified.Confirm(pid); cerr != nil {
+						return &r, cerr
+					}
 					buf.setReceipt(r.Wire())
 					spawned = &r
 					return &r, nil
@@ -729,6 +939,13 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	stopFlush()
 	<-flushed
+	// The flush loop has stopped; finish reading the hook file from where it left off.
+	buf.addEvents(hooks.next(time.Now()))
+	exit := Event{Kind: EvExit, At: time.Now().UTC().Format(time.RFC3339Nano), Text: "exited"}
+	if err != nil {
+		exit.Text = failText(err)
+	}
+	buf.addEvents([]Event{exit})
 	for {
 		batch, ok := buf.take()
 		if !ok {
@@ -737,16 +954,21 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		batch.ClaimToken = job.Claim.Token
 		if _, lerr := d.client.Log(context.Background(), job.Run.ID, batch); lerr != nil {
 			buf.putBack(batch.Lines)
-			d.log.Warn("log upload failed", "run", job.Run.ID, "err", lerr)
+			buf.putBackEvents(batch.Events)
+			d.log.Warn("log upload failed; its events go with the completion", "run", job.Run.ID, "err", lerr)
 			break
 		}
-		buf.receiptSent(batch.Receipt)
+		buf.sent(batch)
 	}
+	leftover, leftFrom := buf.leftEvents()
 	if errors.Is(err, ErrUncontained) {
 		return Completion{}, ErrUncontained
 	}
 
-	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}}
+	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}, Events: leftover}
+	if len(leftover) > 0 {
+		comp.EventsFrom = leftFrom
+	}
 	switch {
 	case cmd == nil:
 		comp.Containment = "none"
@@ -805,7 +1027,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if runtime == RuntimeFake {
 		version = d.cfg.Version
 	} else {
-		version = ToolVersion(bin)
+		// Never run the executable again for its version: it may no longer be what was verified.
+		version = d.verifiedVersion(runtime, launched, job.RuntimePin)
 	}
 	comp.Trace = &ExecutionTrace{
 		SchemaVersion:   "0.1.0",
@@ -813,7 +1036,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		PackageID:       job.Run.PackageID,
 		PackageRevision: job.Run.PackageRevision,
 		AgentBaseline:   job.Run.AgentBaseline,
-		Tool:            ToolRef{Name: bin, Version: version},
+		Tool:            ToolRef{Name: bin, Version: version, Digest: launched},
 		Inputs:          inArts,
 		Outputs:         outArts,
 		StartedAt:       started.Format(time.RFC3339),
@@ -826,4 +1049,65 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		Sandbox:         launch.Sandbox,
 	}
 	return comp, nil
+}
+
+// maxHookRead bounds one read of the permission hook file, and so the size of one record.
+const maxHookRead = 1 << 20
+
+// hookTail follows the permission hook file: the flush loop reads it while the run works and the
+// final drain continues from the same place, so no request is reported twice or missed.
+type hookTail struct {
+	path     string
+	offset   int64
+	skipping bool // inside a record larger than maxHookRead, discarding to its end
+}
+
+// next returns whole lines appended since the last call, and the events they report. A partial
+// last line waits for the next call. A record larger than maxHookRead is skipped to its end with a
+// notice, so one oversized request cannot stop every later one from being read.
+func (h *hookTail) next(now time.Time) []Event {
+	if h == nil || h.path == "" {
+		return nil
+	}
+	f, err := os.Open(h.path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	var out []Event
+	for {
+		if _, err := f.Seek(h.offset, io.SeekStart); err != nil {
+			return out
+		}
+		b, err := io.ReadAll(io.LimitReader(f, maxHookRead))
+		if err != nil || len(b) == 0 {
+			return out
+		}
+		if h.skipping {
+			i := bytes.IndexByte(b, '\n')
+			if i < 0 {
+				h.offset += int64(len(b))
+				continue
+			}
+			h.offset += int64(i + 1)
+			h.skipping = false
+			continue
+		}
+		end := bytes.LastIndexByte(b, '\n')
+		if end < 0 {
+			if len(b) < maxHookRead {
+				return out // a record still being written
+			}
+			h.offset += int64(len(b))
+			h.skipping = true
+			out = append(out, Event{Kind: EvNotice, At: now.UTC().Format(time.RFC3339Nano),
+				Text: "A permission request was too large to read and was skipped."})
+			continue
+		}
+		h.offset += int64(end + 1)
+		out = append(out, PermissionEvents(b[:end+1], now)...)
+		if len(b) < maxHookRead {
+			return out
+		}
+	}
 }

@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RuntimePinRef.json",
+    "type": "object",
+    "properties": {
+        "runtime": {
+            "type": "string"
+        },
+        "digest": {
+            "$ref": "Digest.json"
+        },
+        "version": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "runtime",
+        "digest"
+    ],
+    "description": "The artifact a run must launch, from the pin for its runtime and role (specification 21).",
+    "unevaluatedProperties": false
+}

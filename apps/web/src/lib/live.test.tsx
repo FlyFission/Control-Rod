@@ -35,4 +35,20 @@ describe("live events", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("refreshes everything only when the stream says history was lost", async () => {
+    vi.stubGlobal("EventSource", FakeSource);
+    try {
+      const qc = new QueryClient();
+      const spy = vi.spyOn(qc, "invalidateQueries");
+      const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+      renderHook(() => useLiveEvents(true), { wrapper });
+      FakeSource.last?.emit("open", {});
+      expect(spy).not.toHaveBeenCalledWith();
+      FakeSource.last?.emit("loss", { resume_from: 10, reason: "too far behind to replay" });
+      expect(spy).toHaveBeenCalledWith();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

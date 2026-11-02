@@ -61,7 +61,7 @@ export interface Harness {
 
 /** A real Postgres per test file and the real app. Nothing is mocked but the authenticator and the daemon. */
 export async function startHarness(
-  given: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"|"preparationLanes"> & { trustAnchors?: string[] } = {},
+  given: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"|"preparationLanes"|"streamReplayMax"> & { trustAnchors?: string[] } = {},
 ): Promise<Harness> {
   const { trustAnchors, ...options } = given;
   const external = process.env.TEST_DATABASE_URL;

@@ -9,6 +9,10 @@
         "version": {
             "type": "string"
         },
+        "digest": {
+            "$ref": "Digest.json",
+            "description": "SHA-256 of the executable that ran (specification 21: runs launch a verified artifact)."
+        },
         "qualification": {
             "anyOf": [
                 {

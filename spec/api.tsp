@@ -182,6 +182,13 @@ namespace Packages {
     lines: string[];
   } | Refused;
 
+  /** The run's story: its normalized events in order, after a sequence number. */
+  @route("/{id}/runs/{runId}/events")
+  @get
+  op runEvents(@path id: string, @path runId: string, @query after?: int32): {
+    events: { seq: int32; event: NormalizedEvent }[];
+  } | Refused;
+
   /**
    * The owner queues a new run in place of one that was lost, failed or stopped. The old run
    * keeps its record. Repeating returns the run already queued.
@@ -396,6 +403,9 @@ namespace Runner {
 
     /** Custody of this run: present the token on every log and completion. */
     claim: RunClaim;
+
+    /** The artifact this run must launch, when one is pinned for its runtime and role. */
+    runtime_pin?: RuntimePinRef;
   }
 
   /** A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost. */
@@ -433,6 +443,28 @@ namespace Runner {
 
     /** The CLI could say whether a login is present. The probe never signs in. */
     login_checked: boolean;
+
+    /** The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this. */
+    artifact?: RuntimeArtifact;
+  }
+
+  /**
+   * A runtime's native executable and its SHA-256. A runtime whose npm launcher wraps a platform
+   * binary with helper files (Codex) is identified by a digest over that whole platform directory.
+   * Script launchers whose own digest would not identify what runs are refused.
+   */
+  @extension("unevaluatedProperties", false)
+  model RuntimeArtifact {
+    @maxLength(4096) path: string;
+    digest: Digest;
+  }
+
+  /** The artifact a run must launch, from the pin for its runtime and role (specification 21). */
+  @extension("unevaluatedProperties", false)
+  model RuntimePinRef {
+    runtime: string;
+    digest: Digest;
+    version?: string;
   }
 
   @route("/claim") @post op claim(@body body: {
@@ -451,6 +483,16 @@ namespace Runner {
 
     /** The spawn receipt, sent until the control plane has recorded it. */
     receipt?: OwnershipReceipt;
+
+    /** Normalized events since the last post. */
+    @maxItems(500) events?: NormalizedEvent[];
+
+    /**
+     * How many of this run's events the daemon had delivered before this batch. The control plane
+     * keeps each event once by its index, so a batch resent after an upload whose answer was lost
+     * is not recorded twice.
+     */
+    @minValue(0) events_from?: int32;
   }): LogReply | Refused;
 
   /**
@@ -494,6 +536,14 @@ namespace Runner {
      * outcome.
      */
     containment?: "cgroup" | "process-group" | "none";
+
+    /**
+     * Events no log post delivered (the last upload failed), carried by the completion, which the
+     * daemon retries until it is recorded. Indexed from events_from like a log batch.
+     */
+    @maxItems(500) events?: NormalizedEvent[];
+
+    @minValue(0) events_from?: int32;
   }
 
   @route("/runs/{id}/complete") @post op complete(@path id: string, @body body: Completion): CompletionReceipt | Refused;

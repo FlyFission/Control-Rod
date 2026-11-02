@@ -56,12 +56,16 @@ import {
   stopRun,
   sweepLost,
   runEvidence,
+  runEvents,
   reconcileSubject,
   reconcileRun,
   updateDraft,
 } from "./work.js";
 
 export const VERSION = "0.1.0";
+
+/** The most missed events the stream replays on reconnect; further behind gets a loss frame. */
+export const STREAM_REPLAY_MAX = 5000;
 
 export interface AppOptions {
   db: Db;
@@ -81,6 +85,8 @@ export interface AppOptions {
   preparationLanes?: WorkConfig["preparationLanes"];
   /** Seconds between sweeps for lost runs. Default 15; 0 turns the timer off. */
   sweepSeconds?: number;
+  /** The most missed events the stream replays on reconnect. Default STREAM_REPLAY_MAX. */
+  streamReplayMax?: number;
 }
 
 const OUTPUT_PATH = /^\/packages\/[^/?#]+\/(?:outputs\/|verification-evidence\/[^/?#]+\/)/;
@@ -341,6 +347,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     reply.header("content-type",type??"application/octet-stream").header("x-content-type-options","nosniff").header("content-security-policy",OUTPUT_CSP);
     if(!type)reply.header("content-disposition","attachment");return reply.send(bytes);
   });
+  app.get<{ Params: { id: string; runId: string }; Querystring: { after?: string } }>("/packages/:id/runs/:runId/events", async (req) => {
+    await person(req);
+    return runEvents(db, req.params.id, req.params.runId, Number(req.query.after ?? 0) || 0);
+  });
   app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/log", async (req) => {
     await person(req);
     return { lines: await runLogLines(db, req.params.id, req.params.runId) };
@@ -509,19 +519,86 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await person(req);
     return verifyChain(db);
   });
-  app.get("/events/stream", async (req, reply) => {
+  /**
+   * The event stream (specification 27). Durable frames are chain events, each with its sequence as
+   * the SSE id, so a client that reconnects with Last-Event-ID (or ?after=) receives what it missed,
+   * in order. A new connection first gets a checkpoint frame carrying the head id, so even a client
+   * that has seen no event yet reconnects from a known place. When history cannot be replayed (too
+   * far behind, or a sequence this chain never reached) the stream says so with a loss frame and the
+   * client refreshes. Heartbeats are transient frames with no id.
+   *
+   * Frames are always read from the event table in sequence order. Appends hold an exclusive table
+   * lock until commit, so committed sequences have no gaps; the in-process bus only wakes the
+   * reader, because commit notifications from separate connections can arrive out of order.
+   */
+  const replayMax = opts.streamReplayMax ?? STREAM_REPLAY_MAX;
+  app.get<{ Querystring: { after?: string } }>("/events/stream", async (req, reply) => {
     await person(req);
+    const raw = req.headers["last-event-id"] ?? req.query.after;
+    const after = raw === undefined || raw === "" ? undefined : Number(raw);
     reply.hijack();
     const res = reply.raw;
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
     res.write(": connected\n\n");
-    const send = (e: EventRecord) => res.write(`event: event\ndata: ${JSON.stringify(e)}\n\n`);
-    const ping = setInterval(() => res.write(": ping\n\n"), 20000);
-    bus.on("event", send);
+    let lastSent = 0;
+    let ready = false;
+    let closed = false;
+    let draining = false;
+    let again = false;
+    // Sends every committed event after lastSent, in order. One drain runs at a time; a wakeup
+    // during a drain makes it look again before it stops.
+    const drain = async () => {
+      if (!ready || closed) return;
+      if (draining) {
+        again = true;
+        return;
+      }
+      draining = true;
+      try {
+        do {
+          again = false;
+          for (;;) {
+            const rows = (await db.query<{ body: EventRecord }>("select body from events where seq > $1 order by seq limit 500", [lastSent])).rows;
+            if (closed) return;
+            for (const r of rows) {
+              lastSent = r.body.seq;
+              res.write(`id: ${r.body.seq}\nevent: event\ndata: ${JSON.stringify(r.body)}\n\n`);
+            }
+            if (rows.length < 500) break;
+          }
+        } while (again && !closed);
+      } catch (e) {
+        app.log.warn({ err: e }, "event stream read failed; closing the stream");
+        res.end();
+      } finally {
+        draining = false;
+      }
+    };
+    // Subscribe before reading the head, so nothing committed meanwhile is missed: any wakeup that
+    // arrives before the head is known is honoured by the first drain.
+    const onEvent = () => void drain();
+    bus.on("event", onEvent);
+    const ping = setInterval(() => res.write(`event: heartbeat\ndata: ${JSON.stringify({ at: new Date().toISOString() })}\n\n`), 15000);
     req.raw.on("close", () => {
+      closed = true;
       clearInterval(ping);
-      bus.off("event", send);
+      bus.off("event", onEvent);
     });
+    const head = (await db.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from events")).rows[0]!.n;
+    if (after !== undefined) {
+      const valid = Number.isInteger(after) && after >= 0 && after <= head;
+      if (!valid || head - after > replayMax) {
+        res.write(`id: ${head}\nevent: loss\ndata: ${JSON.stringify({ after: raw, resume_from: head, reason: valid ? "too far behind to replay" : "no such position in this event log" })}\n\n`);
+        lastSent = head;
+      } else {
+        lastSent = after;
+      }
+    } else {
+      res.write(`id: ${head}\nevent: checkpoint\ndata: ${JSON.stringify({ head })}\n\n`);
+      lastSent = head;
+    }
+    ready = true;
+    await drain();
   });
 
   /* ---- runner ---- */
@@ -531,18 +608,19 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     // left out even if it is also listed.
     const status = await recordRuntimeStatus(db, req.body?.runtime_status);
     const notReady = new Set(status.filter((s) => !s.ready).map((s) => s.runtime));
+    const artifacts = new Map(status.filter((s) => s.artifact).map((s) => [s.runtime, s.artifact!.digest.value]));
     const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])
       .map(String)
       .filter((r) => ["claude", "codex", "fake"].includes(r) && !notReady.has(r));
     await sweep();
-    const job = await claim(db, cfg, runtimes);
+    const job = await claim(db, cfg, runtimes, artifacts);
     if (!job) return reply.code(204).send();
     return job;
   });
-  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string; receipt?: unknown } }>("/runner/runs/:id/log", async (req) => {
+  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string; receipt?: unknown; events?: unknown; events_from?: unknown } }>("/runner/runs/:id/log", async (req) => {
     daemon(req);
     const lines = Array.isArray(req.body?.lines) ? req.body.lines.map(String) : [];
-    return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined, req.body?.receipt);
+    return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined, req.body?.receipt, req.body?.events, req.body?.events_from);
   });
   app.post<{ Params: { id: string } }>("/runner/runs/:id/evidence", async (req) => {
     daemon(req);

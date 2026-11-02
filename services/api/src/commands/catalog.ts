@@ -80,6 +80,8 @@ export const COMMANDS = {
   "admin.repo-unbind": entry("member", "direct", "Unbind repository"),
   "admin.policy-propose": entry("member", "none", "Change policy set (proposal)"),
   "admin.policy-approve": entry("member", "direct", "Change policy set"),
+  "admin.runtime-pin": entry("member", "direct", "Pin runtime"),
+  "admin.runtime-rollback": entry("member", "direct", "Pin runtime (rollback)"),
   "admin.marking-propose": entry("member", "none", "Lower or declassify lane (change request)", "write"),
   "admin.marking-approve": entry("member", "direct", "Lower or declassify lane (approval)", "write"),
   "admin.budget-set": entry("member", "direct", "Set budget"),

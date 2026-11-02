@@ -1814,6 +1814,11 @@ export interface components {
             scram_id?: string;
             /** @description Why a queued run is not being handed out, in plain words. */
             waiting_reason?: string;
+            /**
+             * @description The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it).
+             * @enum {string}
+             */
+            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
             /** @description The owner let this pre-check run on the author's runtime. Recorded before it ran. */
             independence_override?: components["schemas"]["ControlRod.Records.OwnerOverride"];
             /**

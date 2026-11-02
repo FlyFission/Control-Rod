@@ -120,6 +120,33 @@ describe("ordering", () => {
   });
 });
 
+describe("waiting agents", () => {
+  async function heldRun(id: string, cause: string, reason: string) {
+    await h.admin.query("insert into packages (id, revision, status, body) values ($1, 0, 'in-verification', $2)",
+      [id, { ...example, id, revision: 0, status: "in-verification", data_lane: "internal", design_inputs: [] }]);
+    const r = { schema_version: "0.1.0", id: `R-${id.slice(-6).toLowerCase()}`, package_id: id, package_revision: 0, role: "pre-check", agent_baseline: "unassigned",
+      runtime: { kind: "local", provider: "any", model: "any" }, round: 1, status: "queued", queued_at: ago(1), generation: 1, waiting_reason: reason, waiting_cause: cause };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'pre-check', 1, 'queued', $3)", [r.id, id, r]);
+  }
+
+  it("goes to whoever may resolve what holds it", async () => {
+    await heldRun("WP-IN-INDEP", "independent-runtime", "Waiting for a runtime other than the author's");
+    await heldRun("WP-IN-PIN", "runtime-pin", "claude here is not the pinned version");
+    await heldRun("WP-IN-PREP", "preparation", "The preparation basis changed; refresh it");
+    const aliceBox = await get("/inbox", await aliceCookie());
+    const theirs = (id: string) => aliceBox.waiting_on_others.find((i: Json) => i.package_id === id);
+    expect(aliceBox.items.some((i: Json) => ["WP-IN-INDEP", "WP-IN-PIN"].includes(i.package_id))).toBe(false);
+    expect(theirs("WP-IN-INDEP")).toMatchObject({ kind: "permission", risk: { label: "Holds an agent" } });
+    expect(theirs("WP-IN-INDEP").reason).toMatch(/^Overriding independence needs /);
+    expect(theirs("WP-IN-PIN")).toMatchObject({ waiting_on: "an administrator" });
+    // A preparation hold is the owner's to fix, so any member sees it as theirs.
+    expect(aliceBox.items.some((i: Json) => i.package_id === "WP-IN-PREP")).toBe(true);
+    // The founding approver and administrator may resolve all three.
+    const mine = (await get("/inbox")).items.map((i: Json) => i.package_id);
+    expect(mine).toEqual(expect.arrayContaining(["WP-IN-INDEP", "WP-IN-PIN", "WP-IN-PREP"]));
+  });
+});
+
 describe("recovery under SCRAM", () => {
   it("never counts recovery work as yours when SCRAM holds it and you cannot settle it", async () => {
     // An author run stopped: requeueing it settles the dispute, which any member may do, unless SCRAM holds the work.
@@ -212,12 +239,19 @@ describe("since you last looked", () => {
   });
 
   it("counts criteria as open until something shows them met, never from missing results", async () => {
+    const gatesNow = async () => {
+      const head = (await get("/inbox")).digest.head;
+      return (await get(`/inbox?since=${head}`)).digest.lines.find((l: Json) => l.topic === "gates");
+    };
+    const before = await gatesNow();
+    const packages = (t: string) => Number(/across (\d+) package/.exec(t)?.[1] ?? 0);
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-IN-VERIFY', 0, 'in-verification', $1)",
       [{ ...example, id: "WP-IN-VERIFY", revision: 0, status: "in-verification", data_lane: "internal", design_inputs: [] }]);
-    const head = (await get("/inbox")).digest.head;
-    const gates = (await get(`/inbox?since=${head}`)).digest.lines.find((l: Json) => l.topic === "gates");
-    expect(gates.count).toBe(example.acceptance_criteria.length);
-    expect(gates.text).toMatch(/not yet met across 1 package in verification\.$/);
+    const after = await gatesNow();
+    // A package in verification with no pre-check yet: every criterion is open.
+    expect(after.count - before.count).toBe(example.acceptance_criteria.length);
+    expect(packages(after.text) - packages(before.text)).toBe(1);
+    expect(after.text).toMatch(/package(s)? in verification\.$/);
   });
 
   it("ignores a cursor this log never reached", async () => {

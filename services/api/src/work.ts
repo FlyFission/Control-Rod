@@ -236,9 +236,12 @@ async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<s
 }
 
 /** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
-async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; body: Json }, subject: string, reason: string) {
-  if (row.body.waiting_reason === reason) return;
-  const held = { ...row.body, waiting_reason: reason };
+/** Why a queued run is held, as a code, so the Inbox can route it to whoever may resolve it. */
+type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
+
+async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; body: Json }, subject: string, reason: string, cause: WaitingCause) {
+  if (row.body.waiting_reason === reason && row.body.waiting_cause === cause) return;
+  const held = { ...row.body, waiting_reason: reason, waiting_cause: cause };
   validate(cfg, "Run.json", held);
   await c.query("update runs set body = $2 where id = $1", [row.id, held]);
   await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: subject, role: row.role, reason });
@@ -782,7 +785,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         // SCRAM holds everything in its scope: nothing there is handed out until a restart lifts it.
         const scram = await scramHolding(c, await runSubject(c, row));
         if (scram) {
-          await holdRun(c, cfg, row, row.package_id, `SCRAM ${scram.id} has stopped this work: ${scram.reason}`.slice(0, 300));
+          await holdRun(c, cfg, row, row.package_id, `SCRAM ${scram.id} has stopped this work: ${scram.reason}`.slice(0, 300), "scram");
           continue;
         }
         if (row.role !== "intake") {
@@ -798,7 +801,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           try {preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);} catch(error) {
             if(!(error instanceof Refusal)) throw error;
             const waiting_reason=error.message;
-            if(row.body.waiting_reason!==waiting_reason) {await c.query("update runs set body=$2 where id=$1",[row.id,{...row.body,waiting_reason}]);await appendEvent(c,"run.waiting",row.id,SYSTEM,{package:pkg.id,reason:waiting_reason});}
+            if(row.body.waiting_reason!==waiting_reason) {await c.query("update runs set body=$2 where id=$1",[row.id,{...row.body,waiting_reason,waiting_cause:"preparation"}]);await appendEvent(c,"run.waiting",row.id,SYSTEM,{package:pkg.id,reason:waiting_reason});}
             continue;
           }
           if (row.role === "author") {
@@ -811,18 +814,18 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           // and its job commit.
           const gate = await dispatchLane(c, cfg, pkg, row.body);
           if (!gate.lane) {
-            await holdRun(c, cfg, row, pkg.id, gate.reason);
+            await holdRun(c, cfg, row, pkg.id, gate.reason, "lane");
             continue;
           }
           const lane = gate.lane;
           const admittedHere = admitted(lane, runtimes);
           if (admittedHere.length === 0) {
-            await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane));
+            await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane), "lane");
             continue;
           }
           const pinned = await pinnedOffer(c, admittedHere, row.role, artifacts);
           if (pinned.reason) {
-            await holdRun(c, cfg, row, pkg.id, pinned.reason);
+            await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin");
             continue;
           }
           const offer = pinned.offer;
@@ -834,7 +837,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body));
             if (!runtime && offer.includes(authorRuntime) && !row.body.waiting_reason) {
               // Held, not skipped silently: say why on the run and in the office, once.
-              const held = { ...row.body, waiting_reason: WAITING_FOR_INDEPENDENT_RUNTIME };
+              const held = { ...row.body, waiting_reason: WAITING_FOR_INDEPENDENT_RUNTIME, waiting_cause: "independent-runtime" };
               validate(cfg, "Run.json", held);
               await c.query("update runs set body = $2 where id = $1", [row.id, held]);
               await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: pkg.id, role: row.role, reason: held.waiting_reason, author_runtime: authorRuntime });
@@ -860,12 +863,12 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
         const admittedIntake = admitted(capLane, runtimes);
         if (admittedIntake.length === 0) {
-          await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane));
+          await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane), "lane");
           continue;
         }
         const pinnedIntake = await pinnedOffer(c, admittedIntake, "intake", artifacts);
         if (pinnedIntake.reason) {
-          await holdRun(c, cfg, row, row.package_id, pinnedIntake.reason);
+          await holdRun(c, cfg, row, row.package_id, pinnedIntake.reason, "runtime-pin");
           continue;
         }
         const runtime = pickRuntime(pinnedIntake.offer);
@@ -1184,6 +1187,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     ...(runtime === "claude" ? { permission_waits: "observed" } : runtime === "codex" ? { permission_waits: "not-observable" } : {}),
   };
   delete body.waiting_reason;
+  delete body.waiting_cause;
   validate(cfg, "Run.json", body);
   await c.query("update runs set status = 'running', body = $2, claim_token_hash = $3, lease_expires_at = $4 where id = $1", [
     row.id,
@@ -1499,6 +1503,7 @@ export async function overrideIndependence(
     const override = { by: user, at: now(), reason: why, subject_digest: { algorithm: "sha256", value: d }, assertion };
     const body = { ...row.body, independence_override: override };
     delete body.waiting_reason;
+    delete body.waiting_cause;
     validate(cfg, "Run.json", body);
     await c.query("update runs set body = $2 where id = $1", [runId, body]);
     await appendEvent(c, "run.independence-override", runId, { kind: "human", id: user }, {

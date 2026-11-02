@@ -340,4 +340,25 @@ describe("pulling SCRAM", () => {
     const r = await h.app.inject({ method: "GET", url: "/scrams/scr_foreign", headers: { cookie } });
     expect(r.statusCode).toBe(404);
   });
+
+  it("holds a broader restart for late output from work a partial restart resumed", async () => {
+    await h.admin.query("update runs set status = 'stopped' where status in ('queued', 'running')");
+    const scram = (await signed("scram.pull", { scope: "organization", reason: "Partial restart check" })).json();
+    const runId = await queued("WP-SCR-RESUMED", "civil");
+    expect((await signed("scram.restart", { scram_id: scram.id, scope: "package", package_id: "WP-SCR-RESUMED", reason: "This package verified" })).statusCode).toBe(200);
+    const job = await claim();
+    expect(job.json().run.id).toBe(runId);
+    claims.set(runId, job.json().claim.token);
+    // The resumed run's daemon goes quiet, then reports late with output, proven ended.
+    await h.admin.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [runId]);
+    await sweep();
+    await daemon(`/runner/runs/${runId}/complete`, { status: "succeeded", outputs: [{ name: "resumed.md", content_base64: b64("r") }] });
+    expect((await run(runId)).body.reconciliation?.disposition).toBe("completed-late");
+    expect((await run(runId)).body.scram_id).toBeUndefined();
+    expect((await quarantined(runId)).rows.map((r) => r.name)).toEqual(["resumed.md"]);
+    const blocked = await signed("scram.restart", { scram_id: scram.id, scope: "all", reason: "Too soon" });
+    expect(blocked.json().message).toContain(`${runId} has unreviewed quarantine`);
+    expect((await review(scram.id, runId, "discard", "Resumed work's late output discarded")).statusCode).toBe(200);
+    await restartAll(scram.id);
+  });
 });

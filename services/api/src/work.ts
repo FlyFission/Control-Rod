@@ -1583,38 +1583,51 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
       }
     });
   } catch (e) {
-    if (e instanceof ApplyRefusal) return recordRefused(db, cfg, runId, key, body, e.refusal);
-    if (e instanceof LateCompletion) {
-      await command(db, "run.complete", async c=>{
-        await enterScramGate(c);
-        const row=await lockRun(c,runId);
-        if(!holdsClaim(row.claim_token_hash,body.claim_token)) throw new Refusal(403,"stale-claim","This claim token does not hold the run");
-        const enrolled=Boolean((await c.query("select 1 from preparation_heads where package_id=$1",[row.package_id])).rowCount);
-        // A completion that beats the sweep to an expired run retires it here, so the evidence it
-        // carries settles the hold in the same transaction.
-        if (row.status === "running") {
-          const lostBody = { ...row.body, status: "lost", finished_at: now(), label: "Lost",
-            error: "The daemon's completion arrived after the run's lease lapsed; it is retained with its digests and never applied. The run can be requeued.",
-            outcome_unknown: { since: now(), reason: "the lease lapsed before the completion arrived" } };
-          delete lostBody.lease_expires_at;
-          validate(cfg, "Run.json", lostBody);
-          await c.query("update runs set status = 'lost', body = $2 where id = $1", [runId, lostBody]);
-          await appendEvent(c, "run.lost", runId, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
-          await scramRunEnded(c, row.id);
+    if (e instanceof ApplyRefusal || e instanceof LateCompletion) {
+      if (e instanceof ApplyRefusal) {
+        try {
+          return await recordRefused(db, cfg, runId, key, body, e.refusal);
+        } catch (r) {
+          // The run was marked lost between the refused attempt and its record: keep the report
+          // through the late path rather than refusing it unread.
+          if (!(r instanceof LateCompletion)) throw r;
         }
-        if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
-        const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
-        if (await adoptHeldRun(c, row)) await quarantineScramCompletion(c, runId, key, body);
-        // A late completion settles the hold only when a cgroup proved the whole run stopped; under
-        // process group containment a process that left the group may still run.
-        if (provesEnded(row, body))
-          await reconcileTx(c, cfg, row, "completed-late", `The daemon's completion (${String(body.status ?? "unknown")}) arrived after the run was marked lost; it is retained with its digests and never applied.`, { kind: "agent", id: row.body.agent_baseline });
-        if(!enrolled || fresh) await appendEvent(c,"run.late-completion",runId,SYSTEM,{outputs:(Array.isArray(body.outputs)?body.outputs:[]).slice(0,200).map((o:Json)=>({name:String(o?.name??"").slice(0,200),sha256:sha256(Buffer.from(String(o?.content_base64??""),"base64"))}))});
-      });
+      }
+      await retainLate(db, cfg, runId, key, body);
       throw new Refusal(409, "run-lost", "The lease expired or the run was marked lost before this completion arrived; its digests are on the record");
     }
     throw e;
   }
+}
+
+/** Keeps a completion that arrived after its run was lost: retained with its digests, never applied. */
+async function retainLate(db: Db, cfg: WorkConfig, runId: string, key: string, body: Json) {
+  await command(db, "run.complete", async c=>{
+    await enterScramGate(c);
+    const row=await lockRun(c,runId);
+    if(!holdsClaim(row.claim_token_hash,body.claim_token)) throw new Refusal(403,"stale-claim","This claim token does not hold the run");
+    const enrolled=Boolean((await c.query("select 1 from preparation_heads where package_id=$1",[row.package_id])).rowCount);
+    // A completion that beats the sweep to an expired run retires it here, so the evidence it
+    // carries settles the hold in the same transaction.
+    if (row.status === "running") {
+      const lostBody = { ...row.body, status: "lost", finished_at: now(), label: "Lost",
+        error: "The daemon's completion arrived after the run's lease lapsed; it is retained with its digests and never applied. The run can be requeued.",
+        outcome_unknown: { since: now(), reason: "the lease lapsed before the completion arrived" } };
+      delete lostBody.lease_expires_at;
+      validate(cfg, "Run.json", lostBody);
+      await c.query("update runs set status = 'lost', body = $2 where id = $1", [runId, lostBody]);
+      await appendEvent(c, "run.lost", runId, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+      await scramRunEnded(c, row.id);
+    }
+    if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
+    const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
+    if ((await adoptHeldRun(c, row, { evenLifted: true })).associated) await quarantineScramCompletion(c, runId, key, body);
+    // A late completion settles the hold only when a cgroup proved the whole run stopped; under
+    // process group containment a process that left the group may still run.
+    if (provesEnded(row, body))
+      await reconcileTx(c, cfg, row, "completed-late", `The daemon's completion (${String(body.status ?? "unknown")}) arrived after the run was marked lost; it is retained with its digests and never applied.`, { kind: "agent", id: row.body.agent_baseline });
+    if(!enrolled || fresh) await appendEvent(c,"run.late-completion",runId,SYSTEM,{outputs:(Array.isArray(body.outputs)?body.outputs:[]).slice(0,200).map((o:Json)=>({name:String(o?.name??"").slice(0,200),sha256:sha256(Buffer.from(String(o?.content_base64??""),"base64"))}))});
+  });
 }
 
 async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string, body: Json) {
@@ -1705,7 +1718,9 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     const row = await lockRun(c, runId);
     // SCRAM may have reached the run after the refused attempt rolled back, or may hold its work
     // although it was lost before the pull: the locked row and the current state decide.
-    const scrammed = await adoptHeldRun(c, row);
+    if (row.status === "lost" && row.completion_key === null && holdsClaim(row.claim_token_hash, body.claim_token)) throw new LateCompletion();
+    const adopted = await adoptHeldRun(c, row, { evenLifted: true });
+    const scrammed = adopted.held;
     const refusal = scrammed && given.code !== "scram-quarantined"
       ? new Refusal(409, "scram-quarantined", `SCRAM ${String(row.body.scram_id)} stopped this run; what it reported is quarantined for review`)
       : given;
@@ -1731,7 +1746,7 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     holdIfUnproven(row, finished, body);
     if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
     await quarantineCompletion(c,runId,key,body,refusal.code);
-    if (scrammed) await quarantineScramCompletion(c, runId, key, body);
+    if (adopted.associated) await quarantineScramCompletion(c, runId, key, body);
     const receipt = receiptOf(runId, key, status, [], refusal);
     await c.query("update runs set status = $5, body = $2, completion_key = $3, receipt = $4 where id = $1", [
       runId,

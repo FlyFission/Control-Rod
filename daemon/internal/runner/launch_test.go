@@ -3,7 +3,10 @@
 package runner
 
 import (
+	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -123,5 +126,17 @@ func TestUnapprovedRolesNeverReachLegacyRuntimeCommands(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestNothingStartsWhenTheStartGateRefuses(t *testing.T) {
+	mark := filepath.Join(t.TempDir(), "ran")
+	cmd := exec.Command("sh", "-c", "touch '"+mark+"'")
+	err := Execute(context.Background(), cmd, func(string) {}, ExecHooks{BeforeStart: func() error { return errOutOfContact }})
+	if !errors.Is(err, errOutOfContact) {
+		t.Fatalf("the refusal is the run's error: %v", err)
+	}
+	if _, serr := os.Stat(mark); serr == nil || cmd.Process != nil {
+		t.Fatal("a refused start must not spawn anything")
 	}
 }

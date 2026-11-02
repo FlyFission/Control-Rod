@@ -954,8 +954,17 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			err = Execute(runCtx, cmd, buf.add, ExecHooks{
 				Timings:  d.timings(),
 				Snapshot: snapshot,
-				// The runtime's guard must still hold at the moment it starts.
-				BeforeStart: verified.Ready,
+				// At the moment of the start: the run must still be wanted, its lease must not have
+				// ended, and the runtime's guard must still hold.
+				BeforeStart: func() error {
+					if held.Err() != nil {
+						return context.Cause(held)
+					}
+					if !time.Now().Before(lease.deadline()) {
+						return errOutOfContact
+					}
+					return verified.Ready()
+				},
 				Started: func(pid int) (*SpawnReceipt, error) {
 					u, lerr := d.container.Locate(pid, unit)
 					if lerr != nil {

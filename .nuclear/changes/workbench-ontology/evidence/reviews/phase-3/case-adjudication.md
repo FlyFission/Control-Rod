@@ -30,3 +30,7 @@ Final verification: API 511 passed, 1 skipped; web 135 passed; exit spec 4 passe
 ## CI finding before merge
 
 CI's TypeScript job reported three unhandled `57P01` (administrator shutdown) errors while the preparation test files stopped their databases; every test passed. The cause was real beyond the tests: no database pool had an `error` listener, so an idle connection the server drops (a restart, an administrator's shutdown) is an uncaught error that ends the process. The reader, writer and migration pools now note the drop and carry on (the pool opens a new connection on next use), and the test harness's owner pools expect it at shutdown. Test: `test/pool-resilience.test.ts`.
+
+## Round 3 (focused review of the pool fix; verdict MERGE)
+
+No High or Critical findings; no circular import; checked-out client and query errors keep their existing paths. Of its notes, the short-lived login probe pool in `db/roles.ts` now uses the same listener, so every application pool has one. The resilience test emits a synthetic drop rather than restarting Postgres (accepted: it proves the listener, and the reconnect is the pool's documented behaviour); the harness owner pools discard drops on purpose, since they only occur at test shutdown.

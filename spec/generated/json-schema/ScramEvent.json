@@ -32,6 +32,10 @@
                 "type": "string"
             },
             "description": "Run ids stopped, with their outputs quarantined."
+        },
+        "drill": {
+            "type": "boolean",
+            "description": "A practice pull: everything is stopped for real, and the time to stop is recorded as a drill."
         }
     },
     "required": [

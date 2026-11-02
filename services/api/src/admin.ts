@@ -15,6 +15,7 @@ import { isLane } from "./disclosure.js";
 import { configuredClosure, covers, declassify, downstreamOf, effectiveLane, ensureMarking } from "./markings.js";
 import { teach } from "./refusals.js";
 import { pinRuntime, rollbackRuntime } from "./runtimes.js";
+import { pullScram, restartAfterScram, reviewQuarantine } from "./scram.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
 
@@ -41,6 +42,8 @@ export interface AdminContext {
   root: string;
   /** Lanes of configured preparation sources, which a declassification records as covered. */
   preparationLanes?: Record<string, DataLane>;
+  /** The signed command's passkey assertion, in record form, for records that keep it (SCRAM). */
+  assertion?: { credential_id: string; authenticator_data: string; client_data_json: string; signature: string };
 }
 
 const str = (p: Record<string, unknown>, k: string, required = true): string | undefined => {
@@ -536,6 +539,28 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     },
   },
 
+  "scram.pull": {
+    // Anyone active may stop the work: stopping is always safe. It is signed and has a reason.
+    catalog: "admin.scram-pull", signature: "direct", need: "member",
+    async run(c, caller, p, ctx) {
+      return pullScram(c, caller.orgId, caller.memberId, p, ctx.assertion, actorOf(caller));
+    },
+  },
+
+  "scram.review": {
+    catalog: "admin.scram-review", signature: "direct", need: "member",
+    async run(c, caller, p, ctx) {
+      return reviewQuarantine(c, caller.orgId, caller.memberId, p, ctx.assertion, actorOf(caller));
+    },
+  },
+
+  "scram.restart": {
+    catalog: "admin.scram-restart", signature: "direct", need: "administrator",
+    async run(c, caller, p, ctx) {
+      return restartAfterScram(c, caller.orgId, caller.memberId, p, ctx.assertion, actorOf(caller));
+    },
+  },
+
   "runtime.pin": {
     catalog: "admin.runtime-pin", signature: "direct", need: "administrator",
     async run(c, caller, p) {
@@ -609,7 +634,12 @@ function translate(error: unknown): unknown {
  * the subject digest its passkey assertion was verified over; anything else refuses.
  */
 export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: Caller, payload: Record<string, unknown>,
-  signed: { subject: string; credentialId: string } | null) {
+  signed: { subject: string; credentialId: string; assertion?: Record<string, unknown> } | null) {
+  if (signed?.assertion) {
+    const a = signed.assertion as { id?: unknown; response?: Record<string, unknown> };
+    ctx = { ...ctx, assertion: { credential_id: String(a.id ?? ""), authenticator_data: String(a.response?.authenticatorData ?? ""),
+      client_data_json: String(a.response?.clientDataJSON ?? ""), signature: String(a.response?.signature ?? "") } };
+  }
   const cmd = ADMIN_COMMANDS[name];
   if (!cmd) throw new Refusal(404, "not-found", "No such administrative command");
   if (cmd.signature === "direct") {

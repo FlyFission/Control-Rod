@@ -1617,6 +1617,11 @@ export interface components {
              */
             stop_requested_at?: string;
             stop_requested_by?: string;
+            /**
+             * @description The SCRAM that stopped this run (specification 22a). Whatever the run reports afterwards is
+             *     quarantined: retained privately with its digests and never applied until a person reviews it.
+             */
+            scram_id?: string;
             /** @description Why a queued run is not being handed out, in plain words. */
             waiting_reason?: string;
             /** @description The owner let this pre-check run on the author's runtime. Recorded before it ran. */

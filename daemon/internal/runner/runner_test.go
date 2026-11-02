@@ -172,11 +172,15 @@ type fakeAPI struct {
 	gone map[string]bool
 	// stop asks the daemon to stop these runs in the log reply.
 	stop map[string]bool
+	// unreachable answers log posts for these runs with 503, as if the control plane were down.
+	unreachable map[string]bool
+	// hang holds log posts for these runs unanswered until the test ends.
+	hang map[string]bool
 }
 
 func newFakeAPI(t *testing.T, jobs ...*Job) (*fakeAPI, *httptest.Server) {
 	f := &fakeAPI{t: t, jobs: jobs, logs: map[string][]LogBatch{}, done: map[string]Completion{}, finished: make(chan string, 16),
-		attempts: map[string][]Completion{}, gone: map[string]bool{}, stop: map[string]bool{}}
+		attempts: map[string][]Completion{}, gone: map[string]bool{}, stop: map[string]bool{}, unreachable: map[string]bool{}, hang: map[string]bool{}}
 	srv := httptest.NewServer(http.HandlerFunc(f.serve))
 	t.Cleanup(srv.Close)
 	return f, srv
@@ -231,8 +235,16 @@ func (f *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		f.mu.Lock()
 		f.logs[id] = append(f.logs[id], b)
-		gone, stop := f.gone[id], f.stop[id]
+		gone, stop, down, hang := f.gone[id], f.stop[id], f.unreachable[id], f.hang[id]
 		f.mu.Unlock()
+		if hang {
+			<-r.Context().Done()
+			return
+		}
+		if down {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		if gone {
 			http.Error(w, `{"code":"not-running"}`, http.StatusConflict)
 			return
@@ -720,5 +732,77 @@ func TestAnUnpinnedRuntimeThatChangedIsWithdrawnWithoutRunningIt(t *testing.T) {
 		if s.Runtime == RuntimeClaude && s.Ready {
 			t.Fatal("the changed runtime must be withdrawn until it is probed again")
 		}
+	}
+}
+
+func TestADaemonOutOfContactForALeaseStopsItsRun(t *testing.T) {
+	home := t.TempDir()
+	job := &Job{Run: testRun("run-adrift", "author"), Inputs: []NamedFile{
+		{Name: "BRIEF.md", ContentBase64: b64("x")},
+		{Name: "FAKE.sh", ContentBase64: b64("sleep 60")},
+	}}
+	api, srv := newFakeAPI(t, job)
+	api.unreachable["run-adrift"] = true
+	var logs bytes.Buffer
+	d := New(Config{
+		API: srv.URL, Token: testToken, Home: home, Parallel: 1, Timeout: time.Minute,
+		PollInterval: 50 * time.Millisecond, LogInterval: 50 * time.Millisecond, Grace: time.Second, Heartbeat: 100 * time.Millisecond,
+		Runtimes: []string{RuntimeFake}, Version: "test",
+		Logger: slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	go func() { _ = d.Run(ctx); close(stopped) }()
+	start := time.Now()
+	select {
+	case <-api.finished:
+	case <-time.After(15 * time.Second):
+		t.Fatalf("the run was not stopped; daemon log:\n%s", logs.String())
+	}
+	cancel()
+	<-stopped
+	api.mu.Lock()
+	comp := api.done["run-adrift"]
+	api.mu.Unlock()
+	if comp.Status != "failed" || !strings.Contains(comp.Error, "no contact with the control plane for a whole lease") {
+		t.Fatalf("got %+v", comp)
+	}
+	if time.Since(start) > 10*time.Second {
+		t.Fatalf("stopping took %s", time.Since(start))
+	}
+}
+
+func TestAHeartbeatLeftHangingCannotKeepARunPastItsLease(t *testing.T) {
+	job := &Job{Run: testRun("run-hung", "author"), Inputs: []NamedFile{
+		{Name: "BRIEF.md", ContentBase64: b64("x")},
+		{Name: "FAKE.sh", ContentBase64: b64("sleep 60")},
+	}}
+	api, srv := newFakeAPI(t, job)
+	api.hang["run-hung"] = true
+	old := finalFlushWait
+	finalFlushWait = time.Second
+	defer func() { finalFlushWait = old }()
+	var logs bytes.Buffer
+	d := New(Config{
+		API: srv.URL, Token: testToken, Home: t.TempDir(), Parallel: 1, Timeout: time.Minute,
+		PollInterval: 50 * time.Millisecond, LogInterval: 50 * time.Millisecond, Grace: time.Second, Heartbeat: 100 * time.Millisecond,
+		Runtimes: []string{RuntimeFake}, Version: "test",
+		Logger: slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	go func() { _ = d.Run(ctx); close(stopped) }()
+	select {
+	case <-api.finished:
+	case <-time.After(15 * time.Second):
+		t.Fatalf("the run outlived its lease behind a hanging heartbeat; daemon log:\n%s", logs.String())
+	}
+	cancel()
+	<-stopped
+	api.mu.Lock()
+	comp := api.done["run-hung"]
+	api.mu.Unlock()
+	if !strings.Contains(comp.Error, "no contact with the control plane for a whole lease") {
+		t.Fatalf("got %+v", comp)
 	}
 }

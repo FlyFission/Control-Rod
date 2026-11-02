@@ -441,6 +441,67 @@ model ScramEvent {
 
   /** Run ids stopped, with their outputs quarantined. */
   quarantine: string[];
+
+  /** A practice pull: everything is stopped for real, and the time to stop is recorded as a drill. */
+  drill?: boolean;
+}
+
+enum ScramRestartScope {
+  all: "all",
+  `package`: "package",
+  discipline: "discipline",
+}
+
+/**
+ * A staged restart after SCRAM (specification 22a): directly signed, with a reason, for one package,
+ * one discipline, or everything the SCRAM stopped. Refused while anything in its scope has an
+ * unknown outcome or unreviewed quarantine. (A)
+ */
+@extension("unevaluatedProperties", false)
+model ScramRestart {
+  id: TenancyId;
+  org_id: TenancyId;
+  scram_id: TenancyId;
+  scope: ScramRestartScope;
+
+  /** Present exactly when the scope is a package. */
+  package_id?: string;
+
+  /** Present exactly when the scope is a discipline. */
+  discipline?: string;
+
+  released_by: TenancyId;
+
+  @minLength(1)
+  reason: string;
+
+  assertion: PasskeyAssertion;
+}
+
+/** A person's signed review of one run SCRAM stopped, whose output was quarantined. (A) */
+@extension("unevaluatedProperties", false)
+model QuarantineReview {
+  id: TenancyId;
+  org_id: TenancyId;
+  scram_id: TenancyId;
+  run_id: string;
+
+  /** discard: the partial work is not used. retain: kept as reference only, never applied. */
+  disposition: "discard" | "retain";
+
+  /**
+   * The newest quarantine batch this review saw for the run; absent when the run had reported
+   * nothing. A batch that arrives later needs a review of its own before a restart.
+   */
+  @minValue(1)
+  covers_batch?: int32;
+
+  reviewed_by: TenancyId;
+
+  @minLength(1)
+  reason: string;
+
+  assertion: PasskeyAssertion;
 }
 
 /* ---- Comments and change control ---- */

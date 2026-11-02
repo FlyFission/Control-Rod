@@ -141,7 +141,8 @@ describe("waiting agents", () => {
     expect(theirs("WP-IN-PIN")).toMatchObject({ waiting_on: "an administrator" });
     // A preparation hold is recovered by returning the package, which needs a reviewer.
     expect(aliceBox.items.some((i: Json) => i.package_id === "WP-IN-PREP")).toBe(false);
-    expect(theirs("WP-IN-PREP").reason).toMatch(/^Returning the package for revision needs /);
+    // The reason is the return decision's own refusal.
+    expect(theirs("WP-IN-PREP").reason).toMatch(/qualification does not include/);
     // The founding approver and administrator may resolve all three.
     const mine = (await get("/inbox")).items.map((i: Json) => i.package_id);
     expect(mine).toEqual(expect.arrayContaining(["WP-IN-INDEP", "WP-IN-PIN", "WP-IN-PREP"]));
@@ -164,10 +165,29 @@ describe("waiting agents", () => {
     const held = box.waiting_on_others.find((i: Json) => i.package_id === "WP-IN-SAFEIND");
     expect(held.waiting_on).toMatch(/with an attested hardware key$/);
     expect(held.reason).toMatch(/needs an attested hardware key/);
+    // A preparation hold on the same grade follows the return decision's own floors, hardware key included.
+    await h.admin.query("update runs set body = body || $2 where id = $1", [r.id, { waiting_reason: "The preparation basis changed; refresh it", waiting_cause: "preparation" }]);
+    const prep = (await get("/inbox")).waiting_on_others.find((i: Json) => i.package_id === "WP-IN-SAFEIND");
+    expect(prep).toBeTruthy();
+    expect(prep.reason).toMatch(/hardware/i);
     // Back to the founding qualification for the tests that follow.
     const back = await signedAdmin("qualification.issue", { member_id: member, licenses: [], disciplines: [], grades: ["general-service"],
       roles: ["originator", "checker", "approver"], authorities: ["administrator", "lane", "policy"], reason: "general service work" });
     expect(back.statusCode, back.body).toBe(200);
+  });
+
+  it("lists a held intake run, which has a capture but no package yet, for whoever may resolve it", async () => {
+    await h.admin.query("insert into captures (id, body, created_at) values ('C-in-held', $1, now())",
+      [{ schema_version: "0.1.0", id: "C-in-held", text: "Size the relief valve on the steam header\nwith the attached data", source: "web", created_at: ago(1), lane: "internal" }]);
+    const r = { schema_version: "0.1.0", id: "R-in-intake", package_id: "C-in-held", package_revision: 0, role: "intake", agent_baseline: "unassigned",
+      runtime: { kind: "local", provider: "any", model: "any" }, round: 1, status: "queued", queued_at: ago(1), generation: 1,
+      waiting_reason: "claude here is not the pinned version", waiting_cause: "runtime-pin" };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, 'C-in-held', 0, 'intake', 1, 'queued', $2)", [r.id, r]);
+    const mine = (await get("/inbox")).items.find((i: Json) => i.capture_id === "C-in-held");
+    expect(mine).toMatchObject({ kind: "permission", title: "Intake: Size the relief valve on the steam header", href: { to: "/roster" } });
+    const theirs = (await get("/inbox", await aliceCookie())).waiting_on_others.find((i: Json) => i.capture_id === "C-in-held");
+    expect(theirs).toMatchObject({ waiting_on: "an administrator" });
+    await h.admin.query("update runs set status = 'stopped' where id = $1", [r.id]);
   });
 
   it("replaces a stale hold with the one that now applies", async () => {

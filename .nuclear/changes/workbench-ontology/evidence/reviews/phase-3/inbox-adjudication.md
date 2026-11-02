@@ -49,3 +49,13 @@ Verification after round 3 fixes: API 508 passed, 1 skipped; web 121 passed.
 | P3B-13 | Accepted, fixed | An independence hold on Safety or Material work is the viewer's only if they also hold an attested hardware key, as signing the override requires; otherwise it waits on a qualified signer with one. Test: `routes an independence hold on high consequence work only to a signer with an attested hardware key`. |
 
 Verification after round 4 fixes: API 510 passed, 1 skipped; web 121 passed.
+
+## Round 5 (verdict BLOCK; P3B-11 and P3B-13 closed)
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| P3B-14 (and P3B-12) | Accepted, fixed | A preparation hold is routed by the viewer's own return descriptor from `packageActions`, which carries every floor the return would face (qualification and the hardware key for Safety and Material work); the reason shown is that descriptor's refusal. Test: the high consequence routing test now also holds the run for preparation. |
+| P3B-15 | Accepted, fixed | Held intake runs (a capture with no package yet) are listed: titled from the capture, opening the roster for a pin hold or Packages otherwise, routed by the same cause rules and SCRAM hold as package work (`AttentionItem.capture_id` in the contract). Test: `lists a held intake run, which has a capture but no package yet`. |
+| Medium: disputes line | Fixed | The digest counts every open dispute, whoever must settle it, so "No disputes are open" is said only when there are none. |
+
+Verification after round 5 fixes: API 511 passed, 1 skipped; web 121 passed.

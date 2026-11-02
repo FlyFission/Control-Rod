@@ -337,6 +337,9 @@ model AttentionItem {
   package_id?: string;
   package_revision?: int32;
   scram_id?: string;
+
+  /** For a held intake run: the capture it reads (no package exists yet). */
+  capture_id?: string;
   title: string;
   detail: string;
   since: utcDateTime;

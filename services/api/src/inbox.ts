@@ -60,7 +60,7 @@ const refusedForScram = (actions: Json[]) => actions.some((a) => a.reason_code =
  * authority, and a preparation hold someone who may return the package for revision. Holds
  * recorded before causes existed stay the owner's.
  */
-async function holdResolver(db: Db, user: string, run: Json, body: Json, standing: Map<string, Json>, authorities: Set<string>): Promise<{ who: string; why: string } | null> {
+async function holdResolver(db: Db, cfg: WorkConfig, user: string, run: Json, body: Json, standing: Map<string, Json>, authorities: Set<string>): Promise<{ who: string; why: string } | null> {
   switch (run?.waiting_cause) {
     case "independent-runtime": {
       const needs = needsOf(body ?? {});
@@ -71,9 +71,10 @@ async function holdResolver(db: Db, user: string, run: Json, body: Json, standin
       return null;
     }
     case "preparation": {
-      // A changed preparation basis is recovered by returning the package for a controlled revision.
-      const gaps = await signingGaps(db, user, "return", needsOf(body ?? {}));
-      return gaps.length === 0 ? null : { who: who(ACTION_ROLES.return), why: `Returning the package for revision needs ${gaps.join(" and ")}, which your qualification does not include` };
+      // A changed preparation basis is recovered by returning the package for a controlled revision:
+      // the viewer's return descriptor decides, with every floor it carries (qualification, hardware key).
+      const ret = (await packageActions(db, cfg, user, run.package_id)).find((a: Json) => a.command === "return");
+      return ret?.allowed ? null : { who: who(ACTION_ROLES.return), why: ret?.reason ?? "Returning the package for revision is not open to you" };
     }
     case "runtime-pin":
       return standing.get("runtime.pin")?.allowed ? null : { who: "an administrator", why: "Pinning a runtime version needs administrator authority" };
@@ -116,7 +117,7 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
         continue;
       }
       // A waiting agent goes to whoever may resolve what holds it.
-      const resolver = it.kind === "permission" ? await holdResolver(db, user, lastRun, body, standing, authorities) : null;
+      const resolver = it.kind === "permission" ? await holdResolver(db, cfg, user, lastRun, body, standing, authorities) : null;
       if (resolver === null) mine.push(item);
       else others.push({ ...item, waiting_on: resolver.who, reason: resolver.why });
       continue;
@@ -156,6 +157,27 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
       others.push({ ...base, decisions: [], waiting_on: refused?.reason_code === "scram-stopped" ? "a restart after SCRAM" : who(roles),
         ...(refused?.reason ? { reason: refused.reason } : {}) });
     }
+  }
+  // Held intake runs belong to captures, not packages, so the office does not list them.
+  const intake = await db.query<{ id: string; package_id: string; body: Json; text: string | null }>(
+    `select r.id, r.package_id, r.body, c.body->>'text' as text from runs r left join captures c on c.id = r.package_id
+      where r.role = 'intake' and r.status = 'queued' and r.body ? 'waiting_reason' order by r.created_at`);
+  for (const r of intake.rows) {
+    const first = (r.text ?? "").split("\n")[0]!.trim();
+    const item = {
+      kind: "permission", capture_id: r.package_id, title: `Intake: ${first.length > 80 ? `${first.slice(0, 79)}…` : first || r.package_id}`,
+      detail: String(r.body.waiting_reason), since: String(r.body.queued_at ?? new Date().toISOString()), risk: gateRisk("permission", undefined),
+      href: r.body.waiting_cause === "runtime-pin" ? { to: "/roster" } : { to: "/packages" },
+    };
+    const held = await scramHolding(db, { kind: "capture", id: r.package_id });
+    if (held) {
+      if (standing.get("scram.restart")?.allowed) mine.push(item);
+      else others.push({ ...item, waiting_on: "a restart after SCRAM", reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
+      continue;
+    }
+    const resolver = await holdResolver(db, cfg, user, r.body, {}, standing, authorities);
+    if (resolver === null) mine.push(item);
+    else others.push({ ...item, waiting_on: resolver.who, reason: resolver.why });
   }
   for (const a of await scramAttention(db, caller.orgId)) {
     // What stands between the SCRAM and a full restart, and which next step is this person's.
@@ -199,7 +221,7 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
   const order = (x: Json, y: Json) => x.risk.rank - y.risk.rank || Date.parse(x.since) - Date.parse(y.since);
   mine.sort(order);
   others.sort(order);
-  return { items: mine, waiting_on_others: others, digest: await digestSince(db, since, mine) };
+  return { items: mine, waiting_on_others: others, digest: await digestSince(db, since, mine, [...mine, ...others].filter((x) => x.kind === "dispute").length) };
 }
 
 const CHANGE_TYPES: Record<string, string> = {
@@ -230,7 +252,7 @@ const DECISION_WORDS: Record<string, string> = {
  * criteria not yet met, and spend. Without a cursor (a first visit) it returns only the head, so
  * the client starts counting from now.
  */
-export async function digestSince(db: Db, since: number | undefined, mine: Json[]) {
+export async function digestSince(db: Db, since: number | undefined, mine: Json[], openDisputes = 0) {
   const head = (await db.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from events")).rows[0]!.n;
   if (since === undefined || !Number.isInteger(since) || since < 0 || since > head) return { head, lines: [] };
   // Bounded by the head this answer reports, so marking seen never skips or double counts an event.
@@ -272,7 +294,8 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
     : `${plural(Object.values(signed).reduce((a, b) => a + b, 0), "signature")}: ${Object.entries(signed).map(([k, n]) => `${n} ${nouns.has(k) ? nouns.get(k)![n === 1 ? 0 : 1] : k}`).join(", ")}.`;
   const late = mine.filter((m) => Date.now() - Date.parse(m.since) > LATE_AFTER_MS).length;
   const lateness = late === 0 ? "Nothing has waited on you more than a day." : `${plural(late, "item")} ${late === 1 ? "has" : "have"} waited on you more than a day.`;
-  const disputes = mine.filter((m) => m.kind === "dispute").length;
+  // Every open dispute, whoever must settle it: "none open" is only said when there are none.
+  const disputes = openDisputes;
   const disputeLine = disputes === 0 && breaker === 0
     ? "No disputes are open."
     : `${plural(disputes, "dispute")} open${breaker > 0 ? `; the breaker stopped ${plural(breaker, "run")}` : ""}.`;

@@ -17,3 +17,17 @@ Reviewer: Codex CLI (read-only, ephemeral). Evidence: `scram-codex-round1.md` an
 | Medium: time to stop | Fixed | Measured from the `scram.pulled` event, written after the gate is won, so lock waits do not count. |
 
 Verification after round 1 fixes: daemon `go vet` on linux, darwin and windows and `go test ./...` with no runtimes on PATH; API 490 passed, 1 skipped.
+
+## Round 2 (verdict BLOCK; S3-01, S3-05, S3-06, S3-07 and the timing Medium closed)
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| S3-08 | Accepted, fixed | One lock order everywhere: the marking lock (taken by the executor), then the organization's administration lock, then the SCRAM gate, then rows. A release now takes the gate after `lockSigner`; pulls, reviews and restarts take it after the administration lock `runAdmin` holds; claims, requeues, completions and sweeps take no administration lock. |
+| S3-09 | Accepted, fixed | A review's signed payload names the newest batch the person saw (`covers_batch`); the server refuses it (`quarantine-changed`) if that is not the newest batch now, so coverage never stretches over unseen output. `GET /scrams/:id` (contract in `spec/api.tsp`) shows the stopped runs, every batch with its digests, reviews and restarts, scoped to the caller's organization. Tests: `refuses a review signed before the run reported more`, `shows a SCRAM only to its own organization`; every other test reviews through the read view. |
+| S3-10 | Accepted, fixed | The lost-run sweep and the restart evidence path enter the SCRAM gate before any row lock, so no unknown outcome can land between a restart's eligibility check and its commit. |
+| S3-11 | Accepted, fixed | A completion from any run whose work a SCRAM holds is refused as `scram-quarantined`; recording it, or a late completion, adopts the run into every SCRAM holding it (`adoptHeldRun`, `scram_runs`), quarantines the report as a batch, and so requires a review before a restart. Test: `quarantines a late report from a run lost before the pull, and holds the restart for its review`. |
+| S3-12 | Accepted, fixed | The daemon keeps a lease clock from the claim: the earlier of the control plane's advertised `lease_expires_at` and three heartbeats after the request was sent (never the reply's arrival). A watchdog stops the run when it ends, through preparation and launch; nothing starts once it has ended; each heartbeat is bounded by it; renewals only extend it. Tests: `TestTheLeaseEndsAtTheEarlierOfTheAdvertisedEndAndThreeHeartbeatsFromSending`, `TestTheAdvertisedLeaseIsHonouredEvenBetweenHeartbeats` (a 400 ms lease with 30 s heartbeats stops the run in about half a second). |
+| Medium: run tenancy | Fixed | `scram_runs` carries a foreign key to `object_owners(object_kind, object_id, org_id)`, so a run can only be associated with a SCRAM of its own organization. |
+| Medium: final flush | Fixed | Heartbeat requests are derived from the flush loop's context, so stopping the loop abandons one in flight (its batch goes back) and the bounded final flush starts at once. |
+
+Verification after round 2 fixes: daemon `go vet` on linux, darwin and windows and `go test ./...` with no runtimes on PATH; API 494 passed, 1 skipped; web 105 passed.

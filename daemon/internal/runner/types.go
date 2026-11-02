@@ -3,7 +3,10 @@
 // trace. It never makes a decision; the control plane and its kernel do.
 package runner
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"time"
+)
 
 // NamedFile is a file carried in a job or a completion, base64 encoded.
 type NamedFile struct {
@@ -49,6 +52,9 @@ type Job struct {
 	Claim    RunClaim        `json:"claim"`
 	// RuntimePin is the artifact this run must launch, when the control plane has one pinned.
 	RuntimePin *RuntimePin `json:"runtime_pin,omitempty"`
+
+	// claimSent is when the claim that handed out this job was sent; the lease runs from then.
+	claimSent time.Time
 }
 
 // Digest is a content digest.

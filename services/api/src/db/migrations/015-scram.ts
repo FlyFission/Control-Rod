@@ -7,9 +7,12 @@ create table scram_runs (
   scram_id text not null,
   org_id text not null,
   run_id text not null references runs(id),
+  run_kind text not null default 'run' check (run_kind = 'run'),
   recorded_at timestamptz not null default clock_timestamp(),
   primary key (scram_id, run_id),
-  foreign key (scram_id, org_id) references scram_events(id, org_id)
+  foreign key (scram_id, org_id) references scram_events(id, org_id),
+  -- The run belongs to the SCRAM's organization.
+  foreign key (run_kind, run_id, org_id) references object_owners(object_kind, object_id, org_id)
 );
 create index scram_runs_run on scram_runs (run_id);
 create trigger scram_runs_frozen before update or delete on scram_runs

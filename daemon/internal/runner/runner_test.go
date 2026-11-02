@@ -806,3 +806,39 @@ func TestAHeartbeatLeftHangingCannotKeepARunPastItsLease(t *testing.T) {
 		t.Fatalf("got %+v", comp)
 	}
 }
+
+func TestTheAdvertisedLeaseIsHonouredEvenBetweenHeartbeats(t *testing.T) {
+	// The control plane gave a short lease; heartbeats are thirty seconds apart and none gets through.
+	job := &Job{Run: testRun("run-short", "author"), Inputs: []NamedFile{
+		{Name: "BRIEF.md", ContentBase64: b64("x")},
+		{Name: "FAKE.sh", ContentBase64: b64("sleep 60")},
+	}, Claim: RunClaim{Token: "claim-run-short", LeaseExpiresAt: time.Now().Add(400 * time.Millisecond).Format(time.RFC3339Nano), HeartbeatSeconds: 30}}
+	api, srv := newFakeAPI(t, job)
+	api.unreachable["run-short"] = true
+	var logs bytes.Buffer
+	d := New(Config{
+		API: srv.URL, Token: testToken, Home: t.TempDir(), Parallel: 1, Timeout: time.Minute,
+		PollInterval: 50 * time.Millisecond, LogInterval: 50 * time.Millisecond, Grace: time.Second,
+		Runtimes: []string{RuntimeFake}, Version: "test",
+		Logger: slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
+	})
+	old := finalFlushWait
+	finalFlushWait = time.Second
+	defer func() { finalFlushWait = old }()
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	go func() { _ = d.Run(ctx); close(stopped) }()
+	select {
+	case <-api.finished:
+	case <-time.After(10 * time.Second):
+		t.Fatalf("the run outlived its advertised lease; daemon log:\n%s", logs.String())
+	}
+	cancel()
+	<-stopped
+	api.mu.Lock()
+	comp := api.done["run-short"]
+	api.mu.Unlock()
+	if !strings.Contains(comp.Error, "no contact with the control plane for a whole lease") {
+		t.Fatalf("got %+v", comp)
+	}
+}

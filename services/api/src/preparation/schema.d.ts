@@ -772,6 +772,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scrams/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A SCRAM, the runs it stopped with their quarantine and reviews, and its restarts. */
+        get: operations["scram"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1549,6 +1566,27 @@ export interface components {
             /** @description Unit in Pint-compatible notation, for example "kW" or "degF". */
             unit: string;
         };
+        /** @description A person's signed review of one run SCRAM stopped, whose output was quarantined. (A) */
+        "ControlRod.Records.QuarantineReview": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            scram_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            run_id: string;
+            /**
+             * @description discard: the partial work is not used. retain: kept as reference only, never applied.
+             * @enum {string}
+             */
+            disposition: "discard" | "retain";
+            /**
+             * Format: int32
+             * @description The newest quarantine batch this review saw for the run; absent when the run had reported
+             *     nothing. A batch that arrives later needs a review of its own before a restart.
+             */
+            covers_batch?: number;
+            reviewed_by: components["schemas"]["ControlRod.Records.TenancyId"];
+            reason: string;
+            assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+        };
         /** @description How an unknown outcome was settled. */
         "ControlRod.Records.Reconciliation": {
             /**
@@ -1666,6 +1704,43 @@ export interface components {
             provider: string;
             model: string;
         };
+        /** @description Who pulled SCRAM, where, why, and what was stopped. (A) */
+        "ControlRod.Records.ScramEvent": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            scope: components["schemas"]["ControlRod.Records.ScramScope"];
+            /** @description Present exactly when the scope is a project. */
+            project_id?: components["schemas"]["ControlRod.Records.TenancyId"];
+            pulled_by: components["schemas"]["ControlRod.Records.TenancyId"];
+            reason: string;
+            assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+            /** @description Run ids stopped, with their outputs quarantined. */
+            quarantine: string[];
+            /** @description A practice pull: everything is stopped for real, and the time to stop is recorded as a drill. */
+            drill?: boolean;
+        };
+        /**
+         * @description A staged restart after SCRAM (specification 22a): directly signed, with a reason, for one package,
+         *     one discipline, or everything the SCRAM stopped. Refused while anything in its scope has an
+         *     unknown outcome or unreviewed quarantine. (A)
+         */
+        "ControlRod.Records.ScramRestart": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            scram_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            scope: components["schemas"]["ControlRod.Records.ScramRestartScope"];
+            /** @description Present exactly when the scope is a package. */
+            package_id?: string;
+            /** @description Present exactly when the scope is a discipline. */
+            discipline?: string;
+            released_by: components["schemas"]["ControlRod.Records.TenancyId"];
+            reason: string;
+            assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+        };
+        /** @enum {string} */
+        "ControlRod.Records.ScramRestartScope": "all" | "package" | "discipline";
+        /** @enum {string} */
+        "ControlRod.Records.ScramScope": "organization" | "project";
         /** @description A stable identifier: a lowercase type prefix, an underscore, then up to 64 letters, digits or hyphens. */
         "ControlRod.Records.TenancyId": string;
         "ControlRod.Records.ToolRef": {
@@ -1926,6 +2001,20 @@ export interface components {
             login_checked: boolean;
             /** @description The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this. */
             artifact?: components["schemas"]["Runner.RuntimeArtifact"];
+        };
+        /** @description One quarantine batch: what a SCRAM-stopped run reported in one completion, as digests. */
+        ScramQuarantineBatch: {
+            /** Format: int32 */
+            id: number;
+            reported: string;
+            /** Format: int32 */
+            output_count: number;
+            /** Format: date-time */
+            recorded_at: string;
+            outputs: {
+                name: string;
+                sha256: string;
+            }[];
         };
     };
     responses: never;
@@ -5294,6 +5383,38 @@ export interface operations {
                         reported_at?: string;
                         runtimes: components["schemas"]["Runner.RuntimeStatus"][];
                     };
+                };
+            };
+        };
+    };
+    scram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        scram: components["schemas"]["ControlRod.Records.ScramEvent"];
+                        runs: {
+                            run_id: string;
+                            status: components["schemas"]["ControlRod.Records.RunStatus"];
+                            outcome_unknown: boolean;
+                            batches: components["schemas"]["ScramQuarantineBatch"][];
+                            reviews: components["schemas"]["ControlRod.Records.QuarantineReview"][];
+                        }[];
+                        restarts: components["schemas"]["ControlRod.Records.ScramRestart"][];
+                    } | components["schemas"]["ApiError"];
                 };
             };
         };

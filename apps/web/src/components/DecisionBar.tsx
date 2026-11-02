@@ -48,6 +48,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
       void qc.invalidateQueries({ queryKey: ["package", pkg.id] });
       void qc.invalidateQueries({ queryKey: ["office"] });
       void qc.invalidateQueries({ queryKey: ["packages"] });
+      void qc.invalidateQueries({ queryKey: ["actions"] });
     } catch (e) {
       setError(explain(e, "The decision was not recorded."));
     } finally {

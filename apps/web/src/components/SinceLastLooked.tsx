@@ -4,7 +4,7 @@ import { api } from "../api/client.js";
 import type { CrEvent } from "../api/types.js";
 import { LAST_SEEN_KEY, readNumber, writeNumber } from "../lib/storage.js";
 
-/** Events since this browser last marked them seen. Stored per viewer; works without storage. */
+/** Events since this browser last marked them seen. Stored in this browser; works without storage. */
 export function SinceLastLooked() {
   const [lastSeen, setLastSeen] = useState<number | undefined>(() => readNumber(LAST_SEEN_KEY));
   const q = useQuery({ queryKey: ["events", "since", lastSeen ?? 0], queryFn: () => api.events(lastSeen ?? 0) });

@@ -12,6 +12,9 @@ export function Roster() {
   const q = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
   const runtimes = q.data?.runtimes ?? [];
   const pins = q.data?.pins ?? [];
+  // Absence is only stated once the control plane has answered; before that, or after a failure,
+  // the page says it does not know.
+  const known = q.isSuccess;
   return (
     <div className="place">
       <header className="place-head">
@@ -27,7 +30,15 @@ export function Roster() {
           {q.data?.reported_at !== undefined && <span className="muted small">Reported by the daemon {time(q.data.reported_at)}</span>}
         </div>
         {q.isLoading && <p className="muted">Loading</p>}
-        {!q.isLoading && runtimes.length === 0 && (
+        {q.isError && (
+          <div role="alert" className="error">
+            <p>{q.data === undefined ? "The runtimes could not be loaded." : "The runtimes could not be refreshed; what follows may be out of date."}</p>
+            <button type="button" className="btn small" onClick={() => void q.refetch()}>
+              Try again
+            </button>
+          </div>
+        )}
+        {known && runtimes.length === 0 && (
           <p className="muted">No daemon has reported yet. Start Control Rod with pnpm cr start and the daemon checks each runtime it finds.</p>
         )}
         {runtimes.length > 0 && (
@@ -72,7 +83,9 @@ export function Roster() {
       </section>
       <section className="panel" aria-labelledby="pins-title">
         <h2 id="pins-title">Pins</h2>
-        {pins.length === 0 ? (
+        {q.data === undefined ? (
+          <p className="muted">{q.isLoading ? "Loading" : "Pins are unknown until the runtimes load."}</p>
+        ) : pins.length === 0 ? (
           <p className="muted">Nothing is pinned. Unpinned runtimes launch the artifact the daemon last checked.</p>
         ) : (
           <div className="table-wrap">

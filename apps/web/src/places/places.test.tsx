@@ -154,6 +154,31 @@ describe("shell and palette", () => {
     expect(router.state.location.pathname).toBe("/packages/WP-7");
   });
 
+  it("keeps focus in the palette when a refused command is clicked, and Escape still closes it", async () => {
+    apiFor();
+    await renderShell();
+    const user = userEvent.setup();
+    await user.keyboard("{Control>}k{/Control}");
+    const input = await screen.findByRole("combobox");
+    await user.type(input, "pin a runtime");
+    await user.click(await screen.findByRole("option", { name: /Pin a runtime version/ }));
+    expect(document.activeElement).toBe(input);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    // Focus that escapes to the page behind comes straight back.
+    screen.getByRole("link", { name: "Roster" }).focus();
+    expect(document.activeElement).toBe(input);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("says when what the viewer may do could not be checked", async () => {
+    apiFor();
+    server.use(http.get("*/admin", () => HttpResponse.json({ code: "error", message: "down" }, { status: 500 })));
+    await renderShell();
+    await userEvent.setup().keyboard("{Control>}k{/Control}");
+    expect(await screen.findByText(/What you may do could not be checked/)).toBeTruthy();
+  });
+
   it("closes on Escape and gives focus back to where it was", async () => {
     apiFor();
     await renderShell();
@@ -204,6 +229,15 @@ describe("places", () => {
     await renderPage(<Roster />);
     expect(await screen.findByText("/opt/claude")).toBeTruthy();
     expect(screen.getByText(/installed claude is a different version, so author work waits/)).toBeTruthy();
+  });
+
+  it("never claims nothing is pinned when the runtimes could not be loaded", async () => {
+    server.use(http.get("*/runtimes", () => HttpResponse.json({ code: "error", message: "down" }, { status: 500 })));
+    await renderPage(<Roster />);
+    expect(await screen.findByText("The runtimes could not be loaded.")).toBeTruthy();
+    expect(screen.getByText("Pins are unknown until the runtimes load.")).toBeTruthy();
+    expect(screen.queryByText(/Nothing is pinned/)).toBeNull();
+    expect(screen.queryByText(/No daemon has reported/)).toBeNull();
   });
 
   it("shows the floors, and every administrative command with the viewer's standing", async () => {

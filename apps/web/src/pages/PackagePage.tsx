@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouterState } from "@tanstack/react-router";
 import { ApiError, api } from "../api/client.js";
 import type { PackageView, VerificationRecord, WorkPackage } from "../api/types.js";
 import { CriterionCoverage } from "../components/preparation/CriterionCoverage.js";
@@ -15,11 +16,11 @@ const RUNGS: WorkPackage["status"][] = ["draft", "released", "in-work", "in-veri
 export function PackagePage({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["package", id], queryFn: () => api.packageView(id) });
 
+  const hash = useRouterState({ select: (st) => st.location.hash });
   useEffect(() => {
-    // Links and the command palette land on a section: #decide, #criteria.
-    const target = window.location.hash.slice(1);
-    if (q.data !== undefined && target) document.getElementById(target)?.scrollIntoView({ block: "start" });
-  }, [q.data]);
+    // Links and the command palette land on a section (#decide, #criteria), also when only the hash changes.
+    if (q.data !== undefined && hash) document.getElementById(hash)?.scrollIntoView({ block: "start" });
+  }, [q.data, hash]);
 
   if (q.isLoading) return <p className="muted">Loading</p>;
   if (q.isError || q.data === undefined) {

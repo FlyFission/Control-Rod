@@ -75,6 +75,17 @@ func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) 
 		st.Ready, st.Version = true, fakeVersion
 		return st
 	}
+	// Identify the executable before running anything: a launcher Control Rod cannot pin is never
+	// executed, not even for its version.
+	if art, aerr := resolveArtifact(runtime); aerr == nil {
+		st.Artifact = &art
+	} else if errors.Is(aerr, ErrUnsupportedLauncher) {
+		st.Reason = fmt.Sprintf("%s is installed, but Control Rod can only run a runtime it can identify by digest: %v", runtime, aerr)
+		return st
+	} else {
+		st.Reason = fmt.Sprintf("%s cannot be found or its executable read to record which version it is: %v", runtime, aerr)
+		return st
+	}
 	call := func(args ...string) (string, int, error) {
 		c, cancel := context.WithTimeout(ctx, probeTimeout)
 		defer cancel()
@@ -90,15 +101,6 @@ func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) 
 		return st
 	}
 	st.Version = firstLine(out)
-	if art, aerr := resolveArtifact(runtime); aerr == nil {
-		st.Artifact = &art
-	} else if errors.Is(aerr, ErrUnsupportedLauncher) {
-		st.Reason = fmt.Sprintf("%s answered, but Control Rod can only run a runtime it can identify by digest: %v", runtime, aerr)
-		return st
-	} else {
-		st.Reason = fmt.Sprintf("%s answered but its executable could not be read to record which version it is: %v", runtime, aerr)
-		return st
-	}
 	if runtime == RuntimeCodex {
 		help, hcode, herr := call("login", "--help")
 		if herr == nil && hcode == 0 && hasSubcommand(help, "status") {

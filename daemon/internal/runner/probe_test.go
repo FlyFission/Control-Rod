@@ -150,8 +150,12 @@ func TestProbeRefusesARuntimeStartedByAScriptItCannotPin(t *testing.T) {
 		return RuntimeArtifact{}, fmt.Errorf("%w: claude starts through the script /x/cli.js", ErrUnsupportedLauncher)
 	}
 	defer func() { resolveArtifact = old }()
-	st := Probe(context.Background(), RuntimeClaude, "", answers(map[string]ans{"claude --version": {"2.1.0 (Claude Code)", 0}}).run)
+	runner := answers(map[string]ans{"claude --version": {"2.1.0 (Claude Code)", 0}})
+	st := Probe(context.Background(), RuntimeClaude, "", runner.run)
 	if st.Ready || st.Artifact != nil || !strings.Contains(st.Reason, "identify by digest") {
 		t.Fatalf("a script launcher is not ready, in plain words: %+v", st)
+	}
+	if len(runner.calls) != 0 {
+		t.Fatalf("a launcher that cannot be pinned is never run, not even for its version: %v", runner.calls)
 	}
 }

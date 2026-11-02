@@ -277,6 +277,18 @@ func (d *Daemon) probe(ctx context.Context) {
 	}
 }
 
+// markNotReady withdraws a runtime from offers without running anything, until the next probe.
+func (d *Daemon) markNotReady(runtime, reason string) {
+	d.probeMu.Lock()
+	defer d.probeMu.Unlock()
+	for i := range d.status {
+		if d.status[i].Runtime == runtime {
+			d.status[i].Ready, d.status[i].Reason, d.status[i].Artifact = false, reason, nil
+		}
+	}
+	d.log.Warn(reason+". It is not offered for work until it is probed again.", "runtime", runtime)
+}
+
 func (d *Daemon) probeLoop(ctx context.Context) {
 	t := time.NewTicker(d.cfg.ProbeInterval)
 	defer t.Stop()
@@ -480,8 +492,8 @@ type logBuffer struct {
 	dirty   bool
 	receipt *OwnershipReceipt
 
-	// delivered counts events the control plane has acknowledged; one batch is in flight at a time.
-	delivered int
+	// nextIdx is the index the next kept event gets (Event.idx).
+	nextIdx int
 
 	admit   *Admission
 	breaker *Breaker
@@ -554,9 +566,15 @@ func (b *logBuffer) addEvents(events []Event) {
 		events = append(events, Event{Kind: EvNotice, At: at, Text: "Breaker tripped: " + verdict.Trip + ". The run is being stopped."})
 	}
 	b.mu.Lock()
+	for i := range events {
+		events[i].idx = b.nextIdx
+		b.nextIdx++
+	}
 	b.events = append(b.events, events...)
+	// The oldest go first. The gap they leave in the indexes is how the control plane learns of
+	// them: it records a dropped event in their place.
 	if over := len(b.events) - maxHeldEvents; over > 0 {
-		b.events = append([]Event{{Kind: EvDropped, At: at, Dropped: over}}, b.events[over+1:]...)
+		b.events = b.events[over:]
 	}
 	b.dirty = true
 	b.mu.Unlock()
@@ -593,9 +611,15 @@ func (b *logBuffer) take() (LogBatch, bool) {
 		size += len(b.lines[n])
 		n++
 	}
-	batch := LogBatch{Lines: append([]string(nil), b.lines[:n]...), Label: b.label, Receipt: b.receipt, EventsFrom: b.delivered}
-	if k := min(len(b.events), MaxEventBatch); k > 0 {
+	batch := LogBatch{Lines: append([]string(nil), b.lines[:n]...), Label: b.label, Receipt: b.receipt}
+	// A batch carries consecutive events only, so events_from places every one of them.
+	if len(b.events) > 0 {
+		k := 1
+		for k < len(b.events) && k < MaxEventBatch && b.events[k].idx == b.events[0].idx+k {
+			k++
+		}
 		batch.Events = append([]Event(nil), b.events[:k]...)
+		batch.EventsFrom = b.events[0].idx
 		b.events = b.events[k:]
 	}
 	if batch.Lines == nil {
@@ -615,26 +639,27 @@ const maxHeldLines = 20000
 // MaxEventBatch is the most events one log post carries.
 const MaxEventBatch = 500
 
-// sent records that the control plane accepted a batch: its receipt and its events.
+// sent records that the control plane accepted a batch.
 func (b *logBuffer) sent(batch LogBatch) {
 	b.receiptSent(batch.Receipt)
-	b.mu.Lock()
-	b.delivered += len(batch.Events)
-	b.mu.Unlock()
 }
 
-// leftEvents takes the events no post delivered, for the completion: at most MaxEventBatch, the
-// newest kept (the exit event is last), with a dropped marker for the rest.
+// leftEvents takes the events no post delivered, for the completion: the newest consecutive run
+// of at most MaxEventBatch (the exit event is last), placed by the index of its first. Older ones
+// left out show as a gap, which the control plane records as dropped.
 func (b *logBuffer) leftEvents() ([]Event, int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	events, from := b.events, b.delivered
+	events := b.events
 	b.events = nil
-	if over := len(events) - MaxEventBatch; over > 0 {
-		at := time.Now().UTC().Format(time.RFC3339Nano)
-		events = append([]Event{{Kind: EvDropped, At: at, Dropped: over + 1}}, events[over+1:]...)
+	if len(events) == 0 {
+		return nil, 0
 	}
-	return events, from
+	start := len(events) - 1
+	for start > 0 && len(events)-start < MaxEventBatch && events[start-1].idx == events[start].idx-1 {
+		start--
+	}
+	return events[start:], events[start].idx
 }
 
 // putBackEvents returns a failed batch's events to the front of the buffer.
@@ -859,7 +884,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		if verr != nil {
 			err = verr
 			if job.RuntimePin == nil {
-				d.probe(context.Background())
+				// Not offered again until the next scheduled probe requalifies it; nothing runs now.
+				d.markNotReady(runtime, verr.Error())
 			}
 		} else {
 			// The child inherits the open descriptor; the daemon's copy closes once the run ends.

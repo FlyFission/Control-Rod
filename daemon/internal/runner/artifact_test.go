@@ -207,21 +207,19 @@ func TestVerifiedLaunchRunsTheCheckedBytesEvenAfterTheFileIsReplaced(t *testing.
 	}
 }
 
-func TestCodexTreeRefusesLinksThatLeaveIt(t *testing.T) {
+func TestCodexTreeRefusesLinks(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "bin", "codex"), append(append([]byte{}, elf...), "codex"...), 0o755)
-	if err := os.Symlink("../bin/codex", filepath.Join(root, "bin", "inside")); err != nil {
+	if _, _, err := treeDigest(root); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := treeDigest(root); err != nil {
-		t.Fatalf("a link inside the tree is fine: %v", err)
-	}
-	for i, target := range []string{"/etc/passwd", "../../outside"} {
-		link := filepath.Join(root, "bin", "escape"+string(rune('a'+i)))
+	// Even a link that looks internal can resolve outside through another link (dir/up -> ..).
+	for _, target := range []string{"../bin/codex", "/etc/passwd", "../../outside"} {
+		link := filepath.Join(root, "bin", "link")
 		if err := os.Symlink(target, link); err != nil {
 			t.Fatal(err)
 		}
-		if _, _, err := treeDigest(root); err == nil || !strings.Contains(err.Error(), "links outside the runtime") {
+		if _, _, err := treeDigest(root); err == nil || !strings.Contains(err.Error(), "symbolic link") {
 			t.Fatalf("a link to %s must be refused: %v", target, err)
 		}
 		os.Remove(link)
@@ -281,28 +279,57 @@ func TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes(t *testing.T) {
 	}
 }
 
-func TestConfirmCatchesARuntimeRewrittenInPlaceBeforeItStarted(t *testing.T) {
+func TestAWriteBetweenCheckAndStartIsBlockedAndCaught(t *testing.T) {
 	if runtime.GOOS != "linux" {
-		t.Skip("Confirm is Linux only")
+		t.Skip("leases are Linux only")
 	}
 	path, l := verifiedCopy(t, "sleep")
-	// Rewrite the same file (same inode) after the check: a descriptor alone cannot see this.
-	f, err := os.OpenFile(path, os.O_WRONLY, 0)
-	if err != nil {
-		t.Fatal(err)
+	if !l.leased {
+		t.Skip("this filesystem gives no leases")
 	}
-	if _, err := f.WriteAt([]byte("tampered"), 4096); err != nil {
-		t.Fatal(err)
+	// After the check, opening the runtime for writing does not get through: the open waits on the
+	// lease (here, non-blocking, it is refused at once) and the lease is broken.
+	if f, err := os.OpenFile(path, os.O_WRONLY|syscall.O_NONBLOCK, 0); err == nil {
+		f.Close()
+		t.Fatal("a writer must not get the verified runtime open while it is guarded")
+	} else if !errors.Is(err, syscall.EWOULDBLOCK) {
+		t.Fatalf("expected the open to wait on the lease, got %v", err)
 	}
-	f.Close()
 	cmd := exec.Command(path, "5")
 	l.Apply(cmd)
 	if err := cmd.Start(); err != nil {
-		t.Skipf("the tampered copy does not start here: %v", err)
+		t.Fatal(err)
 	}
 	defer func() { cmd.Process.Kill(); cmd.Wait() }()
-	if err := l.Confirm(cmd.Process.Pid); !errors.Is(err, ErrArtifactMismatch) || !strings.Contains(err.Error(), "rewritten between its check and its start") {
-		t.Fatalf("an in-place rewrite must be caught: %v", err)
+	if err := l.Confirm(cmd.Process.Pid); !errors.Is(err, ErrArtifactMismatch) || !strings.Contains(err.Error(), "opened the runtime for writing") {
+		t.Fatalf("an attempted write in the window must fail the run closed: %v", err)
+	}
+}
+
+func TestARuntimeOpenForWritingIsRefused(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("leases are Linux only")
+	}
+	src, err := exec.LookPath("sleep")
+	if err != nil {
+		t.Skip("needs sleep")
+	}
+	b, _ := os.ReadFile(src)
+	path := filepath.Join(t.TempDir(), "runtime")
+	writeFile(t, path, b, 0o755)
+	sum, _ := fileDigest(path)
+	old := resolveArtifact
+	resolveArtifact = func(string) (RuntimeArtifact, error) {
+		return RuntimeArtifact{Path: path, Digest: Digest{Algorithm: "sha256", Value: sum}}, nil
+	}
+	defer func() { resolveArtifact = old }()
+	w, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+	if _, err := VerifyLaunch("claude", &RuntimePin{Runtime: "claude", Digest: Digest{Algorithm: "sha256", Value: sum}}, nil); !errors.Is(err, ErrArtifactMismatch) || !strings.Contains(err.Error(), "open for writing") {
+		t.Fatalf("a runtime someone holds open for writing cannot be guarded, so it is refused: %v", err)
 	}
 }
 

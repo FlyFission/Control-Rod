@@ -110,7 +110,7 @@ type Completion struct {
 	Containment string `json:"containment,omitempty"`
 	// Events no log post delivered, indexed from EventsFrom; the completion outbox retries them.
 	Events     []Event `json:"events,omitempty"`
-	EventsFrom int     `json:"events_from,omitempty"`
+	EventsFrom int     `json:"events_from"`
 }
 
 // LogBatch is the body of POST /runner/runs/{id}/log.

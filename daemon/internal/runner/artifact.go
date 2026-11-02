@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -184,19 +183,9 @@ func treeDigest(root string) (string, map[string]string, error) {
 		}
 		switch {
 		case info.Mode()&fs.ModeSymlink != 0:
-			target, err := os.Readlink(p)
-			if err != nil {
-				return err
-			}
-			// A link's target string is all its entry records, so a link may only point inside the
-			// tree, where whatever it names is hashed too.
-			if filepath.IsAbs(target) {
-				return fmt.Errorf("%s links outside the runtime to %s", rel, target)
-			}
-			if in, err := filepath.Rel(root, filepath.Join(filepath.Dir(p), target)); err != nil || in == ".." || strings.HasPrefix(in, ".."+string(filepath.Separator)) {
-				return fmt.Errorf("%s links outside the runtime to %s", rel, target)
-			}
-			entries = append(entries, entry{rel, "link\x00" + rel + "\x00" + target})
+			// A link's entry could only record its target string, not what it names; the platform
+			// trees carry none, so any link is refused.
+			return fmt.Errorf("%s is a symbolic link; a runtime tree with links cannot be identified by digest", rel)
 		case info.Mode().IsRegular():
 			total += info.Size()
 			if total > maxArtifactBytes {
@@ -244,6 +233,8 @@ type VerifiedLaunch struct {
 	Env    []string
 	// exeSum is the digest the executable's own bytes must have.
 	exeSum string
+	// leased is set while a read lease guards the file against writes (Linux).
+	leased bool
 }
 
 // Close releases the descriptor once the process has started.
@@ -265,6 +256,12 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	f, err := os.Open(got.Path)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s cannot be opened: %v", ErrArtifactMismatch, runtimeName, err)
+	}
+	// Guard first, then hash: a write after this point cannot go unseen.
+	leased, err := guardRuntime(f)
+	if err != nil {
+		f.Close()
+		return nil, fmt.Errorf("%w: %v", ErrArtifactMismatch, err)
 	}
 	digest := got.Digest
 	if got.Root == "" {
@@ -306,7 +303,7 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	if got.Root != "" {
 		exeSum = got.exeSum
 	}
-	return &VerifiedLaunch{File: f, Path: got.Path, Digest: digest, Env: got.Env, exeSum: exeSum}, nil
+	return &VerifiedLaunch{File: f, Path: got.Path, Digest: digest, Env: got.Env, exeSum: exeSum, leased: leased}, nil
 }
 
 // Apply points cmd at the verified executable. On Linux it runs the open descriptor (passed as the
@@ -332,10 +329,11 @@ func short(s string) string {
 var confirmWait = 10 * time.Second
 
 // Confirm proves, once the run's process has started, that it executes the verified bytes. On
-// Linux it waits until the process runs the descriptor's own file, then hashes that file again: the
-// kernel refuses writes to a file while it is executing, so bytes that match now are the bytes that
-// ran, even if the file was rewritten in place between the check and the start. Elsewhere it does
-// nothing (the documented limit for launch by verified path).
+// Linux it waits until the process runs the descriptor's own file, then checks that the read lease
+// taken before hashing still holds: no one has opened the file for writing since it was hashed
+// (such an open blocks and breaks the lease), and from the exec on the kernel refuses writes. Only
+// then is the lease released. Elsewhere it does nothing (the documented limit for launch by
+// verified path).
 func (l *VerifiedLaunch) Confirm(pid int) error {
 	if l == nil || l.File == nil || runtime.GOOS != "linux" {
 		return nil
@@ -355,12 +353,12 @@ func (l *VerifiedLaunch) Confirm(pid int) error {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	sum, err := readerDigest(io.NewSectionReader(l.File, 0, info.Size()))
-	if err != nil {
-		return err
-	}
-	if sum != l.exeSum {
-		return fmt.Errorf("%w: the runtime was rewritten between its check and its start (digest %s, expected %s)", ErrArtifactMismatch, short(sum), short(l.exeSum))
+	if l.leased {
+		if !leaseIntact(l.File) {
+			return fmt.Errorf("%w: something opened the runtime for writing between its check and its start", ErrArtifactMismatch)
+		}
+		releaseLease(l.File)
+		l.leased = false
 	}
 	return nil
 }

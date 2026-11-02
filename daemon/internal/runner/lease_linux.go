@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"syscall"
+	"time"
 )
 
 // guardRuntime takes a read lease on the opened runtime before it is hashed. While the lease holds,
@@ -35,4 +38,18 @@ func leaseIntact(f *os.File) bool {
 // releaseLease gives the lease up once the runtime is executing.
 func releaseLease(f *os.File) {
 	syscall.Syscall(syscall.SYS_FCNTL, f.Fd(), syscall.F_SETLEASE, syscall.F_UNLCK)
+}
+
+// leaseBreakTime is how long the kernel lets a lease holder delay a writer before it breaks the
+// lease by force (/proc/sys/fs/lease-break-time, 45 seconds by default).
+func leaseBreakTime() time.Duration {
+	b, err := os.ReadFile("/proc/sys/fs/lease-break-time")
+	if err != nil {
+		return 45 * time.Second
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil || n <= 0 {
+		return time.Second
+	}
+	return time.Duration(n) * time.Second
 }

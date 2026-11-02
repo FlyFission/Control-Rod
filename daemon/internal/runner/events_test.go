@@ -219,3 +219,11 @@ func TestHookTailSkipsAnOversizedRecordAndResumesWhereTheLoopStopped(t *testing.
 		t.Fatalf("nothing is reported twice: %+v", again)
 	}
 }
+
+func TestTheExitEventIsNeverRefusedByAdmission(t *testing.T) {
+	a := NewAdmission(1, 1)
+	out := a.Admit([]Event{{Kind: EvMessage}, {Kind: EvMessage}, {Kind: EvMessage}, {Kind: EvExit, At: "t"}}, t0)
+	if n := len(out); n != 3 || out[1].Kind != EvDropped || out[1].Dropped != 2 || out[2].Kind != EvExit {
+		t.Fatalf("got %+v", out)
+	}
+}

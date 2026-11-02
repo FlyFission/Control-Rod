@@ -235,6 +235,9 @@ type VerifiedLaunch struct {
 	exeSum string
 	// leased is set while a read lease guards the file against writes (Linux).
 	leased bool
+	// guardedAt is when the lease was taken; the kernel breaks a lease by force after
+	// leaseBreakTime, so the start must come well before that.
+	guardedAt time.Time
 }
 
 // Close releases the descriptor once the process has started.
@@ -258,6 +261,7 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 		return nil, fmt.Errorf("%w: %s cannot be opened: %v", ErrArtifactMismatch, runtimeName, err)
 	}
 	// Guard first, then hash: a write after this point cannot go unseen.
+	guardedAt := time.Now()
 	leased, err := guardRuntime(f)
 	if err != nil {
 		f.Close()
@@ -303,7 +307,7 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	if got.Root != "" {
 		exeSum = got.exeSum
 	}
-	return &VerifiedLaunch{File: f, Path: got.Path, Digest: digest, Env: got.Env, exeSum: exeSum, leased: leased}, nil
+	return &VerifiedLaunch{File: f, Path: got.Path, Digest: digest, Env: got.Env, exeSum: exeSum, leased: leased, guardedAt: guardedAt}, nil
 }
 
 // Apply points cmd at the verified executable. On Linux it runs the open descriptor (passed as the
@@ -323,6 +327,24 @@ func short(s string) string {
 		return s[:12]
 	}
 	return s
+}
+
+// Ready is checked immediately before the start: the lease must still hold, with at most half the
+// kernel's lease break time gone, so a writer that began waiting on the lease cannot be let through
+// by its forced expiry before the exec makes the file unwritable. What remains is a launcher held
+// stopped for the rest of that time by a process allowed to signal it: the hostile same-user case
+// the threat model leaves to Phase 6.
+func (l *VerifiedLaunch) Ready() error {
+	if l == nil || !l.leased {
+		return nil
+	}
+	if !leaseIntact(l.File) {
+		return fmt.Errorf("%w: something opened the runtime for writing after it was checked", ErrArtifactMismatch)
+	}
+	if time.Since(l.guardedAt) > leaseBreakTime()/2 {
+		return fmt.Errorf("%w: too long passed between checking the runtime and starting it; it is checked again on the next attempt", ErrArtifactMismatch)
+	}
+	return nil
 }
 
 // confirmWait bounds how long Confirm waits for the started process to execute the runtime.

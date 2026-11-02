@@ -263,6 +263,8 @@ type ExecHooks struct {
 	// closed); a receipt returned with the error names the unit to stop. A nil receipt with no
 	// error means this platform cannot identify processes.
 	Started func(pid int) (*SpawnReceipt, error)
+	// BeforeStart is called immediately before the process is started; an error refuses the start.
+	BeforeStart func() error
 	// Snapshot records the run's outputs while it is frozen at the start of a stop; nothing written
 	// after that counts (StopGracefully).
 	Snapshot func()
@@ -298,6 +300,11 @@ func Execute(ctx context.Context, cmd *exec.Cmd, sink func(string), hooks ...Exe
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
+	}
+	if h.BeforeStart != nil {
+		if err := h.BeforeStart(); err != nil {
+			return err
+		}
 	}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %w", filepath.Base(cmd.Path), err)

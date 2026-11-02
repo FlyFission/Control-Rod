@@ -53,7 +53,15 @@ export function Registers() {
           />
         </label>
         {q.isLoading && <p className="muted">Loading</p>}
-        {!q.isLoading && rows.length === 0 && <p className="muted">No deliverables yet. They appear as packages are drafted.</p>}
+        {q.isError && (
+          <div role="alert" className="error">
+            <p>{q.data === undefined ? "The packages could not be loaded." : "The packages could not be refreshed; this list may be out of date."}</p>
+            <button type="button" className="btn small" onClick={() => void q.refetch()}>
+              Try again
+            </button>
+          </div>
+        )}
+        {q.isSuccess && rows.length === 0 && <p className="muted">No deliverables yet. They appear as packages are drafted.</p>}
         {shown.length > 0 && (
           <div className="table-wrap">
             <table className="records">

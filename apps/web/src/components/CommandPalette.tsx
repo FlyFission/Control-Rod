@@ -88,14 +88,6 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         e.preventDefault();
         setActive((i) => (i <= 0 ? Math.max(last, 0) : i - 1));
         break;
-      case "Home":
-        e.preventDefault();
-        setActive(0);
-        break;
-      case "End":
-        e.preventDefault();
-        setActive(Math.max(last, 0));
-        break;
       case "Enter":
         e.preventDefault();
         choose(current);

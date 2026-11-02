@@ -77,7 +77,15 @@ function PackageList() {
         </label>
       </div>
       {q.isLoading && <p className="muted">Loading</p>}
-      {!q.isLoading && all.length === 0 && <p className="muted">No packages yet. Capture something above and intake will draft one.</p>}
+      {q.isError && (
+          <div role="alert" className="error">
+            <p>{q.data === undefined ? "The packages could not be loaded." : "The packages could not be refreshed; this list may be out of date."}</p>
+            <button type="button" className="btn small" onClick={() => void q.refetch()}>
+              Try again
+            </button>
+          </div>
+        )}
+        {q.isSuccess && all.length === 0 && <p className="muted">No packages yet. Capture something above and intake will draft one.</p>}
       {all.length > 0 && shown.length === 0 && <p className="muted">No package matches these filters.</p>}
       <ul className="package-list">
         {shown.map((p) => (

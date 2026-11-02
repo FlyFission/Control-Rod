@@ -41,3 +41,13 @@ Verification after round 2 fixes: daemon `go vet` on linux, darwin and windows a
 | S3-15 | Accepted, fixed | When `recordRefused` finds the run already lost, it hands the report to the late path (`retainLate`, factored out of `complete`), which retains it with its digests, adopts and quarantines it under SCRAM, and settles the outcome if the run is proven ended, before answering `run-lost`. Reached only through a concurrent sweep between the two transactions; covered by construction (the late path itself is tested). |
 
 Verification after round 3 fixes: daemon `go vet` on linux, darwin and windows and `go test ./...` with no runtimes on PATH; API 495 passed, 1 skipped.
+
+## Round 4 (verdict MERGE)
+
+S3-13, S3-14 and S3-15 closed; no new High or Critical findings. The Medium is fixed before merge:
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| Medium: timeout at the start gate | Fixed | The start gate checks the run context, which carries the timeout as well as every stop, so a timeout during launch verification also prevents the spawn. |
+
+Final verification: daemon `go vet` on linux, darwin and windows and `go test ./...` with no runtimes on PATH; API 495 passed, 1 skipped; web 105 passed.

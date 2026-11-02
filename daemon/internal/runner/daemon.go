@@ -957,8 +957,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				// At the moment of the start: the run must still be wanted, its lease must not have
 				// ended, and the runtime's guard must still hold.
 				BeforeStart: func() error {
-					if held.Err() != nil {
-						return context.Cause(held)
+					// runCtx carries the timeout as well as every stop.
+					if runCtx.Err() != nil {
+						return context.Cause(runCtx)
 					}
 					if !time.Now().Before(lease.deadline()) {
 						return errOutOfContact

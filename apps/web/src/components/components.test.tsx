@@ -262,7 +262,11 @@ const attention = (over: Record<string, unknown>) => ({
 });
 
 describe("inbox", () => {
-  beforeEach(() => server.use(http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" }))));
+  beforeEach(() => {
+    // Each test starts with no cursor on this browser, whatever an earlier test's first visit stored.
+    window.localStorage.clear();
+    server.use(http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })));
+  });
 
   it("keeps the server's gate risk order, says what each signature binds, and keeps others' work apart", async () => {
     server.use(
@@ -294,11 +298,11 @@ describe("inbox", () => {
   });
 
   it("shows the digest lines in words and marks them seen, on this person's own cursor", async () => {
-    window.localStorage.setItem("cr.lastSeenSeq:ben", "10");
+    window.localStorage.setItem("cr.lastSeenSeq:dora", "10");
     window.localStorage.setItem("cr.lastSeenSeq:alice", "3");
     const asked: string[] = [];
     server.use(
-      http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })),
+      http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "dora" })),
       http.get("*/inbox", ({ request }) => {
         asked.push(new URL(request.url).search);
         return HttpResponse.json({
@@ -320,12 +324,12 @@ describe("inbox", () => {
       expect(screen.getByText("Nothing waits on you. Decisions and held work arrive here as they need you.")).toBeTruthy();
       expect(asked[0]).toBe("?since=10");
       await userEvent.setup().click(screen.getByRole("button", { name: "Mark as seen" }));
-      await waitFor(() => expect(window.localStorage.getItem("cr.lastSeenSeq:ben")).toBe("15"));
+      await waitFor(() => expect(window.localStorage.getItem("cr.lastSeenSeq:dora")).toBe("15"));
       await waitFor(() => expect(asked).toContain("?since=15"));
       // Another person's cursor on this browser is untouched.
       expect(window.localStorage.getItem("cr.lastSeenSeq:alice")).toBe("3");
     } finally {
-      window.localStorage.removeItem("cr.lastSeenSeq:ben");
+      window.localStorage.removeItem("cr.lastSeenSeq:dora");
       window.localStorage.removeItem("cr.lastSeenSeq:alice");
     }
   });

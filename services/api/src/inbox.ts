@@ -1,6 +1,6 @@
 import type { Db } from "./db/index.js";
 import { adminActions, callerFor } from "./admin.js";
-import { ACTION_ROLES, highConsequence, needsOf, signingGaps } from "./authority.js";
+import { ACTION_ROLES, highConsequence, holdsHardwareKey, needsOf, signingGaps } from "./authority.js";
 import { bindingSentence, plural } from "./binding.js";
 import { pendingConfirmation } from "./preparation/subjects.js";
 import { currentQualification } from "./tenancy.js";
@@ -55,14 +55,25 @@ const refusedForScram = (actions: Json[]) => actions.some((a) => a.reason_code =
 
 /**
  * Who resolves a waiting agent's hold, when it is not the viewer; null when the viewer may. An
- * independence hold needs an approver's override, a pin hold an administrator's pin, a lane hold
- * lane authority; preparation holds and unrecorded causes are the owner's to fix.
+ * independence hold needs an approver's override (with an attested hardware key for high
+ * consequence work, as signing it requires), a pin hold an administrator's pin, a lane hold lane
+ * authority, and a preparation hold someone who may return the package for revision. Holds
+ * recorded before causes existed stay the owner's.
  */
 async function holdResolver(db: Db, user: string, run: Json, body: Json, standing: Map<string, Json>, authorities: Set<string>): Promise<{ who: string; why: string } | null> {
   switch (run?.waiting_cause) {
     case "independent-runtime": {
-      const gaps = await signingGaps(db, user, "override-independence", needsOf(body ?? {}));
-      return gaps.length === 0 ? null : { who: who(ACTION_ROLES["override-independence"]), why: `Overriding independence needs ${gaps.join(" and ")}, which your qualification does not include` };
+      const needs = needsOf(body ?? {});
+      const gaps = await signingGaps(db, user, "override-independence", needs);
+      if (gaps.length > 0) return { who: who(ACTION_ROLES["override-independence"]), why: `Overriding independence needs ${gaps.join(" and ")}, which your qualification does not include` };
+      if (highConsequence(needs) && !(await holdsHardwareKey(db, user)))
+        return { who: `${who(ACTION_ROLES["override-independence"])} with an attested hardware key`, why: "Overriding independence on this grade needs an attested hardware key, and your passkeys have none" };
+      return null;
+    }
+    case "preparation": {
+      // A changed preparation basis is recovered by returning the package for a controlled revision.
+      const gaps = await signingGaps(db, user, "return", needsOf(body ?? {}));
+      return gaps.length === 0 ? null : { who: who(ACTION_ROLES.return), why: `Returning the package for revision needs ${gaps.join(" and ")}, which your qualification does not include` };
     }
     case "runtime-pin":
       return standing.get("runtime.pin")?.allowed ? null : { who: "an administrator", why: "Pinning a runtime version needs administrator authority" };

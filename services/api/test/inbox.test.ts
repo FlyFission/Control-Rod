@@ -139,11 +139,53 @@ describe("waiting agents", () => {
     expect(theirs("WP-IN-INDEP")).toMatchObject({ kind: "permission", risk: { label: "Holds an agent" } });
     expect(theirs("WP-IN-INDEP").reason).toMatch(/^Overriding independence needs /);
     expect(theirs("WP-IN-PIN")).toMatchObject({ waiting_on: "an administrator" });
-    // A preparation hold is the owner's to fix, so any member sees it as theirs.
-    expect(aliceBox.items.some((i: Json) => i.package_id === "WP-IN-PREP")).toBe(true);
+    // A preparation hold is recovered by returning the package, which needs a reviewer.
+    expect(aliceBox.items.some((i: Json) => i.package_id === "WP-IN-PREP")).toBe(false);
+    expect(theirs("WP-IN-PREP").reason).toMatch(/^Returning the package for revision needs /);
     // The founding approver and administrator may resolve all three.
     const mine = (await get("/inbox")).items.map((i: Json) => i.package_id);
     expect(mine).toEqual(expect.arrayContaining(["WP-IN-INDEP", "WP-IN-PIN", "WP-IN-PREP"]));
+  });
+
+  it("routes an independence hold on high consequence work only to a signer with an attested hardware key", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-IN-SAFEIND', 0, 'in-verification', $1)",
+      [{ ...example, id: "WP-IN-SAFEIND", revision: 0, status: "in-verification", data_lane: "internal", design_inputs: [], grade: "material", discipline: "mechanical" }]);
+    const r = { schema_version: "0.1.0", id: "R-in-safeind", package_id: "WP-IN-SAFEIND", package_revision: 0, role: "pre-check", agent_baseline: "unassigned",
+      runtime: { kind: "local", provider: "any", model: "any" }, round: 1, status: "queued", queued_at: ago(1), generation: 1,
+      waiting_reason: "Waiting for a runtime other than the author's", waiting_cause: "independent-runtime" };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, 'WP-IN-SAFEIND', 0, 'pre-check', 1, 'queued', $2)", [r.id, r]);
+    // The founder takes the Material grade and mechanical discipline, but signs with a software passkey.
+    const member = (await get("/admin")).me.memberId;
+    const q = await signedAdmin("qualification.issue", { member_id: member, licenses: [], disciplines: ["mechanical"], grades: ["general-service", "material"],
+      roles: ["originator", "checker", "approver"], authorities: ["administrator", "lane", "policy"], reason: "material work" });
+    expect(q.statusCode, q.body).toBe(200);
+    const box = await get("/inbox");
+    expect(box.items.some((i: Json) => i.package_id === "WP-IN-SAFEIND")).toBe(false);
+    const held = box.waiting_on_others.find((i: Json) => i.package_id === "WP-IN-SAFEIND");
+    expect(held.waiting_on).toMatch(/with an attested hardware key$/);
+    expect(held.reason).toMatch(/needs an attested hardware key/);
+    // Back to the founding qualification for the tests that follow.
+    const back = await signedAdmin("qualification.issue", { member_id: member, licenses: [], disciplines: [], grades: ["general-service"],
+      roles: ["originator", "checker", "approver"], authorities: ["administrator", "lane", "policy"], reason: "general service work" });
+    expect(back.statusCode, back.body).toBe(200);
+  });
+
+  it("replaces a stale hold with the one that now applies", async () => {
+    // A pre-check held earlier by SCRAM; SCRAM is gone, and only the author's runtime is offered.
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-IN-STALEHOLD', 0, 'in-verification', $1)",
+      [{ ...example, id: "WP-IN-STALEHOLD", revision: 0, status: "in-verification", data_lane: "internal", design_inputs: [] }]);
+    const author = { schema_version: "0.1.0", id: "R-in-sh-author", package_id: "WP-IN-STALEHOLD", package_revision: 0, role: "author", agent_baseline: "author-fake",
+      runtime: { kind: "local", provider: "fake", model: "any" }, round: 1, status: "succeeded", queued_at: ago(3), finished_at: ago(2), generation: 1 };
+    const check = { schema_version: "0.1.0", id: "R-in-sh-check", package_id: "WP-IN-STALEHOLD", package_revision: 0, role: "pre-check", agent_baseline: "unassigned",
+      runtime: { kind: "local", provider: "any", model: "any" }, round: 1, status: "queued", queued_at: ago(1), generation: 1,
+      waiting_reason: "SCRAM scr_old has stopped this work: old", waiting_cause: "scram" };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body, created_at) values ($1, 'WP-IN-STALEHOLD', 0, 'author', 1, 'succeeded', $2, now() - interval '3 hours')", [author.id, author]);
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, 'WP-IN-STALEHOLD', 0, 'pre-check', 1, 'queued', $2)", [check.id, check]);
+    await h.admin.query("update runs set status = 'stopped' where status = 'queued' and id <> $1", [check.id]);
+    await h.app.inject({ method: "POST", url: "/runner/claim", headers: { authorization: "Bearer test-daemon-token-0123456789" }, payload: { runtimes: ["fake"] } });
+    const now = (await h.db.query<{ body: Json }>("select body from runs where id = $1", [check.id])).rows[0]!.body;
+    expect(now.waiting_cause).toBe("independent-runtime");
+    expect(now.waiting_reason).not.toMatch(/SCRAM/);
   });
 });
 

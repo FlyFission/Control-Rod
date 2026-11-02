@@ -39,3 +39,13 @@ Verification after round 2 fixes: API 507 passed, 1 skipped; web 121 passed.
 | Medium: prepared artifact bytes | Accepted, performance checked at exit | Kept for integrity, as adjudicated in round 2; the Inbox's speed on the reference workload is measured in the Phase 3 exit review (Q-10). |
 
 Verification after round 3 fixes: API 508 passed, 1 skipped; web 121 passed.
+
+## Round 4 (verdict BLOCK; P3B-10 partial)
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| P3B-11 | Accepted, fixed | Every hold is written through `holdRun`, which replaces the hold whenever its reason or cause differs, including the independence hold (no longer written only when no reason exists). A claim pass clears a hold whose cause has passed (SCRAM, preparation, lane, pin) before checking the next, so a stale reason never masks a newer one or routes it to the wrong person. Test: `replaces a stale hold with the one that now applies`. |
+| P3B-12 | Accepted, fixed | A preparation hold is routed to someone who may return the package for revision, judged against the package's needs. Test: `goes to whoever may resolve what holds it`. |
+| P3B-13 | Accepted, fixed | An independence hold on Safety or Material work is the viewer's only if they also hold an attested hardware key, as signing the override requires; otherwise it waits on a qualified signer with one. Test: `routes an independence hold on high consequence work only to a signer with an attested hardware key`. |
+
+Verification after round 4 fixes: API 510 passed, 1 skipped; web 121 passed.

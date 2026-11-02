@@ -72,6 +72,8 @@ const EXAMPLES: [WorkbenchKind, Record<string, unknown>][] = [
   ["person_verification", { id: "pv_1", verifier_member_id: verifier, qualification_id: "qual_v", qualification_version: 1, candidate_id: "cand_2", criteria: ["C-1"], outcome: "pass", assertion }],
   ["scram_event", { id: "scram_1", scope: "project", project_id: "prj_wb", pulled_by: verifier, reason: "drill", assertion, quarantine: ["run_wb"] }],
   ["scram_event", { id: "scram_2", scope: "organization", pulled_by: verifier, reason: "drill", assertion, quarantine: [] }],
+  ["quarantine_review", { id: "qrv_1", scram_id: "scram_1", run_id: "run_wb", disposition: "discard", reviewed_by: verifier, reason: "Partial work after the stop", assertion }],
+  ["scram_restart", { id: "srs_1", scram_id: "scram_1", scope: "package", package_id: "pkg_wb", released_by: verifier, reason: "Reviewed and safe", assertion }],
   ["comment", { id: "com_1", subject_digest: D, locator: "line:12", author: owner, text: "Check the units.", status: "open" }],
   ["comment", { id: "com_2", subject_digest: D, locator: "line:12", author: owner, text: "Fixed in revision 2.", reply_to: "com_1", status: "open" }],
   ["resolution", { id: "res_1", comment_id: "com_1", resolved_by: owner, cites_kind: "reply", cites: "com_2" }],
@@ -105,7 +107,11 @@ describe("digest vectors", () => {
 
 describe("storage", () => {
   it("stores one consistent example of every kind against a revision 0 release, each with its event", async () => {
-    for (const [k, body] of EXAMPLES) await put(k, body);
+    for (const [k, body] of EXAMPLES) {
+      // A review names a run the SCRAM stopped, which pulling records beside the event.
+      if (k === "quarantine_review") await h.admin.query("insert into scram_runs (scram_id, org_id, run_id) values ('scram_1', $1, 'run_wb')", [LOCAL_ORG]);
+      await put(k, body);
+    }
     expect(new Set(EXAMPLES.map(([k]) => k))).toEqual(new Set(Object.keys(WORKBENCH)));
     for (const [k, body] of EXAMPLES) expect(await getObject(h.db, k, body.id as string)).toEqual({ ...org, ...body });
     for (const t of WORKBENCH_TABLES.filter((x) => x.cls === "F" && x.name !== "sandbox_policies")) {

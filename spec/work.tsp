@@ -117,6 +117,12 @@ model Run {
 
   stop_requested_by?: string;
 
+  /**
+   * The SCRAM that stopped this run (specification 22a). Whatever the run reports afterwards is
+   * quarantined: retained privately with its digests and never applied until a person reviews it.
+   */
+  scram_id?: string;
+
   /** Why a queued run is not being handed out, in plain words. */
   @maxLength(300)
   waiting_reason?: string;

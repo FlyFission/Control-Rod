@@ -166,7 +166,10 @@ func (e errBreaker) Error() string { return "breaker: " + e.reason }
 var (
 	errShutdown = errors.New("daemon shutdown")
 	errLost     = errors.New("the control plane no longer holds this run for this daemon")
-	errStopped  = errors.New("stopped by the owner")
+	// errOutOfContact stops a run whose daemon could not reach the control plane for a whole lease
+	// (specification 22a): the control plane may have pulled SCRAM or given the run up.
+	errOutOfContact = errors.New("stopped: no contact with the control plane for a whole lease")
+	errStopped      = errors.New("stopped by the owner")
 )
 
 func sleepCtx(ctx context.Context, d time.Duration) {
@@ -213,7 +216,11 @@ claim:
 		case slots <- struct{}{}:
 		}
 		status := d.runtimeStatus()
+		claimSent := time.Now()
 		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status)
+		if job != nil {
+			job.claimSent = claimSent
+		}
 		if err != nil {
 			<-slots
 			if ctx.Err() != nil {
@@ -541,6 +548,9 @@ func (b *logBuffer) add(line string) {
 	b.addEvents(events)
 }
 
+// finalFlushWait bounds the last log uploads after a run ends.
+var finalFlushWait = 10 * time.Second
+
 // maxHeldEvents bounds unsent events while uploads fail; the oldest go first, counted.
 const maxHeldEvents = 5000
 
@@ -692,16 +702,10 @@ func (b *logBuffer) putBack(lines []string) {
 // flushLoop posts log batches about once a LogInterval. With nothing to send it still posts an
 // empty batch every heartbeat, which renews the run's lease. If the control plane no longer holds
 // the run, it ends the run through stop.
-func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop context.CancelCauseFunc, hooks *hookTail) {
+func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop context.CancelCauseFunc, hooks *hookTail, lease *leaseClock) {
 	t := time.NewTicker(d.cfg.LogInterval)
 	defer t.Stop()
-	hb := time.Duration(job.Claim.HeartbeatSeconds) * time.Second
-	if d.cfg.Heartbeat > 0 {
-		hb = d.cfg.Heartbeat
-	}
-	if hb <= 0 {
-		hb = 30 * time.Second
-	}
+	hb := d.heartbeat(job)
 	last := time.Now()
 	for {
 		select {
@@ -717,7 +721,19 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 				batch = LogBatch{Lines: []string{}}
 			}
 			batch.ClaimToken = job.Claim.Token
-			reply, err := d.client.Log(context.Background(), job.Run.ID, batch)
+			// A request cannot outlast the lease, and stopping this loop abandons one in flight (its
+			// batch goes back for the final flush).
+			sent := time.Now()
+			end := lease.deadline()
+			if !sent.Before(end) {
+				buf.putBack(batch.Lines)
+				buf.putBackEvents(batch.Events)
+				stop(errOutOfContact)
+				continue
+			}
+			postCtx, cancelPost := context.WithDeadline(ctx, end)
+			reply, err := d.client.Log(postCtx, job.Run.ID, batch)
+			cancelPost()
 			switch {
 			case errors.Is(err, ErrRunGone):
 				d.log.Warn("run no longer held; stopping it", "run", job.Run.ID, "err", err)
@@ -728,15 +744,29 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 				buf.putBackEvents(batch.Events)
 			case reply.Stop:
 				last = time.Now()
+				lease.renew(sent, reply.LeaseExpiresAt)
 				buf.sent(batch)
 				d.log.Info("owner asked to stop the run", "run", job.Run.ID)
 				stop(errStopped)
 			default:
 				last = time.Now()
+				lease.renew(sent, reply.LeaseExpiresAt)
 				buf.sent(batch)
 			}
 		}
 	}
+}
+
+// heartbeat is how often a run's daemon must post; the lease is three of them.
+func (d *Daemon) heartbeat(job *Job) time.Duration {
+	hb := time.Duration(job.Claim.HeartbeatSeconds) * time.Second
+	if d.cfg.Heartbeat > 0 {
+		hb = d.cfg.Heartbeat
+	}
+	if hb <= 0 {
+		hb = 30 * time.Second
+	}
+	return hb
 }
 
 func failText(err error) string {
@@ -750,6 +780,8 @@ func failText(err error) string {
 		return "run lost: " + errLost.Error()
 	case errors.Is(err, errStopped):
 		return errStopped.Error()
+	case errors.Is(err, errOutOfContact):
+		return errOutOfContact.Error()
 	case errors.As(err, new(errBreaker)):
 		return err.Error()
 	case errors.As(err, &exit):
@@ -821,6 +853,21 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if runtime == "" || !slices.Contains(d.cfg.Runtimes, runtime) {
 		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
 	}
+	// The lease runs from the claim, through preparation and launch: a watchdog stops the run when
+	// it ends without a renewal.
+	held, release := context.WithCancelCause(ctx)
+	defer release(nil)
+	sent := job.claimSent
+	if sent.IsZero() {
+		sent = time.Now()
+	}
+	lease := newLeaseClock(sent, job.Claim.LeaseExpiresAt, d.heartbeat(job))
+	watchDone := make(chan struct{})
+	defer close(watchDone)
+	go lease.watch(watchDone, func() {
+		d.log.Warn("no contact with the control plane for a whole lease; stopping the run", "run", job.Run.ID)
+		release(errOutOfContact)
+	})
 	ws, err := Prepare(d.cfg.Home, job)
 	if err != nil {
 		return fail(err.Error()), nil
@@ -831,7 +878,6 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	d.log.Info("run started", "run", job.Run.ID, "role", job.Run.Role, "runtime", runtime, "workspace", ws.Dir)
 
-	held, release := context.WithCancelCause(ctx)
 	policy := DefaultBreakerPolicy
 	if d.cfg.Breaker != nil {
 		policy = *d.cfg.Breaker
@@ -840,7 +886,6 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		d.log.Warn("breaker tripped; stopping the run", "run", job.Run.ID, "reason", reason)
 		release(errBreaker{reason})
 	}}
-	defer release(nil)
 	switch runtime {
 	case RuntimeClaude:
 		// Interim waiting detection (plan task 2.9): the PermissionRequest hook writes here.
@@ -859,7 +904,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	flushCtx, stopFlush := context.WithCancel(context.Background())
 	flushed := make(chan struct{})
 	hooks := &hookTail{path: ws.HookFile}
-	go func() { d.flushLoop(flushCtx, job, buf, release, hooks); close(flushed) }()
+	go func() { d.flushLoop(flushCtx, job, buf, release, hooks, lease); close(flushed) }()
 
 	launch := LaunchFor(runtime, job.Run, ws)
 	var spawned *SpawnReceipt
@@ -875,6 +920,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		}
 	}
 	cmd, err := Command(runtime, job.Run, ws)
+	// Nothing starts once the lease has ended (or anything else stopped the run) during preparation.
+	if err == nil && held.Err() != nil {
+		err = context.Cause(held)
+	}
 	var launched *Digest
 	var verified *VerifiedLaunch
 	if err == nil && cmd != nil && runtime != RuntimeFake {
@@ -905,8 +954,18 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			err = Execute(runCtx, cmd, buf.add, ExecHooks{
 				Timings:  d.timings(),
 				Snapshot: snapshot,
-				// The runtime's guard must still hold at the moment it starts.
-				BeforeStart: verified.Ready,
+				// At the moment of the start: the run must still be wanted, its lease must not have
+				// ended, and the runtime's guard must still hold.
+				BeforeStart: func() error {
+					// runCtx carries the timeout as well as every stop.
+					if runCtx.Err() != nil {
+						return context.Cause(runCtx)
+					}
+					if !time.Now().Before(lease.deadline()) {
+						return errOutOfContact
+					}
+					return verified.Ready()
+				},
 				Started: func(pid int) (*SpawnReceipt, error) {
 					u, lerr := d.container.Locate(pid, unit)
 					if lerr != nil {
@@ -946,13 +1005,17 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		exit.Text = failText(err)
 	}
 	buf.addEvents([]Event{exit})
+	// The final flush is bounded: an unresponsive control plane must not hold the completion back,
+	// and whatever is not delivered goes with it.
+	finalCtx, cancelFinal := context.WithTimeout(context.Background(), finalFlushWait)
+	defer cancelFinal()
 	for {
 		batch, ok := buf.take()
 		if !ok {
 			break
 		}
 		batch.ClaimToken = job.Claim.Token
-		if _, lerr := d.client.Log(context.Background(), job.Run.ID, batch); lerr != nil {
+		if _, lerr := d.client.Log(finalCtx, job.Run.ID, batch); lerr != nil {
 			buf.putBack(batch.Lines)
 			buf.putBackEvents(batch.Events)
 			d.log.Warn("log upload failed; its events go with the completion", "run", job.Run.ID, "err", lerr)

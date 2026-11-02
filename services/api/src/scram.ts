@@ -362,13 +362,14 @@ export async function scramAttention(q: Db, orgId: string) {
       }
     }
     // Any run in its scope whose outcome is unknown also blocks a full restart.
-    let unknown = 0;
-    const lost = (await q.query<{ role: string; package_id: string }>(
-      `select r.role, r.package_id from runs r join object_owners o on o.object_kind = 'run' and o.object_id = r.id
-        where o.org_id = $1 and r.body ? 'outcome_unknown' and not r.body ? 'reconciliation'`, [orgId])).rows;
+    // The packages they belong to, so who may reconcile each is judged against its real needs.
+    const unknown: { run_id: string; package_id: string }[] = [];
+    const lost = (await q.query<{ id: string; role: string; package_id: string }>(
+      `select r.id, r.role, r.package_id from runs r join object_owners o on o.object_kind = 'run' and o.object_id = r.id
+        where o.org_id = $1 and r.body ? 'outcome_unknown' and not r.body ? 'reconciliation' order by r.id`, [orgId])).rows;
     for (const r of lost) {
       const subject = await runSubject(q, r);
-      if (reaches(scram, await ownerOf(q, subject.kind, subject.id))) unknown++;
+      if (reaches(scram, await ownerOf(q, subject.kind, subject.id))) unknown.push({ run_id: r.id, package_id: r.package_id });
     }
     const pulled = (await q.query<{ at: string }>("select body->>'at' as at from events where body->>'type' = 'scram.pulled' and body->>'subject' = $1 limit 1", [scram.id])).rows[0]?.at;
     out.push({ scram, stopping, unreviewed, unknown, since: pulled ?? new Date().toISOString() });

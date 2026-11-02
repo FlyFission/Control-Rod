@@ -3,7 +3,7 @@ import { adminActions, callerFor } from "./admin.js";
 import { ACTION_ROLES, highConsequence, needsOf, signingGaps } from "./authority.js";
 import { bindingSentence, plural } from "./binding.js";
 import { pendingConfirmation } from "./preparation/subjects.js";
-import { scramAttention } from "./scram.js";
+import { runSubject, scramAttention, scramHolding } from "./scram.js";
 import { type WorkConfig, currentPackage, office, packageActions, subjectOf } from "./work.js";
 
 /**
@@ -50,6 +50,8 @@ export function gateRisk(kind: string, pkg: Json | undefined, outcomeUnknown = f
 /** "someone who is an approver or a checker", from the roles that may take an action. */
 const who = (roles: readonly string[]) => (roles.length ? `someone who is ${roles.map(article).join(" or ")}` : "someone qualified");
 const article = (w: string) => `${/^[aeiou]/i.test(w) ? "an" : "a"} ${w}`;
+const refusedForScram = (actions: Json[]) => actions.some((a) => a.reason_code === "scram-stopped");
+
 export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: number) {
   const caller = await callerFor(db, user);
   const mine: Json[] = [];
@@ -66,9 +68,17 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
       const unknown = Boolean(lastRun?.outcome_unknown && !lastRun?.reconciliation);
       const risk = gateRisk(it.kind, body, unknown);
       const item = { ...it, risk, href: { to: "/packages/$id", id: it.package_id, hash: "runs" } };
-      const gaps = unknown ? await signingGaps(db, user, "reconcile", needsOf(body ?? {})) : [];
-      if (gaps.length === 0) mine.push(item);
-      else others.push({ ...item, waiting_on: who(ACTION_ROLES.reconcile), reason: `Reconciling it needs ${gaps.join(" and ")}, which your qualification does not include` });
+      if (unknown) {
+        // Reconciling is not held by SCRAM; it needs the qualification the package asks of reviewers.
+        const gaps = await signingGaps(db, user, "reconcile", needsOf(body ?? {}));
+        if (gaps.length === 0) mine.push(item);
+        else others.push({ ...item, waiting_on: who(ACTION_ROLES.reconcile), reason: `Reconciling it needs ${gaps.join(" and ")}, which your qualification does not include` });
+        continue;
+      }
+      // Requeueing (and a waiting agent's next run) is refused while SCRAM holds the work.
+      const held = await scramHolding(db, await runSubject(db, { role: lastRun?.role ?? "author", package_id: it.package_id }));
+      if (held) others.push({ ...item, waiting_on: "a restart after SCRAM", reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
+      else mine.push(item);
       continue;
     }
     const risk = gateRisk(it.kind, body);
@@ -92,9 +102,14 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
     const binds = bindingSentence(it.kind, { ...body, id: pkg.id }, pkg.revision, s.outputs.length, s.verification, s.digest,
       { preparation: Boolean(s.preparation), criterionResults: Boolean(s.criterionResults) });
     const base = { ...it, risk, binds, subject_digest: { algorithm: "sha256", value: s.digest }, href: { to: "/packages/$id", id: it.package_id, hash: "decide" } };
-    if (allowed.length > 0 || (it.kind === "dispute" && !s.verification)) {
-      // A dispute from a failed or stopped run can always be requeued by the owner.
+    // A dispute from a failed or stopped run can also be settled by requeueing it, which any member
+    // may do, except while SCRAM holds the work.
+    const held = await scramHolding(db, { kind: "package", id: pkg.id, ...(body.discipline ? { discipline: String(body.discipline) } : {}) });
+    const requeueable = it.kind === "dispute" && !s.verification && !held;
+    if (allowed.length > 0 || requeueable) {
       mine.push({ ...base, decisions: allowed });
+    } else if (held && (it.kind === "dispute" || refusedForScram(actions))) {
+      others.push({ ...base, decisions: [], waiting_on: "a restart after SCRAM", reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
     } else {
       const refused = actions.find((a: Json) => !a.allowed);
       const roles = [...new Set(actions.flatMap((a: Json) => a.authority ?? []))] as string[];
@@ -103,12 +118,11 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
     }
   }
   const standing = new Map((await adminActions(db, caller)).map((a: Json) => [a.command, a]));
-  const mayReconcile = (await signingGaps(db, user, "reconcile", {})).length === 0;
   for (const a of await scramAttention(db, caller.orgId)) {
     // What stands between the SCRAM and a full restart, and which next step is this person's.
     const blockers = [
       a.stopping > 0 ? `${plural(a.stopping, "run")} still stopping` : "",
-      a.unknown > 0 ? `${plural(a.unknown, "run")} in scope with an unknown outcome to reconcile` : "",
+      a.unknown.length > 0 ? `${plural(a.unknown.length, "run")} in scope with an unknown outcome to reconcile` : "",
       a.unreviewed > 0 ? `${plural(a.unreviewed, "stopped run")} to review` : "",
     ].filter(Boolean);
     const mayReview = standing.get("scram.review")?.allowed === true;
@@ -120,8 +134,18 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
     if (blockers.length > 0) {
       detail = `Before a restart: ${blockers.join("; ")}. Nothing in scope runs until then.`;
       if (a.unreviewed > 0) hash = "command-scram.review";
-      mineToo = (a.unreviewed > 0 && mayReview) || (a.unknown > 0 && mayReconcile);
-      if (!mineToo) waiting = a.unreviewed > 0 || a.unknown > 0 ? who(ACTION_ROLES.reconcile) : "the daemon to stop the runs";
+      // Theirs only if at least one outstanding step is: a review, or reconciling one of the runs
+      // judged against that run's own package.
+      let mayReconcile = false;
+      for (const u of a.unknown) {
+        const body = (await currentPackage(db, u.package_id))?.body;
+        if ((await signingGaps(db, user, "reconcile", needsOf(body ?? {}))).length === 0) {
+          mayReconcile = true;
+          break;
+        }
+      }
+      mineToo = (a.unreviewed > 0 && mayReview) || mayReconcile;
+      if (!mineToo) waiting = a.unknown.length > 0 ? who(ACTION_ROLES.reconcile) : a.unreviewed > 0 ? "a member to review the stopped runs" : "the daemon to stop the runs";
     } else {
       detail = mayRestart
         ? "Nothing blocks a restart. You may restart it when it is safe."
@@ -147,16 +171,17 @@ const CHANGE_TYPES: Record<string, string> = {
   "package.pre-checked": "pre-checked",
   "preparation.edited": "with requirements edited",
 };
-/** Signed acts by people, in words. */
-const SIGNED_WORDS: Record<string, string> = {
-  "preparation.confirmed": "requirements confirmed",
-  "run.reconciled": "runs reconciled",
-  "run.independence-override": "independence overrides",
-  "scram.pulled": "SCRAM pulled",
-  "quarantine-review.recorded": "quarantine reviews",
-  "scram-restart.recorded": "SCRAM restarts",
-  "person-verification.recorded": "person verifications",
+/** Signed acts by people, in words: one, and many. */
+const SIGNED_WORDS: Record<string, [string, string]> = {
+  "preparation.confirmed": ["requirements confirmation", "requirements confirmations"],
+  "run.reconciled": ["run reconciled", "runs reconciled"],
+  "run.independence-override": ["independence override", "independence overrides"],
+  "scram.pulled": ["SCRAM pulled", "SCRAMs pulled"],
+  "quarantine-review.recorded": ["quarantine review", "quarantine reviews"],
+  "scram-restart.recorded": ["SCRAM restart", "SCRAM restarts"],
+  "person-verification.recorded": ["person verification", "person verifications"],
 };
+const ADMIN_WORDS: [string, string] = ["administrative act", "administrative acts"];
 const DECISION_WORDS: Record<string, string> = {
   release: "released", accept: "accepted", "accept-with-findings": "accepted with findings", return: "returned", reject: "rejected",
 };
@@ -170,11 +195,14 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
   const head = (await db.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from events")).rows[0]!.n;
   if (since === undefined || !Number.isInteger(since) || since < 0 || since > head) return { head, lines: [] };
   // Bounded by the head this answer reports, so marking seen never skips or double counts an event.
-  const rows = (await db.query<{ type: string; subject: string; actor: string }>(
-    "select body->>'type' as type, body->>'subject' as subject, body->'actor'->>'kind' as actor from events where seq > $1 and seq <= $2 order by seq", [since, head])).rows;
+  const rows = (await db.query<{ type: string; subject: string; actor: string; signature: string | null }>(
+    "select body->>'type' as type, body->>'subject' as subject, body->'actor'->>'kind' as actor, body->'data'->>'signature' as signature from events where seq > $1 and seq <= $2 order by seq",
+    [since, head])).rows;
 
   const changed = new Map<string, Set<string>>();
+  // Counted by kind; decisions carry their verb, other acts a noun with its plural.
   const signed: Record<string, number> = {};
+  const nouns = new Map<string, [string, string]>();
   let breaker = 0;
   for (const r of rows) {
     const what = CHANGE_TYPES[r.type];
@@ -186,8 +214,13 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
       const k = DECISION_WORDS[r.type.slice("decision.".length)] ?? "other decisions";
       signed[k] = (signed[k] ?? 0) + 1;
     } else if (SIGNED_WORDS[r.type] && r.actor === "human") {
-      const k = SIGNED_WORDS[r.type]!;
-      signed[k] = (signed[k] ?? 0) + 1;
+      const words = SIGNED_WORDS[r.type]!;
+      nouns.set(words[1], words);
+      signed[words[1]] = (signed[words[1]] ?? 0) + 1;
+    } else if (r.type === "admin.command" && r.signature === "direct" && !r.subject.startsWith("scram.")) {
+      // Signed administration (qualifications, passkeys, policy, pins); SCRAM steps are counted above.
+      nouns.set(ADMIN_WORDS[1], ADMIN_WORDS);
+      signed[ADMIN_WORDS[1]] = (signed[ADMIN_WORDS[1]] ?? 0) + 1;
     }
     if (r.type === "run.breaker") breaker++;
   }
@@ -197,7 +230,7 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
     : `${plural(packages.size, "package")} changed: ${[...changed.entries()].map(([w, s]) => `${s.size} ${w}`).join(", ")}.`;
   const signatures = Object.keys(signed).length === 0
     ? "Nothing was signed."
-    : `${plural(Object.values(signed).reduce((a, b) => a + b, 0), "signature")}: ${Object.entries(signed).map(([k, n]) => `${n} ${k}`).join(", ")}.`;
+    : `${plural(Object.values(signed).reduce((a, b) => a + b, 0), "signature")}: ${Object.entries(signed).map(([k, n]) => `${n} ${nouns.has(k) ? nouns.get(k)![n === 1 ? 0 : 1] : k}`).join(", ")}.`;
   const late = mine.filter((m) => Date.now() - Date.parse(m.since) > LATE_AFTER_MS).length;
   const lateness = late === 0 ? "Nothing has waited on you more than a day." : `${plural(late, "item")} ${late === 1 ? "has" : "have"} waited on you more than a day.`;
   const disputes = mine.filter((m) => m.kind === "dispute").length;

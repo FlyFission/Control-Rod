@@ -18,3 +18,15 @@ Reviewer: Codex CLI (read-only, ephemeral). Evidence: `inbox-codex-round1.md` an
 | Medium: binding scope | Fixed | The binding sentence names the confirmed requirements and preparation basis, and the checker's criterion results and evidence, when the signed subject includes them. |
 
 Verification after round 1 fixes: API 505 passed, 1 skipped; web 121 passed.
+
+## Round 2 (verdict BLOCK; P3B-02, 03, 04, 06, 07 closed)
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| P3B-08 (and P3B-01) | Accepted, fixed | `scramAttention` returns each unknown-outcome run with its package; the SCRAM item is the viewer's only if they may review the stopped runs or may reconcile at least one of those runs judged against that run's own package needs. Test: `judges who may reconcile a SCRAM's unknown outcomes against each run's own package` (a Material grade run is not the General service founder's). |
+| P3B-09 | Accepted, fixed | The unconditional fallback is gone. A dispute from a failed or stopped run is the viewer's when they have a decision or may requeue it, and requeueing counts only while SCRAM does not hold the work; otherwise it waits on a restart after SCRAM (or on who may decide). Lost runs without an unknown outcome and waiting agents follow the same SCRAM rule. Test: `never counts recovery work as yours when SCRAM holds it and you cannot settle it`. |
+| Medium: signed administration (and P3B-05) | Fixed | Signed administrative commands (qualifications, passkeys, policy, pins) count as signatures, once each; SCRAM commands are counted only as their SCRAM step. Singular and plural forms are correct. Test: digest test. |
+| Medium: prepared subjects read artifact bytes | Accepted, not changed | For prepared packages the decision subject must prove the deliverable and the checker's evidence are unchanged since they were checked, which needs their bytes hashed; skipping that would weaken the integrity the signature binds. The bytes no longer load for legacy subjects. Revisit with a stored, verified digest cache if the Inbox measures slow (performance budget Q-10 is checked in the Phase 3 exit review). |
+| Medium: digest bound, binding scope | Closed in round 2 review. |
+
+Verification after round 2 fixes: API 507 passed, 1 skipped; web 121 passed.

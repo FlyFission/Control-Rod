@@ -66,7 +66,7 @@ describe("ordering", () => {
     const view = await get("/packages/WP-IN-STANDARD");
     expect(standard.subject_digest).toEqual(view.subject_digest);
     expect(standard.binds).toBe(
-      `Signing releases revision 0 of WP-IN-STANDARD as drafted: ${example.acceptance_criteria.length} acceptance criteria and ${example.deliverables.length} deliverable${example.deliverables.length === 1 ? "" : "s"} (sha256:${view.subject_digest.value.slice(0, 12)}).`);
+      `Signing binds revision 0 of WP-IN-STANDARD as drafted: ${example.acceptance_criteria.length} acceptance criteria and ${example.deliverables.length} deliverable${example.deliverables.length === 1 ? "" : "s"} (sha256:${view.subject_digest.value.slice(0, 12)}).`);
     expect(standard.decisions).toEqual(["release"]);
     // The package page and case view show the same sentence the Inbox does.
     expect(view.binds).toBe(standard.binds);

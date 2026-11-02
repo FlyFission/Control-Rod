@@ -264,6 +264,28 @@ describe("decision flow", () => {
     expect(screen.getByRole("heading", { name: "Your decision" })).toBeTruthy();
   });
 
+  it("puts away a decision whose permission was withdrawn, and never signs on a failed refresh", async () => {
+    offer(["return", "reject"]);
+    const { qc } = await renderPage(<DecisionBar view={view({}, { status: "in-work" })} passkeys={passkeys([])} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Return with direction" }));
+    expect(screen.getByRole("button", { name: "Sign: Return with direction" })).toBeTruthy();
+    // The viewer's qualification is revoked: the next answer refuses everything.
+    offer([], { reason: "This needs the reviewer role, which your qualification does not include", change: "An administrator restores it." });
+    await qc.invalidateQueries({ queryKey: ["actions"] });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Sign: Return with direction" })).toBeNull());
+    expect(screen.getByText(/reviewer role, which your qualification does not include/)).toBeTruthy();
+  });
+
+  it("disables signing when a refresh of what the viewer may sign fails", async () => {
+    offer(["release", "reject"]);
+    const { qc } = await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys([])} />);
+    await screen.findByRole("button", { name: "Release" });
+    server.use(http.get("*/packages/WP-0001/actions", () => HttpResponse.json({ code: "error", message: "down" }, { status: 500 })));
+    await qc.invalidateQueries({ queryKey: ["actions"] });
+    await screen.findByText(/could not be refreshed/);
+    expect((screen.getByRole("button", { name: "Release" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("says when what the viewer may sign could not be checked", async () => {
     server.use(http.get("*/packages/WP-0001/actions", () => HttpResponse.json({ code: "error", message: "down" }, { status: 500 })));
     await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys([])} />);

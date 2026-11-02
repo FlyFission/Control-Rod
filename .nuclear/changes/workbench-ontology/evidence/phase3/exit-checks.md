@@ -1,6 +1,6 @@
 # Phase 3 exit checks (shell, palette, Inbox, case view)
 
-Run on 2026-11-02 in Chromium (Playwright 1.64.1) against the production build (`vite build` then `vite preview`), with the control plane mocked by recorded fixtures covering every place, the Inbox with a SCRAM hold, a lost run, a gate decision and work waiting on someone else, and the case view of a standard rigor package with a run story. The spec that produced these results is kept outside the repository; the commands and output are below.
+Run on 2026-11-02 in Chromium (Playwright 1.64.1) against the production build (`vite build` then `vite preview`), with the control plane mocked by recorded fixtures covering every place, the Inbox with a SCRAM hold, a lost run, a gate decision and work waiting on someone else, and the case view of a standard rigor package with a run story. The spec is `apps/web/e2e/phase3-exit.spec.ts`; the command and its raw output are at the end of this file.
 
 ## Accessibility (specification Q-8, WCAG 2.2 AA)
 
@@ -11,9 +11,21 @@ Run on 2026-11-02 in Chromium (Playwright 1.64.1) against the production build (
 
 ## Performance (specification Q-10)
 
-- Case view with a run of 1,000 normalized events: the story is on screen 254 ms after navigation (budget: first meaningful view under 1.5 s), and showing all 500 steps takes 87 ms. Long stories render the latest 200 steps first.
+- Case view with a run of 1,000 normalized events: the story is on screen 254 ms after navigation in the first run and 195 ms in the recorded run below (budget: first meaningful view under 1.5 s), and showing all 500 steps takes under 90 ms. Long stories render the latest 200 steps first.
 - Not measured here: event to screen under 500 ms on the reference machine with the live stream, and the office floor at 60 frames per second with 40 agents (Phase 4, office view). The Inbox reads prepared packages' artifacts to prove their integrity; its speed with many prepared packages is an accepted Medium recorded in the Inbox adjudication, to be measured on the reference workload.
 
 ## Browser suites
 
 Chromium and Firefox floor and theme suites pass (20 tests); WebKit is not installed on this machine.
+
+## Command and raw output
+
+```
+cd apps/web && PHASE3_BIG=1 pnpm exec playwright test e2e/phase3-exit.spec.ts --project=chromium --reporter=list
+AXE no violations
+TAB Skip to content > Control Rod > Search or run a commandCtrl K > Sign out > Inbox3 > Office > Packages > Registers > Explore > Roster > Usage > Records > Policies > Open SCRAM commands > Open the runs > Open and decide > Waiting on someone else (1)
+PALETTE navigated to /roster
+REFLOW all fit
+PERF first story view 195 ms; show all 500 steps 88 ms
+  4 passed (28.9s)
+```

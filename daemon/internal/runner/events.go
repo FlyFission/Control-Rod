@@ -35,6 +35,10 @@ type Event struct {
 	CachedTokens int    `json:"cached_tokens,omitempty"`
 	// Dropped counts events admission refused since the last one sent (kind "dropped").
 	Dropped int `json:"dropped,omitempty"`
+
+	// idx is the event's place in the run's sequence, given when it is kept; it travels as a
+	// batch's events_from, never in the event itself.
+	idx int
 }
 
 // Event kinds.

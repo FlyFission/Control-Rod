@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -101,7 +102,7 @@ func TestTakeSendsAtMostOneBatchAndKeepsTheRest(t *testing.T) {
 	}
 }
 
-func TestEventsCarryTheirDeliveredIndexAndLeftoversGoWithTheCompletion(t *testing.T) {
+func TestEventsKeepStableIndexesAndLeftoversGoWithTheCompletion(t *testing.T) {
 	buf := &logBuffer{}
 	buf.addEvents([]Event{{Kind: EvMessage, Text: "a"}, {Kind: EvMessage, Text: "b"}})
 	first, _ := buf.take()
@@ -118,22 +119,59 @@ func TestEventsCarryTheirDeliveredIndexAndLeftoversGoWithTheCompletion(t *testin
 	buf.addEvents([]Event{{Kind: EvExit, Text: "exited"}})
 	next, _ := buf.take()
 	if next.EventsFrom != 2 {
-		t.Fatalf("after delivery the index moves on: %d", next.EventsFrom)
+		t.Fatalf("later events keep counting: %d", next.EventsFrom)
 	}
-	// The final upload fails: what is left goes with the completion, from the same index.
+	// The final upload fails: what is left goes with the completion, at its own index.
 	buf.putBackEvents(next.Events)
 	left, from := buf.leftEvents()
 	if from != 2 || len(left) != 1 || left[0].Kind != EvExit {
 		t.Fatalf("leftovers %v from %d", left, from)
 	}
+
+	// More left than one completion carries: the newest go, placed exactly; the rest is a gap.
+	buf = &logBuffer{}
 	many := make([]Event, MaxEventBatch+10)
 	for i := range many {
 		many[i] = Event{Kind: EvMessage, Text: "m"}
 	}
 	many[len(many)-1] = Event{Kind: EvExit}
 	buf.addEvents(many)
-	left, _ = buf.leftEvents()
-	if len(left) != MaxEventBatch || left[0].Kind != EvDropped || left[0].Dropped != 11 || left[len(left)-1].Kind != EvExit {
-		t.Fatalf("leftovers are bounded, newest kept: %d first %+v", len(left), left[0])
+	left, from = buf.leftEvents()
+	if len(left) != MaxEventBatch || from != 10 || left[len(left)-1].Kind != EvExit {
+		t.Fatalf("leftovers are bounded and placed: %d from %d", len(left), from)
+	}
+}
+
+func TestHeldEventOverflowLeavesAGapAndBatchesStayConsecutive(t *testing.T) {
+	buf := &logBuffer{}
+	many := make([]Event, maxHeldEvents+3)
+	for i := range many {
+		many[i] = Event{Kind: EvMessage, Text: "m"}
+	}
+	buf.addEvents(many)
+	b, _ := buf.take()
+	if b.EventsFrom != 3 || len(b.Events) != MaxEventBatch {
+		t.Fatalf("the oldest three are dropped as a gap: from %d, %d events", b.EventsFrom, len(b.Events))
+	}
+	// A batch taken out and put back after newer events arrived still goes first, from its index.
+	buf.putBackEvents(b.Events)
+	again, _ := buf.take()
+	if again.EventsFrom != 3 {
+		t.Fatalf("from %d", again.EventsFrom)
+	}
+	for i, e := range again.Events {
+		if e.idx != 3+i {
+			t.Fatalf("event %d has index %d", i, e.idx)
+		}
+	}
+}
+
+func TestACompletionAlwaysSendsWhereItsEventsStart(t *testing.T) {
+	b, err := json.Marshal(Completion{Status: "failed", Outputs: []NamedFile{}, Events: []Event{{Kind: EvExit}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"events_from":0`) {
+		t.Fatalf("index zero must be on the wire, or a resent completion is recorded twice: %s", b)
 	}
 }

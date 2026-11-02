@@ -45,6 +45,21 @@ async function requirementsSubject(c: Tx, id: string, lock = true) {
     );
   return { pkg, snapshot, ...preparationSubjects(snapshot) };
 }
+/**
+ * The requirements digest a person would confirm now, or null when there is nothing to confirm:
+ * not enrolled, not a draft, or requirements not yet complete enough to confirm.
+ */
+export async function pendingConfirmation(db: Db, id: string): Promise<{ requirements_digest: { algorithm: string; value: string } } | null> {
+  return readTx(db, async (c) => {
+    try {
+      const s = await requirementsSubject(c, id, false);
+      return { requirements_digest: s.requirements_digest };
+    } catch (e) {
+      if (e instanceof Refusal) return null;
+      throw e;
+    }
+  });
+}
 export async function confirmationSubject(
   db: Db,
   id: string,

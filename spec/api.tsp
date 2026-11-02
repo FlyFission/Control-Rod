@@ -321,6 +321,62 @@ model OfficeItem {
   since: utcDateTime;
 }
 
+/** Where an item opens: a page, and for a package which one and which section. */
+model AttentionTarget {
+  to: string;
+  id?: string;
+  hash?: string;
+}
+
+/**
+ * One thing waiting (AttentionItem, specification 5.11). Decisions state what a signature binds;
+ * risk orders the Inbox (gate risk, then age).
+ */
+model AttentionItem {
+  kind: "release" | "accept" | "dispute" | "permission" | "lost" | "scram" | "confirm";
+  package_id?: string;
+  package_revision?: int32;
+  scram_id?: string;
+
+  /** For a held intake run: the capture it reads (no package exists yet). */
+  capture_id?: string;
+  title: string;
+  detail: string;
+  since: utcDateTime;
+  risk: { rank: int32; label: string };
+
+  /** The sentence a signer reads: what the digest covers. */
+  binds?: string;
+  subject_digest?: Digest;
+
+  /** Decisions the viewer may take on it now. */
+  decisions?: string[];
+
+  /** For an item waiting on someone else: who, and why not the viewer. */
+  waiting_on?: string;
+  reason?: string;
+  href: AttentionTarget;
+}
+
+/** A line of the "since you last looked" digest, in words. */
+model DigestLine {
+  topic: "changes" | "signatures" | "lateness" | "disputes" | "gates" | "spend";
+  text: string;
+  count: int32;
+}
+
+/** The Inbox for the viewing person (specification 12; OV-01, OV-09). */
+@route("/inbox")
+@get
+op inbox(
+  /** The last event sequence the viewer saw; absent on a first visit, which returns only the head. */
+  @query since?: int32,
+): {
+  items: AttentionItem[];
+  waiting_on_others: AttentionItem[];
+  digest: { head: int32; lines: DigestLine[] };
+} | ApiError;
+
 /** Whether Control Rod earns its place: measured per accepted package. */
 model Metrics {
   packages_accepted: int32;

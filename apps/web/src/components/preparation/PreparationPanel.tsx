@@ -200,7 +200,7 @@ export function PreparationPanel({
   const resolve = (r: ResolutionRequest) =>
     void perform(() => api.resolvePreparation(pkg.id, etag, r));
   return (
-    <section className="panel preparation" aria-labelledby="preparation-title">
+    <section id="preparation" className="panel preparation" aria-labelledby="preparation-title">
       <h2 id="preparation-title">Guided preparation</h2>
       <p>
         {v?.confirmed ? "Requirements confirmed" : "Requirements not confirmed"}{" "}

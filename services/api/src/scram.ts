@@ -223,12 +223,12 @@ export async function quarantineScramCompletion(c: Tx, runId: string, key: strin
 }
 
 /** The newest quarantine batch for a run, or 0 when it reported nothing. */
-async function newestBatch(c: Tx, runId: string): Promise<number> {
+async function newestBatch(c: Db | Tx, runId: string): Promise<number> {
   return (await c.query<{ n: number }>("select coalesce(max(id), 0)::int as n from scram_quarantine_batches where run_id = $1", [runId])).rows[0]!.n;
 }
 
 /** The newest batch a review of this SCRAM covered for the run: -1 with no review, 0 for a review of nothing. */
-async function reviewedThrough(c: Tx, scramId: string, runId: string): Promise<number> {
+async function reviewedThrough(c: Db | Tx, scramId: string, runId: string): Promise<number> {
   const r = await c.query<{ n: number | null; reviews: number }>(
     "select max(coalesce((body->>'covers_batch')::int, 0))::int as n, count(*)::int as reviews from quarantine_reviews where scram_id = $1 and run_id = $2", [scramId, runId]);
   return r.rows[0]!.reviews === 0 ? -1 : (r.rows[0]!.n ?? 0);
@@ -339,4 +339,40 @@ export async function scramView(q: Db, orgId: string, scramId: string) {
   }
   const restarts = (await q.query<{ body: Json }>("select body from scram_restarts where scram_id = $1 order by recorded_at", [scramId])).rows.map((x) => x.body);
   return { scram, runs: out, restarts };
+}
+
+/**
+ * SCRAMs that need a person, for the Inbox: each active SCRAM of the organization, with what stands
+ * between it and a full restart: stopped runs still stopping, runs in scope with an unknown outcome,
+ * and stopped runs awaiting review.
+ */
+export async function scramAttention(q: Db, orgId: string) {
+  const out = [];
+  for (const scram of await activeScrams(q)) {
+    if (scram.org_id !== orgId) continue;
+    const runs = (await q.query<{ id: string; status: string }>(
+      "select r.id, r.status from scram_runs x join runs r on r.id = x.run_id where x.scram_id = $1 order by r.id", [scram.id])).rows;
+    let stopping = 0;
+    let unreviewed = 0;
+    for (const r of runs) {
+      if (r.status === "running") stopping++;
+      else {
+        const through = await reviewedThrough(q, scram.id, r.id);
+        if (through < 0 || through < (await newestBatch(q, r.id))) unreviewed++;
+      }
+    }
+    // Any run in its scope whose outcome is unknown also blocks a full restart.
+    // The packages they belong to, so who may reconcile each is judged against its real needs.
+    const unknown: { run_id: string; package_id: string }[] = [];
+    const lost = (await q.query<{ id: string; role: string; package_id: string }>(
+      `select r.id, r.role, r.package_id from runs r join object_owners o on o.object_kind = 'run' and o.object_id = r.id
+        where o.org_id = $1 and r.body ? 'outcome_unknown' and not r.body ? 'reconciliation' order by r.id`, [orgId])).rows;
+    for (const r of lost) {
+      const subject = await runSubject(q, r);
+      if (reaches(scram, await ownerOf(q, subject.kind, subject.id))) unknown.push({ run_id: r.id, package_id: r.package_id });
+    }
+    const pulled = (await q.query<{ at: string }>("select body->>'at' as at from events where body->>'type' = 'scram.pulled' and body->>'subject' = $1 limit 1", [scram.id])).rows[0]?.at;
+    out.push({ scram, stopping, unreviewed, unknown, since: pulled ?? new Date().toISOString() });
+  }
+  return out;
 }

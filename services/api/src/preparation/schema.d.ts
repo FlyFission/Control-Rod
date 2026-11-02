@@ -215,6 +215,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The Inbox for the viewing person (specification 12; OV-01, OV-09). */
+        get: operations["inbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/metrics": {
         parameters: {
             query?: never;
@@ -847,6 +864,44 @@ export interface components {
             change?: string;
             /** @description Set when a floor refused: no person, decision or setting lifts it. */
             floor?: boolean;
+        };
+        /**
+         * @description One thing waiting (AttentionItem, specification 5.11). Decisions state what a signature binds;
+         *     risk orders the Inbox (gate risk, then age).
+         */
+        AttentionItem: {
+            /** @enum {string} */
+            kind: "release" | "accept" | "dispute" | "permission" | "lost" | "scram" | "confirm";
+            package_id?: string;
+            /** Format: int32 */
+            package_revision?: number;
+            scram_id?: string;
+            /** @description For a held intake run: the capture it reads (no package exists yet). */
+            capture_id?: string;
+            title: string;
+            detail: string;
+            /** Format: date-time */
+            since: string;
+            risk: {
+                /** Format: int32 */
+                rank: number;
+                label: string;
+            };
+            /** @description The sentence a signer reads: what the digest covers. */
+            binds?: string;
+            subject_digest?: components["schemas"]["ControlRod.Records.Digest"];
+            /** @description Decisions the viewer may take on it now. */
+            decisions?: string[];
+            /** @description For an item waiting on someone else: who, and why not the viewer. */
+            waiting_on?: string;
+            reason?: string;
+            href: components["schemas"]["AttentionTarget"];
+        };
+        /** @description Where an item opens: a page, and for a package which one and which section. */
+        AttentionTarget: {
+            to: string;
+            id?: string;
+            hash?: string;
         };
         /** @description WebAuthn options as JSON, passed straight to the browser API. */
         "Auth.Options": {
@@ -1761,6 +1816,11 @@ export interface components {
             scram_id?: string;
             /** @description Why a queued run is not being handed out, in plain words. */
             waiting_reason?: string;
+            /**
+             * @description The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it).
+             * @enum {string}
+             */
+            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
             /** @description The owner let this pre-check run on the author's runtime. Recorded before it ran. */
             independence_override?: components["schemas"]["ControlRod.Records.OwnerOverride"];
             /**
@@ -1958,6 +2018,14 @@ export interface components {
             /** @description Protected trust surface. */
             verification: components["schemas"]["ControlRod.Records.VerificationPlan"];
             revalidation_triggers?: string[];
+        };
+        /** @description A line of the "since you last looked" digest, in words. */
+        DigestLine: {
+            /** @enum {string} */
+            topic: "changes" | "signatures" | "lateness" | "disputes" | "gates" | "spend";
+            text: string;
+            /** Format: int32 */
+            count: number;
         };
         Health: {
             /** @enum {string} */
@@ -2820,6 +2888,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    inbox: {
+        parameters: {
+            query?: {
+                /** @description The last event sequence the viewer saw; absent on a first visit, which returns only the head. */
+                since?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AttentionItem"][];
+                        waiting_on_others: components["schemas"]["AttentionItem"][];
+                        digest: {
+                            /** Format: int32 */
+                            head: number;
+                            lines: components["schemas"]["DigestLine"][];
+                        };
+                    } | components["schemas"]["ApiError"];
                 };
             };
         };

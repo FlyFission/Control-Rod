@@ -87,7 +87,7 @@ export function PackagePage({ id }: { id: string }) {
           </section>
           <PreparationPanel pkg={pkg} enabled={view.preparation_enabled ?? false} enrolled={view.preparation_enrolled ?? false} />
           <Criteria pkg={pkg} etag={view.draft_etag} enrolled={view.preparation_enrolled ?? false} />
-          <section className="panel" aria-labelledby="runs-title">
+          <section id="runs" className="panel" aria-labelledby="runs-title">
             <h2 id="runs-title">Runs</h2>
             {view.runs.length === 0 && <p className="muted">No runs yet.</p>}
             {view.runs.map((r) => (

@@ -15,8 +15,9 @@ const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(n
  */
 export function Shell({ session, children }: { session: Session; children: ReactNode }) {
   const qc = useQueryClient();
-  const office = useQuery({ queryKey: ["office"], queryFn: api.office });
-  const needs = office.data?.length ?? 0;
+  // Only what waits on this person counts (OV-01); work waiting on someone else never does.
+  const inbox = useQuery({ queryKey: ["inbox", session.user ?? "", "badge"], queryFn: () => api.inbox() });
+  const needs = inbox.data?.items.length ?? 0;
   const [palette, setPalette] = useState(false);
   const shortcut = isMac() ? "⌘K" : "Ctrl K";
   const path = useRouterState({ select: (st) => st.location.pathname });
@@ -40,6 +41,8 @@ export function Shell({ session, children }: { session: Session; children: React
   async function logout() {
     try {
       const s = await api.logout();
+      // Nothing one person's session loaded survives into the next one.
+      qc.clear();
       qc.setQueryData(["session"], s);
     } catch {
       void qc.invalidateQueries({ queryKey: ["session"] });

@@ -24,6 +24,7 @@ export function useLiveEvents(enabled: boolean): void {
       for (const key of [
         "packages",
         "office",
+        "inbox",
         "metrics",
         "events",
         "captures",

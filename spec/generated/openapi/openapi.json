@@ -823,6 +823,82 @@
         }
       }
     },
+    "/inbox": {
+      "get": {
+        "operationId": "inbox",
+        "description": "The Inbox for the viewing person (specification 12; OV-01, OV-09).",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "The last event sequence the viewer saw; absent on a first visit, which returns only the head.",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AttentionItem"
+                          }
+                        },
+                        "waiting_on_others": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AttentionItem"
+                          }
+                        },
+                        "digest": {
+                          "type": "object",
+                          "properties": {
+                            "head": {
+                              "type": "integer",
+                              "format": "int32"
+                            },
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "#/components/schemas/DigestLine"
+                              }
+                            }
+                          },
+                          "required": [
+                            "head",
+                            "lines"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "waiting_on_others",
+                        "digest"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/metrics": {
       "get": {
         "operationId": "metrics",
@@ -4587,6 +4663,114 @@
           }
         }
       },
+      "AttentionItem": {
+        "type": "object",
+        "required": [
+          "kind",
+          "title",
+          "detail",
+          "since",
+          "risk",
+          "href"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "release",
+              "accept",
+              "dispute",
+              "permission",
+              "lost",
+              "scram",
+              "confirm"
+            ]
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "scram_id": {
+            "type": "string"
+          },
+          "capture_id": {
+            "type": "string",
+            "description": "For a held intake run: the capture it reads (no package exists yet)."
+          },
+          "title": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "risk": {
+            "type": "object",
+            "properties": {
+              "rank": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "label": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "rank",
+              "label"
+            ]
+          },
+          "binds": {
+            "type": "string",
+            "description": "The sentence a signer reads: what the digest covers."
+          },
+          "subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Decisions the viewer may take on it now."
+          },
+          "waiting_on": {
+            "type": "string",
+            "description": "For an item waiting on someone else: who, and why not the viewer."
+          },
+          "reason": {
+            "type": "string"
+          },
+          "href": {
+            "$ref": "#/components/schemas/AttentionTarget"
+          }
+        },
+        "description": "One thing waiting (AttentionItem, specification 5.11). Decisions state what a signature binds;\nrisk orders the Inbox (gate risk, then age)."
+      },
+      "AttentionTarget": {
+        "type": "object",
+        "required": [
+          "to"
+        ],
+        "properties": {
+          "to": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "hash": {
+            "type": "string"
+          }
+        },
+        "description": "Where an item opens: a page, and for a package which one and which section."
+      },
       "Auth.Options": {
         "type": "object",
         "required": [
@@ -7621,6 +7805,17 @@
             "maxLength": 300,
             "description": "Why a queued run is not being handed out, in plain words."
           },
+          "waiting_cause": {
+            "type": "string",
+            "enum": [
+              "scram",
+              "lane",
+              "runtime-pin",
+              "independent-runtime",
+              "preparation"
+            ],
+            "description": "The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it)."
+          },
           "independence_override": {
             "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride",
             "description": "The owner let this pre-check run on the author's runtime. Recorded before it ran."
@@ -8237,6 +8432,35 @@
           }
         },
         "description": "The only unit of work an agent may start."
+      },
+      "DigestLine": {
+        "type": "object",
+        "required": [
+          "topic",
+          "text",
+          "count"
+        ],
+        "properties": {
+          "topic": {
+            "type": "string",
+            "enum": [
+              "changes",
+              "signatures",
+              "lateness",
+              "disputes",
+              "gates",
+              "spend"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "A line of the \"since you last looked\" digest, in words."
       },
       "Health": {
         "type": "object",

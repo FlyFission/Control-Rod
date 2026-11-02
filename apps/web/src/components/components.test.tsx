@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -256,22 +256,84 @@ describe("decision flow", () => {
   });
 });
 
-describe("your office", () => {
-  it("lists holds first and the oldest of a kind first", async () => {
+const attention = (over: Record<string, unknown>) => ({
+  kind: "accept", package_id: "WP-1", package_revision: 1, title: "Accept WP-1", detail: "Pre-check passed.", since: "2026-10-22T09:00:00Z",
+  risk: { rank: 41, label: "Standard gate" }, href: { to: "/packages/$id", id: "WP-1", hash: "decide" }, ...over,
+});
+
+describe("inbox", () => {
+  beforeEach(() => {
+    // Each test starts with no cursor on this browser, whatever an earlier test's first visit stored.
+    window.localStorage.clear();
+    server.use(http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })));
+  });
+
+  it("keeps the server's gate risk order, says what each signature binds, and keeps others' work apart", async () => {
+    // A cursor already stored, so the first visit does not move it and start a later request.
+    window.localStorage.setItem("cr.lastSeenSeq:ben", "12");
     server.use(
-      http.get("*/office", () =>
-        HttpResponse.json([
-          { kind: "release", package_id: "WP-3", package_revision: 0, title: "Release WP-3", detail: "", since: "2026-10-22T08:00:00Z" },
-          { kind: "accept", package_id: "WP-2", package_revision: 1, title: "Accept WP-2", detail: "", since: "2026-10-22T11:00:00Z" },
-          { kind: "accept", package_id: "WP-1", package_revision: 1, title: "Accept WP-1", detail: "", since: "2026-10-22T09:00:00Z" },
-          { kind: "dispute", package_id: "WP-4", package_revision: 2, title: "Dispute WP-4", detail: "", since: "2026-10-22T12:00:00Z" },
-        ]),
+      http.get("*/inbox", () =>
+        HttpResponse.json({
+          items: [
+            attention({ kind: "lost", package_id: "WP-9", title: "Lost WP-9", detail: "Author run lost", risk: { rank: 20, label: "Outcome unknown" }, href: { to: "/packages/$id", id: "WP-9", hash: "runs" } }),
+            attention({ binds: "Signing binds revision 1 of WP-1, 2 outputs and its pre-check (pass, 0 findings) (sha256:ab12cd34ef56).", decisions: ["accept", "return"] }),
+          ],
+          waiting_on_others: [
+            attention({ package_id: "WP-7", title: "Material WP-7", risk: { rank: 40, label: "High consequence gate" }, decisions: [], waiting_on: "someone who is an approver", reason: "This needs the Material grade" }),
+          ],
+          digest: { head: 12, lines: [] },
+        }),
       ),
     );
     await renderPage(<Inbox />);
     await screen.findByText("Accept WP-1");
-    const titles = screen.getAllByText(/^(Release|Accept|Dispute) WP-\d$/).map((n) => n.textContent);
-    expect(titles).toEqual(["Dispute WP-4", "Accept WP-1", "Accept WP-2", "Release WP-3"]);
+    const mine = screen.getByRole("list", { name: "2 waiting on you" });
+    expect([...mine.querySelectorAll(".office-title")].map((n) => n.textContent)).toEqual(["Lost WP-9", "Accept WP-1"]);
+    expect(mine.textContent).toContain("Outcome unknown");
+    expect(screen.getByText(/Signing binds revision 1 of WP-1/)).toBeTruthy();
+    expect(screen.getByText("You may accept, return.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open the runs" }).getAttribute("href")).toBe("/packages/WP-9#runs");
+    // Work only someone else may sign is listed apart, with who and why, and not counted as yours.
+    expect(mine.textContent).not.toContain("Material WP-7");
+    expect(screen.getByText(/Waiting on someone else/)).toBeTruthy();
+    expect(screen.getByText(/Waiting on someone who is an approver/)).toBeTruthy();
+  });
+
+  it("shows the digest lines in words and marks them seen, on this person's own cursor", async () => {
+    window.localStorage.setItem("cr.lastSeenSeq:dora", "10");
+    window.localStorage.setItem("cr.lastSeenSeq:alice", "3");
+    const asked: string[] = [];
+    server.use(
+      http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "dora" })),
+      http.get("*/inbox", ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return HttpResponse.json({
+          items: [], waiting_on_others: [],
+          digest: { head: 15, lines: [
+            { topic: "changes", text: "2 packages changed: 2 drafted.", count: 2 },
+            { topic: "signatures", text: "No decisions were signed.", count: 0 },
+            { topic: "lateness", text: "Nothing has waited on you more than a day.", count: 0 },
+            { topic: "disputes", text: "No disputes are open.", count: 0 },
+            { topic: "gates", text: "No gate criteria are open.", count: 0 },
+            { topic: "spend", text: "No spend recorded.", count: 0 },
+          ] },
+        });
+      }),
+    );
+    try {
+      await renderPage(<Inbox />);
+      expect(await screen.findByText("2 packages changed: 2 drafted.")).toBeTruthy();
+      expect(screen.getByText("Nothing waits on you. Decisions and held work arrive here as they need you.")).toBeTruthy();
+      await waitFor(() => expect(asked).toContain("?since=10"));
+      await userEvent.setup().click(screen.getByRole("button", { name: "Mark as seen" }));
+      await waitFor(() => expect(window.localStorage.getItem("cr.lastSeenSeq:dora")).toBe("15"));
+      await waitFor(() => expect(asked).toContain("?since=15"));
+      // Another person's cursor on this browser is untouched.
+      expect(window.localStorage.getItem("cr.lastSeenSeq:alice")).toBe("3");
+    } finally {
+      window.localStorage.removeItem("cr.lastSeenSeq:dora");
+      window.localStorage.removeItem("cr.lastSeenSeq:alice");
+    }
   });
 });
 
@@ -361,20 +423,6 @@ describe("runs that need the owner", () => {
     expect(canStop({ ...running, status: "queued" })).toBe(true);
   });
 
-  it("puts lost runs right after holds in the office", async () => {
-    server.use(
-      http.get("*/office", () =>
-        HttpResponse.json([
-          { kind: "dispute", package_id: "WP-4", package_revision: 2, title: "Dispute WP-4", detail: "", since: "2026-10-22T08:00:00Z" },
-          { kind: "lost", package_id: "WP-9", package_revision: 0, title: "Lost WP-9", detail: "Author run lost", since: "2026-10-22T12:00:00Z" },
-        ]),
-      ),
-    );
-    await renderPage(<Inbox />);
-    await screen.findByText("Lost WP-9");
-    expect(screen.getAllByText(/^(Lost|Dispute) WP-\d$/).map((n) => n.textContent)).toEqual(["Lost WP-9", "Dispute WP-4"]);
-    expect(screen.getByText("Lost run")).toBeTruthy();
-  });
 });
 
 describe("pre-check independence", () => {
@@ -467,7 +515,8 @@ describe("pre-check independence", () => {
 describe("runtime readiness in the office", () => {
   it("shows a runtime the daemon found not ready, with its reason", async () => {
     server.use(
-      http.get("*/office", () => HttpResponse.json([])),
+      http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })),
+      http.get("*/inbox", () => HttpResponse.json({ items: [], waiting_on_others: [], digest: { head: 1, lines: [] } })),
       http.get("*/runtimes", () =>
         HttpResponse.json({
           reported_at: "2026-10-22T12:00:00Z",

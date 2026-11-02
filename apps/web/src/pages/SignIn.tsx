@@ -16,6 +16,8 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
     setError(null);
     try {
       const s = await fn();
+      // A new session never sees what an earlier person's session loaded.
+      qc.clear();
       qc.setQueryData(["session"], s);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");

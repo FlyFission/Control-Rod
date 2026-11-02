@@ -287,6 +287,12 @@ async function outputsOf(q: Db | Tx, runId: string) {
   return r.rows;
 }
 
+/** Output names and digests only: what a decision subject covers, without loading the files. */
+async function outputDigestsOf(q: Db | Tx, runId: string) {
+  const r = await q.query<{ name: string; sha256: string }>("select name, sha256 from outputs where run_id = $1 order by name", [runId]);
+  return r.rows;
+}
+
 async function latestVerification(q: Db | Tx, id: string, rev: number, round?: number) {
   const r = await q.query<{ body: Json; round: number; created_at: Date }>(
     `select body, round, created_at from verifications where package_id = $1 and package_revision = $2
@@ -299,7 +305,7 @@ async function latestVerification(q: Db | Tx, id: string, rev: number, round?: n
 /** What a person reviews before deciding: the revision, its current output and its pre-check. */
 export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
   const author = await latestAuthorRun(q, pkg.id, pkg.revision);
-  const outs = author && author.status === "succeeded" ? await outputsOf(q, author.id) : [];
+  const outs = author && author.status === "succeeded" ? await outputDigestsOf(q, author.id) : [];
   const ver = author ? await latestVerification(q, pkg.id, pkg.revision, author.round) : null;
   const preparation = await preparationForSubject(q,pkg);
   const integrity=preparation && author?.status==="succeeded"?await authorOutputIntegrity(q,author.id):null;
@@ -2041,8 +2047,14 @@ export async function packageActions(db: Db, cfg: WorkConfig, user: string, id: 
     const edit = { command: "draft.edit", label: "Edit draft", signature: "none" };
     out.push(pkg.status !== "draft" ? refused(edit, "wrong-state", "Only a draft can be edited")
       : preparing ? refused(edit, "preparation-edit-required") : { ...edit, allowed: true });
+    // While SCRAM holds the package, release is refused exactly as submitting it would be.
+    const scram = await scramHolding(c, { kind: "package", id: pkg.id, ...(pkg.body.discipline ? { discipline: String(pkg.body.discipline) } : {}) });
     for (const kind of Object.keys(HUMAN_ACTIONS)) {
       const base = { command: kind, label: DECISION_LABELS[kind], signature: "direct", authority: ACTION_ROLES[kind as SignerAction] };
+      if (kind === "release" && scram) {
+        out.push(refused(base, "scram-stopped", `SCRAM ${scram.id} has stopped this work: ${scram.reason}`));
+        continue;
+      }
       const missing = await signingGaps(c, user, kind as SignerAction, needsOf(pkg.body));
       if (missing.length) {
         out.push({ ...refused(base, "qualification-missing", `This needs ${missing.join(" and ")}, which your qualification does not include`), missing });

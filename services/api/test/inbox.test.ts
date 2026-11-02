@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { appendEvent } from "../src/events.js";
-import { type Harness, ORIGIN, VirtualAuthenticator, signIn, startHarness } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, registerWithInvitation, signIn, startHarness } from "./harness.js";
+import { preparedHarness } from "./preparation-flow.js";
 
 /** The Inbox (plan task 3.3; specification 12 and 5.11; OV-01, OV-09). */
 let h: Harness;
@@ -17,7 +18,20 @@ beforeAll(async () => {
 }, 120_000);
 afterAll(async () => h?.stop());
 
-const get = async (url: string) => (await h.app.inject({ method: "GET", url, headers: { cookie } })).json();
+const get = async (url: string, as = cookie) => (await h.app.inject({ method: "GET", url, headers: { cookie: as } })).json();
+async function signedAdmin(name: string, payload: Json) {
+  const o = await h.app.inject({ method: "POST", url: `/admin/commands/${name}/options`, headers: { cookie, origin: ORIGIN }, payload: { payload } });
+  return h.app.inject({ method: "POST", url: `/admin/commands/${name}`, headers: { cookie, origin: ORIGIN }, payload: { payload, assertion: key.assert(o.json().options) } });
+}
+/** A second member with no qualification: may capture and view, never sign or administer. */
+let alice: string | undefined;
+async function aliceCookie() {
+  if (alice) return alice;
+  const r = await signedAdmin("member.enroll", { user_name: "alice" });
+  expect(r.statusCode, r.body).toBe(200);
+  alice = await registerWithInvitation(h.app, r.json().invitation.token, new VirtualAuthenticator());
+  return alice;
+}
 const ago = (hours: number) => new Date(Date.now() - hours * 3600e3).toISOString();
 
 async function draft(id: string, over: Json = {}, updatedHoursAgo = 1) {
@@ -57,6 +71,15 @@ describe("ordering", () => {
     expect(standard.href).toEqual({ to: "/packages/$id", id: "WP-IN-STANDARD", hash: "decide" });
   });
 
+  it("routes a lost run with an unknown outcome to someone who may reconcile it", async () => {
+    const theirs = await get("/inbox", await aliceCookie());
+    expect(theirs.items.some((i: Json) => i.package_id === "WP-IN-LOST")).toBe(false);
+    const lost = theirs.waiting_on_others.find((i: Json) => i.package_id === "WP-IN-LOST");
+    expect(lost.waiting_on).toMatch(/^someone who is an? /);
+    expect(lost.reason).toMatch(/^Reconciling it needs /);
+    expect((await get("/inbox")).items.some((i: Json) => i.package_id === "WP-IN-LOST")).toBe(true);
+  });
+
   it("lists work only someone else may sign apart, with who and why, and never counts it as yours", async () => {
     await draft("WP-IN-MATERIAL", { grade: "material", discipline: "mechanical", title: "Material grade" });
     const box = await get("/inbox");
@@ -74,6 +97,10 @@ describe("ordering", () => {
     expect(pull.statusCode, pull.body).toBe(200);
     const box = await get("/inbox");
     expect(box.items[0]).toMatchObject({ kind: "scram", title: "SCRAM: Inbox check", risk: { rank: 0, label: "Security hold" }, href: { to: "/policies", hash: "command-scram.restart" } });
+    // A draft SCRAM holds is never offered for release: it waits on the restart.
+    expect(box.items.some((i: Json) => i.package_id === "WP-IN-STANDARD")).toBe(false);
+    expect(box.waiting_on_others.find((i: Json) => i.package_id === "WP-IN-STANDARD")).toMatchObject({ waiting_on: "a restart after SCRAM" });
+    expect(box.waiting_on_others.find((i: Json) => i.package_id === "WP-IN-STANDARD").reason).toMatch(/^SCRAM scr_/);
     // The lost run from the ordering test has an unknown outcome in scope: a restart would be refused, and the item says so.
     expect(box.items[0].detail).toBe("Before a restart: 1 run in scope with an unknown outcome to reconcile. Nothing in scope runs until then.");
     const reason = "Machine checked; nothing running";
@@ -81,7 +108,11 @@ describe("ordering", () => {
     expect(ro1.statusCode, ro1.body).toBe(200);
     const settled = await h.app.inject({ method: "POST", url: "/packages/WP-IN-LOST/runs/R-n-lost/reconcile", headers: { cookie, origin: ORIGIN }, payload: { reason, assertion: key.assert(ro1.json().options) } });
     expect(settled.statusCode, settled.body).toBe(200);
-    expect((await get("/inbox")).items[0].detail).toBe("Nothing blocks a restart; restart when it is safe.");
+    expect((await get("/inbox")).items[0].detail).toBe("Nothing blocks a restart. You may restart it when it is safe.");
+    // Someone who may not restart sees it waiting on an administrator, never as theirs.
+    const theirs = await get("/inbox", await aliceCookie());
+    expect(theirs.items.some((i: Json) => i.kind === "scram")).toBe(false);
+    expect(theirs.waiting_on_others.find((i: Json) => i.kind === "scram")).toMatchObject({ waiting_on: "an administrator", detail: "Nothing blocks a restart. An administrator restarts it." });
     const r = { payload: { scram_id: pull.json().id, scope: "all", reason: "Done" } };
     const ro = await h.app.inject({ method: "POST", url: "/admin/commands/scram.restart/options", headers: { cookie, origin: ORIGIN }, payload: r });
     expect((await h.app.inject({ method: "POST", url: "/admin/commands/scram.restart", headers: { cookie, origin: ORIGIN }, payload: { ...r, assertion: key.assert(ro.json().options) } })).statusCode).toBe(200);
@@ -107,6 +138,10 @@ describe("since you last looked", () => {
       await appendEvent(c as never, "package.drafted", "WP-IN-QUICK-NEW", person, {});
       await appendEvent(c as never, "decision.release", "WP-IN-QUICK-OLD", person, {});
       await appendEvent(c as never, "decision.accept", "WP-IN-QUICK-OLD", person, {});
+      await appendEvent(c as never, "preparation.edited", "WP-IN-PREPARED", person, {});
+      await appendEvent(c as never, "preparation.confirmed", "WP-IN-PREPARED", person, {});
+      // An agent's reconcile is not a person's signature.
+      await appendEvent(c as never, "run.reconciled", "R-x", { kind: "agent", id: "author-claude" }, {});
       await c.query("commit");
     } finally {
       c.release();
@@ -114,8 +149,9 @@ describe("since you last looked", () => {
     const box = await get(`/inbox?since=${before}`);
     const lines = Object.fromEntries(box.digest.lines.map((l: Json) => [l.topic, l]));
     expect(box.digest.lines.map((l: Json) => l.topic)).toEqual(["changes", "signatures", "lateness", "disputes", "gates", "spend"]);
-    expect(lines.changes).toMatchObject({ count: 2, text: "2 packages changed: 2 drafted, 1 edited." });
-    expect(lines.signatures).toMatchObject({ count: 2, text: "2 decisions signed: 1 released, 1 accepted." });
+    expect(lines.changes.count).toBe(3);
+    expect(lines.signatures).toMatchObject({ count: 3, text: "3 signatures: 1 released, 1 accepted, 1 requirements confirmed." });
+    expect(lines.changes.text).toBe("3 packages changed: 2 drafted, 1 edited, 1 with requirements edited.");
     // The older quick draft has waited five hours; the lost run two: none past a day.
     expect(lines.lateness.text).toBe("Nothing has waited on you more than a day.");
     expect(lines.spend.text).toBe("No spend recorded.");
@@ -129,8 +165,40 @@ describe("since you last looked", () => {
     expect(box.digest.lines.find((l: Json) => l.topic === "lateness")).toMatchObject({ count: 1, text: "1 item has waited on you more than a day." });
   });
 
+  it("counts criteria as open until something shows them met, never from missing results", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-IN-VERIFY', 0, 'in-verification', $1)",
+      [{ ...example, id: "WP-IN-VERIFY", revision: 0, status: "in-verification", data_lane: "internal", design_inputs: [] }]);
+    const head = (await get("/inbox")).digest.head;
+    const gates = (await get(`/inbox?since=${head}`)).digest.lines.find((l: Json) => l.topic === "gates");
+    expect(gates.count).toBe(example.acceptance_criteria.length);
+    expect(gates.text).toMatch(/not yet met across 1 package in verification\.$/);
+  });
+
   it("ignores a cursor this log never reached", async () => {
     const box = await get("/inbox?since=99999999");
     expect(box.digest.lines).toEqual([]);
   });
+});
+
+describe("requirements confirmation", () => {
+  it("asks the person who may confirm requirements to confirm them, binding the requirements digest", async () => {
+    const p = await preparedHarness();
+    try {
+      const d = await p.draft(undefined, undefined, false);
+      const box = (await p.owner("GET", "/inbox")).json();
+      const item = box.items.find((i: Json) => i.package_id === d.id);
+      expect(item).toMatchObject({ kind: "confirm", decisions: ["confirm"], href: { to: "/packages/$id", id: d.id, hash: "preparation" } });
+      expect(item.subject_digest).toEqual(d.view.requirements_digest);
+      expect(item.binds).toBe(`Signing confirms the requirements of revision 0 of ${d.id} (sha256:${d.view.requirements_digest.value.slice(0, 12)}).`);
+      expect(box.waiting_on_others.some((i: Json) => i.package_id === d.id)).toBe(false);
+      // Once confirmed, the release says it binds the confirmed requirements too.
+      const confirmed = await p.draft();
+      const release = (await p.owner("GET", "/inbox")).json().items.find((i: Json) => i.package_id === confirmed.id);
+      expect(release).toMatchObject({ kind: "release" });
+      expect(release.binds).toMatch(/as drafted: \d+ acceptance criteri(on|a), \d+ deliverables? and its confirmed requirements and preparation basis \(sha256:/);
+    } finally {
+      await p.h.stop();
+    }
+    // It starts its own database with preparation enabled.
+  }, 120_000);
 });

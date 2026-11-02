@@ -4682,7 +4682,8 @@
               "dispute",
               "permission",
               "lost",
-              "scram"
+              "scram",
+              "confirm"
             ]
           },
           "package_id": {

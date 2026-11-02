@@ -1,6 +1,8 @@
 import type { Db } from "./db/index.js";
-import { callerFor } from "./admin.js";
-import { highConsequence, needsOf } from "./authority.js";
+import { adminActions, callerFor } from "./admin.js";
+import { ACTION_ROLES, highConsequence, needsOf, signingGaps } from "./authority.js";
+import { bindingSentence, plural } from "./binding.js";
+import { pendingConfirmation } from "./preparation/subjects.js";
 import { scramAttention } from "./scram.js";
 import { type WorkConfig, currentPackage, office, packageActions, subjectOf } from "./work.js";
 
@@ -45,18 +47,9 @@ export function gateRisk(kind: string, pkg: Json | undefined, outcomeUnknown = f
   return { rank: 40 + tier, label: GATE_LABEL[tier]! };
 }
 
+/** "someone who is an approver or a checker", from the roles that may take an action. */
+const who = (roles: readonly string[]) => (roles.length ? `someone who is ${roles.map(article).join(" or ")}` : "someone qualified");
 const article = (w: string) => `${/^[aeiou]/i.test(w) ? "an" : "a"} ${w}`;
-const short = (d: string) => `sha256:${d.slice(0, 12)}`;
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
-/** The sentence a signer reads before signing: what the digest covers, in words. */
-export function bindingSentence(kind: string, pkg: Json, revision: number, outputs: number, preCheck: Json | null, digest: string): string {
-  if (kind === "release")
-    return `Signing releases revision ${revision} of ${pkg.id} as drafted: ${plural(pkg.acceptance_criteria?.length ?? 0, "acceptance criterion", "acceptance criteria")} and ${plural(pkg.deliverables?.length ?? 0, "deliverable")} (${short(digest)}).`;
-  const check = preCheck === null ? "no pre-check" : `its pre-check (${preCheck.outcome}, ${plural(preCheck.findings?.length ?? 0, "finding")})`;
-  return `Signing binds revision ${revision} of ${pkg.id}, ${plural(outputs, "output")} and ${check} (${short(digest)}).`;
-}
-
 export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: number) {
   const caller = await callerFor(db, user);
   const mine: Json[] = [];
@@ -64,20 +57,40 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
   for (const it of await office(db)) {
     const pkg = await currentPackage(db, it.package_id);
     const body = pkg?.body;
-    const lastRun = it.kind === "lost"
-      ? (await db.query<{ body: Json }>("select body from runs where package_id = $1 and package_revision = $2 order by created_at desc limit 1", [it.package_id, it.package_revision])).rows[0]?.body
-      : undefined;
-    const risk = gateRisk(it.kind, body, Boolean(lastRun?.outcome_unknown && !lastRun?.reconciliation));
-    const wanted = DECISIONS[it.kind];
-    if (!wanted || !pkg) {
-      // Holds on runs (a waiting agent, a lost run) are the owner's to settle: requeue, reconcile, stop.
-      mine.push({ ...it, risk, href: { to: "/packages/$id", id: it.package_id, hash: "runs" } });
+    if (it.kind === "lost" || it.kind === "permission" || !pkg) {
+      // Holds on runs. A lost run whose outcome is unknown can only be settled by someone who may
+      // reconcile; anything else (requeue, stop, a waiting agent) is the owner's to settle.
+      const lastRun = it.kind === "lost"
+        ? (await db.query<{ body: Json }>("select body from runs where package_id = $1 and package_revision = $2 order by created_at desc limit 1", [it.package_id, it.package_revision])).rows[0]?.body
+        : undefined;
+      const unknown = Boolean(lastRun?.outcome_unknown && !lastRun?.reconciliation);
+      const risk = gateRisk(it.kind, body, unknown);
+      const item = { ...it, risk, href: { to: "/packages/$id", id: it.package_id, hash: "runs" } };
+      const gaps = unknown ? await signingGaps(db, user, "reconcile", needsOf(body ?? {})) : [];
+      if (gaps.length === 0) mine.push(item);
+      else others.push({ ...item, waiting_on: who(ACTION_ROLES.reconcile), reason: `Reconciling it needs ${gaps.join(" and ")}, which your qualification does not include` });
       continue;
     }
+    const risk = gateRisk(it.kind, body);
+    const s = await subjectOf(db, pkg);
+    // A prepared draft whose requirements are ready but unconfirmed asks for the confirmation first.
+    if (it.kind === "release" && s.preparation?.blockers.some((x: Json) => x.code === "requirements-unconfirmed")) {
+      const pending = await pendingConfirmation(db, pkg.id);
+      if (pending) {
+        const gaps = await signingGaps(db, user, "confirm", needsOf(body));
+        const item = { ...it, kind: "confirm", detail: "The requirements are ready to confirm with a passkey; release waits on it.", risk: { rank: risk.rank, label: risk.label },
+          binds: `Signing confirms the requirements of revision ${pkg.revision} of ${pkg.id} (sha256:${pending.requirements_digest.value.slice(0, 12)}).`,
+          subject_digest: pending.requirements_digest, href: { to: "/packages/$id", id: pkg.id, hash: "preparation" } };
+        if (gaps.length === 0) mine.push({ ...item, decisions: ["confirm"] });
+        else others.push({ ...item, decisions: [], waiting_on: who(ACTION_ROLES.confirm), reason: `Confirming needs ${gaps.join(" and ")}, which your qualification does not include` });
+        continue;
+      }
+    }
+    const wanted = DECISIONS[it.kind] ?? [];
     const actions = (await packageActions(db, cfg, user, it.package_id)).filter((a: Json) => wanted.includes(a.command));
     const allowed = actions.filter((a: Json) => a.allowed).map((a: Json) => a.command);
-    const s = await subjectOf(db, pkg);
-    const binds = bindingSentence(it.kind, { ...body, id: pkg.id }, pkg.revision, s.outputs.length, s.verification, s.digest);
+    const binds = bindingSentence(it.kind, { ...body, id: pkg.id }, pkg.revision, s.outputs.length, s.verification, s.digest,
+      { preparation: Boolean(s.preparation), criterionResults: Boolean(s.criterionResults) });
     const base = { ...it, risk, binds, subject_digest: { algorithm: "sha256", value: s.digest }, href: { to: "/packages/$id", id: it.package_id, hash: "decide" } };
     if (allowed.length > 0 || (it.kind === "dispute" && !s.verification)) {
       // A dispute from a failed or stopped run can always be requeued by the owner.
@@ -85,22 +98,40 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
     } else {
       const refused = actions.find((a: Json) => !a.allowed);
       const roles = [...new Set(actions.flatMap((a: Json) => a.authority ?? []))] as string[];
-      others.push({ ...base, decisions: [], waiting_on: roles.length ? `someone who is ${roles.map(article).join(" or ")}` : "someone qualified",
+      others.push({ ...base, decisions: [], waiting_on: refused?.reason_code === "scram-stopped" ? "a restart after SCRAM" : who(roles),
         ...(refused?.reason ? { reason: refused.reason } : {}) });
     }
   }
+  const standing = new Map((await adminActions(db, caller)).map((a: Json) => [a.command, a]));
+  const mayReconcile = (await signingGaps(db, user, "reconcile", {})).length === 0;
   for (const a of await scramAttention(db, caller.orgId)) {
-    // Every blocker is named; "ready" is said only when a full restart would be accepted.
+    // What stands between the SCRAM and a full restart, and which next step is this person's.
     const blockers = [
       a.stopping > 0 ? `${plural(a.stopping, "run")} still stopping` : "",
       a.unknown > 0 ? `${plural(a.unknown, "run")} in scope with an unknown outcome to reconcile` : "",
       a.unreviewed > 0 ? `${plural(a.unreviewed, "stopped run")} to review` : "",
     ].filter(Boolean);
-    const detail = blockers.length > 0
-      ? `Before a restart: ${blockers.join("; ")}. Nothing in scope runs until then.`
-      : "Nothing blocks a restart; restart when it is safe.";
-    mine.push({ kind: "scram", scram_id: a.scram.id, title: `SCRAM: ${a.scram.reason}`, detail, since: a.since,
-      risk: gateRisk("scram", undefined), href: { to: "/policies", hash: a.unreviewed > 0 ? "command-scram.review" : "command-scram.restart" } });
+    const mayReview = standing.get("scram.review")?.allowed === true;
+    const mayRestart = standing.get("scram.restart")?.allowed === true;
+    let mineToo = false;
+    let waiting = "";
+    let detail: string;
+    let hash = "command-scram.restart";
+    if (blockers.length > 0) {
+      detail = `Before a restart: ${blockers.join("; ")}. Nothing in scope runs until then.`;
+      if (a.unreviewed > 0) hash = "command-scram.review";
+      mineToo = (a.unreviewed > 0 && mayReview) || (a.unknown > 0 && mayReconcile);
+      if (!mineToo) waiting = a.unreviewed > 0 || a.unknown > 0 ? who(ACTION_ROLES.reconcile) : "the daemon to stop the runs";
+    } else {
+      detail = mayRestart
+        ? "Nothing blocks a restart. You may restart it when it is safe."
+        : "Nothing blocks a restart. An administrator restarts it.";
+      mineToo = mayRestart;
+      if (!mineToo) waiting = "an administrator";
+    }
+    const item = { kind: "scram", scram_id: a.scram.id, title: `SCRAM: ${a.scram.reason}`, detail, since: a.since, risk: gateRisk("scram", undefined), href: { to: "/policies", hash } };
+    if (mineToo) mine.push(item);
+    else others.push({ ...item, waiting_on: waiting });
   }
   const order = (x: Json, y: Json) => x.risk.rank - y.risk.rank || Date.parse(x.since) - Date.parse(y.since);
   mine.sort(order);
@@ -114,6 +145,17 @@ const CHANGE_TYPES: Record<string, string> = {
   "package.revising": "sent back for revision",
   "package.output": "with new output",
   "package.pre-checked": "pre-checked",
+  "preparation.edited": "with requirements edited",
+};
+/** Signed acts by people, in words. */
+const SIGNED_WORDS: Record<string, string> = {
+  "preparation.confirmed": "requirements confirmed",
+  "run.reconciled": "runs reconciled",
+  "run.independence-override": "independence overrides",
+  "scram.pulled": "SCRAM pulled",
+  "quarantine-review.recorded": "quarantine reviews",
+  "scram-restart.recorded": "SCRAM restarts",
+  "person-verification.recorded": "person verifications",
 };
 const DECISION_WORDS: Record<string, string> = {
   release: "released", accept: "accepted", "accept-with-findings": "accepted with findings", return: "returned", reject: "rejected",
@@ -127,8 +169,9 @@ const DECISION_WORDS: Record<string, string> = {
 export async function digestSince(db: Db, since: number | undefined, mine: Json[]) {
   const head = (await db.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from events")).rows[0]!.n;
   if (since === undefined || !Number.isInteger(since) || since < 0 || since > head) return { head, lines: [] };
-  const rows = (await db.query<{ type: string; subject: string }>(
-    "select body->>'type' as type, body->>'subject' as subject from events where seq > $1 order by seq", [since])).rows;
+  // Bounded by the head this answer reports, so marking seen never skips or double counts an event.
+  const rows = (await db.query<{ type: string; subject: string; actor: string }>(
+    "select body->>'type' as type, body->>'subject' as subject, body->'actor'->>'kind' as actor from events where seq > $1 and seq <= $2 order by seq", [since, head])).rows;
 
   const changed = new Map<string, Set<string>>();
   const signed: Record<string, number> = {};
@@ -140,7 +183,10 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
       changed.get(what)!.add(r.subject);
     }
     if (r.type.startsWith("decision.")) {
-      const k = r.type.slice("decision.".length);
+      const k = DECISION_WORDS[r.type.slice("decision.".length)] ?? "other decisions";
+      signed[k] = (signed[k] ?? 0) + 1;
+    } else if (SIGNED_WORDS[r.type] && r.actor === "human") {
+      const k = SIGNED_WORDS[r.type]!;
       signed[k] = (signed[k] ?? 0) + 1;
     }
     if (r.type === "run.breaker") breaker++;
@@ -150,8 +196,8 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
     ? "No package changed."
     : `${plural(packages.size, "package")} changed: ${[...changed.entries()].map(([w, s]) => `${s.size} ${w}`).join(", ")}.`;
   const signatures = Object.keys(signed).length === 0
-    ? "No decisions were signed."
-    : `${plural(Object.values(signed).reduce((a, b) => a + b, 0), "decision")} signed: ${Object.entries(signed).map(([k, n]) => `${n} ${DECISION_WORDS[k] ?? k}`).join(", ")}.`;
+    ? "Nothing was signed."
+    : `${plural(Object.values(signed).reduce((a, b) => a + b, 0), "signature")}: ${Object.entries(signed).map(([k, n]) => `${n} ${k}`).join(", ")}.`;
   const late = mine.filter((m) => Date.now() - Date.parse(m.since) > LATE_AFTER_MS).length;
   const lateness = late === 0 ? "Nothing has waited on you more than a day." : `${plural(late, "item")} ${late === 1 ? "has" : "have"} waited on you more than a day.`;
   const disputes = mine.filter((m) => m.kind === "dispute").length;
@@ -159,10 +205,9 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
     ? "No disputes are open."
     : `${plural(disputes, "dispute")} open${breaker > 0 ? `; the breaker stopped ${plural(breaker, "run")}` : ""}.`;
   const gates = await openCriteria(db);
-  const gateLine = gates.criteria === 0 && gates.failedChecks === 0
+  const gateLine = gates.criteria === 0
     ? "No gate criteria are open."
-    : [gates.criteria > 0 ? `${plural(gates.criteria, "gate criterion", "gate criteria")} not yet met across ${plural(gates.packages, "package")}` : "",
-      gates.failedChecks > 0 ? `${plural(gates.failedChecks, "package")} whose pre-check did not pass` : ""].filter(Boolean).join("; ") + ".";
+    : `${plural(gates.criteria, "gate criterion", "gate criteria")} not yet met across ${plural(gates.packages, "package")} in verification.`;
   return {
     head,
     lines: [
@@ -170,31 +215,39 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
       { topic: "signatures", text: signatures, count: Object.values(signed).reduce((a, b) => a + b, 0) },
       { topic: "lateness", text: lateness, count: late },
       { topic: "disputes", text: disputeLine, count: disputes },
-      { topic: "gates", text: gateLine, count: gates.criteria + gates.failedChecks },
+      { topic: "gates", text: gateLine, count: gates.criteria },
       // Spend is recorded with budgets and usage (plan 5.2); until then there is none to report.
       { topic: "spend", text: "No spend recorded.", count: 0 },
     ],
   };
 }
 
-/** Readiness as counts: criteria whose admitted result is not a pass, and packages whose pre-check did not pass. */
-async function openCriteria(db: Db): Promise<{ criteria: number; packages: number; failedChecks: number }> {
-  const pk = await db.query<{ id: string; revision: number }>("select distinct on (id) id, revision from packages where status = 'in-verification' order by id, revision desc");
+/**
+ * Readiness as counts (OV-09), from the criteria each package in verification must meet: a
+ * criterion is open until an admitted result passes it, and for a package without per criterion
+ * results, until its pre-check passes. Absence of a result is never counted as met.
+ */
+async function openCriteria(db: Db): Promise<{ criteria: number; packages: number }> {
+  const pk = await db.query<{ id: string }>("select distinct on (id) id from packages where status = 'in-verification' order by id, revision desc");
   let criteria = 0;
   let packages = 0;
-  let failedChecks = 0;
   for (const p of pk.rows) {
     const pkg = await currentPackage(db, p.id);
     if (!pkg || pkg.status !== "in-verification") continue;
     const s = await subjectOf(db, pkg);
-    const results: Json[] | undefined = s.criterionResults?.body?.results;
-    if (results) {
-      const open = results.filter((r) => r.outcome !== "pass").length;
-      if (open > 0) {
-        criteria += open;
-        packages++;
-      }
-    } else if (s.verification && s.verification.outcome !== "pass") failedChecks++;
+    let open: number;
+    if (s.preparation) {
+      const inventory: Json[] = s.preparation.snapshot?.criteria ?? [];
+      const passed = new Set(((s.criterionResults?.evidence_valid ? s.criterionResults.body?.results : undefined) ?? [])
+        .filter((r: Json) => r.outcome === "pass").map((r: Json) => r.criterion_id));
+      open = inventory.filter((c) => !passed.has(c.id)).length;
+    } else {
+      open = s.verification?.outcome === "pass" ? 0 : (pkg.body.acceptance_criteria?.length ?? 0);
+    }
+    if (open > 0) {
+      criteria += open;
+      packages++;
+    }
   }
-  return { criteria, packages, failedChecks };
+  return { criteria, packages };
 }

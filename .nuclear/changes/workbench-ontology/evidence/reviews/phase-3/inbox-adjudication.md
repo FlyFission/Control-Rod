@@ -59,3 +59,9 @@ Verification after round 4 fixes: API 510 passed, 1 skipped; web 121 passed.
 | Medium: disputes line | Fixed | The digest counts every open dispute, whoever must settle it, so "No disputes are open" is said only when there are none. |
 
 Verification after round 5 fixes: API 511 passed, 1 skipped; web 121 passed.
+
+## Round 6 (verdict MERGE)
+
+P3B-14, P3B-15 and the disputes Medium closed; no new High or Critical findings. The Medium is fixed before merge: a held intake item's button reads "Open Packages", where its capture is listed, instead of promising to open the capture itself.
+
+Final verification: API 511 passed, 1 skipped; web 121 passed.

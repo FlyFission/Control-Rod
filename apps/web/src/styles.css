@@ -552,6 +552,61 @@ select {
   margin: 4px 0 0;
 }
 
+.binds {
+  margin: 6px 0 8px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--needs);
+  background: #15130d;
+  border-radius: 0 6px 6px 0;
+  color: var(--text-2);
+}
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.waiting-others {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.waiting-others summary {
+  cursor: pointer;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+}
+.waiting-others summary::-webkit-details-marker {
+  display: none;
+}
+.waiting-others summary::before {
+  content: "▸";
+  color: var(--muted);
+  width: 1em;
+}
+.waiting-others[open] summary::before {
+  content: "▾";
+}
+.office-item.theirs {
+  border-color: var(--line);
+  background: transparent;
+}
+.digest {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+.digest li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.digest li.quiet {
+  color: var(--muted);
+}
+
 /* Sign in */
 .signin {
   min-height: 100vh;

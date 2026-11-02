@@ -47,3 +47,11 @@ export interface AdminView {
   actions: ActionDescriptor[];
   floors: { code: string; sentence: string; change: string }[];
 }
+export type AttentionItem = S["AttentionItem"];
+export type DigestLine = S["DigestLine"];
+/** GET /inbox: what waits on the viewer, what waits on others, and the digest since a sequence. */
+export interface InboxView {
+  items: AttentionItem[];
+  waiting_on_others: AttentionItem[];
+  digest: { head: number; lines: DigestLine[] };
+}

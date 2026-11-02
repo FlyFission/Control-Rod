@@ -7098,6 +7098,10 @@
           "stop_requested_by": {
             "type": "string"
           },
+          "scram_id": {
+            "type": "string",
+            "description": "The SCRAM that stopped this run (specification 22a). Whatever the run reports afterwards is\nquarantined: retained privately with its digests and never applied until a person reviews it."
+          },
           "waiting_reason": {
             "type": "string",
             "maxLength": 300,

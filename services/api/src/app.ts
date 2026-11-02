@@ -278,11 +278,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown>; assertion?: Record<string, unknown> } }>("/admin/commands/:name", async (req) => {
     const user = await person(req);
     const caller = await callerFor(db, user);
-    let signed: { subject: string; credentialId: string } | null = null;
+    let signed: { subject: string; credentialId: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
       const ok = await assertionVerify(db, auth, "admin", req.body.assertion as never);
       if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId)
-        signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId };
+        signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, assertion: req.body.assertion };
     }
     return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, req.params.name, caller, req.body?.payload ?? {}, signed);
   });

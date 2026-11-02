@@ -13,6 +13,7 @@ import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
+import { enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramRunEnded } from "./scram.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -753,6 +754,7 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
 
 export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map()) {
   return command(db, "run.claim", async (c) => {
+    await enterScramGate(c);
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
     // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
     let cursor: { at: string; id: string } | null = null;
@@ -771,6 +773,12 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
       for (const candidate of queued.rows) {
         let row=candidate;
         if(!legacyRun(row)) continue;
+        // SCRAM holds everything in its scope: nothing there is handed out until a restart lifts it.
+        const scram = await scramHolding(c, await runSubject(c, row));
+        if (scram) {
+          await holdRun(c, cfg, row, row.package_id, `SCRAM ${scram.id} has stopped this work: ${scram.reason}`.slice(0, 300));
+          continue;
+        }
         if (row.role !== "intake") {
           const pkg = await currentPackage(c, row.package_id, true);
           if (!pkg || pkg.revision !== row.package_revision) {
@@ -899,6 +907,7 @@ async function outageNow(c: Tx): Promise<boolean> {
 async function leaseGrace(c: Tx, cfg: WorkConfig, runId: string): Promise<string | null> {
   const sup = cfg.supervision;
   if (!sup) return null;
+  if ((await c.query("select 1 from runs where id = $1 and body ? 'scram_id'", [runId])).rowCount) return null;
   if (!sup.issued?.has(runId)) return "the lease was granted before the controller restarted";
   if (controllerAbsent(cfg)) return "the controller was not sweeping when the lease lapsed";
   // An outage, once seen, lasts a lease: runs that come back one by one each count, even after
@@ -1094,6 +1103,7 @@ export async function runEvidence(db: Db, cfg: WorkConfig, runId: string, body: 
       validate(cfg, "Run.json", lost);
       await c.query("update runs set status = 'lost', body = $2 where id = $1", [row.id, lost]);
       await appendEvent(c, "run.lost", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+      await scramRunEnded(c, row.id);
     }
     if (!whole) {
       await appendEvent(c, "run.evidence", row.id, agent, { package: row.package_id, observation: "process-gone", containment: r.containment, evidence });
@@ -1289,6 +1299,9 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
     for (const row of r.rows) {
       // A run already renewed once without a heartbeat gets no more grace, whatever the reason.
       if ((row.body.grace_renewals ?? 0) >= MAX_GRACE_RENEWALS) { definite.push(row); continue; }
+      // A run SCRAM told to stop gets no grace: a daemon out of contact for a whole lease counts as
+      // stopped with an unknown outcome, which holds restart until it is reconciled.
+      if (row.body.scram_id) { definite.push(row); continue; }
       const inherited = sup !== undefined && !sup.issued?.has(row.id);
       if (slept || inherited) {
         await renewLease(c, cfg, row, slept ? "the controller was not sweeping when this lease lapsed" : "this lease was granted before the controller restarted");
@@ -1334,6 +1347,7 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
       validate(cfg, "Run.json", body);
       await c.query("update runs set status = 'lost', body = $2 where id = $1", [row.id, body]);
       await appendEvent(c, "run.lost", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+      await scramRunEnded(c, row.id);
       lost.push(row.id);
     }
     return lost;
@@ -1343,6 +1357,7 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
 /** The owner queues a new run in place of a lost, failed or stopped one. Repeating is harmless. */
 export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageId: string, runId: string) {
   return command(db, "run.requeue", async (c) => {
+    await enterScramGate(c);
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
     if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
@@ -1355,6 +1370,7 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
     }
     if (row.body.outcome_unknown && !row.body.reconciliation)
       throw new Refusal(409, "outcome-unknown", "This run's outcome is unknown: its process may still be running. Reconcile it first");
+    await refuseIfScrammed(c, await runSubject(c, row));
     if (row.role !== "intake") {
       const pkg = await currentPackage(c, packageId, true);
       const want = row.role === "author" ? ["in-work", "released"] : ["in-verification"];
@@ -1543,6 +1559,9 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
   if (key.length < 8 || key.length > 100) throw new Refusal(400, "invalid", "A completion needs an idempotency key");
   try {
     return await command(db, "run.complete", async (c) => {
+      // The SCRAM gate before the row lock (the order pulls use), so a pull and this completion
+      // cannot interleave.
+      await enterScramGate(c);
       const row = await lockRun(c, runId);
       requireLegacyRun(row);
       if (!holdsClaim(row.claim_token_hash, body.claim_token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
@@ -1564,6 +1583,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
     if (e instanceof ApplyRefusal) return recordRefused(db, cfg, runId, key, body, e.refusal);
     if (e instanceof LateCompletion) {
       await command(db, "run.complete", async c=>{
+        await enterScramGate(c);
         const row=await lockRun(c,runId);
         if(!holdsClaim(row.claim_token_hash,body.claim_token)) throw new Refusal(403,"stale-claim","This claim token does not hold the run");
         const enrolled=Boolean((await c.query("select 1 from preparation_heads where package_id=$1",[row.package_id])).rowCount);
@@ -1577,9 +1597,11 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
           validate(cfg, "Run.json", lostBody);
           await c.query("update runs set status = 'lost', body = $2 where id = $1", [runId, lostBody]);
           await appendEvent(c, "run.lost", runId, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+          await scramRunEnded(c, row.id);
         }
         if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
         const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
+        if (row.body.scram_id) await quarantineScramCompletion(c, runId, key, body);
         // A late completion settles the hold only when a cgroup proved the whole run stopped; under
         // process group containment a process that left the group may still run.
         if (provesEnded(row, body))
@@ -1594,6 +1616,8 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
 
 async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string, body: Json) {
   requireLegacyRun(row);
+  // A run SCRAM stopped reports into quarantine: retained privately with its digests, never applied.
+  if (row.body.scram_id) throw new Refusal(409, "scram-quarantined", `SCRAM ${String(row.body.scram_id)} stopped this run; what it reported is quarantined for review`);
   if(row.body.stop_requested_at && (body.status==="succeeded" || row.body.preparation_manifest_digest)) throw new Refusal(409,"stopped","The owner stopped this run; its output cannot advance the package");
   if(row.role!=="intake") {
     const pkg=await currentPackage(c,row.package_id,true);
@@ -1672,9 +1696,14 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
 }
 
 /** Applying a completion was refused: the run ends failed with the refusal as its reason. */
-async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string, body: Json, refusal: Refusal) {
+async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string, body: Json, given: Refusal) {
   return command(db, "run.record-refused", async (c) => {
+    await enterScramGate(c);
     const row = await lockRun(c, runId);
+    // SCRAM may have reached the run after the refused attempt rolled back: the locked row decides.
+    const refusal = row.body.scram_id && given.code !== "scram-quarantined"
+      ? new Refusal(409, "scram-quarantined", `SCRAM ${String(row.body.scram_id)} stopped this run; what it reported is quarantined for review`)
+      : given;
     requireLegacyRun(row);
     if (!holdsClaim(row.claim_token_hash, body.claim_token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
     if (row.completion_key !== null) {
@@ -1691,11 +1720,13 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     };
     delete finished.lease_expires_at;
     validate(cfg, "Run.json", finished);
-    const status=refusal.code==="stopped"?"stopped":"failed";
+    const status=refusal.code==="stopped"||refusal.code==="scram-quarantined"?"stopped":"failed";
     finished.status=status;
+    if (refusal.code === "scram-quarantined") finished.label = "Quarantined";
     holdIfUnproven(row, finished, body);
     if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
     await quarantineCompletion(c,runId,key,body,refusal.code);
+    if (row.body.scram_id) await quarantineScramCompletion(c, runId, key, body);
     const receipt = receiptOf(runId, key, status, [], refusal);
     await c.query("update runs set status = $5, body = $2, completion_key = $3, receipt = $4 where id = $1", [
       runId,
@@ -1711,6 +1742,7 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
       refused: refusal.code,
       reason: refusal.message,
     });
+    await scramRunEnded(c, row.id);
     return receipt;
   });
 }
@@ -2027,11 +2059,14 @@ export async function applyDecision(
   signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
 ) {
   return command(db, "decision.apply", async (c) => {
+    // The gate first, before any row lock, so lock order is the same as in claims and pulls.
+    if (req.kind === "release") await enterScramGate(c);
     if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");
     if (!(req.kind in HUMAN_ACTIONS)) throw new Refusal(400, "invalid", "Unknown decision");
+    if (req.kind === "release") await refuseIfScrammed(c, { kind: "package", id: pkg.id, ...(pkg.body.discipline ? { discipline: String(pkg.body.discipline) } : {}) });
     // Authority is read inside the writer transaction, so a revocation that lands first is honored.
     await requireAuthority(c, user, req.kind as SignerAction, needsOf(pkg.body));
     if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));

@@ -81,23 +81,6 @@ export function decisionLabel(kind: DecisionKind, firstRole: string | undefined)
   return DECISION_LABEL[kind];
 }
 
-/** Decisions offered for a package in this state. */
-export function availableDecisions(status: string, hasPreCheck: boolean, outcome?: string): DecisionKind[] {
-  switch (status) {
-    case "draft":
-      return ["release", "reject"];
-    case "released":
-    case "in-work":
-      return ["return", "reject"];
-    case "in-verification":
-      if (!hasPreCheck) return ["return", "reject"];
-      return outcome === "pass"
-        ? ["accept", "return", "reject"]
-        : ["accept-with-findings", "return", "reject"];
-    default:
-      return [];
-  }
-}
 
 /**
  * Settles a lost run whose outcome is unknown: the person signs that it will not report, with the

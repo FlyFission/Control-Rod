@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import pg from "pg";
+import { survivesIdleDrops } from "./writer.js";
 import { READER, type RoleSecrets, type RoleUrls, WRITER, assertLogin, provisionRoles, roleUrl, verifyRoles } from "./roles.js";
 import { PREPARATION_PROTOCOL } from "./migrations/006-compatibility.js";
 import { migrate } from "./migrate.js";
@@ -25,7 +26,7 @@ export interface DbRoles {
  * if either role is stronger than it should be or a pool is not logged in as its role.
  */
 export async function openDb(connectionString: string, roles: DbRoles = {}): Promise<Db> {
-  const owner = new pg.Pool({ connectionString, max: 2 });
+  const owner = survivesIdleDrops(new pg.Pool({ connectionString, max: 2 }), "migration");
   let reader: Db | undefined;
   try {
     const secrets = roles.secrets ?? { reader: randomBytes(24).toString("hex"), writer: randomBytes(24).toString("hex") };
@@ -34,7 +35,7 @@ export async function openDb(connectionString: string, roles: DbRoles = {}): Pro
     const { WRITER_READ_ONLY_TABLES } = await import("./migrations/011-roles.js");
     await verifyRoles(owner, WRITER_READ_ONLY_TABLES);
     const urls = roles.urls ?? { readerUrl: roleUrl(connectionString, READER, secrets.reader), writerUrl: roleUrl(connectionString, WRITER, secrets.writer) };
-    reader = new pg.Pool({ connectionString: urls.readerUrl, max: 10 });
+    reader = survivesIdleDrops(new pg.Pool({ connectionString: urls.readerUrl, max: 10 }), "reader");
     await assertLogin(reader, READER);
     const { attachWriter, command } = await import("../commands/executor.js");
     await attachWriter(reader, urls.writerUrl);

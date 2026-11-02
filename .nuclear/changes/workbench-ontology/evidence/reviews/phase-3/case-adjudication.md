@@ -26,3 +26,7 @@ P3C-01 to P3C-04 and the round 1 Mediums closed; no new High or Critical finding
 | Medium: empty story after a failed refresh | Fixed | An empty story says the refresh failed (or, for a live run, that no events have arrived yet) instead of claiming none were recorded. |
 
 Final verification: API 511 passed, 1 skipped; web 135 passed; exit spec 4 passed with assertions.
+
+## CI finding before merge
+
+CI's TypeScript job reported three unhandled `57P01` (administrator shutdown) errors while the preparation test files stopped their databases; every test passed. The cause was real beyond the tests: no database pool had an `error` listener, so an idle connection the server drops (a restart, an administrator's shutdown) is an uncaught error that ends the process. The reader, writer and migration pools now note the drop and carry on (the pool opens a new connection on next use), and the test harness's owner pools expect it at shutdown. Test: `test/pool-resilience.test.ts`.

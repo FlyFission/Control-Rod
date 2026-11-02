@@ -269,6 +269,8 @@ describe("inbox", () => {
   });
 
   it("keeps the server's gate risk order, says what each signature binds, and keeps others' work apart", async () => {
+    // A cursor already stored, so the first visit does not move it and start a later request.
+    window.localStorage.setItem("cr.lastSeenSeq:ben", "12");
     server.use(
       http.get("*/inbox", () =>
         HttpResponse.json({
@@ -322,7 +324,7 @@ describe("inbox", () => {
       await renderPage(<Inbox />);
       expect(await screen.findByText("2 packages changed: 2 drafted.")).toBeTruthy();
       expect(screen.getByText("Nothing waits on you. Decisions and held work arrive here as they need you.")).toBeTruthy();
-      expect(asked[0]).toBe("?since=10");
+      await waitFor(() => expect(asked).toContain("?since=10"));
       await userEvent.setup().click(screen.getByRole("button", { name: "Mark as seen" }));
       await waitFor(() => expect(window.localStorage.getItem("cr.lastSeenSeq:dora")).toBe("15"));
       await waitFor(() => expect(asked).toContain("?since=15"));

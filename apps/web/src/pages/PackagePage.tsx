@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { ApiError, api } from "../api/client.js";
 import type { PackageView, VerificationRecord, WorkPackage } from "../api/types.js";
 import { CriterionCoverage } from "../components/preparation/CriterionCoverage.js";
@@ -39,6 +39,11 @@ export function PackagePage({ id }: { id: string }) {
           {pkg.id} · rev {pkg.revision} · {pkg.project}
         </p>
         <h1>{pkg.title}</h1>
+        <p className="small">
+          <Link to="/packages/$id/case" params={{ id: pkg.id }}>
+            Open the case view (preview)
+          </Link>
+        </p>
         <div className="pkg-tags">
           <span className="tag">{pkg.mode}</span>
           <span className="tag">{pkg.rigor_mode}</span>

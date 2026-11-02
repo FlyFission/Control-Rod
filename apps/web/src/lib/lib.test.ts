@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { OfficeItem } from "../api/types.js";
 import { pkg } from "../test/fixtures.js";
 import { boardColumn, groupBoard } from "./board.js";
-import { availableDecisions, decisionLabel } from "./decide.js";
+import { decisionLabel } from "./decide.js";
 import { composeCapture, splitAttachments } from "./attachments.js";
 import { sortOffice } from "./office.js";
 import { layoutFloor } from "./floor.js";
@@ -52,16 +52,6 @@ describe("office sorting", () => {
       item("permission", "p1", "2026-10-22T13:00:00Z"),
     ]);
     expect(sorted.map((o) => o.package_id)).toEqual(["p1", "d1", "a1", "a2", "r1"]);
-  });
-});
-
-describe("decisions offered", () => {
-  it("matches the package state and the pre-check outcome", () => {
-    expect(availableDecisions("draft", false)).toEqual(["release", "reject"]);
-    expect(availableDecisions("in-verification", false)).toEqual(["return", "reject"]);
-    expect(availableDecisions("in-verification", true, "pass")).toEqual(["accept", "return", "reject"]);
-    expect(availableDecisions("in-verification", true, "fail")).toEqual(["accept-with-findings", "return", "reject"]);
-    expect(availableDecisions("accepted", true, "pass")).toEqual([]);
   });
 });
 

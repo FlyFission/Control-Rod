@@ -8638,6 +8638,10 @@
           "subject_digest": {
             "$ref": "#/components/schemas/ControlRod.Records.Digest",
             "description": "Digest a decision on this revision must be bound to."
+          },
+          "binds": {
+            "type": "string",
+            "description": "What a signature on this revision binds, in words (drafts and work in verification)."
           }
         },
         "description": "What the web app shows for one package: the revision, its runs, output and decisions."

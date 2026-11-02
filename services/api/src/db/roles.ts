@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, closeSync, lstatSync, openSync, readFileSync, writeSync } from "node:fs";
 import pg from "pg";
+import { survivesIdleDrops } from "./writer.js";
 
 /**
  * Login roles for the command boundary (specification 10.1). The application reads as
@@ -65,7 +66,7 @@ function assertSecrets(s: RoleSecrets): void {
 
 /** Whether a login already accepts this password, so provisioning can leave it alone. */
 async function canLogIn(ownerUrl: string, role: string, password: string): Promise<boolean> {
-  const probe = new pg.Pool({ connectionString: roleUrl(ownerUrl, role, password), max: 1, connectionTimeoutMillis: 5000 });
+  const probe = survivesIdleDrops(new pg.Pool({ connectionString: roleUrl(ownerUrl, role, password), max: 1, connectionTimeoutMillis: 5000 }), "login probe");
   try {
     await probe.query("select 1");
     return true;

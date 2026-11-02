@@ -16,7 +16,8 @@ export function bindingSentence(kind: string, pkg: Json, revision: number, outpu
   scope: { preparation?: boolean; criterionResults?: boolean } = {}): string {
   const prepared = scope.preparation ? ["its confirmed requirements and preparation basis"] : [];
   if (kind === "release")
-    return `Signing releases revision ${revision} of ${pkg.id} as drafted: ${list([
+    // Worded for any decision on a draft (release or reject): what the signature binds, not the act.
+    return `Signing binds revision ${revision} of ${pkg.id} as drafted: ${list([
       plural(pkg.acceptance_criteria?.length ?? 0, "acceptance criterion", "acceptance criteria"),
       plural(pkg.deliverables?.length ?? 0, "deliverable"),
       ...prepared,

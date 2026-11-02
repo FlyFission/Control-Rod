@@ -97,6 +97,7 @@ test("accessibility: no WCAG 2.2 AA violations on any place, the case view or th
   const pal = await new AxeBuilder({ page }).include(".palette").withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
   for (const v of pal.violations) report.push(`palette: ${v.id} (${v.impact}) ${v.nodes.length}`);
   console.log("AXE " + (report.length ? report.join("\nAXE ") : "no violations"));
+  expect(report).toEqual([]);
 });
 
 test("keyboard: skip link, every place, palette open, choose and return", async ({ page, browserName }) => {
@@ -111,11 +112,15 @@ test("keyboard: skip link, every place, palette open, choose and return", async 
     stops.push(await page.evaluate(() => (document.activeElement?.getAttribute("aria-label") || document.activeElement?.textContent || "").trim().slice(0, 30)));
   }
   console.log("TAB " + stops.join(" > "));
+  expect(stops[0]).toBe("Skip to content");
+  for (const place of ["Inbox", "Office", "Packages", "Registers", "Explore", "Roster", "Usage", "Records", "Policies"])
+    expect(stops.some((s) => s.startsWith(place))).toBe(true);
   await page.keyboard.press("Control+k");
   await page.keyboard.type("roster");
   await page.keyboard.press("Enter");
   await page.waitForURL("**/roster");
   console.log("PALETTE navigated to " + new URL(page.url()).pathname);
+  expect(new URL(page.url()).pathname).toBe("/roster");
 });
 
 test("reflow at 320 CSS px: no horizontal scrolling on any place", async ({ page, browserName }) => {
@@ -129,6 +134,7 @@ test("reflow at 320 CSS px: no horizontal scrolling on any place", async ({ page
     if (sw > 320) bad.push(`${place}=${sw}`);
   }
   console.log("REFLOW " + (bad.length ? bad.join(" ") : "all fit"));
+  expect(bad).toEqual([]);
 });
 
 test("case view interactive with 1,000 events", async ({ page, browserName }) => {
@@ -140,5 +146,9 @@ test("case view interactive with 1,000 events", async ({ page, browserName }) =>
   const t1 = Date.now();
   await page.getByRole("button", { name: /Show all 500 steps/ }).click();
   await page.getByText("Read: src/file-0.ts").waitFor();
-  console.log(`PERF first story view ${ms} ms; show all 500 steps ${Date.now() - t1} ms`);
+  const all = Date.now() - t1;
+  console.log(`PERF first story view ${ms} ms; show all 500 steps ${all} ms`);
+  // Specification Q-10: first meaningful view under 1.5 s.
+  expect(ms).toBeLessThan(1500);
+  expect(all).toBeLessThan(1500);
 });

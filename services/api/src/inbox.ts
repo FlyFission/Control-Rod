@@ -3,6 +3,7 @@ import { adminActions, callerFor } from "./admin.js";
 import { ACTION_ROLES, highConsequence, needsOf, signingGaps } from "./authority.js";
 import { bindingSentence, plural } from "./binding.js";
 import { pendingConfirmation } from "./preparation/subjects.js";
+import { currentQualification } from "./tenancy.js";
 import { runSubject, scramAttention, scramHolding } from "./scram.js";
 import { type WorkConfig, currentPackage, office, packageActions, subjectOf } from "./work.js";
 
@@ -52,8 +53,31 @@ const who = (roles: readonly string[]) => (roles.length ? `someone who is ${role
 const article = (w: string) => `${/^[aeiou]/i.test(w) ? "an" : "a"} ${w}`;
 const refusedForScram = (actions: Json[]) => actions.some((a) => a.reason_code === "scram-stopped");
 
+/**
+ * Who resolves a waiting agent's hold, when it is not the viewer; null when the viewer may. An
+ * independence hold needs an approver's override, a pin hold an administrator's pin, a lane hold
+ * lane authority; preparation holds and unrecorded causes are the owner's to fix.
+ */
+async function holdResolver(db: Db, user: string, run: Json, body: Json, standing: Map<string, Json>, authorities: Set<string>): Promise<{ who: string; why: string } | null> {
+  switch (run?.waiting_cause) {
+    case "independent-runtime": {
+      const gaps = await signingGaps(db, user, "override-independence", needsOf(body ?? {}));
+      return gaps.length === 0 ? null : { who: who(ACTION_ROLES["override-independence"]), why: `Overriding independence needs ${gaps.join(" and ")}, which your qualification does not include` };
+    }
+    case "runtime-pin":
+      return standing.get("runtime.pin")?.allowed ? null : { who: "an administrator", why: "Pinning a runtime version needs administrator authority" };
+    case "lane":
+      return authorities.has("lane") ? null : { who: "someone with lane authority", why: "Changing which runtimes a data lane admits needs lane authority" };
+    default:
+      return null;
+  }
+}
+
 export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: number) {
   const caller = await callerFor(db, user);
+  const standing = new Map((await adminActions(db, caller)).map((a: Json) => [a.command, a]));
+  const q = await currentQualification(db, caller.memberId);
+  const authorities = new Set<string>(q && !q.revoked ? q.authorities : []);
   const mine: Json[] = [];
   const others: Json[] = [];
   for (const it of await office(db)) {
@@ -62,9 +86,7 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
     if (it.kind === "lost" || it.kind === "permission" || !pkg) {
       // Holds on runs. A lost run whose outcome is unknown can only be settled by someone who may
       // reconcile; anything else (requeue, stop, a waiting agent) is the owner's to settle.
-      const lastRun = it.kind === "lost"
-        ? (await db.query<{ body: Json }>("select body from runs where package_id = $1 and package_revision = $2 order by created_at desc limit 1", [it.package_id, it.package_revision])).rows[0]?.body
-        : undefined;
+      const lastRun = (await db.query<{ body: Json }>("select body from runs where package_id = $1 and package_revision = $2 order by created_at desc limit 1", [it.package_id, it.package_revision])).rows[0]?.body;
       const unknown = Boolean(lastRun?.outcome_unknown && !lastRun?.reconciliation);
       const risk = gateRisk(it.kind, body, unknown);
       const item = { ...it, risk, href: { to: "/packages/$id", id: it.package_id, hash: "runs" } };
@@ -77,8 +99,15 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
       }
       // Requeueing (and a waiting agent's next run) is refused while SCRAM holds the work.
       const held = await scramHolding(db, await runSubject(db, { role: lastRun?.role ?? "author", package_id: it.package_id }));
-      if (held) others.push({ ...item, waiting_on: "a restart after SCRAM", reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
-      else mine.push(item);
+      if (held) {
+        if (standing.get("scram.restart")?.allowed) mine.push(item);
+        else others.push({ ...item, waiting_on: "a restart after SCRAM", reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
+        continue;
+      }
+      // A waiting agent goes to whoever may resolve what holds it.
+      const resolver = it.kind === "permission" ? await holdResolver(db, user, lastRun, body, standing, authorities) : null;
+      if (resolver === null) mine.push(item);
+      else others.push({ ...item, waiting_on: resolver.who, reason: resolver.why });
       continue;
     }
     const risk = gateRisk(it.kind, body);
@@ -117,7 +146,6 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
         ...(refused?.reason ? { reason: refused.reason } : {}) });
     }
   }
-  const standing = new Map((await adminActions(db, caller)).map((a: Json) => [a.command, a]));
   for (const a of await scramAttention(db, caller.orgId)) {
     // What stands between the SCRAM and a full restart, and which next step is this person's.
     const blockers = [

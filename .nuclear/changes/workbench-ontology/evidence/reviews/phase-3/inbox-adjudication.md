@@ -30,3 +30,12 @@ Verification after round 1 fixes: API 505 passed, 1 skipped; web 121 passed.
 | Medium: digest bound, binding scope | Closed in round 2 review. |
 
 Verification after round 2 fixes: API 507 passed, 1 skipped; web 121 passed.
+
+## Round 3 (verdict BLOCK; P3B-08, P3B-09 and the Mediums closed)
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| P3B-10 | Accepted, fixed | A held run now records why it is held as a code (`Run.waiting_cause`: scram, lane, runtime-pin, independent-runtime, preparation), set wherever a claim holds a run and cleared when it starts or is overridden. The Inbox routes a waiting agent to whoever may resolve that cause: an independence hold to someone who may override independence (judged against the package's needs), a pin hold to an administrator, a lane hold to someone with lane authority, a SCRAM hold to someone who may restart; preparation holds and holds recorded before causes existed stay the owner's. Test: `goes to whoever may resolve what holds it`. |
+| Medium: prepared artifact bytes | Accepted, performance checked at exit | Kept for integrity, as adjudicated in round 2; the Inbox's speed on the reference workload is measured in the Phase 3 exit review (Q-10). |
+
+Verification after round 3 fixes: API 508 passed, 1 skipped; web 121 passed.

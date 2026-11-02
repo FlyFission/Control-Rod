@@ -239,6 +239,20 @@ async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<s
 /** Why a queued run is held, as a code, so the Inbox can route it to whoever may resolve it. */
 type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
 
+/**
+ * Clears a hold whose cause no longer applies, so a stale reason never masks the next one (or
+ * routes it to the wrong person). Holds recorded without a cause are left for the next hold to replace.
+ */
+async function releaseHold(c: Tx, cfg: WorkConfig, row: { id: string; body: Json }, cause: WaitingCause) {
+  if (row.body.waiting_cause !== cause) return;
+  const body = { ...row.body };
+  delete body.waiting_reason;
+  delete body.waiting_cause;
+  validate(cfg, "Run.json", body);
+  await c.query("update runs set body = $2 where id = $1", [row.id, body]);
+  row.body = body;
+}
+
 async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; body: Json }, subject: string, reason: string, cause: WaitingCause) {
   if (row.body.waiting_reason === reason && row.body.waiting_cause === cause) return;
   const held = { ...row.body, waiting_reason: reason, waiting_cause: cause };
@@ -797,13 +811,14 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
           if(!locked.rows[0]) continue;row=locked.rows[0];
           if(!legacyRun(row)) continue;
+          await releaseHold(c, cfg, row, "scram");
           let preparation;
           try {preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);} catch(error) {
             if(!(error instanceof Refusal)) throw error;
-            const waiting_reason=error.message;
-            if(row.body.waiting_reason!==waiting_reason) {await c.query("update runs set body=$2 where id=$1",[row.id,{...row.body,waiting_reason,waiting_cause:"preparation"}]);await appendEvent(c,"run.waiting",row.id,SYSTEM,{package:pkg.id,reason:waiting_reason});}
+            await holdRun(c, cfg, row, pkg.id, error.message.slice(0, 300), "preparation");
             continue;
           }
+          await releaseHold(c, cfg, row, "preparation");
           if (row.role === "author") {
             if (pkg.status === "released") {
               if (!(await dependenciesReady(c, pkg)).ready) continue;
@@ -823,11 +838,13 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane), "lane");
             continue;
           }
+          await releaseHold(c, cfg, row, "lane");
           const pinned = await pinnedOffer(c, admittedHere, row.role, artifacts);
           if (pinned.reason) {
             await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin");
             continue;
           }
+          await releaseHold(c, cfg, row, "runtime-pin");
           const offer = pinned.offer;
           let runtime: string | null;
           if (row.role === "pre-check") {
@@ -835,12 +852,9 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             const a = await latestAuthorRun(c, pkg.id, pkg.revision);
             const authorRuntime = runtimeName(a?.body.runtime?.provider);
             runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body));
-            if (!runtime && offer.includes(authorRuntime) && !row.body.waiting_reason) {
-              // Held, not skipped silently: say why on the run and in the office, once.
-              const held = { ...row.body, waiting_reason: WAITING_FOR_INDEPENDENT_RUNTIME, waiting_cause: "independent-runtime" };
-              validate(cfg, "Run.json", held);
-              await c.query("update runs set body = $2 where id = $1", [row.id, held]);
-              await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: pkg.id, role: row.role, reason: held.waiting_reason, author_runtime: authorRuntime });
+            if (!runtime && offer.includes(authorRuntime)) {
+              // Held, not skipped silently: say why on the run and in the office, replacing any older hold.
+              await holdRun(c, cfg, row, pkg.id, WAITING_FOR_INDEPENDENT_RUNTIME, "independent-runtime");
             }
           } else {
             runtime = pickRuntime(offer);

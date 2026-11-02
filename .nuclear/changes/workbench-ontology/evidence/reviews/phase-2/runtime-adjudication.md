@@ -51,3 +51,13 @@ Verification after round 3 fixes: daemon `go vet` on linux, darwin and windows; 
 |---|---|---|
 | S2-14 (and S2-11) | Narrowed, residual accepted within the stated limit | Immediately before the start (`ExecHooks.BeforeStart`, `VerifiedLaunch.Ready`) the daemon checks again that the lease holds and that at most half the kernel's lease break time (`/proc/sys/fs/lease-break-time`) has passed since it was taken; otherwise the start is refused and retried later. A writer that began waiting on the lease therefore cannot be released by its forced expiry while the daemon is working normally. What remains needs the daemon or its `systemd-run` launcher held stopped for the rest of that time (over 20 seconds by default) by a process allowed to signal it, then a write: a hostile process running as the same user, which is the Phase 6 hostile-agent limit. Even then `Confirm` sees the broken lease and stops the whole unit. A sealed memfd was weighed a third time and rejected for the reasons in round 3 (a second 300 MB copy per runtime, and Codex locates its helpers beside its own executable). Test: `TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart`. |
 | Medium: exit event admission | Fixed | The exit event always passes admission, preceded by the count of anything refused before it. Test: `TestTheExitEventIsNeverRefusedByAdmission`. |
+
+## Round 5 (verdict MERGE)
+
+S2-14 judged within the accepted Phase 6 hostile same-user limit; the exit admission Medium closed; no new High or Critical findings. The one remaining Medium is fixed before merge:
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| Medium: exit past the storage cap | Fixed | Past the 20000 event cap only the exit event is still stored, after the cap notice. Test: `keeps the exit event even past the per-run cap`. |
+
+Final verification: daemon `go vet` on linux, darwin and windows and `go test ./...` with no runtimes on PATH; API 481 passed, 1 skipped; web 105 passed.

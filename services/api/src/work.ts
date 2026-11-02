@@ -965,7 +965,11 @@ async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown
         await c.query("insert into run_events (run_id, seq, body) values ($1, $2, $3)",
           [row.id, seq, { kind: "notice", at: now(), text: `This run produced more than ${MAX_RUN_EVENTS} events; later ones are in the raw log only.` }]);
       }
-      break;
+      // Past the cap only the ending is still kept, so a run's story never stops short of it.
+      if (e.kind !== "exit") {
+        if (origin !== undefined) origin++;
+        continue;
+      }
     }
     seq++;
     await c.query("insert into run_events (run_id, seq, body, origin) values ($1, $2, $3, $4)", [row.id, seq, e, origin ?? null]);

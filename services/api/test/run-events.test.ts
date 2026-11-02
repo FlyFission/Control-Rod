@@ -67,6 +67,16 @@ describe("run stories", () => {
     expect((await kinds()).slice(3)).toEqual(["dropped", "message:f", "exit:exited"]);
   });
 
+  it("keeps the exit event even past the per-run cap", async () => {
+    const job = await claimed("WP-EV-CAP", "fake");
+    await h.admin.query(
+      "insert into run_events (run_id, seq, body) select $1, n, jsonb_build_object('kind', 'message', 'at', now()::text, 'text', 'x') from generate_series(1, 20000) n", [job.run.id]);
+    const post = await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], events: [{ kind: "message", at: at(), text: "late" }, { kind: "exit", at: at(), text: "exited" }], events_from: 0 });
+    expect(post.statusCode, post.body).toBe(200);
+    const tail = (await h.db.query<{ body: Json }>("select body from run_events where run_id = $1 and seq > 20000 order by seq", [job.run.id])).rows.map((r) => r.body.kind);
+    expect(tail).toEqual(["notice", "exit"]);
+  });
+
   it("refuses an event outside the contract, keeping the whole post out", async () => {
     const job = await claimed("WP-EV-2", "fake");
     const bad = await daemon(`/runner/runs/${job.run.id}/log`, { lines: ["x"], events: [{ kind: "message", at: at(), text: "ok" }, { kind: "telepathy", at: at() }] });

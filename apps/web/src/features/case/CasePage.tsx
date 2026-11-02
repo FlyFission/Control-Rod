@@ -262,7 +262,13 @@ function RunStory({ packageId, run, p, open }: { packageId: string; run: Run; p:
         ) : events.isError && events.data === undefined ? (
           <p className="error small">The story could not be loaded; the raw log on the package page has everything.</p>
         ) : steps.length === 0 ? (
-          <p className="muted small">No events were recorded for this run.</p>
+          <p className={events.isError ? "error small" : "muted small"}>
+            {events.isError
+              ? "The story could not be refreshed, and no events had been read yet."
+              : live
+                ? "No events yet; the story updates as the run goes."
+                : "No events were recorded for this run."}
+          </p>
         ) : (
           <>
             {events.isError && <p className="error small" role="status">The story could not be refreshed; it may be missing the latest steps.</p>}

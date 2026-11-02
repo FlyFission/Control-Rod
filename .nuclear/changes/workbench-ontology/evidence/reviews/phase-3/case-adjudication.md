@@ -15,3 +15,14 @@ Reviewer: Codex CLI (read-only, ephemeral). Evidence: `case-codex-round1.md` and
 | Medium: exit evidence reproducibility | Fixed | The exit spec is committed as `apps/web/e2e/phase3-exit.spec.ts`; the evidence file records the command and the raw output of a run. |
 
 Verification after round 1 fixes: API 511 passed, 1 skipped; web 135 passed; exit spec 4 passed.
+
+## Round 2 (verdict MERGE)
+
+P3C-01 to P3C-04 and the round 1 Mediums closed; no new High or Critical findings. Both remaining Mediums are fixed before merge:
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| Medium: exit spec only logs | Fixed | The exit spec now asserts: no axe violations, the skip link first and every place reachable by Tab, the palette navigating, no reflow failures, and the 1.5 s budget for the case view's first story view and the full story. Rerun: 4 passed. |
+| Medium: empty story after a failed refresh | Fixed | An empty story says the refresh failed (or, for a live run, that no events have arrived yet) instead of claiming none were recorded. |
+
+Final verification: API 511 passed, 1 skipped; web 135 passed; exit spec 4 passed with assertions.

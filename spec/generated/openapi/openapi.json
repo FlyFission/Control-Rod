@@ -4696,6 +4696,10 @@
           "scram_id": {
             "type": "string"
           },
+          "capture_id": {
+            "type": "string",
+            "description": "For a held intake run: the capture it reads (no package exists yet)."
+          },
           "title": {
             "type": "string"
           },

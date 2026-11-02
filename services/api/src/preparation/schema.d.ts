@@ -876,6 +876,8 @@ export interface components {
             /** Format: int32 */
             package_revision?: number;
             scram_id?: string;
+            /** @description For a held intake run: the capture it reads (no package exists yet). */
+            capture_id?: string;
             title: string;
             detail: string;
             /** Format: date-time */

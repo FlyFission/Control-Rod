@@ -110,7 +110,7 @@ export function Inbox() {
   );
 }
 
-const itemKey = (i: AttentionItem) => `${i.kind}-${i.package_id ?? i.scram_id}-${i.package_revision ?? ""}`;
+const itemKey = (i: AttentionItem) => `${i.kind}-${i.package_id ?? i.scram_id ?? i.capture_id}-${i.package_revision ?? ""}`;
 
 function Item({ item, theirs = false }: { item: AttentionItem; theirs?: boolean }) {
   const decisions = (item.decisions ?? []).map((d) => DECISION_WORDS[d] ?? d);
@@ -145,7 +145,12 @@ function Item({ item, theirs = false }: { item: AttentionItem; theirs?: boolean 
 }
 
 function Target({ item }: { item: AttentionItem }) {
-  const label = item.kind === "scram" ? "Open SCRAM commands" : item.kind === "confirm" ? "Open and confirm" : item.binds !== undefined ? "Open and decide" : "Open the runs";
+  const label =
+    item.kind === "scram" ? "Open SCRAM commands"
+    : item.kind === "confirm" ? "Open and confirm"
+    : item.capture_id !== undefined ? (item.href.to === "/roster" ? "Open the roster" : "Open the capture")
+    : item.binds !== undefined ? "Open and decide"
+    : "Open the runs";
   if (item.href.to === "/packages/$id" && item.href.id !== undefined)
     return (
       <Link to="/packages/$id" params={{ id: item.href.id }} {...(item.href.hash ? { hash: item.href.hash } : {})} className="btn primary small">

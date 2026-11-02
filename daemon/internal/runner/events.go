@@ -243,6 +243,16 @@ func (a *Admission) Admit(events []Event, now time.Time) []Event {
 	a.last = now
 	var out []Event
 	for _, e := range events {
+		// The exit event always gets through, after the count of anything refused before it, so a
+		// run's story never ends without its ending.
+		if e.Kind == EvExit {
+			if a.dropped > 0 {
+				out = append(out, Event{Kind: EvDropped, At: e.At, Dropped: a.dropped})
+				a.dropped = 0
+			}
+			out = append(out, e)
+			continue
+		}
 		if a.tokens < 1 {
 			a.dropped++
 			continue

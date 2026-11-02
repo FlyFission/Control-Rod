@@ -905,6 +905,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			err = Execute(runCtx, cmd, buf.add, ExecHooks{
 				Timings:  d.timings(),
 				Snapshot: snapshot,
+				// The runtime's guard must still hold at the moment it starts.
+				BeforeStart: verified.Ready,
 				Started: func(pid int) (*SpawnReceipt, error) {
 					u, lerr := d.container.Locate(pid, unit)
 					if lerr != nil {

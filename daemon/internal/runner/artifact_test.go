@@ -350,3 +350,28 @@ func TestConfirmFailsClosedWhenTheProcessNeverRunsTheRuntime(t *testing.T) {
 		t.Fatalf("a process running something else must not confirm: %v", err)
 	}
 }
+
+func TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("leases are Linux only")
+	}
+	path, l := verifiedCopy(t, "sleep")
+	if !l.leased {
+		t.Skip("this filesystem gives no leases")
+	}
+	if err := l.Ready(); err != nil {
+		t.Fatalf("a fresh guard is ready: %v", err)
+	}
+	// Too long since the check: a writer's forced lease expiry could be near.
+	l.guardedAt = time.Now().Add(-leaseBreakTime())
+	if err := l.Ready(); !errors.Is(err, ErrArtifactMismatch) || !strings.Contains(err.Error(), "too long passed") {
+		t.Fatalf("a stale guard must refuse the start: %v", err)
+	}
+	l.guardedAt = time.Now()
+	if f, err := os.OpenFile(path, os.O_WRONLY|syscall.O_NONBLOCK, 0); err == nil {
+		f.Close()
+	}
+	if err := l.Ready(); !errors.Is(err, ErrArtifactMismatch) || !strings.Contains(err.Error(), "opened the runtime for writing") {
+		t.Fatalf("a broken lease must refuse the start: %v", err)
+	}
+}

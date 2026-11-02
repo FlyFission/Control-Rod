@@ -44,3 +44,10 @@ Verification after round 2 fixes: daemon `go vet` on linux, darwin and windows; 
 | Medium: leftover index | Fixed | Every event gets a stable index when it is kept. A batch carries only consecutive events placed by its first index; dropping (held overflow, or leftovers beyond one completion) leaves a gap the control plane records as dropped, and never shifts later indexes. Tests: `TestEventsKeepStableIndexesAndLeftoversGoWithTheCompletion`, `TestHeldEventOverflowLeavesAGapAndBatchesStayConsecutive`. |
 
 Verification after round 3 fixes: daemon `go vet` on linux, darwin and windows; `go test ./...` passes with no runtimes on PATH; API suite rerun (unchanged this round).
+
+## Round 4 (verdict BLOCK; S2-12, S2-13 and the event Mediums closed)
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| S2-14 (and S2-11) | Narrowed, residual accepted within the stated limit | Immediately before the start (`ExecHooks.BeforeStart`, `VerifiedLaunch.Ready`) the daemon checks again that the lease holds and that at most half the kernel's lease break time (`/proc/sys/fs/lease-break-time`) has passed since it was taken; otherwise the start is refused and retried later. A writer that began waiting on the lease therefore cannot be released by its forced expiry while the daemon is working normally. What remains needs the daemon or its `systemd-run` launcher held stopped for the rest of that time (over 20 seconds by default) by a process allowed to signal it, then a write: a hostile process running as the same user, which is the Phase 6 hostile-agent limit. Even then `Confirm` sees the broken lease and stops the whole unit. A sealed memfd was weighed a third time and rejected for the reasons in round 3 (a second 300 MB copy per runtime, and Codex locates its helpers beside its own executable). Test: `TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart`. |
+| Medium: exit event admission | Fixed | The exit event always passes admission, preceded by the count of anything refused before it. Test: `TestTheExitEventIsNeverRefusedByAdmission`. |

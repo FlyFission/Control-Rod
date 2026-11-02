@@ -120,6 +120,49 @@ describe("ordering", () => {
   });
 });
 
+describe("recovery under SCRAM", () => {
+  it("never counts recovery work as yours when SCRAM holds it and you cannot settle it", async () => {
+    // An author run stopped: requeueing it settles the dispute, which any member may do, unless SCRAM holds the work.
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-IN-STOPPED', 0, 'in-work', $1)",
+      [{ ...example, id: "WP-IN-STOPPED", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [] }]);
+    const r = { schema_version: "0.1.0", id: "R-in-stopped", package_id: "WP-IN-STOPPED", package_revision: 0, role: "author", agent_baseline: "author-claude",
+      runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "stopped", queued_at: ago(3), finished_at: ago(2), generation: 1 };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, 'WP-IN-STOPPED', 0, 'author', 1, 'stopped', $2)", [r.id, r]);
+    const aliceBox = async () => get("/inbox", await aliceCookie());
+    expect((await aliceBox()).items.some((i: Json) => i.package_id === "WP-IN-STOPPED")).toBe(true);
+    const pull = await signedAdmin("scram.pull", { scope: "organization", reason: "Recovery check" });
+    expect(pull.statusCode, pull.body).toBe(200);
+    const held = await aliceBox();
+    expect(held.items.some((i: Json) => i.package_id === "WP-IN-STOPPED")).toBe(false);
+    expect(held.waiting_on_others.find((i: Json) => i.package_id === "WP-IN-STOPPED")).toMatchObject({ waiting_on: "a restart after SCRAM" });
+    // Someone who may return or reject it still has a decision to make.
+    expect((await get("/inbox")).items.find((i: Json) => i.package_id === "WP-IN-STOPPED")?.decisions).toEqual(expect.arrayContaining(["return", "reject"]));
+    const restart = await signedAdmin("scram.restart", { scram_id: pull.json().id, scope: "all", reason: "Recovery check done" });
+    expect(restart.statusCode, restart.body).toBe(200);
+  });
+
+  it("judges who may reconcile a SCRAM's unknown outcomes against each run's own package", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-IN-MATLOST', 0, 'in-work', $1)",
+      [{ ...example, id: "WP-IN-MATLOST", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [], grade: "material", discipline: "mechanical" }]);
+    const r = { schema_version: "0.1.0", id: "R-in-matlost", package_id: "WP-IN-MATLOST", package_revision: 0, role: "author", agent_baseline: "author-claude",
+      runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "lost", queued_at: ago(3), finished_at: ago(2), generation: 1,
+      outcome_unknown: { since: ago(2), reason: "the daemon stopped renewing the lease" } };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, 'WP-IN-MATLOST', 0, 'author', 1, 'lost', $2)", [r.id, r]);
+    const pull = await signedAdmin("scram.pull", { scope: "organization", reason: "Material check" });
+    expect(pull.statusCode, pull.body).toBe(200);
+    // The founding member holds only the General service grade: this reconcile is not theirs.
+    const box = await get("/inbox");
+    expect(box.items.some((i: Json) => i.kind === "scram")).toBe(false);
+    const scram = box.waiting_on_others.find((i: Json) => i.kind === "scram");
+    expect(scram.detail).toBe("Before a restart: 1 run in scope with an unknown outcome to reconcile. Nothing in scope runs until then.");
+    expect(scram.waiting_on).toMatch(/^someone who is an? /);
+    // Settled (as a qualified reviewer would), the SCRAM can be restarted and later tests run unheld.
+    await h.admin.query("update runs set body = body || $2 where id = $1", [r.id, { reconciliation: { disposition: "abandoned", evidence: "Test cleanup", recorded_at: ago(0), by: { kind: "human", id: "ben" } } }]);
+    const restart = await signedAdmin("scram.restart", { scram_id: pull.json().id, scope: "all", reason: "Material check done" });
+    expect(restart.statusCode, restart.body).toBe(200);
+  });
+});
+
 describe("since you last looked", () => {
   it("gives only the head on a first visit, so counting starts from now", async () => {
     const box = await get("/inbox");
@@ -140,6 +183,9 @@ describe("since you last looked", () => {
       await appendEvent(c as never, "decision.accept", "WP-IN-QUICK-OLD", person, {});
       await appendEvent(c as never, "preparation.edited", "WP-IN-PREPARED", person, {});
       await appendEvent(c as never, "preparation.confirmed", "WP-IN-PREPARED", person, {});
+      await appendEvent(c as never, "admin.command", "qualification.issue", person, { signature: "direct" });
+      // A SCRAM command is counted once, as the SCRAM step, not again as administration.
+      await appendEvent(c as never, "admin.command", "scram.pull", person, { signature: "direct" });
       // An agent's reconcile is not a person's signature.
       await appendEvent(c as never, "run.reconciled", "R-x", { kind: "agent", id: "author-claude" }, {});
       await c.query("commit");
@@ -150,7 +196,7 @@ describe("since you last looked", () => {
     const lines = Object.fromEntries(box.digest.lines.map((l: Json) => [l.topic, l]));
     expect(box.digest.lines.map((l: Json) => l.topic)).toEqual(["changes", "signatures", "lateness", "disputes", "gates", "spend"]);
     expect(lines.changes.count).toBe(3);
-    expect(lines.signatures).toMatchObject({ count: 3, text: "3 signatures: 1 released, 1 accepted, 1 requirements confirmed." });
+    expect(lines.signatures).toMatchObject({ count: 4, text: "4 signatures: 1 released, 1 accepted, 1 requirements confirmation, 1 administrative act." });
     expect(lines.changes.text).toBe("3 packages changed: 2 drafted, 1 edited, 1 with requirements edited.");
     // The older quick draft has waited five hours; the lost run two: none past a day.
     expect(lines.lateness.text).toBe("Nothing has waited on you more than a day.");

@@ -24,6 +24,7 @@ import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
 import { teach } from "./refusals.js";
 import { personVerificationSubject, recordPersonVerification } from "./person-verification.js";
+import { scramView } from "./scram.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
 import {
@@ -278,11 +279,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown>; assertion?: Record<string, unknown> } }>("/admin/commands/:name", async (req) => {
     const user = await person(req);
     const caller = await callerFor(db, user);
-    let signed: { subject: string; credentialId: string } | null = null;
+    let signed: { subject: string; credentialId: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
       const ok = await assertionVerify(db, auth, "admin", req.body.assertion as never);
       if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId)
-        signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId };
+        signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, assertion: req.body.assertion };
     }
     return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, req.params.name, caller, req.body?.payload ?? {}, signed);
   });
@@ -496,6 +497,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await person(req);
     await sweep();
     return office(db);
+  });
+  /** A SCRAM, its stopped runs and every quarantine batch with digests, for the people reviewing it. */
+  app.get<{ Params: { id: string } }>("/scrams/:id", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return scramView(db, caller.orgId, req.params.id);
   });
   app.get("/runtimes", async (req) => {
     await person(req);

@@ -93,6 +93,31 @@
             "maxLength": 300,
             "description": "Why a queued run is not being handed out, in plain words."
         },
+        "waiting_cause": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "scram"
+                },
+                {
+                    "type": "string",
+                    "const": "lane"
+                },
+                {
+                    "type": "string",
+                    "const": "runtime-pin"
+                },
+                {
+                    "type": "string",
+                    "const": "independent-runtime"
+                },
+                {
+                    "type": "string",
+                    "const": "preparation"
+                }
+            ],
+            "description": "The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it)."
+        },
         "independence_override": {
             "$ref": "OwnerOverride.json",
             "description": "The owner let this pre-check run on the author's runtime. Recorded before it ran."

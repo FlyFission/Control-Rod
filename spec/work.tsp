@@ -127,6 +127,9 @@ model Run {
   @maxLength(300)
   waiting_reason?: string;
 
+  /** The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it). */
+  waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
+
   /** The owner let this pre-check run on the author's runtime. Recorded before it ran. */
   independence_override?: OwnerOverride;
 

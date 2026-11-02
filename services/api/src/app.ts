@@ -24,6 +24,7 @@ import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
 import { REASONS, teach } from "./refusals.js";
 import { personVerificationSubject, recordPersonVerification } from "./person-verification.js";
+import { inbox } from "./inbox.js";
 import { scramView } from "./scram.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
@@ -495,6 +496,13 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return reply.code(201).send(await requeueRun(db, cfg, user, req.params.id, req.params.runId));
   });
 
+  /** The Inbox: what waits on the viewer by gate risk then age, what waits on others, and the digest since a sequence. */
+  app.get<{ Querystring: { since?: string } }>("/inbox", async (req) => {
+    const user = await person(req);
+    await sweep();
+    const raw = req.query.since;
+    return inbox(db, cfg, user, raw === undefined || raw === "" ? undefined : Number(raw));
+  });
   app.get("/office", async (req) => {
     await person(req);
     await sweep();

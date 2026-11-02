@@ -236,9 +236,26 @@ async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<s
 }
 
 /** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
-async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; body: Json }, subject: string, reason: string) {
-  if (row.body.waiting_reason === reason) return;
-  const held = { ...row.body, waiting_reason: reason };
+/** Why a queued run is held, as a code, so the Inbox can route it to whoever may resolve it. */
+type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
+
+/**
+ * Clears a hold whose cause no longer applies, so a stale reason never masks the next one (or
+ * routes it to the wrong person). Holds recorded without a cause are left for the next hold to replace.
+ */
+async function releaseHold(c: Tx, cfg: WorkConfig, row: { id: string; body: Json }, cause: WaitingCause) {
+  if (row.body.waiting_cause !== cause) return;
+  const body = { ...row.body };
+  delete body.waiting_reason;
+  delete body.waiting_cause;
+  validate(cfg, "Run.json", body);
+  await c.query("update runs set body = $2 where id = $1", [row.id, body]);
+  row.body = body;
+}
+
+async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; body: Json }, subject: string, reason: string, cause: WaitingCause) {
+  if (row.body.waiting_reason === reason && row.body.waiting_cause === cause) return;
+  const held = { ...row.body, waiting_reason: reason, waiting_cause: cause };
   validate(cfg, "Run.json", held);
   await c.query("update runs set body = $2 where id = $1", [row.id, held]);
   await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: subject, role: row.role, reason });
@@ -287,6 +304,12 @@ async function outputsOf(q: Db | Tx, runId: string) {
   return r.rows;
 }
 
+/** Output names and digests only: what a decision subject covers, without loading the files. */
+async function outputDigestsOf(q: Db | Tx, runId: string) {
+  const r = await q.query<{ name: string; sha256: string }>("select name, sha256 from outputs where run_id = $1 order by name", [runId]);
+  return r.rows;
+}
+
 async function latestVerification(q: Db | Tx, id: string, rev: number, round?: number) {
   const r = await q.query<{ body: Json; round: number; created_at: Date }>(
     `select body, round, created_at from verifications where package_id = $1 and package_revision = $2
@@ -299,7 +322,7 @@ async function latestVerification(q: Db | Tx, id: string, rev: number, round?: n
 /** What a person reviews before deciding: the revision, its current output and its pre-check. */
 export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
   const author = await latestAuthorRun(q, pkg.id, pkg.revision);
-  const outs = author && author.status === "succeeded" ? await outputsOf(q, author.id) : [];
+  const outs = author && author.status === "succeeded" ? await outputDigestsOf(q, author.id) : [];
   const ver = author ? await latestVerification(q, pkg.id, pkg.revision, author.round) : null;
   const preparation = await preparationForSubject(q,pkg);
   const integrity=preparation && author?.status==="succeeded"?await authorOutputIntegrity(q,author.id):null;
@@ -776,7 +799,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         // SCRAM holds everything in its scope: nothing there is handed out until a restart lifts it.
         const scram = await scramHolding(c, await runSubject(c, row));
         if (scram) {
-          await holdRun(c, cfg, row, row.package_id, `SCRAM ${scram.id} has stopped this work: ${scram.reason}`.slice(0, 300));
+          await holdRun(c, cfg, row, row.package_id, `SCRAM ${scram.id} has stopped this work: ${scram.reason}`.slice(0, 300), "scram");
           continue;
         }
         if (row.role !== "intake") {
@@ -788,13 +811,14 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
           if(!locked.rows[0]) continue;row=locked.rows[0];
           if(!legacyRun(row)) continue;
+          await releaseHold(c, cfg, row, "scram");
           let preparation;
           try {preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);} catch(error) {
             if(!(error instanceof Refusal)) throw error;
-            const waiting_reason=error.message;
-            if(row.body.waiting_reason!==waiting_reason) {await c.query("update runs set body=$2 where id=$1",[row.id,{...row.body,waiting_reason}]);await appendEvent(c,"run.waiting",row.id,SYSTEM,{package:pkg.id,reason:waiting_reason});}
+            await holdRun(c, cfg, row, pkg.id, error.message.slice(0, 300), "preparation");
             continue;
           }
+          await releaseHold(c, cfg, row, "preparation");
           if (row.role === "author") {
             if (pkg.status === "released") {
               if (!(await dependenciesReady(c, pkg)).ready) continue;
@@ -805,20 +829,22 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           // and its job commit.
           const gate = await dispatchLane(c, cfg, pkg, row.body);
           if (!gate.lane) {
-            await holdRun(c, cfg, row, pkg.id, gate.reason);
+            await holdRun(c, cfg, row, pkg.id, gate.reason, "lane");
             continue;
           }
           const lane = gate.lane;
           const admittedHere = admitted(lane, runtimes);
           if (admittedHere.length === 0) {
-            await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane));
+            await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane), "lane");
             continue;
           }
+          await releaseHold(c, cfg, row, "lane");
           const pinned = await pinnedOffer(c, admittedHere, row.role, artifacts);
           if (pinned.reason) {
-            await holdRun(c, cfg, row, pkg.id, pinned.reason);
+            await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin");
             continue;
           }
+          await releaseHold(c, cfg, row, "runtime-pin");
           const offer = pinned.offer;
           let runtime: string | null;
           if (row.role === "pre-check") {
@@ -826,12 +852,9 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             const a = await latestAuthorRun(c, pkg.id, pkg.revision);
             const authorRuntime = runtimeName(a?.body.runtime?.provider);
             runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body));
-            if (!runtime && offer.includes(authorRuntime) && !row.body.waiting_reason) {
-              // Held, not skipped silently: say why on the run and in the office, once.
-              const held = { ...row.body, waiting_reason: WAITING_FOR_INDEPENDENT_RUNTIME };
-              validate(cfg, "Run.json", held);
-              await c.query("update runs set body = $2 where id = $1", [row.id, held]);
-              await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: pkg.id, role: row.role, reason: held.waiting_reason, author_runtime: authorRuntime });
+            if (!runtime && offer.includes(authorRuntime)) {
+              // Held, not skipped silently: say why on the run and in the office, replacing any older hold.
+              await holdRun(c, cfg, row, pkg.id, WAITING_FOR_INDEPENDENT_RUNTIME, "independent-runtime");
             }
           } else {
             runtime = pickRuntime(offer);
@@ -854,12 +877,12 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
         const admittedIntake = admitted(capLane, runtimes);
         if (admittedIntake.length === 0) {
-          await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane));
+          await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane), "lane");
           continue;
         }
         const pinnedIntake = await pinnedOffer(c, admittedIntake, "intake", artifacts);
         if (pinnedIntake.reason) {
-          await holdRun(c, cfg, row, row.package_id, pinnedIntake.reason);
+          await holdRun(c, cfg, row, row.package_id, pinnedIntake.reason, "runtime-pin");
           continue;
         }
         const runtime = pickRuntime(pinnedIntake.offer);
@@ -1178,6 +1201,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     ...(runtime === "claude" ? { permission_waits: "observed" } : runtime === "codex" ? { permission_waits: "not-observable" } : {}),
   };
   delete body.waiting_reason;
+  delete body.waiting_cause;
   validate(cfg, "Run.json", body);
   await c.query("update runs set status = 'running', body = $2, claim_token_hash = $3, lease_expires_at = $4 where id = $1", [
     row.id,
@@ -1493,6 +1517,7 @@ export async function overrideIndependence(
     const override = { by: user, at: now(), reason: why, subject_digest: { algorithm: "sha256", value: d }, assertion };
     const body = { ...row.body, independence_override: override };
     delete body.waiting_reason;
+    delete body.waiting_cause;
     validate(cfg, "Run.json", body);
     await c.query("update runs set body = $2 where id = $1", [runId, body]);
     await appendEvent(c, "run.independence-override", runId, { kind: "human", id: user }, {
@@ -2041,8 +2066,14 @@ export async function packageActions(db: Db, cfg: WorkConfig, user: string, id: 
     const edit = { command: "draft.edit", label: "Edit draft", signature: "none" };
     out.push(pkg.status !== "draft" ? refused(edit, "wrong-state", "Only a draft can be edited")
       : preparing ? refused(edit, "preparation-edit-required") : { ...edit, allowed: true });
+    // While SCRAM holds the package, release is refused exactly as submitting it would be.
+    const scram = await scramHolding(c, { kind: "package", id: pkg.id, ...(pkg.body.discipline ? { discipline: String(pkg.body.discipline) } : {}) });
     for (const kind of Object.keys(HUMAN_ACTIONS)) {
       const base = { command: kind, label: DECISION_LABELS[kind], signature: "direct", authority: ACTION_ROLES[kind as SignerAction] };
+      if (kind === "release" && scram) {
+        out.push(refused(base, "scram-stopped", `SCRAM ${scram.id} has stopped this work: ${scram.reason}`));
+        continue;
+      }
       const missing = await signingGaps(c, user, kind as SignerAction, needsOf(pkg.body));
       if (missing.length) {
         out.push({ ...refused(base, "qualification-missing", `This needs ${missing.join(" and ")}, which your qualification does not include`), missing });

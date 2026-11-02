@@ -1,6 +1,6 @@
 // Typed calls to the control plane. Paths match spec/generated/openapi/openapi.json exactly;
 // the API serves this app at the same origin, so every path is relative to it.
-import type { DataLane,
+import type { ActionDescriptor, AdminView, DataLane, RuntimePin,
   RequirementsConfirmation,
   PreparationView,
   PreparationContent,
@@ -147,7 +147,9 @@ export const api = {
     call<Decision>("POST", `/packages/${enc(id)}/decisions`, body),
 
   office: () => call<OfficeItem[]>("GET", "/office"),
-  runtimes: () => call<{ reported_at?: string; runtimes: RuntimeStatus[] }>("GET", "/runtimes"),
+  runtimes: () => call<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: RuntimePin[] }>("GET", "/runtimes"),
+  admin: () => call<AdminView>("GET", "/admin"),
+  packageActions: (id: string) => call<ActionDescriptor[]>("GET", `/packages/${enc(id)}/actions`),
   metrics: () => call<Metrics>("GET", "/metrics"),
   events: (after?: number) => call<CrEvent[]>("GET", after === undefined ? "/events" : `/events?after=${after}`),
   /** Every event, following the server's `after` cursor page by page (500 per page, capped). */

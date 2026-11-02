@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -262,6 +262,8 @@ const attention = (over: Record<string, unknown>) => ({
 });
 
 describe("inbox", () => {
+  beforeEach(() => server.use(http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" }))));
+
   it("keeps the server's gate risk order, says what each signature binds, and keeps others' work apart", async () => {
     server.use(
       http.get("*/inbox", () =>
@@ -291,10 +293,12 @@ describe("inbox", () => {
     expect(screen.getByText(/Waiting on someone who is an approver/)).toBeTruthy();
   });
 
-  it("shows the digest lines in words and marks them seen", async () => {
-    window.localStorage.setItem("cr.lastSeenSeq", "10");
+  it("shows the digest lines in words and marks them seen, on this person's own cursor", async () => {
+    window.localStorage.setItem("cr.lastSeenSeq:ben", "10");
+    window.localStorage.setItem("cr.lastSeenSeq:alice", "3");
     const asked: string[] = [];
     server.use(
+      http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })),
       http.get("*/inbox", ({ request }) => {
         asked.push(new URL(request.url).search);
         return HttpResponse.json({
@@ -316,10 +320,13 @@ describe("inbox", () => {
       expect(screen.getByText("Nothing waits on you. Decisions and held work arrive here as they need you.")).toBeTruthy();
       expect(asked[0]).toBe("?since=10");
       await userEvent.setup().click(screen.getByRole("button", { name: "Mark as seen" }));
-      await waitFor(() => expect(window.localStorage.getItem("cr.lastSeenSeq")).toBe("15"));
+      await waitFor(() => expect(window.localStorage.getItem("cr.lastSeenSeq:ben")).toBe("15"));
       await waitFor(() => expect(asked).toContain("?since=15"));
+      // Another person's cursor on this browser is untouched.
+      expect(window.localStorage.getItem("cr.lastSeenSeq:alice")).toBe("3");
     } finally {
-      window.localStorage.removeItem("cr.lastSeenSeq");
+      window.localStorage.removeItem("cr.lastSeenSeq:ben");
+      window.localStorage.removeItem("cr.lastSeenSeq:alice");
     }
   });
 });
@@ -502,6 +509,7 @@ describe("pre-check independence", () => {
 describe("runtime readiness in the office", () => {
   it("shows a runtime the daemon found not ready, with its reason", async () => {
     server.use(
+      http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })),
       http.get("*/inbox", () => HttpResponse.json({ items: [], waiting_on_others: [], digest: { head: 1, lines: [] } })),
       http.get("*/runtimes", () =>
         HttpResponse.json({

@@ -333,7 +333,7 @@ model AttentionTarget {
  * risk orders the Inbox (gate risk, then age).
  */
 model AttentionItem {
-  kind: "release" | "accept" | "dispute" | "permission" | "lost" | "scram";
+  kind: "release" | "accept" | "dispute" | "permission" | "lost" | "scram" | "confirm";
   package_id?: string;
   package_revision?: int32;
   scram_id?: string;

@@ -871,7 +871,7 @@ export interface components {
          */
         AttentionItem: {
             /** @enum {string} */
-            kind: "release" | "accept" | "dispute" | "permission" | "lost" | "scram";
+            kind: "release" | "accept" | "dispute" | "permission" | "lost" | "scram" | "confirm";
             package_id?: string;
             /** Format: int32 */
             package_revision?: number;

@@ -21,6 +21,9 @@ export function writeNumber(key: string, value: number): void {
 
 export const LAST_SEEN_KEY = "cr.lastSeenSeq";
 
+/** The "since you last looked" cursor is each person's own, even on a shared browser. */
+export const lastSeenKey = (user: string | undefined) => `${LAST_SEEN_KEY}:${user ?? ""}`;
+
 /** A remembered string for this browser session (filters, open tabs), or the fallback. */
 export function readSession(key: string, fallback = ""): string {
   try {

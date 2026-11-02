@@ -5,10 +5,11 @@ import { api } from "../api/client.js";
 import type { AttentionItem, InboxView } from "../api/types.js";
 import { StateMark, type StateKind } from "../components/StateMark.js";
 import { age } from "../lib/office.js";
-import { LAST_SEEN_KEY, readNumber, writeNumber } from "../lib/storage.js";
+import { lastSeenKey, readNumber, writeNumber } from "../lib/storage.js";
 
 const KIND_LABEL: Record<AttentionItem["kind"], string> = {
   scram: "SCRAM",
+  confirm: "Confirm requirements",
   permission: "Waiting agent",
   lost: "Lost run",
   dispute: "Dispute",
@@ -21,6 +22,7 @@ const markFor = (item: AttentionItem): StateKind =>
   item.kind === "scram" || item.kind === "lost" ? "stuck" : item.kind === "permission" || item.kind === "dispute" ? "changed" : "needs";
 
 const DECISION_WORDS: Record<string, string> = {
+  confirm: "confirm the requirements",
   release: "release", accept: "accept", "accept-with-findings": "accept with findings", return: "return", reject: "reject",
 };
 
@@ -31,25 +33,30 @@ const DECISION_WORDS: Record<string, string> = {
  * browser marked seen.
  */
 export function Inbox() {
-  const [lastSeen, setLastSeen] = useState<number | undefined>(() => readNumber(LAST_SEEN_KEY));
+  const session = useQuery({ queryKey: ["session"], queryFn: api.session });
+  const user = session.data?.user ?? undefined;
+  const cursorKey = lastSeenKey(user);
+  // Read for the signed-in person on every render, so a cursor is never used or written for anyone else.
+  const [, rerender] = useState(0);
+  const lastSeen = user === undefined ? undefined : readNumber(cursorKey);
   // Moving the cursor (first visit, Mark as seen) keeps showing the list while the new digest loads.
-  const q = useQuery({ queryKey: ["inbox", lastSeen ?? null], queryFn: () => api.inbox(lastSeen), placeholderData: (previous) => previous });
+  const q = useQuery({ queryKey: ["inbox", user ?? "", lastSeen ?? null], queryFn: () => api.inbox(lastSeen), placeholderData: (previous) => previous, enabled: user !== undefined });
   const rt = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
   const notReady = (rt.data?.runtimes ?? []).filter((r) => !r.ready);
   const view: InboxView | undefined = q.data;
 
   // A first visit on this browser starts counting from now.
   useEffect(() => {
-    if (lastSeen === undefined && view !== undefined) {
-      writeNumber(LAST_SEEN_KEY, view.digest.head);
-      setLastSeen(view.digest.head);
+    if (user !== undefined && lastSeen === undefined && view !== undefined && !q.isPlaceholderData) {
+      writeNumber(cursorKey, view.digest.head);
+      rerender((n) => n + 1);
     }
-  }, [lastSeen, view]);
+  }, [user, lastSeen, view, cursorKey, q.isPlaceholderData]);
 
   function markSeen() {
-    if (view === undefined) return;
-    writeNumber(LAST_SEEN_KEY, view.digest.head);
-    setLastSeen(view.digest.head);
+    if (view === undefined || user === undefined) return;
+    writeNumber(cursorKey, view.digest.head);
+    rerender((n) => n + 1);
   }
 
   return (
@@ -138,7 +145,7 @@ function Item({ item, theirs = false }: { item: AttentionItem; theirs?: boolean 
 }
 
 function Target({ item }: { item: AttentionItem }) {
-  const label = item.kind === "scram" ? "Open SCRAM commands" : item.binds !== undefined ? "Open and decide" : "Open the runs";
+  const label = item.kind === "scram" ? "Open SCRAM commands" : item.kind === "confirm" ? "Open and confirm" : item.binds !== undefined ? "Open and decide" : "Open the runs";
   if (item.href.to === "/packages/$id" && item.href.id !== undefined)
     return (
       <Link to="/packages/$id" params={{ id: item.href.id }} {...(item.href.hash ? { hash: item.href.hash } : {})} className="btn primary small">

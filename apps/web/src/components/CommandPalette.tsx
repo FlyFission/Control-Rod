@@ -26,6 +26,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
   const listId = useId();
 
@@ -52,6 +53,15 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     return () => returnTo.current?.focus();
   }, [open]);
   useEffect(() => setActive(0), [query]);
+  // A modal keeps focus: anything that would move it outside the palette brings it back to the field.
+  useEffect(() => {
+    if (!open) return;
+    const keep = (e: FocusEvent) => {
+      if (dialog.current && e.target instanceof Node && !dialog.current.contains(e.target)) input.current?.focus();
+    };
+    document.addEventListener("focusin", keep);
+    return () => document.removeEventListener("focusin", keep);
+  }, [open]);
   useEffect(() => {
     if (current) document.getElementById(optionId(listId, current.id))?.scrollIntoView?.({ block: "nearest" });
   }, [current, listId]);
@@ -102,10 +112,12 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   }
 
   const loading = packages.isLoading || admin.isLoading || actions.isLoading;
+  // Availability comes from the server; when it could not be fetched or refreshed, say so.
+  const stale = admin.isError || actions.isError;
   let lastGroup = "";
   return (
     <div className="palette-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+      <div ref={dialog} className="palette" role="dialog" aria-modal="true" aria-label="Command palette" onKeyDown={onKeyDown}>
         <input
           ref={input}
           className="palette-input"
@@ -118,8 +130,13 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
           placeholder="Search places, packages and commands"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={onKeyDown}
         />
+        {stale && (
+          <p className="palette-stale" role="status">
+            What you may do could not be {admin.data !== undefined || actions.data !== undefined ? "refreshed; the marks below may be out of date" : "checked"}. The
+            server decides again when you act.
+          </p>
+        )}
         <ul id={listId} role="listbox" className="palette-list" aria-label="Results">
           {shown.map((c) => {
             const heading = c.group !== lastGroup ? c.group : null;
@@ -139,6 +156,8 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                   aria-disabled={!c.allowed}
                   className={`palette-option${selected ? " active" : ""}${c.allowed ? "" : " refused"}`}
                   onMouseMove={() => setActive(shown.indexOf(c))}
+                  // Pointer use never takes focus from the search field.
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => choose(c)}
                 >
                   <span className="palette-label">{c.label}</span>

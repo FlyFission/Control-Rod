@@ -374,6 +374,13 @@ kbd {
 .palette-badge.refused {
   color: var(--stuck);
 }
+.palette-stale {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--needs);
+  border-bottom: 1px solid var(--line);
+}
 .palette-empty {
   padding: 14px 16px;
   color: var(--muted);

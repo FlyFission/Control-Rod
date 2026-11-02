@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useRouterState } from "@tanstack/react-router";
 import { api } from "../api/client.js";
 import type { AdminView } from "../api/types.js";
 import { time } from "../lib/format.js";
@@ -12,11 +13,13 @@ import { time } from "../lib/format.js";
  */
 export function Policies() {
   const q = useQuery({ queryKey: ["admin"], queryFn: api.admin });
+  const hash = useRouterState({ select: (st) => st.location.hash });
   useEffect(() => {
-    // The palette lands here on a command's own entry.
-    const id = decodeURIComponent(window.location.hash.slice(1));
-    if (q.data !== undefined && id) document.getElementById(id)?.scrollIntoView({ block: "center" });
-  }, [q.data]);
+    // The palette lands here on a command's own entry, also when only the hash changes.
+    const el = q.data !== undefined && hash ? document.getElementById(decodeURIComponent(hash)) : null;
+    el?.scrollIntoView({ block: "center" });
+    el?.focus({ preventScroll: true });
+  }, [q.data, hash]);
   if (q.isLoading) return <p className="muted">Loading</p>;
   if (q.isError || q.data === undefined) {
     return (

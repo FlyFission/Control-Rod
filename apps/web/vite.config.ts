@@ -33,8 +33,10 @@ const apiPaths = [
   "/runtimes",
   "/scrams",
 ];
-const pageLoad = (req: { headers: { accept?: string | undefined } }) =>
-  req.headers.accept?.startsWith("text/html") ? "/index.html" : undefined;
+/** Output and evidence files open as themselves, never as the app (as the control plane does). */
+const OUTPUT_PATH = /^\/packages\/[^/?#]+\/(?:outputs\/|verification-evidence\/[^/?#]+\/)/;
+const pageLoad = (req: { method?: string | undefined; url?: string | undefined; headers: { accept?: string | undefined } }) =>
+  req.method === "GET" && req.headers.accept?.startsWith("text/html") && !OUTPUT_PATH.test(req.url ?? "") ? "/index.html" : undefined;
 const target = process.env["CONTROL_ROD_API"] ?? "http://localhost:7300";
 
 export default defineConfig(({ mode }) => {

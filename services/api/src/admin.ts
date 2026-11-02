@@ -32,6 +32,8 @@ type Need = "administrator" | "policy" | "administrator+policy" | "lane" | "memb
 interface AdminCommand {
   /** What a person sees, in the palette and on Policies. */
   label: string;
+  /** A command that exists in the catalog but is refused for everyone for now: its reason code. */
+  unavailable?: string;
   catalog: CommandName;
   signature: "direct" | "none";
   need: Need;
@@ -200,6 +202,7 @@ async function recordRevocation(c: Tx, caller: Caller, delegationId: string, rea
 export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   "org.create": {
     label: "Create the organization",
+    unavailable: "multi-organization-later",
     catalog: "admin.org-create", signature: "direct", need: "administrator",
     async run() {
       throw new Refusal(409, "multi-organization-later",
@@ -707,6 +710,11 @@ export async function adminActions(db: Db, caller: Caller) {
   return Object.entries(ADMIN_COMMANDS).map(([name, cmd]) => {
     const base = { command: name, label: cmd.label, signature: cmd.signature, ...(cmd.need === "member" ? {} : { authority: cmd.need.split("+") }) };
     if (me.status !== "active") return { ...base, allowed: false, reason_code: "member-inactive", reason: teach("member-inactive").sentence, change: teach("member-inactive").change };
+    // Refused for everyone, whatever their authority: say so rather than offer it.
+    if (cmd.unavailable) {
+      const t = teach(cmd.unavailable);
+      return { ...base, allowed: false, reason_code: cmd.unavailable, reason: t.sentence, change: t.change, ...(t.floor ? { floor: true } : {}) };
+    }
     const missing = cmd.need === "member" ? [] : cmd.need.split("+").filter((a) => !held.has(a));
     if (!missing.length) return { ...base, allowed: true };
     const t = teach("authority-missing");

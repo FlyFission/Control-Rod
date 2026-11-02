@@ -4187,6 +4187,12 @@
                     },
                     "maxItems": 500,
                     "description": "Normalized events since the last post."
+                  },
+                  "events_from": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0,
+                    "description": "How many of this run's events the daemon had delivered before this batch. The control plane\nkeeps each event once by its index, so a batch resent after an upload whose answer was lost\nis not recorded twice."
                   }
                 },
                 "required": [
@@ -7773,6 +7779,19 @@
               "none"
             ],
             "description": "What proves the run's processes ended: cgroup (its scope is empty), process-group (the\nleader and its group are gone; a process that left the group is not seen) or none (no\nprocess was started). Absent means no proof: a failed or stopped run then keeps an unknown\noutcome."
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.NormalizedEvent"
+            },
+            "maxItems": 500,
+            "description": "Events no log post delivered (the last upload failed), carried by the completion, which the\ndaemon retries until it is recorded. Indexed from events_from like a log batch."
+          },
+          "events_from": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },

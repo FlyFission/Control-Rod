@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
+	"time"
 )
 
 // RuntimeArtifact is one runtime as found on this machine (specification 21): the native
@@ -186,6 +188,14 @@ func treeDigest(root string) (string, map[string]string, error) {
 			if err != nil {
 				return err
 			}
+			// A link's target string is all its entry records, so a link may only point inside the
+			// tree, where whatever it names is hashed too.
+			if filepath.IsAbs(target) {
+				return fmt.Errorf("%s links outside the runtime to %s", rel, target)
+			}
+			if in, err := filepath.Rel(root, filepath.Join(filepath.Dir(p), target)); err != nil || in == ".." || strings.HasPrefix(in, ".."+string(filepath.Separator)) {
+				return fmt.Errorf("%s links outside the runtime to %s", rel, target)
+			}
 			entries = append(entries, entry{rel, "link\x00" + rel + "\x00" + target})
 		case info.Mode().IsRegular():
 			total += info.Size()
@@ -232,6 +242,8 @@ type VerifiedLaunch struct {
 	Path   string
 	Digest Digest
 	Env    []string
+	// exeSum is the digest the executable's own bytes must have.
+	exeSum string
 }
 
 // Close releases the descriptor once the process has started.
@@ -290,7 +302,11 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return fail(err)
 	}
-	return &VerifiedLaunch{File: f, Path: got.Path, Digest: digest, Env: got.Env}, nil
+	exeSum := digest.Value
+	if got.Root != "" {
+		exeSum = got.exeSum
+	}
+	return &VerifiedLaunch{File: f, Path: got.Path, Digest: digest, Env: got.Env, exeSum: exeSum}, nil
 }
 
 // Apply points cmd at the verified executable. On Linux it runs the open descriptor (passed as the
@@ -310,4 +326,41 @@ func short(s string) string {
 		return s[:12]
 	}
 	return s
+}
+
+// confirmWait bounds how long Confirm waits for the started process to execute the runtime.
+var confirmWait = 10 * time.Second
+
+// Confirm proves, once the run's process has started, that it executes the verified bytes. On
+// Linux it waits until the process runs the descriptor's own file, then hashes that file again: the
+// kernel refuses writes to a file while it is executing, so bytes that match now are the bytes that
+// ran, even if the file was rewritten in place between the check and the start. Elsewhere it does
+// nothing (the documented limit for launch by verified path).
+func (l *VerifiedLaunch) Confirm(pid int) error {
+	if l == nil || l.File == nil || runtime.GOOS != "linux" {
+		return nil
+	}
+	info, err := l.File.Stat()
+	if err != nil {
+		return err
+	}
+	deadline := time.Now().Add(confirmWait)
+	for {
+		exe, err := os.Stat(fmt.Sprintf("/proc/%d/exe", pid))
+		if err == nil && os.SameFile(exe, info) {
+			break
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%w: the run's process was never seen executing the verified runtime", ErrArtifactMismatch)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	sum, err := readerDigest(io.NewSectionReader(l.File, 0, info.Size()))
+	if err != nil {
+		return err
+	}
+	if sum != l.exeSum {
+		return fmt.Errorf("%w: the runtime was rewritten between its check and its start (digest %s, expected %s)", ErrArtifactMismatch, short(sum), short(l.exeSum))
+	}
+	return nil
 }

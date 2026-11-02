@@ -301,6 +301,23 @@ func (d *Daemon) probedArtifact(runtime string) *RuntimeArtifact {
 	return nil
 }
 
+// verifiedVersion is the version recorded for the artifact a run launched: the probe's, when the
+// probe saw that same digest, otherwise the pin's. Empty when neither names it.
+func (d *Daemon) verifiedVersion(runtime string, launched *Digest, pin *RuntimePin) string {
+	if launched == nil {
+		return ""
+	}
+	for _, s := range d.runtimeStatus() {
+		if s.Runtime == runtime && s.Artifact != nil && s.Artifact.Digest.Value == launched.Value {
+			return s.Version
+		}
+	}
+	if pin != nil && pin.Digest.Value == launched.Value {
+		return pin.Version
+	}
+	return ""
+}
+
 func (d *Daemon) runtimeStatus() []RuntimeStatus {
 	d.probeMu.Lock()
 	defer d.probeMu.Unlock()
@@ -463,6 +480,9 @@ type logBuffer struct {
 	dirty   bool
 	receipt *OwnershipReceipt
 
+	// delivered counts events the control plane has acknowledged; one batch is in flight at a time.
+	delivered int
+
 	admit   *Admission
 	breaker *Breaker
 	// onTrip stops the run when the breaker trips; called outside the lock.
@@ -573,7 +593,7 @@ func (b *logBuffer) take() (LogBatch, bool) {
 		size += len(b.lines[n])
 		n++
 	}
-	batch := LogBatch{Lines: append([]string(nil), b.lines[:n]...), Label: b.label, Receipt: b.receipt}
+	batch := LogBatch{Lines: append([]string(nil), b.lines[:n]...), Label: b.label, Receipt: b.receipt, EventsFrom: b.delivered}
 	if k := min(len(b.events), MaxEventBatch); k > 0 {
 		batch.Events = append([]Event(nil), b.events[:k]...)
 		b.events = b.events[k:]
@@ -594,6 +614,28 @@ const maxHeldLines = 20000
 
 // MaxEventBatch is the most events one log post carries.
 const MaxEventBatch = 500
+
+// sent records that the control plane accepted a batch: its receipt and its events.
+func (b *logBuffer) sent(batch LogBatch) {
+	b.receiptSent(batch.Receipt)
+	b.mu.Lock()
+	b.delivered += len(batch.Events)
+	b.mu.Unlock()
+}
+
+// leftEvents takes the events no post delivered, for the completion: at most MaxEventBatch, the
+// newest kept (the exit event is last), with a dropped marker for the rest.
+func (b *logBuffer) leftEvents() ([]Event, int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	events, from := b.events, b.delivered
+	b.events = nil
+	if over := len(events) - MaxEventBatch; over > 0 {
+		at := time.Now().UTC().Format(time.RFC3339Nano)
+		events = append([]Event{{Kind: EvDropped, At: at, Dropped: over + 1}}, events[over+1:]...)
+	}
+	return events, from
+}
 
 // putBackEvents returns a failed batch's events to the front of the buffer.
 func (b *logBuffer) putBackEvents(events []Event) {
@@ -661,12 +703,12 @@ func (d *Daemon) flushLoop(ctx context.Context, job *Job, buf *logBuffer, stop c
 				buf.putBackEvents(batch.Events)
 			case reply.Stop:
 				last = time.Now()
-				buf.receiptSent(batch.Receipt)
+				buf.sent(batch)
 				d.log.Info("owner asked to stop the run", "run", job.Run.ID)
 				stop(errStopped)
 			default:
 				last = time.Now()
-				buf.receiptSent(batch.Receipt)
+				buf.sent(batch)
 			}
 		}
 	}
@@ -809,10 +851,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	cmd, err := Command(runtime, job.Run, ws)
 	var launched *Digest
+	var verified *VerifiedLaunch
 	if err == nil && cmd != nil && runtime != RuntimeFake {
 		// Launch by digest (specification 21): the exact file the pin (or, unpinned, the last probe)
 		// names, checked again now and executed from the descriptor whose bytes were hashed.
-		verified, verr := VerifyLaunch(runtime, job.RuntimePin, d.probedArtifact(runtime))
+		v, verr := VerifyLaunch(runtime, job.RuntimePin, d.probedArtifact(runtime))
 		if verr != nil {
 			err = verr
 			if job.RuntimePin == nil {
@@ -820,6 +863,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			}
 		} else {
 			// The child inherits the open descriptor; the daemon's copy closes once the run ends.
+			verified = v
 			defer verified.Close()
 			verified.Apply(cmd)
 			launched = &verified.Digest
@@ -855,6 +899,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					if perr := d.receipts.Put(r); perr != nil {
 						return &r, perr
 					}
+					// Fail closed: a run not proven to execute the verified bytes is stopped whole.
+					if cerr := verified.Confirm(pid); cerr != nil {
+						return &r, cerr
+					}
 					buf.setReceipt(r.Wire())
 					spawned = &r
 					return &r, nil
@@ -879,16 +927,20 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		if _, lerr := d.client.Log(context.Background(), job.Run.ID, batch); lerr != nil {
 			buf.putBack(batch.Lines)
 			buf.putBackEvents(batch.Events)
-			d.log.Warn("log upload failed", "run", job.Run.ID, "err", lerr)
+			d.log.Warn("log upload failed; its events go with the completion", "run", job.Run.ID, "err", lerr)
 			break
 		}
-		buf.receiptSent(batch.Receipt)
+		buf.sent(batch)
 	}
+	leftover, leftFrom := buf.leftEvents()
 	if errors.Is(err, ErrUncontained) {
 		return Completion{}, ErrUncontained
 	}
 
-	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}}
+	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}, Events: leftover}
+	if len(leftover) > 0 {
+		comp.EventsFrom = leftFrom
+	}
 	switch {
 	case cmd == nil:
 		comp.Containment = "none"
@@ -947,7 +999,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if runtime == RuntimeFake {
 		version = d.cfg.Version
 	} else {
-		version = ToolVersion(bin)
+		// Never run the executable again for its version: it may no longer be what was verified.
+		version = d.verifiedVersion(runtime, launched, job.RuntimePin)
 	}
 	comp.Trace = &ExecutionTrace{
 		SchemaVersion:   "0.1.0",

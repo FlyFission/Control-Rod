@@ -1,6 +1,6 @@
 import { request } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { bus } from "../src/events.js";
+import { appendEvent, bus } from "../src/events.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, signIn, startHarness } from "./harness.js";
 
 /** The resumable event stream (workbench plan task 2.8; specification 27, WB-11). */
@@ -109,16 +109,33 @@ describe("resume", () => {
   });
 
   it("sends events in sequence order from storage even when commit notices arrive out of order", async () => {
-    const before = await head();
-    await capture("first");
-    const mid = await head();
-    // Only the later event is announced, as if its commit notice overtook the earlier ones: the
-    // stream still sends everything committed, in order, with nothing skipped.
-    const last = (await h.db.query<{ body: { seq: number } }>("select body from events where seq = $1", [mid])).rows[0]!.body;
-    const frames = await stream({ "last-event-id": String(before) }, (f) => f.filter((x) => x.event === "event").length >= mid - before);
-    bus.emit("event", last);
+    let start = 0;
+    let fired = false;
+    const frames = await stream({}, (f) => {
+      const cp = f.find((x) => x.event === "checkpoint");
+      if (cp && !fired) {
+        fired = true;
+        start = Number(cp.id);
+        // Two events commit without the in-process notice; then only the later one is announced,
+        // as if its commit notice overtook the earlier one's. The stream must still send both, in order.
+        void (async () => {
+          const c = await h.admin.connect();
+          try {
+            await c.query("begin");
+            await appendEvent(c as never, "test.reordered", "first", { kind: "system", id: "test" });
+            const second = await appendEvent(c as never, "test.reordered", "second", { kind: "system", id: "test" });
+            await c.query("commit");
+            bus.emit("event", second);
+          } finally {
+            c.release();
+          }
+        })();
+      }
+      return f.filter((x) => x.event === "event").length >= 2;
+    });
     const seqs = frames.filter((f) => f.event === "event").map((f) => Number(f.id));
-    expect(seqs).toEqual(Array.from({ length: mid - before }, (_, i) => before + i + 1));
+    expect(start).toBeGreaterThan(0);
+    expect(seqs).toEqual([start + 1, start + 2]);
   });
 
   it("gives a new client a checkpoint at the head, so a reconnect before any event resumes from it", async () => {

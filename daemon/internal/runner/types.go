@@ -108,6 +108,9 @@ type Completion struct {
 	// "process-group" (the leader and its group are gone; a process that left the group is not
 	// seen) or "none" (no process was started). Absent means no proof at all.
 	Containment string `json:"containment,omitempty"`
+	// Events no log post delivered, indexed from EventsFrom; the completion outbox retries them.
+	Events     []Event `json:"events,omitempty"`
+	EventsFrom int     `json:"events_from,omitempty"`
 }
 
 // LogBatch is the body of POST /runner/runs/{id}/log.
@@ -118,6 +121,9 @@ type LogBatch struct {
 	Receipt    *OwnershipReceipt `json:"receipt,omitempty"`
 	// Events are the normalized events since the last post (specification 20).
 	Events []Event `json:"events,omitempty"`
+	// EventsFrom is how many of the run's events were delivered before this batch, so the control
+	// plane keeps each event once when a batch is resent.
+	EventsFrom int `json:"events_from"`
 }
 
 // LogReply is the control plane's answer to a log post.

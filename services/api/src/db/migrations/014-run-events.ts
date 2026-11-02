@@ -6,9 +6,13 @@ create table run_events (
   run_id text not null references runs(id),
   seq int not null check (seq >= 1),
   body jsonb not null,
+  -- The daemon's index for the event (null for notices the control plane adds), so an event in a
+  -- batch resent after a lost answer is kept once.
+  origin int check (origin >= 0),
   recorded_at timestamptz not null default now(),
   primary key (run_id, seq)
 );
+create unique index run_events_origin on run_events (run_id, origin) where origin is not null;
 create trigger run_events_frozen before update or delete on run_events
   for each row execute function tenancy_append_only();
 `;

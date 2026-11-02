@@ -47,6 +47,26 @@ describe("run stories", () => {
     expect((await h.app.inject({ method: "GET", url: `/packages/WP-OTHER/runs/${job.run.id}/events`, headers: { cookie } })).statusCode).toBe(404);
   });
 
+  it("keeps each daemon event once when a batch is resent, marks a gap, and takes the rest from the completion", async () => {
+    const job = await claimed("WP-EV-DUP", "fake");
+    const kinds = async () => (await h.app.inject({ method: "GET", url: `/packages/WP-EV-DUP/runs/${job.run.id}/events`, headers: { cookie } })).json().events.map((e: Json) => e.event.kind + (e.event.text ? `:${e.event.text}` : ""));
+    const msg = (text: string) => ({ kind: "message", at: at(), text });
+    const first = { lines: [], events: [msg("a"), msg("b")], events_from: 0 };
+    expect((await daemon(`/runner/runs/${job.run.id}/log`, first)).statusCode).toBe(200);
+    // The answer was lost; the daemon resends the same batch with one more event behind it.
+    expect((await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], events: [msg("a"), msg("b"), msg("c")], events_from: 0 })).statusCode).toBe(200);
+    expect(await kinds()).toEqual(["message:a", "message:b", "message:c"]);
+    // Events the daemon counted as delivered but the control plane never saw show as dropped.
+    expect((await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], events: [msg("f")], events_from: 5 })).statusCode).toBe(200);
+    expect((await kinds()).slice(3)).toEqual(["dropped", "message:f"]);
+    expect((await daemon(`/runner/runs/${job.run.id}/log`, { lines: [], events: [msg("x")], events_from: -1 })).statusCode).toBe(400);
+    // The last events ride with the completion, and a retried completion adds nothing.
+    const done = { status: "failed", error: "x", outputs: [], idempotency_key: "events-key-001", events: [msg("f"), { kind: "exit", at: at(), text: "exited" }], events_from: 5 };
+    expect((await daemon(`/runner/runs/${job.run.id}/complete`, done)).statusCode).toBe(200);
+    expect((await daemon(`/runner/runs/${job.run.id}/complete`, done)).statusCode).toBe(200);
+    expect((await kinds()).slice(3)).toEqual(["dropped", "message:f", "exit:exited"]);
+  });
+
   it("refuses an event outside the contract, keeping the whole post out", async () => {
     const job = await claimed("WP-EV-2", "fake");
     const bad = await daemon(`/runner/runs/${job.run.id}/log`, { lines: ["x"], events: [{ kind: "message", at: at(), text: "ok" }, { kind: "telepathy", at: at() }] });

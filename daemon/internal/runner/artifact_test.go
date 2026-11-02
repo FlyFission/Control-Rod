@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 // elf is the start of a native executable, enough for resolution to treat a file as one.
@@ -202,5 +204,122 @@ func TestVerifiedLaunchRunsTheCheckedBytesEvenAfterTheFileIsReplaced(t *testing.
 	}
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("the verified bytes (true) must run, not the replacement (false): %v", err)
+	}
+}
+
+func TestCodexTreeRefusesLinksThatLeaveIt(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "bin", "codex"), append(append([]byte{}, elf...), "codex"...), 0o755)
+	if err := os.Symlink("../bin/codex", filepath.Join(root, "bin", "inside")); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := treeDigest(root); err != nil {
+		t.Fatalf("a link inside the tree is fine: %v", err)
+	}
+	for i, target := range []string{"/etc/passwd", "../../outside"} {
+		link := filepath.Join(root, "bin", "escape"+string(rune('a'+i)))
+		if err := os.Symlink(target, link); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := treeDigest(root); err == nil || !strings.Contains(err.Error(), "links outside the runtime") {
+			t.Fatalf("a link to %s must be refused: %v", target, err)
+		}
+		os.Remove(link)
+	}
+}
+
+// verifiedCopy copies a system executable to a temporary runtime path and verifies it, pinned.
+func verifiedCopy(t *testing.T, name string) (string, *VerifiedLaunch) {
+	t.Helper()
+	src, err := exec.LookPath(name)
+	if err != nil {
+		t.Skipf("needs %s", name)
+	}
+	b, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "runtime")
+	writeFile(t, path, b, 0o755)
+	sum, err := fileDigest(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := resolveArtifact
+	resolveArtifact = func(string) (RuntimeArtifact, error) {
+		return RuntimeArtifact{Path: path, Digest: Digest{Algorithm: "sha256", Value: sum}}, nil
+	}
+	t.Cleanup(func() { resolveArtifact = old })
+	l, err := VerifyLaunch("claude", &RuntimePin{Runtime: "claude", Digest: Digest{Algorithm: "sha256", Value: sum}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(l.Close)
+	return path, l
+}
+
+func TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Confirm is Linux only")
+	}
+	path, l := verifiedCopy(t, "sleep")
+	cmd := exec.Command(path, "5")
+	l.Apply(cmd)
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cmd.Process.Kill(); cmd.Wait() }()
+	if err := l.Confirm(cmd.Process.Pid); err != nil {
+		t.Fatalf("an unmodified runtime confirms: %v", err)
+	}
+	// What makes the confirmation sound: while it executes, the file cannot be opened for writing.
+	if f, err := os.OpenFile(path, os.O_WRONLY, 0); err == nil {
+		f.Close()
+		t.Fatal("an executing runtime must refuse writes (ETXTBSY)")
+	} else if !errors.Is(err, syscall.ETXTBSY) {
+		t.Fatalf("expected ETXTBSY, got %v", err)
+	}
+}
+
+func TestConfirmCatchesARuntimeRewrittenInPlaceBeforeItStarted(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Confirm is Linux only")
+	}
+	path, l := verifiedCopy(t, "sleep")
+	// Rewrite the same file (same inode) after the check: a descriptor alone cannot see this.
+	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteAt([]byte("tampered"), 4096); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	cmd := exec.Command(path, "5")
+	l.Apply(cmd)
+	if err := cmd.Start(); err != nil {
+		t.Skipf("the tampered copy does not start here: %v", err)
+	}
+	defer func() { cmd.Process.Kill(); cmd.Wait() }()
+	if err := l.Confirm(cmd.Process.Pid); !errors.Is(err, ErrArtifactMismatch) || !strings.Contains(err.Error(), "rewritten between its check and its start") {
+		t.Fatalf("an in-place rewrite must be caught: %v", err)
+	}
+}
+
+func TestConfirmFailsClosedWhenTheProcessNeverRunsTheRuntime(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Confirm is Linux only")
+	}
+	old := confirmWait
+	confirmWait = 200 * time.Millisecond
+	defer func() { confirmWait = old }()
+	_, l := verifiedCopy(t, "sleep")
+	other := exec.Command("sleep", "5")
+	if err := other.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { other.Process.Kill(); other.Wait() }()
+	if err := l.Confirm(other.Process.Pid); !errors.Is(err, ErrArtifactMismatch) {
+		t.Fatalf("a process running something else must not confirm: %v", err)
 	}
 }

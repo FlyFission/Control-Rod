@@ -617,10 +617,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (!job) return reply.code(204).send();
     return job;
   });
-  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string; receipt?: unknown; events?: unknown } }>("/runner/runs/:id/log", async (req) => {
+  app.post<{ Params: { id: string }; Body: { claim_token?: string; lines?: string[]; label?: string; receipt?: unknown; events?: unknown; events_from?: unknown } }>("/runner/runs/:id/log", async (req) => {
     daemon(req);
     const lines = Array.isArray(req.body?.lines) ? req.body.lines.map(String) : [];
-    return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined, req.body?.receipt, req.body?.events);
+    return runLog(db, cfg, req.params.id, req.body?.claim_token, lines, req.body?.label ? String(req.body.label) : undefined, req.body?.receipt, req.body?.events, req.body?.events_from);
   });
   app.post<{ Params: { id: string } }>("/runner/runs/:id/evidence", async (req) => {
     daemon(req);

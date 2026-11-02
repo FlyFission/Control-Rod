@@ -253,18 +253,6 @@ func Command(runtime string, run Run, ws *Workspace) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-// ToolVersion reports `<bin> --version`, first line, or "" when it cannot be read.
-func ToolVersion(bin string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, bin, "--version").Output()
-	if err != nil {
-		return ""
-	}
-	line, _, _ := strings.Cut(strings.TrimSpace(string(out)), "\n")
-	return strings.TrimSpace(line)
-}
-
 // ErrTimeout is returned when a run outlives its timeout.
 var ErrTimeout = errors.New("timeout")
 

@@ -352,7 +352,45 @@ op office(): OfficeItem[];
 op runtimes(): {
   reported_at?: utcDateTime;
   runtimes: Runner.RuntimeStatus[];
+
+  /** The active pins, per runtime and role. */
+  pins: RuntimePin[];
 };
+
+/** The viewing member, as the command layer knows them. */
+model Caller {
+  userName: string;
+  memberId: string;
+  orgId: string;
+}
+
+/** An administrative command and what it needs (specification 10.2). */
+model AdminCommandInfo {
+  name: string;
+  label: string;
+  signature: "direct" | "none";
+
+  /** "member", or authorities joined by "+" (any member, or each listed authority). */
+  need: string;
+}
+
+/** Administration: who is here, what is in force, and every command with the viewer's standing. */
+@route("/admin")
+@get
+op admin(): {
+  me: Caller;
+  bootstrap: boolean;
+  qualification: SignerQualification | null;
+  members: Member[];
+  projects: Project[];
+  policy: PolicySet | null;
+  themes: string[];
+  commands: AdminCommandInfo[];
+  actions: ActionDescriptor[];
+
+  /** The floors in force: no person, decision or setting lifts them. */
+  floors: { code: string; sentence: string; change: string }[];
+} | ApiError;
 
 /** One quarantine batch: what a SCRAM-stopped run reported in one completion, as digests. */
 model ScramQuarantineBatch {

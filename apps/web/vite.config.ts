@@ -15,16 +15,26 @@ import { relative, resolve } from "node:path";
 /** Written into every build output so a later build may safely clear it. */
 const BUILD_MARKER = ".control-rod-build";
 
-/** API paths the control plane serves at the same origin; the dev server forwards them. */
+/**
+ * API paths the control plane serves at the same origin; the dev and preview servers forward them.
+ * Some are also pages of the app (/packages, /office): a browser loading one asks for HTML and gets
+ * the app, as the control plane itself does in production.
+ */
 const apiPaths = [
+  "/admin",
   "/auth",
   "/captures",
-  "/packages",
-  "/office",
   "/events",
-  "/metrics",
   "/health",
+  "/metrics",
+  "/office",
+  "/packages",
+  "/runs",
+  "/runtimes",
+  "/scrams",
 ];
+const pageLoad = (req: { headers: { accept?: string | undefined } }) =>
+  req.headers.accept?.startsWith("text/html") ? "/index.html" : undefined;
 const target = process.env["CONTROL_ROD_API"] ?? "http://localhost:7300";
 
 export default defineConfig(({ mode }) => {
@@ -124,7 +134,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       proxy: Object.fromEntries(
-        apiPaths.map((p) => [p, { target, changeOrigin: false }]),
+        apiPaths.map((p) => [p, { target, changeOrigin: false, bypass: pageLoad }]),
       ),
     },
     build: {

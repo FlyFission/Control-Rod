@@ -57,6 +57,9 @@ describe("pins", () => {
     const ok = await signed("runtime.pin", { runtime: "claude", artifact_digest: A });
     expect(ok.statusCode, ok.body).toBe(200);
     expect(ok.json().pins.map((p: Json) => p.role).sort()).toEqual(["author", "intake", "pre-check"]);
+    // The roster reads the active pins beside the daemon's report.
+    const roster = (await h.app.inject({ method: "GET", url: "/runtimes", headers: { cookie } })).json();
+    expect(roster.pins.map((p: Json) => [p.runtime, p.role, p.artifact_digest.value])).toEqual([["claude", "author", A], ["claude", "intake", A], ["claude", "pre-check", A]]);
   });
 
   it("hands the pin to the daemon, and holds work when the installed artifact is not the pinned one", async () => {

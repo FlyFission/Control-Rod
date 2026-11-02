@@ -7,8 +7,8 @@ import { renderPage } from "../test/render.js";
 import { DIGEST, view } from "../test/fixtures.js";
 import { CaptureBox, CAPTURE_LIMIT } from "./CaptureBox.js";
 import { DecisionBar } from "./DecisionBar.js";
-import { Office } from "../pages/Office.js";
-import { Home } from "../pages/Home.js";
+import { Inbox } from "../pages/Inbox.js";
+import { RecentCaptures } from "./Captures.js";
 import { RunCard, canRequeue, canStop, runStatusText } from "./RunLog.js";
 import { independenceText } from "../lib/format.js";
 import type { Run } from "../api/types.js";
@@ -268,7 +268,7 @@ describe("your office", () => {
         ]),
       ),
     );
-    await renderPage(<Office />);
+    await renderPage(<Inbox />);
     await screen.findByText("Accept WP-1");
     const titles = screen.getAllByText(/^(Release|Accept|Dispute) WP-\d$/).map((n) => n.textContent);
     expect(titles).toEqual(["Dispute WP-4", "Accept WP-1", "Accept WP-2", "Release WP-3"]);
@@ -370,7 +370,7 @@ describe("runs that need the owner", () => {
         ]),
       ),
     );
-    await renderPage(<Office />);
+    await renderPage(<Inbox />);
     await screen.findByText("Lost WP-9");
     expect(screen.getAllByText(/^(Lost|Dispute) WP-\d$/).map((n) => n.textContent)).toEqual(["Lost WP-9", "Dispute WP-4"]);
     expect(screen.getByText("Lost run")).toBeTruthy();
@@ -478,7 +478,7 @@ describe("runtime readiness in the office", () => {
         }),
       ),
     );
-    await renderPage(<Office />);
+    await renderPage(<Inbox />);
     expect(await screen.findByText("codex is not ready and is not offered for work.")).toBeTruthy();
     expect(screen.getByText(/not signed in/)).toBeTruthy();
     expect(screen.queryByText(/claude is not ready/)).toBeNull();
@@ -508,7 +508,7 @@ describe("stranded intake", () => {
         return HttpResponse.json({}, { status: 201 });
       }),
     );
-    await renderPage(<Home />);
+    await renderPage(<RecentCaptures />);
     expect(await screen.findByText(/Intake failed: model unavailable/)).toBeTruthy();
     await userEvent.setup().click(screen.getByRole("button", { name: "Retry intake" }));
     await waitFor(() => expect(requeued).toBe("R-9"));

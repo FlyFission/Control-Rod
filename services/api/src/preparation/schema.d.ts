@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/admin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Administration: who is here, what is in force, and every command with the viewer's standing. */
+        get: operations["admin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login/options": {
         parameters: {
             query?: never;
@@ -813,6 +830,15 @@ export interface components {
             change?: string;
             floor?: boolean;
         };
+        /** @description An administrative command and what it needs (specification 10.2). */
+        AdminCommandInfo: {
+            name: string;
+            label: string;
+            /** @enum {string} */
+            signature: "direct" | "none";
+            /** @description "member", or authorities joined by "+" (any member, or each listed authority). */
+            need: string;
+        };
         ApiError: {
             /** @description A stable reason code (services/api/src/refusals.ts lists every one). */
             code: string;
@@ -832,6 +858,12 @@ export interface components {
             registered: boolean;
             signed_in: boolean;
             user?: string;
+        };
+        /** @description The viewing member, as the command layer knows them. */
+        Caller: {
+            userName: string;
+            memberId: string;
+            orgId: string;
         };
         "Captures.CaptureView": {
             /** @enum {string} */
@@ -1249,6 +1281,11 @@ export interface components {
             requires_confirmation: boolean;
             owner: string;
         };
+        /**
+         * @description The attestation statement format a registration returned. "none" means no attestation.
+         * @enum {string}
+         */
+        "ControlRod.Records.AttestationFormat": "none" | "packed" | "tpm" | "fido-u2f" | "android-key" | "android-safetynet" | "apple";
         /** @description Something a person said they want done, before intake turns it into a package. */
         "ControlRod.Records.Capture": {
             /** @enum {string} */
@@ -1429,6 +1466,32 @@ export interface components {
             consumes?: components["schemas"]["ControlRod.Records.InterfaceConsume"][];
             exports?: components["schemas"]["ControlRod.Records.InterfaceExport"][];
         };
+        /** @description A professional license as the Member recorded it. */
+        "ControlRod.Records.License": {
+            /** @description Issuing jurisdiction, for example "US-SC". */
+            jurisdiction: string;
+            /** @description License number as issued. */
+            number: string;
+            discipline?: string;
+            /**
+             * Format: date
+             * @description Last day the license is valid, as an ISO date.
+             */
+            expires_on: string;
+        };
+        /** @enum {string} */
+        "ControlRod.Records.LifecycleStatus": "active" | "suspended" | "retired";
+        /** @description A person in an organization. Passkeys bind here; only a passkey session of a Member is a person. */
+        "ControlRod.Records.Member": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            /** @description The WebAuthn user name the Member's passkeys were registered under. */
+            user_name: string;
+            display_name: string;
+            status: components["schemas"]["ControlRod.Records.LifecycleStatus"];
+            /** @description The Member's own office theme: a bundled theme and the digest of its manifest when chosen. */
+            office_theme?: components["schemas"]["ControlRod.Records.OfficeThemeSelection"];
+        };
         "ControlRod.Records.Methodology": {
             method: string;
             tools?: components["schemas"]["ControlRod.Records.ToolRef"][];
@@ -1469,6 +1532,10 @@ export interface components {
              * @description How many events admission refused before this one (kind dropped).
              */
             dropped?: number;
+        };
+        "ControlRod.Records.OfficeThemeSelection": {
+            theme_id: string;
+            manifest_digest: components["schemas"]["ControlRod.Records.Digest"];
         };
         "ControlRod.Records.OutcomeUnknown": {
             /** Format: date-time */
@@ -1552,6 +1619,22 @@ export interface components {
             subject_digest?: components["schemas"]["ControlRod.Records.Digest"];
             challenge_nonce?: string;
         };
+        /** @description Floors and settings in effect. Decisions reference a policy set by digest. */
+        "ControlRod.Records.PolicySet": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            /** Format: int32 */
+            version: number;
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            /** @description Attestation formats accepted as evidence of a hardware backed key (docs/sqa/authenticators.md). */
+            hardware_attestation_formats: components["schemas"]["ControlRod.Records.AttestationFormat"][];
+            /** @description Floor settings by name, each a short string value. */
+            settings: {
+                [key: string]: string;
+            };
+            reason: string;
+            /** Format: date-time */
+            effective_at: string;
+        };
         /** @description Runtime identity of author and checker, and whether they could be the same. */
         "ControlRod.Records.PreCheckIndependence": {
             /** @enum {string} */
@@ -1559,6 +1642,22 @@ export interface components {
             author_runtime: components["schemas"]["ControlRod.Records.RuntimeRef"];
             checker_runtime: components["schemas"]["ControlRod.Records.RuntimeRef"];
             owner_override?: components["schemas"]["ControlRod.Records.OwnerOverride"];
+        };
+        /** @description A project: its mode, default rigor, admitted lanes, QA overlays and autonomy level. */
+        "ControlRod.Records.Project": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            name: string;
+            mode: components["schemas"]["ControlRod.Records.Mode"];
+            default_rigor: components["schemas"]["ControlRod.Records.RigorMode"];
+            lanes: components["schemas"]["ControlRod.Records.DataLane"][];
+            qa_overlays: string[];
+            /**
+             * Format: int32
+             * @description Autonomy level. Level 4 is never permitted (specification 11.2).
+             */
+            autonomy_level: number;
+            status: components["schemas"]["ControlRod.Records.LifecycleStatus"];
         };
         /** @description An engineering quantity. The value is a decimal string so no precision is lost. */
         "ControlRod.Records.Quantity": {
@@ -1698,6 +1797,16 @@ export interface components {
         "ControlRod.Records.RunRole": "intake" | "author" | "pre-check" | "requirements-preparer" | "technical-preparer";
         /** @enum {string} */
         "ControlRod.Records.RunStatus": "queued" | "running" | "succeeded" | "failed" | "stopped" | "lost";
+        /** @description Which artifact version a role launches. Changes are directly signed commands. (L) */
+        "ControlRod.Records.RuntimePin": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            role: components["schemas"]["ControlRod.Records.RunRole"];
+            runtime: string;
+            artifact_version_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            artifact_digest: components["schemas"]["ControlRod.Records.Digest"];
+            status: components["schemas"]["ControlRod.Records.LifecycleStatus"];
+        };
         "ControlRod.Records.RuntimeRef": {
             /** @enum {string} */
             kind: "subscription" | "account" | "local";
@@ -1741,6 +1850,40 @@ export interface components {
         "ControlRod.Records.ScramRestartScope": "all" | "package" | "discipline";
         /** @enum {string} */
         "ControlRod.Records.ScramScope": "organization" | "project";
+        /**
+         * @description Authorities this specification needs beyond signing roles.
+         * @enum {string}
+         */
+        "ControlRod.Records.SignerAuthority": "administrator" | "lane" | "policy";
+        /**
+         * @description Grades a signer may sign at.
+         * @enum {string}
+         */
+        "ControlRod.Records.SignerGrade": "safety" | "material" | "general-service";
+        /** @description What a Member is qualified to sign and administer. One frozen version per change. */
+        "ControlRod.Records.SignerQualification": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            /** Format: int32 */
+            version: number;
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            member_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            licenses: components["schemas"]["ControlRod.Records.License"][];
+            disciplines: string[];
+            grades: components["schemas"]["ControlRod.Records.SignerGrade"][];
+            roles: components["schemas"]["ControlRod.Records.SignerRole"][];
+            authorities: components["schemas"]["ControlRod.Records.SignerAuthority"][];
+            /** @description A revoked version grants nothing; revocation is a new version, never a deletion. */
+            revoked: boolean;
+            /** @description Why this version was issued or revoked. */
+            reason: string;
+            /** Format: date-time */
+            effective_at: string;
+        };
+        /**
+         * @description Roles a signer may hold on a package.
+         * @enum {string}
+         */
+        "ControlRod.Records.SignerRole": "originator" | "checker" | "approver" | "discipline-lead" | "engineer-in-responsible-charge";
         /** @description A stable identifier: a lowercase type prefix, an underscore, then up to 64 letters, digits or hyphens. */
         "ControlRod.Records.TenancyId": string;
         "ControlRod.Records.ToolRef": {
@@ -2025,6 +2168,42 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        me: components["schemas"]["Caller"];
+                        bootstrap: boolean;
+                        qualification: components["schemas"]["ControlRod.Records.SignerQualification"] | null;
+                        members: components["schemas"]["ControlRod.Records.Member"][];
+                        projects: components["schemas"]["ControlRod.Records.Project"][];
+                        policy: components["schemas"]["ControlRod.Records.PolicySet"] | null;
+                        themes: string[];
+                        commands: components["schemas"]["AdminCommandInfo"][];
+                        actions: components["schemas"]["ActionDescriptor"][];
+                        /** @description The floors in force: no person, decision or setting lifts them. */
+                        floors: {
+                            code: string;
+                            sentence: string;
+                            change: string;
+                        }[];
+                    } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Auth_loginOptions: {
         parameters: {
             query?: never;
@@ -5382,6 +5561,8 @@ export interface operations {
                         /** Format: date-time */
                         reported_at?: string;
                         runtimes: components["schemas"]["Runner.RuntimeStatus"][];
+                        /** @description The active pins, per runtime and role. */
+                        pins: components["schemas"]["ControlRod.Records.RuntimePin"][];
                     };
                 };
             };

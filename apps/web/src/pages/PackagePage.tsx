@@ -16,9 +16,9 @@ export function PackagePage({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["package", id], queryFn: () => api.packageView(id) });
 
   useEffect(() => {
-    if (q.data !== undefined && window.location.hash === "#decide") {
-      document.getElementById("decide")?.scrollIntoView({ block: "start" });
-    }
+    // Links and the command palette land on a section: #decide, #criteria.
+    const target = window.location.hash.slice(1);
+    if (q.data !== undefined && target) document.getElementById(target)?.scrollIntoView({ block: "start" });
   }, [q.data]);
 
   if (q.isLoading) return <p className="muted">Loading</p>;
@@ -156,7 +156,7 @@ export function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: str
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
   return (
-    <section className="panel" aria-labelledby="crit-title">
+    <section id="criteria" className="panel" aria-labelledby="crit-title">
       <div className="panel-head">
         <h2 id="crit-title">Acceptance criteria</h2>
         {editable && !editing && (

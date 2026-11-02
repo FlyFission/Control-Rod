@@ -30,3 +30,20 @@ export type ResolutionRequest = S["ControlRod.Preparation.ResolutionRequest"];
 
 export type RequirementsConfirmation = S["ControlRod.Preparation.RequirementsConfirmation"];
 export type CriterionResultSet = S["ControlRod.Preparation.CriterionResultSet"];
+
+export type ActionDescriptor = S["ActionDescriptor"];
+export type RuntimePin = S["ControlRod.Records.RuntimePin"];
+export type AdminCommandInfo = S["AdminCommandInfo"];
+/** GET /admin: who is here, what is in force, and every administrative command with the viewer's standing. */
+export interface AdminView {
+  me: S["Caller"];
+  bootstrap: boolean;
+  qualification: S["ControlRod.Records.SignerQualification"] | null;
+  members: S["ControlRod.Records.Member"][];
+  projects: S["ControlRod.Records.Project"][];
+  policy: S["ControlRod.Records.PolicySet"] | null;
+  themes: string[];
+  commands: AdminCommandInfo[];
+  actions: ActionDescriptor[];
+  floors: { code: string; sentence: string; change: string }[];
+}

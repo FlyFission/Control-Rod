@@ -2086,6 +2086,8 @@ export interface components {
             decisions: components["schemas"]["ControlRod.Records.Decision"][];
             /** @description Digest a decision on this revision must be bound to. */
             subject_digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** @description What a signature on this revision binds, in words (drafts and work in verification). */
+            binds?: string;
         };
         "Packages.DecisionRequest": {
             kind: components["schemas"]["ControlRod.Records.DecisionKind"];

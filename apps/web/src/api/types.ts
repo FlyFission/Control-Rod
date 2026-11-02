@@ -55,3 +55,4 @@ export interface InboxView {
   waiting_on_others: AttentionItem[];
   digest: { head: number; lines: DigestLine[] };
 }
+export type NormalizedEvent = S["ControlRod.Records.NormalizedEvent"];

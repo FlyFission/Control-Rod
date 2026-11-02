@@ -1,6 +1,6 @@
 // Typed calls to the control plane. Paths match spec/generated/openapi/openapi.json exactly;
 // the API serves this app at the same origin, so every path is relative to it.
-import type { ActionDescriptor, AdminView, DataLane, InboxView, RuntimePin,
+import type { ActionDescriptor, AdminView, DataLane, InboxView, NormalizedEvent, RuntimePin,
   RequirementsConfirmation,
   PreparationView,
   PreparationContent,
@@ -119,6 +119,8 @@ export const api = {
   packageView: (id: string) => call<PackageView>("GET", `/packages/${enc(id)}`),
   /** Saves a draft the caller loaded with `etag`; a stale tag is refused so no edit is lost. */
   updatePackage: (pkg: WorkPackage, etag: string) => callTagged<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg, { "if-match": etag }),
+  runEvents: (id: string, runId: string, after = 0) =>
+    call<{ events: { seq: number; event: NormalizedEvent }[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/events${after > 0 ? `?after=${after}` : ""}`),
   runLog: (id: string, runId: string) =>
     call<{ lines: string[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/log`),
   stopRun: (id: string, runId: string) => call<Run>("POST", `/packages/${enc(id)}/runs/${enc(runId)}/stop`),

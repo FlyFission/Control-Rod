@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "./api/client.js";
 import { Shell } from "./components/Shell.js";
 import { useLiveEvents } from "./lib/live.js";
+import { CasePage } from "./features/case/CasePage.js";
 import { Explore } from "./pages/Explore.js";
 import { Inbox } from "./pages/Inbox.js";
 import { OfficePlace } from "./pages/OfficePlace.js";
@@ -70,7 +71,17 @@ const packageRoute = createRoute({
   },
 });
 
-const routeTree = rootRoute.addChildren([...routes, packageRoute]);
+/** The case view, a preview beside the package page (plan task 3.4). */
+const caseRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/packages/$id/case",
+  component: function CaseRoute() {
+    const { id } = caseRoute.useParams();
+    return <CasePage id={id} />;
+  },
+});
+
+const routeTree = rootRoute.addChildren([...routes, packageRoute, caseRoute]);
 
 /** A place that fails to render says so inside the shell; navigation and the palette keep working. */
 export function PlaceError({ error, reset }: { error: unknown; reset: () => void }) {

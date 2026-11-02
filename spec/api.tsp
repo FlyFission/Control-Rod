@@ -153,6 +153,9 @@ model PackageView {
 
   /** Digest a decision on this revision must be bound to. */
   subject_digest: Digest;
+
+  /** What a signature on this revision binds, in words (drafts and work in verification). */
+  binds?: string;
 }
 
 @route("/packages")

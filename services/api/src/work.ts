@@ -2372,8 +2372,10 @@ export async function recordRuntimeStatus(db: Db, raw: unknown): Promise<Runtime
   return list;
 }
 
-export async function runtimeStatus(db: Db): Promise<{ reported_at?: string; runtimes: RuntimeStatus[] }> {
+export async function runtimeStatus(db: Db): Promise<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: Json[] }> {
   const r = await db.query<{ value: string }>("select value from settings where key = 'runtime_status'");
-  if (!r.rows[0]) return { runtimes: [] };
-  return JSON.parse(r.rows[0].value) as { reported_at?: string; runtimes: RuntimeStatus[] };
+  // The active pins beside what the daemon found, so the roster shows both.
+  const pins = (await db.query<{ body: Json }>("select body from runtime_pins where body->>'status' = 'active' order by body->>'runtime', body->>'role'")).rows.map((x) => x.body);
+  if (!r.rows[0]) return { runtimes: [], pins };
+  return { ...(JSON.parse(r.rows[0].value) as { reported_at?: string; runtimes: RuntimeStatus[] }), pins };
 }

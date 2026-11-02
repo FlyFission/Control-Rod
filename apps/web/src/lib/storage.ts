@@ -20,3 +20,20 @@ export function writeNumber(key: string, value: number): void {
 }
 
 export const LAST_SEEN_KEY = "cr.lastSeenSeq";
+
+/** A remembered string for this browser session (filters, open tabs), or the fallback. */
+export function readSession(key: string, fallback = ""): string {
+  try {
+    return window.sessionStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function writeSession(key: string, value: string): void {
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // Ignored: private windows and blocked storage.
+  }
+}

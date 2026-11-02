@@ -1,44 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
-import type { DataLane } from "../api/types.js";
-import { LanePicker } from "../components/LanePicker.js";
 import { api } from "../api/client.js";
-import type { CaptureView, CrEvent, Metrics } from "../api/types.js";
-import { CaptureBox } from "../components/CaptureBox.js";
-import { StateMark } from "../components/StateMark.js";
-import { LAST_SEEN_KEY, readNumber, writeNumber } from "../lib/storage.js";
+import type { CaptureView, DataLane } from "../api/types.js";
 import { splitAttachments } from "../lib/attachments.js";
 import { time } from "../lib/format.js";
+import { LanePicker } from "./LanePicker.js";
 
-export function Home() {
-  const office = useQuery({ queryKey: ["office"], queryFn: api.office });
-  return (
-    <div className="home">
-      <div className="home-main">
-        <CaptureBox />
-        <RecentCaptures />
-      </div>
-      <aside className="home-side">
-        <section className="panel needs" aria-labelledby="needs-title">
-          <h2 id="needs-title">Needs you</h2>
-          <p className="big">
-            <StateMark kind="needs" size={14} />
-            <span>{office.data?.length ?? 0}</span>
-          </p>
-          <Link to="/office" className="btn ghost small">
-            Open your office
-          </Link>
-        </section>
-        <SinceLastLooked />
-        <MetricsPanel />
-      </aside>
-    </div>
-  );
-}
-
-function RecentCaptures() {
+/** The newest captures, with their intake state and what each became. */
+export function RecentCaptures() {
   const q = useQuery({ queryKey: ["captures"], queryFn: api.captures });
   const items = useMemo(
     () => [...(q.data ?? [])].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, 12),
@@ -138,80 +109,3 @@ function CaptureRow({ c }: { c: CaptureView }) {
   );
 }
 
-/** Events since this browser last marked them seen. Stored per viewer; works without storage. */
-function SinceLastLooked() {
-  const [lastSeen, setLastSeen] = useState<number | undefined>(() => readNumber(LAST_SEEN_KEY));
-  const q = useQuery({ queryKey: ["events", "since", lastSeen ?? 0], queryFn: () => api.events(lastSeen ?? 0) });
-  const events: CrEvent[] = q.data ?? [];
-  const fresh = lastSeen === undefined ? [] : events.filter((e) => e.seq > lastSeen);
-  const maxSeq = events.reduce((m, e) => Math.max(m, e.seq), lastSeen ?? 0);
-
-  // First visit on this browser: start counting from now.
-  useEffect(() => {
-    if (lastSeen === undefined && q.data !== undefined) {
-      writeNumber(LAST_SEEN_KEY, maxSeq);
-      setLastSeen(maxSeq);
-    }
-  }, [lastSeen, q.data, maxSeq]);
-
-  function markSeen() {
-    writeNumber(LAST_SEEN_KEY, maxSeq);
-    setLastSeen(maxSeq);
-  }
-
-  return (
-    <section className="panel" aria-labelledby="since-title">
-      <h2 id="since-title">Since you last looked</h2>
-      {lastSeen === undefined ? (
-        <p className="muted">First visit on this browser. New activity will collect here.</p>
-      ) : fresh.length === 0 ? (
-        <p className="muted">Nothing new.</p>
-      ) : (
-        <ul className="since">
-          {fresh.slice(-6).reverse().map((e) => (
-            <li key={e.seq}>
-              <span className="mono small">{e.type}</span> <span>{e.subject}</span>
-            </li>
-          ))}
-          {fresh.length > 6 && <li className="muted small">and {fresh.length - 6} more in Records</li>}
-        </ul>
-      )}
-      <button type="button" className="btn ghost small" onClick={markSeen}>
-        Mark as seen
-      </button>
-    </section>
-  );
-}
-
-function MetricsPanel() {
-  const q = useQuery({ queryKey: ["metrics"], queryFn: api.metrics });
-  const m: Metrics | undefined = q.data;
-  const rows: [string, string][] =
-    m === undefined
-      ? []
-      : [
-          ["Packages accepted", String(m.packages_accepted)],
-          ["Accepted on first pass", String(m.first_pass_accepted)],
-          ["Findings caught before review", String(m.findings_caught_before_review)],
-          ["Median review minutes", m.median_review_minutes ?? "none yet"],
-          ["Median minutes to done", m.median_minutes_to_done ?? "none yet"],
-          ["Quick answers", String(m.quick_answers)],
-        ];
-  return (
-    <section className="panel" aria-labelledby="metrics-title">
-      <h2 id="metrics-title">Is it earning its place?</h2>
-      {m === undefined ? (
-        <p className="muted">{q.isError ? "Metrics unavailable." : "Loading"}</p>
-      ) : (
-        <dl className="metrics">
-          {rows.map(([k, v]) => (
-            <div key={k}>
-              <dt>{k}</dt>
-              <dd className="mono">{v}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </section>
-  );
-}

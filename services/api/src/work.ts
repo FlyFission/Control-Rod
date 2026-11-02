@@ -13,7 +13,7 @@ import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
-import { enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramRunEnded } from "./scram.js";
+import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramRunEnded } from "./scram.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -1082,6 +1082,7 @@ export async function runEvidence(db: Db, cfg: WorkConfig, runId: string, body: 
   if (body?.observation !== "process-gone") throw new Refusal(400, "invalid", "observation must be process-gone");
   validate(cfg, "OwnershipReceipt.json", body?.receipt);
   return command(db, "run.reconcile-evidence", async (c) => {
+    await enterScramGate(c);
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
     if (!holdsClaim(row.claim_token_hash, body.claim_token)) throw new Refusal(403, "stale-claim", "This claim token does not hold the run");
@@ -1284,6 +1285,8 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
  */
 export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
   return command(db, "run.sweep-lost", async (c) => {
+    // A lost run's unknown outcome blocks a SCRAM restart, so it lands under the gate.
+    await enterScramGate(c);
     const sup = cfg.supervision;
     const slept = controllerAbsent(cfg);
     if (sup) {
@@ -1601,7 +1604,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
         }
         if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
         const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
-        if (row.body.scram_id) await quarantineScramCompletion(c, runId, key, body);
+        if (await adoptHeldRun(c, row)) await quarantineScramCompletion(c, runId, key, body);
         // A late completion settles the hold only when a cgroup proved the whole run stopped; under
         // process group containment a process that left the group may still run.
         if (provesEnded(row, body))
@@ -1617,7 +1620,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
 async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string, body: Json) {
   requireLegacyRun(row);
   // A run SCRAM stopped reports into quarantine: retained privately with its digests, never applied.
-  if (row.body.scram_id) throw new Refusal(409, "scram-quarantined", `SCRAM ${String(row.body.scram_id)} stopped this run; what it reported is quarantined for review`);
+  if (row.body.scram_id || (await scramHolding(c, await runSubject(c, row)))) throw new Refusal(409, "scram-quarantined", `SCRAM ${String(row.body.scram_id)} stopped this run; what it reported is quarantined for review`);
   if(row.body.stop_requested_at && (body.status==="succeeded" || row.body.preparation_manifest_digest)) throw new Refusal(409,"stopped","The owner stopped this run; its output cannot advance the package");
   if(row.role!=="intake") {
     const pkg=await currentPackage(c,row.package_id,true);
@@ -1700,8 +1703,10 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
   return command(db, "run.record-refused", async (c) => {
     await enterScramGate(c);
     const row = await lockRun(c, runId);
-    // SCRAM may have reached the run after the refused attempt rolled back: the locked row decides.
-    const refusal = row.body.scram_id && given.code !== "scram-quarantined"
+    // SCRAM may have reached the run after the refused attempt rolled back, or may hold its work
+    // although it was lost before the pull: the locked row and the current state decide.
+    const scrammed = await adoptHeldRun(c, row);
+    const refusal = scrammed && given.code !== "scram-quarantined"
       ? new Refusal(409, "scram-quarantined", `SCRAM ${String(row.body.scram_id)} stopped this run; what it reported is quarantined for review`)
       : given;
     requireLegacyRun(row);
@@ -1726,7 +1731,7 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     holdIfUnproven(row, finished, body);
     if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
     await quarantineCompletion(c,runId,key,body,refusal.code);
-    if (row.body.scram_id) await quarantineScramCompletion(c, runId, key, body);
+    if (scrammed) await quarantineScramCompletion(c, runId, key, body);
     const receipt = receiptOf(runId, key, status, [], refusal);
     await c.query("update runs set status = $5, body = $2, completion_key = $3, receipt = $4 where id = $1", [
       runId,
@@ -2059,9 +2064,9 @@ export async function applyDecision(
   signed: { subject_digest: string; assertion: Json; nonce?: string } | null,
 ) {
   return command(db, "decision.apply", async (c) => {
-    // The gate first, before any row lock, so lock order is the same as in claims and pulls.
-    if (req.kind === "release") await enterScramGate(c);
+    // Lock order everywhere: marking (the executor), administration, the SCRAM gate, then rows.
     if (signed) await lockSigner(c, user, String(signed.assertion.id ?? ""));
+    if (req.kind === "release") await enterScramGate(c);
     const pkg = await currentPackage(c, id, true);
     if (!pkg) throw new Refusal(404, "not-found", "No such package");
     if (pkg.revision !== req.package_revision) throw new Refusal(409, "stale", "That revision is no longer current");

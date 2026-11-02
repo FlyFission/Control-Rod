@@ -102,6 +102,7 @@ export const REASONS: Record<string, Reason> = {
   "no-previous-pin": r("There is no earlier pin to roll back to.", "Pin the version you want directly."),
   "scram-stopped": r("SCRAM has stopped this work; nothing in its scope is claimed, requeued or released.", "A person with administrator authority restarts it, signed, once its quarantine is reviewed and no outcome is unknown."),
   "scram-quarantined": r("SCRAM stopped this run, so what it reported is quarantined: kept privately with its digests and never applied.", "A person reviews the quarantined run, signed, and decides to discard or retain it."),
+  "quarantine-changed": r("The stopped run reported more after you looked, so your signature does not cover it.", "Look at the run again and sign for every batch it has now."),
   "restart-blocked": r("This restart is not safe yet: something in its scope is still running, has an unknown outcome, or has unreviewed quarantine.", "Reconcile or review what the message lists, then restart."),
   "already-restarted": r("Everything this SCRAM stopped has already been restarted.", "Nothing to do."),
   "already-reviewed": r("This quarantined run has already been reviewed.", "Nothing to do."),

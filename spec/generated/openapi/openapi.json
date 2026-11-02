@@ -4260,6 +4260,93 @@
           }
         }
       }
+    },
+    "/scrams/{id}": {
+      "get": {
+        "operationId": "scram",
+        "description": "A SCRAM, the runs it stopped with their quarantine and reviews, and its restarts.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "scram": {
+                          "$ref": "#/components/schemas/ControlRod.Records.ScramEvent"
+                        },
+                        "runs": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "run_id": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "$ref": "#/components/schemas/ControlRod.Records.RunStatus"
+                              },
+                              "outcome_unknown": {
+                                "type": "boolean"
+                              },
+                              "batches": {
+                                "type": "array",
+                                "items": {
+                                  "$ref": "#/components/schemas/ScramQuarantineBatch"
+                                }
+                              },
+                              "reviews": {
+                                "type": "array",
+                                "items": {
+                                  "$ref": "#/components/schemas/ControlRod.Records.QuarantineReview"
+                                }
+                              }
+                            },
+                            "required": [
+                              "run_id",
+                              "status",
+                              "outcome_unknown",
+                              "batches",
+                              "reviews"
+                            ]
+                          }
+                        },
+                        "restarts": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlRod.Records.ScramRestart"
+                          }
+                        }
+                      },
+                      "required": [
+                        "scram",
+                        "runs",
+                        "restarts"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6938,6 +7025,58 @@
         },
         "description": "An engineering quantity. The value is a decimal string so no precision is lost."
       },
+      "ControlRod.Records.QuarantineReview": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "scram_id",
+          "run_id",
+          "disposition",
+          "reviewed_by",
+          "reason",
+          "assertion"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "org_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "scram_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "discard",
+              "retain"
+            ],
+            "description": "discard: the partial work is not used. retain: kept as reference only, never applied."
+          },
+          "covers_batch": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "description": "The newest quarantine batch this review saw for the run; absent when the run had reported\nnothing. A batch that arrives later needs a review of its own before a restart."
+          },
+          "reviewed_by": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+          }
+        },
+        "description": "A person's signed review of one run SCRAM stopped, whose output was quarantined. (A)"
+      },
       "ControlRod.Records.Reconciliation": {
         "type": "object",
         "required": [
@@ -7190,6 +7329,115 @@
             "type": "string"
           }
         }
+      },
+      "ControlRod.Records.ScramEvent": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "scope",
+          "pulled_by",
+          "reason",
+          "assertion",
+          "quarantine"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "org_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ControlRod.Records.ScramScope"
+          },
+          "project_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId",
+            "description": "Present exactly when the scope is a project."
+          },
+          "pulled_by": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+          },
+          "quarantine": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Run ids stopped, with their outputs quarantined."
+          },
+          "drill": {
+            "type": "boolean",
+            "description": "A practice pull: everything is stopped for real, and the time to stop is recorded as a drill."
+          }
+        },
+        "description": "Who pulled SCRAM, where, why, and what was stopped. (A)"
+      },
+      "ControlRod.Records.ScramRestart": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "scram_id",
+          "scope",
+          "released_by",
+          "reason",
+          "assertion"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "org_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "scram_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ControlRod.Records.ScramRestartScope"
+          },
+          "package_id": {
+            "type": "string",
+            "description": "Present exactly when the scope is a package."
+          },
+          "discipline": {
+            "type": "string",
+            "description": "Present exactly when the scope is a discipline."
+          },
+          "released_by": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+          }
+        },
+        "description": "A staged restart after SCRAM (specification 22a): directly signed, with a reason, for one package,\none discipline, or everything the SCRAM stopped. Refused while anything in its scope has an\nunknown outcome or unreviewed quarantine. (A)"
+      },
+      "ControlRod.Records.ScramRestartScope": {
+        "type": "string",
+        "enum": [
+          "all",
+          "package",
+          "discipline"
+        ]
+      },
+      "ControlRod.Records.ScramScope": {
+        "type": "string",
+        "enum": [
+          "organization",
+          "project"
+        ]
       },
       "ControlRod.Records.TenancyId": {
         "type": "string",
@@ -7997,6 +8245,55 @@
           }
         },
         "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not."
+      },
+      "ScramQuarantineBatch": {
+        "type": "object",
+        "required": [
+          "id",
+          "reported",
+          "output_count",
+          "recorded_at",
+          "outputs"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "reported": {
+            "type": "string"
+          },
+          "output_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "name",
+                "sha256"
+              ]
+            }
+          }
+        },
+        "description": "One quarantine batch: what a SCRAM-stopped run reported in one completion, as digests."
       }
     }
   },

@@ -1,6 +1,7 @@
 import "@typespec/http";
 import "./records.tsp";
 import "./work.tsp";
+import "./workbench.tsp";
 
 using Http;
 using JsonSchema;
@@ -352,6 +353,30 @@ op runtimes(): {
   reported_at?: utcDateTime;
   runtimes: Runner.RuntimeStatus[];
 };
+
+/** One quarantine batch: what a SCRAM-stopped run reported in one completion, as digests. */
+model ScramQuarantineBatch {
+  @minValue(1) id: int32;
+  reported: string;
+  @minValue(0) output_count: int32;
+  recorded_at: utcDateTime;
+  outputs: { name: string; @pattern("^[0-9a-f]{64}$") sha256: string }[];
+}
+
+/** A SCRAM, the runs it stopped with their quarantine and reviews, and its restarts. */
+@route("/scrams/{id}")
+@get
+op scram(@path id: string): {
+  scram: ScramEvent;
+  runs: {
+    run_id: string;
+    status: RunStatus;
+    outcome_unknown: boolean;
+    batches: ScramQuarantineBatch[];
+    reviews: QuarantineReview[];
+  }[];
+  restarts: ScramRestart[];
+} | ApiError;
 
 /** Runs that are queued or running, across every package, for the floor and board. */
 @route("/runs")

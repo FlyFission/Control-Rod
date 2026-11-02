@@ -34,6 +34,15 @@ async function restartAll(scramId: string) {
   const r = await signed("scram.restart", { scram_id: scramId, scope: "all", reason: "Test done" });
   expect(r.statusCode, r.body).toBe(200);
 }
+/** Reviews a stopped run as a person would: read what it reported, then sign for exactly that. */
+async function review(scramId: string, runId: string, disposition: "discard" | "retain", reason: string) {
+  const view = await h.app.inject({ method: "GET", url: `/scrams/${scramId}`, headers: { cookie } });
+  expect(view.statusCode, view.body).toBe(200);
+  const entry = view.json().runs.find((r: Json) => r.run_id === runId);
+  const newest = entry?.batches.at(-1)?.id;
+  return signed("scram.review", { scram_id: scramId, run_id: runId, disposition, reason, ...(newest ? { covers_batch: newest } : {}) });
+}
+
 /** Settles a run's unknown outcome with a person's signed reason. */
 async function reconcile(packageId: string, runId: string) {
   const reason = "Machine checked; nothing running";
@@ -122,9 +131,9 @@ describe("pulling SCRAM", () => {
     const early = await signed("scram.restart", { scram_id: scram.id, scope: "all", reason: "All clear" });
     expect(early.json()).toMatchObject({ code: "restart-blocked" });
     expect(early.json().message).toMatch(/unreviewed quarantine/);
-    const review = await signed("scram.review", { scram_id: scram.id, run_id: stopping, disposition: "discard", reason: "Output written after the stop; discarded" });
-    expect(review.statusCode, review.body).toBe(200);
-    expect((await signed("scram.review", { scram_id: scram.id, run_id: stopping, disposition: "retain", reason: "again" })).json().code).toBe("already-reviewed");
+    const reviewed = await review(scram.id, stopping, "discard", "Output written after the stop; discarded");
+    expect(reviewed.statusCode, reviewed.body).toBe(200);
+    expect((await review(scram.id, stopping, "retain", "again")).json().code).toBe("already-reviewed");
     const restart = await signed("scram.restart", { scram_id: scram.id, scope: "all", reason: "Drill complete" });
     expect(restart.statusCode, restart.body).toBe(200);
     expect((await signed("scram.restart", { scram_id: scram.id, scope: "all", reason: "again" })).json().code).toBe("already-restarted");
@@ -153,7 +162,7 @@ describe("pulling SCRAM", () => {
       expect(scram.quarantine).toEqual([runId]);
       expect((await run(runId)).body.scram_id).toBe(scram.id);
       await h.admin.query("update runs set status = 'stopped' where id = $1", [runId]);
-      await signed("scram.review", { scram_id: scram.id, run_id: runId, disposition: "discard", reason: "Race check" });
+      await review(scram.id, runId, "discard", "Race check");
       expect((await signed("scram.restart", { scram_id: scram.id, scope: "all", reason: "Race check done" })).statusCode).toBe(200);
     } finally {
       c.release();
@@ -207,7 +216,7 @@ describe("pulling SCRAM", () => {
     expect(lost.body.grace_renewals).toBeUndefined();
     expect((await events("scram.stopped")).filter((e) => e.subject === scram.id)).toHaveLength(1);
 
-    await signed("scram.review", { scram_id: scram.id, run_id: inside, disposition: "discard", reason: "Nothing reported" });
+    await review(scram.id, inside, "discard", "Nothing reported");
     const blocked = await signed("scram.restart", { scram_id: scram.id, scope: "all", reason: "Rotated" });
     expect(blocked.json().code).toBe("restart-blocked");
     expect(blocked.json().message).toMatch(/unknown outcome/);
@@ -222,7 +231,7 @@ describe("pulling SCRAM", () => {
     await h.admin.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [runId]);
     await sweep();
     expect((await run(runId)).status).toBe("lost");
-    const first = await signed("scram.review", { scram_id: scram.id, run_id: runId, disposition: "discard", reason: "Nothing reported yet" });
+    const first = await review(scram.id, runId, "discard", "Nothing reported yet");
     expect(first.statusCode, first.body).toBe(200);
     expect(first.json().covers_batch).toBeUndefined();
     // Then its completion arrives late, with output: kept as a new batch, and it settles the outcome.
@@ -233,7 +242,7 @@ describe("pulling SCRAM", () => {
     // The earlier review does not cover it.
     const blocked = await signed("scram.restart", { scram_id: scram.id, scope: "all", reason: "Too soon" });
     expect(blocked.json().message).toMatch(/unreviewed quarantine/);
-    const second = await signed("scram.review", { scram_id: scram.id, run_id: runId, disposition: "retain", reason: "Late output kept for reference" });
+    const second = await review(scram.id, runId, "retain", "Late output kept for reference");
     expect(second.statusCode, second.body).toBe(200);
     expect(second.json().covers_batch).toBe(Number((await quarantined(runId)).rows[0]!.batch_id));
     await restartAll(scram.id);
@@ -250,7 +259,7 @@ describe("pulling SCRAM", () => {
     const stoppedFor = (await events("scram.stopped")).map((e) => e.subject);
     expect(stoppedFor).toEqual(expect.arrayContaining([a.id, b.id]));
     for (const s of [a, b]) {
-      await signed("scram.review", { scram_id: s.id, run_id: runId, disposition: "discard", reason: "Stopped cleanly" });
+      await review(s.id, runId, "discard", "Stopped cleanly");
       await restartAll(s.id);
     }
   });
@@ -278,7 +287,7 @@ describe("pulling SCRAM", () => {
     expect((await daemon(`/runner/runs/${runId}/complete`, { status: "succeeded", outputs })).statusCode).toBe(200);
     expect((await quarantined(runId)).rows).toHaveLength(250);
     expect((await events("scram.quarantined")).at(-1)!.data.output_count).toBe(250);
-    await signed("scram.review", { scram_id: scram.id, run_id: runId, disposition: "discard", reason: "Discarded" });
+    await review(scram.id, runId, "discard", "Discarded");
     await restartAll(scram.id);
   });
 
@@ -292,5 +301,43 @@ describe("pulling SCRAM", () => {
     const job = await claim();
     expect(job.statusCode, job.body).toBe(200);
     expect(job.json().run.id).toBe(mine);
+  });
+
+  it("refuses a review signed before the run reported more", async () => {
+    const runId = await running("WP-SCR-STALE");
+    const scram = (await signed("scram.pull", { scope: "organization", reason: "Stale review check" })).json();
+    await h.admin.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [runId]);
+    await sweep();
+    // The reviewer looked when nothing had arrived; then a late report lands before they submit.
+    await daemon(`/runner/runs/${runId}/complete`, { status: "succeeded", outputs: [{ name: "x.md", content_base64: b64("x") }] });
+    const stale = await signed("scram.review", { scram_id: scram.id, run_id: runId, disposition: "discard", reason: "Nothing reported" });
+    expect(stale.json().code).toBe("quarantine-changed");
+    expect((await review(scram.id, runId, "discard", "Reviewed the late output")).statusCode).toBe(200);
+    await restartAll(scram.id);
+  });
+
+  it("quarantines a late report from a run lost before the pull, and holds the restart for its review", async () => {
+    const runId = await running("WP-SCR-PRELOST");
+    await h.admin.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [runId]);
+    await sweep();
+    expect((await run(runId)).status).toBe("lost");
+    const scram = (await signed("scram.pull", { scope: "organization", reason: "Pre-lost check" })).json();
+    expect(scram.quarantine).toEqual([]);
+    // Its daemon reports late while SCRAM holds: the report is quarantined under this SCRAM.
+    await daemon(`/runner/runs/${runId}/complete`, { status: "succeeded", outputs: [{ name: "late.md", content_base64: b64("late") }] });
+    expect((await run(runId)).body.scram_id).toBe(scram.id);
+    expect((await quarantined(runId)).rows.map((r) => r.name)).toEqual(["late.md"]);
+    const view = (await h.app.inject({ method: "GET", url: `/scrams/${scram.id}`, headers: { cookie } })).json();
+    expect(view.runs.map((r: Json) => r.run_id)).toEqual([runId]);
+    expect(view.runs[0].batches[0]).toMatchObject({ reported: "succeeded", output_count: 1, outputs: [{ name: "late.md" }] });
+    const blocked = await signed("scram.restart", { scram_id: scram.id, scope: "all", reason: "Too soon" });
+    expect(blocked.json().message).toContain(`${runId} has unreviewed quarantine`);
+    expect((await review(scram.id, runId, "discard", "Late output discarded")).statusCode).toBe(200);
+    await restartAll(scram.id);
+  });
+
+  it("shows a SCRAM only to its own organization", async () => {
+    const r = await h.app.inject({ method: "GET", url: "/scrams/scr_foreign", headers: { cookie } });
+    expect(r.statusCode).toBe(404);
   });
 });

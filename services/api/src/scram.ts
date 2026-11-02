@@ -170,6 +170,27 @@ export async function scramRunEnded(c: Tx, runId: string): Promise<void> {
 }
 
 /**
+ * Makes a run whose work SCRAM holds one of that SCRAM's stopped runs, so whatever it reports is
+ * quarantined and reviewed before a restart: covers a run that was lost before the pull and reports
+ * late while SCRAM holds. Returns whether any SCRAM holds the run.
+ */
+export async function adoptHeldRun(c: Tx, run: { id: string; role: string; package_id: string; body: Json }): Promise<boolean> {
+  const subject = await runSubject(c, run);
+  const owner = await ownerOf(c, subject.kind, subject.id);
+  let first: string | null = run.body.scram_id ? String(run.body.scram_id) : null;
+  for (const scram of await activeScrams(c)) {
+    if (!reaches(scram, owner) || (await liftedFor(c, scram.id, subject))) continue;
+    await c.query("insert into scram_runs (scram_id, org_id, run_id) values ($1, $2, $3) on conflict do nothing", [scram.id, scram.org_id, run.id]);
+    first ??= scram.id;
+  }
+  if (first && !run.body.scram_id) {
+    await c.query("update runs set body = body || jsonb_build_object('scram_id', $2::text) where id = $1", [run.id, first]);
+    run.body = { ...run.body, scram_id: first };
+  }
+  return first !== null;
+}
+
+/**
  * Keeps what a SCRAM-stopped run reported as one quarantine batch, every output with its digest,
  * and lists the digests on the event log. Nothing of it is applied. A retried completion (same
  * idempotency key) adds nothing.
@@ -224,6 +245,11 @@ export async function reviewQuarantine(c: Tx, orgId: string, memberId: string, p
   const newest = await newestBatch(c, runId);
   if ((await reviewedThrough(c, scramId, runId)) >= newest)
     throw new Refusal(409, "already-reviewed", "Everything this run reported has already been reviewed");
+  // The signature covers the batch the person saw last; it never stretches over one they did not.
+  const seen = p.covers_batch === undefined ? 0 : p.covers_batch;
+  if (!Number.isInteger(seen) || seen < 0) throw new Refusal(400, "invalid", "covers_batch must be a whole number");
+  if (seen !== newest)
+    throw new Refusal(409, "quarantine-changed", `This run has reported more since you looked (newest batch ${newest}); look again and sign for what is there now`);
   const review = { id: idFor("qrv"), org_id: orgId, scram_id: scramId, run_id: runId, disposition: p.disposition, reviewed_by: memberId,
     reason: reason.slice(0, 2000), assertion, ...(newest > 0 ? { covers_batch: newest } : {}) };
   await recordObject(c, "quarantine_review", review as never, actor);
@@ -265,9 +291,13 @@ export async function restartAfterScram(c: Tx, orgId: string, memberId: string, 
     "select r.id, r.role, r.package_id, r.status from scram_runs x join runs r on r.id = x.run_id where x.scram_id = $1 order by r.id", [scramId])).rows;
   for (const r of stopped) {
     if (!(await inScope(r))) continue;
-    if (r.status === "running") blockers.push(`${r.id} is still running`);
-    else if ((await reviewedThrough(c, scramId, r.id)) < (await newestBatch(c, r.id)) || (await reviewedThrough(c, scramId, r.id)) < 0)
-      blockers.push(`${r.id} has unreviewed quarantine`);
+    if (r.status === "running") {
+      blockers.push(`${r.id} is still running`);
+      continue;
+    }
+    // Every run the SCRAM stopped needs a review, and that review must cover its newest batch.
+    const through = await reviewedThrough(c, scramId, r.id);
+    if (through < 0 || through < (await newestBatch(c, r.id))) blockers.push(`${r.id} has unreviewed quarantine`);
   }
   // Any run in scope whose outcome is unknown, whether or not this SCRAM stopped it.
   const unknown = (await c.query<{ id: string; role: string; package_id: string }>(
@@ -279,4 +309,26 @@ export async function restartAfterScram(c: Tx, orgId: string, memberId: string, 
     ...(scope === "discipline" ? { discipline: target } : {}), released_by: memberId, reason: reason.slice(0, 2000), assertion };
   await recordObject(c, "scram_restart", restart as never, actor);
   return restart;
+}
+
+/** What a person reviewing a SCRAM sees: its runs, every quarantine batch with digests, reviews and restarts. */
+export async function scramView(q: Db, orgId: string, scramId: string) {
+  const scram = (await q.query<{ body: Json }>("select body from scram_events where id = $1 and org_id = $2", [scramId, orgId])).rows[0]?.body;
+  if (!scram) throw new Refusal(404, "not-found", "No such SCRAM");
+  const runs = (await q.query<{ id: string; status: string; body: Json }>(
+    "select r.id, r.status, r.body from scram_runs x join runs r on r.id = x.run_id where x.scram_id = $1 order by r.id", [scramId])).rows;
+  const out = [];
+  for (const r of runs) {
+    const batches = (await q.query<{ id: number; reported: string; output_count: number; recorded_at: Date }>(
+      "select id::int, reported, output_count, recorded_at from scram_quarantine_batches where run_id = $1 order by id", [r.id])).rows;
+    const withOutputs = [];
+    for (const b of batches) {
+      const outputs = (await q.query<{ name: string; sha256: string }>("select name, sha256 from scram_quarantine where batch_id = $1 order by ordinal", [b.id])).rows;
+      withOutputs.push({ ...b, recorded_at: b.recorded_at.toISOString(), outputs });
+    }
+    const reviews = (await q.query<{ body: Json }>("select body from quarantine_reviews where scram_id = $1 and run_id = $2 order by recorded_at", [scramId, r.id])).rows.map((x) => x.body);
+    out.push({ run_id: r.id, status: r.status, outcome_unknown: Boolean(r.body.outcome_unknown && !r.body.reconciliation), batches: withOutputs, reviews });
+  }
+  const restarts = (await q.query<{ body: Json }>("select body from scram_restarts where scram_id = $1 order by recorded_at", [scramId])).rows.map((x) => x.body);
+  return { scram, runs: out, restarts };
 }

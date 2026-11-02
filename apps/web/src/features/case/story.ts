@@ -94,8 +94,12 @@ export function traceFacts(run: Run, opts: { attestationRequired: boolean }): Tr
       : requested !== "default" && reported !== requested
         ? { label: "Model reported", value: reported, flag: `Not the model asked for (${requested}).` }
         : { label: "Model reported", value: reported });
-    if (t.permission_mode !== undefined) facts.push({ label: "Permission mode", value: t.permission_mode });
-    if (t.allowed_tools !== undefined) facts.push({ label: "Tools allowed", value: t.allowed_tools.length ? t.allowed_tools.join(", ") : "none" });
+    facts.push(t.permission_mode !== undefined
+      ? { label: "Permission mode", value: t.permission_mode }
+      : { label: "Permission mode", value: "not recorded", flag: "The trace does not say which permission mode the runtime started in." });
+    facts.push(t.allowed_tools !== undefined
+      ? { label: "Tools allowed", value: t.allowed_tools.length ? t.allowed_tools.join(", ") : "none" }
+      : { label: "Tools allowed", value: "not recorded", flag: "The trace does not list which tools the runtime was allowed." });
     facts.push(t.sandbox === undefined || t.sandbox === "none"
       ? { label: "Sandbox", value: t.sandbox ?? "not recorded", flag: "Agent actions were not confined by a sandbox." }
       : { label: "Sandbox", value: t.sandbox });

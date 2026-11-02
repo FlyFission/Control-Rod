@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { ActionDescriptor, DecisionKind, PackageView } from "../api/types.js";
@@ -29,6 +29,13 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
   const decisions = (actions.data ?? []).filter((a) => isKind(a.command));
   const allowed = KINDS.filter((k) => decisions.some((a) => a.command === k && a.allowed));
   const refused = decisions.filter((a) => !a.allowed);
+  // Signing is offered only on a current, successful answer: never on a failed refresh.
+  const current = actions.isSuccess && !actions.isError;
+  const pendingAllowed = pending !== null && current && allowed.includes(pending);
+  // A decision started before permission was withdrawn is put away, with the refusal shown below.
+  useEffect(() => {
+    if (pending !== null && actions.isSuccess && !allowed.includes(pending)) setPending(null);
+  }, [pending, actions.isSuccess, allowed]);
 
   async function sign(kind: DecisionKind) {
     setBusy(true);
@@ -69,6 +76,9 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
           A decision here signs <span className="mono">{shortDigest(view.subject_digest)}</span>, the digest of this revision, its output and its pre-check.
         </p>
       )}
+      <p className="small muted">
+        Full digest <span className="mono wrap">{view.subject_digest.algorithm}:{view.subject_digest.value}</span>
+      </p>
       {actions.isLoading && <p className="muted small">Checking what you may sign</p>}
       {actions.isError && (
         <div role="alert" className="error">
@@ -86,7 +96,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
               type="button"
               className={k === "accept" || k === "release" ? "btn primary" : k === "reject" ? "btn danger" : "btn ghost"}
               onClick={() => choose(k)}
-              disabled={busy}
+              disabled={busy || !current}
             >
               {label(k)}
             </button>
@@ -100,14 +110,14 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
           <Blocked refused={refused} label={label} />
         </details>
       )}
-      {pending !== null && (
+      {pending !== null && pendingAllowed && (
         <div className="reason">
           <label className="field">
             <span>{pending === "return" ? "Direction for the next revision" : pending === "reject" ? "Why reject this package" : "Why accept with these findings"}</span>
             <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
           </label>
           <div className="decide-buttons">
-            <button type="button" className="btn primary" onClick={() => void sign(pending)} disabled={busy || reason.trim().length === 0}>
+            <button type="button" className="btn primary" onClick={() => void sign(pending)} disabled={busy || !pendingAllowed || reason.trim().length === 0}>
               Sign: {label(pending)}
             </button>
             <button type="button" className="btn ghost" onClick={() => setPending(null)} disabled={busy}>

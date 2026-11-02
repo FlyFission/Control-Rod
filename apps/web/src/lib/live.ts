@@ -33,6 +33,7 @@ export function useLiveEvents(enabled: boolean): void {
         "actions",
         "admin",
         "runtimes",
+        "run-events",
       ]) {
         void qc.invalidateQueries({ queryKey: [key] });
       }

@@ -31,6 +31,9 @@ type Workspace struct {
 	Dir    string
 	Inputs string
 	Out    string
+	// HookFile, when set, is where a Claude Code PermissionRequest hook appends what it saw
+	// (interim waiting detection, plan task 2.9). It lives outside the workspace.
+	HookFile string
 }
 
 // WorkspaceDir returns <root>/work/<package_id>/r<rev>/<role>-<round>-<runid>. Every segment

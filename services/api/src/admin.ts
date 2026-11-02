@@ -14,6 +14,7 @@ import {
 import { isLane } from "./disclosure.js";
 import { configuredClosure, covers, declassify, downstreamOf, effectiveLane, ensureMarking } from "./markings.js";
 import { teach } from "./refusals.js";
+import { pinRuntime, rollbackRuntime } from "./runtimes.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
 
@@ -532,6 +533,20 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
         limit: p.limit, period: str(p, "period")!, status: "active" };
       await recordObject(c, "budget", body as never, actorOf(caller));
       return body;
+    },
+  },
+
+  "runtime.pin": {
+    catalog: "admin.runtime-pin", signature: "direct", need: "administrator",
+    async run(c, caller, p) {
+      return { pins: await pinRuntime(c, caller.orgId, p, actorOf(caller)) };
+    },
+  },
+
+  "runtime.rollback": {
+    catalog: "admin.runtime-rollback", signature: "direct", need: "administrator",
+    async run(c, caller, p) {
+      return { pins: await rollbackRuntime(c, caller.orgId, p, actorOf(caller)) };
     },
   },
 

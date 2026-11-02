@@ -2404,6 +2404,136 @@
         }
       }
     },
+    "/packages/{id}/runs/{runId}/events": {
+      "get": {
+        "operationId": "Packages_runEvents",
+        "description": "The run's story: its normalized events in order, after a sequence number.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "seq": {
+                            "type": "integer",
+                            "format": "int32"
+                          },
+                          "event": {
+                            "$ref": "#/components/schemas/ControlRod.Records.NormalizedEvent"
+                          }
+                        },
+                        "required": [
+                          "seq",
+                          "event"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "events"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/runs/{runId}/log": {
       "get": {
         "operationId": "Packages_runLog",
@@ -4049,6 +4179,20 @@
                   "receipt": {
                     "$ref": "#/components/schemas/ControlRod.Records.OwnershipReceipt",
                     "description": "The spawn receipt, sent until the control plane has recorded it."
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ControlRod.Records.NormalizedEvent"
+                    },
+                    "maxItems": 500,
+                    "description": "Normalized events since the last post."
+                  },
+                  "events_from": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0,
+                    "description": "How many of this run's events the daemon had delivered before this batch. The control plane\nkeeps each event once by its index, so a batch resent after an upload whose answer was lost\nis not recorded twice."
                   }
                 },
                 "required": [
@@ -6450,6 +6594,83 @@
         ],
         "description": "Kind of work a project does. General is the base layer with no domain pack."
       },
+      "ControlRod.Records.NormalizedEvent": {
+        "type": "object",
+        "required": [
+          "kind",
+          "at"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "message",
+              "tool_start",
+              "tool_end",
+              "file_change",
+              "permission_request",
+              "usage",
+              "error",
+              "exit",
+              "dropped",
+              "notice"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tool": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "input_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "call_id": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 2100
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 2100
+          },
+          "input_tokens": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "output_tokens": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "cached_tokens": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "dropped": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "description": "How many events admission refused before this one (kind dropped)."
+          }
+        },
+        "description": "One normalized thing an agent did (specification 20), built by the daemon from each runtime's own\noutput so the browser only renders. Text is clipped; tool inputs are kept as a digest and a short\nplain summary, never in full."
+      },
       "ControlRod.Records.OutcomeUnknown": {
         "type": "object",
         "required": [
@@ -6909,6 +7130,14 @@
             "format": "int32",
             "minimum": 0,
             "description": "Lease renewals granted without a heartbeat (after a controller restart, a machine sleep or an\napparent outage). At most one is granted until a heartbeat proves the run alive, so no number\nof restarts keeps a dead run running."
+          },
+          "permission_waits": {
+            "type": "string",
+            "enum": [
+              "observed",
+              "not-observable"
+            ],
+            "description": "Whether this run can show that it needs a person's permission (plan task 2.9). observed: a\nClaude Code PermissionRequest hook reports each request. not-observable: Codex exec mode gives\nno such signal, so a refused action shows only as a failed tool call."
           }
         },
         "description": "One agent session working on one package revision in one role."
@@ -6974,6 +7203,10 @@
           },
           "version": {
             "type": "string"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "SHA-256 of the executable that ran (specification 21: runs launch a verified artifact)."
           },
           "qualification": {
             "type": "string",
@@ -7546,6 +7779,19 @@
               "none"
             ],
             "description": "What proves the run's processes ended: cgroup (its scope is empty), process-group (the\nleader and its group are gone; a process that left the group is not seen) or none (no\nprocess was started). Absent means no proof: a failed or stopped run then keeps an unknown\noutcome."
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.NormalizedEvent"
+            },
+            "maxItems": 500,
+            "description": "Events no log post delivered (the last upload failed), carried by the completion, which the\ndaemon retries until it is recorded. Indexed from events_from like a log batch."
+          },
+          "events_from": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },
@@ -7618,6 +7864,10 @@
           "claim": {
             "$ref": "#/components/schemas/Runner.RunClaim",
             "description": "Custody of this run: present the token on every log and completion."
+          },
+          "runtime_pin": {
+            "$ref": "#/components/schemas/Runner.RuntimePinRef",
+            "description": "The artifact this run must launch, when one is pinned for its runtime and role."
           }
         }
       },
@@ -7676,6 +7926,42 @@
         },
         "description": "A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost."
       },
+      "Runner.RuntimeArtifact": {
+        "type": "object",
+        "required": [
+          "path",
+          "digest"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        },
+        "description": "A runtime's native executable and its SHA-256. A runtime whose npm launcher wraps a platform\nbinary with helper files (Codex) is identified by a digest over that whole platform directory.\nScript launchers whose own digest would not identify what runs are refused."
+      },
+      "Runner.RuntimePinRef": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "digest"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "description": "The artifact a run must launch, from the pin for its runtime and role (specification 21)."
+      },
       "Runner.RuntimeStatus": {
         "type": "object",
         "required": [
@@ -7700,6 +7986,10 @@
           "login_checked": {
             "type": "boolean",
             "description": "The CLI could say whether a login is present. The probe never signs in."
+          },
+          "artifact": {
+            "$ref": "#/components/schemas/Runner.RuntimeArtifact",
+            "description": "The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this."
           }
         },
         "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not."

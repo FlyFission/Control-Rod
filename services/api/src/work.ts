@@ -16,6 +16,7 @@ import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
+import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
@@ -735,7 +736,22 @@ const CLAIM_PAGE = 50;
 const MAX_LOG_LINES = 500;
 
 /** The daemon asks for work. Only runs whose package is ready are handed out. */
-export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
+/**
+ * Leaves out of an offer every runtime whose role has a pin the daemon's installed artifact does
+ * not match (specification 21), and says why when that leaves nothing.
+ */
+async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<string, string>): Promise<{ offer: string[]; reason?: string }> {
+  const out: string[] = [];
+  const blocked: string[] = [];
+  for (const r of offer) {
+    const pin = await activePin(c, r, role);
+    if (!pin || pin.artifact_digest.value === artifacts.get(r)) out.push(r);
+    else blocked.push(`${r} here is not the pinned version (${String(artifacts.get(r) ?? "unknown").slice(0, 12)}, pinned ${String(pin.artifact_digest.value).slice(0, 12)})`);
+  }
+  return out.length || !blocked.length ? { offer: out } : { offer: out, reason: `${blocked.join("; ")}. An administrator pins the installed version, or the pinned one is reinstalled.` };
+}
+
+export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map()) {
   return command(db, "run.claim", async (c) => {
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
     // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
@@ -785,11 +801,17 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
             continue;
           }
           const lane = gate.lane;
-          const offer = admitted(lane, runtimes);
-          if (offer.length === 0) {
+          const admittedHere = admitted(lane, runtimes);
+          if (admittedHere.length === 0) {
             await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane));
             continue;
           }
+          const pinned = await pinnedOffer(c, admittedHere, row.role, artifacts);
+          if (pinned.reason) {
+            await holdRun(c, cfg, row, pkg.id, pinned.reason);
+            continue;
+          }
+          const offer = pinned.offer;
           let runtime: string | null;
           if (row.role === "pre-check") {
             if (pkg.status !== "in-verification") continue;
@@ -822,12 +844,17 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[]) {
         // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
         const bodyLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1 for share", [row.package_id])).rows[0]?.lane;
         const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
-        const intakeOffer = admitted(capLane, runtimes);
-        if (intakeOffer.length === 0) {
+        const admittedIntake = admitted(capLane, runtimes);
+        if (admittedIntake.length === 0) {
           await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane));
           continue;
         }
-        const runtime = pickRuntime(intakeOffer);
+        const pinnedIntake = await pinnedOffer(c, admittedIntake, "intake", artifacts);
+        if (pinnedIntake.reason) {
+          await holdRun(c, cfg, row, row.package_id, pinnedIntake.reason);
+          continue;
+        }
+        const runtime = pickRuntime(pinnedIntake.offer);
         if (!runtime) continue;
         const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
         if(!locked.rows[0]) continue;row=locked.rows[0];
@@ -898,6 +925,71 @@ async function renewLease(c: Tx, cfg: WorkConfig, row: { id: string; package_id:
     [row.id, lease, lease, grace]);
   await appendEvent(c, "run.lease-renewed", row.id, SYSTEM, { package: row.package_id, lease_expires_at: lease, reason, grace_renewals: grace });
   return lease;
+}
+
+/** The most normalized events one run keeps; past it a single dropped marker records the overflow. */
+const MAX_RUN_EVENTS = 20000;
+
+/**
+ * Stores a log post's normalized events in order (specification 20). A permission request becomes
+ * a run.waiting event naming the tool and the digest of its input (plan task 2.9), and a breaker
+ * notice becomes run.breaker, so both reach the office and the stream.
+ */
+async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown, from?: unknown): Promise<void> {
+  if (!Array.isArray(raw)) throw new Refusal(400, "invalid", "events must be a list");
+  if (raw.length > 500) throw new Refusal(400, "too-many-lines", "Send at most 500 events per batch");
+  for (const e of raw) validate(cfg, "NormalizedEvent.json", e);
+  if (from !== undefined && !(Number.isInteger(from) && (from as number) >= 0)) throw new Refusal(400, "invalid", "events_from must be a whole number");
+  const last = (await c.query<{ n: number; o: number | null }>(
+    "select coalesce(max(seq), 0)::int as n, max(origin)::int as o from run_events where run_id = $1", [row.id])).rows[0]!;
+  let seq = last.n;
+  let events = raw as Json[];
+  let origin: number | undefined;
+  if (from !== undefined) {
+    // Keep each daemon event once: drop what an earlier delivery of this batch already recorded.
+    const received = last.o === null ? 0 : last.o + 1;
+    origin = from as number;
+    if (origin < received) {
+      events = events.slice(received - origin);
+      origin = received;
+    } else if (origin > received && seq < MAX_RUN_EVENTS) {
+      seq++;
+      await c.query("insert into run_events (run_id, seq, body) values ($1, $2, $3)",
+        [row.id, seq, { kind: "dropped", at: now(), dropped: origin - received }]);
+    }
+  }
+  for (const e of events) {
+    if (seq >= MAX_RUN_EVENTS) {
+      if (seq === MAX_RUN_EVENTS) {
+        seq++;
+        await c.query("insert into run_events (run_id, seq, body) values ($1, $2, $3)",
+          [row.id, seq, { kind: "notice", at: now(), text: `This run produced more than ${MAX_RUN_EVENTS} events; later ones are in the raw log only.` }]);
+      }
+      // Past the cap only the ending is still kept, so a run's story never stops short of it.
+      if (e.kind !== "exit") {
+        if (origin !== undefined) origin++;
+        continue;
+      }
+    }
+    seq++;
+    await c.query("insert into run_events (run_id, seq, body, origin) values ($1, $2, $3, $4)", [row.id, seq, e, origin ?? null]);
+    if (origin !== undefined) origin++;
+    const agent: Actor = { kind: "agent", id: row.body.agent_baseline };
+    if (e.kind === "permission_request")
+      await appendEvent(c, "run.waiting", row.id, agent, { package: row.package_id, role: row.role, tool: e.tool, summary: e.summary,
+        input_digest: e.input_digest, observed: "PermissionRequest hook; print mode refuses the tool, so the run continues without it" });
+    if (e.kind === "notice" && typeof e.text === "string" && e.text.startsWith("Breaker"))
+      await appendEvent(c, "run.breaker", row.id, agent, { package: row.package_id, role: row.role, text: e.text });
+  }
+}
+
+/** A run's normalized events after a sequence number, in order (the run story; the raw log is beside it). */
+export async function runEvents(db: Db, packageId: string, runId: string, after = 0) {
+  const r = await db.query<{ package_id: string }>("select package_id from runs where id = $1", [runId]);
+  if (!r.rows[0] || r.rows[0].package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+  const ev = await db.query<{ seq: number; body: Json }>(
+    "select seq, body from run_events where run_id = $1 and seq > $2 order by seq limit 2000", [runId, Math.max(0, Math.floor(after))]);
+  return { events: ev.rows.map((x) => ({ seq: x.seq, event: x.body })) };
 }
 
 /** At most this many lease renewals without a heartbeat; a heartbeat resets the count. */
@@ -1072,6 +1164,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     started_at: now(),
     label: "Starting",
     lease_expires_at: lease,
+    ...(runtime === "claude" ? { permission_waits: "observed" } : runtime === "codex" ? { permission_waits: "not-observable" } : {}),
   };
   delete body.waiting_reason;
   validate(cfg, "Run.json", body);
@@ -1084,7 +1177,9 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
   await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round, lease_expires_at: lease });
   issuedLease(c, cfg, row.id);
   const job = await buildJob(c, cfg, body, runtime);
-  return { ...job, claim: { token, lease_expires_at: lease, heartbeat_seconds: heartbeatSeconds(cfg) } };
+  const pin = await activePin(c, runtime, row.role);
+  return { ...job, claim: { token, lease_expires_at: lease, heartbeat_seconds: heartbeatSeconds(cfg) },
+    ...(pin ? { runtime_pin: { runtime, digest: pin.artifact_digest } } : {}) };
 }
 
 type RunRow = {
@@ -1115,7 +1210,7 @@ const LABEL_MAX = 120;
  * A log batch from the daemon, which is also its heartbeat: it renews the lease. The reply tells
  * the daemon whether the owner asked to stop the run.
  */
-export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string, receipt?: unknown) {
+export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string, receipt?: unknown, events?: unknown, eventsFrom?: unknown) {
   return command(db, "run.log", async (c) => {
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
@@ -1147,6 +1242,7 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
       }
     }
     validate(cfg, "Run.json", body);
+    if (events !== undefined) await recordRunEvents(c, cfg, row, events, eventsFrom);
     await c.query("update runs set log = log || $2::text[], body = $3, lease_expires_at = $4 where id = $1", [
       runId,
       lines.map((l) => l.slice(0, 4000)),
@@ -1482,6 +1578,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
           await c.query("update runs set status = 'lost', body = $2 where id = $1", [runId, lostBody]);
           await appendEvent(c, "run.lost", runId, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
         }
+        if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
         const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
         // A late completion settles the hold only when a cgroup proved the whole run stopped; under
         // process group containment a process that left the group may still run.
@@ -1544,6 +1641,8 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   takeReceipt(cfg, row, finished, body);
   holdIfUnproven(row, finished, body);
   validate(cfg, "Run.json", finished);
+  // Events the last log post could not deliver arrive with the completion.
+  if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
   await c.query("update runs set status = $2, body = $3 where id = $1", [runId, finished.status, finished]);
   for (const o of outputs) {
     await c.query(
@@ -1595,6 +1694,7 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     const status=refusal.code==="stopped"?"stopped":"failed";
     finished.status=status;
     holdIfUnproven(row, finished, body);
+    if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
     await quarantineCompletion(c,runId,key,body,refusal.code);
     const receipt = receiptOf(runId, key, status, [], refusal);
     await c.query("update runs set status = $5, body = $2, completion_key = $3, receipt = $4 where id = $1", [
@@ -2186,6 +2286,11 @@ export interface RuntimeStatus {
   version?: string;
   reason?: string;
   login_checked: boolean;
+  artifact?: ProbeArtifact;
+}
+
+function validArtifact(a: Json): boolean {
+  return Boolean(a && typeof a.path === "string" && a.digest?.algorithm === "sha256" && /^[0-9a-f]{64}$/.test(String(a.digest?.value)));
 }
 
 /** Keeps the daemon's latest probe of each runtime, cleaned to plain short fields. */
@@ -2201,12 +2306,14 @@ export async function recordRuntimeStatus(db: Db, raw: unknown): Promise<Runtime
       ...(typeof x.version === "string" && x.version ? { version: x.version.slice(0, 200) } : {}),
       ...(typeof x.reason === "string" && x.reason ? { reason: x.reason.slice(0, 300) } : {}),
       login_checked: x.login_checked === true,
+      ...(validArtifact(x.artifact) ? { artifact: { path: String(x.artifact.path).slice(0, 4096), digest: { algorithm: "sha256" as const, value: x.artifact.digest.value } } } : {}),
     });
   }
   const value = JSON.stringify({ reported_at: now(), runtimes: list });
-  await command(db, "runtime.report-status", (c) =>
-    c.query("insert into settings (key, value) values ('runtime_status', $1) on conflict (key) do update set value = excluded.value", [value]),
-  );
+  await command(db, "runtime.report-status", async (c) => {
+    await c.query("insert into settings (key, value) values ('runtime_status', $1) on conflict (key) do update set value = excluded.value", [value]);
+    await recordProbes(c, list);
+  });
   return list;
 }
 

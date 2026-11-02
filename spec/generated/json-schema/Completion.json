@@ -70,6 +70,19 @@
                 }
             ],
             "description": "What proves the run's processes ended: cgroup (its scope is empty), process-group (the\nleader and its group are gone; a process that left the group is not seen) or none (no\nprocess was started). Absent means no proof: a failed or stopped run then keeps an unknown\noutcome."
+        },
+        "events": {
+            "type": "array",
+            "items": {
+                "$ref": "NormalizedEvent.json"
+            },
+            "maxItems": 500,
+            "description": "Events no log post delivered (the last upload failed), carried by the completion, which the\ndaemon retries until it is recorded. Indexed from events_from like a log batch."
+        },
+        "events_from": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
         }
     },
     "required": [

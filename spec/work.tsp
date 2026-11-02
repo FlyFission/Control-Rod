@@ -150,6 +150,13 @@ model Run {
    */
   @minValue(0)
   grace_renewals?: int32;
+
+  /**
+   * Whether this run can show that it needs a person's permission (plan task 2.9). observed: a
+   * Claude Code PermissionRequest hook reports each request. not-observable: Codex exec mode gives
+   * no such signal, so a refused action shows only as a failed tool call.
+   */
+  permission_waits?: "observed" | "not-observable";
 }
 
 /**
@@ -197,6 +204,31 @@ model OutcomeUnknown {
 
   @maxLength(300)
   reason: string;
+}
+
+/**
+ * One normalized thing an agent did (specification 20), built by the daemon from each runtime's own
+ * output so the browser only renders. Text is clipped; tool inputs are kept as a digest and a short
+ * plain summary, never in full.
+ */
+@extension("unevaluatedProperties", false)
+model NormalizedEvent {
+  kind: "message" | "tool_start" | "tool_end" | "file_change" | "permission_request" | "usage" | "error" | "exit" | "dropped" | "notice";
+  at: utcDateTime;
+
+  @maxLength(60) tool?: string;
+  @maxLength(120) summary?: string;
+  @pattern("^[0-9a-f]{64}$") input_digest?: string;
+  @maxLength(80) call_id?: string;
+  ok?: boolean;
+  @maxLength(2100) path?: string;
+  @maxLength(2100) text?: string;
+  @minValue(0) input_tokens?: int32;
+  @minValue(0) output_tokens?: int32;
+  @minValue(0) cached_tokens?: int32;
+
+  /** How many events admission refused before this one (kind dropped). */
+  @minValue(1) dropped?: int32;
 }
 
 /** How an unknown outcome was settled. */

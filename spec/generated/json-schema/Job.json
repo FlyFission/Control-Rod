@@ -28,6 +28,10 @@
         "claim": {
             "$ref": "RunClaim.json",
             "description": "Custody of this run: present the token on every log and completion."
+        },
+        "runtime_pin": {
+            "$ref": "RuntimePinRef.json",
+            "description": "The artifact this run must launch, when one is pinned for its runtime and role."
         }
     },
     "required": [

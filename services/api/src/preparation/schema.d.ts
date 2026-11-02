@@ -460,6 +460,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/runs/{runId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The run's story: its normalized events in order, after a sequence number. */
+        get: operations["Packages_runEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/runs/{runId}/log": {
         parameters: {
             query?: never;
@@ -1407,6 +1424,35 @@ export interface components {
          * @enum {string}
          */
         "ControlRod.Records.Mode": "general" | "software" | "capital-projects";
+        /**
+         * @description One normalized thing an agent did (specification 20), built by the daemon from each runtime's own
+         *     output so the browser only renders. Text is clipped; tool inputs are kept as a digest and a short
+         *     plain summary, never in full.
+         */
+        "ControlRod.Records.NormalizedEvent": {
+            /** @enum {string} */
+            kind: "message" | "tool_start" | "tool_end" | "file_change" | "permission_request" | "usage" | "error" | "exit" | "dropped" | "notice";
+            /** Format: date-time */
+            at: string;
+            tool?: string;
+            summary?: string;
+            input_digest?: string;
+            call_id?: string;
+            ok?: boolean;
+            path?: string;
+            text?: string;
+            /** Format: int32 */
+            input_tokens?: number;
+            /** Format: int32 */
+            output_tokens?: number;
+            /** Format: int32 */
+            cached_tokens?: number;
+            /**
+             * Format: int32
+             * @description How many events admission refused before this one (kind dropped).
+             */
+            dropped?: number;
+        };
         "ControlRod.Records.OutcomeUnknown": {
             /** Format: date-time */
             since: string;
@@ -1597,6 +1643,13 @@ export interface components {
              *     of restarts keeps a dead run running.
              */
             grace_renewals?: number;
+            /**
+             * @description Whether this run can show that it needs a person's permission (plan task 2.9). observed: a
+             *     Claude Code PermissionRequest hook reports each request. not-observable: Codex exec mode gives
+             *     no such signal, so a refused action shows only as a failed tool call.
+             * @enum {string}
+             */
+            permission_waits?: "observed" | "not-observable";
         };
         /** @enum {string} */
         "ControlRod.Records.RunRole": "intake" | "author" | "pre-check" | "requirements-preparer" | "technical-preparer";
@@ -1613,6 +1666,8 @@ export interface components {
         "ControlRod.Records.ToolRef": {
             name: string;
             version?: string;
+            /** @description SHA-256 of the executable that ran (specification 21: runs launch a verified artifact). */
+            digest?: components["schemas"]["ControlRod.Records.Digest"];
             /** @enum {string} */
             qualification?: "not-required" | "required-before-use" | "qualified";
         };
@@ -1789,6 +1844,13 @@ export interface components {
              * @enum {string}
              */
             containment?: "cgroup" | "process-group" | "none";
+            /**
+             * @description Events no log post delivered (the last upload failed), carried by the completion, which the
+             *     daemon retries until it is recorded. Indexed from events_from like a log batch.
+             */
+            events?: components["schemas"]["ControlRod.Records.NormalizedEvent"][];
+            /** Format: int32 */
+            events_from?: number;
         };
         /** @description What the control plane recorded for a completion. A repeat with the same key returns it again. */
         "Runner.CompletionReceipt": {
@@ -1810,6 +1872,8 @@ export interface components {
             findings?: components["schemas"]["ControlRod.Records.Finding"][];
             /** @description Custody of this run: present the token on every log and completion. */
             claim: components["schemas"]["Runner.RunClaim"];
+            /** @description The artifact this run must launch, when one is pinned for its runtime and role. */
+            runtime_pin?: components["schemas"]["Runner.RuntimePinRef"];
         };
         "Runner.LogReply": {
             /** @description End the agent process when the owner has requested a stop. */
@@ -1832,6 +1896,21 @@ export interface components {
              */
             heartbeat_seconds: number;
         };
+        /**
+         * @description A runtime's native executable and its SHA-256. A runtime whose npm launcher wraps a platform
+         *     binary with helper files (Codex) is identified by a digest over that whole platform directory.
+         *     Script launchers whose own digest would not identify what runs are refused.
+         */
+        "Runner.RuntimeArtifact": {
+            path: string;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
+        };
+        /** @description The artifact a run must launch, from the pin for its runtime and role (specification 21). */
+        "Runner.RuntimePinRef": {
+            runtime: string;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
+            version?: string;
+        };
         /** @description The daemon's probe of one runtime it found: whether it is ready for work, and why not. */
         "Runner.RuntimeStatus": {
             runtime: string;
@@ -1840,6 +1919,8 @@ export interface components {
             reason?: string;
             /** @description The CLI could say whether a login is present. The probe never signs in. */
             login_checked: boolean;
+            /** @description The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this. */
+            artifact?: components["schemas"]["Runner.RuntimeArtifact"];
         };
     };
     responses: never;
@@ -3831,6 +3912,91 @@ export interface operations {
             };
         };
     };
+    Packages_runEvents: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        events: {
+                            /** Format: int32 */
+                            seq: number;
+                            event: components["schemas"]["ControlRod.Records.NormalizedEvent"];
+                        }[];
+                    };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Packages_runLog: {
         parameters: {
             query?: never;
@@ -5005,6 +5171,15 @@ export interface operations {
                     label?: string;
                     /** @description The spawn receipt, sent until the control plane has recorded it. */
                     receipt?: components["schemas"]["ControlRod.Records.OwnershipReceipt"];
+                    /** @description Normalized events since the last post. */
+                    events?: components["schemas"]["ControlRod.Records.NormalizedEvent"][];
+                    /**
+                     * Format: int32
+                     * @description How many of this run's events the daemon had delivered before this batch. The control plane
+                     *     keeps each event once by its index, so a batch resent after an upload whose answer was lost
+                     *     is not recorded twice.
+                     */
+                    events_from?: number;
                 };
             };
         };

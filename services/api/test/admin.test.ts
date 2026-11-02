@@ -47,6 +47,12 @@ describe("bootstrap", () => {
     const state = (await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } })).json();
     expect(state.bootstrap).toBe(false);
     expect(state.themes).toContain("corner-cafe");
+    // People see labels, never command names alone, and the floors in force.
+    expect(state.actions.find((x: { command: string }) => x.command === "scram.pull")).toMatchObject({ label: "Pull SCRAM", allowed: true });
+    expect(state.commands.every((c: { label: string; name: string }) => c.label.length > 0 && c.label !== c.name)).toBe(true);
+    expect(state.floors.map((f: { code: string }) => f.code)).toEqual(expect.arrayContaining(["not-human", "not-independent", "autonomy-floor"]));
+    // A command refused for everyone is never offered, even to an administrator.
+    expect(state.actions.find((x: { command: string }) => x.command === "org.create")).toMatchObject({ allowed: false, reason_code: "multi-organization-later" });
     expect(state.qualification).toMatchObject({ version: 1, authorities: ["administrator", "lane", "policy"], roles: ["originator", "checker", "approver"], grades: ["general-service"], disciplines: [], licenses: [], reason: "founding member of the organization" });
     const r = await signed(ben, benKey, "qualification.issue", fullQualification(BEN));
     expect(r.statusCode, r.body).toBe(200);

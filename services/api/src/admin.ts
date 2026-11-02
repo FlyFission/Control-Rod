@@ -30,6 +30,10 @@ export interface Caller { userName: string; memberId: string; orgId: string }
 type Need = "administrator" | "policy" | "administrator+policy" | "lane" | "member";
 
 interface AdminCommand {
+  /** What a person sees, in the palette and on Policies. */
+  label: string;
+  /** A command that exists in the catalog but is refused for everyone for now: its reason code. */
+  unavailable?: string;
   catalog: CommandName;
   signature: "direct" | "none";
   need: Need;
@@ -197,6 +201,8 @@ async function recordRevocation(c: Tx, caller: Caller, delegationId: string, rea
 
 export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   "org.create": {
+    label: "Create the organization",
+    unavailable: "multi-organization-later",
     catalog: "admin.org-create", signature: "direct", need: "administrator",
     async run() {
       throw new Refusal(409, "multi-organization-later",
@@ -205,6 +211,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "member.enroll": {
+    label: "Enroll a member",
     catalog: "admin.member-enroll", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       const userName = str(p, "user_name")!;
@@ -216,6 +223,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "member.invite": {
+    label: "Invite a member",
     catalog: "admin.member-invite", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       const id = str(p, "member_id")!;
@@ -228,6 +236,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "member.suspend": {
+    label: "Suspend a member",
     catalog: "admin.member-suspend", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       const id = str(p, "member_id")!;
@@ -242,6 +251,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "member.reactivate": {
+    label: "Reactivate a member",
     catalog: "admin.member-reactivate", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       const id = str(p, "member_id")!;
@@ -253,6 +263,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "member.remove": {
+    label: "Remove a member",
     catalog: "admin.member-remove", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       const id = str(p, "member_id")!, reason = str(p, "reason")!;
@@ -268,6 +279,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "credential.revoke": {
+    label: "Revoke a passkey",
     catalog: "admin.credential-revoke", signature: "direct", need: "member",
     async run(c, caller, p) {
       const credentialId = str(p, "credential_id")!, reason = str(p, "reason")!;
@@ -290,6 +302,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "qualification.issue": {
+    label: "Issue a qualification",
     catalog: "admin.qualification-issue", signature: "direct", need: "administrator+policy",
     async run(c, caller, p) {
       const memberId = str(p, "member_id")!;
@@ -309,6 +322,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "qualification.revoke": {
+    label: "Revoke a qualification",
     catalog: "admin.qualification-revoke", signature: "direct", need: "administrator+policy",
     async run(c, caller, p) {
       const memberId = str(p, "member_id")!;
@@ -326,6 +340,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "delegation.create": {
+    label: "Delegate authority",
     catalog: "admin.delegation-create", signature: "direct", need: "member",
     async run(c, caller, p) {
       const role = str(p, "role")! as SignerRole;
@@ -353,6 +368,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "delegation.revoke": {
+    label: "Revoke a delegation",
     catalog: "admin.delegation-revoke", signature: "direct", need: "member",
     async run(c, caller, p) {
       const id = str(p, "delegation_id")!;
@@ -367,6 +383,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "project.create": {
+    label: "Create a project",
     catalog: "admin.project-create", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       return createProject(c, {
@@ -378,6 +395,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "project.update": {
+    label: "Update a project",
     catalog: "admin.project-update", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       const id = str(p, "project_id")!;
@@ -393,6 +411,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "project.set-autonomy": {
+    label: "Set a project's autonomy",
     catalog: "admin.project-set-autonomy", signature: "direct", need: "policy",
     async run(c, caller, p) {
       const id = str(p, "project_id")!;
@@ -411,6 +430,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "repo.bind": {
+    label: "Bind a repository",
     catalog: "admin.repo-bind", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       const prj = await c.query("select 1 from projects where id = $1 and org_id = $2", [str(p, "project_id")!, caller.orgId]);
@@ -421,6 +441,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "repo.unbind": {
+    label: "Unbind a repository",
     catalog: "admin.repo-unbind", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       const id = str(p, "binding_id")!;
@@ -432,6 +453,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "policy.propose": {
+    label: "Propose a policy change",
     catalog: "admin.policy-propose", signature: "none", need: "member",
     async run(c, caller, p) {
       const proposal = checkPolicy(p.policy);
@@ -445,6 +467,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "policy.approve": {
+    label: "Approve a policy change",
     catalog: "admin.policy-approve", signature: "direct", need: "policy",
     async run(c, caller, p) {
       const id = str(p, "change_request_id")!;
@@ -465,6 +488,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "marking.propose-declassification": {
+    label: "Propose a declassification",
     catalog: "admin.marking-propose", signature: "none", need: "member",
     async run(c, caller, p) {
       const kind = str(p, "object_kind")!;
@@ -486,6 +510,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "marking.approve-declassification": {
+    label: "Approve a declassification",
     catalog: "admin.marking-approve", signature: "direct", need: "lane",
     async run(c, caller, p, ctx) {
       const id = str(p, "change_request_id")!;
@@ -520,6 +545,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "budget.set": {
+    label: "Set a budget",
     catalog: "admin.budget-set", signature: "direct", need: "policy",
     async run(c, caller, p) {
       const existing = p.budget_id ? await getObject<Record<string, unknown>>(c, "budget", str(p, "budget_id")!) : null;
@@ -540,6 +566,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "scram.pull": {
+    label: "Pull SCRAM",
     // Anyone active may stop the work: stopping is always safe. It is signed and has a reason.
     catalog: "admin.scram-pull", signature: "direct", need: "member",
     async run(c, caller, p, ctx) {
@@ -548,6 +575,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "scram.review": {
+    label: "Review quarantined work",
     catalog: "admin.scram-review", signature: "direct", need: "member",
     async run(c, caller, p, ctx) {
       return reviewQuarantine(c, caller.orgId, caller.memberId, p, ctx.assertion, actorOf(caller));
@@ -555,6 +583,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "scram.restart": {
+    label: "Restart after SCRAM",
     catalog: "admin.scram-restart", signature: "direct", need: "administrator",
     async run(c, caller, p, ctx) {
       return restartAfterScram(c, caller.orgId, caller.memberId, p, ctx.assertion, actorOf(caller));
@@ -562,6 +591,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "runtime.pin": {
+    label: "Pin a runtime version",
     catalog: "admin.runtime-pin", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       return { pins: await pinRuntime(c, caller.orgId, p, actorOf(caller)) };
@@ -569,6 +599,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "runtime.rollback": {
+    label: "Roll back a runtime pin",
     catalog: "admin.runtime-rollback", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       return { pins: await rollbackRuntime(c, caller.orgId, p, actorOf(caller)) };
@@ -576,6 +607,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
   },
 
   "theme.select": {
+    label: "Choose the office theme",
     catalog: "admin.theme-select", signature: "none", need: "member",
     async run(c, caller, p, ctx) {
       const themeId = str(p, "theme_id")!;
@@ -676,8 +708,13 @@ export async function adminActions(db: Db, caller: Caller) {
   const me = await member(db, caller.memberId, caller.orgId);
   const held = new Set<string>((await currentQualification(db, caller.memberId))?.authorities ?? []);
   return Object.entries(ADMIN_COMMANDS).map(([name, cmd]) => {
-    const base = { command: name, label: name, signature: cmd.signature, ...(cmd.need === "member" ? {} : { authority: cmd.need.split("+") }) };
+    const base = { command: name, label: cmd.label, signature: cmd.signature, ...(cmd.need === "member" ? {} : { authority: cmd.need.split("+") }) };
     if (me.status !== "active") return { ...base, allowed: false, reason_code: "member-inactive", reason: teach("member-inactive").sentence, change: teach("member-inactive").change };
+    // Refused for everyone, whatever their authority: say so rather than offer it.
+    if (cmd.unavailable) {
+      const t = teach(cmd.unavailable);
+      return { ...base, allowed: false, reason_code: cmd.unavailable, reason: t.sentence, change: t.change, ...(t.floor ? { floor: true } : {}) };
+    }
     const missing = cmd.need === "member" ? [] : cmd.need.split("+").filter((a) => !held.has(a));
     if (!missing.length) return { ...base, allowed: true };
     const t = teach("authority-missing");
@@ -688,5 +725,5 @@ export async function adminActions(db: Db, caller: Caller) {
 
 /** Commands and what they need, for the interface. */
 export function adminCatalog() {
-  return Object.entries(ADMIN_COMMANDS).map(([name, c]) => ({ name, signature: c.signature, need: c.need }));
+  return Object.entries(ADMIN_COMMANDS).map(([name, c]) => ({ name, label: c.label, signature: c.signature, need: c.need }));
 }

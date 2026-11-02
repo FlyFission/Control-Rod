@@ -2,17 +2,20 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import { StateMark } from "../components/StateMark.js";
+import { SinceLastLooked } from "../components/SinceLastLooked.js";
 import { KIND_LABEL, age, sortOffice } from "../lib/office.js";
 
-export function Office() {
+/** Inbox (specification 12): decisions waiting on you, and what changed since you last looked. */
+export function Inbox() {
   const q = useQuery({ queryKey: ["office"], queryFn: api.office });
   const items = sortOffice(q.data ?? []);
   const rt = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
   const notReady = (rt.data?.runtimes ?? []).filter((r) => !r.ready);
   return (
+    <div className="place inbox">
     <section className="panel office" aria-labelledby="office-title">
       <div className="panel-head">
-        <h1 id="office-title">Your office</h1>
+        <h1 id="office-title">Inbox</h1>
         <span className="muted small">Holds on agents first, then disputes, work to accept and releases; oldest first.</span>
       </div>
       {notReady.length > 0 && (
@@ -48,5 +51,7 @@ export function Office() {
         ))}
       </ol>
     </section>
+    <SinceLastLooked />
+    </div>
   );
 }

@@ -22,7 +22,7 @@ import { grantRoutes } from "./preparation/grant-routes.js";
 import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
-import { teach } from "./refusals.js";
+import { REASONS, teach } from "./refusals.js";
 import { personVerificationSubject, recordPersonVerification } from "./person-verification.js";
 import { scramView } from "./scram.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
@@ -264,6 +264,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       themes: [...bundledThemes(cfg.root).keys()].sort(),
       commands: adminCatalog(),
       actions: await adminActions(db, caller),
+      // The floors (specification 11.2): no person, decision or setting lifts them.
+      floors: Object.entries(REASONS).filter(([, r]) => r.floor).map(([code, r]) => ({ code, sentence: r.sentence, change: r.change })),
     };
   });
   app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown> } }>("/admin/commands/:name/options", async (req) => {

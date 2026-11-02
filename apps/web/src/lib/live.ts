@@ -28,6 +28,10 @@ export function useLiveEvents(enabled: boolean): void {
         "events",
         "captures",
         "views",
+        // What the viewer may do changes with decisions, qualifications and pins.
+        "actions",
+        "admin",
+        "runtimes",
       ]) {
         void qc.invalidateQueries({ queryKey: [key] });
       }

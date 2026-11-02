@@ -31,3 +31,13 @@ Verification after round 1 fixes: daemon `go vet` on linux, darwin and windows a
 | Medium: final flush | Fixed | Heartbeat requests are derived from the flush loop's context, so stopping the loop abandons one in flight (its batch goes back) and the bounded final flush starts at once. |
 
 Verification after round 2 fixes: daemon `go vet` on linux, darwin and windows and `go test ./...` with no runtimes on PATH; API 494 passed, 1 skipped; web 105 passed.
+
+## Round 3 (verdict BLOCK; S3-08, S3-09, S3-10 and both Mediums closed)
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| S3-13 (and S3-12) | Accepted, fixed | The start gate (`ExecHooks.BeforeStart`, run immediately before `cmd.Start`) now refuses when the run was cancelled for any reason or its lease has ended, before checking the runtime's guard; nothing is spawned. Test: `TestNothingStartsWhenTheStartGateRefuses`. |
+| S3-14 (and S3-11) | Accepted, fixed | Reports that are never applied (refused or late completions) are associated with every active SCRAM whose scope reaches the run, including work a partial restart resumed (`adoptHeldRun` with `evenLifted`), and quarantined as batches; only a SCRAM that still holds the work marks the run stopped and turns the refusal into `scram-quarantined`. A broader restart therefore waits for their review. Test: `holds a broader restart for late output from work a partial restart resumed`. |
+| S3-15 | Accepted, fixed | When `recordRefused` finds the run already lost, it hands the report to the late path (`retainLate`, factored out of `complete`), which retains it with its digests, adopts and quarantines it under SCRAM, and settles the outcome if the run is proven ended, before answering `run-lost`. Reached only through a concurrent sweep between the two transactions; covered by construction (the late path itself is tested). |
+
+Verification after round 3 fixes: daemon `go vet` on linux, darwin and windows and `go test ./...` with no runtimes on PATH; API 495 passed, 1 skipped.

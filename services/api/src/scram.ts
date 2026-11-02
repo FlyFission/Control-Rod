@@ -170,24 +170,32 @@ export async function scramRunEnded(c: Tx, runId: string): Promise<void> {
 }
 
 /**
- * Makes a run whose work SCRAM holds one of that SCRAM's stopped runs, so whatever it reports is
- * quarantined and reviewed before a restart: covers a run that was lost before the pull and reports
- * late while SCRAM holds. Returns whether any SCRAM holds the run.
+ * Associates a run that is reporting with the SCRAMs whose scope reaches it, so what it reports is
+ * quarantined and reviewed before those SCRAMs fully restart. `held` says a SCRAM still holds the
+ * run's work (not lifted by a partial restart): its report is refused as quarantined and the run is
+ * marked stopped by SCRAM. With `evenLifted`, reports that are never applied anyway (refused or
+ * late ones) from work a partial restart resumed are associated too, so a broader restart still
+ * waits for their review. `associated` says the run now belongs to at least one SCRAM.
  */
-export async function adoptHeldRun(c: Tx, run: { id: string; role: string; package_id: string; body: Json }): Promise<boolean> {
+export async function adoptHeldRun(c: Tx, run: { id: string; role: string; package_id: string; body: Json }, opts: { evenLifted?: boolean } = {}):
+  Promise<{ held: boolean; associated: boolean }> {
   const subject = await runSubject(c, run);
   const owner = await ownerOf(c, subject.kind, subject.id);
   let first: string | null = run.body.scram_id ? String(run.body.scram_id) : null;
+  let associated = first !== null;
   for (const scram of await activeScrams(c)) {
-    if (!reaches(scram, owner) || (await liftedFor(c, scram.id, subject))) continue;
+    if (!reaches(scram, owner)) continue;
+    const lifted = await liftedFor(c, scram.id, subject);
+    if (lifted && !opts.evenLifted) continue;
     await c.query("insert into scram_runs (scram_id, org_id, run_id) values ($1, $2, $3) on conflict do nothing", [scram.id, scram.org_id, run.id]);
-    first ??= scram.id;
+    associated = true;
+    if (!lifted) first ??= scram.id;
   }
   if (first && !run.body.scram_id) {
     await c.query("update runs set body = body || jsonb_build_object('scram_id', $2::text) where id = $1", [run.id, first]);
     run.body = { ...run.body, scram_id: first };
   }
-  return first !== null;
+  return { held: first !== null, associated };
 }
 
 /**

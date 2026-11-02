@@ -14,6 +14,14 @@ import { independenceText } from "../lib/format.js";
 import type { Run } from "../api/types.js";
 import type { Passkeys } from "../lib/decide.js";
 
+/** What the server says this person may sign on WP-0001: the listed decisions allowed, the rest refused. */
+function offer(allowed: string[], refusal = { reason: "The package is not in a state where this decision applies.", change: "Wait for the package to reach that step." }) {
+  const all = ["release", "accept", "accept-with-findings", "return", "reject"];
+  server.use(http.get("*/packages/WP-0001/actions", () => HttpResponse.json(all.map((k) => allowed.includes(k)
+    ? { command: k, label: k, allowed: true, signature: "direct" }
+    : { command: k, label: k, allowed: false, signature: "direct", reason_code: "not-allowed", ...refusal }))));
+}
+
 describe("capture", () => {
   it("sends the text as a web capture", async () => {
     let body: unknown;
@@ -131,9 +139,10 @@ describe("decision flow", () => {
       },
       { status: "in-verification", revision: 3 },
     );
+    offer(["accept", "return", "reject"]);
     await renderPage(<DecisionBar view={v} passkeys={passkeys(signed)} />);
     expect(screen.getByText("sha256:ab12cd34ef56")).toBeTruthy();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Accept" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Accept" }));
     expect(await screen.findByRole("status")).toHaveProperty("textContent", "Accept recorded.");
     expect(signed).toEqual([{ challenge: "abc", rpId: "localhost" }]);
     expect(sent).toEqual([
@@ -161,8 +170,9 @@ describe("decision flow", () => {
         return HttpResponse.json({}, { status: 201 });
       }),
     );
+    offer(["release", "reject"]);
     await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys(signed)} />);
-    await userEvent.setup().click(screen.getByRole("button", { name: "Release" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Release" }));
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("changed since you opened it"));
     expect(signed).toEqual([]);
     expect(decided).toBe(false);
@@ -170,8 +180,9 @@ describe("decision flow", () => {
 
   it("asks why before signing a rejection", async () => {
     const signed: unknown[] = [];
+    offer(["release", "reject"]);
     await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys(signed)} />);
-    await userEvent.setup().click(screen.getByRole("button", { name: "Reject" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Reject" }));
     expect(screen.getByRole("textbox", { name: "Why reject this package" })).toBeTruthy();
     expect((screen.getByRole("button", { name: "Sign: Reject" }) as HTMLButtonElement).disabled).toBe(true);
     expect(signed).toEqual([]);
@@ -197,8 +208,9 @@ describe("decision flow", () => {
         agent_assignment: [{ role: "site-parcel", agent_baseline: "site-parcel", baseline_revision: 1 }],
       },
     );
+    offer(["accept", "return", "reject"]);
     await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
-    expect(screen.getByRole("button", { name: "Confirm boundary" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Confirm boundary" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
   });
 
@@ -228,9 +240,10 @@ describe("decision flow", () => {
         );
       }),
     );
+    offer(["return", "reject"]);
     await renderPage(<DecisionBar view={view({}, { status: "in-work" })} passkeys={passkeys(signed)} />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Return with direction" }));
+    await user.click(await screen.findByRole("button", { name: "Return with direction" }));
     const sign = screen.getByRole("button", { name: "Sign: Return with direction" });
     expect((sign as HTMLButtonElement).disabled).toBe(true);
     expect(signed).toEqual([]);
@@ -239,6 +252,45 @@ describe("decision flow", () => {
     await waitFor(() =>
       expect(decided).toMatchObject({ kind: "return", package_revision: 0, reason: "Use the 100 ft setback." }),
     );
+  });
+
+  it("never disappears: with nothing open to the viewer it says why, what is missing and what would change it", async () => {
+    offer([], { reason: "This needs the approver role, which your qualification does not include", change: "An administrator issues you a qualification with that role." });
+    await renderPage(<DecisionBar view={view({ binds: "Signing releases revision 0 of WP-0001 as drafted: 1 acceptance criterion and 1 deliverable (sha256:ab12cd34ef56)." }, { status: "draft", revision: 0 })} passkeys={passkeys([])} />);
+    expect(await screen.findByText(/which your qualification does not include/)).toBeTruthy();
+    expect(screen.getByText(/What would change it: An administrator issues you a qualification/)).toBeTruthy();
+    expect(screen.getByText(/Signing releases revision 0 of WP-0001/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Release" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Your decision" })).toBeTruthy();
+  });
+
+  it("puts away a decision whose permission was withdrawn, and never signs on a failed refresh", async () => {
+    offer(["return", "reject"]);
+    const { qc } = await renderPage(<DecisionBar view={view({}, { status: "in-work" })} passkeys={passkeys([])} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Return with direction" }));
+    expect(screen.getByRole("button", { name: "Sign: Return with direction" })).toBeTruthy();
+    // The viewer's qualification is revoked: the next answer refuses everything.
+    offer([], { reason: "This needs the reviewer role, which your qualification does not include", change: "An administrator restores it." });
+    await qc.invalidateQueries({ queryKey: ["actions"] });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Sign: Return with direction" })).toBeNull());
+    expect(screen.getByText(/reviewer role, which your qualification does not include/)).toBeTruthy();
+  });
+
+  it("disables signing when a refresh of what the viewer may sign fails", async () => {
+    offer(["release", "reject"]);
+    const { qc } = await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys([])} />);
+    await screen.findByRole("button", { name: "Release" });
+    server.use(http.get("*/packages/WP-0001/actions", () => HttpResponse.json({ code: "error", message: "down" }, { status: 500 })));
+    await qc.invalidateQueries({ queryKey: ["actions"] });
+    await screen.findByText(/could not be refreshed/);
+    expect((screen.getByRole("button", { name: "Release" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("says when what the viewer may sign could not be checked", async () => {
+    server.use(http.get("*/packages/WP-0001/actions", () => HttpResponse.json({ code: "error", message: "down" }, { status: 500 })));
+    await renderPage(<DecisionBar view={view({}, { status: "draft", revision: 0 })} passkeys={passkeys([])} />);
+    expect(await screen.findByText("What you may sign could not be checked.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Release" })).toBeNull();
   });
 
   it("shows the refusal when the kernel does not allow the decision", async () => {
@@ -250,8 +302,9 @@ describe("decision flow", () => {
         HttpResponse.json({ code: "forbidden", message: "The digest you signed is not the current one." }, { status: 409 }),
       ),
     );
+    offer(["release", "reject"]);
     await renderPage(<DecisionBar view={view()} passkeys={passkeys([])} />);
-    await userEvent.setup().click(screen.getByRole("button", { name: "Release" }));
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Release" }));
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "The digest you signed is not the current one.");
   });
 });

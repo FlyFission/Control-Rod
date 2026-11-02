@@ -13,7 +13,13 @@ import { hashToken } from "../src/auth.js";
 import pg from "pg";
 
 /** Captured before any local `pg` (the embedded server) shadows the module. */
-const OwnerPool = pg.Pool;
+/** The tests' owner pool: an idle connection dropped as the test database shuts down is expected. */
+class OwnerPool extends pg.Pool {
+  constructor(config: pg.PoolConfig) {
+    super(config);
+    this.on("error", () => undefined);
+  }
+}
 import { type Db, closeDb, openDb } from "../src/db/index.js";
 
 /** Fixed role passwords for tests: clusters may be shared between test files. */

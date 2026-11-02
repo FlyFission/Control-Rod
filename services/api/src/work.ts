@@ -14,6 +14,7 @@ import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, rais
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramRunEnded } from "./scram.js";
+import { bindingSentence } from "./binding.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -359,6 +360,11 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     ...(s.verification ? { pre_check: s.verification } : {}),
     decisions: decisions.rows.map((d) => d.body),
     subject_digest: { algorithm: "sha256", value: s.digest },
+    // What a signature on this revision binds, in words; for statuses with a gate decision.
+    ...(pkg.status === "draft" || pkg.status === "in-verification"
+      ? { binds: bindingSentence(pkg.status === "draft" ? "release" : "accept", { ...pkg.body, id: pkg.id }, pkg.revision, s.outputs.length, s.verification, s.digest,
+        { preparation: Boolean(s.preparation), criterionResults: Boolean(s.criterionResults) }) }
+      : {}),
     ...(s.criterionResults?{criterion_results_integrity:s.criterionResults.evidence_valid?"intact":"changed",criterion_results:s.criterionResults.body,criterion_results_run_id:s.criterionResults.run_id}:{}),
     ...(s.preparation?{preparation_verification_complete:Boolean(s.integrity?.intact && criterionResultFlags(s.preparation.snapshot,s.criterionResults?.evidence_valid?s.criterionResults.body:null).required_checks_complete),preparation_results_pass:Boolean(s.integrity?.intact && criterionResultFlags(s.preparation.snapshot,s.criterionResults?.evidence_valid?s.criterionResults.body:null).results_pass)}:{}),
     ...(s.integrity?{deliverable_integrity:s.integrity.intact?"intact":"changed"}:{}),

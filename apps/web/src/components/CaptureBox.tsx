@@ -98,6 +98,9 @@ export function CaptureBox() {
           multiple
           className="sr-only"
           id="capture-file"
+          // The visible button opens it; it is labelled for assistive technology and not a second tab stop.
+          aria-label="Attach parcel file"
+          tabIndex={-1}
           accept=".kml,.kmz,.geojson,.json,.pdf,.png,.jpg,.jpeg,.txt,.csv,.zip"
           onChange={(e) => {
             void attach(e.target.files);

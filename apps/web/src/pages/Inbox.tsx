@@ -148,7 +148,7 @@ function Target({ item }: { item: AttentionItem }) {
   const label =
     item.kind === "scram" ? "Open SCRAM commands"
     : item.kind === "confirm" ? "Open and confirm"
-    : item.capture_id !== undefined ? (item.href.to === "/roster" ? "Open the roster" : "Open the capture")
+    : item.capture_id !== undefined ? (item.href.to === "/roster" ? "Open the roster" : "Open Packages")
     : item.binds !== undefined ? "Open and decide"
     : "Open the runs";
   if (item.href.to === "/packages/$id" && item.href.id !== undefined)

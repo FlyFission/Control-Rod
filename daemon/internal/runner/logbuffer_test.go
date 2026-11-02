@@ -100,3 +100,40 @@ func TestTakeSendsAtMostOneBatchAndKeepsTheRest(t *testing.T) {
 		t.Fatal("buffer should be empty")
 	}
 }
+
+func TestEventsCarryTheirDeliveredIndexAndLeftoversGoWithTheCompletion(t *testing.T) {
+	buf := &logBuffer{}
+	buf.addEvents([]Event{{Kind: EvMessage, Text: "a"}, {Kind: EvMessage, Text: "b"}})
+	first, _ := buf.take()
+	if first.EventsFrom != 0 || len(first.Events) != 2 {
+		t.Fatalf("first batch %+v", first)
+	}
+	// The upload failed: the same events go again from the same index.
+	buf.putBackEvents(first.Events)
+	again, _ := buf.take()
+	if again.EventsFrom != 0 || len(again.Events) != 2 {
+		t.Fatalf("a resent batch keeps its index: %+v", again)
+	}
+	buf.sent(again)
+	buf.addEvents([]Event{{Kind: EvExit, Text: "exited"}})
+	next, _ := buf.take()
+	if next.EventsFrom != 2 {
+		t.Fatalf("after delivery the index moves on: %d", next.EventsFrom)
+	}
+	// The final upload fails: what is left goes with the completion, from the same index.
+	buf.putBackEvents(next.Events)
+	left, from := buf.leftEvents()
+	if from != 2 || len(left) != 1 || left[0].Kind != EvExit {
+		t.Fatalf("leftovers %v from %d", left, from)
+	}
+	many := make([]Event, MaxEventBatch+10)
+	for i := range many {
+		many[i] = Event{Kind: EvMessage, Text: "m"}
+	}
+	many[len(many)-1] = Event{Kind: EvExit}
+	buf.addEvents(many)
+	left, _ = buf.leftEvents()
+	if len(left) != MaxEventBatch || left[0].Kind != EvDropped || left[0].Dropped != 11 || left[len(left)-1].Kind != EvExit {
+		t.Fatalf("leftovers are bounded, newest kept: %d first %+v", len(left), left[0])
+	}
+}

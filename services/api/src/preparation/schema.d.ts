@@ -1844,6 +1844,13 @@ export interface components {
              * @enum {string}
              */
             containment?: "cgroup" | "process-group" | "none";
+            /**
+             * @description Events no log post delivered (the last upload failed), carried by the completion, which the
+             *     daemon retries until it is recorded. Indexed from events_from like a log batch.
+             */
+            events?: components["schemas"]["ControlRod.Records.NormalizedEvent"][];
+            /** Format: int32 */
+            events_from?: number;
         };
         /** @description What the control plane recorded for a completion. A repeat with the same key returns it again. */
         "Runner.CompletionReceipt": {
@@ -5166,6 +5173,13 @@ export interface operations {
                     receipt?: components["schemas"]["ControlRod.Records.OwnershipReceipt"];
                     /** @description Normalized events since the last post. */
                     events?: components["schemas"]["ControlRod.Records.NormalizedEvent"][];
+                    /**
+                     * Format: int32
+                     * @description How many of this run's events the daemon had delivered before this batch. The control plane
+                     *     keeps each event once by its index, so a batch resent after an upload whose answer was lost
+                     *     is not recorded twice.
+                     */
+                    events_from?: number;
                 };
             };
         };

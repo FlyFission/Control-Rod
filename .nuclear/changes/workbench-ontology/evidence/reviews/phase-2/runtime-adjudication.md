@@ -19,3 +19,16 @@ Reviewer: Codex CLI (read-only, ephemeral). Evidence: `runtime-codex-round1.md` 
 Also fixed while here: the daemon's test files no longer fail to compile on macOS and Windows (a Linux-only cgroup test moved to `contain_linux_test.go`; test files that drive shell scripts are tagged `unix`), and probe tests no longer depend on which runtimes the machine has installed (`stubArtifact`).
 
 Verification after round 1 fixes: daemon `go vet` on linux, darwin and windows; `go test ./...` passes with no runtimes on PATH; API 479 passed, 1 skipped; web 105 passed.
+
+## Round 2 (verdict BLOCK; S2-03 to S2-09 closed)
+
+| ID | Disposition | Fix and proof |
+|---|---|---|
+| S2-01 (partial) | Accepted, fixed | After the process starts, `VerifiedLaunch.Confirm` waits until `/proc/<pid>/exe` is the descriptor's own file, then hashes that file again. Linux refuses writes to a file while it executes (ETXTBSY), so bytes that match after the start are the bytes that ran, including after an in-place rewrite between check and start. A mismatch, or a process never seen running the runtime, fails closed: the daemon stops the whole unit. Tests: `TestConfirmCatchesARuntimeRewrittenInPlaceBeforeItStarted`, `TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes` (also asserts ETXTBSY), `TestConfirmFailsClosedWhenTheProcessNeverRunsTheRuntime`. A sealed memfd copy was considered and not chosen: it would hold a second in-memory copy of each runtime (Claude Code alone is over 300 MB). |
+| S2-02 (partial) | Accepted, fixed | A symlink in the Codex tree that is absolute or resolves outside the tree is refused, so every link names something the tree digest hashes. Test: `TestCodexTreeRefusesLinksThatLeaveIt`. |
+| S2-10 | Accepted, fixed | The trace no longer runs `<runtime> --version`. The version comes from the probe that saw the launched digest, or from the pin. `ToolVersion` is removed. Test: `TestARuntimeRefusedAtLaunchIsNeverExecuted` (a script that marks when run is never run, and the trace carries no version). |
+| Medium: duplicated events | Fixed | Each batch carries `events_from`, the daemon's count of delivered events; the control plane stores each event's index (`run_events.origin`, unique per run) and drops what an earlier delivery recorded, marking a gap as `dropped`. Test: `keeps each daemon event once when a batch is resent`. |
+| Medium: lost final events | Fixed | Events left after a failed final upload ride with the completion (bounded to 500, newest kept, with a dropped marker), which the durable outbox retries; every completion path records them. Tests: same API test; `TestEventsCarryTheirDeliveredIndexAndLeftoversGoWithTheCompletion`. |
+| Medium: reorder test | Fixed | The test now commits two events without notices while the stream is connected and announces only the later one; the old cursor guard would have skipped the first. |
+
+Verification after round 2 fixes: daemon `go vet` on linux, darwin and windows; `go test ./...` passes with no runtimes on PATH; API 480 passed, 1 skipped; web 105 passed; migration lock regenerated for the amended (unreleased) migration 014.

@@ -935,13 +935,30 @@ const MAX_RUN_EVENTS = 20000;
  * a run.waiting event naming the tool and the digest of its input (plan task 2.9), and a breaker
  * notice becomes run.breaker, so both reach the office and the stream.
  */
-async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown): Promise<void> {
+async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown, from?: unknown): Promise<void> {
   if (!Array.isArray(raw)) throw new Refusal(400, "invalid", "events must be a list");
   if (raw.length > 500) throw new Refusal(400, "too-many-lines", "Send at most 500 events per batch");
   for (const e of raw) validate(cfg, "NormalizedEvent.json", e);
-  const next = (await c.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from run_events where run_id = $1", [row.id])).rows[0]!.n;
-  let seq = next;
-  for (const e of raw as Json[]) {
+  if (from !== undefined && !(Number.isInteger(from) && (from as number) >= 0)) throw new Refusal(400, "invalid", "events_from must be a whole number");
+  const last = (await c.query<{ n: number; o: number | null }>(
+    "select coalesce(max(seq), 0)::int as n, max(origin)::int as o from run_events where run_id = $1", [row.id])).rows[0]!;
+  let seq = last.n;
+  let events = raw as Json[];
+  let origin: number | undefined;
+  if (from !== undefined) {
+    // Keep each daemon event once: drop what an earlier delivery of this batch already recorded.
+    const received = last.o === null ? 0 : last.o + 1;
+    origin = from as number;
+    if (origin < received) {
+      events = events.slice(received - origin);
+      origin = received;
+    } else if (origin > received && seq < MAX_RUN_EVENTS) {
+      seq++;
+      await c.query("insert into run_events (run_id, seq, body) values ($1, $2, $3)",
+        [row.id, seq, { kind: "dropped", at: now(), dropped: origin - received }]);
+    }
+  }
+  for (const e of events) {
     if (seq >= MAX_RUN_EVENTS) {
       if (seq === MAX_RUN_EVENTS) {
         seq++;
@@ -951,7 +968,8 @@ async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown
       break;
     }
     seq++;
-    await c.query("insert into run_events (run_id, seq, body) values ($1, $2, $3)", [row.id, seq, e]);
+    await c.query("insert into run_events (run_id, seq, body, origin) values ($1, $2, $3, $4)", [row.id, seq, e, origin ?? null]);
+    if (origin !== undefined) origin++;
     const agent: Actor = { kind: "agent", id: row.body.agent_baseline };
     if (e.kind === "permission_request")
       await appendEvent(c, "run.waiting", row.id, agent, { package: row.package_id, role: row.role, tool: e.tool, summary: e.summary,
@@ -1188,7 +1206,7 @@ const LABEL_MAX = 120;
  * A log batch from the daemon, which is also its heartbeat: it renews the lease. The reply tells
  * the daemon whether the owner asked to stop the run.
  */
-export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string, receipt?: unknown, events?: unknown) {
+export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unknown, lines: string[], label?: string, receipt?: unknown, events?: unknown, eventsFrom?: unknown) {
   return command(db, "run.log", async (c) => {
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
@@ -1220,7 +1238,7 @@ export async function runLog(db: Db, cfg: WorkConfig, runId: string, token: unkn
       }
     }
     validate(cfg, "Run.json", body);
-    if (events !== undefined) await recordRunEvents(c, cfg, row, events);
+    if (events !== undefined) await recordRunEvents(c, cfg, row, events, eventsFrom);
     await c.query("update runs set log = log || $2::text[], body = $3, lease_expires_at = $4 where id = $1", [
       runId,
       lines.map((l) => l.slice(0, 4000)),
@@ -1556,6 +1574,7 @@ export async function complete(db: Db, cfg: WorkConfig, runId: string, body: Jso
           await c.query("update runs set status = 'lost', body = $2 where id = $1", [runId, lostBody]);
           await appendEvent(c, "run.lost", runId, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
         }
+        if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
         const fresh=await quarantineCompletion(c,runId,key,body,"run-lost");
         // A late completion settles the hold only when a cgroup proved the whole run stopped; under
         // process group containment a process that left the group may still run.
@@ -1618,6 +1637,8 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   takeReceipt(cfg, row, finished, body);
   holdIfUnproven(row, finished, body);
   validate(cfg, "Run.json", finished);
+  // Events the last log post could not deliver arrive with the completion.
+  if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
   await c.query("update runs set status = $2, body = $3 where id = $1", [runId, finished.status, finished]);
   for (const o of outputs) {
     await c.query(
@@ -1669,6 +1690,7 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
     const status=refusal.code==="stopped"?"stopped":"failed";
     finished.status=status;
     holdIfUnproven(row, finished, body);
+    if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
     await quarantineCompletion(c,runId,key,body,refusal.code);
     const receipt = receiptOf(runId, key, status, [], refusal);
     await c.query("update runs set status = $5, body = $2, completion_key = $3, receipt = $4 where id = $1", [

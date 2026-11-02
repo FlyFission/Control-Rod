@@ -625,3 +625,48 @@ func TestTokenFromFileAndChildEnv(t *testing.T) {
 		t.Errorf("fake offered without CONTROLROD_ALLOW_FAKE: %v", got)
 	}
 }
+
+func TestARuntimeRefusedAtLaunchIsNeverExecuted(t *testing.T) {
+	// A claude on PATH that leaves a mark if anything runs it, even only for --version.
+	bin := t.TempDir()
+	mark := filepath.Join(t.TempDir(), "ran")
+	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte("#!/bin/sh\ntouch '"+mark+"'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// The probe saw an artifact; the job's pin names another, so the launch must refuse.
+	stubArtifact(t)
+	run := testRun("run-refused", "author")
+	run.Runtime.Provider = "claude"
+	job := &Job{Run: run, Inputs: []NamedFile{{Name: "BRIEF.md", ContentBase64: b64("x")}},
+		RuntimePin: &RuntimePin{Runtime: "claude", Digest: Digest{Algorithm: "sha256", Value: strings.Repeat("b", 64)}}}
+	api, srv := newFakeAPI(t, job)
+	var logs bytes.Buffer
+	// The probe answers from a table, so the only thing that could run the script is the launch.
+	probe := answers(map[string]ans{"claude --version": {"2.1.0 (Claude Code)", 0}})
+	d := New(Config{
+		API: srv.URL, Token: testToken, Home: t.TempDir(), Parallel: 1, Timeout: 5 * time.Second,
+		PollInterval: 50 * time.Millisecond, LogInterval: 50 * time.Millisecond, Grace: 2 * time.Second,
+		Runtimes: []string{RuntimeClaude, RuntimeFake}, Version: "test", Probe: probe.run,
+		Logger: slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	go func() { _ = d.Run(ctx); close(stopped) }()
+	select {
+	case <-api.finished:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("no completion; daemon log:\n%s", logs.String())
+	}
+	cancel()
+	<-stopped
+	api.mu.Lock()
+	comp := api.done["run-refused"]
+	api.mu.Unlock()
+	if comp.Status != "failed" || comp.Trace == nil || comp.Trace.Tool.Version != "" {
+		t.Fatalf("the run fails without a version read from the refused runtime: %+v", comp)
+	}
+	if _, err := os.Stat(mark); err == nil {
+		t.Fatal("the refused runtime was executed")
+	}
+}

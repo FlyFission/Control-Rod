@@ -486,6 +486,13 @@ namespace Runner {
 
     /** Normalized events since the last post. */
     @maxItems(500) events?: NormalizedEvent[];
+
+    /**
+     * How many of this run's events the daemon had delivered before this batch. The control plane
+     * keeps each event once by its index, so a batch resent after an upload whose answer was lost
+     * is not recorded twice.
+     */
+    @minValue(0) events_from?: int32;
   }): LogReply | Refused;
 
   /**
@@ -529,6 +536,14 @@ namespace Runner {
      * outcome.
      */
     containment?: "cgroup" | "process-group" | "none";
+
+    /**
+     * Events no log post delivered (the last upload failed), carried by the completion, which the
+     * daemon retries until it is recorded. Indexed from events_from like a log batch.
+     */
+    @maxItems(500) events?: NormalizedEvent[];
+
+    @minValue(0) events_from?: int32;
   }
 
   @route("/runs/{id}/complete") @post op complete(@path id: string, @body body: Completion): CompletionReceipt | Refused;

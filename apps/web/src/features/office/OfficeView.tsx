@@ -10,13 +10,14 @@ import { type CauseGroup, EXCEPTIONS_AT, causeGroups, exceptionsView, portfolio 
 import { REGION } from "./layout.js";
 import { LENSES, type LensId, lensById } from "./lenses.js";
 import { OfficeStage } from "./OfficeStage.js";
-import { DEFAULT_OFFICE_THEME } from "./registry.js";
+import { DEFAULT_OFFICE_THEME, draftBuild, officeThemeChoices } from "./registry.js";
 import { seatFigures } from "./seat.js";
 
 /**
  * The office view (specification 13; plan tasks 4.5 and 4.8): the projected figures on the canonical
- * floor under the released theme, a lens that recolours them, presenting mode, and a card for the
- * selected figure. Every state and cause comes from GET /office/figures; nothing here guesses.
+ * floor under the chosen theme (the released theme, or in a draft build one of the fifteen worlds;
+ * plan task 4.9), a lens that recolours them, presenting mode, and a card for the selected figure.
+ * Every state and cause comes from GET /office/figures; nothing here guesses.
  */
 
 /** What waits on the viewer: agents in Your office, and anything else in the Inbox with no agent yet. */
@@ -29,7 +30,28 @@ function countLine(needsMe: number, inboxItems: number): string {
   return [agents, more].filter(Boolean).join("; ");
 }
 
-export function OfficeView() {
+const THEME_KEY = "controlrod.office.theme";
+// The theme is a per viewer convenience: remembered where storage works, never required.
+const rememberedTheme = () => {
+  try {
+    return localStorage.getItem(THEME_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {}) {
+  const choices = officeThemeChoices(drafts);
+  const [themeId, setThemeId] = useState(() => rememberedTheme());
+  const theme = choices.find((t) => t.id === themeId) ?? DEFAULT_OFFICE_THEME;
+  const chooseTheme = (id: string) => {
+    setThemeId(id);
+    try {
+      localStorage.setItem(THEME_KEY, id);
+    } catch {
+      // Not remembered; the choice still holds for this visit.
+    }
+  };
   const [lens, setLens] = useState<LensId>("status");
   const [presenting, setPresenting] = useState(false);
   const [selected, setSelected] = useState<string>();
@@ -74,6 +96,19 @@ export function OfficeView() {
               </button>
             ))}
           </div>
+          {choices.length > 1 && (
+            <label className="office-theme-choice">
+              <span>Theme</span>
+              <select value={theme.id} onChange={(e) => chooseTheme(e.target.value)}>
+                {choices.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                    {t.availability === "development" ? " (draft)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <button type="button" className="btn small" aria-pressed={presenting} onClick={() => setPresenting((v) => !v)}>
             Presenting mode
           </button>
@@ -159,7 +194,7 @@ export function OfficeView() {
       ) : (
         <div className="office-layout">
           <div className="office-scroll">
-            <OfficeStage theme={DEFAULT_OFFICE_THEME} figures={seated} selected={selected} onSelect={setSelected} />
+            <OfficeStage theme={theme} figures={seated} selected={selected} onSelect={setSelected} />
             {floor.figures.length === 0 && (
               <p className="office-note">
                 No agent is working right now. Work appears here once a released package has a run. <Link to="/packages">Packages</Link>

@@ -19,6 +19,8 @@ const RESULT_WORDS: Record<SealCheck["result"], string> = {
   valid: "Valid",
   "head-mismatch": "Not valid: the event it names no longer has the digest it sealed",
   "head-missing": "Not valid: the event it names is missing",
+  unrecorded: "Not valid: the chain does not record this seal as it stands",
+  "key-revoked": "Not valid: made with a passkey already revoked",
   "subject-mismatch": "Not valid: what is recorded is not what was signed",
   "key-unknown": "Not valid: the signer's passkey is not known",
   "signature-invalid": "Not valid: the signature does not check",
@@ -162,7 +164,7 @@ function Seal({ passkeys }: { passkeys: Passkeys }) {
   const h = head.data?.head;
   const seal = useMutation({
     // What the screen shows is what is signed: this head, this purpose, this moment.
-    mutationFn: () => signAdmin("chain.seal", { head_seq: h!.head_seq, head_digest: h!.head_digest.value, purpose: purpose.trim(), sealed_at: new Date().toISOString() }, passkeys),
+    mutationFn: () => signAdmin<{ payload: { head_seq: number } }>("chain.seal", { head_seq: h!.head_seq, head_digest: h!.head_digest.value, purpose: purpose.trim(), sealed_at: new Date().toISOString() }, passkeys),
     onSuccess: () => {
       setPurpose("");
       void qc.invalidateQueries({ queryKey: ["records-verify"] });
@@ -197,9 +199,10 @@ function Seal({ passkeys }: { passkeys: Passkeys }) {
           </button>
         </fieldset>
       )}
-      {seal.isSuccess && (
+      {/* The seal's own head, never the head the page shows now: sealing itself adds entries after it. */}
+      {seal.data && (
         <p className="ok" role="status">
-          Sealed through entry {h?.head_seq ?? ""}.
+          Sealed through entry {seal.data.payload.head_seq}.
         </p>
       )}
       {seal.error && (
@@ -244,14 +247,18 @@ function Proof() {
       )}
       {p && (
         <div role="status">
-          <p className={p.check.ok ? "ok" : "error"}>
-            {p.check.ok
-              ? `${p.bundle.events.length} ${p.bundle.events.length === 1 ? "entry" : "entries"} of ${p.bundle.package_id} recompute and link through the chain.`
-              : `The proof does not hold: ${p.check.problem ?? "unknown problem"}.`}
+          <p className={p.ok ? "ok" : "error"}>
+            {!p.check.ok
+              ? `The proof does not hold: ${p.check.problem ?? "unknown problem"}.`
+              : !p.chain.ok
+                ? `The chain is broken at entry ${p.chain.broken_at ?? "unknown"}, so this proof cannot be relied on, though ${p.bundle.package_id}'s own stretch checks.`
+                : `${p.check.events.length} ${p.check.events.length === 1 ? "entry" : "entries"} of ${p.bundle.package_id} recompute and link through the chain from its first entry.`}
           </p>
           <p>
             {p.bundle.seal
-              ? `Covered by seal ${p.bundle.seal.id} through entry ${p.bundle.seal.payload.head_seq} (${p.bundle.seal.payload.purpose}).`
+              ? p.check.authenticated
+                ? `Covered by seal ${p.bundle.seal.id} through entry ${p.bundle.seal.payload.head_seq} (${p.bundle.seal.payload.purpose}), and its passkey signature checks against the key in the bundle. Whether that key is the signer's must be confirmed from outside the bundle.`
+                : `Seal ${p.bundle.seal.id} does not authenticate these entries.`
               : "No seal covers these entries yet: the proof runs to the chain's current head, unsealed."}
           </p>
           <p className="muted small">{NOT_WITNESSED}</p>

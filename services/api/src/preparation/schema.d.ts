@@ -558,9 +558,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description A package's inclusion proof: the chain segment from just before its first event to the head of the
-         *     first valid seal covering its last (or to the chain head, unsealed), with that seal. Self contained:
-         *     every digest and link can be recomputed from the bundle.
+         * @description A package's inclusion proof: the whole chain from its first event through the head of the first
+         *     valid seal covering the package's last event (or the chain head, unsealed), with that seal and what
+         *     checking its signature needs. Self contained; trust in the signer's key must come from outside it.
+         *     Refused (mixed-scope) when that part of the chain records another organization's work.
          */
         get: operations["packageProof"];
         put?: never;
@@ -2544,10 +2545,12 @@ export interface components {
             signer_id: string;
             purpose: string;
             /**
-             * @description valid, or why not: the head moved or is missing, the subject does not match, the signer's key is unknown, the signature fails, or the chain breaks before its head.
+             * @description valid, or why not: the head moved or is missing; no chain.sealed event records this seal as it is;
+             *     the subject does not match its payload; the signer's key is unknown, or was revoked before the seal
+             *     was recorded; the signature fails; or the chain breaks before its head.
              * @enum {string}
              */
-            result: "valid" | "head-mismatch" | "head-missing" | "subject-mismatch" | "key-unknown" | "signature-invalid" | "chain-broken-before-head";
+            result: "valid" | "head-mismatch" | "head-missing" | "unrecorded" | "subject-mismatch" | "key-unknown" | "key-revoked" | "signature-invalid" | "chain-broken-before-head";
         };
     };
     responses: never;
@@ -4843,29 +4846,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @description The global chain verifies and the proof holds. */
+                        ok: boolean;
+                        chain: {
+                            ok: boolean;
+                            /** Format: int32 */
+                            count: number;
+                            /** Format: int32 */
+                            broken_at?: number;
+                        };
+                        /** @description The bundle checked on its own: links from the first event, the package's events derived from it, and the seal's signature. */
+                        check: {
+                            ok: boolean;
+                            authenticated: boolean;
+                            events: number[];
+                            problem?: string;
+                        };
                         bundle: {
                             package_id: string;
-                            events: number[];
-                            anchor?: {
-                                /** Format: int32 */
-                                seq: number;
-                                digest: string;
-                            };
                             segment: {
                                 [key: string]: unknown;
                             }[];
                             seal: {
                                 [key: string]: unknown;
                             } | null;
+                            seal_evidence?: {
+                                public_key: string;
+                                rp_id: string;
+                                origins: string[];
+                            };
                             /** @enum {boolean} */
                             witnessed: false;
                             /** @enum {string} */
                             statement: "Local chain, not witnessed";
-                        };
-                        /** @description The control plane's own check of the bundle: every digest and link recomputed. */
-                        check: {
-                            ok: boolean;
-                            problem?: string;
                         };
                     } | components["schemas"]["ApiError"];
                 };

@@ -2897,7 +2897,7 @@
     "/packages/{id}/proof": {
       "get": {
         "operationId": "packageProof",
-        "description": "A package's inclusion proof: the chain segment from just before its first event to the head of the\nfirst valid seal covering its last (or to the chain head, unsealed), with that seal. Self contained:\nevery digest and link can be recomputed from the bundle.",
+        "description": "A package's inclusion proof: the whole chain from its first event through the head of the first\nvalid seal covering the package's last event (or the chain head, unsealed), with that seal and what\nchecking its signature needs. Self contained; trust in the signer's key must come from outside it.\nRefused (mixed-scope) when that part of the chain records another organization's work.",
         "parameters": [
           {
             "name": "id",
@@ -2918,11 +2918,39 @@
                     {
                       "type": "object",
                       "properties": {
-                        "bundle": {
+                        "ok": {
+                          "type": "boolean",
+                          "description": "The global chain verifies and the proof holds."
+                        },
+                        "chain": {
                           "type": "object",
                           "properties": {
-                            "package_id": {
-                              "type": "string"
+                            "ok": {
+                              "type": "boolean"
+                            },
+                            "count": {
+                              "type": "integer",
+                              "format": "int32",
+                              "minimum": 0
+                            },
+                            "broken_at": {
+                              "type": "integer",
+                              "format": "int32"
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "count"
+                          ]
+                        },
+                        "check": {
+                          "type": "object",
+                          "properties": {
+                            "ok": {
+                              "type": "boolean"
+                            },
+                            "authenticated": {
+                              "type": "boolean"
                             },
                             "events": {
                               "type": "array",
@@ -2931,21 +2959,22 @@
                                 "format": "int32"
                               }
                             },
-                            "anchor": {
-                              "type": "object",
-                              "properties": {
-                                "seq": {
-                                  "type": "integer",
-                                  "format": "int32"
-                                },
-                                "digest": {
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "seq",
-                                "digest"
-                              ]
+                            "problem": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "authenticated",
+                            "events"
+                          ],
+                          "description": "The bundle checked on its own: links from the first event, the package's events derived from it, and the seal's signature."
+                        },
+                        "bundle": {
+                          "type": "object",
+                          "properties": {
+                            "package_id": {
+                              "type": "string"
                             },
                             "segment": {
                               "type": "array",
@@ -2965,6 +2994,28 @@
                                 }
                               ]
                             },
+                            "seal_evidence": {
+                              "type": "object",
+                              "properties": {
+                                "public_key": {
+                                  "type": "string"
+                                },
+                                "rp_id": {
+                                  "type": "string"
+                                },
+                                "origins": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "public_key",
+                                "rp_id",
+                                "origins"
+                              ]
+                            },
                             "witnessed": {
                               "type": "boolean",
                               "enum": [
@@ -2980,32 +3031,18 @@
                           },
                           "required": [
                             "package_id",
-                            "events",
                             "segment",
                             "seal",
                             "witnessed",
                             "statement"
                           ]
-                        },
-                        "check": {
-                          "type": "object",
-                          "properties": {
-                            "ok": {
-                              "type": "boolean"
-                            },
-                            "problem": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "ok"
-                          ],
-                          "description": "The control plane's own check of the bundle: every digest and link recomputed."
                         }
                       },
                       "required": [
-                        "bundle",
-                        "check"
+                        "ok",
+                        "chain",
+                        "check",
+                        "bundle"
                       ]
                     },
                     {
@@ -10417,12 +10454,14 @@
               "valid",
               "head-mismatch",
               "head-missing",
+              "unrecorded",
               "subject-mismatch",
               "key-unknown",
+              "key-revoked",
               "signature-invalid",
               "chain-broken-before-head"
             ],
-            "description": "valid, or why not: the head moved or is missing, the subject does not match, the signer's key is unknown, the signature fails, or the chain breaks before its head."
+            "description": "valid, or why not: the head moved or is missing; no chain.sealed event records this seal as it is;\nthe subject does not match its payload; the signer's key is unknown, or was revoked before the seal\nwas recorded; the signature fails; or the chain breaks before its head."
           }
         },
         "description": "One seal as verification found it."

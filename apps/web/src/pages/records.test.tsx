@@ -27,7 +27,7 @@ describe("Records", () => {
       http.post("*/admin/commands/:name/options", () => HttpResponse.json({ subject_digest: D("c"), options: {} })),
       http.post("*/admin/commands/:name", async ({ params, request }) => {
         sent.push({ name: String(params["name"]), body: await request.json() });
-        return HttpResponse.json({ id: "seal_3" });
+        return HttpResponse.json({ id: "seal_3", payload: { head_seq: 41 } });
       }),
     );
   });
@@ -67,36 +67,55 @@ describe("Records", () => {
     const sign = within(region).getByRole("button", { name: "Sign with your passkey and seal" }) as HTMLButtonElement;
     expect(sign.disabled).toBe(true);
     await user.type(within(region).getByRole("textbox", { name: "Purpose (required)" }), " Before the design review ");
+    // Once the seal records itself the chain head moves on; the refreshed head shows that.
+    server.use(http.get("*/records/head", () => HttpResponse.json({ head: { head_seq: 43, head_digest: D("d"), at: new Date().toISOString() } })));
     await user.click(sign);
     await waitFor(() => expect(sent).toHaveLength(1));
     const payload = sent[0]!.body.payload;
     expect(payload).toMatchObject({ head_seq: 41, head_digest: "b".repeat(64), purpose: "Before the design review" });
     expect(Object.keys(payload).sort()).toEqual(["head_digest", "head_seq", "purpose", "sealed_at"]);
     expect(Math.abs(Date.parse(payload.sealed_at) - Date.now())).toBeLessThan(60_000);
+    // The message keeps the seal's own head, not the head shown now.
     expect(await within(region).findByText("Sealed through entry 41.")).toBeTruthy();
+    await waitFor(() => expect(region.textContent).toContain("entry 43"));
+    expect(within(region).getByText("Sealed through entry 41.")).toBeTruthy();
   });
 
-  it("proves a package's entries are in the record, and offers the bundle to keep", async () => {
+  it("proves a package's entries are in the record, says what the signature does and does not establish, and offers the bundle", async () => {
     server.use(http.get("*/packages/WP-1/proof", () => HttpResponse.json({
-      bundle: { package_id: "WP-1", events: [3, 9], segment: [], seal: { id: "seal_1", payload: { head_seq: 30, purpose: "End of day" } }, statement: "Local chain, not witnessed" },
-      check: { ok: true },
+      ok: true, chain: { ok: true, count: 50 }, check: { ok: true, authenticated: true, events: [3, 9] },
+      bundle: { package_id: "WP-1", segment: [], seal: { id: "seal_1", payload: { head_seq: 30, purpose: "End of day" } }, statement: "Local chain, not witnessed" },
     })));
     const user = userEvent.setup();
     await renderPage(<Records passkeys={passkeys} />);
     const region = screen.getByRole("region", { name: "Prove a package is in the record" });
     await user.type(within(region).getByRole("textbox", { name: "Package" }), "WP-1");
     await user.click(within(region).getByRole("button", { name: "Prove it" }));
-    expect(await within(region).findByText("2 entries of WP-1 recompute and link through the chain.")).toBeTruthy();
-    expect(within(region).getByText("Covered by seal seal_1 through entry 30 (End of day).")).toBeTruthy();
+    expect(await within(region).findByText("2 entries of WP-1 recompute and link through the chain from its first entry.")).toBeTruthy();
+    expect(region.textContent).toContain("Covered by seal seal_1 through entry 30 (End of day), and its passkey signature checks against the key in the bundle.");
+    expect(region.textContent).toContain("Whether that key is the signer's must be confirmed from outside the bundle.");
     const link = within(region).getByRole("link", { name: "Download the proof bundle" }) as HTMLAnchorElement;
     expect(link.getAttribute("download")).toBe("WP-1-inclusion-proof.json");
-    expect(JSON.parse(decodeURIComponent(link.href.split(",")[1]!))).toMatchObject({ package_id: "WP-1", events: [3, 9] });
+    expect(JSON.parse(decodeURIComponent(link.href.split(",")[1]!))).toMatchObject({ package_id: "WP-1" });
+  });
+
+  it("fails a proof when the chain is broken, however its own stretch looks", async () => {
+    server.use(http.get("*/packages/WP-3/proof", () => HttpResponse.json({
+      ok: false, chain: { ok: false, count: 50, broken_at: 44 }, check: { ok: true, authenticated: true, events: [3] },
+      bundle: { package_id: "WP-3", segment: [], seal: { id: "seal_1", payload: { head_seq: 30, purpose: "End of day" } }, statement: "Local chain, not witnessed" },
+    })));
+    const user = userEvent.setup();
+    await renderPage(<Records passkeys={passkeys} />);
+    const region = screen.getByRole("region", { name: "Prove a package is in the record" });
+    await user.type(within(region).getByRole("textbox", { name: "Package" }), "WP-3");
+    await user.click(within(region).getByRole("button", { name: "Prove it" }));
+    expect(await within(region).findByText("The chain is broken at entry 44, so this proof cannot be relied on, though WP-3's own stretch checks.")).toBeTruthy();
   });
 
   it("says when no seal covers a package yet, and when a proof does not hold", async () => {
     server.use(http.get("*/packages/WP-2/proof", () => HttpResponse.json({
-      bundle: { package_id: "WP-2", events: [4], segment: [], seal: null, statement: "Local chain, not witnessed" },
-      check: { ok: false, problem: "event 5 does not link to the one before it" },
+      ok: false, chain: { ok: true, count: 50 }, check: { ok: false, authenticated: false, events: [], problem: "event 5 does not link to the one before it" },
+      bundle: { package_id: "WP-2", segment: [], seal: null, statement: "Local chain, not witnessed" },
     })));
     const user = userEvent.setup();
     await renderPage(<Records passkeys={passkeys} />);

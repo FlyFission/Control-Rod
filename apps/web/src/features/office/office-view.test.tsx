@@ -29,6 +29,8 @@ const figure = (over: Partial<AgentFigure> = {}): AgentFigure => ({
   run_status: "running",
   href: { to: "/packages/$id", id: "WP-0001", hash: "runs" },
   ...over,
+  // A cause of its own unless a test gives it a shared one.
+  cause_key: over.cause_key ?? `run:${over.id ?? "R-1"}`,
 });
 
 describe("seating", () => {
@@ -199,7 +201,7 @@ describe("exceptions overlay and portfolio (OV-26)", () => {
 describe("shared causes (OV-03)", () => {
   beforeEach(() => server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] }))));
   const held = (i: number) =>
-    figure({ id: `R-h${i}`, package_id: `WP-H${i}`, state: "waiting", place: "interface", cause: "Author run waits for WP-PUMP to be accepted", waiting_on: "the work it depends on (WP-PUMP)", since: new Date(Date.now() - (2 * 24 + i) * 3600e3).toISOString() });
+    figure({ id: `R-h${i}`, package_id: `WP-H${i}`, state: "waiting", place: "interface", cause: "Author run waits for WP-PUMP to be accepted", cause_key: "deps:author:WP-PUMP", waiting_on: "the work it depends on (WP-PUMP)", since: new Date(Date.now() - (2 * 24 + i) * 3600e3).toISOString() });
 
   it("groups agents held by the same recorded cause into one chip, and never groups one", () => {
     const five = [0, 1, 2, 3, 4].map(held);
@@ -208,6 +210,16 @@ describe("shared causes (OV-03)", () => {
     expect(groups[0]).toMatchObject({ state: "waiting", cause: "Author run waits for WP-PUMP to be accepted", waiting_on: "the work it depends on (WP-PUMP)" });
     expect(groups[0]!.figures).toHaveLength(5);
     expect(groups[0]!.since).toBe(five[4]!.since);
+  });
+
+  it("groups by the recorded cause, never by matching words: two unrelated failures that read alike stay apart", () => {
+    const failed = (id: string) => figure({ id, package_id: `WP-${id}`, state: "stuck", place: "review", cause: "Author run failed" });
+    expect(causeGroups([failed("R-x"), failed("R-y")])).toEqual([]);
+    // The same recorded hold groups even when one cause was clipped differently.
+    const hold = (id: string, cause: string) => figure({ id, package_id: `WP-${id}`, state: "waiting", place: "interface", cause, cause_key: "hold:lane\u0000Lane held\u0000someone with lane authority", waiting_on: "someone with lane authority" });
+    const groups = causeGroups([hold("R-p", "Lane held"), hold("R-q", "Lane held")]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.figures.map((f) => f.id)).toEqual(["R-p", "R-q"]);
   });
 
   it("shows the chip with its input, owner, age and count, and opens to list the agents", async () => {

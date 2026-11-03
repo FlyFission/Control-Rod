@@ -84,6 +84,11 @@ describe("pulling SCRAM", () => {
     const stopping = await running("WP-SCR-RUN");
     const waiting = await queued("WP-SCR-WAIT");
 
+    // Before it fires, the preview counts by the pull's own selection: the run running, the run queued.
+    const preview = (await h.app.inject({ method: "GET", url: "/scrams/preview?scope=organization", headers: { cookie } })).json();
+    expect(preview).toMatchObject({ scope: "organization", running: [stopping] });
+    expect(preview.queued).toContain(waiting);
+
     const pulled = await signed("scram.pull", { scope: "organization", reason: "Drill: confirm everything stops", drill: true });
     expect(pulled.statusCode, pulled.body).toBe(200);
     const scram = pulled.json();
@@ -128,8 +133,18 @@ describe("pulling SCRAM", () => {
     const listed = active.scrams.find((x: { scram: { id: string } }) => x.scram.id === scram.id);
     expect(listed).toMatchObject({ scram: { id: scram.id, scope: "organization", drill: true }, stopped: { runs: 1, ms_to_stop: stopped[0]!.data.ms_to_stop } });
     expect(Number.isNaN(Date.parse(listed.pulled_at))).toBe(false);
+    expect(listed.run_count).toBe(1);
     const viewed = (await h.app.inject({ method: "GET", url: `/scrams/${scram.id}`, headers: { cookie } })).json();
     expect(viewed.stopped).toEqual(listed.stopped);
+    // The review names what each stopped run worked on, and every package the SCRAM holds.
+    expect(viewed.runs[0]).toMatchObject({ run_id: stopping, role: "author", subject: "package", subject_id: "WP-SCR-RUN" });
+    expect(viewed.packages.map((x: Json) => x.id)).toEqual(expect.arrayContaining(["WP-SCR-RUN", "WP-SCR-WAIT"]));
+    // Presenting, a SCRAM says only that it holds and over what: never its reason, runs or who pulled it.
+    const shown = (await h.app.inject({ method: "GET", url: "/scrams?presenting=true", headers: { cookie } })).json();
+    const presented = shown.scrams.find((x: Json) => x.scram.id === scram.id);
+    expect(shown.presenting).toBe(true);
+    expect(presented.scram).toEqual({ id: scram.id, org_id: scram.org_id, scope: "organization", drill: true });
+    expect(presented).toMatchObject({ run_count: 1, stopped: listed.stopped });
 
     // Requeue is refused while SCRAM holds.
     expect((await post(`/packages/WP-SCR-RUN/runs/${stopping}/requeue`, {})).json().code).toBe("scram-stopped");
@@ -185,6 +200,10 @@ describe("pulling SCRAM", () => {
     // Nothing was running, so it stopped at once.
     expect((await events("scram.stopped")).filter((e) => e.subject === scram.id)).toHaveLength(1);
     expect((await claim()).statusCode).toBe(204);
+    // A restart names something this SCRAM holds; a package or discipline it does not is refused, not recorded.
+    expect((await signed("scram.restart", { scram_id: scram.id, scope: "discipline", discipline: "no-such-discipline", reason: "Typo" })).json().code).toBe("not-in-scope");
+    expect((await signed("scram.restart", { scram_id: scram.id, scope: "package", package_id: "WP-NO-SUCH", reason: "Typo" })).json().code).toBe("not-in-scope");
+    expect((await h.db.query("select 1 from scram_restarts where scram_id = $1", [scram.id])).rowCount).toBe(0);
     const part = await signed("scram.restart", { scram_id: scram.id, scope: "discipline", discipline: "mechanical", reason: "Mechanical prompts verified" });
     expect(part.statusCode, part.body).toBe(200);
     const job = await claim();
@@ -206,8 +225,14 @@ describe("pulling SCRAM", () => {
     const inside = await running("WP-SCR-PROJ");
     const outside = await queued("WP-SCR-ELSEWHERE");
 
+    // The preview and the pull select the same: the project's running run, never work outside it.
+    const preview = (await h.app.inject({ method: "GET", url: `/scrams/preview?scope=project&project_id=${projectId}`, headers: { cookie } })).json();
+    expect(preview).toMatchObject({ scope: "project", project_id: projectId, running: [inside], queued: [] });
+    expect((await h.app.inject({ method: "GET", url: "/scrams/preview?scope=project&project_id=prj_none", headers: { cookie } })).statusCode).toBe(404);
     const scram = (await signed("scram.pull", { scope: "project", project_id: projectId, reason: "Project credentials leaked" })).json();
     expect(scram.quarantine).toEqual([inside]);
+    // A package outside the project is not this SCRAM's to restart.
+    expect((await signed("scram.restart", { scram_id: scram.id, scope: "package", package_id: "WP-SCR-ELSEWHERE", reason: "Wrong one" })).json().code).toBe("not-in-scope");
     // Work outside the project is still handed out.
     const job = await claim();
     expect(job.statusCode, job.body).toBe(200);

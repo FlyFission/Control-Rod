@@ -4762,8 +4762,18 @@
     "/scrams": {
       "get": {
         "operationId": "scrams",
-        "description": "The SCRAMs in force in the viewer's organization (not yet restarted for their whole scope).",
-        "parameters": [],
+        "description": "The SCRAMs in force in the viewer's organization (not yet restarted for their whole scope).\nPresenting, each is a ScramPresented.",
+        "parameters": [
+          {
+            "name": "presenting",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "explode": false
+          }
+        ],
         "responses": {
           "200": {
             "description": "The request has succeeded.",
@@ -4780,7 +4790,20 @@
                             "type": "object",
                             "properties": {
                               "scram": {
-                                "$ref": "#/components/schemas/ControlRod.Records.ScramEvent"
+                                "anyOf": [
+                                  {
+                                    "$ref": "#/components/schemas/ControlRod.Records.ScramEvent"
+                                  },
+                                  {
+                                    "$ref": "#/components/schemas/ScramPresented"
+                                  }
+                                ]
+                              },
+                              "run_count": {
+                                "type": "integer",
+                                "format": "int32",
+                                "minimum": 0,
+                                "description": "How many runs it stopped where they stood."
                               },
                               "pulled_at": {
                                 "type": "string",
@@ -4813,13 +4836,100 @@
                               }
                             },
                             "required": [
-                              "scram"
+                              "scram",
+                              "run_count"
                             ]
                           }
+                        },
+                        "presenting": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "scrams"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scrams/preview": {
+      "get": {
+        "operationId": "scramPreview",
+        "description": "What pulling SCRAM with this scope would stop now, by the pull's own selection: the runs running\n(stopped where they stand) and queued (held). The pull selects again when it fires.",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "organization",
+                "project"
+              ]
+            },
+            "explode": false
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "scope": {
+                          "type": "string",
+                          "enum": [
+                            "organization",
+                            "project"
+                          ]
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "running": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "queued": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "counted_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "scope",
+                        "running",
+                        "queued",
+                        "counted_at"
                       ]
                     },
                     {
@@ -4897,6 +5007,23 @@
                               "run_id": {
                                 "type": "string"
                               },
+                              "role": {
+                                "$ref": "#/components/schemas/ControlRod.Records.RunRole"
+                              },
+                              "subject": {
+                                "type": "string",
+                                "enum": [
+                                  "package",
+                                  "capture"
+                                ],
+                                "description": "What the run worked on: a package, or a capture for intake."
+                              },
+                              "subject_id": {
+                                "type": "string"
+                              },
+                              "discipline": {
+                                "type": "string"
+                              },
                               "status": {
                                 "$ref": "#/components/schemas/ControlRod.Records.RunStatus"
                               },
@@ -4918,6 +5045,9 @@
                             },
                             "required": [
                               "run_id",
+                              "role",
+                              "subject",
+                              "subject_id",
                               "status",
                               "outcome_unknown",
                               "batches",
@@ -4930,12 +5060,39 @@
                           "items": {
                             "$ref": "#/components/schemas/ControlRod.Records.ScramRestart"
                           }
+                        },
+                        "packages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "discipline": {
+                                "type": "string"
+                              },
+                              "lifted": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "lifted"
+                            ]
+                          },
+                          "description": "Every package the SCRAM reaches, so a staged restart names one it holds; lifted once a restart covers it."
                         }
                       },
                       "required": [
                         "scram",
                         "runs",
-                        "restarts"
+                        "restarts",
+                        "packages"
                       ]
                     },
                     {
@@ -5047,6 +5204,7 @@
           "role",
           "state",
           "cause",
+          "cause_key",
           "since",
           "place",
           "marks",
@@ -5088,6 +5246,10 @@
             "type": "string",
             "maxLength": 300,
             "description": "Why, in words: what it is doing, what you must decide, who it waits on, what blocks it, which input changed."
+          },
+          "cause_key": {
+            "type": "string",
+            "description": "The recorded thing behind the cause (a SCRAM, a hold, an input revision, the dependencies\nawaited, or the run itself), so agents are grouped by what holds them, never by matching words."
           },
           "waiting_on": {
             "type": "string",
@@ -9551,6 +9713,36 @@
           }
         },
         "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not."
+      },
+      "ScramPresented": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "scope"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "organization",
+              "project"
+            ]
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "drill": {
+            "type": "boolean"
+          }
+        },
+        "description": "A SCRAM as presenting mode shows it: that it holds and over what, never its reason or runs."
       },
       "ScramQuarantineBatch": {
         "type": "object",

@@ -46,6 +46,8 @@ const idFor = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "").
 export const minutesUp = (seconds: number) => (Math.ceil(Math.max(0, seconds) / 0.6) / 100).toFixed(2);
 /** A measured interval in minutes, to the hundredth. */
 const minutesOf = (ms: number) => (Math.max(0, ms) / 60_000).toFixed(2);
+/** Minutes as whole hundredths, the precision every minute in the ledger is kept to. */
+const hundredths = (minutes: number | string) => Math.round(Number(minutes) * 100);
 
 /**
  * The share of a limit at which a budget reads as near it, from the organization's approved policy
@@ -202,7 +204,8 @@ export async function reserveForRun(c: Tx, run: { id: string; role: string; pack
     if (amount === null)
       return { held: { budget: b.id, reason: `Held by budget ${b.id}: the daemon did not report its run time ceiling, so this run's reservation cannot be sized against the hard cap` } };
     const { used } = await budgetUse(c, b);
-    if ((used ?? 0) + Number(amount) > Number(b.limit.value))
+    // In whole hundredths of a minute, the ledger's precision, so a reservation that exactly fills a cap fits.
+    if (hundredths(used ?? 0) + hundredths(amount) > Math.floor(Number(b.limit.value) * 100 + 1e-6))
       return { held: { budget: b.id, reason: `Held by budget ${b.id}: reserving this run's ${amount} minute ceiling would take it past its hard cap of ${b.limit.value} minutes in ${b.period} (${(used ?? 0).toFixed(2)} used or reserved)` } };
   }
   if (amount === null) return { reservedSeconds: null };

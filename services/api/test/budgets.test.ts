@@ -463,6 +463,19 @@ describe("presenting and racing", () => {
     await retire(before.id);
   });
 
+  it("admits a run whose reservation fills a hard cap exactly", async () => {
+    await queued("WP-BUD-EXACTFILL-A");
+    const probe = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    const used = (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === probe.id).used as number;
+    await retire(probe.id);
+    // Three reservations' worth over today's use: in floating point, 47.2 three times passes 141.6.
+    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: (used + 3 * Number(RESERVED)).toFixed(2), unit: "minute" }, period: "P1D" });
+    for (const id of ["WP-BUD-EXACTFILL-B", "WP-BUD-EXACTFILL-C"]) await queued(id, true);
+    for (let i = 0; i < 3; i++) expect((await claim()).statusCode).toBe(200);
+    expect((await h.db.query("select 1 from budget_reservations where body->>'budget_id' = $1", [cap.id])).rowCount).toBe(3);
+    await retire(cap.id);
+  });
+
   it("lets only one of two racing dispatches take a hard cap's last room", async () => {
     await queued("WP-BUD-RACE-A");
     await queued("WP-BUD-RACE-B", true);

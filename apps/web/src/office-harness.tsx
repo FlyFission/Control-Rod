@@ -5,6 +5,7 @@ import { validateTheme } from "./features/office/contract.js";
 import { harnessFigures } from "./features/office/fixtures.js";
 import { OfficeStage, type FigureState } from "./features/office/OfficeStage.js";
 import { OFFICE_THEMES } from "./features/office/registry.js";
+import { type LensId, lensById } from "./features/office/lenses.js";
 import "./styles.css";
 
 /**
@@ -32,6 +33,9 @@ function Harness() {
   const zoom = Number(params.get("zoom") ?? 0);
   // A deliberate delay before a state change commits, so the harness can prove its timer sees it.
   const delay = Number(params.get("delay") ?? 0);
+  // A lens to tint the figures with: every colour of its scale in turn, so the harness meets them all.
+  const lensId = params.get("lens") as LensId | null;
+  const scale = lensId ? lensById(lensId).scale : [];
   const [shifted, setShifted] = useState(0);
   const [selected, setSelected] = useState<string>();
   const [contract, setContract] = useState<{ theme: string; problems: string[] }>();
@@ -41,9 +45,9 @@ function Harness() {
       harnessFigures(count).map((f) => {
         let state = f.state;
         for (let i = 0; i < shifted; i++) state = SHIFT[state];
-        return { ...f, state };
+        return { ...f, state, ...(scale.length ? { tint: scale[Number(f.id.slice(1)) % scale.length]!.color } : {}) };
       }),
-    [count, shifted],
+    [count, shifted, scale],
   );
   const open = figures.find((f) => f.id === selected);
 

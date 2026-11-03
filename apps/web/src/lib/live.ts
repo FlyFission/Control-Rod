@@ -37,6 +37,7 @@ export function useLiveEvents(enabled: boolean): void {
         "admin",
         "runtimes",
         "run-events",
+        "office-figures",
       ]) {
         void qc.invalidateQueries({ queryKey: [key] });
       }

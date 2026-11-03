@@ -405,6 +405,93 @@ op metrics(): Metrics;
 @get
 op office(): OfficeItem[];
 
+/** Where a figure stands in the office (specification 13): a discipline's cube set, or a room. */
+union FigurePlace {
+  "process", "mechanical", "electrical", "civil", "assurance", "project-controls",
+  "review", "interface", "verification", "your-office", "document-control", "bench", "quarantine",
+}
+
+/**
+ * One agent on the office floor (AgentFigure, specification 13 and 18; plan task 4.6), projected only
+ * from recorded data: the package (or, for intake, the capture), its latest run at the current
+ * revision, what the Inbox routes to the viewer, SCRAM holds, effective markings, recorded
+ * dependencies and the revisions a preparation basis pinned. Never guessed from terminal output.
+ */
+model AgentFigure {
+  /** The run the figure stands for. */
+  id: string;
+  package_id: string;
+  package_revision: int32;
+  title: string;
+  role: RunRole;
+
+  /** The five states (OV-02); each always carries a cause. */
+  state: "working" | "needs" | "waiting" | "stuck" | "changed";
+
+  /** Why, in words: what it is doing, what you must decide, who it waits on, what blocks it, which input changed. */
+  @maxLength(300)
+  cause: string;
+
+  /** Who it waits on, by name, when waiting. */
+  waiting_on?: string;
+
+  /** When the present state began, so a reader sees how long. */
+  since: utcDateTime;
+
+  place: FigurePlace;
+
+  /** True when the discipline is unset or unmapped, so the figure stands in Process by default. */
+  place_defaulted?: boolean;
+
+  /** At most these marks besides the state shape (OV-06). */
+  marks: {
+    /** A gate decision (release or accept) waits on this package. */
+    gate: boolean;
+
+    /** The input that changed, when one did. */
+    changed_input?: string;
+
+    /** The run's round, when past the first. */
+    loop?: int32;
+
+    /** Safety grade work. */
+    safety: boolean;
+  };
+
+  /** Recorded inputs whose freshness is unknown, because no preparation basis pinned their revision. */
+  unverified_inputs?: string[];
+
+  /** The nearest gate, for the Gate lens. */
+  gate_stage: "release" | "in-work" | "pre-check" | "accept" | "settled";
+
+  /** Recorded once a permission wait cannot be observed for this runtime (print mode, plan task 2.9). */
+  observability?: string;
+
+  data_lane: DataLane;
+  href: AttentionTarget;
+}
+
+/**
+ * The office floor for the viewing person. In presenting mode, work above the internal lane is left
+ * out of the response entirely and only counted.
+ */
+@route("/office/figures")
+@get
+op officeFigures(@query presenting?: boolean): {
+  figures: AgentFigure[];
+
+  /** How many figures stand in Your office: the viewer's own (OV-01). */
+  needs_me: int32;
+
+  /** Everything the Inbox holds for the viewer, agents or not (a draft has no agent yet). */
+  inbox_items: int32;
+
+  /** Figures left out because presenting mode hides lanes above internal. */
+  hidden: int32;
+
+  generated_at: utcDateTime;
+} | ApiError;
+
 /** What the daemon last reported about each runtime it found, for the office. */
 @route("/runtimes")
 @get

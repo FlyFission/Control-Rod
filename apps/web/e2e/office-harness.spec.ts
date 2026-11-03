@@ -200,6 +200,12 @@ test.describe("office theme quality harness", () => {
     r = await broken("standard-office", ".office-scene-body { clip-path: none !important }", squareBody);
     expect(has(r.failures, /body of f\d+ paints \d+ pixels outside its silhouette/)).toBe(true);
 
+    // A lens colour too dark to see against the dark outline.
+    r = await broken("standard-office&lens=status", "", () => {
+      for (const o of document.querySelectorAll<HTMLElement>(".office-figure-outline")) o.style.setProperty("--figure-tint", "#1c1d22");
+    });
+    expect(has(r.failures, /lens tint of f\d+ .* against the dark outline/)).toBe(true);
+
     // Art stacked over the semantic layer, and art that takes pointers.
     await open(page, "theme=harness-bright&agents=40&zoom=0.8");
     await page.addStyleTag({ content: ".office-scene { z-index: 2 !important } .office-scene img { pointer-events: auto !important }" });
@@ -244,8 +250,21 @@ test.describe("office theme quality harness", () => {
         measurements[`${theme}/drawn`] = result.summary;
         expect(result.failures).toEqual([]);
         // Every element was measured: 13 plates, 40 codes, marks, outlines and bodies, all five shapes.
-        expect(result.summary.counted).toEqual({ plate: 13, code: 40, mark: 40, outline: 40, body: 40 });
+        expect(result.summary.counted).toEqual({ plate: 13, code: 40, mark: 40, outline: 40, body: 40, tint: 0 });
         expect(Object.keys(result.summary.shapes).sort()).toEqual(["changed", "needs", "stuck", "waiting", "working"]);
+      });
+
+      test("every lens colour reads against the dark outline, and every other check holds under each lens (OV-07)", async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        const byLens: Record<string, unknown> = {};
+        for (const lens of ["status", "gate", "change"]) {
+          await open(page, `theme=${theme}&agents=40&zoom=0.8&lens=${lens}`);
+          const result = await drawnOf(page);
+          byLens[lens] = { worstTintRatio: result.summary.worstTintRatio, worstEdgeRatio: result.summary.worstEdgeRatio };
+          expect(result.failures, lens).toEqual([]);
+          expect(result.summary.counted.tint, lens).toBe(40);
+        }
+        measurements[`${theme}/lenses`] = byLens;
       });
 
       test("occlusion and pointer interception", async ({ page }) => {
@@ -257,7 +276,7 @@ test.describe("office theme quality harness", () => {
         // A click on a figure reaches the application, not the art beneath it.
         await page.locator('[data-figure="f3"]').click();
         await expect(page.locator('[data-figure="f3"]')).toHaveAttribute("aria-pressed", "true");
-        await expect(page.locator('[data-harness="card"] h2')).toHaveText("P-103");
+        await expect(page.locator('[data-harness="card"] h2')).toHaveText("WP-103");
       });
 
       test("legibility at minimum zoom with 40 agents", async ({ page }) => {
@@ -327,7 +346,7 @@ test.describe("office theme quality harness", () => {
         await expect(page.locator('[data-harness="contract"]')).toHaveAttribute("data-problems", "0");
         expect(await scroller.evaluate((e) => e.scrollLeft)).toBe(240);
         await expect(page.locator('[data-figure="f7"]')).toHaveAttribute("aria-pressed", "true");
-        await expect(page.locator('[data-harness="card"] h2')).toHaveText("P-107");
+        await expect(page.locator('[data-harness="card"] h2')).toHaveText("WP-107");
         // The same element, not a rebuilt one: nothing a reader holds is torn down by the switch.
         expect(await page.locator('[data-figure="f7"]').evaluate((e) => (e as HTMLElement & { harnessMark?: boolean }).harnessMark)).toBe(true);
       });
@@ -410,8 +429,8 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
     return { r, g, b };
   };
   const failures: string[] = [];
-  const worst = { glyphInk: Infinity, text: Infinity, mark: Infinity, edge: Infinity, inkPerChar: Infinity, edgeCoverage: Infinity, templateMatch: 0, templateMargin: Infinity };
-  const counted = { plate: 0, code: 0, mark: 0, outline: 0, body: 0 };
+  const worst = { tint: Infinity, glyphInk: Infinity, text: Infinity, mark: Infinity, edge: Infinity, inkPerChar: Infinity, edgeCoverage: Infinity, templateMatch: 0, templateMargin: Infinity };
+  const counted = { plate: 0, code: 0, mark: 0, outline: 0, body: 0, tint: 0 };
   const shapes: Record<string, string> = {};
 
   const pixelsIn = (img: ImageData, l: number, t: number, r: number, b: number) => {
@@ -681,6 +700,18 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
     const outline = f.querySelector(".office-figure-outline")!;
     edgeCheck(`outline of ${id}`, outline, true, 1.75);
     counted.outline++;
+    // A lens tint is a ring just inside the dark border: where drawn (the left half, clear of the
+    // mark chip and the code plate) it must read 3:1 against that dark border.
+    const tint = (outline as HTMLElement).style.getPropertyValue("--figure-tint");
+    if (tint) {
+      const or = outline.getBoundingClientRect();
+      const ocx = or.left + or.width / 2, ocy = or.top + or.height / 2;
+      const drawn = mode([150, 165, 180, 195, 210].map((deg) => at(fullImg, ocx + 12.5 * Math.cos((deg * Math.PI) / 180), ocy + 12.5 * Math.sin((deg * Math.PI) / 180))));
+      const c = ratio(drawn, plate);
+      worst.tint = Math.min(worst.tint, c);
+      if (c < 3) failures.push(`lens tint of ${id} is drawn as rgb(${drawn.r},${drawn.g},${drawn.b}), ${c.toFixed(2)}:1 against the dark outline`);
+      counted.tint++;
+    }
     // The body paints nothing outside the silhouette the outline encloses (its inner radius): within
     // the body image's own box, outside that circle, the scene with bodies matches the scene without.
     // Re-rasterized scene art differs by up to about 8 per channel between renders; body paint far more.
@@ -704,6 +735,7 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
       counted,
       shapes,
       worstTextRatio: round(worst.text),
+      worstTintRatio: worst.tint === Infinity ? null : round(worst.tint),
       worstInkPerChar: round(worst.inkPerChar),
       fewestGlyphInk: worst.glyphInk,
       worstMarkRatio: round(worst.mark),

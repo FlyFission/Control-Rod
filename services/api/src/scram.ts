@@ -51,7 +51,8 @@ const reaches = (scram: Json, owner: Owner | null) =>
   owner !== null && owner.org_id === scram.org_id && (scram.scope !== "project" || owner.project_id === scram.project_id);
 
 /** SCRAMs not lifted for everything, newest first. */
-async function activeScrams(q: Db | Tx): Promise<Json[]> {
+/** Every SCRAM not yet restarted for its whole scope. */
+export async function activeScrams(q: Db | Tx): Promise<Json[]> {
   const r = await q.query<{ body: Json }>(
     `select s.body from scram_events s
       where not exists (select 1 from scram_restarts x where x.scram_id = s.id and x.scope = 'all')
@@ -82,6 +83,32 @@ export async function scramHolding(q: Db | Tx, s: ScramSubject): Promise<Json | 
     return scram;
   }
   return null;
+}
+
+/**
+ * The same answer as scramHolding for many subjects, from one load of the active SCRAMs, the owners
+ * and the restarts: for views that ask about every agent at once (the office floor).
+ */
+export async function scramHoldIndex(q: Db | Tx): Promise<(s: ScramSubject) => Json | null> {
+  const scrams = await activeScrams(q);
+  if (!scrams.length) return () => null;
+  const owners = new Map(
+    (await q.query<Owner & { object_kind: string; object_id: string }>("select object_kind, object_id, org_id, project_id from object_owners where object_kind in ('package', 'capture')"))
+      .rows.map((o) => [`${o.object_kind}:${o.object_id}`, o]),
+  );
+  const restarts = (await q.query<{ scram_id: string; scope: string; body: Json }>(
+    "select scram_id, scope, body from scram_restarts where scram_id = any($1) and scope in ('package', 'discipline')", [scrams.map((x) => x.id)])).rows;
+  return (s) => {
+    const owner = owners.get(`${s.kind}:${s.id}`) ?? null;
+    for (const scram of scrams) {
+      if (!reaches(scram, owner)) continue;
+      // As liftedFor: only a package is lifted, by a restart for it or for its discipline.
+      const lifted = s.kind === "package" && restarts.some((r) => r.scram_id === scram.id &&
+        ((r.scope === "package" && r.body.package_id === s.id) || (r.scope === "discipline" && s.discipline !== undefined && r.body.discipline === s.discipline)));
+      if (!lifted) return scram;
+    }
+    return null;
+  };
 }
 
 /** Refuses a command on a subject SCRAM holds stopped. */

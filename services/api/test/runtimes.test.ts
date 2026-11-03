@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { type Harness, ORIGIN, VirtualAuthenticator, daemonHeaders, signIn, startHarness } from "./harness.js";
-import { recordObject } from "../src/workbench.js";
+import { recordObject, recordSandboxPolicy } from "../src/workbench.js";
 
 /** Runtime artifacts, probes and pins (workbench plan task 2.5; specification 21, WB-12). */
 let h: Harness;
@@ -103,6 +103,11 @@ describe("pins", () => {
     expect(await pinned("author")).toEqual([B]);
     expect(await pinned("intake")).toEqual([A]);
     expect((await signed("runtime.rollback", { runtime: "claude", roles: [{ role: "author", current: B, restore: A }, { role: "author", current: B, restore: A }] })).json().code).toBe("invalid");
+    // Every entry names its role; none falls back to a default, and nothing changes.
+    for (const role of [undefined, null, "", "requirements-preparer"])
+      expect((await signed("runtime.rollback", { runtime: "claude", roles: [{ ...(role === undefined ? {} : { role }), current: A, restore: B }] })).json().code, String(role)).toBe("invalid");
+    expect(await pinned("author")).toEqual([B]);
+    expect(await pinned("intake")).toEqual([A]);
     expect((await signed("runtime.rollback", { runtime: "claude", roles: [{ role: "author", current: B, restore: A }] })).statusCode).toBe(200);
     expect((await signed("runtime.pin", { runtime: "fake", artifact_digest: A })).statusCode).toBe(400);
   });
@@ -128,6 +133,11 @@ describe("roster (plan task 5.1)", () => {
     // the one runtime.rollback would make, with both artifacts to sign.
     expect(role("author").rollback).toEqual([{ runtime: "claude", current: { algorithm: "sha256", value: A }, restore: { algorithm: "sha256", value: B } }]);
     expect(role("intake").rollback).toEqual([]);
+    // What the screen shows is what the command does: signing exactly it succeeds.
+    const shown = role("author").rollback[0];
+    const restored = await signed("runtime.rollback", { runtime: shown.runtime, roles: [{ role: "author", current: shown.current.value, restore: shown.restore.value }] });
+    expect(restored.statusCode, restored.body).toBe(200);
+    expect(restored.json().pins.map((p: Json) => p.artifact_digest.value)).toEqual([B]);
     expect(role("requirements-preparer")).toMatchObject({ pinnable: false, baselines: [], runs: 0, pins: [] });
     // Earlier tests in this file left a running author-claude run, so the counts include it.
     expect(r.baselines.map((b: Json) => b.id)).toEqual(["author-claude"]);
@@ -174,16 +184,20 @@ describe("roster (plan task 5.1)", () => {
         outcome: "pass", detail: "ready", observed_at: new Date().toISOString() } as never, daemon);
       await recordObject(c, "runtime_artifact_version", { id: "rav_other", org_id: "orgrosterother_x", runtime: "codex", version: "9.9.9", artifact_digest: digest, install_path: "/elsewhere", probe_ids: ["rpb_other"] } as never, daemon);
       await recordObject(c, "runtime_pin", { id: "pin_other", org_id: "orgrosterother_x", role: "author", runtime: "codex", artifact_version_id: "rav_other", artifact_digest: digest, status: "active" } as never, daemon);
+      await recordSandboxPolicy(c, { id: "sbp_other", version: 1, org_id: "orgrosterother_x", driver: "native-cli", denied_read: ["~/.secret-login"], writable_roots: [],
+        allowed_hosts: [], enabled_tools: [], mandatory_claims: [] }, daemon);
       await c.query("commit");
     } finally {
       c.release();
     }
     // A run another organization owns. The ownership triggers give new rows to the one active
-    // organization, so this fixture alone sets them aside, inside its own transaction.
+    // organization, so this fixture sets aside only those two triggers, inside its own transaction;
+    // foreign keys and every other trigger still hold.
     const o = await h.admin.connect();
     try {
       await o.query("begin");
-      await o.query("set local session_replication_role = replica");
+      await o.query("alter table packages disable trigger packages_owned");
+      await o.query("alter table runs disable trigger runs_owned");
       await o.query("insert into object_owners (object_kind, object_id, org_id) values ('package', 'WP-ROSTER-OTHER', 'orgrosterother_x'), ('run', 'R-roster-other', 'orgrosterother_x')");
       await o.query("insert into packages (id, revision, status, body) values ('WP-ROSTER-OTHER', 0, 'in-work', $1)",
         [{ ...example, id: "WP-ROSTER-OTHER", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [] }])
@@ -191,11 +205,22 @@ describe("roster (plan task 5.1)", () => {
         [{ schema_version: "0.1.0", id: "R-roster-other", package_id: "WP-ROSTER-OTHER", package_revision: 0, role: "author", agent_baseline: "author-secret",
           runtime: { kind: "subscription", provider: "codex", model: "default" }, round: 1, status: "succeeded", queued_at: new Date().toISOString(),
           finished_at: new Date(Date.now() + 3600e3).toISOString(), generation: 1, trace: { sandbox: "none" } }])
+      await o.query("alter table packages enable trigger packages_owned");
+      await o.query("alter table runs enable trigger runs_owned");
       await o.query("commit");
     } finally {
       o.release();
     }
-    const text = (await h.app.inject({ method: "GET", url: "/roster", headers: { cookie } })).body;
-    for (const secret of ["author-secret", "R-roster-other", "pin_other", "9.9.9", "d".repeat(64)]) expect(text, secret).not.toContain(secret);
+    const res = await h.app.inject({ method: "GET", url: "/roster", headers: { cookie } });
+    expect(res.statusCode, res.body).toBe(200);
+    const r = res.json();
+    // The viewer's own records are all there, so absence below means filtered, not failed.
+    expect(r.roles.map((x: Json) => x.role)).toEqual(["intake", "requirements-preparer", "technical-preparer", "author", "pre-check"]);
+    expect(r.baselines.map((b: Json) => b.id)).toContain("author-claude");
+    expect(r.versions.some((v: Json) => v.runtime === "claude")).toBe(true);
+    expect(r.roles.find((x: Json) => x.role === "author").pins.length).toBeGreaterThan(0);
+    expect(r.sandbox.launched.map((l: Json) => l.runtime)).toEqual(["claude"]);
+    expect(r.sandbox.policies).toEqual([]);
+    for (const secret of ["author-secret", "R-roster-other", "pin_other", "sbp_other", "9.9.9", "d".repeat(64)]) expect(res.body, secret).not.toContain(secret);
   });
 });

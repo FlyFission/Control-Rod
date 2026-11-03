@@ -73,6 +73,9 @@ async function seed() {
   // A queued run held back because its dependency is not accepted: not a runtime wait.
   await pkg("WP-FIG-BLOCKED", "released", { discipline: "civil", depends_on: [{ package_id: "WP-FIG-DEP", reason: "Needs its loads" }] }, 3);
   await run("R-fig-blocked", "WP-FIG-BLOCKED", "queued");
+  // A queued pre-check on a package whose dependency is unaccepted: dispatch does not hold it.
+  await pkg("WP-FIG-PRECHECK", "in-verification", { discipline: "civil", depends_on: [{ package_id: "WP-FIG-DEP", reason: "Needs its loads" }] }, 3);
+  await run("R-fig-precheck", "WP-FIG-PRECHECK", "queued", {}, "pre-check");
   // Work stated internal in its body but raised to restricted by its marking.
   await pkg("WP-FIG-RAISED", "in-work", { discipline: "civil", title: "Raised later" });
   await run("R-fig-raised", "WP-FIG-RAISED", "running", { started_at: ago(0.1) });
@@ -129,6 +132,8 @@ describe("office figures", () => {
     expect(figure(floor, "CAP-FIG-FAILED")).toMatchObject({ role: "intake", state: "stuck", place: "review", cause: "Intake run failed: the capture names no deliverable" });
     // Held back by a dependency not yet accepted, which is not a wait for a runtime.
     expect(figure(floor, "WP-FIG-BLOCKED")).toMatchObject({ state: "waiting", place: "interface", cause: "Author run waits for WP-FIG-DEP to be accepted" });
+    // Dispatch holds only author runs on released packages for dependencies; a queued pre-check waits for a runtime.
+    expect(figure(floor, "WP-FIG-PRECHECK")).toMatchObject({ state: "waiting", place: "bench", cause: "Pre-check run queued for a runtime" });
     // Every figure says why, and when the state began.
     for (const f of floor.figures) {
       expect(f.cause.length).toBeGreaterThan(0);

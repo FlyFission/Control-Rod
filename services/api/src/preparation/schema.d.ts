@@ -1051,11 +1051,9 @@ export interface components {
         };
         /** @description Each Member's current qualification, passkeys, delegations, bindings, open change requests and budgets. */
         AdminRegistry: {
-            qualifications: components["schemas"]["ControlRod.Records.SignerQualification"][];
-            /** @description Each passkey's current record, with when it was registered. */
-            credentials: {
-                [key: string]: unknown;
-            }[];
+            qualifications: components["schemas"]["RegistryQualification"][];
+            /** @description Each passkey's current state: every Member's for an administrator, otherwise the viewer's own. */
+            credentials: components["schemas"]["RegistryCredential"][];
             /** @description Every delegation, with whether it was revoked. */
             delegations: {
                 [key: string]: unknown;
@@ -2508,6 +2506,30 @@ export interface components {
             criteria: string[];
             /** @enum {string} */
             outcome: "pass" | "fail" | "inconclusive";
+        };
+        /** @description A passkey as the forms name it: its owner, when it was registered, and no attestation evidence. */
+        RegistryCredential: {
+            id: string;
+            org_id: string;
+            member_id: string;
+            credential_id: string;
+            revoked: boolean;
+            /** @description Whether it meets the hardware key floor. */
+            hardware: boolean;
+            /** Format: date-time */
+            registered_at: string;
+        };
+        /** @description A Member's current qualification as the forms show it: no license numbers and no reasons. */
+        RegistryQualification: {
+            org_id: string;
+            member_id: string;
+            /** Format: int32 */
+            version: number;
+            roles: string[];
+            authorities: string[];
+            grades: string[];
+            disciplines: string[];
+            revoked: boolean;
         };
         /** @description One run role on the Roster: what it does, who has run it, and its pins. */
         RosterRole: {

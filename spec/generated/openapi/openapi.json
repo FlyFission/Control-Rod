@@ -5818,16 +5818,15 @@
           "qualifications": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ControlRod.Records.SignerQualification"
+              "$ref": "#/components/schemas/RegistryQualification"
             }
           },
           "credentials": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": {}
+              "$ref": "#/components/schemas/RegistryCredential"
             },
-            "description": "Each passkey's current record, with when it was registered."
+            "description": "Each passkey's current state: every Member's for an administrator, otherwise the viewer's own."
           },
           "delegations": {
             "type": "array",
@@ -10374,6 +10373,98 @@
           }
         },
         "description": "What a qualified checker verified in person (specification 11.5)."
+      },
+      "RegistryCredential": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "member_id",
+          "credential_id",
+          "revoked",
+          "hardware",
+          "registered_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "member_id": {
+            "type": "string"
+          },
+          "credential_id": {
+            "type": "string"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "hardware": {
+            "type": "boolean",
+            "description": "Whether it meets the hardware key floor."
+          },
+          "registered_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "A passkey as the forms name it: its owner, when it was registered, and no attestation evidence."
+      },
+      "RegistryQualification": {
+        "type": "object",
+        "required": [
+          "org_id",
+          "member_id",
+          "version",
+          "roles",
+          "authorities",
+          "grades",
+          "disciplines",
+          "revoked"
+        ],
+        "properties": {
+          "org_id": {
+            "type": "string"
+          },
+          "member_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authorities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "grades": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "disciplines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        },
+        "description": "A Member's current qualification as the forms show it: no license numbers and no reasons."
       },
       "RosterRole": {
         "type": "object",

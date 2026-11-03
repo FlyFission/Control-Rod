@@ -6,8 +6,8 @@ import { type CommandSpec, CommandForm, type Values } from "./CommandForm.js";
 /**
  * The Policies and Administration screens (specification 12; plan task 5.4): every administrative
  * command of plan task 1.5 as a form, grouped by what it governs, beside the records it changes.
- * Pinning, SCRAM and sealing live where their work is (Roster, Office, Records); the organization is
- * created once, at setup, and has no form here.
+ * Pinning, SCRAM and sealing live where their work is (Roster, Office, Records); a second
+ * organization is refused until the multi-organization phase, so organization creation has no form.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- registry rows are validated JSON */
@@ -24,6 +24,10 @@ const GRADES = ["safety", "material", "general-service"] as const;
 const LANES = ["public", "internal", "proprietary", "client-confidential", "restricted"] as const;
 const MODES = ["general", "software", "capital-projects"] as const;
 const RIGOR = ["administrative", "quick", "standard", "high-consequence"] as const;
+const PERIODS = [{ value: "P1D", label: "A day" }, { value: "P1W", label: "A week" }, { value: "P1M", label: "A month" }, { value: "P1Y", label: "A year" }];
+const PERIOD_WORDS: Record<string, string> = { P1D: "day", P1W: "week", P1M: "month", P1Y: "year" };
+/** A positive decimal limit, as the control plane accepts it. */
+const LIMIT = /^(?=.*[1-9])[0-9]+(\.[0-9]+)?$/;
 
 interface Props {
   view: AdminView;
@@ -50,9 +54,14 @@ export function MembersSection({ view, passkeys = browserPasskeys }: Props) {
         { key: "user_name", label: "User name", kind: "text", required: true, hint: "How they are known to Control Rod; it cannot be changed later." },
         { key: "display_name", label: "Display name", kind: "text" },
       ],
-      describe: (v) => `Adds ${str(v, "display_name") || str(v, "user_name")} (user name ${str(v, "user_name")}) as an active Member with no qualification. They register a passkey from an invitation.`,
+      describe: (v) => `Adds ${str(v, "display_name") || str(v, "user_name")} (user name ${str(v, "user_name")}) as an active Member with no qualification, and creates a one time invitation for them to register a passkey. Anyone holding the link can use it until it expires, so give it only to them.`,
       payload: (v) => ({ user_name: str(v, "user_name"), ...(str(v, "display_name") ? { display_name: str(v, "display_name") } : {}) }),
-      done: (r) => <>Enrolled {String(r["user_name"] ?? "")}. Invite them below to give them a passkey.</>,
+      done: (r) => (
+        <>
+          <p>Enrolled {String((r["member"] as { user_name?: string } | undefined)?.user_name ?? "")}.</p>
+          <Invitation result={r} />
+        </>
+      ),
     },
     {
       name: "member.invite", verb: "invite", fields: [memberField],
@@ -72,13 +81,13 @@ export function MembersSection({ view, passkeys = browserPasskeys }: Props) {
     },
     {
       name: "member.remove", verb: "remove", fields: [memberField, reasonField],
-      describe: (v) => `Removes ${memberName(str(v, "member_id"))} for good: they cannot sign in again. Their past signatures stay on the record.`,
+      describe: (v) => `Removes ${memberName(str(v, "member_id"))} for good: their sessions end, every delegation they gave or hold ends, and they cannot sign in again. Their past signatures stay on the record.`,
       payload: (v) => ({ member_id: str(v, "member_id"), reason: str(v, "reason") }),
     },
     {
       name: "credential.revoke", verb: "revoke", fields: [
         { key: "credential_id", label: "Passkey", kind: "select", required: true, options: registry.credentials.filter((c: Json) => !c.revoked).map((c: Json) => ({
-          value: c.credential_id, label: `${memberName(c.member_id)}, registered ${time(c.registered_at)}${c.hardware_floor?.eligible ? ", hardware" : ""}`,
+          value: c.credential_id, label: `${memberName(c.member_id)}, registered ${time(c.registered_at)}${c.hardware ? ", hardware" : ""}`,
         })) },
         reasonField,
       ],
@@ -123,7 +132,7 @@ export function MembersSection({ view, passkeys = browserPasskeys }: Props) {
       </div>
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
@@ -164,7 +173,7 @@ export function QualificationsSection({ view, passkeys = browserPasskeys }: Prop
           list(v, "authorities").length ? `authorities ${and(list(v, "authorities"))}` : "no authority",
           list(v, "grades").length ? `grades ${and(list(v, "grades"))}` : "no grade",
           list(v, "disciplines").length ? `disciplines ${and(list(v, "disciplines"))}` : "no discipline",
-          `${licenses.length} ${licenses.length === 1 ? "license" : "licenses"}`,
+          licenses.length ? `licenses ${and(licenses.map(licenseWords))}` : "no license",
         ];
         return `Replaces ${memberName(str(v, "member_id"))}'s qualification with: ${parts.join("; ")}. What they may sign follows from this at once.`;
       },
@@ -213,12 +222,15 @@ export function QualificationsSection({ view, passkeys = browserPasskeys }: Prop
       )}
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
   );
 }
+
+const licenseWords = (l: { jurisdiction: string; number: string; expires_on: string; discipline?: string }) =>
+  `${l.jurisdiction} ${l.number} expiring ${l.expires_on}${l.discipline ? ` (${l.discipline})` : ""}`;
 
 /** Licenses from lines of "jurisdiction, number, expiry, discipline"; null when a line is malformed. */
 export function parseLicenses(lines: string[]): { jurisdiction: string; number: string; expires_on: string; discipline?: string }[] | null {
@@ -282,7 +294,7 @@ export function DelegationsSection({ view, passkeys = browserPasskeys }: Props) 
       )}
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
@@ -301,7 +313,7 @@ export function ProjectsSection({ view, passkeys = browserPasskeys }: Props) {
         { key: "lanes", label: "Lanes it may hold", kind: "checks", options: opts(LANES), required: true },
         { key: "qa_overlays", label: "Quality assurance overlays", kind: "lines", placeholder: "One per line" },
       ],
-      describe: (v) => `Creates the ${str(v, "mode")} project ${str(v, "name")}, ${str(v, "default_rigor")} rigor by default, holding ${and(list(v, "lanes"))} work, autonomy level 0.`,
+      describe: (v) => `Creates the ${str(v, "mode")} project ${str(v, "name")}, ${str(v, "default_rigor")} rigor by default, holding ${and(list(v, "lanes"))} work, ${list(v, "qa_overlays").length ? `with quality assurance overlays ${and(list(v, "qa_overlays"))}` : "with no quality assurance overlay"}, autonomy level 0.`,
       payload: (v) => ({ name: str(v, "name"), mode: str(v, "mode"), default_rigor: str(v, "default_rigor"), lanes: list(v, "lanes"), qa_overlays: list(v, "qa_overlays") }),
     },
     {
@@ -369,7 +381,7 @@ export function ProjectsSection({ view, passkeys = browserPasskeys }: Props) {
       )}
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
@@ -452,7 +464,7 @@ export function PolicySection({ view, passkeys = browserPasskeys }: Props) {
       </p>
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
@@ -464,6 +476,8 @@ export function BudgetsSection({ view, passkeys = browserPasskeys }: Props) {
   const scopeWords = (v: Values) =>
     str(v, "scope") === "organization" ? "the organization" : str(v, "scope") === "project" ? `project ${projects.find((p) => p.value === str(v, "scope_id"))?.label ?? str(v, "scope_id")}` : `agent ${str(v, "scope_id")}`;
   const unitWords = (u: string) => (u === "minute" ? "minutes of run time" : u === "token" ? "tokens" : "USD");
+  const budgetWords = (b: Json) =>
+    `${b.id}: ${b.mode} ${b.limit.value} ${unitWords(b.limit.unit)} per ${PERIOD_WORDS[b.period] ?? b.period} on ${b.scope === "organization" ? "the organization" : `${b.scope} ${b.scope === "project" ? (projects.find((p) => p.value === b.scope_id)?.label ?? b.scope_id) : b.scope_id}`}`;
   const specs: CommandSpec[] = [
     {
       name: "budget.set", verb: "set", fields: [
@@ -472,17 +486,43 @@ export function BudgetsSection({ view, passkeys = browserPasskeys }: Props) {
         { key: "mode", label: "Mode", kind: "select", required: true, options: [{ value: "track", label: "Track" }, { value: "alert", label: "Alert" }, { value: "hard-cap", label: "Hard cap (minutes of run time only)" }] },
         { key: "unit", label: "Unit", kind: "select", required: true, options: [{ value: "minute", label: "Minutes of run time" }, { value: "token", label: "Tokens" }, { value: "USD", label: "USD (not reported by any runtime here)" }] },
         { key: "limit", label: "Limit", kind: "text", required: true },
-        { key: "period", label: "Period", kind: "select", required: true, options: [{ value: "P1D", label: "A day" }, { value: "P1W", label: "A week" }, { value: "P1M", label: "A month" }, { value: "P1Y", label: "A year" }] },
+        { key: "period", label: "Period", kind: "select", required: true, options: PERIODS },
       ],
       describe: (v) => {
         if (str(v, "scope") !== "organization" && !str(v, "scope_id")) return null;
-        if (!/^[0-9]+(\.[0-9]+)?$/.test(str(v, "limit")) || Number(str(v, "limit")) <= 0) return null;
-        return `Sets a ${str(v, "mode")} budget of ${str(v, "limit")} ${unitWords(str(v, "unit"))} per ${({ P1D: "day", P1W: "week", P1M: "month", P1Y: "year" } as Record<string, string>)[str(v, "period")]} (rolling) on ${scopeWords(v)}.${str(v, "mode") === "hard-cap" ? " Work that would pass it is held before it starts." : ""}`;
+        if (!LIMIT.test(str(v, "limit"))) return null;
+        return `Sets a ${str(v, "mode")} budget of ${str(v, "limit")} ${unitWords(str(v, "unit"))} per ${PERIOD_WORDS[str(v, "period")]} (rolling) on ${scopeWords(v)}.${str(v, "mode") === "hard-cap" ? " Work that would pass it is held before it starts." : ""}`;
       },
       payload: (v) => ({
         scope: str(v, "scope"), scope_id: str(v, "scope") === "organization" ? view.me.orgId : str(v, "scope_id"), mode: str(v, "mode"),
         limit: { value: str(v, "limit"), unit: str(v, "unit") }, period: str(v, "period"),
       }),
+    },
+    {
+      name: "budget.set", title: "Change a budget", verb: "change", fields: [
+        { key: "budget_id", label: "Budget", kind: "select", required: true, options: registry.budgets.map((b: Json) => ({ value: b.id, label: budgetWords(b) })) },
+        { key: "mode", label: "New mode (leave empty to keep)", kind: "select", options: [{ value: "track", label: "Track" }, { value: "alert", label: "Alert" }, { value: "hard-cap", label: "Hard cap (minutes of run time only)" }] },
+        { key: "limit", label: "New limit, in its unit (leave empty to keep)", kind: "text" },
+        { key: "period", label: "New period (leave empty to keep)", kind: "select", options: PERIODS },
+      ],
+      describe: (v) => {
+        const b = registry.budgets.find((x: Json) => x.id === str(v, "budget_id"));
+        if (!b) return null;
+        if (str(v, "limit") && !LIMIT.test(str(v, "limit"))) return null;
+        const changes = [
+          str(v, "mode") && `mode to ${str(v, "mode")}`,
+          str(v, "limit") && `limit to ${str(v, "limit")} ${unitWords(b.limit.unit)}`,
+          str(v, "period") && `period to a ${PERIOD_WORDS[str(v, "period")]}`,
+        ].filter(Boolean) as string[];
+        return changes.length ? `Changes ${budgetWords(b)}: ${and(changes)}.${(str(v, "mode") || b.mode) === "hard-cap" ? " Work that would pass it is held before it starts." : ""}` : null;
+      },
+      payload: (v) => {
+        const b = registry.budgets.find((x: Json) => x.id === str(v, "budget_id"));
+        return {
+          budget_id: str(v, "budget_id"), ...(str(v, "mode") ? { mode: str(v, "mode") } : {}),
+          ...(str(v, "limit") ? { limit: { value: str(v, "limit"), unit: b?.limit.unit } } : {}), ...(str(v, "period") ? { period: str(v, "period") } : {}),
+        };
+      },
     },
   ];
   return (
@@ -494,14 +534,15 @@ export function BudgetsSection({ view, passkeys = browserPasskeys }: Props) {
         <ul className="small">
           {registry.budgets.map((b: Json) => (
             <li key={b.id}>
-              <span className="mono">{b.id}</span>: {b.mode} {b.limit.value} {unitWords(b.limit.unit)} per {b.period} on {b.scope === "organization" ? "the organization" : `${b.scope} ${b.scope_id}`}
+              {budgetWords(b)}
+              {b.status === "suspended" ? " (suspended)" : ""}
             </li>
           ))}
         </ul>
       )}
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
@@ -512,19 +553,21 @@ export function BudgetsSection({ view, passkeys = browserPasskeys }: Props) {
  * Bootstrap: until the organization has an administrator, its first Member may issue their own
  * qualification, once (the control plane checks that this is the first Member and refuses anyone else).
  */
+const bootstrapAuthorities = (v: Values) => ["administrator", ...(list(v, "lane").length ? ["lane"] : []), "policy"];
+
 export function BootstrapForm({ view, passkeys = browserPasskeys }: Props) {
   const spec: CommandSpec = {
     name: "qualification.issue", verb: "issue it",
     fields: [
-      { key: "authorities", label: "Authorities", kind: "checks", options: opts(AUTHORITIES), required: true, hint: "Administrator is needed to enroll others and issue their qualifications." },
+      { key: "lane", label: "Also lane authority", kind: "checks", options: [{ value: "lane", label: "lane" }], hint: "Administrator and policy authority are always included: issuing anyone a qualification needs both, and this is the only way to get them while no administrator exists." },
       { key: "roles", label: "Signing roles", kind: "checks", options: opts(ROLES) },
       { key: "grades", label: "Grades", kind: "checks", options: opts(GRADES) },
       { key: "disciplines", label: "Disciplines", kind: "lines", placeholder: "One per line" },
       { key: "reason", label: "Why", kind: "textarea", required: true },
     ],
     describe: (v) =>
-      `Issues your own first qualification: authorities ${and(list(v, "authorities"))}${list(v, "roles").length ? `, roles ${and(list(v, "roles"))}` : ""}${list(v, "grades").length ? `, grades ${and(list(v, "grades"))}` : ""}. This is allowed once, to the organization's first Member, and is recorded as a bootstrap.`,
-    payload: (v) => ({ member_id: view.me.memberId, authorities: list(v, "authorities"), roles: list(v, "roles"), grades: list(v, "grades"), disciplines: list(v, "disciplines"), licenses: [], reason: str(v, "reason") }),
+      `Issues your own first qualification: authorities ${and(bootstrapAuthorities(v))}; ${list(v, "roles").length ? `roles ${and(list(v, "roles"))}` : "no signing role"}; ${list(v, "grades").length ? `grades ${and(list(v, "grades"))}` : "no grade"}; ${list(v, "disciplines").length ? `disciplines ${and(list(v, "disciplines"))}` : "no discipline"}; no license. This is allowed once, to the organization's first Member, and is recorded as a bootstrap; from then on administrators issue qualifications.`,
+    payload: (v) => ({ member_id: view.me.memberId, authorities: bootstrapAuthorities(v), roles: list(v, "roles"), grades: list(v, "grades"), disciplines: list(v, "disciplines"), licenses: [], reason: str(v, "reason") }),
   };
   return <CommandForm spec={spec} action={{ command: "qualification.issue", label: "Issue your own first qualification", allowed: true, signature: "direct" }} passkeys={passkeys} />;
 }

@@ -159,6 +159,9 @@ test.describe("office theme quality harness", () => {
     r = await broken("standard-office", ".office-figure-code { color: transparent !important } .office-plate-label { clip-path: inset(0 75% 0 0) }");
     expect(has(r.failures, /code of f\d+ text is drawn at best/)).toBe(true);
     expect(has(r.failures, /label text has [\d.]+ inked pixels per character/)).toBe(true);
+    // Half of every room's canonical name clipped away, its box unchanged: the missing glyphs are found.
+    r = await broken("standard-office", ".office-plate-name { clip-path: inset(0 50% 0 0) }");
+    expect(has(r.failures, /name text has glyphs with no ink/)).toBe(true);
     // Rings removed while the ring colour property stays: dark plates vanish into a dark scene.
     r = await broken("standard-office", ".office-plate, .office-figure-code, .office-figure-mark, .office-figure-outline { box-shadow: none !important; animation: none !important }");
     expect(has(r.failures, /edge is [\d.]+:1 against the scene/)).toBe(true);
@@ -407,7 +410,7 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
     return { r, g, b };
   };
   const failures: string[] = [];
-  const worst = { text: Infinity, mark: Infinity, edge: Infinity, inkPerChar: Infinity, edgeCoverage: Infinity, templateMatch: 0, templateMargin: Infinity };
+  const worst = { glyphInk: Infinity, text: Infinity, mark: Infinity, edge: Infinity, inkPerChar: Infinity, edgeCoverage: Infinity, templateMatch: 0, templateMargin: Infinity };
   const counted = { plate: 0, code: 0, mark: 0, outline: 0, body: 0 };
   const shapes: Record<string, string> = {};
 
@@ -437,6 +440,8 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
    * so text with no ink, or clipped to a few glyphs, fails.
    */
   const INK_PER_CHAR = 6;
+  /** Each glyph's own inked pixels; the thinnest real glyph (a hyphen) measures several. */
+  const GLYPH_INK = 2;
   const textCheck = (where: string, el: Element, bg: RGB) => {
     const box = textBox(el);
     const rs = pixelsIn(fullImg, box.left, box.top, box.right, box.bottom).filter((p) => owned(p.x, p.y)).map((p) => ratio(p.c, bg));
@@ -447,6 +452,23 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
     worst.inkPerChar = Math.min(worst.inkPerChar, ink);
     if (strongest < 4.5) failures.push(`${where} text is drawn at best ${strongest.toFixed(2)}:1 on its plate, under 4.5:1`);
     if (ink < INK_PER_CHAR) failures.push(`${where} text has ${ink.toFixed(1)} inked pixels per character, under ${INK_PER_CHAR}`);
+    // Every glyph carries its own ink, inside its own box: visible letters cannot stand in for missing ones.
+    const node = [...el.childNodes].find((n) => n.nodeType === Node.TEXT_NODE);
+    if (node) {
+      const text = node.textContent ?? "";
+      const missing: string[] = [];
+      for (let i = 0; i < text.length; i++) {
+        if (/\s/.test(text[i]!)) continue;
+        const range = document.createRange();
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        const g = range.getBoundingClientRect();
+        const inked = pixelsIn(fullImg, g.left, g.top, g.right, g.bottom).filter((q) => owned(q.x, q.y) && ratio(q.c, bg) >= 3).length;
+        worst.glyphInk = Math.min(worst.glyphInk, inked);
+        if (inked < GLYPH_INK) missing.push(`${text[i]}@${i}`);
+      }
+      if (missing.length) failures.push(`${where} text has glyphs with no ink: ${missing.join(" ")}`);
+    }
   };
 
   /**
@@ -683,6 +705,7 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
       shapes,
       worstTextRatio: round(worst.text),
       worstInkPerChar: round(worst.inkPerChar),
+      fewestGlyphInk: worst.glyphInk,
       worstMarkRatio: round(worst.mark),
       worstEdgeRatio: round(worst.edge),
       worstEdgeCoverage: round(worst.edgeCoverage),

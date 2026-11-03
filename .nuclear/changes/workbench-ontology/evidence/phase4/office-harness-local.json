@@ -16,6 +16,7 @@
     },
     "worstTextRatio": 12.65,
     "worstInkPerChar": 14.6,
+    "fewestGlyphInk": 4,
     "worstMarkRatio": 7.71,
     "worstEdgeRatio": 4.18,
     "worstEdgeCoverage": 0.28,
@@ -52,7 +53,7 @@
   "harness-bright/reference-frames": {
     "machineName": "candidate only: WSL2 development machine, not designated by the owner",
     "frames": 120,
-    "p95Ms": 16.8,
+    "p95Ms": 16.7,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
@@ -76,6 +77,7 @@
     },
     "worstTextRatio": 11.8,
     "worstInkPerChar": 15,
+    "fewestGlyphInk": 4,
     "worstMarkRatio": 7.71,
     "worstEdgeRatio": 4.15,
     "worstEdgeCoverage": 0.28,

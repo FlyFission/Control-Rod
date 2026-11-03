@@ -1,4 +1,704 @@
 {
+  "button-and-spool/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 10.95,
+    "worstTintRatio": null,
+    "worstInkPerChar": 14.36,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.03,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "button-and-spool/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 10.95,
+    "worstTintRatio": null,
+    "worstInkPerChar": 14.36,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.03,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "button-and-spool/frames": {
+    "frames": 120,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 11,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "button-and-spool/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "button-and-spool/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.03
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.03
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.03
+    }
+  },
+  "button-and-spool/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "button-and-spool/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 262
+  },
+  "clockwork-observatory/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 11.8,
+    "worstTintRatio": null,
+    "worstInkPerChar": 14.81,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.16,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "clockwork-observatory/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 11.8,
+    "worstTintRatio": null,
+    "worstInkPerChar": 14.81,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.16,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "clockwork-observatory/frames": {
+    "frames": 120,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 10,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "clockwork-observatory/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "clockwork-observatory/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.16
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.16
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.16
+    }
+  },
+  "clockwork-observatory/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "clockwork-observatory/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 258
+  },
+  "cloudspring-bathhouse/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 11.8,
+    "worstTintRatio": null,
+    "worstInkPerChar": 14.11,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.18,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "cloudspring-bathhouse/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 11.8,
+    "worstTintRatio": null,
+    "worstInkPerChar": 14.11,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "cloudspring-bathhouse/frames": {
+    "frames": 120,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 8,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "cloudspring-bathhouse/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "cloudspring-bathhouse/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.15
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    }
+  },
+  "cloudspring-bathhouse/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "cloudspring-bathhouse/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 263
+  },
+  "confectionery-works/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 11.8,
+    "worstTintRatio": null,
+    "worstInkPerChar": 13.33,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "confectionery-works/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 11.8,
+    "worstTintRatio": null,
+    "worstInkPerChar": 13.33,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 3.98,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "confectionery-works/frames": {
+    "frames": 120,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 10,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "confectionery-works/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "confectionery-works/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 3.98
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 3.98
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 3.98
+    }
+  },
+  "confectionery-works/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "confectionery-works/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 256
+  },
+  "coral-commons/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 11.8,
+    "worstTintRatio": null,
+    "worstInkPerChar": 13.27,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "coral-commons/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 11.8,
+    "worstTintRatio": null,
+    "worstInkPerChar": 13.27,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "coral-commons/frames": {
+    "frames": 120,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 8,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "coral-commons/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "coral-commons/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.15
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    }
+  },
+  "coral-commons/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "coral-commons/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 258
+  },
+  "corner-cafe/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 12.5,
+    "worstTintRatio": null,
+    "worstInkPerChar": 12.82,
+    "fewestGlyphInk": 3,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.16,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "corner-cafe/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 12.5,
+    "worstTintRatio": null,
+    "worstInkPerChar": 12.82,
+    "fewestGlyphInk": 3,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "corner-cafe/frames": {
+    "frames": 120,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 10,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "corner-cafe/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "corner-cafe/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.15
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    }
+  },
+  "corner-cafe/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "corner-cafe/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 260
+  },
+  "creature-dispatch/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 11.8,
+    "worstTintRatio": null,
+    "worstInkPerChar": 14.53,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.01,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "creature-dispatch/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 11.8,
+    "worstTintRatio": null,
+    "worstInkPerChar": 14.53,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.01,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "creature-dispatch/frames": {
+    "frames": 120,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 10,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "creature-dispatch/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "creature-dispatch/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.01
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.01
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.01
+    }
+  },
+  "creature-dispatch/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "creature-dispatch/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 258
+  },
   "harness-bright/all-marks": {
     "counted": {
       "plate": 13,
@@ -60,8 +760,8 @@
   },
   "harness-bright/frames": {
     "frames": 120,
-    "p95Ms": 16.8,
-    "eventToScreenMs": 10,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 11,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
@@ -108,6 +808,506 @@
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
       "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
     }
+  },
+  "lanternwood-guild/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 10.63,
+    "worstTintRatio": null,
+    "worstInkPerChar": 12.44,
+    "fewestGlyphInk": 3,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "lanternwood-guild/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 10.63,
+    "worstTintRatio": null,
+    "worstInkPerChar": 12.44,
+    "fewestGlyphInk": 3,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.14,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "lanternwood-guild/frames": {
+    "frames": 121,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 10,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "lanternwood-guild/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "lanternwood-guild/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.14
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.14
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.14
+    }
+  },
+  "lanternwood-guild/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "lanternwood-guild/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 264
+  },
+  "meadow-post/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 12.65,
+    "worstTintRatio": null,
+    "worstInkPerChar": 15.1,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.17,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "meadow-post/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 12.65,
+    "worstTintRatio": null,
+    "worstInkPerChar": 15.1,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "meadow-post/frames": {
+    "frames": 120,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 9,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "meadow-post/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "meadow-post/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.15
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    }
+  },
+  "meadow-post/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "meadow-post/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 258
+  },
+  "midnight-bureau/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 12.65,
+    "worstTintRatio": null,
+    "worstInkPerChar": 15,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 3.96,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "midnight-bureau/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 12.65,
+    "worstTintRatio": null,
+    "worstInkPerChar": 15,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 3.96,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "midnight-bureau/frames": {
+    "frames": 120,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 10,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "midnight-bureau/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "midnight-bureau/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 3.96
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 3.96
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 3.96
+    }
+  },
+  "midnight-bureau/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "midnight-bureau/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 263
+  },
+  "orbital-shipyard/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 11.14,
+    "worstTintRatio": null,
+    "worstInkPerChar": 13.88,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 3.93,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "orbital-shipyard/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 11.14,
+    "worstTintRatio": null,
+    "worstInkPerChar": 13.88,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.16,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "orbital-shipyard/frames": {
+    "frames": 120,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 10,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "orbital-shipyard/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "orbital-shipyard/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.16
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.16
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.16
+    }
+  },
+  "orbital-shipyard/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "orbital-shipyard/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 261
+  },
+  "pocket-lab/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 11.14,
+    "worstTintRatio": null,
+    "worstInkPerChar": 13.5,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 3.99,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "pocket-lab/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 11.14,
+    "worstTintRatio": null,
+    "worstInkPerChar": 13.5,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 3.99,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "pocket-lab/frames": {
+    "frames": 120,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 11,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "pocket-lab/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "pocket-lab/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 3.99
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 3.99
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 3.99
+    }
+  },
+  "pocket-lab/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "pocket-lab/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 260
   },
   "standard-office/all-marks": {
     "counted": {
@@ -170,8 +1370,8 @@
   },
   "standard-office/frames": {
     "frames": 120,
-    "p95Ms": 16.7,
-    "eventToScreenMs": 10,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 9,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
@@ -218,5 +1418,305 @@
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
       "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
     }
+  },
+  "tumbletown-workshop/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 10.95,
+    "worstTintRatio": null,
+    "worstInkPerChar": 14.44,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.18,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "tumbletown-workshop/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 10.95,
+    "worstTintRatio": null,
+    "worstInkPerChar": 14.44,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.18,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "tumbletown-workshop/frames": {
+    "frames": 120,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 10,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "tumbletown-workshop/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "tumbletown-workshop/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.18
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.18
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.18
+    }
+  },
+  "tumbletown-workshop/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "tumbletown-workshop/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 262
+  },
+  "voxel-foundry/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 12.65,
+    "worstTintRatio": null,
+    "worstInkPerChar": 11.78,
+    "fewestGlyphInk": 3,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "voxel-foundry/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 12.65,
+    "worstTintRatio": null,
+    "worstInkPerChar": 11.78,
+    "fewestGlyphInk": 3,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "voxel-foundry/frames": {
+    "frames": 120,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 10,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "voxel-foundry/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "voxel-foundry/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.15
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    }
+  },
+  "voxel-foundry/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "voxel-foundry/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 263
+  },
+  "wildlight-camp/all-marks": {
+    "counted": {
+      "plate": 13,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
+      "tint": 0,
+      "safety": 80,
+      "flags": 80
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+    },
+    "worstTextRatio": 12.65,
+    "worstTintRatio": null,
+    "worstInkPerChar": 12.33,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.43,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.22,
+    "smallestTemplateMargin": 0.1,
+    "boxes": 93
+  },
+  "wildlight-camp/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40,
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
+      "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+    },
+    "worstTextRatio": 12.65,
+    "worstTintRatio": null,
+    "worstInkPerChar": 12.33,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.2,
+    "worstEdgeCoverage": 0.51,
+    "worstTemplateMismatch": 0.22,
+    "worstIconMismatch": 0.21,
+    "smallestTemplateMargin": 0.1
+  },
+  "wildlight-camp/frames": {
+    "frames": 120,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 8,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "wildlight-camp/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "wildlight-camp/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.2
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.2
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.2
+    }
+  },
+  "wildlight-camp/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "wildlight-camp/occlusion": {
+    "parts": 153,
+    "openFloorProbes": 262
   }
 }

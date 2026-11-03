@@ -78,7 +78,9 @@ export async function roster(db: Db, orgId: string) {
   }
 
   const probes = (await db.query<{ body: Json }>(
-    "select body from runtime_probes where body->>'outcome' = 'pass' and body->>'org_id' = $1 order by body->>'observed_at' desc", [orgId])).rows.map((r) => r.body);
+    // Only runtimes a pin may name: anything else could be listed but never pinned.
+    "select body from runtime_probes where body->>'outcome' = 'pass' and body->>'org_id' = $1 and body->>'runtime' = any($2) order by body->>'observed_at' desc",
+    [orgId, PINNABLE])).rows.map((r) => r.body);
   const versions: Json[] = [];
   for (const p of probes) {
     if (versions.some((v) => v.runtime === p.runtime && v.digest.value === p.artifact_digest.value)) continue;

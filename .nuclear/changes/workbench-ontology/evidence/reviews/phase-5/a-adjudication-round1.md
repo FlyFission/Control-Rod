@@ -28,3 +28,10 @@ Codex confirmed the six round 1 fixes and returned REVISE with three findings. A
 # Round 3
 
 Codex returned MERGE with one nonblocking P3: no test seeded tied timestamps in pin history. Added anyway: two retired author pins of different artifacts recorded in one transaction (so their `recorded_at` is equal) are seeded; the roster shows the later id's artifact as the rollback target, and signing exactly that target restores it.
+
+## Copilot threads on the first commit
+
+- Organization scoping and the latest completed run: already fixed by round 1 (P1 and P2 above); answered and resolved.
+- Versions listed a passing probe of a runtime no pin may name: fixed, the probe query is limited to the pinnable runtimes; the roster test records a passing probe of the test runtime and asserts it is not offered.
+
+CI: one run's Rust job failed because GitHub could not download the pinned mise action (infrastructure); the next push reran it.

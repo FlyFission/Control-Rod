@@ -115,6 +115,17 @@ describe("pins", () => {
 
 describe("roster (plan task 5.1)", () => {
   it("states each role's recorded baselines and pins, the versions a pin may name, and sandboxes as launched", async () => {
+    // A passing probe of a runtime that cannot be pinned, recorded directly as the daemon would.
+    const c0 = await h.admin.connect();
+    try {
+      await c0.query("begin");
+      const org = (await c0.query<{ id: string }>("select tenancy_sole_org() as id")).rows[0]!.id;
+      await recordObject(c0, "runtime_probe", { id: "rpb_fake", org_id: org, runtime: "fake", artifact_digest: { algorithm: "sha256", value: "9".repeat(64) }, version: "0",
+        auth_state: "unknown", outcome: "pass", detail: "ready", observed_at: new Date().toISOString() } as never, { kind: "agent", id: "daemon" });
+      await c0.query("commit");
+    } finally {
+      c0.release();
+    }
     // A completed author run, as the daemon reports it: its baseline, runtime and launch sandbox.
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-ROSTER', 0, 'in-work', $1)",
       [{ ...example, id: "WP-ROSTER", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [] }]);
@@ -149,6 +160,8 @@ describe("roster (plan task 5.1)", () => {
     expect(versions.find((v: Json) => v.digest.value === A).pinned_for).toEqual(["author", "intake", "pre-check"]);
     expect(versions.find((v: Json) => v.digest.value === B).pinned_for).toEqual([]);
     expect(r.versions.some((v: Json) => v.digest.value === C)).toBe(false);
+    // A passing probe of a runtime no pin may name (the test runtime) is never offered.
+    expect(r.versions.every((v: Json) => v.runtime === "claude" || v.runtime === "codex")).toBe(true);
     // No sandbox policy is recorded; the launch is reported as the run gave it.
     expect(r.sandbox.policies).toEqual([]);
     expect(r.sandbox.launched).toEqual([expect.objectContaining({ runtime: "claude", sandbox: "none", run_id: "R-roster01" })]);

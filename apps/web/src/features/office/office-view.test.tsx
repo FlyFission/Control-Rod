@@ -139,21 +139,23 @@ describe("exceptions overlay and portfolio (OV-26)", () => {
     figure({ id: "R-n", package_id: "WP-N", state: "needs", place: "your-office", cause: "Your signature", project_id: "plant-a" }),
     figure({ id: "R-s", package_id: "WP-S", state: "stuck", place: "review", cause: "Run failed", project_id: "plant-b" }),
     figure({ id: "R-g", package_id: "WP-G", marks: { gate: true, safety: false }, project_id: "plant-a" }),
+    figure({ id: "R-u", package_id: "WP-U", unverified_inputs: ["WP-9"], project_id: "plant-b" }),
   ];
 
   it("folds healthy work past forty agents and keeps every agent needing attention drawn", () => {
     const v = exceptionsView(many(), false);
     expect(v.active).toBe(true);
-    expect(v.shown.map((f) => f.id).sort()).toEqual(["R-g", "R-n", "R-s"]);
+    // An agent whose input freshness is unknown is not healthy: it stays drawn.
+    expect(v.shown.map((f) => f.id).sort()).toEqual(["R-g", "R-n", "R-s", "R-u"]);
     expect(v.folded).toEqual([{ place: "process", count: 15 }, { place: "mechanical", count: 15 }, { place: "electrical", count: 15 }]);
     expect(exceptionsView(many().slice(0, 40), false).active).toBe(false);
-    expect(exceptionsView(many(), true).shown).toHaveLength(48);
+    expect(exceptionsView(many(), true).shown).toHaveLength(49);
   });
 
   it("rolls the portfolio up per project, the ones needing attention first", () => {
     expect(portfolio(many())).toEqual([
       { project: "plant-a", agents: 24, needs: 1, stuck: 0 },
-      { project: "plant-b", agents: 24, needs: 0, stuck: 1 },
+      { project: "plant-b", agents: 25, needs: 0, stuck: 1 },
     ]);
   });
 

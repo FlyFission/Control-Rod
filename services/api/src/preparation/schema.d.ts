@@ -923,6 +923,8 @@ export interface components {
             };
             /** @description Recorded inputs whose freshness is unknown, because no preparation basis pinned their revision. */
             unverified_inputs?: string[];
+            /** @description Package inputs the preparation pinned that are still at the pinned revision: freshness established. */
+            current_inputs?: string[];
             /**
              * @description The nearest gate, for the Gate lens.
              * @enum {string}

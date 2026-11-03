@@ -184,6 +184,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
         safety: p.body.grade === "safety",
       },
       ...(changed.unverified.length ? { unverified_inputs: changed.unverified } : {}),
+      ...(changed.fresh.length ? { current_inputs: changed.fresh } : {}),
       gate_stage: gateStage(p.status, pending),
       ...(run.body.permission_waits === "not-observable" ? { observability: "permission waits not observable in print mode" } : {}),
       data_lane: lane,
@@ -315,13 +316,16 @@ function project(a: {
  */
 function changedInput(deps: { depends_on: string }[], basis: Map<string, number> | undefined, current: Map<string, number>) {
   let changed: { input: string; revision: number } | null = null;
+  const fresh: string[] = [];
   for (const [input, was] of basis ?? []) {
     const now = current.get(input);
-    if (now !== undefined && !Number.isNaN(was) && now > was && !changed) changed = { input, revision: now };
+    if (now === undefined || Number.isNaN(was)) continue;
+    if (now > was) changed ??= { input, revision: now };
+    else fresh.push(input);
   }
   const unverified = deps.map((d) => d.depends_on).filter((id) => {
     const was = basis?.get(id);
     return was === undefined || Number.isNaN(was);
   });
-  return { changed, unverified };
+  return { changed, unverified, fresh };
 }

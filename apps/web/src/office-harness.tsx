@@ -36,6 +36,8 @@ function Harness() {
   // A lens to tint the figures with: every colour of its scale in turn, so the harness meets them all.
   const lensId = params.get("lens") as LensId | null;
   const scale = lensId ? lensById(lensId).scale : [];
+  // Every figure carrying every mark: the worst case for spacing and legibility.
+  const allMarks = params.get("marks") === "all";
   const [shifted, setShifted] = useState(0);
   const [selected, setSelected] = useState<string>();
   const [contract, setContract] = useState<{ theme: string; problems: string[] }>();
@@ -45,9 +47,14 @@ function Harness() {
       harnessFigures(count).map((f) => {
         let state = f.state;
         for (let i = 0; i < shifted; i++) state = SHIFT[state];
-        return { ...f, state, ...(scale.length ? { tint: scale[Number(f.id.slice(1)) % scale.length]!.color } : {}) };
+        return {
+          ...f,
+          state,
+          ...(scale.length ? { tint: scale[Number(f.id.slice(1)) % scale.length]!.color } : {}),
+          ...(allMarks ? { marks: { gate: true, changed: true, loop: 3, safety: true } } : {}),
+        };
       }),
-    [count, shifted, scale],
+    [count, shifted, scale, allMarks],
   );
   const open = figures.find((f) => f.id === selected);
 

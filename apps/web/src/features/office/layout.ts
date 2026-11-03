@@ -94,6 +94,13 @@ const BOTTOM_H = 300;
  */
 export const SEAT_CLEARANCE = { above: 35, below: 36, left: 30, right: 30 } as const;
 
+/**
+ * The most a figure ever paints, every mark and ring included, at minimum zoom: 50px across (marks
+ * pill to state mark) and 52px tall (marks pill to code plate), which is 62.5 by 65 layout units.
+ * No two places are closer than this, so fully marked neighbours never paint into each other.
+ */
+export const FIGURE_SPAN = { x: 62.5, y: 65 } as const;
+
 function grid(x: number, y: number, w: number, h: number, cols: number, rows: number): Point[] {
   const top = y + NAME_BAND + SEAT_CLEARANCE.above;
   const usable = h - NAME_BAND - SEAT_CLEARANCE.above - SEAT_CLEARANCE.below;
@@ -174,6 +181,13 @@ export function validateLayout(regions: readonly Region[] = REGIONS): string[] {
     if (!onEdge || r.door.x < r.x || r.door.x > r.x + r.w) problems.push(`${r.id} has its door off its corridor edge`);
   }
   for (const id of REGION_IDS) if (!ids.has(id)) problems.push(`${id} is missing`);
+  // Fully marked figures in neighbouring places never meet.
+  const places = regions.flatMap((r) => [...r.seats, ...r.queue].map((p) => ({ ...p, id: r.id })));
+  for (let i = 0; i < places.length; i++)
+    for (let j = i + 1; j < places.length; j++) {
+      const a = places[i]!, b = places[j]!;
+      if (Math.abs(a.x - b.x) < FIGURE_SPAN.x && Math.abs(a.y - b.y) < FIGURE_SPAN.y) problems.push(`places in ${a.id} and ${b.id} are closer than a fully marked figure`);
+    }
   for (let i = 0; i < regions.length; i++)
     for (let j = i + 1; j < regions.length; j++) {
       const a = regions[i]!;

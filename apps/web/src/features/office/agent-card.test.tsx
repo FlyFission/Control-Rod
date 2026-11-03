@@ -47,7 +47,7 @@ function serve(stopped: string[] = []) {
           independence: { runtime: "shared", author_runtime: { kind: "local", provider: "claude", model: "default" }, checker_runtime: { kind: "local", provider: "claude", model: "default" },
             owner_override: { by: "ben", reason: "Only one runtime is installed on the pilot laptop", at: new Date().toISOString() } },
         } as never,
-      }, { rigor_mode: "standard", grade: "material", status: "in-work" })),
+      }, { rigor_mode: "standard", grade: "material", status: "in-verification" })),
     ),
     http.get("*/packages/:id/actions", () =>
       HttpResponse.json([{ command: "accept", label: "Accept", allowed: false, signature: "direct", reason: "This needs a Material grade qualification in mechanical", missing: ["mechanical discipline", "material grade"] }]),
@@ -71,8 +71,10 @@ describe("agent card", () => {
     expect(within(card).getByText("Shared runtime: the author and the pre-check both ran on claude, in separate sessions. Owner override by ben: Only one runtime is installed on the pilot laptop")).toBeTruthy();
     // OV-11: sign shown unavailable, naming what is missing.
     expect(within(card).getByText(/You may not accept it: This needs a Material grade qualification in mechanical \(missing: mechanical discipline, material grade\)/)).toBeTruthy();
-    expect(within(card).getByText("Input WP-0002 changed since the preparation pinned it")).toBeTruthy();
-    expect(within(card).getByText("checker-claude on claude")).toBeTruthy();
+    // Freshness only as established, and the sources it does not compare are named.
+    expect(within(card).getByText(/^Input WP-0002 changed since the preparation pinned it\. Documents and other sources are not compared here\.$/)).toBeTruthy();
+    // The checker with its run's status, and the recorded pre-check's outcome.
+    expect(within(card).getByText("checker-claude on claude, finished; recorded pre-check outcome: fail")).toBeTruthy();
     expect(within(card).getByText(/Not recorded until usage metering arrives/)).toBeTruthy();
     expect(within(card).getByText("No due date is recorded for this package.")).toBeTruthy();
   });
@@ -103,5 +105,19 @@ describe("agent card", () => {
     const actions = await screen.findByRole("region", { name: "Actions on this agent" });
     await waitFor(() => expect(within(actions).getByText("Only a queued or running run can be stopped.")).toBeTruthy());
     expect((within(actions).getByRole("button", { name: "Stop" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("names the signature the rung opens, and never borrows another gate's", async () => {
+    serve();
+    server.use(
+      http.get("*/packages/:id", () => HttpResponse.json(view({ runs: [run({ id: "R-2", status: "running" })] }, { status: "in-work" }))),
+      http.get("*/packages/:id/actions", () => HttpResponse.json([
+        { command: "release", label: "Release", allowed: false, signature: "direct", reason: "Only a draft can be released" },
+        { command: "accept", label: "Accept", allowed: false, signature: "direct", reason: "Nothing has passed a pre-check yet" },
+      ])),
+    );
+    await renderPage(<AgentCard figure={figure({ marks: { gate: false, safety: false }, current_inputs: ["WP-0003"] })} lens={undefined} />);
+    expect(await screen.findByText("No signature is open at this rung.")).toBeTruthy();
+    expect(screen.getByText(/^Current as pinned: WP-0003\. Documents and other sources are not compared here\.$/)).toBeTruthy();
   });
 });

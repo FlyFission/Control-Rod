@@ -1,0 +1,33 @@
+1. **Major — Figure edge coverage is never enforced.** [office-harness.spec.ts:581](/home/flyfission/worktrees/control-rod-phase0/apps/web/e2e/office-harness.spec.ts:581)  
+   Every figure initializes `pool`, but its accumulated coverage is never evaluated. If all edge probes are skipped, contrast stays `Infinity`, and `c < 3` passes. Consequently, a counted Safety ring can have no measured edge and still pass. **Fix:** finalize coverage after each figure, reject zero measured samples, and add sensitivity cases that hide the Safety ring or exclude every edge probe.
+
+2. **Major — Covering logic can excuse paint that the supposed covering element never drew.** [office-harness.spec.ts:517](/home/flyfission/worktrees/control-rod-phase0/apps/web/e2e/office-harness.spec.ts:517)  
+   `coveredBy` combines an expanded geometric box with `!unpainted`, which establishes only that *some* semantic element painted there. A transparent covering part can therefore borrow the underlying element’s paint to excuse its edge. The global z-index ranking also ignores the stacking contexts created by each transformed `.office-figure`; an earlier figure’s pill does not necessarily paint above a later figure’s mark. **Fix:** establish ownership through isolated renders and account for ancestor stacking contexts. Add transparent-cover and overlapping-figure sensitivity cases.
+
+3. **Major — The lens colour check derives its expectation from the rendered implementation.** [office-harness.spec.ts:754](/home/flyfission/worktrees/control-rod-phase0/apps/web/e2e/office-harness.spec.ts:754)  
+   `expected` comes from the shape’s computed fill or stroke, rather than the requested tint. Removing the `StateMark` colour override leaves ordinary state colours; the screenshot then matches those same computed colours and passes. Cycling palette entries in the harness also bypasses the real lens-to-data mapping. **Fix:** independently resolve the requested tint, compare its RGB value with drawn ink, and test actual Gate/Change mappings. Require a removed-override mutation to fail.
+
+4. **Major — Gate and changed-input marks can become illegible fragments and pass.** [office-harness.spec.ts:739](/home/flyfission/worktrees/control-rod-phase0/apps/web/e2e/office-harness.spec.ts:739)  
+   These icons pass if their fourth strongest pixel reaches the contrast threshold. Replacing either symbol with a small bright block satisfies that check; neither symbol’s geometry nor meaningful ink coverage is verified. **Fix:** validate flag/triangle shape and minimum coverage, with clipped and substituted-symbol sensitivity cases.
+
+5. **Major — The clearance retune causes adjacent Safety figures to overlap.** [layout.ts:117](/home/flyfission/worktrees/control-rod-phase0/apps/web/src/features/office/layout.ts:117)  
+   Evaluating the layout module gives adjacent Process seats 52 px apart at minimum zoom. Safety decorations extend 54 px across, including their outer dark bands. Adjacent marked Safety agents therefore overlap even though `validateLayout()` returns no problems. The harness fixture does not exercise worst-case marks in every adjacent seat, and its bounding boxes omit shadows. **Fix:** size seat spacing from maximum painted extents, including shadows, and test fully occupied regions with all marks.
+
+6. **Major — The exceptions overlay hides work whose input freshness is unknown.** [exceptions.ts:15](/home/flyfission/worktrees/control-rod-phase0/apps/web/src/features/office/exceptions.ts:15)  
+   A working figure with `unverified_inputs` is classified as healthy whenever it lacks a changed-input mark and pending gate. Above forty agents, that figure disappears into healthy counts, removing its freshness warning from the floor. This contradicts OV-26’s attention guarantee. **Fix:** keep figures with unverified inputs visible and add this case to the overlay tests.
+
+7. **Major — “Every pinned input is current” exceeds the recorded evidence.** [AgentCard.tsx:110](/home/flyfission/worktrees/control-rod-phase0/apps/web/src/features/office/AgentCard.tsx:110)  
+   The fallback treats absence of two warnings as proof of freshness. The projection compares package revisions; it does not establish freshness for every controlled document or policy input. A package with a changed document input can receive the reassuring statement. **Fix:** display positively established freshness by input and preserve an explicit unknown state for unchecked sources.
+
+8. **Major — Signer information always selects acceptance, even when release is available.** [AgentCard.tsx:107](/home/flyfission/worktrees/control-rod-phase0/apps/web/src/features/office/AgentCard.tsx:107)  
+   `packageActions()` returns descriptors for all human actions, including refused actions. Thus an `accept` descriptor is always found, and the `release` fallback is unreachable. On a draft awaiting release, the card reports an acceptance refusal while omitting the available release signature. **Fix:** select the relevant gate by lifecycle state, or display the applicable signature descriptors individually.
+
+9. **Major — “Watch live” and “Inputs and reach” do not satisfy the governed-action requirement.** [AgentCard.tsx:177](/home/flyfission/worktrees/control-rod-phase0/apps/web/src/features/office/AgentCard.tsx:177)  
+   Watch live only navigates to the package Case page; Inputs and reach only toggles local state. Neither issues a command or records its own event, as OV-06 requires. The card test verifies navigation and expansion without testing that boundary. **Fix:** implement the required governed operations and verify their events, or explicitly record these actions as deferred acceptance work.
+
+10. **Minor — Checker wording presents queued work as completed checking.** [AgentCard.tsx:134](/home/flyfission/worktrees/control-rod-phase0/apps/web/src/features/office/AgentCard.tsx:134)  
+    Any pre-check run qualifies, including one queued behind an independence hold that has never started. The card shows the baseline/provider without status, while its fallback says “No pre-check has run yet,” implying that the populated branch has run. **Fix:** distinguish assigned, queued, running, failed, and completed checking; associate completed-check claims with the recorded verification.
+
+Validation was read-only source review plus in-memory evaluation of the layout module. I did not rerun the browser suite.
+
+REVISE

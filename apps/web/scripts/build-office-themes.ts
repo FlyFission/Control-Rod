@@ -4,14 +4,15 @@
  * figure body styles. All geometry is authored here, procedurally; no reference images, fonts,
  * downloaded assets or model calls. Run from apps/web:
  *   node --experimental-strip-types scripts/build-office-themes.ts
- * It writes public/office-themes/<id>/ and src/features/office/themes/<id>.ts; a unit test renders the
- * same files in memory and fails if the committed ones differ.
+ * It writes public/office-themes/<id>/, src/features/office/themes/<id>.ts and the layout as data
+ * (themes/layout.json, read by tools/build_office_worlds.py); a unit test renders the same files in
+ * memory and fails if the committed ones differ.
  */
 import { createHash } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { NAME_BAND, REGIONS, type Region, type RegionId } from "../src/features/office/layout.ts";
+import { CANVAS, NAME_BAND, REGIONS, type Region, type RegionId } from "../src/features/office/layout.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
@@ -197,6 +198,13 @@ export const SPECS: readonly Spec[] = [STANDARD, BRIGHT];
 export function renderAll(): Rendered {
   const out: Rendered = new Map();
   for (const spec of SPECS) render(out, spec);
+  // The canonical layout as data, for generators outside TypeScript (tools/build_office_worlds.py
+  // sizes each world's region art from it). Seats are relative to their region's origin.
+  out.set("src/features/office/themes/layout.json", JSON.stringify({
+    canvas: CANVAS,
+    nameBand: NAME_BAND,
+    regions: REGIONS.map((r) => ({ id: r.id, kind: r.kind, name: r.name, x: r.x, y: r.y, w: r.w, h: r.h, seats: local(r) })),
+  }, null, 2) + "\n");
   // Ordinary builds ship only released themes; vite.config.ts reads this list.
   out.set("src/features/office/themes/released.json", JSON.stringify(SPECS.filter((s) => s.availability === "released").map((s) => s.id)) + "\n");
   return out;

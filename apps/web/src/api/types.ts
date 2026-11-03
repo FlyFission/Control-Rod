@@ -30,13 +30,35 @@ export interface ScramTiming {
   pulled_at?: string;
   stopped?: { ms_to_stop: number; runs: number; at: string };
 }
+export type ScramPresented = S["ScramPresented"];
 export interface ScramSummary extends ScramTiming {
-  scram: ScramEvent;
+  /** Presenting, only that it holds and over what (ScramPresented): never its reason or runs. */
+  scram: ScramEvent | ScramPresented;
+  run_count: number;
+}
+/** What pulling SCRAM with a scope would stop now, by the pull's own selection. */
+export interface ScramPreview {
+  scope: "organization" | "project";
+  project_id?: string;
+  running: string[];
+  queued: string[];
+  counted_at: string;
 }
 export interface ScramDetail extends ScramTiming {
   scram: ScramEvent;
-  runs: { run_id: string; status: Run["status"]; outcome_unknown: boolean; batches: ScramQuarantineBatch[]; reviews: QuarantineReview[] }[];
+  runs: {
+    run_id: string;
+    role: Run["role"];
+    subject: "package" | "capture";
+    subject_id: string;
+    discipline?: string;
+    status: Run["status"];
+    outcome_unknown: boolean;
+    batches: ScramQuarantineBatch[];
+    reviews: QuarantineReview[];
+  }[];
   restarts: ScramRestart[];
+  packages: { id: string; title: string; discipline?: string; lifted: boolean }[];
 }
 export interface OfficeFloor {
   figures: AgentFigure[];

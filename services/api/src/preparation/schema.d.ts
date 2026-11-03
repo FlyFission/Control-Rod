@@ -869,8 +869,31 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The SCRAMs in force in the viewer's organization (not yet restarted for their whole scope). */
+        /**
+         * @description The SCRAMs in force in the viewer's organization (not yet restarted for their whole scope).
+         *     Presenting, each is a ScramPresented.
+         */
         get: operations["scrams"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scrams/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What pulling SCRAM with this scope would stop now, by the pull's own selection: the runs running
+         *     (stopped where they stand) and queued (held). The pull selects again when it fires.
+         */
+        get: operations["scramPreview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -950,6 +973,11 @@ export interface components {
             state: "working" | "needs" | "waiting" | "stuck" | "changed";
             /** @description Why, in words: what it is doing, what you must decide, who it waits on, what blocks it, which input changed. */
             cause: string;
+            /**
+             * @description The recorded thing behind the cause (a SCRAM, a hold, an input revision, the dependencies
+             *     awaited, or the run itself), so agents are grouped by what holds them, never by matching words.
+             */
+            cause_key: string;
             /** @description Who it waits on, by name, when waiting. */
             waiting_on?: string;
             /**
@@ -2357,6 +2385,15 @@ export interface components {
             login_checked: boolean;
             /** @description The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this. */
             artifact?: components["schemas"]["Runner.RuntimeArtifact"];
+        };
+        /** @description A SCRAM as presenting mode shows it: that it holds and over what, never its reason or runs. */
+        ScramPresented: {
+            id: string;
+            org_id: string;
+            /** @enum {string} */
+            scope: "organization" | "project";
+            project_id?: string;
+            drill?: boolean;
         };
         /** @description One quarantine batch: what a SCRAM-stopped run reported in one completion, as digests. */
         ScramQuarantineBatch: {
@@ -6047,7 +6084,9 @@ export interface operations {
     };
     scrams: {
         parameters: {
-            query?: never;
+            query?: {
+                presenting?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6062,7 +6101,12 @@ export interface operations {
                 content: {
                     "application/json": {
                         scrams: {
-                            scram: components["schemas"]["ControlRod.Records.ScramEvent"];
+                            scram: components["schemas"]["ControlRod.Records.ScramEvent"] | components["schemas"]["ScramPresented"];
+                            /**
+                             * Format: int32
+                             * @description How many runs it stopped where they stood.
+                             */
+                            run_count: number;
                             /** Format: date-time */
                             pulled_at?: string;
                             /** @description Present once every run in scope has stopped: the stop latency (OV-12). */
@@ -6075,6 +6119,38 @@ export interface operations {
                                 at: string;
                             };
                         }[];
+                        presenting?: boolean;
+                    } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    scramPreview: {
+        parameters: {
+            query: {
+                scope: "organization" | "project";
+                project_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        scope: "organization" | "project";
+                        project_id?: string;
+                        running: string[];
+                        queued: string[];
+                        /** Format: date-time */
+                        counted_at: string;
                     } | components["schemas"]["ApiError"];
                 };
             };
@@ -6112,12 +6188,27 @@ export interface operations {
                         scram: components["schemas"]["ControlRod.Records.ScramEvent"];
                         runs: {
                             run_id: string;
+                            role: components["schemas"]["ControlRod.Records.RunRole"];
+                            /**
+                             * @description What the run worked on: a package, or a capture for intake.
+                             * @enum {string}
+                             */
+                            subject: "package" | "capture";
+                            subject_id: string;
+                            discipline?: string;
                             status: components["schemas"]["ControlRod.Records.RunStatus"];
                             outcome_unknown: boolean;
                             batches: components["schemas"]["ScramQuarantineBatch"][];
                             reviews: components["schemas"]["ControlRod.Records.QuarantineReview"][];
                         }[];
                         restarts: components["schemas"]["ControlRod.Records.ScramRestart"][];
+                        /** @description Every package the SCRAM reaches, so a staged restart names one it holds; lifted once a restart covers it. */
+                        packages: {
+                            id: string;
+                            title: string;
+                            discipline?: string;
+                            lifted: boolean;
+                        }[];
                     } | components["schemas"]["ApiError"];
                 };
             };

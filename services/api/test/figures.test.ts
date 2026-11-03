@@ -141,8 +141,24 @@ describe("office figures", () => {
     expect(figure(floor, "WP-FIG-BLOCKED")).toMatchObject({ state: "waiting", place: "interface", cause: "Author run waits for WP-FIG-DEP to be accepted" });
     // Dispatch holds only author runs on released packages for dependencies; a queued pre-check waits for a runtime.
     expect(figure(floor, "WP-FIG-PRECHECK")).toMatchObject({ state: "waiting", place: "bench", cause: "Pre-check run queued for a runtime" });
+    // Each cause carries the recorded thing behind it, so the office groups by that and never by words
+    // (OV-03): the same input revision, the same dependencies awaited, the same queue; a failure or a
+    // lost run is its own cause, however alike two read.
+    expect(figure(floor, "WP-FIG-CHANGED").cause_key).toBe("input:WP-FIG-DEP@1");
+    expect(figure(floor, "WP-FIG-DESIGN").cause_key).toBe("input:WP-FIG-DEP@1");
+    expect(figure(floor, "WP-FIG-BLOCKED").cause_key).toBe("deps:author:WP-FIG-DEP");
+    expect(figure(floor, "WP-FIG-QUEUED").cause_key).toBe("queue:author");
+    expect(figure(floor, "WP-FIG-PRECHECK").cause_key).toBe("queue:pre-check");
+    expect(figure(floor, "WP-FIG-LOST").cause_key).toBe("run:R-fig-lost");
+    expect(figure(floor, "CAP-FIG-FAILED").cause_key).toBe("run:R-fig-intake-failed");
+    // A hold the viewer resolves is their own decision; for someone who cannot, it is the recorded hold.
+    expect(figure(floor, "WP-FIG-HOLD")).toMatchObject({ state: "needs", cause_key: "run:R-fig-hold" });
+    const forAlice = figure(await get("/office/figures", await aliceCookie()), "WP-FIG-HOLD");
+    expect(forAlice.state).toBe("waiting");
+    expect(forAlice.cause_key).toBe(`hold:lane\u0000Its sources are proprietary; a lane holder must admit the run\u0000${forAlice.waiting_on}`);
     // Every figure says why, and when the state began.
     for (const f of floor.figures) {
+      expect(f.cause_key.length).toBeGreaterThan(0);
       expect(f.cause.length).toBeGreaterThan(0);
       expect(Number.isNaN(Date.parse(f.since))).toBe(false);
     }
@@ -270,7 +286,8 @@ describe("office figures", () => {
     expect(held).toMatchObject({ state: "stuck", place: "quarantine" });
     expect(held.cause).toMatch(/^Held by SCRAM scr_.+: Bad prompt shipped to every agent$/);
     // Every agent the SCRAM reaches stands in Quarantine, whatever it was doing.
-    expect(figure(floor, "WP-FIG-WORK")).toMatchObject({ state: "stuck", place: "quarantine" });
+    expect(figure(floor, "WP-FIG-WORK")).toMatchObject({ state: "stuck", place: "quarantine", cause_key: `scram:${pulled.json().id}` });
+    expect(held.cause_key).toBe(`scram:${pulled.json().id}`);
     // The floor's one-load index gives the same answer as the per-subject check, for every agent.
     const index = await scramHoldIndex(h.db);
     const ids = (await h.db.query<{ id: string }>("select distinct id from packages")).rows.map((r) => r.id);

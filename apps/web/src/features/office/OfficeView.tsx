@@ -80,7 +80,7 @@ export function OfficeView() {
           <ScramControl />
         </div>
       </header>
-      <ScramBanner />
+      <ScramBanner presenting={presenting} />
       {LENSES.filter((l) => l.unavailable).map((l) => (
         <p key={l.id} id={`lens-why-${l.id}`} className="office-note">
           {l.label} lens: {l.unavailable}

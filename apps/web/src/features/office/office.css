@@ -385,17 +385,16 @@
   border-color: var(--stuck);
   color: var(--stuck);
 }
-.office-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: grid;
-  place-items: center;
+/* A native modal dialog: the page behind it is inert and focus stays inside. */
+.office-dialog::backdrop {
   background: rgba(0, 0, 0, 0.6);
 }
-.office-dialog {
+.office-dialog[open] {
   display: grid;
+}
+.office-dialog {
   gap: 10px;
+  color: inherit;
   width: min(560px, calc(100vw - 32px));
   padding: 18px;
   border: 1px solid var(--line-2);
@@ -472,3 +471,14 @@
   margin: 0;
 }
 
+.office-scram-batches {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.office-scram-batches code {
+  word-break: break-all;
+}
+.office-scram-new {
+  padding: 6px 8px;
+  border-left: 3px solid var(--stuck);
+}

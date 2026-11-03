@@ -40,6 +40,7 @@ export function useLiveEvents(enabled: boolean): void {
         "office-figures",
         "scrams",
         "scram",
+        "scram-preview",
       ]) {
         void qc.invalidateQueries({ queryKey: [key] });
       }

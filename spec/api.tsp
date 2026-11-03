@@ -432,6 +432,12 @@ model AgentFigure {
   @maxLength(300)
   cause: string;
 
+  /**
+   * The recorded thing behind the cause (a SCRAM, a hold, an input revision, the dependencies
+   * awaited, or the run itself), so agents are grouped by what holds them, never by matching words.
+   */
+  cause_key: string;
+
   /** Who it waits on, by name, when waiting. */
   waiting_on?: string;
 
@@ -587,14 +593,45 @@ model ScramTiming {
   };
 }
 
-/** The SCRAMs in force in the viewer's organization (not yet restarted for their whole scope). */
+/** A SCRAM as presenting mode shows it: that it holds and over what, never its reason or runs. */
+model ScramPresented {
+  id: string;
+  org_id: string;
+  scope: "organization" | "project";
+  project_id?: string;
+  drill?: boolean;
+}
+
+/**
+ * The SCRAMs in force in the viewer's organization (not yet restarted for their whole scope).
+ * Presenting, each is a ScramPresented.
+ */
 @route("/scrams")
 @get
-op scrams(): {
+op scrams(@query presenting?: boolean): {
   scrams: {
-    scram: ScramEvent;
+    scram: ScramEvent | ScramPresented;
+
+    /** How many runs it stopped where they stood. */
+    @minValue(0) run_count: int32;
+
     ...ScramTiming;
   }[];
+  presenting?: boolean;
+} | ApiError;
+
+/**
+ * What pulling SCRAM with this scope would stop now, by the pull's own selection: the runs running
+ * (stopped where they stand) and queued (held). The pull selects again when it fires.
+ */
+@route("/scrams/preview")
+@get
+op scramPreview(@query scope: "organization" | "project", @query project_id?: string): {
+  scope: "organization" | "project";
+  project_id?: string;
+  running: string[];
+  queued: string[];
+  counted_at: utcDateTime;
 } | ApiError;
 
 /** A SCRAM, the runs it stopped with their quarantine and reviews, and its restarts. */
@@ -605,12 +642,21 @@ op scram(@path id: string): {
   scram: ScramEvent;
   runs: {
     run_id: string;
+    role: RunRole;
+
+    /** What the run worked on: a package, or a capture for intake. */
+    subject: "package" | "capture";
+    subject_id: string;
+    discipline?: string;
     status: RunStatus;
     outcome_unknown: boolean;
     batches: ScramQuarantineBatch[];
     reviews: QuarantineReview[];
   }[];
   restarts: ScramRestart[];
+
+  /** Every package the SCRAM reaches, so a staged restart names one it holds; lifted once a restart covers it. */
+  packages: { id: string; title: string; discipline?: string; lifted: boolean }[];
 } | ApiError;
 
 /** Runs that are queued or running, across every package, for the floor and board. */

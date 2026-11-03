@@ -273,19 +273,24 @@ function project(a: {
   theirs: Json | undefined;
   changed: { changed: { input: string; revision: number } | null };
   unaccepted: string[];
-}): { state: State; cause: string; place: Place; since: string; waiting_on?: string; hash: string } {
+}): { state: State; cause: string; cause_key: string; place: Place; since: string; waiting_on?: string; hash: string } {
   const { run, held, own, theirs } = a;
   const r = run.body;
   const at = (v: unknown) => (typeof v === "string" && v ? v : run.created_at.toISOString());
   const role = ROLE_WORDS[run.role] ?? "Run";
   const work: Place = run.role === "pre-check" ? "verification" : a.cube.place;
-  const out = (state: State, place: Place, cause: string, since: string, extra: { waiting_on?: string; hash?: string } = {}) =>
-    ({ state, place, cause: clip(cause), since, hash: extra.hash ?? "runs", ...(extra.waiting_on ? { waiting_on: extra.waiting_on } : {}) });
+  // Each cause carries a key naming the recorded thing behind it (a SCRAM, a hold, an input revision,
+  // the dependencies awaited, or the run itself), so agents are grouped by what holds them and never
+  // by matching prose (OV-03). A key unique to the run means its cause is its own.
+  const itself = `run:${run.id}`;
+  const out = (state: State, place: Place, cause: string, since: string, extra: { waiting_on?: string; hash?: string; key?: string } = {}) =>
+    ({ state, place, cause: clip(cause), cause_key: extra.key ?? itself, since, hash: extra.hash ?? "runs", ...(extra.waiting_on ? { waiting_on: extra.waiting_on } : {}) });
+  const holdKey = (who: string) => `hold:${String(r.waiting_cause ?? "unrecorded")}\u0000${String(r.waiting_reason)}\u0000${who}`;
 
   if (held)
     return out("stuck", "quarantine",
       `${run.status === "stopped" || r.scram_id ? `${role} stopped by` : "Held by"} SCRAM ${held.id}${held.reason ? `: ${held.reason}` : ""}`,
-      at(held.recorded_at ?? held.pulled_at ?? r.finished_at ?? r.queued_at));
+      at(held.recorded_at ?? held.pulled_at ?? r.finished_at ?? r.queued_at), { key: `scram:${held.id}` });
   if (own) return out("needs", "your-office", String(own.detail ?? own.title), String(own.since), { hash: String(own.href?.hash ?? "decide") });
   if (theirs && (theirs.kind === "dispute" || theirs.kind === "lost")) {
     const who = String(theirs.waiting_on ?? "someone else");
@@ -295,20 +300,23 @@ function project(a: {
     return out("stuck", "review", `Outcome unknown since ${r.outcome_unknown.since}: ${r.outcome_unknown.reason}. It must be reconciled before the work moves on.`, at(r.outcome_unknown.since));
   if (theirs) {
     const who = String(theirs.waiting_on ?? "someone else");
-    return out("waiting", "interface", theirs.reason ? `${theirs.detail}. ${theirs.reason}` : String(theirs.detail ?? theirs.title), String(theirs.since), { waiting_on: who });
+    // A permission item is the run's recorded hold; any other item is this agent's own decision.
+    const key = theirs.kind === "permission" && run.status === "queued" && r.waiting_reason ? holdKey(who) : itself;
+    return out("waiting", "interface", theirs.reason ? `${theirs.detail}. ${theirs.reason}` : String(theirs.detail ?? theirs.title), String(theirs.since), { waiting_on: who, key });
   }
   if (run.status === "failed" || run.status === "stopped" || run.status === "lost") {
     const what = run.status === "failed" ? `failed${r.error ? `: ${r.error}` : ""}` : run.status === "stopped" ? "was stopped" : "was lost when its daemon stopped renewing the lease";
     return out("stuck", "review", `${role} ${what}`, at(r.finished_at));
   }
   if (a.changed.changed)
-    return out("changed", a.cube.place, `Input ${a.changed.changed.input} moved to revision ${a.changed.changed.revision} after the preparation pinned it`, at(r.started_at ?? r.queued_at));
+    return out("changed", a.cube.place, `Input ${a.changed.changed.input} moved to revision ${a.changed.changed.revision} after the preparation pinned it`, at(r.started_at ?? r.queued_at),
+      { key: `input:${a.changed.changed.input}@${a.changed.changed.revision}` });
   if (run.status === "running") return out("working", work, r.label ? String(r.label) : `${role}, round ${run.round}`, at(r.started_at));
   if (run.status === "queued" && r.waiting_reason)
-    return out("waiting", "interface", String(r.waiting_reason), at(r.queued_at), { waiting_on: "whoever may resolve the hold" });
+    return out("waiting", "interface", String(r.waiting_reason), at(r.queued_at), { waiting_on: "whoever may resolve the hold", key: holdKey("whoever may resolve the hold") });
   if (run.status === "queued" && a.unaccepted.length)
-    return out("waiting", "interface", `${role} waits for ${a.unaccepted.join(", ")} to be accepted`, at(r.queued_at), { waiting_on: `the work it depends on (${a.unaccepted.join(", ")})` });
-  if (run.status === "queued") return out("waiting", "bench", `${role} queued for a runtime`, at(r.queued_at), { waiting_on: "a runtime" });
+    return out("waiting", "interface", `${role} waits for ${a.unaccepted.join(", ")} to be accepted`, at(r.queued_at), { waiting_on: `the work it depends on (${a.unaccepted.join(", ")})`, key: `deps:${run.role}:${[...a.unaccepted].sort().join(",")}` });
+  if (run.status === "queued") return out("waiting", "bench", `${role} queued for a runtime`, at(r.queued_at), { waiting_on: "a runtime", key: `queue:${run.role}` });
   return out("waiting", "bench", `${role} finished; the next step has not started`, at(r.finished_at), { waiting_on: "the next step" });
 }
 

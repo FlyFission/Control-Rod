@@ -125,6 +125,42 @@ export async function runSubject(q: Db | Tx, run: { role: string; package_id: st
 }
 
 /**
+ * The runs with a status that a SCRAM of this scope reaches: this organization's runs, and for a
+ * project SCRAM only what that project owns. The one selection both the pull and its preview use.
+ */
+async function runsInReach(c: Db | Tx, draft: { org_id: string; scope: string; project_id?: string }, status: "running" | "queued", lock = false): Promise<string[]> {
+  const rows = await c.query<{ id: string; role: string; package_id: string }>(
+    `select r.id, r.role, r.package_id from runs r join object_owners o on o.object_kind = 'run' and o.object_id = r.id
+      where r.status = $2 and o.org_id = $1 order by r.id${lock ? " for update of r" : ""}`, [draft.org_id, status]);
+  const out: string[] = [];
+  for (const r of rows.rows) {
+    const s = await runSubject(c, r);
+    if (reaches(draft, await ownerOf(c, s.kind, s.id))) out.push(r.id);
+  }
+  return out;
+}
+
+/**
+ * What pulling SCRAM with this scope would stop now, by the same selection the pull makes: the runs
+ * running (stopped where they stand) and the runs queued (held, never claimed). It is a count at a
+ * moment; the pull selects again when it fires, so a run that starts in between is stopped too.
+ */
+export async function scramPreview(q: Db, orgId: string, p: { scope?: string; project_id?: string }) {
+  const scope = p.scope === "project" ? "project" : p.scope === "organization" ? "organization" : null;
+  if (!scope) throw new Refusal(400, "invalid", "scope must be organization or project");
+  const projectId = scope === "project" ? String(p.project_id ?? "") : undefined;
+  if (scope === "project" && !(await q.query("select 1 from projects where id = $1 and org_id = $2", [projectId, orgId])).rowCount)
+    throw new Refusal(404, "not-found", "No such project");
+  const draft = { org_id: orgId, scope, ...(projectId ? { project_id: projectId } : {}) };
+  return {
+    scope, ...(projectId ? { project_id: projectId } : {}),
+    running: await runsInReach(q, draft, "running"),
+    queued: await runsInReach(q, draft, "queued"),
+    counted_at: new Date().toISOString(),
+  };
+}
+
+/**
  * Pulls SCRAM (admin command scram.pull, signed). Running runs in scope are stopped and their grants
  * revoked in the same transaction; the ScramEvent lists them, and each is associated with the SCRAM.
  */
@@ -137,16 +173,8 @@ export async function pullScram(c: Tx, orgId: string, memberId: string, p: Json,
   const projectId = scope === "project" ? String(p.project_id ?? "") : undefined;
   if (scope === "project" && !(await c.query("select 1 from projects where id = $1 and org_id = $2", [projectId, orgId])).rowCount)
     throw new Refusal(404, "not-found", "No such project");
-  // Only this organization's runs, and for a project SCRAM only what that project owns.
-  const running = await c.query<{ id: string; role: string; package_id: string }>(
-    `select r.id, r.role, r.package_id from runs r join object_owners o on o.object_kind = 'run' and o.object_id = r.id
-      where r.status = 'running' and o.org_id = $1 order by r.id for update of r`, [orgId]);
   const draft = { org_id: orgId, scope, ...(projectId ? { project_id: projectId } : {}) };
-  const quarantine: string[] = [];
-  for (const r of running.rows) {
-    const s = await runSubject(c, r);
-    if (reaches(draft, await ownerOf(c, s.kind, s.id))) quarantine.push(r.id);
-  }
+  const quarantine = await runsInReach(c, draft, "running", true);
   const scram = { id: idFor("scr"), ...draft, pulled_by: memberId, reason: reason.slice(0, 2000),
     assertion, quarantine, ...(p.drill === true ? { drill: true } : {}) };
   await recordObject(c, "scram_event", scram as never, actor);
@@ -312,6 +340,9 @@ export async function restartAfterScram(c: Tx, orgId: string, memberId: string, 
   if (!reason) throw new Refusal(400, "reason-required", "Say why it is safe to restart");
   const target = scope === "package" ? String(p.package_id ?? "") : scope === "discipline" ? String(p.discipline ?? "") : "";
   if (scope !== "all" && !target) throw new Refusal(400, "invalid", `${scope} is required`);
+  // A restart names something this SCRAM holds: a package it reaches, or a discipline one of them has.
+  if (scope !== "all" && !(await scopePackages(c, scram)).some((x) => (scope === "package" ? x.id : x.discipline) === target))
+    throw new Refusal(400, "not-in-scope", `${scope === "package" ? "Package" : "Discipline"} ${target} is not in what SCRAM ${scramId} holds`);
 
   const inScope = async (r: { role: string; package_id: string }) => {
     const s = await runSubject(c, r);
@@ -346,12 +377,27 @@ export async function restartAfterScram(c: Tx, orgId: string, memberId: string, 
   return restart;
 }
 
+/** The packages a SCRAM reaches, at their latest revision, with whether a restart has lifted it for each. */
+async function scopePackages(q: Db | Tx, scram: Json) {
+  const rows = (await q.query<{ id: string; title: string | null; discipline: string | null; org_id: string; project_id: string | null }>(
+    `select distinct on (p.id) p.id, p.body->>'title' as title, p.body->>'discipline' as discipline, o.org_id, o.project_id
+       from packages p join object_owners o on o.object_kind = 'package' and o.object_id = p.id
+      where o.org_id = $1 order by p.id, p.revision desc`, [scram.org_id])).rows;
+  const out = [];
+  for (const r of rows) {
+    if (!reaches(scram, r)) continue;
+    const subject: ScramSubject = { kind: "package", id: r.id, ...(r.discipline ? { discipline: r.discipline } : {}) };
+    out.push({ id: r.id, title: r.title ?? r.id, ...(r.discipline ? { discipline: r.discipline } : {}), lifted: await liftedFor(q, scram.id, subject) });
+  }
+  return out;
+}
+
 /** What a person reviewing a SCRAM sees: its runs, every quarantine batch with digests, reviews and restarts. */
 export async function scramView(q: Db, orgId: string, scramId: string) {
   const scram = (await q.query<{ body: Json }>("select body from scram_events where id = $1 and org_id = $2", [scramId, orgId])).rows[0]?.body;
   if (!scram) throw new Refusal(404, "not-found", "No such SCRAM");
-  const runs = (await q.query<{ id: string; status: string; body: Json }>(
-    "select r.id, r.status, r.body from scram_runs x join runs r on r.id = x.run_id where x.scram_id = $1 order by r.id", [scramId])).rows;
+  const runs = (await q.query<{ id: string; status: string; role: string; package_id: string; body: Json }>(
+    "select r.id, r.status, r.role, r.package_id, r.body from scram_runs x join runs r on r.id = x.run_id where x.scram_id = $1 order by r.id", [scramId])).rows;
   const out = [];
   for (const r of runs) {
     const batches = (await q.query<{ id: number; reported: string; output_count: number; recorded_at: Date }>(
@@ -362,10 +408,11 @@ export async function scramView(q: Db, orgId: string, scramId: string) {
       withOutputs.push({ ...b, recorded_at: b.recorded_at.toISOString(), outputs });
     }
     const reviews = (await q.query<{ body: Json }>("select body from quarantine_reviews where scram_id = $1 and run_id = $2 order by recorded_at", [scramId, r.id])).rows.map((x) => x.body);
-    out.push({ run_id: r.id, status: r.status, outcome_unknown: Boolean(r.body.outcome_unknown && !r.body.reconciliation), batches: withOutputs, reviews });
+    const subject = await runSubject(q, r);
+    out.push({ run_id: r.id, role: r.role, subject: subject.kind, subject_id: subject.id, ...(subject.discipline ? { discipline: subject.discipline } : {}), status: r.status, outcome_unknown: Boolean(r.body.outcome_unknown && !r.body.reconciliation), batches: withOutputs, reviews });
   }
   const restarts = (await q.query<{ body: Json }>("select body from scram_restarts where scram_id = $1 order by recorded_at", [scramId])).rows.map((x) => x.body);
-  return { ...(await scramTiming(q, scramId)), scram, runs: out, restarts };
+  return { ...(await scramTiming(q, scramId)), scram, runs: out, restarts, packages: await scopePackages(q, scram) };
 }
 
 /** When a SCRAM was pulled, and once all its runs stopped, the recorded stop latency (OV-12). */
@@ -380,11 +427,20 @@ async function scramTiming(q: Db | Tx, scramId: string) {
   };
 }
 
-/** The SCRAMs in force in an organization, newest first, with their timing. */
-export async function activeScramsFor(q: Db, orgId: string) {
+/**
+ * The SCRAMs in force in an organization, newest first, with their timing. Presenting, each says only
+ * that it holds and over what scope, how many runs it stopped and its timing: its reason, the runs it
+ * stopped and who pulled it are left out, as presenting mode leaves restricted work out of the floor.
+ */
+export async function activeScramsFor(q: Db, orgId: string, presenting = false) {
   const out = [];
-  for (const scram of (await activeScrams(q)).filter((s) => s.org_id === orgId)) out.push({ scram, ...(await scramTiming(q, scram.id)) });
-  return { scrams: out };
+  for (const scram of (await activeScrams(q)).filter((s) => s.org_id === orgId)) {
+    const shown = presenting
+      ? { id: scram.id, org_id: scram.org_id, scope: scram.scope, ...(scram.project_id ? { project_id: scram.project_id } : {}), ...(scram.drill ? { drill: true } : {}) }
+      : scram;
+    out.push({ scram: shown, run_count: Array.isArray(scram.quarantine) ? scram.quarantine.length : 0, ...(await scramTiming(q, scram.id)) });
+  }
+  return { scrams: out, ...(presenting ? { presenting: true } : {}) };
 }
 
 /**

@@ -13,3 +13,17 @@ Codex returned REVISE with seven findings. All are accepted; the proof design wa
 | P2 | Success claimed coverage through the refreshed head | Fixed: the message uses the head the seal itself returns. Test: the head shown moves on after sealing and the message keeps the sealed head |
 
 The Codex connector threads (relabelled bundles pass; global failures discarded) are findings 3 and 5 and are resolved with them.
+
+# Round 2
+
+Codex returned REVISE with three findings; the bots added threads, some on earlier commits.
+
+| # | Finding | Disposition |
+|---|---|---|
+| P1 | Mixed scope refusal checked only ownership envelopes | Changed approach: organization ownership is spread over many tables, so per event mapping would be partial. Proof export is now refused on any installation with more than one organization, since they share one chain (migration 009 already refuses writes unless exactly one organization is active). Lanes: a bundle carries the same event records `GET /events` already shows every Member; lane filtering of the event log does not exist today for either, and is recorded as a limit rather than claimed |
+| P1 | A forged run announcement supplied package membership | Fixed in part, limit stated: the first announcement binds a run and a later conflicting one fails the proof, and a package with no event of its own is refused. A seal authenticates the chain as recorded, not that what a writer appended before it was true; that is the interim chain's stated limit (specification 11.6), now said in the ledger. Tests: conflicting announcements, a runs only package |
+| P2 | Credential binding by user name; no enrollment check | Fixed: the signer's key is found through the credential's own record (credential, member and organization), never a user name; the seal must follow a recorded usable version and precede any recorded revoked one (`not-enrolled`, `key-revoked`); and `chain.sealed` now records the key's digest, so a key substituted later reads `key-changed`, on the server and in the offline checker. Tests: a substituted key, and restoring it |
+
+Bot threads on earlier commits, now resolved by design: the anchor and truncated prefix (the segment starts at the first event), the trusted events list (the checker derives events), the global failure (paired with the chain check), an unsealed truncated tail (the bundle states the head and the tail must match it), native ownership (single organization export), and resubmitting the same package (it is proven again).
+
+Also strengthened: the offline checker's signature path is now tested against a forger who recomputes every digest in the bundle, since no secret protects them; only the passkey signature stops a fabricated seal.

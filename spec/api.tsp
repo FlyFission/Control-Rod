@@ -573,6 +573,64 @@ op roster(): {
   };
 } | ApiError;
 
+/** One seal as verification found it. */
+model SealCheck {
+  id: string;
+  head_seq: int32;
+  head_digest: Digest;
+  sealed_at: utcDateTime;
+  signer_id: string;
+  purpose: string;
+
+  /** valid, or why not: the head moved or is missing, the subject does not match, the signer's key is unknown, the signature fails, or the chain breaks before its head. */
+  result: "valid" | "head-mismatch" | "head-missing" | "subject-mismatch" | "key-unknown" | "signature-invalid" | "chain-broken-before-head";
+}
+
+/** The record verified (plan task 5.3; specification 11.6): the chain, every seal, and the unsealed suffix. */
+@route("/records/verify")
+@get
+op verifyRecords(): {
+  chain: { ok: boolean; @minValue(0) count: int32; broken_at?: int32 };
+  seals: SealCheck[];
+  @minValue(0) last_sealed_seq: int32;
+
+  /** Events after the last valid seal. */
+  @minValue(0) unsealed: int32;
+
+  /** Nothing outside this database witnesses the chain yet. */
+  witnessed: false;
+  statement: "Local chain, not witnessed";
+} | ApiError;
+
+/** The head a seal made now would cover. */
+@route("/records/head")
+@get
+op recordsHead(): {
+  head: { head_seq: int32; head_digest: Digest; at: utcDateTime } | null;
+} | ApiError;
+
+/**
+ * A package's inclusion proof: the chain segment from just before its first event to the head of the
+ * first valid seal covering its last (or to the chain head, unsealed), with that seal. Self contained:
+ * every digest and link can be recomputed from the bundle.
+ */
+@route("/packages/{id}/proof")
+@get
+op packageProof(@path id: string): {
+  bundle: {
+    package_id: string;
+    events: int32[];
+    anchor?: { seq: int32; digest: string };
+    segment: Record<unknown>[];
+    seal: Record<unknown> | null;
+    witnessed: false;
+    statement: "Local chain, not witnessed";
+  };
+
+  /** The control plane's own check of the bundle: every digest and link recomputed. */
+  check: { ok: boolean; problem?: string };
+} | ApiError;
+
 /** The viewing member, as the command layer knows them. */
 model Caller {
   userName: string;

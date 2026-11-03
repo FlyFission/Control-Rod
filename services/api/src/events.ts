@@ -47,7 +47,7 @@ export function afterCommits(c: Tx): (() => void)[] {
 }
 
 /** The digest covers every field except the digest itself, so any edit breaks the chain. */
-function eventDigest(e: Omit<EventRecord, "digest">): string {
+export function eventDigest(e: Omit<EventRecord, "digest">): string {
   return digest(e);
 }
 

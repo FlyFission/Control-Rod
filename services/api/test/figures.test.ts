@@ -90,7 +90,10 @@ async function seed() {
   await h.admin.query(
     `insert into preparation_snapshots (preparation_id, revision, package_id, package_revision, content_digest, requirements_digest, body, created_at)
      values ('PREP-FIG-DESIGN', 0, 'WP-FIG-DESIGN', 0, $1, $1, $2, now())`,
-    ["e".repeat(64), { basis: [{ kind: "package", reference: "package:WP-FIG-DEP", revision: "0", digest: { algorithm: "sha256", value: "0".repeat(64) } }] }],
+    ["e".repeat(64), { basis: [
+      { kind: "package", reference: "package:WP-FIG-DEP", revision: "0", digest: { algorithm: "sha256", value: "0".repeat(64) } },
+      { kind: "package", reference: "package:WP-FIG-WORK", revision: "0", digest: { algorithm: "sha256", value: "0".repeat(64) } },
+    ] }],
   );
   await h.admin.query("insert into preparation_heads (package_id, preparation_id, revision) values ('WP-FIG-DESIGN', 'PREP-FIG-DESIGN', 0)");
   // An intake that failed before its capture became a package.
@@ -121,6 +124,8 @@ describe("office figures", () => {
     expect(figure(floor, "WP-FIG-LOST").cause).toMatch(/outcome is unknown/);
     const changed = figure(floor, "WP-FIG-CHANGED");
     expect(changed).toMatchObject({ state: "changed", place: "civil", cause: "Input WP-FIG-DEP moved to revision 1 after the preparation pinned it", marks: { changed_input: "WP-FIG-DEP" } });
+    // Freshness is claimed only where established: a pinned input still at its pinned revision.
+    expect(figure(floor, "WP-FIG-CHANGED").current_inputs).toBeUndefined();
     // Without a pinned baseline the input's freshness is said to be unknown, never guessed changed.
     const unpinned = figure(floor, "WP-FIG-UNPINNED");
     expect(unpinned).toMatchObject({ state: "working", unverified_inputs: ["WP-FIG-DEP"] });
@@ -128,6 +133,8 @@ describe("office figures", () => {
     // A design input the preparation pinned changed, though no dependency edge names it.
     expect(figure(floor, "WP-FIG-DESIGN")).toMatchObject({ state: "changed", marks: { changed_input: "WP-FIG-DEP" } });
     expect(figure(floor, "WP-FIG-DESIGN").unverified_inputs).toBeUndefined();
+    // The other pinned input is still at its pinned revision: freshness established for it alone.
+    expect(figure(floor, "WP-FIG-DESIGN").current_inputs).toEqual(["WP-FIG-WORK"]);
     // An intake that failed before its capture became a package stays on the floor, saying why.
     expect(figure(floor, "CAP-FIG-FAILED")).toMatchObject({ role: "intake", state: "stuck", place: "review", cause: "Intake run failed: the capture names no deliverable" });
     // Held back by a dependency not yet accepted, which is not a wait for a runtime.

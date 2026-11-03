@@ -104,14 +104,21 @@ function Glance({ f, view, actions, failed }: { f: AgentFigure; view: PackageVie
   const step = boardColumn(pkg, Boolean(view.pre_check));
   const lastRun = [...view.runs].sort((a, b) => Date.parse(b.finished_at ?? b.started_at ?? b.queued_at) - Date.parse(a.finished_at ?? a.started_at ?? a.queued_at))[0];
   const checker = [...view.runs].reverse().find((r) => r.role === "pre-check");
-  const sign = actions.find((a) => a.command === "accept") ?? actions.find((a) => a.command === "release");
+  const CHECKER_STATUS: Record<string, string> = { queued: "queued, not started", running: "checking now", succeeded: "finished", failed: "failed", stopped: "stopped", lost: "lost" };
+  // The signature this rung opens: release for a draft, acceptance once the work is in verification.
+  const gate = pkg.status === "draft" ? "release" : pkg.status === "in-verification" ? "accept" : null;
+  const sign = gate ? actions.find((a) => a.command === gate) : undefined;
   const independence = view.pre_check ? independenceText(view.pre_check) : null;
   const interfaces = (pkg.interfaces?.consumes?.length ?? 0) + (pkg.interfaces?.exports?.length ?? 0);
-  const inputs = f.marks.changed_input
-    ? `Input ${f.marks.changed_input} changed since the preparation pinned it`
-    : f.unverified_inputs?.length
-      ? `Freshness unknown for ${f.unverified_inputs.join(", ")}: no preparation pinned the revision it used`
-      : "Every pinned input is current";
+  // Only what is established: a changed or current pinned package input, or an input whose freshness
+  // is unknown. Documents and other sources are not compared here, and the card says so.
+  const inputs = [
+    f.marks.changed_input && `Input ${f.marks.changed_input} changed since the preparation pinned it.`,
+    f.current_inputs?.length && `Current as pinned: ${f.current_inputs.join(", ")}.`,
+    f.unverified_inputs?.length && `Freshness unknown for ${f.unverified_inputs.join(", ")}: no preparation pinned the revision it used.`,
+    !f.marks.changed_input && !f.current_inputs?.length && !f.unverified_inputs?.length && "No package input revisions were pinned, so freshness is not established.",
+    "Documents and other sources are not compared here.",
+  ].filter(Boolean).join(" ");
   return (
     <dl className="office-glance">
       <dt>Rung</dt>
@@ -131,7 +138,10 @@ function Glance({ f, view, actions, failed }: { f: AgentFigure; view: PackageVie
         {pkg.grade ? `, ${GRADE[pkg.grade] ?? pkg.grade}` : ""}
       </dd>
       <dt>Checker</dt>
-      <dd>{checker ? `${checker.agent_baseline} on ${checker.runtime.provider}` : "No pre-check has run yet"}</dd>
+      <dd>
+        {checker ? `${checker.agent_baseline} on ${checker.runtime.provider}, ${CHECKER_STATUS[checker.status] ?? checker.status}` : "No pre-check run is recorded"}
+        {view.pre_check ? `; recorded pre-check outcome: ${view.pre_check.outcome}` : ""}
+      </dd>
       {independence && (
         <>
           <dt>Independence</dt>
@@ -141,7 +151,7 @@ function Glance({ f, view, actions, failed }: { f: AgentFigure; view: PackageVie
       <dt>Signer</dt>
       <dd>
         {!sign
-          ? "No signature is open on this package now."
+          ? "No signature is open at this rung."
           : sign.allowed
             ? `You may ${sign.label.toLowerCase()} it.`
             : `You may not ${sign.label.toLowerCase()} it: ${sign.reason ?? "refused"}${sign.missing?.length ? ` (missing: ${sign.missing.join(", ")})` : ""}.`}

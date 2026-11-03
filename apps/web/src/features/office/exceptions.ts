@@ -11,8 +11,11 @@ import type { RegionId } from "./layout.js";
 /** Past this many agents the floor becomes an exceptions overlay. */
 export const EXCEPTIONS_AT = 40;
 
-/** Healthy work: an agent working, with no input changed under it and no gate decision waiting. */
-export const isHealthy = (f: AgentFigure) => f.state === "working" && !f.marks.changed_input && !f.marks.gate;
+/**
+ * Healthy work: an agent working, with no input changed under it, no input whose freshness is
+ * unknown and no gate decision waiting. Anything less stays drawn.
+ */
+export const isHealthy = (f: AgentFigure) => f.state === "working" && !f.marks.changed_input && !f.unverified_inputs?.length && !f.marks.gate;
 
 export interface ExceptionsView {
   /** Whether the floor is folding healthy work now. */

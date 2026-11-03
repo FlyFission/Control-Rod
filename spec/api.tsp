@@ -461,6 +461,9 @@ model AgentFigure {
   /** Recorded inputs whose freshness is unknown, because no preparation basis pinned their revision. */
   unverified_inputs?: string[];
 
+  /** Package inputs the preparation pinned that are still at the pinned revision: freshness established. */
+  current_inputs?: string[];
+
   /** The nearest gate, for the Gate lens. */
   gate_stage: "release" | "in-work" | "pre-check" | "accept" | "settled";
 

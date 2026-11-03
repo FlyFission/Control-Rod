@@ -207,6 +207,23 @@ test.describe("office theme quality harness", () => {
     expect(has(r.failures, /(gate|changed) mark of f\d+ is drawn at best/)).toBe(true);
     expect(has(r.failures, /loop count of f\d+ text is drawn at best/)).toBe(true);
 
+    // A mark chip that lets the art through.
+    r = await broken("harness-bright", ".office-figure-mark { background: transparent !important }");
+    expect(has(r.failures, /mark of f\d+ is drawn on rgb/)).toBe(true);
+    // A substituted symbol: a block in place of the gate flag.
+    r = await broken("standard-office", "", () => {
+      for (const svg of document.querySelectorAll('.office-flag[data-mark="gate"]')) svg.innerHTML = '<rect x="3" y="3" width="4" height="4" style="fill: #e8f0f8"/>';
+    });
+    expect(has(r.failures, /gate mark of f\d+ (is drawn as a|has too little ink)/)).toBe(true);
+    // A Safety ring hidden: the figure's outer edge is then not drawn.
+    r = await broken("standard-office", ".office-figure-safety { visibility: hidden !important }");
+    expect(has(r.failures, /(Safety ring of f\d+ edge is|figure f\d+ meets the scene along only)/)).toBe(true);
+    // A lens that asked for a grey but drew the state colour.
+    r = await broken("standard-office&lens=gate", "", () => {
+      for (const shape of document.querySelectorAll<SVGElement>(".office-figure-mark svg > *")) shape.style.setProperty("fill", "var(--accent)");
+    });
+    expect(has(r.failures, /lens colour of f\d+ is drawn as/)).toBe(true);
+
     // A lens colour too dark to read against the mark chip's plate.
     r = await broken("standard-office&lens=gate", "", () => {
       for (const shape of document.querySelectorAll<SVGElement>(".office-figure-mark svg > *")) shape.style.setProperty("fill", "#1c1d22");
@@ -275,6 +292,20 @@ test.describe("office theme quality harness", () => {
           expect(result.summary.counted.tint, lens).toBe(40);
         }
         measurements[`${theme}/lenses`] = byLens;
+      });
+
+      test("the worst case: every figure carries every mark, at minimum zoom with 40 agents (OV-08)", async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: "reduce" });
+        await open(page, `theme=${theme}&agents=40&zoom=0.8&marks=all`);
+        const drawn = await drawnOf(page);
+        expect(drawn.failures).toEqual([]);
+        expect(drawn.summary.counted).toMatchObject({ safety: 40, flags: 40 });
+        const legible = await page.evaluate(measureLegibility);
+        expect(legible.failures).toEqual([]);
+        // The painted extents, rings and bands included, never meet between neighbours.
+        const painted = await page.evaluate(measurePaintedOverlap);
+        expect(painted).toEqual([]);
+        measurements[`${theme}/all-marks`] = { ...drawn.summary, boxes: legible.boxes };
       });
 
       test("occlusion and pointer interception", async ({ page }) => {
@@ -439,7 +470,7 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
     return { r, g, b };
   };
   const failures: string[] = [];
-  const worst = { tint: Infinity, glyphInk: Infinity, text: Infinity, mark: Infinity, edge: Infinity, inkPerChar: Infinity, edgeCoverage: Infinity, templateMatch: 0, templateMargin: Infinity };
+  const worst = { iconMismatch: 0, tint: Infinity, glyphInk: Infinity, text: Infinity, mark: Infinity, edge: Infinity, inkPerChar: Infinity, edgeCoverage: Infinity, templateMatch: 0, templateMargin: Infinity };
   const counted = { plate: 0, code: 0, mark: 0, outline: 0, body: 0, tint: 0, safety: 0, flags: 0 };
   const shapes: Record<string, string> = {};
 
@@ -517,18 +548,21 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
   const paintOrder = new Map(parts.map((e, i) => [e, (Number.parseInt(getComputedStyle(e).zIndex) || 0) * 100000 + i]));
   const coveredBy = (self: Element, x: number, y: number) =>
     parts.some((e) => {
-      if (e === self || !shown.has(e) || (paintOrder.get(e) ?? 0) < (paintOrder.get(self) ?? 0)) return false;
+      // Each figure is its own stacking context (it is transformed), so only parts of the same figure
+      // (or plates among plates) can cover one another; separate elements are kept apart by the
+      // legibility check. A covering part's own opacity is held by its own plate check.
+      if (e === self || self.closest(".office-figure") !== e.closest(".office-figure")) return false;
+      if (!shown.has(e) || (paintOrder.get(e) ?? 0) < (paintOrder.get(self) ?? 0)) return false;
       const r = e.getBoundingClientRect();
       const round = e.classList.contains("office-figure-mark") || e.classList.contains("office-figure-outline") || e.classList.contains("office-figure-safety");
-      // The covering part's own rings and their anti-aliased fringe (about a pixel more) count: where
-      // they lie, the edge seen is that part's, and its own check measures it. A Safety figure's chip,
-      // pill and code plate carry a dark band outside the light ring, 4px in all.
-      const banded = e.closest("[data-safety]") && !e.classList.contains("office-figure-outline") && !e.classList.contains("office-figure-safety");
-      const g = banded ? 5.25 : 3.25;
+      // The covering part's own 2px ring and its anti-aliased fringe (about a pixel more) count: where
+      // they lie, the edge seen is that part's, and its own check measures it.
+      const g = 3.25;
       const dist = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2));
-      // The Safety ring is a ring: it covers only its own band (4px deep), never the disc it encloses.
+      // The Safety ring is a ring: it covers only its own bands (4px inside its edge, 2px outside),
+      // never the disc it encloses.
       const inside = e.classList.contains("office-figure-safety")
-        ? dist >= r.width / 2 - 4 - 1 && dist <= r.width / 2 + g
+        ? dist >= r.width / 2 - 4 - 1 && dist <= r.width / 2 + 2 + g
         : round ? dist <= r.width / 2 + g : x >= r.left - g && x <= r.right + g && y >= r.top - g && y <= r.bottom + g;
       return inside && !unpainted(x, y);
     });
@@ -632,6 +666,65 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
     return Array.from({ length: w * h }, (_, i) => d[i * 4 + 3]! / 255);
   };
   const EXPECTED: Record<string, string> = { working: "circle", needs: "diamond", waiting: "ring", stuck: "square", changed: "triangle" };
+  /** The marks pill's two symbols, drawn from OfficeStage's own path data at 10px. */
+  const ICONS: Record<string, (g: CanvasRenderingContext2D) => void> = {
+    gate: (g) => {
+      g.lineWidth = 1.5;
+      g.stroke(new Path2D("M2 1v8.5"));
+      g.fill(new Path2D("M2.5 1.2h6l-1.6 2.2 1.6 2.2h-6z"));
+    },
+    changed: (g) => {
+      g.lineWidth = 1.6;
+      g.lineJoin = "round";
+      g.stroke(new Path2D("M5 1.2 9 8.6H1z"));
+    },
+  };
+  /** Midway between measurements: real symbols match within 0.21 with ink 27 to 31; a substituted block matches at 0.65 or worse with ink 14. */
+  const ICON_TOLERANCE = 0.43;
+  const ICON_MIN_INK = 20;
+  const classifyIcon = (ir: DOMRect, bg: RGB) => {
+    // Only the icon's own box: one pixel more reaches the next symbol in the pill.
+    const gx = Math.floor(ir.left), gy = Math.floor(ir.top);
+    const w = Math.ceil(ir.right) - gx, h = Math.ceil(ir.bottom) - gy;
+    const lp = lum(bg);
+    const px: { v: number; l: number }[] = [];
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        const cx = gx + x + 0.5, cy = gy + y + 0.5;
+        // A pixel counts only when its centre lies inside the icon; the next symbol starts a pixel away.
+        const within = cx >= ir.left && cx <= ir.right && cy >= ir.top && cy <= ir.bottom;
+        const c = within ? at(fullImg, cx, cy) : null;
+        px.push({ v: 0, l: c && owned(cx, cy) ? lum(c) : lp });
+      }
+    const lm = Math.max(...px.map((p) => p.l));
+    for (const p of px) p.v = lm - lp < 0.05 ? 0 : Math.min(1, Math.max(0, (p.l - lp) / (lm - lp)));
+    const ink = px.reduce((n, p) => n + p.v, 0);
+    const scores = Object.keys(ICONS).map((name) => {
+      let mismatch = Infinity;
+      for (const dx of [-0.5, -0.25, 0, 0.25, 0.5])
+        for (const dy of [-0.5, -0.25, 0, 0.25, 0.5]) {
+          const cv = document.createElement("canvas");
+          cv.width = w;
+          cv.height = h;
+          const g = cv.getContext("2d")!;
+          g.fillStyle = "#fff";
+          g.strokeStyle = "#fff";
+          g.translate(ir.left + dx - gx, ir.top + dy - gy);
+          ICONS[name]!(g);
+          const d = g.getImageData(0, 0, w, h).data;
+          let diff = 0, union = 0;
+          px.forEach((p, i) => {
+            const t = d[i * 4 + 3]! / 255;
+            diff += Math.abs(p.v - t);
+            union += Math.max(p.v, t);
+          });
+          mismatch = Math.min(mismatch, diff / Math.max(1, union));
+        }
+      return { name, mismatch };
+    }).sort((a, b) => a.mismatch - b.mismatch);
+    const two = (n: number) => Math.round(n * 100) / 100;
+    return { shape: scores[0]!.name, mismatch: two(scores[0]!.mismatch), ink: two(ink) };
+  };
   /**
    * Below this mismatch a drawn mark is its template. Measured: real marks at most 0.21 (the thin
    * ring; filled shapes 0.10 or less); a hollow square in place of the ring 0.44; fragments 0.70 or more.
@@ -723,7 +816,7 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
     edgeCheck(`mark of ${id}`, mark, true, 2);
     counted.mark++;
     // The outline is a 2px dark border with the body art inside it. A Safety ring encloses it, so
-    // then the figure's edge against the scene is the Safety ring's: light, dark and light, 6px deep.
+    // then the figure's edge against the scene is the Safety ring's: dark, light and dark again.
     const outline = f.querySelector(".office-figure-outline")!;
     const safety = f.querySelector(".office-figure-safety");
     if (safety) {
@@ -737,11 +830,19 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
       const fr = flags.getBoundingClientRect();
       const pillBg = drawnPlate(`marks pill of ${id}`, fr, 1);
       for (const icon of flags.querySelectorAll("svg")) {
+        const kind = icon.getAttribute("data-mark")!;
         const ir = icon.getBoundingClientRect();
         const rs = pixelsIn(fullImg, ir.left, ir.top, ir.right, ir.bottom).filter((q) => owned(q.x, q.y)).map((q) => ratio(q.c, pillBg)).sort((a, b) => b - a);
         const c = rs[3] ?? 1;
         worst.mark = Math.min(worst.mark, c);
-        if (c < 3) failures.push(`${icon.getAttribute("data-mark")} mark of ${id} is drawn at best ${c.toFixed(2)}:1 on its plate, under 3:1`);
+        if (c < 3) failures.push(`${kind} mark of ${id} is drawn at best ${c.toFixed(2)}:1 on its plate, under 3:1`);
+        else {
+          // Its geometry, matched against the flag and the triangle drawn from the same path data.
+          const seen = classifyIcon(ir, pillBg);
+          if (seen.ink < ICON_MIN_INK) failures.push(`${kind} mark of ${id} has too little ink to read: ${seen.ink.toFixed(1)}`);
+          else if (seen.shape !== kind || seen.mismatch > ICON_TOLERANCE) failures.push(`${kind} mark of ${id} is drawn as a ${seen.shape} ${JSON.stringify(seen)}`);
+          else worst.iconMismatch = Math.max(worst.iconMismatch, seen.mismatch);
+        }
       }
       const loop = flags.querySelector(".office-loop");
       if (loop) textCheck(`loop count of ${id}`, loop, pillBg);
@@ -750,11 +851,16 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
     }
     // A lens recolours the state shape (OV-07): the drawn shape must be the lens colour, which its
     // ink check above already holds to 3:1 against the chip's plate.
-    if (f.getAttribute("data-tint")) {
-      const shape = mark.querySelector("svg circle, svg rect, svg path")!;
-      const cs = getComputedStyle(shape);
+    const requested = f.getAttribute("data-tint");
+    if (requested) {
+      // The colour the lens asked for, resolved on its own (never read back from the shape it is
+      // meant to have recoloured).
       const expected = (() => {
-        const v = cs.fill && cs.fill !== "none" ? cs.fill : cs.stroke;
+        const probe = document.createElement("span");
+        probe.style.color = requested;
+        document.body.append(probe);
+        const v = getComputedStyle(probe).color;
+        probe.remove();
         const m = v.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
         return m ? { r: +m[1]!, g: +m[2]!, b: +m[3]! } : null;
       })();
@@ -763,6 +869,14 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
       if (!expected || !drawn || !close(drawn, expected, 12)) failures.push(`lens colour of ${id} is drawn as ${drawn ? `rgb(${drawn.r},${drawn.g},${drawn.b})` : "nothing"}, not rgb(${expected?.r},${expected?.g},${expected?.b})`);
       else worst.tint = Math.min(worst.tint, ratio(drawn, markBg));
       counted.tint++;
+    }
+    {
+      // Measured, the most covered figures keep about a fifth of their edges against the scene; a
+      // figure with none measured at all is never passed.
+      const coverage = pool.total ? pool.measured / pool.total : 0;
+      worst.edgeCoverage = Math.min(worst.edgeCoverage, coverage);
+      if (pool.measured === 0 || coverage < 0.15) failures.push(`figure ${id} meets the scene along only ${Math.round(coverage * 100)}% of its edges`);
+      pool = null;
     }
     // The body paints nothing outside the silhouette the outline encloses (its inner radius): within
     // the body image's own box, outside that circle, the scene with bodies matches the scene without.
@@ -794,6 +908,7 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
       worstEdgeRatio: round(worst.edge),
       worstEdgeCoverage: round(worst.edgeCoverage),
       worstTemplateMismatch: round(worst.templateMatch),
+      worstIconMismatch: round(worst.iconMismatch),
       smallestTemplateMargin: round(worst.templateMargin),
     },
   };
@@ -903,4 +1018,26 @@ function measureLegibility() {
   const smallest = { name: Math.min(...sizes(".office-plate-name")), label: Math.min(...sizes(".office-plate-label")), code: Math.min(...sizes(".office-figure-code")) };
   if (smallest.name < 12 || smallest.label < 11 || smallest.code < 10) failures.push(`text is too small: ${JSON.stringify(smallest)}`);
   return { failures, boxes: boxes.length, smallest };
+}
+
+/** Runs in the page: no two figures' painted extents (rings and bands included) meet. */
+function measurePaintedOverlap() {
+  const failures: string[] = [];
+  // Every part paints 2px outside its box: a light ring, or for the Safety ring (whose light band is
+  // a border inside its box) its outer dark band.
+  const outer = (_e: Element) => 2;
+  const boxes = [...document.querySelectorAll(".office-figure")].map((f) => {
+    const rs = [...f.querySelectorAll(".office-figure-outline, .office-figure-safety, .office-figure-flags, .office-figure-mark, .office-figure-code")].map((e) => {
+      const r = e.getBoundingClientRect();
+      const o = outer(e);
+      return { l: r.left - o, t: r.top - o, r: r.right + o, b: r.bottom + o };
+    });
+    return { name: f.getAttribute("data-figure"), l: Math.min(...rs.map((r) => r.l)), t: Math.min(...rs.map((r) => r.t)), r: Math.max(...rs.map((r) => r.r)), b: Math.max(...rs.map((r) => r.b)) };
+  });
+  for (let i = 0; i < boxes.length; i++)
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i]!, c = boxes[j]!;
+      if (a.l < c.r && c.l < a.r && a.t < c.b && c.t < a.b) failures.push(`figure ${a.name} paints into figure ${c.name}`);
+    }
+  return failures;
 }

@@ -196,6 +196,19 @@ export function TechnicalPlanEditor({
               </label>
             ))}
           </fieldset>
+          <button
+            type="button"
+            className="btn ghost small"
+            onClick={() =>
+              change((d) => {
+                // A check no longer needed is retired, and every criterion stops pointing at it.
+                const [gone] = d.technical_plan.checks.splice(i, 1);
+                for (const criterion of d.criteria) criterion.verification_check_ids = criterion.verification_check_ids.filter((id) => id !== gone?.id);
+              })
+            }
+          >
+            Retire check {i + 1}
+          </button>
         </div>
       ))}
       <button

@@ -474,9 +474,13 @@ async function appendEdit(
       "retired-id",
       "Retired requirement and criterion IDs cannot be reused.",
     );
-  // Identity, status, assignments and metadata stay server-owned.
+  // Identity, status, assignments and metadata stay server-owned. The contract's optional fields
+  // are the contract's to set or clear: one the edit omits is removed from the package, not kept
+  // from before (otherwise the package and the snapshot diverge).
+  const base: Record<string, unknown> = { ...p.body };
+  for (const k of ["exclusions", "assumptions", "codes_and_standards", "methodology"]) delete base[k];
   const pkg = {
-    ...p.body,
+    ...base,
     ...content.package_contract,
     acceptance_criteria: content.criteria.map((v) => v.statement),
   } as WorkPackage;

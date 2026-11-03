@@ -106,6 +106,17 @@ describe("immutable preparation storage", () => {
     ).rows[0].body;
     expect(stored.objective).toBe(a.package_contract.objective);
     expect(stored.acceptance_criteria).toEqual(["New controlled criterion"]);
+    // An optional contract field the edit sets, then omits, is removed from the package too, so the
+    // package and the snapshot never diverge.
+    a = preparationContent(v.snapshot);
+    a.package_contract.exclusions = ["Seismic analysis"];
+    v = await editPreparation(h.db, cfg, "owner", p.id, a, etag(v));
+    expect((await h.db.query("select body from packages where id=$1", [p.id])).rows[0].body.exclusions).toEqual(["Seismic analysis"]);
+    a = preparationContent(v.snapshot);
+    delete a.package_contract.exclusions;
+    v = await editPreparation(h.db, cfg, "owner", p.id, a, etag(v));
+    expect((await h.db.query("select body from packages where id=$1", [p.id])).rows[0].body).not.toHaveProperty("exclusions");
+    expect(v.blockers.map((b: { code: string }) => b.code)).not.toContain("contract-diverged");
     a = preparationContent(v.snapshot);
     const removed = a.requirements.pop()!;
     v = await editPreparation(h.db, cfg, "owner", p.id, a, etag(v));

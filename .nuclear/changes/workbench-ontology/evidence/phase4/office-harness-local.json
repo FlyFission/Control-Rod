@@ -1,0 +1,66 @@
+{
+  "harness-bright/contrast": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40
+    },
+    "worstTextRatio": 12.65,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.16
+  },
+  "harness-bright/frames": {
+    "frames": 120,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 27
+  },
+  "harness-bright/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "harness-bright/motion": {
+    "animationsInFullMotion": 15,
+    "animationsReduced": 0
+  },
+  "harness-bright/occlusion": {
+    "parts": 133,
+    "openFloorProbes": 281
+  },
+  "standard-office/contrast": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40
+    },
+    "worstTextRatio": 12.65,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.2
+  },
+  "standard-office/frames": {
+    "frames": 120,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 28
+  },
+  "standard-office/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "standard-office/motion": {
+    "animationsInFullMotion": 15,
+    "animationsReduced": 0
+  },
+  "standard-office/occlusion": {
+    "parts": 133,
+    "openFloorProbes": 280
+  }
+}

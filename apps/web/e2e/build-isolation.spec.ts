@@ -31,12 +31,19 @@ test.describe("build output isolation", () => {
       build(outDir, true);
       expect(existsSync(join(outDir, "themes.html"))).toBe(true);
       expect(existsSync(join(outDir, "floor-themes"))).toBe(true);
+      expect(existsSync(join(outDir, "office-harness.html"))).toBe(true);
+      expect(existsSync(join(outDir, "office-themes", "harness-bright"))).toBe(true);
 
       build(outDir, false);
       const files = inventory(outDir);
       expect(files).not.toContain("themes.html");
       expect(files.some((f) => f.startsWith("floor-themes"))).toBe(false);
       expect(files.some((f) => /^assets\/themes-.*\.js$/.test(f))).toBe(false);
+      // The office harness and the structural test theme are draft only; the released theme ships.
+      expect(files).not.toContain("office-harness.html");
+      expect(files.some((f) => /^assets\/officeHarness-.*\.js$/.test(f))).toBe(false);
+      expect(files.some((f) => f.startsWith("office-themes/harness-bright"))).toBe(false);
+      expect(files.some((f) => f.startsWith("office-themes/standard-office/"))).toBe(true);
     } finally {
       rmSync(outDir, { recursive: true, force: true });
     }

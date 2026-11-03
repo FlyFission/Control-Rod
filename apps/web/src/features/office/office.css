@@ -1,0 +1,146 @@
+/*
+ * The office stage. The scene layer sits below the semantic layer with fixed stacking; nothing in it
+ * takes a pointer. Every semantic element sits on an opaque dark plate inside a light outer ring, so
+ * whatever colour a theme paints beneath, one of the two meets 3:1 against it (the quality harness
+ * measures this over every region of every theme). Text sizes are fixed pixels: zoom moves figures
+ * apart, never shrinks what a reader must read.
+ */
+.office-stage {
+  --office-plate: #0a0a0c;
+  --office-ring: #e8f0f8;
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  /* Minimum zoom: 0.8 of the layout canvas. Below this the stage scrolls instead of shrinking. */
+  min-width: 960px;
+  font-family: var(--sans, system-ui);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.office-scene,
+.office-semantic {
+  position: absolute;
+  inset: 0;
+}
+.office-scene {
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+}
+.office-scene * {
+  pointer-events: none;
+}
+.office-scene-art {
+  position: absolute;
+  display: block;
+}
+.office-scene-body {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+}
+.office-semantic {
+  z-index: 1;
+}
+.office-region {
+  position: absolute;
+  pointer-events: none;
+}
+.office-plate {
+  position: absolute;
+  /* The region lets pointers through; its plate is semantic and stays the topmost thing. */
+  pointer-events: auto;
+  top: 3px;
+  left: 4px;
+  max-width: calc(100% - 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 3px 7px 4px;
+  border-radius: 6px;
+  background: var(--office-plate);
+  box-shadow: 0 0 0 1.5px var(--office-ring);
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.office-plate-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text, #e8f0f8);
+}
+.office-plate-label {
+  font-size: 11px;
+  color: var(--text-2, #c5d0dc);
+}
+.office-figure {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transform: translate(-50%, -16px);
+}
+.office-figure-outline {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--office-plate);
+  box-shadow: 0 0 0 1.5px var(--office-ring);
+}
+.office-figure-mark {
+  position: absolute;
+  top: 17px;
+  left: calc(50% + 6px);
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--office-plate);
+  box-shadow: 0 0 0 1.5px var(--office-ring);
+}
+.office-figure-mark .state-mark {
+  display: block;
+}
+.office-figure-code {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--text, #e8f0f8);
+  background: var(--office-plate);
+  box-shadow: 0 0 0 1px var(--office-ring);
+  white-space: nowrap;
+}
+.office-figure:focus-visible {
+  outline: none;
+}
+.office-figure:focus-visible .office-figure-outline,
+.office-figure[aria-pressed="true"] .office-figure-outline {
+  border-color: var(--accent, #00f2ff);
+}
+.office-figure[data-state="working"] .office-figure-outline {
+  animation: office-pulse 2.4s ease-in-out infinite;
+}
+@keyframes office-pulse {
+  50% {
+    box-shadow: 0 0 0 3px var(--office-ring);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .office-figure[data-state="working"] .office-figure-outline {
+    animation: none;
+  }
+}

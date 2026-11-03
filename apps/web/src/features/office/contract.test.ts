@@ -1,0 +1,102 @@
+import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { type OfficeThemeV1, validateSvg, validateTheme } from "./contract.js";
+import { REGION } from "./layout.js";
+import bright from "./themes/harness-bright.js";
+import standard from "./themes/standard-office.js";
+import released from "./themes/released.json";
+import { OFFICE_THEMES, releasedOfficeThemes } from "./registry.js";
+import { renderAll } from "../../../scripts/build-office-themes.ts";
+
+/** The office theme contract and validator (plan tasks 4.2 and 4.4; specification 18). */
+
+const PUBLIC = join(__dirname, "../../../public");
+const read = async (path: string) => {
+  try {
+    return new Uint8Array(readFileSync(join(PUBLIC, path)));
+  } catch {
+    return null;
+  }
+};
+const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+const size = { width: REGION.review.w, height: REGION.review.h };
+const ok = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size.width} ${size.height}"><rect x="0" y="0" width="10" height="10" fill="#123456"/></svg>`;
+
+describe("themes", () => {
+  it("passes for the default theme and the structurally different test theme, files and digests included", async () => {
+    expect(await validateTheme(standard, read, sha)).toEqual([]);
+    expect(await validateTheme(bright, read, sha)).toEqual([]);
+    expect(standard.availability).toBe("released");
+    // Structurally different: other tokens, other body count, every region's art distinct.
+    expect(bright.tokens.floor).not.toBe(standard.tokens.floor);
+    expect(bright.bodies.length).not.toBe(standard.bodies.length);
+    expect(bright.regions.review.art?.sha256).not.toBe(standard.regions.review.art?.sha256);
+  });
+
+  it("refuses a theme that adds fields, moves a region, sets a semantic colour or skips a region", async () => {
+    const extra = { ...standard, marks: { needs: "#ff0000" } } as unknown as OfficeThemeV1;
+    expect(await validateTheme(extra)).toContain("the theme has an unknown field marks");
+    const semantic = { ...standard, tokens: { ...standard.tokens, needs: "#ff0000" } } as unknown as OfficeThemeV1;
+    expect(await validateTheme(semantic)).toContain("the token needs is not a scene token");
+    const resized = { ...standard, regions: { ...standard.regions, review: { ...standard.regions.review, art: { ...standard.regions.review.art!, width: 999 } } } };
+    expect((await validateTheme(resized)).some((p) => p.startsWith("review art is 999 by"))).toBe(true);
+    const renamed = { ...standard, regions: { ...standard.regions, review: { ...standard.regions.review, name: "Approvals" } } } as unknown as OfficeThemeV1;
+    expect(await validateTheme(renamed)).toContain("review carries name; a region holds only a label and art");
+    const { quarantine: _q, ...rest } = standard.regions;
+    expect(await validateTheme({ ...standard, regions: rest } as unknown as OfficeThemeV1)).toContain("the theme has nothing for quarantine");
+  });
+
+  it("catches an asset whose bytes do not match its digest", async () => {
+    const swapped = async (path: string) => (path === standard.regions.bench.art!.path ? new TextEncoder().encode(ok) : read(path));
+    const problems = await validateTheme(standard, swapped, sha);
+    expect(problems).toContain("bench art does not match its declared digest");
+  });
+});
+
+describe("generated files", () => {
+  it("match what the generator renders now, with nothing extra in the theme folders", () => {
+    const web = join(__dirname, "../../..");
+    const rendered = renderAll();
+    for (const [path, text] of rendered) expect(readFileSync(join(web, path), "utf8"), `${path} is stale; run scripts/build-office-themes.ts`).toBe(text);
+    for (const t of OFFICE_THEMES)
+      for (const f of readdirSync(join(PUBLIC, "office-themes", t.id))) expect(rendered.has(`public/office-themes/${t.id}/${f}`), `${t.id}/${f} is not generated`).toBe(true);
+  });
+});
+
+describe("registry", () => {
+  it("ships exactly the released themes, and the build reads the same list", () => {
+    expect(releasedOfficeThemes().map((t) => t.id)).toEqual(released);
+    expect(released).toEqual(["standard-office"]);
+    expect(new Set(OFFICE_THEMES.map((t) => t.id)).size).toBe(OFFICE_THEMES.length);
+  });
+});
+
+describe("SVG allowlist", () => {
+  it("accepts plain shapes and gradients sized to the region", () => {
+    expect(validateSvg(ok, size, "art")).toEqual([]);
+    const gradient = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size.width} ${size.height}"><defs><linearGradient id="a"><stop offset="0" stop-color="#ffffff"/></linearGradient></defs><rect width="5" height="5" fill="url(#a)"/></svg>`;
+    expect(validateSvg(gradient, size, "art")).toEqual([]);
+  });
+
+  it.each([
+    ["a script", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><script>alert(1)</script></svg>`, "uses the element <script>"],
+    ["an event handler", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect onclick="x()" width="1" height="1"/></svg>`, "uses the attribute onclick"],
+    ["an external link", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><image href="https://example.com/a.png"/></svg>`, "uses the element <image>"],
+    ["a use reference", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><use href="#a"/></svg>`, "uses the element <use>"],
+    ["a foreign object", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><foreignObject/></svg>`, "uses the element <foreignObject>"],
+    ["a style element", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><style>*{}</style></svg>`, "uses the element <style>"],
+    ["a style attribute", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect style="fill:red" width="1" height="1"/></svg>`, "uses the attribute style"],
+    ["a filter", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><filter id="f"/></svg>`, "uses the element <filter>"],
+    ["an animation", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect width="1" height="1"><animate attributeName="x"/></rect></svg>`, "uses the element <animate>"],
+    ["text", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><text>Approve</text></svg>`, "uses the element <text>"],
+    ["an external paint", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect fill="url(https://x/y#a)" width="1" height="1"/></svg>`, "paints with"],
+    ["a named colour", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect fill="currentColor" width="1" height="1"/></svg>`, "paints with"],
+    ["an entity", `<!DOCTYPE svg [<!ENTITY x "y">]><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"/>`, "declares a doctype"],
+    ["art larger than its region", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 400 400"><rect width="1" height="1"/></svg>`, "has the view box"],
+    ["an unquoted attribute", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect width=1 height="1"/></svg>`, "without a quoted value"],
+  ])("refuses %s", (_name, text, problem) => {
+    expect(validateSvg(text, size, "art").some((p) => p.includes(problem))).toBe(true);
+  });
+});

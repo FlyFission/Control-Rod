@@ -1,0 +1,20 @@
+1. **P2 — Rollback accepts an unnamed role and silently selects intake.** [runtimes.ts:115](/home/flyfission/worktrees/control-rod-phase0/services/api/src/runtimes.ts:115) calls `rolesFor(r.role)[0]`; `rolesFor(undefined)` returns all roles, making the selected role `intake`. I reproduced `{runtime:"claude", roles:[{current:B, restore:A}]}` creating an intake pin. The signature therefore need not explicitly name the role changed. **Fix:** require every entry’s `role` to be an allowed string before executing anything. Test omitted, null, and invalid roles, asserting no pins change.
+
+2. **P2 — The displayed rollback target can differ from the command’s selection.** [roster.ts:33](/home/flyfission/worktrees/control-rod-phase0/services/api/src/roster.ts:33) orders history by `recorded_at, id` and reverses it, whereas [runtimes.ts:98](/home/flyfission/worktrees/control-rod-phase0/services/api/src/runtimes.ts:98) orders only by `recorded_at DESC`. Equal timestamps leave the command’s choice unspecified. With different retired artifacts tied, an unchanged roster can receive `pin-changed`. The digest comparison prevents restoring the unreviewed artifact, but the advertised operation can fail indefinitely. **Fix:** share one target-selection implementation with identical deterministic ordering. Add tied-timestamp history coverage comparing the displayed target with the executed rollback.
+
+3. **P2 — The isolation regression test can pass without a successful roster response.** [runtimes.test.ts:198](/home/flyfission/worktrees/control-rod-phase0/services/api/test/runtimes.test.ts:198) checks only that foreign strings are absent; a generic error response satisfies those assertions. Despite its comment, the fixture also inserts no sandbox policy. At [line 186](/home/flyfission/worktrees/control-rod-phase0/services/api/test/runtimes.test.ts:186), `session_replication_role = replica` disables ordinary triggers, including foreign-key enforcement, so successful fixture insertion does not establish normal ownership/integrity behavior. Its transaction-local scope does correctly end at commit. **Fix:** assert HTTP 200, expected response structure, and visible local records; add a foreign policy and assert its exclusion. Seed with normal constraints enabled, bypassing only the ownership assignment if necessary.
+
+The six original findings are addressed as follows:
+
+- **Bound, atomic rollback:** both digests are displayed and signed; execution checks both under the organization’s administrative lock and transaction. The later-role failure test exercises rollback of earlier writes. The stale test covers a wrong restore digest, but does not actually change pins between viewing and execution. Findings 1–2 above remain.
+- **Organization scoping:** `/roster` resolves the caller’s organization; pins, probes, policies, and both run queries are scoped correctly. Test limitations remain as described above.
+- **Sandbox wording:** now identifies requests and explicitly leaves achieved isolation unverified; unknown strings are preserved.
+- **Latest finished run:** selection uses finish time and an ID tie-breaker, retaining runs without traces. The new test covers reversed completion order and missing evidence.
+- **Pin wording:** correctly limits the promise to runs using the named runtime, with UI assertions.
+- **Ledger:** now cites daemon artifact-launch tests and the API rollback failure test appropriately.
+
+I found no remaining production caller sending the old rollback payload. The roster sends the new shape; the palette only navigates; the old test payload deliberately verifies rejection.
+
+`git diff --check` passed. API tests could not create their PostgreSQL temporary directory; UI tests could not write Vite’s temporary configuration. Neither suite passed in this read-only environment.
+
+REVISE

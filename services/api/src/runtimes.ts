@@ -95,7 +95,7 @@ export async function pinRuntime(c: Tx, orgId: string, p: Json, actor: Actor) {
 export async function rollbackTarget(q: Db | Tx, runtime: string, role: string, current: Json): Promise<Json | null> {
   return (await q.query<{ body: Json }>(
     `select body from runtime_pins where body->>'runtime' = $1 and body->>'role' = $2 and body->>'status' = 'retired'
-       and body->'artifact_digest'->>'value' <> $3 and body->>'org_id' = $4 order by recorded_at desc limit 1`,
+       and body->'artifact_digest'->>'value' <> $3 and body->>'org_id' = $4 order by recorded_at desc, body->>'id' desc limit 1`,
     [runtime, role, current.artifact_digest.value, current.org_id])).rows[0]?.body ?? null;
 }
 
@@ -112,7 +112,10 @@ export async function rollbackRuntime(c: Tx, orgId: string, p: Json, actor: Acto
   const hex = (v: unknown) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
   if (!roles.length || roles.some((r: Json) => !r || !hex(r.current) || !hex(r.restore)))
     throw new Refusal(400, "invalid", "roles must list each role with the artifact pinned now (current) and the one to restore (restore)");
-  const named = roles.map((r: Json) => rolesFor(r.role)[0]!);
+  // Every entry names its role: an unnamed one must never fall back to some default role.
+  if (roles.some((r: Json) => typeof r.role !== "string" || !(ROLES as readonly string[]).includes(r.role)))
+    throw new Refusal(400, "invalid", "each rollback names its role: intake, author or pre-check");
+  const named: string[] = roles.map((r: Json) => r.role);
   if (new Set(named).size !== named.length) throw new Refusal(400, "invalid", "each role is named once");
   const out: Json[] = [];
   for (const [i, role] of named.entries()) {

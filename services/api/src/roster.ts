@@ -1,5 +1,5 @@
 import type { Db } from "./db/index.js";
-import { PINNABLE } from "./runtimes.js";
+import { PINNABLE, rollbackTarget } from "./runtimes.js";
 
 /**
  * The Roster (workbench specification 12 and 21; plan task 5.1): who does the work and with what.
@@ -37,6 +37,14 @@ export async function roster(db: Db, orgId: string) {
        from runs r join object_owners o on o.object_kind = 'run' and o.object_id = r.id
       where o.org_id = $1 group by 1, 2, 3, 4`, [orgId])).rows;
 
+  const targets: { role: string; runtime: string; current: Json; restore: Json }[] = [];
+  for (const pin of active) {
+    if (!PINNABLE.includes(pin.runtime)) continue;
+    const prev = await rollbackTarget(db, pin.runtime, pin.role, pin);
+    if (prev) targets.push({ role: pin.role, runtime: pin.runtime, current: pin.artifact_digest, restore: prev.artifact_digest });
+  }
+  targets.sort((a, b) => a.runtime.localeCompare(b.runtime));
+
   const roles = ROLES.map((r) => {
     const mine = runs.filter((x) => x.role === r.role);
     // Each runtime and baseline pair that has run this role; a role nothing has run yet names none.
@@ -52,14 +60,9 @@ export async function roster(db: Db, orgId: string) {
       runs: mine.reduce((n, x) => n + x.n, 0),
       ...(last ? { last_run_at: last.toISOString() } : {}),
       pins: active.filter((p) => p.role === r.role),
-      // What a rollback would restore, per runtime: the latest retired pin of a different artifact
-      // (the same choice runtime.rollback makes), so the screen can show it and the signature bind it.
-      rollback: PINNABLE.flatMap((rt) => {
-        const now = active.find((p) => p.role === r.role && p.runtime === rt);
-        if (!now) return [];
-        const prev = [...pins].reverse().find((p) => p.body.status === "retired" && p.body.role === r.role && p.body.runtime === rt && p.body.artifact_digest.value !== now.artifact_digest.value);
-        return prev ? [{ runtime: rt, current: now.artifact_digest, restore: prev.body.artifact_digest }] : [];
-      }),
+      // What a rollback would restore, per runtime: chosen by runtime.rollback's own selection
+      // (rollbackTarget), so the screen shows, and the signature binds, exactly what it would do.
+      rollback: targets.filter((t) => t.role === r.role).map(({ role: _role, ...t }) => t),
     };
   });
 

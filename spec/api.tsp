@@ -468,6 +468,10 @@ model AgentFigure {
   observability?: string;
 
   data_lane: DataLane;
+
+  /** The project that owns the work, for the portfolio rollup; absent for organization level work. */
+  project_id?: string;
+
   href: AttentionTarget;
 }
 

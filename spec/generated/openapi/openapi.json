@@ -4828,6 +4828,10 @@
           "data_lane": {
             "$ref": "#/components/schemas/ControlRod.Records.DataLane"
           },
+          "project_id": {
+            "type": "string",
+            "description": "The project that owns the work, for the portfolio rollup; absent for organization level work."
+          },
           "href": {
             "$ref": "#/components/schemas/AttentionTarget"
           }

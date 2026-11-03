@@ -931,6 +931,8 @@ export interface components {
             /** @description Recorded once a permission wait cannot be observed for this runtime (print mode, plan task 2.9). */
             observability?: string;
             data_lane: components["schemas"]["ControlRod.Records.DataLane"];
+            /** @description The project that owns the work, for the portfolio rollup; absent for organization level work. */
+            project_id?: string;
             href: components["schemas"]["AttentionTarget"];
         };
         ApiError: {

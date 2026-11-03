@@ -9,6 +9,7 @@ import { REGION } from "./layout.js";
 import { LENSES, LENS_COLORS, lensById } from "./lenses.js";
 import { OfficeView } from "./OfficeView.js";
 import { seatFigures, shortCode } from "./seat.js";
+import { exceptionsView, portfolio } from "./exceptions.js";
 
 /** The office view: seating, lenses, presenting mode and the card (plan tasks 4.5 and 4.8; OV-01, OV-07). */
 
@@ -88,7 +89,7 @@ describe("office view", () => {
     expect(await screen.findByText(/1 agent waits on you; 2 more in the Inbox with no agent yet · 2 agents on the floor/)).toBeTruthy();
     const office = screen.getByRole("region", { name: /^Your office:/ });
     expect(office).toBeTruthy();
-    const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Pre-check passed. Review and accept. Status lens: Needs you." });
+    const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Pre-check passed. Review and accept. Marks: a gate decision waits, Safety grade. Status lens: Needs you." });
     await userEvent.click(needs);
     const card = screen.getByRole("complementary", { name: "Selected agent" });
     expect(within(card).getByText("Pre-check passed. Review and accept.")).toBeTruthy();
@@ -127,5 +128,45 @@ describe("office view", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.queryByText(/No agent is working right now/)).toBeNull();
     await waitFor(() => expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy());
+  });
+});
+
+describe("exceptions overlay and portfolio (OV-26)", () => {
+  const many = () => [
+    ...Array.from({ length: 45 }, (_, i) =>
+      figure({ id: `R-w${i}`, package_id: `WP-W${i}`, place: (["process", "mechanical", "electrical"] as const)[i % 3]!, project_id: i % 2 ? "plant-a" : "plant-b" }),
+    ),
+    figure({ id: "R-n", package_id: "WP-N", state: "needs", place: "your-office", cause: "Your signature", project_id: "plant-a" }),
+    figure({ id: "R-s", package_id: "WP-S", state: "stuck", place: "review", cause: "Run failed", project_id: "plant-b" }),
+    figure({ id: "R-g", package_id: "WP-G", marks: { gate: true, safety: false }, project_id: "plant-a" }),
+  ];
+
+  it("folds healthy work past forty agents and keeps every agent needing attention drawn", () => {
+    const v = exceptionsView(many(), false);
+    expect(v.active).toBe(true);
+    expect(v.shown.map((f) => f.id).sort()).toEqual(["R-g", "R-n", "R-s"]);
+    expect(v.folded).toEqual([{ place: "process", count: 15 }, { place: "mechanical", count: 15 }, { place: "electrical", count: 15 }]);
+    expect(exceptionsView(many().slice(0, 40), false).active).toBe(false);
+    expect(exceptionsView(many(), true).shown).toHaveLength(48);
+  });
+
+  it("rolls the portfolio up per project, the ones needing attention first", () => {
+    expect(portfolio(many())).toEqual([
+      { project: "plant-a", agents: 24, needs: 1, stuck: 0 },
+      { project: "plant-b", agents: 24, needs: 0, stuck: 1 },
+    ]);
+  });
+
+  it("shows the folded counts and lets the viewer show everyone", async () => {
+    server.use(http.get("*/office/figures", () => HttpResponse.json({ figures: many(), needs_me: 1, inbox_items: 1, hidden: 0, generated_at: new Date().toISOString() })));
+    await renderPage(<OfficeView />);
+    const folded = await screen.findByRole("list", { name: "Healthy work folded" });
+    expect(within(folded).getByText("Process: 15 working")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^WP-N: Needs you/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^WP-W0: Working/ })).toBeNull();
+    expect(screen.getByRole("table", { name: "Portfolio" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Show everyone" }));
+    expect(screen.getByRole("button", { name: /^WP-W0: Working/ })).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Healthy work folded" })).toBeNull();
   });
 });

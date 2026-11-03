@@ -26,12 +26,31 @@ export interface StageFigure {
   at: Point;
   /** Which of the theme's body styles to draw, by index. */
   body: number;
-  /** The active lens's colour, drawn as a ring inside the dark outline; never a theme's. */
+  /** The active lens's colour for the state shape (the shape never changes); never a theme's. */
   tint?: string;
   /** The full name read aloud and in the tooltip, when the code is shortened. */
   name?: string;
   /** The active lens's value in words, read with the figure. */
   lensNote?: string;
+  /** The marks besides the state shape (OV-08): at most four, so a figure never carries more than five. */
+  marks?: FigureMarks;
+}
+
+export interface FigureMarks {
+  /** A gate decision (release or accept) waits on this package. */
+  gate?: boolean;
+  /** An input changed since the preparation pinned it. */
+  changed?: boolean;
+  /** The run's round, shown past the first. */
+  loop?: number;
+  /** Safety grade work. */
+  safety?: boolean;
+}
+
+/** The marks in words, for the accessible name and the tooltip. */
+export function marksInWords(m: FigureMarks | undefined): string {
+  if (!m) return "";
+  return [m.gate && "a gate decision waits", m.changed && "an input changed", m.loop && m.loop > 1 && `round ${m.loop}`, m.safety && "Safety grade"].filter(Boolean).join(", ");
 }
 
 const pct = (v: number, of: number) => `${(v / of) * 100}%`;
@@ -96,23 +115,50 @@ export function OfficeStage({ theme, figures, selected, onSelect }: OfficeStageP
 function FigureMark({ figure: f, selected, onSelect }: { figure: StageFigure; selected: boolean; onSelect: ((id: string) => void) | undefined }) {
   const label = STATE_INFO[f.state].label;
   const name = f.name ?? f.code;
+  const m = f.marks ?? {};
+  const flags = [m.gate && "gate", m.changed && "changed", m.loop && m.loop > 1 && "loop"].filter(Boolean) as string[];
+  const words = marksInWords(m);
+  const spoken = `${name}: ${label}. ${f.cause}${words ? ` Marks: ${words}.` : ""}${f.lensNote ? ` ${f.lensNote}.` : ""}`;
   return (
     <button
       type="button"
       className="office-figure"
       style={point(f.at)}
       aria-pressed={selected}
-      aria-label={`${name}: ${label}. ${f.cause}${f.lensNote ? ` ${f.lensNote}.` : ""}`}
-      title={`${name}: ${label}. ${f.cause}${f.lensNote ? ` ${f.lensNote}.` : ""}`}
+      aria-label={spoken}
+      title={spoken}
       data-semantic="figure"
       data-state={f.state}
       data-figure={f.id}
       data-region={f.region}
+      data-safety={m.safety ? "" : undefined}
+      data-tint={f.tint}
       onClick={() => onSelect?.(f.id)}
     >
-      <span className="office-figure-outline" aria-hidden="true" style={f.tint ? ({ "--figure-tint": f.tint } as CSSProperties) : undefined} />
+      <span className="office-figure-outline" aria-hidden="true" />
+      {m.safety && <span className="office-figure-safety" aria-hidden="true" data-semantic="safety" />}
+      {flags.length > 0 && (
+        <span className="office-figure-flags" aria-hidden="true" data-semantic="flags">
+          {m.gate && (
+            <svg className="office-flag" data-mark="gate" width="10" height="10" viewBox="0 0 10 10">
+              <path d="M2 1v8.5" style={{ stroke: "var(--text, #e8f0f8)" }} strokeWidth="1.5" fill="none" />
+              <path d="M2.5 1.2h6l-1.6 2.2 1.6 2.2h-6z" style={{ fill: "var(--text, #e8f0f8)" }} />
+            </svg>
+          )}
+          {m.changed && (
+            <svg className="office-flag" data-mark="changed" width="10" height="10" viewBox="0 0 10 10">
+              <path d="M5 1.2 9 8.6H1z" style={{ stroke: "var(--changed, #ffb347)" }} strokeWidth="1.6" strokeLinejoin="round" fill="none" />
+            </svg>
+          )}
+          {m.loop && m.loop > 1 && (
+            <span className="office-loop" data-mark="loop">
+              {m.loop}
+            </span>
+          )}
+        </span>
+      )}
       <span className="office-figure-mark" aria-hidden="true" data-semantic="mark">
-        <StateMark kind={f.state} size={13} title={label} />
+        <StateMark kind={f.state} size={13} title={label} {...(f.tint ? { color: f.tint } : {})} />
       </span>
       <span className="office-figure-code" aria-hidden="true" data-semantic="code">
         {f.code}

@@ -3,10 +3,10 @@ import { STATE_INFO } from "../../components/StateMark.js";
 
 /**
  * Lenses (specification 13; plan task 4.8; OV-07). A lens recolours the same figures and never moves
- * one or changes a state shape. Its colour is drawn as a ring inside the figure's dark outline, so the
- * outline's dark border and light ring keep their contrast over any theme, and every lens colour is
- * checked against that dark border by the quality harness. Lens colours are the application's, never
- * a theme's. Lens scales are neutral greys (specification 17); the Status lens uses the state colours.
+ * one or changes a state shape: it recolours the state shape in the figure's mark chip, which nothing
+ * else on the figure covers, against the chip's opaque dark plate, so every lens colour is checked
+ * there by the quality harness. Lens colours are the application's, never a theme's. Lens scales are
+ * neutral greys (specification 17); the Status lens uses the state colours.
  */
 
 export type LensId = "status" | "gate" | "change" | "spend";
@@ -28,7 +28,7 @@ export interface Lens {
   value: (f: AgentFigure) => string;
 }
 
-/** Four greys, evenly spaced in luminance, each at least 4.5:1 against the dark outline (#0a0a0c). */
+/** Four greys, evenly spaced in luminance, each at least 4.5:1 against the dark plate (#0a0a0c). */
 const GREY = { brightest: "#f3f4f6", bright: "#c7ccd4", mid: "#9aa2ae", dim: "#7b8494" } as const;
 
 const GATE_STEPS: Record<AgentFigure["gate_stage"], LensScaleStep> = {

@@ -23,6 +23,7 @@ export function seatFigures(figures: readonly AgentFigure[], tint: (f: AgentFigu
         return;
       }
       seated.push({ id: f.id, code: shortCode(f.package_id), state: f.state, cause: f.cause, region: place, at, body: bodyIndex(f.id), tint: tint(f), name: f.package_id,
+        marks: { gate: f.marks.gate, changed: Boolean(f.marks.changed_input), ...(f.marks.loop ? { loop: f.marks.loop } : {}), safety: f.marks.safety },
         ...(lens ? { lensNote: `${lens.label} lens: ${lens.value(f)}` } : {}) });
     });
   }

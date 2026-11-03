@@ -97,8 +97,7 @@
   box-sizing: border-box;
   border-radius: 50%;
   border: 2px solid var(--office-plate);
-  /* The lens tint is a ring inside the dark border, so the dark border and light ring stay outermost. */
-  box-shadow: inset 0 0 0 3px var(--figure-tint, transparent), 0 0 0 2px var(--office-ring);
+  box-shadow: 0 0 0 2px var(--office-ring);
 }
 .office-figure-mark {
   /* 2.5px of plate around a 13px state shape, so its dark band survives anti-aliasing. */
@@ -116,6 +115,51 @@
 }
 .office-figure-mark .state-mark {
   display: block;
+}
+/* Safety grade: a second ring outside the outline (light, dark, light), so it reads on any scene.
+   The mark chip, marks pill and code plate lie over it; on a Safety figure each carries a dark band
+   outside its light ring, so where one crosses the Safety ring two light rings never meet. */
+.office-figure-safety {
+  position: absolute;
+  top: -6px;
+  left: calc(50% - 22px);
+  width: 44px;
+  height: 44px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--office-ring);
+  box-shadow: inset 0 0 0 2px var(--office-plate);
+  pointer-events: none;
+}
+/* The marks pill: gate flag, changed input triangle and loop count, on the outline's left. */
+.office-figure-flags {
+  position: absolute;
+  top: -6px;
+  left: calc(50% - 23px);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 14px;
+  padding: 1px 0;
+  box-sizing: border-box;
+  border-radius: 5px;
+  background: var(--office-plate);
+  box-shadow: 0 0 0 2px var(--office-ring);
+}
+.office-flag {
+  display: block;
+  width: 10px;
+  height: 10px;
+}
+.office-loop {
+  display: block;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 10px;
+  color: var(--text, #e8f0f8);
 }
 .office-figure-code {
   /* Tucked up over the outline's foot, so a figure stays within its seat clearance (layout.ts),
@@ -147,7 +191,7 @@
 }
 @keyframes office-pulse {
   50% {
-    box-shadow: inset 0 0 0 3px var(--figure-tint, transparent), 0 0 0 4px var(--office-ring);
+    box-shadow: 0 0 0 4px var(--office-ring);
   }
 }
 /* Motion stops with reduced motion, and while the tab is hidden (the stage marks itself paused). */
@@ -275,3 +319,71 @@
   font-size: 14px;
   margin: 0 0 6px;
 }
+.office-figure[data-safety] .office-figure-mark,
+.office-figure[data-safety] .office-figure-flags,
+.office-figure[data-safety] .office-figure-code {
+  box-shadow: 0 0 0 2px var(--office-ring), 0 0 0 4px var(--office-plate);
+}
+.office-banner p {
+  margin: 0 0 6px;
+}
+.office-folded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.office-portfolio {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.office-portfolio caption {
+  text-align: left;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.office-portfolio th,
+.office-portfolio td {
+  padding: 3px 10px 3px 0;
+  text-align: left;
+}
+.office-glance {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 13px;
+}
+.office-glance dt {
+  color: var(--muted);
+}
+.office-glance dd {
+  margin: 0;
+}
+.office-actions h3 {
+  font-size: 13px;
+  margin: 4px 0;
+}
+.office-actions ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.office-reach {
+  margin-top: 6px;
+}
+.office-unavailable {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.office-unavailable p {
+  margin: 0;
+  flex-basis: 100%;
+}
+

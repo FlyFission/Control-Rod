@@ -9306,6 +9306,10 @@
           "since": {
             "type": "string",
             "format": "date-time"
+          },
+          "scram_id": {
+            "type": "string",
+            "description": "For a run a SCRAM holds: that SCRAM, so a view that must not show its reason knows these words carry it."
           }
         },
         "description": "One entry in your office: something that needs a person."

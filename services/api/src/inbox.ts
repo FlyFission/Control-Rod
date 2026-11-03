@@ -4,7 +4,7 @@ import { ACTION_ROLES, highConsequence, holdsHardwareKey, needsOf, signingGaps }
 import { bindingSentence, plural } from "./binding.js";
 import { pendingConfirmation } from "./preparation/subjects.js";
 import { currentQualification } from "./tenancy.js";
-import { runSubject, scramAttention, scramHolding } from "./scram.js";
+import { runSubject, scramAttention, scramHolding, scramOfHold } from "./scram.js";
 import { type WorkConfig, currentPackage, office, packageActions, subjectOf } from "./work.js";
 
 /**
@@ -113,7 +113,7 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
       const held = await scramHolding(db, await runSubject(db, { role: lastRun?.role ?? "author", package_id: it.package_id }));
       if (held) {
         if (standing.get("scram.restart")?.allowed) mine.push(item);
-        else others.push({ ...item, waiting_on: "a restart after SCRAM", reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
+        else others.push({ ...item, waiting_on: "a restart after SCRAM", scram_id: held.id, reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
         continue;
       }
       // A waiting agent goes to whoever may resolve what holds it.
@@ -153,12 +153,14 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
     if (allowed.length > 0 || requeueable) {
       mine.push({ ...base, decisions: allowed });
     } else if (held && (it.kind === "dispute" || refusedForScram(actions))) {
-      others.push({ ...base, decisions: [], waiting_on: "a restart after SCRAM", reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
+      others.push({ ...base, decisions: [], waiting_on: "a restart after SCRAM", scram_id: held.id, reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
     } else {
       const refused = actions.find((a: Json) => !a.allowed);
       const roles = [...new Set(actions.flatMap((a: Json) => a.authority ?? []))] as string[];
-      others.push({ ...base, decisions: [], waiting_on: refused?.reason_code === "scram-stopped" ? "a restart after SCRAM" : who(roles),
-        ...(refused?.reason ? { reason: refused.reason } : {}) });
+      // A SCRAM refusal names its SCRAM; the item carries it, so a view that must not show its reason knows.
+      const scramId = refused?.reason_code === "scram-stopped" ? (/^SCRAM (\S+) /.exec(String(refused.reason ?? ""))?.[1] ?? "unrecorded") : undefined;
+      others.push({ ...base, decisions: [], waiting_on: scramId ? "a restart after SCRAM" : who(roles),
+        ...(scramId ? { scram_id: scramId } : {}), ...(refused?.reason ? { reason: refused.reason } : {}) });
     }
   }
   // Held intake runs belong to captures, not packages, so the office does not list them.
@@ -170,12 +172,13 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
     const item = {
       kind: "permission", capture_id: r.package_id, title: `Intake: ${first.length > 80 ? `${first.slice(0, 79)}…` : first || r.package_id}`,
       detail: String(r.body.waiting_reason), since: String(r.body.queued_at ?? new Date().toISOString()), risk: gateRisk("permission", undefined),
+      ...scramOfHold(r.body),
       href: r.body.waiting_cause === "runtime-pin" ? { to: "/roster" } : { to: "/packages" },
     };
     const held = await scramHolding(db, { kind: "capture", id: r.package_id });
     if (held) {
       if (standing.get("scram.restart")?.allowed) mine.push(item);
-      else others.push({ ...item, waiting_on: "a restart after SCRAM", reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
+      else others.push({ ...item, waiting_on: "a restart after SCRAM", scram_id: held.id, reason: `SCRAM ${held.id} has stopped this work: ${held.reason}` });
       continue;
     }
     const resolver = await holdResolver(db, cfg, user, r.body, {}, standing, authorities);

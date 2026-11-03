@@ -208,6 +208,7 @@ describe("SCRAM", () => {
 
   it("lists each report's outputs and digests before a disposition, and never widens a draft review to a report that lands mid-draft", async () => {
     const sent: { name: string; body: any }[] = [];
+    const slow: Passkeys = { ...passkeys };
     let batches = [batch(1, [{ name: "calc.md", sha256: digest("a") }])];
     server.use(
       http.get("*/scrams", () => HttpResponse.json({ scrams: [{ scram, run_count: 1, stopped: { ms_to_stop: 900, runs: 1, at: new Date().toISOString() } }] })),
@@ -218,7 +219,7 @@ describe("SCRAM", () => {
         return HttpResponse.json({});
       }),
     );
-    const { qc } = await renderPage(<ScramBanner passkeys={passkeys} />);
+    const { qc } = await renderPage(<ScramBanner passkeys={slow} />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Review and restart" }));
     const reported = await screen.findByRole("list", { name: "What R-1 reported" });
@@ -240,7 +241,13 @@ describe("SCRAM", () => {
     expect((screen.getByRole("radio", { name: "Discard the partial work" }) as HTMLInputElement).checked).toBe(true);
     expect(within(screen.getByRole("list", { name: "What R-1 reported" })).getByText(`sha256:${digest("b")}`)).toBeTruthy();
     await user.type(screen.getByRole("textbox", { name: "What the review found (required)" }), "Both reports discarded");
+    // While the review is being signed, what it says cannot change under it.
+    let release: (v: Record<string, unknown>) => void = () => {};
+    slow.get = () => new Promise((r) => (release = r));
     await user.click(screen.getByRole("button", { name: "Sign the review of reports 1 to 2" }));
+    await waitFor(() => expect(screen.getByRole("radio", { name: "Discard the partial work" }).matches(":disabled")).toBe(true));
+    expect(screen.getByRole("textbox", { name: "What the review found (required)" }).matches(":disabled")).toBe(true);
+    release({ signed: true });
     await waitFor(() => expect(sent.find((s) => s.name === "scram.review")?.body.payload).toEqual({ scram_id: "scr_1", run_id: "R-1", disposition: "discard", reason: "Both reports discarded", covers_batch: 2 }));
   });
 

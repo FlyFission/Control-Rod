@@ -64,3 +64,16 @@ Codex round 3 confirmed the run set decision and the count waiver as sound in pr
 Earlier verification notes said "lint passes". The repository has no lint script (`pnpm lint` is not a command), so nothing was linted; the checks that ran are the type checks (`pnpm typecheck`, all three packages) and the test suites.
 
 Verification: web 217 tests pass; API 537 pass, 1 skipped (pre-existing); `pnpm typecheck` passes; daemon Go tests pass (the Run schema it embeds gained `waiting_key`).
+
+# Round 4
+
+Codex round 4 confirmed the stalled count waiver, the recorded keys (including that `holdRun` updates when only the key changes and that runs with `waiting_key` validate) and the signing freeze, and returned REVISE with two findings. Both are accepted and fixed.
+
+| # | Finding | Disposition |
+|---|---|---|
+| 1 | A restart committing between the floor's Inbox read and its run read could leak the reason while presenting | Fixed with structured provenance rather than prose matching: a SCRAM hold now records `waiting_key: scram:<id>`, every Inbox item made from a SCRAM's words carries `scram_id` (contract `OfficeItem.scram_id`; `AttentionItem.scram_id` already existed), including permission items built from a held run and items refused as `scram-stopped`, and the presenting projection redacts when the run or either Inbox item says so. Reading the whole floor in one repeatable read snapshot was considered; it would mean widening the Inbox's entire call tree (package actions, administrative actions, office, confirmation checks) to take a transaction client, a larger change than this PR should carry. `figures-race.test.ts` reproduces the interleaving (the Inbox answers as before the restart, the run as after) and fails with the guard removed; `scram.test.ts` asserts the recorded key and the Inbox item's `scram_id` |
+| 2 | Unclassified intake holds shared `lane-admission:undefined` | Fixed: the key is recorded only when the capture has a lane. `disclosure.test.ts` queues two legacy intakes on unclassified captures and asserts neither records a key |
+
+Also added, as Codex noted it was missing: a review freeze assertion in `scram.test.tsx` (the disposition and reason cannot change while the review's signature is in flight).
+
+Verification: web 217 tests pass; API 539 pass, 1 skipped (pre-existing); `pnpm typecheck` passes; daemon Go tests pass.

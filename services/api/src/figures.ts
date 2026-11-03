@@ -286,7 +286,9 @@ function project(a: {
   const itself = `run:${run.id}`;
   // A SCRAM hold's recorded words carry its reason. Presenting, they are never shown, even if a
   // restart has lifted the hold and the words are still on the run until its next claim attempt.
-  const scramWords = a.presenting && r.waiting_cause === "scram";
+  // The run's own record and the Inbox items both say when their words came from a SCRAM, so a
+  // restart landing between the two reads cannot let the reason through either way.
+  const scramWords = a.presenting && (r.waiting_cause === "scram" || Boolean(own?.scram_id) || Boolean(theirs?.scram_id));
   const out = (state: State, place: Place, cause: string, since: string, extra: { waiting_on?: string; hash?: string; key?: string } = {}) =>
     ({ state, place, cause: clip(scramWords && !held ? `${role} was held by a SCRAM; its reason is not shown while presenting` : cause), cause_key: extra.key ?? itself, since,
       hash: extra.hash ?? "runs", ...(extra.waiting_on ? { waiting_on: extra.waiting_on } : {}) });

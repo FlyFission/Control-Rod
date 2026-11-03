@@ -155,6 +155,38 @@ describe("roster (plan task 5.1)", () => {
     expect((await h.app.inject({ method: "GET", url: "/roster" })).statusCode).toBe(401);
   });
 
+  it("breaks a tie in pin history the same way on the screen and in the command", async () => {
+    // Two retired author pins of different artifacts recorded in one transaction share their time;
+    // the id breaks the tie, and the roster's target must be the one the rollback then restores.
+    const c = await h.admin.connect();
+    const C2 = "e".repeat(64);
+    try {
+      await c.query("begin");
+      const daemon = { kind: "agent" as const, id: "daemon" };
+      const org = (await c.query<{ id: string }>("select tenancy_sole_org() as id")).rows[0]!.id;
+      await recordObject(c, "runtime_probe", { id: "rpb_tie", org_id: org, runtime: "claude", artifact_digest: { algorithm: "sha256", value: C2 }, version: "2.1.e",
+        auth_state: "unknown", outcome: "pass", detail: "ready", observed_at: new Date().toISOString() } as never, daemon);
+      await recordObject(c, "runtime_artifact_version", { id: "rav_tie", org_id: org, runtime: "claude", version: "2.1.e", artifact_digest: { algorithm: "sha256", value: C2 },
+        install_path: "/opt/claude", probe_ids: ["rpb_tie"] } as never, daemon);
+      const ravA = (await c.query<{ id: string }>("select body->>'artifact_version_id' as id from runtime_pins where body->'artifact_digest'->>'value' = $1 limit 1", [A])).rows[0]!.id;
+      await recordObject(c, "runtime_pin", { id: "pin_tieaaaaaaaa", org_id: org, role: "author", runtime: "claude", artifact_version_id: ravA,
+        artifact_digest: { algorithm: "sha256", value: A }, status: "retired" } as never, daemon);
+      await recordObject(c, "runtime_pin", { id: "pin_tiezzzzzzzz", org_id: org, role: "author", runtime: "claude", artifact_version_id: "rav_tie",
+        artifact_digest: { algorithm: "sha256", value: C2 }, status: "retired" } as never, daemon);
+      await c.query("commit");
+    } finally {
+      c.release();
+    }
+    const tied = (await h.db.query<{ n: number }>("select count(distinct recorded_at)::int as n from runtime_pins where body->>'id' in ('pin_tieaaaaaaaa', 'pin_tiezzzzzzzz')")).rows[0]!.n;
+    expect(tied).toBe(1);
+    const shown = (await h.app.inject({ method: "GET", url: "/roster", headers: { cookie } })).json().roles.find((x: Json) => x.role === "author").rollback[0];
+    // The later id wins the tie.
+    expect(shown.restore.value).toBe(C2);
+    const done = await signed("runtime.rollback", { runtime: "claude", roles: [{ role: "author", current: shown.current.value, restore: shown.restore.value }] });
+    expect(done.statusCode, done.body).toBe(200);
+    expect(done.json().pins.map((p: Json) => p.artifact_digest.value)).toEqual([C2]);
+  });
+
   it("names the run that finished last for each runtime, even when it reported no sandbox or finished out of order", async () => {
     const at = (min: number) => new Date(Date.now() + min * 60e3).toISOString();
     const finished = async (id: string, finishedAt: string, trace?: Json) => {

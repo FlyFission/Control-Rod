@@ -4,6 +4,7 @@ import { type Actor, appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { currentPolicySet } from "./tenancy.js";
 import { recordObject, transition } from "./workbench.js";
+import { MAX_RUN_EVENTS } from "./work.js";
 
 /**
  * Budgets and usage (workbench specification 26; plan task 5.2). A budget limits use per
@@ -251,7 +252,7 @@ export async function settleEnded(c: Tx, batch = 500): Promise<void> {
   }
 }
 
-/** The tokens a run's events reported, once. Only fields every usage event carried are summed. */
+/** The tokens a run's events reported, once. Only fields every usage event carried are summed, and only when no event was lost. */
 async function recordReportedUsage(c: Tx, runId: string, orgId: string): Promise<void> {
   if ((await c.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'reported'", [runId])).rowCount) return;
   const t = (await c.query<{ n: number; ni: number; no: number; nk: number; i: string | null; o: string | null; k: string | null }>(
@@ -260,6 +261,11 @@ async function recordReportedUsage(c: Tx, runId: string, orgId: string): Promise
             sum((body->>'input_tokens')::numeric)::text as i, sum((body->>'output_tokens')::numeric)::text as o, sum((body->>'cached_tokens')::numeric)::text as k
        from run_events where run_id = $1 and body->>'kind' = 'usage'`, [runId])).rows[0]!;
   if (!t.n) return;
+  // Usage events lost on the way (the daemon's admission dropped some, or the run passed the most
+  // events one run keeps) leave every total unknown: no report is recorded, so the run counts as
+  // reporting none and token use reads as at least what other runs reported.
+  const lost = await c.query("select 1 from run_events where run_id = $1 and (body->>'kind' = 'dropped' or seq >= $2) limit 1", [runId, MAX_RUN_EVENTS]);
+  if (lost.rowCount) return;
   const field = (count: number, sum: string | null) => (count === t.n && sum !== null ? { value: sum, unit: "token" } : undefined);
   const input = field(t.ni, t.i);
   const output = field(t.no, t.o);
@@ -283,7 +289,8 @@ export async function budgetStatuses(q: Db | Tx, orgId: string, now = new Date()
 /** Records that a budget crossed into near or over, once per window, so alert budgets reach people. */
 export async function noteBudgetCrossings(c: Tx, orgId: string): Promise<void> {
   for (const s of await budgetStatuses(c, orgId)) {
-    if (s.state !== "near" && s.state !== "over") continue;
+    // A suspended budget governs nothing, so it alerts no one.
+    if (s.budget.status !== "active" || (s.state !== "near" && s.state !== "over")) continue;
     // Once per window: the window rolls, so a crossing already recorded within it is the same crossing.
     const seen = await c.query(
       "select 1 from events where body->>'type' = 'budget.crossed' and body->>'subject' = $1 and body->'data'->>'state' = $2 and (body->>'at')::timestamptz > $3::timestamptz limit 1",

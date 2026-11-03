@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
+import { settleEnded } from "../src/budgets.js";
+import { command } from "../src/commands/executor.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
 /** Budgets, reservations and the usage ledger (workbench plan task 5.2; specification 26, WB-21). */
@@ -176,11 +178,89 @@ describe("settlement", () => {
     expect(await reservations(id)).toEqual([]);
   });
 
+  it("counts measured run time against a minute budget that reserved nothing for it", async () => {
+    const t = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "600", unit: "minute" }, period: "P1D" });
+    const runId = await queued("WP-BUD-NORESERVE");
+    // A daemon that reports no ceiling: a track budget lets it run, unreserved.
+    const res = await claim(null);
+    expect(res.json().run.id).toBe(runId);
+    claims.set(runId, res.json().claim.token);
+    expect(await reservations(runId)).toEqual([]);
+    await h.admin.query("update runs set body = jsonb_set(body, '{started_at}', to_jsonb((now() - interval '6 minutes')::text)) where id = $1", [runId]);
+    const done = await daemon(`/runner/runs/${runId}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] });
+    expect(done.statusCode, done.body).toBe(200);
+    await sweep();
+    const measured = (await h.db.query<{ v: string }>("select body->'wall_time'->>'value' as v from usage_records where run_id = $1 and body->>'source' = 'measured'", [runId])).rows[0]!.v;
+    expect(Number(measured)).toBeGreaterThanOrEqual(6);
+    const use = (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === t.id);
+    expect(use.used).toBeGreaterThanOrEqual(Number(measured));
+    expect(use.in_flight).toBe(0);
+    await retire(t.id);
+  });
+
+  it("measures a run once when two sweeps race", async () => {
+    const id = await claimed("WP-BUD-TWOSWEEP");
+    const done = await daemon(`/runner/runs/${id}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] });
+    expect(done.statusCode, done.body).toBe(200);
+    await Promise.all([command(h.db, "run.sweep-lost", (c) => settleEnded(c)), command(h.db, "run.sweep-lost", (c) => settleEnded(c))]);
+    expect((await h.db.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'measured'", [id])).rowCount).toBe(1);
+  });
+
+  it("settles finished runs queued behind a full batch of runs whose outcome is still unknown", async () => {
+    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "600", unit: "minute" }, period: "P1D" });
+    // Sorted first: a lost run nobody has reconciled, which must stay charged.
+    const stuck = await claimed("WP-BUD-AAAAAAAA");
+    await h.admin.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [stuck]);
+    await sweep();
+    expect((await run(stuck)).status).toBe("lost");
+    const later = await claimed("WP-BUD-ZZZZZZZZ");
+    const done = await daemon(`/runner/runs/${later}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] });
+    expect(done.statusCode, done.body).toBe(200);
+    // A batch of one: the unknown run must not take the only place.
+    await command(h.db, "run.sweep-lost", (c) => settleEnded(c, 1));
+    expect((await reservations(later)).map((r) => r.status)).toEqual(["settled"]);
+    expect((await reservations(stuck)).map((r) => r.status)).toEqual(["reserved"]);
+    await retire(cap.id);
+  });
+
+  it("settles a finish recorded past its reservation at the reservation, never above it", async () => {
+    const t = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "6000", unit: "minute" }, period: "P1D" });
+    const id = await claimed("WP-BUD-LATE");
+    // As if the controller was away two hours and accepted the completion on recovery.
+    await h.admin.query("update runs set body = jsonb_set(body, '{started_at}', to_jsonb((now() - interval '2 hours')::text)) where id = $1", [id]);
+    const done = await daemon(`/runner/runs/${id}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] });
+    expect(done.statusCode, done.body).toBe(200);
+    await sweep();
+    const wall = (await h.db.query<{ v: string }>("select body->'wall_time'->>'value' as v from usage_records where run_id = $1 and body->>'source' = 'measured'", [id])).rows[0]!.v;
+    expect(wall).toBe(RESERVED);
+    await retire(t.id);
+  });
+
+  it("never records a second measured record for a run, even written directly", async () => {
+    const id = await claimed("WP-BUD-ONCE");
+    const done = await daemon(`/runner/runs/${id}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] });
+    expect(done.statusCode, done.body).toBe(200);
+    await sweep();
+    const one = (await h.admin.query<{ body: Json }>("select body from usage_records where run_id = $1 and body->>'source' = 'measured'", [id])).rows[0]!.body;
+    await expect(h.admin.query("insert into usage_records (body) values ($1)", [{ ...one, id: "use_dup" }])).rejects.toThrow(/usage_records_once/);
+  });
+
   it("asks a run that has run its reserved ceiling to stop, on the graceful path", async () => {
     const cap = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "600", unit: "minute" }, period: "P1D" });
     const id = await claimed("WP-BUD-LONG");
     const body = (await run(id)).body;
     await h.admin.query("update runs set body = $2 where id = $1", [id, { ...body, started_at: new Date(Date.now() - (CEILING + 5) * 1000).toISOString() }]);
+    // While another transaction holds the run (a completion or heartbeat in flight), the sweep passes it by.
+    const other = await h.admin.connect();
+    try {
+      await other.query("begin");
+      await other.query("select 1 from runs where id = $1 for update", [id]);
+      await sweep();
+      expect((await run(id)).body.stop_requested_at).toBeUndefined();
+      await other.query("commit");
+    } finally {
+      other.release();
+    }
     await sweep();
     expect((await run(id)).body).toMatchObject({ stop_requested_by: "its budget ceiling", label: "Stopping" });
     expect((await daemon(`/runner/runs/${id}/log`, { lines: [] })).json().stop).toBe(true);
@@ -287,8 +367,25 @@ describe("presenting and racing", () => {
     await retire(cap.id);
   });
 
+  it("never lets a suspended budget drive a figure's spend", async () => {
+    const live = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "600", unit: "minute" }, period: "P1D" });
+    const paused = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "1", unit: "minute" }, period: "P1D" });
+    await h.admin.query("update budgets set body = jsonb_set(body, '{status}', '\"suspended\"') where id = $1", [paused.id]);
+    await queued("WP-BUD-SUSPENDED");
+    const fig = (await get("/office/figures")).json().figures.find((f: Json) => f.package_id === "WP-BUD-SUSPENDED");
+    expect(fig.spend.budget_id).toBe(live.id);
+    // Usage still lists it.
+    expect((await get("/usage")).json().budgets.map((b: Json) => b.budget.id)).toContain(paused.id);
+    await retire(live.id);
+    await retire(paused.id);
+  });
+
   it("lets only one of two racing dispatches take a hard cap's last room", async () => {
-    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: String(Number(RESERVED) + 1), unit: "minute" }, period: "P1D" });
+    // Room for exactly one more reservation over what earlier runs measured today.
+    const probe = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    const used = (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === probe.id).used as number;
+    await retire(probe.id);
+    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: (used + Number(RESERVED) + 1).toFixed(2), unit: "minute" }, period: "P1D" });
     await queued("WP-BUD-RACE-A");
     await queued("WP-BUD-RACE-B", true);
     const [a, b] = await Promise.all([claim(), claim()]);

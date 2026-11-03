@@ -82,7 +82,8 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
   });
   // Spend: each budget's use this window, read once; a figure carries its tightest applicable budget.
   // Never while presenting (specification 13: presenting mode shows no spend).
-  const statuses = presenting ? [] : await budgetStatuses(db, (await callerFor(db, user)).orgId);
+  // Suspended budgets stay on Usage but govern nothing, so they never drive a figure.
+  const statuses = presenting ? [] : (await budgetStatuses(db, (await callerFor(db, user)).orgId)).filter((t) => t.budget.status === "active");
   const spendOf = (projectId: string | undefined, run: Json) => {
     // A run a budget holds names that budget, whatever baseline it would have run as.
     const holding = budgetOfHold(run).budget_id;
@@ -324,7 +325,9 @@ function project(a: {
   // A hold is shared only where dispatch recorded what it waits on (waiting_key: a lane's admission, or
   // a runtime pin for a role and the runtimes offered), so one decision resolves it for every run that
   // names it. Any other hold is this run's own, however alike the messages read.
-  const holdKey = (who: string) => (typeof r.waiting_key === "string" && r.waiting_key ? `hold:${r.waiting_key}\u0000${who}` : itself);
+  // Presenting, a budget's identifier is spend detail too, so a budget hold groups under its cause alone.
+  const holdKey = (who: string) => (typeof r.waiting_key === "string" && r.waiting_key
+    ? `hold:${budgetWords && r.waiting_key.startsWith("budget:") ? "budget" : r.waiting_key}\u0000${who}` : itself);
 
   if (held)
     return out("stuck", "quarantine",

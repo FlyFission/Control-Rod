@@ -31,6 +31,8 @@ describe("live events", () => {
       FakeSource.last?.emit("event", { seq: 9, type: "run.label", subject: "R-1234", data: { package: "WP-9", label: "Run: cr-example" } });
       await waitFor(() => expect(spy).toHaveBeenCalledWith({ queryKey: ["package", "WP-9"] }));
       expect(spy).toHaveBeenCalledWith({ queryKey: ["package", "R-1234"] });
+      // Preparation lives on its own key, edited and confirmed elsewhere; it is refreshed too.
+      expect(spy).toHaveBeenCalledWith({ queryKey: ["preparation", "WP-9"] });
       // What the viewer may do is refreshed too, so the palette never offers a stale command.
       for (const key of ["actions", "admin", "runtimes"]) expect(spy).toHaveBeenCalledWith({ queryKey: [key] });
     } finally {

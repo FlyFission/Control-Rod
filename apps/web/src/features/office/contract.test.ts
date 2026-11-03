@@ -48,6 +48,13 @@ describe("themes", () => {
     expect(await validateTheme({ ...standard, regions: rest } as unknown as OfficeThemeV1)).toContain("the theme has nothing for quarantine");
   });
 
+  it("refuses an asset path that could leave its theme's folder", async () => {
+    const art = standard.regions.review.art!;
+    const file = art.path.split("/").pop()!;
+    const escaped = { ...standard, regions: { ...standard.regions, review: { ...standard.regions.review, art: { ...art, path: `/office-themes/standard-office/../harness-bright/${file}` } } } };
+    expect((await validateTheme(escaped)).some((p) => p.startsWith("review art is not an SVG under /office-themes/standard-office/"))).toBe(true);
+  });
+
   it("requires accessibility notes, credits and every asset's provenance, and refuses malformed input", async () => {
     const { accessibility: _a, credits: _c, ...bare } = standard;
     const problems = await validateTheme(bare as unknown as OfficeThemeV1);
@@ -111,14 +118,15 @@ describe("SVG allowlist", () => {
     ["mismatched closing tags", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><g><rect width="1" height="1"></g></rect></svg>`, "closes <g> where <rect> is open"],
     ["an unclosed element", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><g>`, "leaves <g> open"],
     ["a repeated attribute", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect fill="#000000" fill="#ffffff" width="1" height="1"/></svg>`, "repeats the attribute fill"],
-    ["loose text", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300">Approve</svg>`, "text outside a title"],
+    ["loose text", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300">Approve</svg>`, "contains text"],
+    ["text in a title", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><title>Approve</title></svg>`, "uses the element <title>"],
     ["a second root", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"/><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"/>`, "content after its root"],
     ["a root that is not svg", `<g/>`, "has the root <g>"],
     ["a width other than the region's", `<svg xmlns="http://www.w3.org/2000/svg" width="900" viewBox="0 0 160 300"/>`, "declares width 900"],
     ["no namespace", `<svg viewBox="0 0 160 300"/>`, "does not declare the SVG namespace"],
     ["a closing tag in another case", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><g></G></svg>`, "closes <G> where <g> is open"],
     ["attributes run together", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect width="1"height="1"/></svg>`, "runs attributes together"],
-    ["an undefined entity", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><title>&missing;</title></svg>`, "undefined entity"],
+    ["an undefined entity", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><g id="&missing;"/></svg>`, "undefined entity"],
     ["an attribute on a closing tag", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><g></g fill="#ffffff"></svg>`, "malformed closing tag"],
     ["an unquoted attribute", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect width=1 height="1"/></svg>`, "without a quoted value"],
   ])("refuses %s", (_name, text, problem) => {
@@ -127,12 +135,12 @@ describe("SVG allowlist", () => {
 
   it("accepts nothing an XML parser rejects: every accepted document, theme art included, parses cleanly", async () => {
     const parses = (text: string) => new DOMParser().parseFromString(text, "image/svg+xml").getElementsByTagName("parsererror").length === 0;
-    const accepted = [ok, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size.width} ${size.height}"><title>A &amp; B &#38;</title></svg>`];
+    const accepted = [ok, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size.width} ${size.height}"><g id="a&amp;b&#38;c"/></svg>`];
     for (const theme of [standard, bright])
       for (const a of [...Object.values(theme.regions).map((r) => r.art!), ...theme.bodies]) accepted.push(new TextDecoder().decode((await read(a.path))!));
     for (const text of accepted) expect(parses(text), text.slice(0, 80)).toBe(true);
     // And the malformed cases above are malformed to a parser too, so the scanner is not stricter than XML by accident.
-    for (const bad of ["<g></G>", '<rect width="1"height="1"/>', "<title>&missing;</title>", '<g></g fill="#fff">'])
+    for (const bad of ["<g></G>", '<rect width="1"height="1"/>', '<g id="&missing;"/>', '<g></g fill="#fff">'])
       expect(parses(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300">${bad}</svg>`)).toBe(false);
   });
 });

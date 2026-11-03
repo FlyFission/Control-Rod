@@ -40,10 +40,10 @@ export interface OfficeThemeV1 {
   credits: readonly string[];
 }
 
-/** Every element a theme's SVG may use: shapes, groups, gradients and clipping, nothing else. */
+/** Every element a theme's SVG may use: shapes, groups, gradients and clipping, nothing else (no text of any kind, titles included). */
 const ELEMENTS = new Set([
   "svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon",
-  "defs", "lineargradient", "radialgradient", "stop", "clippath", "title", "desc",
+  "defs", "lineargradient", "radialgradient", "stop", "clippath",
 ]);
 
 /** Every attribute a theme's SVG may use: geometry and paint. No style, no events, no links out. */
@@ -60,7 +60,7 @@ const PAINT = /^(none|#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6}|url\(#[A-Za-z][\w-]*\))$/;
 
 /**
  * Checks an SVG document against the allowlist: well formed (one root <svg>, every tag closed in
- * order, no attribute twice, no text outside <title> and <desc>), only listed elements and
+ * order, no attribute twice, no text at all), only listed elements and
  * attributes, paint either a colour or a reference to one of its own gradients, references only to
  * its own fragments, and a view box (and any width and height) of exactly the given size from the
  * origin. Containment: the renderer draws the art as an image exactly the region's size, and an SVG
@@ -83,7 +83,7 @@ export function validateSvg(text: string, size: { width: number; height: number 
   const between = (from: number, to: number) => {
     const t = body.slice(from, to);
     if (/[<>]/.test(t)) problems.push(`${where} has markup that is not a well formed tag`);
-    else if (t.trim() && !["title", "desc"].includes(stack.at(-1) ?? "")) problems.push(`${where} has text outside a title or description`);
+    else if (t.trim()) problems.push(`${where} contains text`);
   };
   while ((m = tag.exec(body))) {
     between(consumed, m.index);
@@ -212,7 +212,9 @@ export async function validateTheme(theme: OfficeThemeV1, read?: (path: string) 
   for (const { asset, where } of assets) {
     const a = asset as unknown as Record<string, unknown>;
     for (const k of Object.keys(a)) if (!ASSET_KEYS.includes(k)) problems.push(`${where} has an unknown field ${k}`);
-    if (!isString(a.path) || !a.path.startsWith(`/office-themes/${String(t.id)}/`) || !/^[a-z0-9-]+\.[0-9a-f]{12}\.svg$/.test(a.path.split("/").pop() ?? ""))
+    // Exactly /office-themes/<theme>/<file>: the file is one segment, so no dot segment can leave the folder.
+    const file = isString(a.path) ? a.path.slice(`/office-themes/${String(t.id)}/`.length) : "";
+    if (!isString(a.path) || !a.path.startsWith(`/office-themes/${String(t.id)}/`) || !/^[a-z0-9-]+\.[0-9a-f]{12}\.svg$/.test(file))
       problems.push(`${where} is not an SVG under /office-themes/${String(t.id)}/ named name.digest.svg`);
     if (!isString(a.sha256) || !/^[0-9a-f]{64}$/.test(a.sha256)) problems.push(`${where} has no SHA-256`);
     else if (isString(a.path) && !a.path.endsWith(`.${a.sha256.slice(0, 12)}.svg`)) problems.push(`${where} is not named with its digest`);

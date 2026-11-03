@@ -31,5 +31,8 @@ describe("layout graph", () => {
     const crowded = REGIONS.map((r) => (r.id === "review" ? { ...r, seats: [{ x: r.x + 10, y: r.y + NAME_BAND / 2 }] } : r));
     expect(validateLayout(crowded)).toContain("review has a seat under its name plate");
     expect(validateLayout(REGIONS.filter((r) => r.id !== "quarantine"))).toContain("quarantine is missing");
+    const stranger = [...REGIONS, { ...REGION.bench, id: "lobby" as never, x: 0, y: 0 }];
+    expect(() => validateLayout(stranger)).not.toThrow();
+    expect(validateLayout(stranger)).toContain("lobby is not a region of the office");
   });
 });

@@ -144,4 +144,49 @@ describe("manual preparation workbench", () => {
     );
     await waitFor(() => expect(match).toBe(`"${DIGEST.value}"`));
   });
+
+  it("retiring an item retires every reference to it, so the saved preparation never cites a missing item", async () => {
+    const current = fixture();
+    current.snapshot.technical_plan.checks = [{ id: "K1", criterion_ids: ["C1"], method: "Review", required: true, expected_result: "Pass" }];
+    current.snapshot.escalations = [{ id: "E1", criterion_ids: ["C1"], reason: "Unclear", alternatives: [], owner: "owner", resolution_refs: [] }];
+    const saved: Record<string, any>[] = [];
+    server.use(
+      http.get("*/packages/:id/preparation", () => HttpResponse.json(current)),
+      http.put("*/packages/:id/preparation", async ({ request }) => {
+        saved.push((await request.json()) as Record<string, any>);
+        return HttpResponse.json(current);
+      }),
+    );
+    await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Retire requirement 1" }));
+    await user.click(screen.getByRole("button", { name: "Save preparation" }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0]!.criteria[0].requirement_ids).toEqual([]);
+    await user.click(screen.getByRole("button", { name: "Retire criterion 1" }));
+    await user.click(screen.getByRole("button", { name: "Save preparation" }));
+    await waitFor(() => expect(saved).toHaveLength(2));
+    expect(saved[1]!.technical_plan.checks[0].criterion_ids).toEqual([]);
+    expect(saved[1]!.escalations[0].criterion_ids).toEqual([]);
+  });
+
+  it("keeps a new line while typing a one-per-line list, and saves only the entries", async () => {
+    const current = fixture();
+    let saved: Record<string, any> | undefined;
+    server.use(
+      http.get("*/packages/:id/preparation", () => HttpResponse.json(current)),
+      http.put("*/packages/:id/preparation", async ({ request }) => {
+        saved = (await request.json()) as Record<string, any>;
+        return HttpResponse.json(current);
+      }),
+    );
+    await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const user = userEvent.setup();
+    const sources = (await screen.findByRole("textbox", { name: "Controlled current-state sources (one reference per line)" })) as HTMLTextAreaElement;
+    await user.type(sources, "DOC-1{Enter}");
+    expect(sources.value).toBe("DOC-1\n");
+    await user.type(sources, "  DOC-2  {Enter}{Enter}");
+    await user.click(screen.getByRole("button", { name: "Save preparation" }));
+    await waitFor(() => expect(saved?.technical_plan.current_state_refs).toEqual(["DOC-1", "DOC-2"]));
+  });
 });

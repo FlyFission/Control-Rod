@@ -50,7 +50,9 @@ export function RequirementsEditor({
             className="btn ghost small"
             onClick={() =>
               change((d) => {
-                d.requirements.splice(i, 1);
+                // Retiring an item retires every reference to it, so no criterion is left citing it.
+                const [gone] = d.requirements.splice(i, 1);
+                for (const c of d.criteria) c.requirement_ids = c.requirement_ids.filter((id) => id !== gone?.id);
               })
             }
           >
@@ -111,7 +113,11 @@ export function RequirementsEditor({
             className="btn ghost small"
             onClick={() =>
               change((d) => {
-                d.criteria.splice(i, 1);
+                // Retiring a criterion retires every check and escalation reference to it.
+                const [gone] = d.criteria.splice(i, 1);
+                const keep = (ids: string[]) => ids.filter((id) => id !== gone?.id);
+                for (const k of d.technical_plan.checks) k.criterion_ids = keep(k.criterion_ids);
+                for (const e of d.escalations) e.criterion_ids = keep(e.criterion_ids);
               })
             }
           >

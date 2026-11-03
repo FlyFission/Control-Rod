@@ -90,7 +90,7 @@ export function PackagePage({ id }: { id: string }) {
               </>
             )}
           </section>
-          <PreparationPanel pkg={pkg} enabled={view.preparation_enabled ?? false} enrolled={view.preparation_enrolled ?? false} />
+          <PreparationPanel key={pkg.id} pkg={pkg} enabled={view.preparation_enabled ?? false} enrolled={view.preparation_enrolled ?? false} />
           <Criteria pkg={pkg} etag={view.draft_etag} enrolled={view.preparation_enrolled ?? false} />
           <section id="runs" className="panel" aria-labelledby="runs-title">
             <h2 id="runs-title">Runs</h2>

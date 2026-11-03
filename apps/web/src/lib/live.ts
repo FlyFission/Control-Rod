@@ -18,8 +18,11 @@ export function useLiveEvents(enabled: boolean): void {
 
     const flush = () => {
       timer = undefined;
-      for (const s of subjects)
+      for (const s of subjects) {
         void qc.invalidateQueries({ queryKey: ["package", s] });
+        // Preparation is edited and confirmed on its own key; nothing else refreshes it.
+        void qc.invalidateQueries({ queryKey: ["preparation", s] });
+      }
       subjects.clear();
       for (const key of [
         "packages",

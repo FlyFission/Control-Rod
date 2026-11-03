@@ -29,10 +29,12 @@ type Event struct {
 	// Path is the changed file for file_change, relative to the workspace when it can be.
 	Path string `json:"path,omitempty"`
 	// Text is message or error text, clipped to MaxEventText bytes.
-	Text         string `json:"text,omitempty"`
-	InputTokens  int    `json:"input_tokens,omitempty"`
-	OutputTokens int    `json:"output_tokens,omitempty"`
-	CachedTokens int    `json:"cached_tokens,omitempty"`
+	Text string `json:"text,omitempty"`
+	// Token counts as the runtime reported them: nil when it reported none, so a reported zero is
+	// sent as zero and never mistaken for a missing count.
+	InputTokens  *int `json:"input_tokens,omitempty"`
+	OutputTokens *int `json:"output_tokens,omitempty"`
+	CachedTokens *int `json:"cached_tokens,omitempty"`
 	// Dropped counts events admission refused since the last one sent (kind "dropped").
 	Dropped int `json:"dropped,omitempty"`
 
@@ -93,7 +95,14 @@ func Normalize(line string, now time.Time) []Event {
 	}
 	at := now.UTC().Format(time.RFC3339Nano)
 	str := func(m map[string]any, k string) string { v, _ := m[k].(string); return v }
-	num := func(m map[string]any, k string) int { v, _ := m[k].(float64); return int(v) }
+	num := func(m map[string]any, k string) *int {
+		v, ok := m[k].(float64)
+		if !ok {
+			return nil
+		}
+		n := int(v)
+		return &n
+	}
 	var out []Event
 	switch typ := str(ev, "type"); typ {
 	// Claude Code stream-json.

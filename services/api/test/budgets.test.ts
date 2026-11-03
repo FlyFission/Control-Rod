@@ -245,6 +245,24 @@ describe("settlement", () => {
     await expect(h.admin.query("insert into usage_records (body) values ($1)", [{ ...one, id: "use_dup" }])).rejects.toThrow(/usage_records_once/);
   });
 
+  it("counts a reported zero as reported, and a run whose usage events were lost as reporting none", async () => {
+    const at = new Date().toISOString();
+    const zero = await claimed("WP-BUD-ZERO");
+    expect((await daemon(`/runner/runs/${zero}/log`, { lines: [], events: [{ kind: "usage", at, input_tokens: 5, output_tokens: 0 }], events_from: 0 })).statusCode).toBe(200);
+    expect((await daemon(`/runner/runs/${zero}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] })).statusCode).toBe(200);
+    await sweep();
+    const reported = (await h.db.query<{ body: Json }>("select body from usage_records where run_id = $1 and body->>'source' = 'reported'", [zero])).rows[0]!.body;
+    expect(reported).toMatchObject({ input_tokens: { value: "5" }, output_tokens: { value: "0" } });
+    // The daemon's admission dropped some events: no total is known, so none is recorded.
+    const gap = await claimed("WP-BUD-GAP");
+    const events = [{ kind: "usage", at, input_tokens: 9, output_tokens: 4 }, { kind: "dropped", at, dropped: 3 }];
+    expect((await daemon(`/runner/runs/${gap}/log`, { lines: [], events, events_from: 0 })).statusCode).toBe(200);
+    expect((await daemon(`/runner/runs/${gap}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] })).statusCode).toBe(200);
+    await sweep();
+    expect((await h.db.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'reported'", [gap])).rowCount).toBe(0);
+    expect((await h.db.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'measured'", [gap])).rowCount).toBe(1);
+  });
+
   it("asks a run that has run its reserved ceiling to stop, on the graceful path", async () => {
     const cap = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "600", unit: "minute" }, period: "P1D" });
     const id = await claimed("WP-BUD-LONG");
@@ -365,6 +383,18 @@ describe("presenting and racing", () => {
     const plain = (await get("/office/figures")).json().figures.find((f: Json) => f.package_id === "WP-BUD-PRESENT");
     expect(plain.spend.budget_id).toBe(cap.id);
     await retire(cap.id);
+  });
+
+  it("records no crossing for a suspended budget", async () => {
+    const live = await budget({ scope: "organization", scope_id: await org(), mode: "alert", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    const paused = await budget({ scope: "organization", scope_id: await org(), mode: "alert", limit: { value: "0.01", unit: "minute" }, period: "P1D" });
+    await h.admin.query("update budgets set body = jsonb_set(body, '{status}', '\"suspended\"') where id = $1", [paused.id]);
+    // Earlier runs measured today put it past its limit; suspended, it alerts no one.
+    expect((await get("/usage")).json().budgets.find((b: Json) => b.budget.id === paused.id).state).toBe("over");
+    await sweep();
+    expect((await h.db.query("select 1 from events where body->>'type' = 'budget.crossed' and body->>'subject' = $1", [paused.id])).rowCount).toBe(0);
+    await retire(live.id);
+    await retire(paused.id);
   });
 
   it("never lets a suspended budget drive a figure's spend", async () => {

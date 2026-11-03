@@ -992,7 +992,7 @@ async function renewLease(c: Tx, cfg: WorkConfig, row: { id: string; package_id:
 }
 
 /** The most normalized events one run keeps; past it a single dropped marker records the overflow. */
-const MAX_RUN_EVENTS = 20000;
+export const MAX_RUN_EVENTS = 20000;
 
 /**
  * Stores a log post's normalized events in order (specification 20). A permission request becomes
@@ -2471,10 +2471,11 @@ export async function recordRuntimeStatus(db: Db, raw: unknown): Promise<Runtime
   return list;
 }
 
-export async function runtimeStatus(db: Db): Promise<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: Json[] }> {
+export async function runtimeStatus(db: Db, orgId: string): Promise<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: Json[] }> {
   const r = await db.query<{ value: string }>("select value from settings where key = 'runtime_status'");
-  // The active pins beside what the daemon found, so the roster shows both.
-  const pins = (await db.query<{ body: Json }>("select body from runtime_pins where body->>'status' = 'active' order by body->>'runtime', body->>'role'")).rows.map((x) => x.body);
+  // The viewer's organization's active pins beside what the daemon found, so the roster shows both.
+  const pins = (await db.query<{ body: Json }>(
+    "select body from runtime_pins where body->>'status' = 'active' and body->>'org_id' = $1 order by body->>'runtime', body->>'role'", [orgId])).rows.map((x) => x.body);
   if (!r.rows[0]) return { runtimes: [], pins };
   return { ...(JSON.parse(r.rows[0].value) as { reported_at?: string; runtimes: RuntimeStatus[] }), pins };
 }

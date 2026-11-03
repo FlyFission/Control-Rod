@@ -560,8 +560,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return usageView(db, caller.orgId);
   });
   app.get("/runtimes", async (req) => {
-    await person(req);
-    return runtimeStatus(db);
+    return runtimeStatus(db, (await callerFor(db, await person(req))).orgId);
   });
   app.get("/runs", async (req) => {
     await person(req);

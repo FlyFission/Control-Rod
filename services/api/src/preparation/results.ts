@@ -192,10 +192,10 @@ export async function prepareCriterionResults(
     }
     if (
       result.outcome === "pass" &&
-      result.check_results.some((c) => c.outcome !== "pass")
+      result.check_results.some((c) => blocksPass(snapshot, c))
     )
       invalid(
-        `${criterion.id}: cannot report pass while a mapped check did not pass`,
+        `${criterion.id}: cannot report pass while a required check did not pass or any check failed`,
       );
   }
   if (
@@ -310,6 +310,20 @@ export async function currentCriterionResults(
     );
   return { ...row, evidence_valid, evidence_subject };
 }
+/**
+ * Whether one check's outcome keeps its criterion from passing (guided preparation design: pass only
+ * if every required check passes; fail if any fails). A required check must pass. An optional check
+ * that ran and did not pass (fail or inconclusive) still blocks; an optional check never run (open or
+ * deferred) does not. A check the snapshot does not know is treated as required.
+ */
+export function blocksPass(
+  snapshot: PreparationSnapshot,
+  c: { check_id: string; outcome: string },
+): boolean {
+  const required = snapshot.technical_plan.checks.find((k) => k.id === c.check_id)?.required ?? true;
+  if (required) return c.outcome !== "pass";
+  return c.outcome === "fail" || c.outcome === "inconclusive";
+}
 export function criterionResultFlags(
   snapshot: PreparationSnapshot,
   results: CriterionResultSet | null,
@@ -346,7 +360,7 @@ export function criterionResultFlags(
       results!.results.every(
         (r) =>
           r.outcome === "pass" &&
-          r.check_results.every((c) => c.outcome === "pass"),
+          !r.check_results.some((c) => blocksPass(snapshot, c)),
       ),
   };
 }

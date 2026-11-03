@@ -22,3 +22,22 @@ Found while fixing: real package codes are wider than the harness fixtures, so t
 |---|---|---|
 | figures.ts: presenting mode uses the body lane (P1) | Fixed | Same as finding 1. |
 | figures.ts: dependency holds shown as runtime waits (P2) | Fixed | A queued run whose recorded dependencies are not all accepted, the same rule dispatch applies, waits at the Interface on the work it depends on, by name. Test added. |
+
+## Round 2 (Codex, `b-codex-round2.md`): REVISE, three findings, all accepted
+
+Round 1 findings 1, 2, 3 and 9 verified fixed; deferring 7 and 8 to PR C judged acceptable sequencing into task 4.7.
+
+| # | Finding | Decision | Change |
+|---|---|---|---|
+| 1 | Failed, stopped and lost intake agents vanish | Accepted | An intake that failed, stopped or was lost before its capture became a package stays on the floor (stuck, Review, with its cause, an unknown outcome included). Test: a failed intake. |
+| 2 | Pinned design inputs outside `depends_on` never count as changed | Accepted | Changed is measured over every package the preparation's basis pinned, design inputs and dependencies alike, against current revisions already loaded; a recorded dependency no basis pinned is the only "unverified" input. Test: a pinned design input with no dependency edge. |
+| 3 | Serial cost through the Inbox and SCRAM checks | Accepted | `scramHoldIndex` answers SCRAM holds for every agent from one load of active SCRAMs, owners and restarts (a test checks it gives `scramHolding`'s answer for every package and capture). The Inbox's office listing (`office()` in work.ts) now reads latest runs, failed runs, author rounds and pre-checks once for all packages instead of per package. A test adds 30 agents to the floor and requires the same query count. The Inbox's remaining per-item work scales with what waits on people, not with the floor. |
+
+## Automated GitHub review threads (second batch, against the first commit)
+
+| Thread | Decision | Evidence or change |
+|---|---|---|
+| figures.ts: body lane in presenting mode | Already fixed | Effective lanes from markings, failing closed (round 1 finding 1). |
+| figures.ts: per-package queries | Fixed | Batched reads and the constant query count test (round 2 finding 3). |
+| office-harness.spec.ts: lens threshold below the reported 5.25:1 | Not a defect; wording corrected | The requirement is 3:1 for non-text contrast (WCAG 1.4.11), which the harness enforces; 5.25:1 is what the colours measure. The ledger now says so. |
+| OfficePlace.tsx: "Floor" label | Not a defect | The office view is the floor (the cube sets and rooms); the station floor at `/floor` is deliberately left out of the switcher until plan task 4.9 moves its worlds to the rooms and retires it. |

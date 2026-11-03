@@ -365,7 +365,26 @@ export async function scramView(q: Db, orgId: string, scramId: string) {
     out.push({ run_id: r.id, status: r.status, outcome_unknown: Boolean(r.body.outcome_unknown && !r.body.reconciliation), batches: withOutputs, reviews });
   }
   const restarts = (await q.query<{ body: Json }>("select body from scram_restarts where scram_id = $1 order by recorded_at", [scramId])).rows.map((x) => x.body);
-  return { scram, runs: out, restarts };
+  return { ...(await scramTiming(q, scramId)), scram, runs: out, restarts };
+}
+
+/** When a SCRAM was pulled, and once all its runs stopped, the recorded stop latency (OV-12). */
+async function scramTiming(q: Db | Tx, scramId: string) {
+  const rows = (await q.query<{ type: string; at: string; data: Json }>(
+    "select body->>'type' as type, body->>'at' as at, body->'data' as data from events where body->>'subject' = $1 and body->>'type' in ('scram.pulled', 'scram.stopped')", [scramId])).rows;
+  const pulled = rows.find((r) => r.type === "scram.pulled");
+  const stopped = rows.find((r) => r.type === "scram.stopped");
+  return {
+    ...(pulled ? { pulled_at: pulled.at } : {}),
+    ...(stopped ? { stopped: { ms_to_stop: Number(stopped.data.ms_to_stop), runs: Number(stopped.data.runs), at: stopped.at } } : {}),
+  };
+}
+
+/** The SCRAMs in force in an organization, newest first, with their timing. */
+export async function activeScramsFor(q: Db, orgId: string) {
+  const out = [];
+  for (const scram of (await activeScrams(q)).filter((s) => s.org_id === orgId)) out.push({ scram, ...(await scramTiming(q, scram.id)) });
+  return { scrams: out };
 }
 
 /**

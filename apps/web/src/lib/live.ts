@@ -38,6 +38,8 @@ export function useLiveEvents(enabled: boolean): void {
         "runtimes",
         "run-events",
         "office-figures",
+        "scrams",
+        "scram",
       ]) {
         void qc.invalidateQueries({ queryKey: [key] });
       }

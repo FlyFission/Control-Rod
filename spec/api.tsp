@@ -533,6 +533,21 @@ model AdminCommandInfo {
   need: string;
 }
 
+/**
+ * Step 1 of an administrative command: the subject it would change, and a passkey challenge over it.
+ * Step 2 sends the same payload with the signed assertion; the command runs only if it still matches.
+ */
+@route("/admin/commands/{name}/options")
+@post
+op adminCommandOptions(@path name: string, @body body: { payload?: Record<unknown> }): {
+  subject_digest: Digest;
+  options: Record<unknown>;
+} | Refused;
+
+@route("/admin/commands/{name}")
+@post
+op adminCommand(@path name: string, @body body: { payload?: Record<unknown>; assertion?: Record<unknown> }): Record<unknown> | Refused;
+
 /** Administration: who is here, what is in force, and every command with the viewer's standing. */
 @route("/admin")
 @get
@@ -560,10 +575,33 @@ model ScramQuarantineBatch {
   outputs: { name: string; @pattern("^[0-9a-f]{64}$") sha256: string }[];
 }
 
+/** When a SCRAM was pulled, and once every run it reached has stopped, how long that took. */
+model ScramTiming {
+  pulled_at?: utcDateTime;
+
+  /** Present once every run in scope has stopped: the stop latency (OV-12). */
+  stopped?: {
+    @minValue(0) ms_to_stop: int32;
+    @minValue(0) runs: int32;
+    at: utcDateTime;
+  };
+}
+
+/** The SCRAMs in force in the viewer's organization (not yet restarted for their whole scope). */
+@route("/scrams")
+@get
+op scrams(): {
+  scrams: {
+    scram: ScramEvent;
+    ...ScramTiming;
+  }[];
+} | ApiError;
+
 /** A SCRAM, the runs it stopped with their quarantine and reviews, and its restarts. */
 @route("/scrams/{id}")
 @get
 op scram(@path id: string): {
+  ...ScramTiming;
   scram: ScramEvent;
   runs: {
     run_id: string;

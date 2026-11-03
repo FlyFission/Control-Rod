@@ -21,6 +21,23 @@ export type VerificationRecord = S["ControlRod.Records.VerificationRecord"];
 export type Finding = S["ControlRod.Records.Finding"];
 export type OfficeItem = S["OfficeItem"];
 export type AgentFigure = S["AgentFigure"];
+export type ScramEvent = S["ControlRod.Records.ScramEvent"];
+export type QuarantineReview = S["ControlRod.Records.QuarantineReview"];
+export type ScramRestart = S["ControlRod.Records.ScramRestart"];
+export type ScramQuarantineBatch = S["ScramQuarantineBatch"];
+/** When a SCRAM was pulled and, once every run it reached has stopped, how long that took. */
+export interface ScramTiming {
+  pulled_at?: string;
+  stopped?: { ms_to_stop: number; runs: number; at: string };
+}
+export interface ScramSummary extends ScramTiming {
+  scram: ScramEvent;
+}
+export interface ScramDetail extends ScramTiming {
+  scram: ScramEvent;
+  runs: { run_id: string; status: Run["status"]; outcome_unknown: boolean; batches: ScramQuarantineBatch[]; reviews: QuarantineReview[] }[];
+  restarts: ScramRestart[];
+}
 export interface OfficeFloor {
   figures: AgentFigure[];
   needs_me: number;

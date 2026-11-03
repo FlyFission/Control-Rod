@@ -115,3 +115,19 @@ export async function signOverride(
   await client.overrideIndependence(input.packageId, input.runId, { reason, assertion });
   return { signed: opts.subject_digest };
 }
+
+/**
+ * Runs a signed administrative command: ask for the challenge over exactly this payload, sign it
+ * with the person's passkey, send the same payload with the assertion. The server decides.
+ */
+export async function signAdmin<T = Record<string, unknown>>(
+  name: string,
+  payload: Record<string, unknown>,
+  passkeys: Passkeys = browserPasskeys,
+  client: Api = api,
+): Promise<T> {
+  const opts = await client.adminCommandOptions(name, payload);
+  const assertion = await passkeys.get(opts.options);
+  return client.adminCommand<T>(name, payload, assertion);
+}
+

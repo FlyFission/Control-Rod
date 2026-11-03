@@ -4724,6 +4724,7 @@
           "marks",
           "gate_stage",
           "data_lane",
+          "run_status",
           "href"
         ],
         "properties": {
@@ -4838,6 +4839,14 @@
           "project_id": {
             "type": "string",
             "description": "The project that owns the work, for the portfolio rollup; absent for organization level work."
+          },
+          "run_status": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunStatus",
+            "description": "The run's own status, so the card offers stop exactly when the command layer would take it."
+          },
+          "stop_requested": {
+            "type": "boolean",
+            "description": "A stop was asked for and the daemon has not yet confirmed it."
           },
           "href": {
             "$ref": "#/components/schemas/AttentionTarget"

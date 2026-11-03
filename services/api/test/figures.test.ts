@@ -199,6 +199,32 @@ describe("office figures", () => {
     for (const leaked of ["WP-FIG-SECRET", "WP-FIG-RAISED", "Raised later"]) expect(JSON.stringify(presenting)).not.toContain(leaked);
   });
 
+  it("carries the run's status and any stop asked for, and the owning project for the portfolio", async () => {
+    const signedAdmin = async (name: string, payload: Json) => {
+      const o = await h.app.inject({ method: "POST", url: `/admin/commands/${name}/options`, headers: { cookie, origin: ORIGIN }, payload: { payload } });
+      return h.app.inject({ method: "POST", url: `/admin/commands/${name}`, headers: { cookie, origin: ORIGIN }, payload: { payload, assertion: key.assert(o.json().options) } });
+    };
+    const project = await signedAdmin("project.create", { name: "Figures project", mode: "software", default_rigor: "standard", lanes: ["internal"], qa_overlays: [] });
+    expect(project.statusCode, project.body).toBe(200);
+    const projectId = project.json().id;
+    const org = (await h.db.query<{ org_id: string }>("select org_id from projects where id = $1", [projectId])).rows[0]!.org_id;
+    // Owner rows are written before the work exists (they are append only).
+    await h.admin.query("insert into object_owners (object_kind, object_id, org_id, project_id) values ('package', 'WP-FIG-PROJ', $1, $2), ('capture', 'CAP-FIG-PROJ', $1, $2)", [org, projectId]);
+    await pkg("WP-FIG-PROJ", "in-work", { discipline: "civil" });
+    await run("R-fig-proj", "WP-FIG-PROJ", "running", { started_at: ago(0.1), stop_requested_at: ago(0.01) });
+    await h.admin.query("insert into captures (id, body, created_at) values ('CAP-FIG-PROJ', $1, now())", [{ id: "CAP-FIG-PROJ", text: "Project intake" }]);
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ('R-fig-proj-intake', 'CAP-FIG-PROJ', 0, 'intake', 1, 'running', $1)",
+      [{ schema_version: "0.1.0", id: "R-fig-proj-intake", package_id: "CAP-FIG-PROJ", package_revision: 0, role: "intake", agent_baseline: "intake-claude",
+        runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "running", queued_at: ago(0.2), started_at: ago(0.1), generation: 1 }]);
+    const floor = await get("/office/figures");
+    expect(figure(floor, "WP-FIG-PROJ")).toMatchObject({ project_id: projectId, run_status: "running", stop_requested: true });
+    expect(figure(floor, "CAP-FIG-PROJ")).toMatchObject({ project_id: projectId, run_status: "running" });
+    expect(figure(floor, "CAP-FIG-PROJ").stop_requested).toBeUndefined();
+    // Organization level work names no project.
+    expect(figure(floor, "WP-FIG-WORK").project_id).toBeUndefined();
+    expect(figure(floor, "WP-FIG-QUEUED").run_status).toBe("queued");
+  });
+
   it("reads the floor in a fixed number of queries, however many agents are on it", async () => {
     const count = async () => {
       const spy = vi.spyOn(h.db, "query");

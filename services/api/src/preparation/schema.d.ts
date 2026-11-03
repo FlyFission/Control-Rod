@@ -935,6 +935,10 @@ export interface components {
             data_lane: components["schemas"]["ControlRod.Records.DataLane"];
             /** @description The project that owns the work, for the portfolio rollup; absent for organization level work. */
             project_id?: string;
+            /** @description The run's own status, so the card offers stop exactly when the command layer would take it. */
+            run_status: components["schemas"]["ControlRod.Records.RunStatus"];
+            /** @description A stop was asked for and the daemon has not yet confirmed it. */
+            stop_requested?: boolean;
             href: components["schemas"]["AttentionTarget"];
         };
         ApiError: {

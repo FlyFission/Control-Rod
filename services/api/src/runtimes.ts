@@ -91,18 +91,38 @@ export async function pinRuntime(c: Tx, orgId: string, p: Json, actor: Actor) {
   return setPins(c, orgId, runtime, roles, version, actor, `pinned ${runtime} ${String(version.version)}`);
 }
 
-/** Restores, for each role, the artifact pinned before the current one (admin command runtime.rollback). */
+/** The pin a rollback would restore for a runtime and role: the latest retired pin of a different artifact. */
+export async function rollbackTarget(q: Db | Tx, runtime: string, role: string, current: Json): Promise<Json | null> {
+  return (await q.query<{ body: Json }>(
+    `select body from runtime_pins where body->>'runtime' = $1 and body->>'role' = $2 and body->>'status' = 'retired'
+       and body->'artifact_digest'->>'value' <> $3 and body->>'org_id' = $4 order by recorded_at desc limit 1`,
+    [runtime, role, current.artifact_digest.value, current.org_id])).rows[0]?.body ?? null;
+}
+
+/**
+ * Restores, for each role named, the artifact pinned before the current one (admin command
+ * runtime.rollback). The signed payload names, per role, the artifact pinned now and the one to
+ * restore, as the screen showed them; if either has changed since, nothing is rolled back. Every role
+ * is restored in the one transaction, or none is.
+ */
 export async function rollbackRuntime(c: Tx, orgId: string, p: Json, actor: Actor) {
   const runtime = String(p.runtime ?? "");
   if (!PINNABLE.includes(runtime)) throw new Refusal(400, "invalid", "runtime must be claude or codex");
+  const roles = Array.isArray(p.roles) ? p.roles : [];
+  const hex = (v: unknown) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
+  if (!roles.length || roles.some((r: Json) => !r || !hex(r.current) || !hex(r.restore)))
+    throw new Refusal(400, "invalid", "roles must list each role with the artifact pinned now (current) and the one to restore (restore)");
+  const named = roles.map((r: Json) => rolesFor(r.role)[0]!);
+  if (new Set(named).size !== named.length) throw new Refusal(400, "invalid", "each role is named once");
   const out: Json[] = [];
-  for (const role of rolesFor(p.role)) {
+  for (const [i, role] of named.entries()) {
     const current = await activePin(c, runtime, role);
-    if (!current) throw new Refusal(409, "no-pin", `Nothing is pinned for ${runtime} ${role}`);
-    const prev = (await c.query<{ body: Json }>(
-      `select body from runtime_pins where body->>'runtime' = $1 and body->>'role' = $2 and body->>'status' = 'retired'
-         and body->'artifact_digest'->>'value' <> $3 order by recorded_at desc limit 1`, [runtime, role, current.artifact_digest.value])).rows[0]?.body;
+    if (!current || current.org_id !== orgId) throw new Refusal(409, "no-pin", `Nothing is pinned for ${runtime} ${role}`);
+    const prev = await rollbackTarget(c, runtime, role, current);
     if (!prev) throw new Refusal(409, "no-previous-pin", `There is no earlier pin for ${runtime} ${role} to roll back to`);
+    // What was signed is what happens: the pins must still be the ones the screen showed.
+    if (current.artifact_digest.value !== roles[i].current || prev.artifact_digest.value !== roles[i].restore)
+      throw new Refusal(409, "pin-changed", `The ${runtime} ${role} pins changed since you looked; review them again before rolling back`);
     const version = await getObject<Json>(c, "runtime_artifact_version", prev.artifact_version_id);
     out.push(...await setPins(c, orgId, runtime, [role], version, actor, `rolled back ${runtime} ${role}`));
   }

@@ -11,8 +11,8 @@ import { PINNABLE } from "./runtimes.js";
  *  - Versions: every artifact a passing probe has seen for each pinnable runtime, the only ones a pin
  *    may name, with which roles pin it now.
  *  - Sandbox: the SandboxPolicy records in force (none until confinement lands, plan Phase 6) and,
- *    per runtime, the sandbox its latest completed run reported launching with. A run with no
- *    sandbox is reported as tier none, never as confined (specification 11.7).
+ *    per runtime, the sandbox the daemon asked for on its latest finished run. That is a request,
+ *    not an observed result; nothing here says a run was confined (specification 11.7).
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
@@ -27,12 +27,15 @@ const ROLES: { role: string; pinnable: boolean; what: string }[] = [
   { role: "pre-check", pinnable: true, what: "Checks the author's work, on another runtime where one is installed" },
 ];
 
-export async function roster(db: Db) {
-  const pins = (await db.query<{ body: Json; recorded_at: Date }>("select body, recorded_at from runtime_pins order by recorded_at")).rows;
+/** The viewer's organization's Roster: every read is limited to what that organization owns. */
+export async function roster(db: Db, orgId: string) {
+  const pins = (await db.query<{ body: Json; recorded_at: Date }>(
+    "select body, recorded_at from runtime_pins where body->>'org_id' = $1 order by recorded_at, body->>'id'", [orgId])).rows;
   const active = pins.filter((p) => p.body.status === "active").map((p) => p.body);
   const runs = (await db.query<{ role: string; runtime: string | null; baseline: string | null; status: string; n: number; last: Date }>(
-    `select role, body->'runtime'->>'provider' as runtime, body->>'agent_baseline' as baseline, status, count(*)::int as n, max(created_at) as last
-       from runs group by 1, 2, 3, 4`)).rows;
+    `select r.role, r.body->'runtime'->>'provider' as runtime, r.body->>'agent_baseline' as baseline, r.status, count(*)::int as n, max(r.created_at) as last
+       from runs r join object_owners o on o.object_kind = 'run' and o.object_id = r.id
+      where o.org_id = $1 group by 1, 2, 3, 4`, [orgId])).rows;
 
   const roles = ROLES.map((r) => {
     const mine = runs.filter((x) => x.role === r.role);
@@ -49,10 +52,13 @@ export async function roster(db: Db) {
       runs: mine.reduce((n, x) => n + x.n, 0),
       ...(last ? { last_run_at: last.toISOString() } : {}),
       pins: active.filter((p) => p.role === r.role),
-      // A rollback needs an earlier pin of a different artifact, retired, for the same runtime and role.
-      rollback: PINNABLE.filter((rt) => {
+      // What a rollback would restore, per runtime: the latest retired pin of a different artifact
+      // (the same choice runtime.rollback makes), so the screen can show it and the signature bind it.
+      rollback: PINNABLE.flatMap((rt) => {
         const now = active.find((p) => p.role === r.role && p.runtime === rt);
-        return now !== undefined && pins.some((p) => p.body.status === "retired" && p.body.role === r.role && p.body.runtime === rt && p.body.artifact_digest.value !== now.artifact_digest.value);
+        if (!now) return [];
+        const prev = [...pins].reverse().find((p) => p.body.status === "retired" && p.body.role === r.role && p.body.runtime === rt && p.body.artifact_digest.value !== now.artifact_digest.value);
+        return prev ? [{ runtime: rt, current: now.artifact_digest, restore: prev.body.artifact_digest }] : [];
       }),
     };
   });
@@ -69,7 +75,7 @@ export async function roster(db: Db) {
   }
 
   const probes = (await db.query<{ body: Json }>(
-    "select body from runtime_probes where body->>'outcome' = 'pass' order by body->>'observed_at' desc")).rows.map((r) => r.body);
+    "select body from runtime_probes where body->>'outcome' = 'pass' and body->>'org_id' = $1 order by body->>'observed_at' desc", [orgId])).rows.map((r) => r.body);
   const versions: Json[] = [];
   for (const p of probes) {
     if (versions.some((v) => v.runtime === p.runtime && v.digest.value === p.artifact_digest.value)) continue;
@@ -80,13 +86,17 @@ export async function roster(db: Db) {
   }
 
   const policies = (await db.query<{ body: Json; digest: string }>(
-    "select distinct on (body->>'id') body, digest from sandbox_policies order by body->>'id', (body->>'version')::int desc")).rows
+    "select distinct on (body->>'id') body, digest from sandbox_policies where body->>'org_id' = $1 order by body->>'id', (body->>'version')::int desc", [orgId])).rows
     .map((r) => ({ ...r.body, digest: r.digest }));
+  // Per runtime, the run that finished last (by its recorded finish, then its id), whether or not it
+  // reported a sandbox: a newer run without one is never hidden behind an older one that had it.
   const launched = (await db.query<{ runtime: string; sandbox: string | null; run_id: string; at: string }>(
-    `select distinct on (body->'runtime'->>'provider') body->'runtime'->>'provider' as runtime, body->'trace'->>'sandbox' as sandbox, id as run_id,
-            coalesce(body->>'finished_at', created_at::text) as at
-       from runs where body ? 'trace' and body->'runtime'->>'provider' is not null
-      order by body->'runtime'->>'provider', created_at desc`)).rows;
+    `select distinct on (r.body->'runtime'->>'provider') r.body->'runtime'->>'provider' as runtime, r.body->'trace'->>'sandbox' as sandbox, r.id as run_id,
+            r.body->>'finished_at' as at
+       from runs r join object_owners o on o.object_kind = 'run' and o.object_id = r.id
+      where o.org_id = $1 and r.status not in ('queued', 'running') and r.body ? 'finished_at'
+        and r.body->'runtime'->>'provider' is not null and r.body->'runtime'->>'provider' <> 'any'
+      order by r.body->'runtime'->>'provider', (r.body->>'finished_at')::timestamptz desc, r.id desc`, [orgId])).rows;
 
   return {
     roles,

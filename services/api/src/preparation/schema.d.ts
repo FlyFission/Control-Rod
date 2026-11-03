@@ -2328,8 +2328,15 @@ export interface components {
             /** Format: date-time */
             last_run_at?: string;
             pins: components["schemas"]["ControlRod.Records.RuntimePin"][];
-            /** @description Runtimes whose pin for this role has an earlier, different artifact to roll back to. */
-            rollback: string[];
+            /**
+             * @description Per runtime with an earlier, different artifact to roll back to: the artifact pinned now and the
+             *     one a rollback restores. A rollback signs both; if either changes first, it is refused.
+             */
+            rollback: {
+                runtime: string;
+                current: components["schemas"]["ControlRod.Records.Digest"];
+                restore: components["schemas"]["ControlRod.Records.Digest"];
+            }[];
         };
         "Runner.Completion": {
             claim_token: string;
@@ -5612,7 +5619,10 @@ export interface operations {
                             policies: {
                                 [key: string]: unknown;
                             }[];
-                            /** @description Per runtime, the sandbox its latest completed run reported launching with. */
+                            /**
+                             * @description Per runtime, the sandbox the daemon asked for on its latest finished run ("not reported" when
+                             *     the run gave none). A request, not an observed result.
+                             */
                             launched: {
                                 runtime: string;
                                 sandbox: string;

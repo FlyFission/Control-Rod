@@ -4155,7 +4155,7 @@
                                   "at"
                                 ]
                               },
-                              "description": "Per runtime, the sandbox its latest completed run reported launching with."
+                              "description": "Per runtime, the sandbox the daemon asked for on its latest finished run (\"not reported\" when\nthe run gave none). A request, not an observed result."
                             }
                           },
                           "required": [
@@ -9696,9 +9696,25 @@
           "rollback": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "object",
+              "properties": {
+                "runtime": {
+                  "type": "string"
+                },
+                "current": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                },
+                "restore": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                }
+              },
+              "required": [
+                "runtime",
+                "current",
+                "restore"
+              ]
             },
-            "description": "Runtimes whose pin for this role has an earlier, different artifact to roll back to."
+            "description": "Per runtime with an earlier, different artifact to roll back to: the artifact pinned now and the\none a rollback restores. A rollback signs both; if either changes first, it is refused."
           }
         },
         "description": "One run role on the Roster: what it does, who has run it, and its pins."

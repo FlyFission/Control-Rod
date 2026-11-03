@@ -540,8 +540,11 @@ model RosterRole {
   last_run_at?: utcDateTime;
   pins: RuntimePin[];
 
-  /** Runtimes whose pin for this role has an earlier, different artifact to roll back to. */
-  rollback: string[];
+  /**
+   * Per runtime with an earlier, different artifact to roll back to: the artifact pinned now and the
+   * one a rollback restores. A rollback signs both; if either changes first, it is refused.
+   */
+  rollback: { runtime: string; current: Digest; restore: Digest }[];
 }
 
 /**
@@ -562,7 +565,10 @@ op roster(): {
     /** SandboxPolicy records in force, each with its digest. */
     policies: Record<unknown>[];
 
-    /** Per runtime, the sandbox its latest completed run reported launching with. */
+    /**
+     * Per runtime, the sandbox the daemon asked for on its latest finished run ("not reported" when
+     * the run gave none). A request, not an observed result.
+     */
     launched: { runtime: string; sandbox: string; run_id: string; at: string }[];
   };
 } | ApiError;

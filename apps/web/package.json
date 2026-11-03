@@ -7,10 +7,11 @@
   "scripts": {
     "gen:api": "openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts",
     "dev": "pnpm gen:api && vite",
-    "build": "pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build",
+    "build": "pnpm check:themes && pnpm check:office && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "pnpm gen:api && tsc -p tsconfig.json --noEmit",
     "test": "pnpm gen:api && vitest run",
     "check:themes": "python3 ../../tools/check_theme_assets.py --root ../..",
+    "check:office": "vitest run src/features/office/contract.test.ts",
     "test:themes:browser": "playwright test",
     "dev:themes": "pnpm gen:api && vite --open /themes.html"
   },

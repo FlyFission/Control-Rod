@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process bay",
       "art": {
-        "path": "/office-themes/standard-office/process.6aa9a41afa8c.svg",
-        "sha256": "6aa9a41afa8cbd099217ac5572f0768c25021af45f4e708d49ce040552e31112",
-        "bytes": 1300,
+        "path": "/office-themes/standard-office/process.9b9563b754fa.svg",
+        "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37",
+        "bytes": 1302,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical bay",
       "art": {
-        "path": "/office-themes/standard-office/mechanical.6aa9a41afa8c.svg",
-        "sha256": "6aa9a41afa8cbd099217ac5572f0768c25021af45f4e708d49ce040552e31112",
-        "bytes": 1300,
+        "path": "/office-themes/standard-office/mechanical.9b9563b754fa.svg",
+        "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37",
+        "bytes": 1302,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Controls bay",
       "art": {
-        "path": "/office-themes/standard-office/electrical.6aa9a41afa8c.svg",
-        "sha256": "6aa9a41afa8cbd099217ac5572f0768c25021af45f4e708d49ce040552e31112",
-        "bytes": 1300,
+        "path": "/office-themes/standard-office/electrical.9b9563b754fa.svg",
+        "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37",
+        "bytes": 1302,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Structures bay",
       "art": {
-        "path": "/office-themes/standard-office/civil.6aa9a41afa8c.svg",
-        "sha256": "6aa9a41afa8cbd099217ac5572f0768c25021af45f4e708d49ce040552e31112",
-        "bytes": 1300,
+        "path": "/office-themes/standard-office/civil.9b9563b754fa.svg",
+        "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37",
+        "bytes": 1302,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance bay",
       "art": {
-        "path": "/office-themes/standard-office/assurance.6aa9a41afa8c.svg",
-        "sha256": "6aa9a41afa8cbd099217ac5572f0768c25021af45f4e708d49ce040552e31112",
-        "bytes": 1300,
+        "path": "/office-themes/standard-office/assurance.9b9563b754fa.svg",
+        "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37",
+        "bytes": 1302,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls desk",
       "art": {
-        "path": "/office-themes/standard-office/project-controls.6aa9a41afa8c.svg",
-        "sha256": "6aa9a41afa8cbd099217ac5572f0768c25021af45f4e708d49ce040552e31112",
-        "bytes": 1300,
+        "path": "/office-themes/standard-office/project-controls.9b9563b754fa.svg",
+        "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37",
+        "bytes": 1302,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Claude Code)",
@@ -97,8 +97,8 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Review table",
       "art": {
-        "path": "/office-themes/standard-office/review.9342a60d66e0.svg",
-        "sha256": "9342a60d66e0a516ee49213abec39ad6b8078f1be6f3bb660b5abcb7233254f0",
+        "path": "/office-themes/standard-office/review.d736ccf69602.svg",
+        "sha256": "d736ccf696020091f55fb618d71cbbc84537d57ad4574ea29888f0b4e4bd1242",
         "bytes": 847,
         "width": 160,
         "height": 300,
@@ -110,8 +110,8 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Hand-off desk",
       "art": {
-        "path": "/office-themes/standard-office/interface.0cb5d47031b4.svg",
-        "sha256": "0cb5d47031b43629a54c6d755af12327eff7e12a13db4032761b668725113e33",
+        "path": "/office-themes/standard-office/interface.ab5fd5e7b257.svg",
+        "sha256": "ab5fd5e7b2571c58df5d8d8edeaa2440f34e8a1b4a02a998cd34cf05ca1aca79",
         "bytes": 759,
         "width": 150,
         "height": 300,
@@ -123,8 +123,8 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Check bench",
       "art": {
-        "path": "/office-themes/standard-office/verification.a78af0947d1e.svg",
-        "sha256": "a78af0947d1ef5905036463dc90709c061d1cc5b9f9e2d01cce2fe45003a06be",
+        "path": "/office-themes/standard-office/verification.618255808deb.svg",
+        "sha256": "618255808deb454043b5e12a70e1078f44eaffceacf20d2399c79713e6ddba15",
         "bytes": 759,
         "width": 170,
         "height": 300,
@@ -136,8 +136,8 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Your desk",
       "art": {
-        "path": "/office-themes/standard-office/your-office.9b30a4391df8.svg",
-        "sha256": "9b30a4391df8e48b451d2e0be95363835883f7ac3b9dd4af162df4e9198e84e4",
+        "path": "/office-themes/standard-office/your-office.ceb97c1e9003.svg",
+        "sha256": "ceb97c1e9003cad5649fb577b7120f8863d8863e70b13b1b030438a9dd668c82",
         "bytes": 699,
         "width": 210,
         "height": 300,
@@ -149,8 +149,8 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Records room",
       "art": {
-        "path": "/office-themes/standard-office/document-control.815ac7c00b47.svg",
-        "sha256": "815ac7c00b47b5d5f5bf76d54a4b0de14fb6e5031a08e412c36d07029a2a6ecf",
+        "path": "/office-themes/standard-office/document-control.e7b98d8ea8ef.svg",
+        "sha256": "e7b98d8ea8ef144d0c0ea2900d48cd6f6d112965f8681d17727cf6adcb56415b",
         "bytes": 1084,
         "width": 160,
         "height": 300,
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Waiting bench",
       "art": {
-        "path": "/office-themes/standard-office/bench.0150a4bd31cb.svg",
-        "sha256": "0150a4bd31cb71e2116d066c4ebfa89fdd883800d7cf18302f912c4a6c0243d7",
-        "bytes": 900,
+        "path": "/office-themes/standard-office/bench.ab5fd5e7b257.svg",
+        "sha256": "ab5fd5e7b2571c58df5d8d8edeaa2440f34e8a1b4a02a998cd34cf05ca1aca79",
+        "bytes": 759,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Claude Code)",
@@ -175,8 +175,8 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Hold room",
       "art": {
-        "path": "/office-themes/standard-office/quarantine.577535439e82.svg",
-        "sha256": "577535439e8221c019cd72424da11e546ab5b1752d3bb28564f99467122514c5",
+        "path": "/office-themes/standard-office/quarantine.357d5b848326.svg",
+        "sha256": "357d5b8483261be873b30750fa1571c8be71c5b02549b82aed3cb8e78e0c904a",
         "bytes": 2901,
         "width": 140,
         "height": 300,

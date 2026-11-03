@@ -48,6 +48,19 @@ describe("themes", () => {
     expect(await validateTheme({ ...standard, regions: rest } as unknown as OfficeThemeV1)).toContain("the theme has nothing for quarantine");
   });
 
+  it("requires accessibility notes, credits and every asset's provenance, and refuses malformed input", async () => {
+    const { accessibility: _a, credits: _c, ...bare } = standard;
+    const problems = await validateTheme(bare as unknown as OfficeThemeV1);
+    expect(problems).toContain("the theme needs accessibility notes, and nothing else under accessibility");
+    expect(problems).toContain("the theme needs at least one credit, each a line of text");
+    const { creator: _cr, licenseNoticeId: _l, ...anon } = standard.bodies[0]!;
+    const unsourced = { ...standard, bodies: [anon, ...standard.bodies.slice(1)] } as unknown as OfficeThemeV1;
+    expect(await validateTheme(unsourced)).toEqual(expect.arrayContaining(["body 0 names no creator", "body 0 names no license notice"]));
+    expect(await validateTheme(null as unknown as OfficeThemeV1)).toEqual(["the theme is not an object"]);
+    const broken = { ...standard, regions: "everywhere", bodies: [7] } as unknown as OfficeThemeV1;
+    expect(await validateTheme(broken)).toEqual(expect.arrayContaining(["the theme has no regions", "body 0 is not an asset"]));
+  });
+
   it("catches an asset whose bytes do not match its digest", async () => {
     const swapped = async (path: string) => (path === standard.regions.bench.art!.path ? new TextEncoder().encode(ok) : read(path));
     const problems = await validateTheme(standard, swapped, sha);
@@ -95,6 +108,14 @@ describe("SVG allowlist", () => {
     ["a named colour", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect fill="currentColor" width="1" height="1"/></svg>`, "paints with"],
     ["an entity", `<!DOCTYPE svg [<!ENTITY x "y">]><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"/>`, "declares a doctype"],
     ["art larger than its region", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-20 -20 400 400"><rect width="1" height="1"/></svg>`, "has the view box"],
+    ["mismatched closing tags", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><g><rect width="1" height="1"></g></rect></svg>`, "closes <g> where <rect> is open"],
+    ["an unclosed element", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><g>`, "leaves <g> open"],
+    ["a repeated attribute", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect fill="#000000" fill="#ffffff" width="1" height="1"/></svg>`, "repeats the attribute fill"],
+    ["loose text", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300">Approve</svg>`, "text outside a title"],
+    ["a second root", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"/><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"/>`, "content after its root"],
+    ["a root that is not svg", `<g/>`, "has the root <g>"],
+    ["a width other than the region's", `<svg xmlns="http://www.w3.org/2000/svg" width="900" viewBox="0 0 160 300"/>`, "declares width 900"],
+    ["no namespace", `<svg viewBox="0 0 160 300"/>`, "does not declare the SVG namespace"],
     ["an unquoted attribute", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect width=1 height="1"/></svg>`, "without a quoted value"],
   ])("refuses %s", (_name, text, problem) => {
     expect(validateSvg(text, size, "art").some((p) => p.includes(problem))).toBe(true);

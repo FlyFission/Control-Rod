@@ -30,6 +30,8 @@ function Harness() {
   const [count, setCount] = useState(Number(params.get("agents") ?? 12));
   // Zoom as a fraction of the layout canvas; the stage refuses to draw below its minimum (0.8).
   const zoom = Number(params.get("zoom") ?? 0);
+  // A deliberate delay before a state change commits, so the harness can prove its timer sees it.
+  const delay = Number(params.get("delay") ?? 0);
   const [shifted, setShifted] = useState(0);
   const [selected, setSelected] = useState<string>();
   const [contract, setContract] = useState<{ theme: string; problems: string[] }>();
@@ -80,7 +82,7 @@ function Harness() {
             ))}
           </select>
         </label>
-        <button type="button" className="btn" onClick={() => setShifted((n) => n + 1)} data-harness="shift">
+        <button type="button" className="btn" onClick={() => (delay ? setTimeout(() => setShifted((n) => n + 1), delay) : setShifted((n) => n + 1))} data-harness="shift">
           Shift every state
         </button>
         <span role="status" data-harness="contract" data-theme={contract?.theme ?? ""} data-problems={contract ? contract.problems.length : ""}>

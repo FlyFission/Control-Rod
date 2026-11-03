@@ -85,18 +85,23 @@ const BOTTOM_H = 300;
 
 /**
  * A grid of seats below the name band, cols by rows, inset from the walls. A seat is a figure's
- * centre: the figure reaches SEAT_CLEARANCE.above it and SEAT_CLEARANCE.below it (its package code),
- * so the insets keep every figure clear of the name plate and inside its region.
+ * centre: at minimum zoom (0.8) the figure reaches 18px above it, 28px below it (its package code),
+ * 19px to its left (the code) and 25px to its right (the state mark), which is 22.5, 35, 24 and 31
+ * layout units; SEAT_CLEARANCE rounds those up, so the insets keep every figure clear of the name
+ * plate and inside its region. The quality harness measures the real extents.
  */
-export const SEAT_CLEARANCE = { above: 24, below: 36 } as const;
+export const SEAT_CLEARANCE = { above: 24, below: 36, left: 24, right: 32 } as const;
 
 function grid(x: number, y: number, w: number, h: number, cols: number, rows: number): Point[] {
   const top = y + NAME_BAND + SEAT_CLEARANCE.above;
   const usable = h - NAME_BAND - SEAT_CLEARANCE.above - SEAT_CLEARANCE.below;
+  // Columns run from the first seat a figure fits at to the last, never centred in equal cells.
+  const left = x + SEAT_CLEARANCE.left;
+  const across = w - SEAT_CLEARANCE.left - SEAT_CLEARANCE.right;
   const out: Point[] = [];
   for (let r = 0; r < rows; r++)
     for (let c = 0; c < cols; c++)
-      out.push({ x: Math.round(x + (w * (c + 0.5)) / cols), y: Math.round(top + (rows === 1 ? usable / 2 : (usable * r) / (rows - 1))) });
+      out.push({ x: Math.round(left + (cols === 1 ? across / 2 : (across * c) / (cols - 1))), y: Math.round(top + (rows === 1 ? usable / 2 : (usable * r) / (rows - 1))) });
   return out;
 }
 
@@ -112,12 +117,12 @@ function buildRegions(): Region[] {
   let x = MARGIN;
   for (const id of ROOMS) {
     const [name, purpose, w] = ROOM_NAMES[id];
-    // Your office seats four; the rest queue at its door (OV-01). Bench holds the most.
-    const seats = id === "your-office" ? grid(x, BOTTOM_Y, w, BOTTOM_H, 2, 2) : id === "bench" ? grid(x, BOTTOM_Y, w, BOTTOM_H, 2, 4) : id === "quarantine" ? grid(x, BOTTOM_Y, w, BOTTOM_H, 2, 2) : grid(x, BOTTOM_Y, w, BOTTOM_H, 2, 3);
+    // Your office seats four; the rest queue at its door (OV-01). Rows of three keep figures apart at minimum zoom.
+    const seats = id === "your-office" || id === "quarantine" ? grid(x, BOTTOM_Y, w, BOTTOM_H, 2, 2) : grid(x, BOTTOM_Y, w, BOTTOM_H, 2, 3);
     const door = { x: Math.round(x + w / 2), y: BOTTOM_Y };
     // The queue runs along the corridor, either side of the door, spaced so figures and their
     // package codes never touch, and high enough that codes clear the rooms' name plates.
-    const queue = id === "your-office" ? [-60, 60, -120, 120, -180, 180].map((dx) => ({ x: door.x + dx, y: CORRIDOR_Y - 10 })) : [];
+    const queue = id === "your-office" ? [-64, 64, -128, 128, -192, 192].map((dx) => ({ x: door.x + dx, y: CORRIDOR_Y - 10 })) : [];
     regions.push({ id, kind: "room", name, purpose, x, y: BOTTOM_Y, w, h: BOTTOM_H, seats, queue, door });
     x += w + GAP;
   }
@@ -154,6 +159,7 @@ export function validateLayout(regions: readonly Region[] = REGIONS): string[] {
       if (!inside(s, r)) problems.push(`${r.id} has a seat outside it`);
       if (s.y - SEAT_CLEARANCE.above < r.y + NAME_BAND) problems.push(`${r.id} has a seat under its name plate`);
       if (s.y + SEAT_CLEARANCE.below > r.y + r.h) problems.push(`${r.id} has a seat too close to its far wall`);
+      if (s.x - SEAT_CLEARANCE.left < r.x || s.x + SEAT_CLEARANCE.right > r.x + r.w) problems.push(`${r.id} has a seat too close to a side wall`);
     }
     for (const q of r.queue) {
       if (q.y - SEAT_CLEARANCE.above <= TOP_Y + TOP_H || q.y + SEAT_CLEARANCE.below >= BOTTOM_Y || q.x < 0 || q.x > CANVAS.width) problems.push(`${r.id} queues outside the corridor`);

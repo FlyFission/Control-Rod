@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -45,6 +45,28 @@ test.describe("build output isolation", () => {
       expect(files.some((f) => f.startsWith("office-themes/harness-bright"))).toBe(false);
       expect(files.some((f) => f.startsWith("office-themes/standard-office/"))).toBe(true);
     } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
+  test("a release build copies only the files an office theme declares, and refuses a tampered one", () => {
+    const outDir = mkdtempSync(join(tmpdir(), "control-rod-office-"));
+    const themeDir = join("public", "office-themes", "standard-office");
+    const stray = join(themeDir, "stray.0123456789ab.svg");
+    const manifest = JSON.parse(readFileSync(join(themeDir, "assets.json"), "utf8")) as { files: { file: string }[] };
+    const victim = join(themeDir, manifest.files[0]!.file);
+    const original = readFileSync(victim);
+    try {
+      writeFileSync(stray, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>');
+      build(outDir, false);
+      const files = inventory(outDir);
+      expect(files).not.toContain("office-themes/standard-office/stray.0123456789ab.svg");
+      expect(files.filter((f) => f.startsWith("office-themes/standard-office/")).length).toBe(manifest.files.length);
+      writeFileSync(victim, Buffer.concat([original, Buffer.from(" ")]));
+      expect(() => build(outDir, false)).toThrow(/does not match its digest/);
+    } finally {
+      rmSync(stray, { force: true });
+      writeFileSync(victim, original);
       rmSync(outDir, { recursive: true, force: true });
     }
   });

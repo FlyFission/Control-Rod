@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { STATE_INFO, StateMark } from "../../components/StateMark.js";
 import type { OfficeThemeV1 } from "./contract.js";
 import { CANVAS, type Point, REGIONS, type RegionId } from "./layout.js";
@@ -44,10 +44,22 @@ export interface OfficeStageProps {
   onSelect?: (id: string) => void;
 }
 
+/** Whether the tab is visible; motion stops while it is hidden. */
+function useVisible() {
+  const [visible, setVisible] = useState(() => document.visibilityState !== "hidden");
+  useEffect(() => {
+    const on = () => setVisible(document.visibilityState !== "hidden");
+    document.addEventListener("visibilitychange", on);
+    return () => document.removeEventListener("visibilitychange", on);
+  }, []);
+  return visible;
+}
+
 export function OfficeStage({ theme, figures, selected, onSelect }: OfficeStageProps) {
   const bodies = theme.bodies;
+  const visible = useVisible();
   return (
-    <div className="office-stage" data-theme-id={theme.id} style={{ aspectRatio: `${CANVAS.width} / ${CANVAS.height}` }}>
+    <div className="office-stage" data-theme-id={theme.id} data-motion={visible ? "running" : "paused"} style={{ aspectRatio: `${CANVAS.width} / ${CANVAS.height}` }}>
       <div className="office-scene" aria-hidden="true" style={{ background: theme.tokens.backdrop }} data-layer="scene">
         {REGIONS.map((r) => {
           const art = theme.regions[r.id].art;
@@ -88,11 +100,12 @@ function FigureMark({ figure: f, selected, onSelect }: { figure: StageFigure; se
       data-semantic="figure"
       data-state={f.state}
       data-figure={f.id}
+      data-region={f.region}
       onClick={() => onSelect?.(f.id)}
     >
       <span className="office-figure-outline" aria-hidden="true" />
       <span className="office-figure-mark" aria-hidden="true" data-semantic="mark">
-        <StateMark kind={f.state} size={12} title={label} />
+        <StateMark kind={f.state} size={13} title={label} />
       </span>
       <span className="office-figure-code" aria-hidden="true" data-semantic="code">
         {f.code}

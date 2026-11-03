@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { relative, resolve } from "node:path";
+import { createHash } from "node:crypto";
 
 /** Written into every build output so a later build may safely clear it. */
 const BUILD_MARKER = ".control-rod-build";
@@ -110,9 +111,22 @@ export default defineConfig(({ mode }) => {
               : (released as string[])) {
               if (!/^[a-z][a-z0-9-]*$/.test(id))
                 throw new Error("Invalid office theme ID");
-              cpSync(resolve(officeArt, id), resolve(out, "office-themes", id), {
-                recursive: true,
-              });
+              // Only the files the theme's manifest declares, each matching its digest.
+              const manifest = JSON.parse(
+                readFileSync(resolve(officeArt, id, "assets.json"), "utf8"),
+              ) as { theme: string; files: { file: string; sha256: string }[] };
+              if (manifest.theme !== id || !Array.isArray(manifest.files))
+                throw new Error(`Invalid office theme manifest for ${id}`);
+              const destination = resolve(out, "office-themes", id);
+              mkdirSync(destination, { recursive: true });
+              for (const { file, sha256 } of manifest.files) {
+                if (!/^[a-z0-9-]+\.[a-f0-9]{12}\.svg$/.test(file) || !file.includes(`.${sha256.slice(0, 12)}.`))
+                  throw new Error(`Invalid office theme asset name ${id}/${file}`);
+                const bytes = readFileSync(resolve(officeArt, id, file));
+                if (createHash("sha256").update(bytes).digest("hex") !== sha256)
+                  throw new Error(`Office theme asset ${id}/${file} does not match its digest`);
+                writeFileSync(resolve(destination, file), bytes);
+              }
             }
           }
           const art = resolve(publicRoot, "floor-themes");

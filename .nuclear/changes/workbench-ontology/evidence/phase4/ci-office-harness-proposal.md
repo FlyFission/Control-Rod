@@ -37,7 +37,7 @@ The workflow does not use `actions/upload-artifact` yet, so its pin is left for 
 
 ## Risks the signer should weigh
 
-- **Timing on shared runners.** The frame budget asserts p95 below 33.3 ms (30 frames per second), half the reference machine target in Q-10, because hosted runners are not the reference machine. Locally the measured p95 is 16.8 ms. If the job proves flaky, the response is a recorded runner baseline, not a looser assertion without a record.
+- **Timing on shared runners.** CI runs only the labelled smoke check (p95 frame below 33.3 ms, 30 frames per second); hosted runners are not the reference machine. The Q-10 check (60 frames per second) runs only where `OFFICE_REFERENCE_MACHINE` names the machine, and no reference machine has been designated yet: that is an owner decision. A candidate run on the development machine (Ryzen 9 5900X, WSL2, Chromium 156) measured p95 16.8 ms. If the smoke check proves flaky in CI, the response is a recorded runner baseline, not a looser assertion without a record.
 - **Browser download.** `playwright install --with-deps` fetches Chromium from Microsoft's CDN at the version the lockfile's Playwright pins. That is an outside download in CI, as the existing Rust and Go toolchain installs already are.
 - **Run time.** About a minute for the build plus 20 seconds of tests.
 

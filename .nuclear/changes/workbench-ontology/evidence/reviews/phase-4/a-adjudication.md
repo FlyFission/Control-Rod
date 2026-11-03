@@ -36,3 +36,25 @@ Round 2 findings 2 to 6 verified fixed. Finding 1 was partial: pooled ink let vi
 | # | Finding | Decision | Change |
 |---|---|---|---|
 | 1 | Half-clipped room names pass the pooled ink floor | Accepted | Every glyph is measured in its own box (a range over that character) and must carry at least 2 owned inked pixels at 3:1; measured, the thinnest real glyph carries 4 and a clipped one 0. Control: half of every canonical name clipped with `clip-path`, its box unchanged, must report the missing glyphs, and does. |
+
+## Round 4 (Codex, `a-codex-round4.md`): MERGE
+
+## Automated GitHub review threads on #30 (Copilot and the Codex connector)
+
+The branch rules require every review thread resolved. Each was checked against the code; none was resolved without a fix or evidence.
+
+| Thread | Decision | Evidence or change |
+|---|---|---|
+| contract.ts: dot segment path escape | Fixed | The path must be exactly `/office-themes/<theme>/<file>` with the file one segment; a `..` path is refused (test added). |
+| contract.ts: `title`/`desc` admit text | Fixed | Both removed from the allowlist; any non-whitespace text is refused (tests added). |
+| contract.ts: nested unknown fields | Already fixed (round 1) | Asset objects are checked against an explicit key set; accessibility allows only `notes`. |
+| layout.ts: unknown IDs make routing throw | Fixed | Unknown IDs and wrong kinds are reported, and routes are walked only for a known graph (test added). |
+| layout.ts: bottom row 1,212 wide | Not a defect | One leading margin, not two: 18 + 1,140 + 36 = 1,194 of 1,200; `validateLayout()` passes in CI. |
+| layout.ts: no horizontal seat clearance | Already fixed (round 1) | `SEAT_CLEARANCE.left/right` and the side wall check; the harness checks every seated figure stays inside its region. |
+| lock_other.go and nofollow_unix.go: `unix` tag | Not a defect | Go 1.19 and later define the `unix` constraint; the module is go 1.24.7 and `go list` on Linux selects `lock_unix.go` and `nofollow_unix.go`. |
+| test/setup.ts: `onUnhandledFrame` | Not a defect | msw 3.0.3 (installed) names the option `onUnhandledFrame`; `onUnhandledRequest` is msw 2. |
+| db/index.ts: read transactions lack an error listener (P1) | Fixed | `readTx` listens for errors and destroys a broken client, as `tx` does. A test ends the backend mid-read: it fails without the fix (an uncaught ECONNRESET) and passes with it. |
+| live.ts: preparation never refreshed by live events | Fixed | Each touched subject also invalidates `["preparation", id]` (test extended). |
+| RequirementsEditor: retiring leaves references | Fixed | Retiring a requirement removes it from every criterion; retiring a criterion removes it from every check and escalation (test added). |
+| PreparationPanel: unsaved edits carried to another package | Fixed | The package page keys the panel by package id, so a different package mounts a fresh panel. |
+| TechnicalPlanEditor: new lines vanish while typing | Fixed | A `Lines` field keeps the raw text while typing and saves only trimmed, non-empty entries; all four one-per-line fields use it (test added). |

@@ -150,6 +150,8 @@ export function validateLayout(regions: readonly Region[] = REGIONS): string[] {
   const inside = (p: Point, r: { x: number; y: number; w: number; h: number }) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
   const ids = new Set<string>();
   for (const r of regions) {
+    if (!(REGION_IDS as readonly string[]).includes(r.id)) problems.push(`${r.id} is not a region of the office`);
+    else if (r.kind !== ((CUBE_SETS as readonly string[]).includes(r.id) ? "cube-set" : "room")) problems.push(`${r.id} has the wrong kind`);
     if (ids.has(r.id)) problems.push(`${r.id} appears twice`);
     ids.add(r.id);
     if (r.x < 0 || r.y < 0 || r.x + r.w > CANVAS.width || r.y + r.h > CANVAS.height) problems.push(`${r.id} leaves the canvas`);
@@ -176,6 +178,8 @@ export function validateLayout(regions: readonly Region[] = REGIONS): string[] {
     }
   // Reachability: every door touches the corridor, which spans the canvas, so every route is a path
   // door, corridor, door; check each route stays inside the canvas and ends at its target's door.
+  // Routes are walked only once every region is known, so a malformed graph returns problems, never throws.
+  if (problems.some((p) => p.endsWith("is not a region of the office"))) return problems;
   for (const a of regions)
     for (const b of regions) {
       const path = route(a.id, b.id);

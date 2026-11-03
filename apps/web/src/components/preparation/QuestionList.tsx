@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { PreparationContent, ResolutionRequest } from "../../api/types.js";
-import { Text, Line, itemId } from "./fields.js";
+import { Text, Line, Lines, itemId } from "./fields.js";
 export function QuestionList({
   value,
   change,
@@ -172,12 +172,12 @@ export function QuestionList({
                   })
                 }
               />
-              <Text
+              <Lines
                 label={`Escalation ${i + 1} alternatives (one per line)`}
-                value={e.alternatives.join("\n")}
+                value={e.alternatives}
                 change={(v) =>
                   change((d) => {
-                    d.escalations[i]!.alternatives = v.split("\n");
+                    d.escalations[i]!.alternatives = v;
                   })
                 }
               />

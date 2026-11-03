@@ -1,5 +1,5 @@
 import type { PreparationContent } from "../../api/types.js";
-import { Text, Line, itemId, lines } from "./fields.js";
+import { Text, Line, Lines, itemId } from "./fields.js";
 export function TechnicalPlanEditor({
   value,
   change,
@@ -20,12 +20,12 @@ export function TechnicalPlanEditor({
           })
         }
       />
-      <Text
+      <Lines
         label="Alternatives considered (one per line)"
-        value={p.alternatives.join("\n")}
+        value={p.alternatives}
         change={(v) =>
           change((d) => {
-            d.technical_plan.alternatives = v.split("\n");
+            d.technical_plan.alternatives = v;
           })
         }
       />
@@ -224,21 +224,21 @@ export function TechnicalPlanEditor({
           })
         }
       />
-      <Text
+      <Lines
         label="Risks and holds (one per line)"
-        value={p.risks.join("\n")}
+        value={p.risks}
         change={(v) =>
           change((d) => {
-            d.technical_plan.risks = v.split("\n");
+            d.technical_plan.risks = v;
           })
         }
       />
-      <Text
+      <Lines
         label="Controlled current-state sources (one reference per line)"
-        value={p.current_state_refs.join("\n")}
+        value={p.current_state_refs}
         change={(v) =>
           change((d) => {
-            d.technical_plan.current_state_refs = lines(v);
+            d.technical_plan.current_state_refs = v;
           })
         }
       />

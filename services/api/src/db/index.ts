@@ -60,16 +60,26 @@ export async function closeDb(db: Db): Promise<void> {
 /** A consistent, read only snapshot on the reader: for reads that must see one moment, without locks. */
 export async function readTx<T>(db: Db, fn: (c: Tx) => Promise<T>): Promise<T> {
   const c = await db.connect();
+  // As in tx: a checked-out client needs its own error listener, or a connection the server ends
+  // mid-read (a restart, a fatal deadline) emits an unhandled error and takes the process down.
+  // A broken client is destroyed on release, never returned to the pool.
+  let broken = false;
+  const connectionError = () => {
+    broken = true;
+  };
+  c.on("error", connectionError);
   try {
     await c.query("begin isolation level repeatable read read only");
     const out = await fn(c);
     await c.query("commit");
     return out;
   } catch (e) {
-    await c.query("rollback").catch(() => undefined);
+    if ((e as { severity?: string })?.severity === "FATAL") broken = true;
+    if (!broken) await c.query("rollback").catch(() => (broken = true));
     throw e;
   } finally {
-    c.release();
+    c.off("error", connectionError);
+    c.release(broken);
   }
 }
 

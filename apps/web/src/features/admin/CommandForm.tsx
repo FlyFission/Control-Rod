@@ -23,6 +23,8 @@ export type Field =
 export interface CommandSpec {
   /** The command's catalogue name, for example member.suspend. */
   name: string;
+  /** A heading of its own, where one command has two forms (setting a new budget, changing one). */
+  title?: string;
   fields: readonly Field[];
   /** What the command will change, in words, from the values as they stand; null until they are complete. */
   describe: (v: Values) => string | null;
@@ -74,7 +76,7 @@ export function CommandForm({ spec, action, passkeys = browserPasskeys }: { spec
         if (description && allowed) run.mutate();
       }}
     >
-      <h3 id={`${id}-title`}>{action?.label ?? spec.name}</h3>
+      <h3 id={`${id}-title`}>{spec.title ?? action?.label ?? spec.name}</h3>
       {!allowed && (
         <p className="small">
           {action === undefined ? "Whether you may do this could not be loaded." : (action.reason ?? "This is not available to you.")}{" "}
@@ -113,7 +115,7 @@ function FieldInput({ field: f, value, onChange }: { field: Field; value: string
   if (f.kind === "checks") {
     const chosen = new Set(value as string[]);
     return (
-      <fieldset className="admin-checks">
+      <fieldset className="admin-checks" aria-describedby={f.hint ? `${id}-hint` : undefined}>
         <legend>{label}</legend>
         {f.options.map((o) => (
           <label key={o.value} className="office-choice">
@@ -130,7 +132,11 @@ function FieldInput({ field: f, value, onChange }: { field: Field; value: string
             {o.label}
           </label>
         ))}
-        {f.hint && <p className="muted small">{f.hint}</p>}
+        {f.hint && (
+          <p id={`${id}-hint`} className="muted small">
+            {f.hint}
+          </p>
+        )}
       </fieldset>
     );
   }

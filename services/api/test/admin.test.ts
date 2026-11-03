@@ -476,7 +476,7 @@ describe("the administration registry", () => {
     // Each passkey once, its current record, with when it was registered.
     const ids = reg.credentials.map((c: Json) => c.credential_id);
     expect(new Set(ids).size).toBe(ids.length);
-    const usable = reg.credentials.filter((c: Json) => c.member_id === BEN && c.revoked !== true);
+    const usable = reg.credentials.filter((c: Json) => c.member_id === BEN && !c.revoked);
     expect(usable.length).toBeGreaterThan(0);
     for (const c of reg.credentials) expect(Number.isNaN(Date.parse(c.registered_at))).toBe(false);
     // Delegations say whether they were revoked; change requests list only those waiting on approval.
@@ -489,6 +489,23 @@ describe("the administration registry", () => {
     const org = (await h.db.query<{ id: string }>("select tenancy_sole_org() as id")).rows[0]!.id;
     for (const rows of [reg.qualifications, reg.credentials, reg.delegations, reg.bindings, reg.change_requests, reg.budgets])
       for (const x of rows) expect(x.org_id).toBe(org);
+  });
+
+  it("shows a Member without administrator authority only their own passkeys, and no one license numbers, reasons or attestation evidence", async () => {
+    const rita = await addPerson("rita", new VirtualAuthenticator());
+    const r = await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: rita } });
+    expect(r.statusCode, r.body).toBe(200);
+    const reg = r.json().registry;
+    expect(reg.credentials.length).toBeGreaterThan(0);
+    for (const c of reg.credentials) {
+      expect(c.member_id).toBe(memberIdFor("rita"));
+      expect(Object.keys(c).sort()).toEqual(["credential_id", "hardware", "id", "member_id", "org_id", "registered_at", "revoked"]);
+    }
+    for (const q of reg.qualifications) expect(Object.keys(q).sort()).toEqual(["authorities", "disciplines", "grades", "member_id", "org_id", "revoked", "roles", "version"]);
+    // An administrator sees everyone's.
+    const all = (await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } })).json().registry;
+    const owners = new Set(all.credentials.map((c: Json) => c.member_id));
+    expect(owners.has(BEN) && owners.has(memberIdFor("rita"))).toBe(true);
   });
 
   it("is refused to anyone not signed in", async () => {

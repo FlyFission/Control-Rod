@@ -754,10 +754,10 @@ op admin(): {
 
 /** Each Member's current qualification, passkeys, delegations, bindings, open change requests and budgets. */
 model AdminRegistry {
-  qualifications: SignerQualification[];
+  qualifications: RegistryQualification[];
 
-  /** Each passkey's current record, with when it was registered. */
-  credentials: Record<unknown>[];
+  /** Each passkey's current state: every Member's for an administrator, otherwise the viewer's own. */
+  credentials: RegistryCredential[];
 
   /** Every delegation, with whether it was revoked. */
   delegations: Record<unknown>[];
@@ -766,6 +766,32 @@ model AdminRegistry {
   /** Change requests waiting on approval. */
   change_requests: ChangeRequest[];
   budgets: Budget[];
+}
+
+/** A Member's current qualification as the forms show it: no license numbers and no reasons. */
+model RegistryQualification {
+  org_id: string;
+  member_id: string;
+  @minValue(1) version: int32;
+  roles: string[];
+  authorities: string[];
+  grades: string[];
+  disciplines: string[];
+  revoked: boolean;
+}
+
+/** A passkey as the forms name it: its owner, when it was registered, and no attestation evidence. */
+model RegistryCredential {
+  id: string;
+  org_id: string;
+  member_id: string;
+  credential_id: string;
+  revoked: boolean;
+
+  /** Whether it meets the hardware key floor. */
+  hardware: boolean;
+
+  registered_at: utcDateTime;
 }
 
 /** One quarantine batch: what a SCRAM-stopped run reported in one completion, as digests. */

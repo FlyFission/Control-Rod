@@ -15,7 +15,11 @@ const pkgs = [
 ];
 const admin = { me: { userName: "ben", memberId: "m", orgId: "o" }, bootstrap: false, qualification: null, members: [{ id: "m", org_id: "o", user_name: "ben", display_name: "Ben Huffer", status: "active" }], projects: [], policy: null, themes: [], commands: [],
   floors: [{ code: "not-human", sentence: "Only a person may take this action; an agent or a daemon never decides.", change: "Nothing changes this." }],
-  actions: [{ command: "scram.pull", label: "Pull SCRAM", allowed: true, signature: "direct" }, { command: "runtime.pin", label: "Pin a runtime version", allowed: false, signature: "direct", reason: "This needs administrator authority, which your qualification does not include", change: "An administrator issues you a qualification with that authority.", missing: ["administrator authority"] }] };
+  actions: [{ command: "scram.pull", label: "Pull SCRAM", allowed: true, signature: "direct" }, { command: "runtime.pin", label: "Pin a runtime version", allowed: false, signature: "direct", reason: "This needs administrator authority, which your qualification does not include", change: "An administrator issues you a qualification with that authority.", missing: ["administrator authority"] },
+    { command: "member.invite", label: "Invite a member", allowed: true, signature: "direct" }, { command: "policy.propose", label: "Propose a policy change", allowed: true, signature: "none" },
+    { command: "budget.set", label: "Set a budget", allowed: false, signature: "direct", reason: "This needs policy authority, which your qualification does not include", change: "An administrator issues you a qualification with that authority." }],
+  registry: { qualifications: [], delegations: [], bindings: [], change_requests: [], budgets: [],
+    credentials: [{ id: "c", org_id: "o", member_id: "m", credential_id: "k", version: 1, registered_at: new Date(Date.now() - 86400e3).toISOString(), hardware: true }] } };
 test.beforeEach(async ({ page }) => {
   await page.route("**/*", (r) => {
     const u = new URL(r.request().url());

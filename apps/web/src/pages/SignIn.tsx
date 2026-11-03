@@ -3,12 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { browserPasskeys, type Passkeys } from "../lib/decide.js";
-
-/** The invitation an administrator's link carries, in the address's fragment so no server ever logs it. */
-function invitationInAddress(): string | undefined {
-  const m = /(?:^|[#&])invitation=([A-Za-z0-9_-]+)/.exec(window.location.hash);
-  return m?.[1];
-}
+import { captureInvitation, forgetInvitation, heldInvitation } from "../lib/invitation.js";
 
 /**
  * First run registers a passkey for the first person; a person an administrator invited registers
@@ -16,7 +11,8 @@ function invitationInAddress(): string | undefined {
  */
 export function SignIn({ session, passkeys = browserPasskeys }: { session: Session; passkeys?: Passkeys }) {
   const qc = useQueryClient();
-  const [invitation] = useState(invitationInAddress);
+  // Normally taken at startup (capture-invitation.ts); taking it again here is harmless.
+  const [invitation] = useState(() => (captureInvitation(), heldInvitation()));
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +44,8 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
       const { options } = await api.registerInvitedOptions(invitation!);
       const credential = await passkeys.create(options);
       const s = await api.registerVerify(credential);
-      // Used once: the invitation leaves the address so it is not kept in history or shared by accident.
-      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      // Used once: kept in memory only for a retry until now.
+      forgetInvitation();
       return s;
     });
 

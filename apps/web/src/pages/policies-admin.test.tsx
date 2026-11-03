@@ -40,7 +40,7 @@ function view(over: Partial<AdminView> = {}): AdminView {
     floors: [],
     registry: {
       qualifications: [], delegations: [], bindings: [], budgets: [],
-      credentials: [{ id: "cred_rec", credential_id: "cred-dora", member_id: "mem_dora", revoked: false, registered_at: new Date("2026-10-01T09:00:00Z").toISOString(), hardware_floor: { eligible: true } }],
+      credentials: [{ id: "cred_rec", credential_id: "cred-dora", member_id: "mem_dora", revoked: false, registered_at: new Date("2026-10-01T09:00:00Z").toISOString(), hardware: true }],
       change_requests: [
         { id: "cr_1", org_id: "org_local", kind: "policy-change", status: "proposed", reason: "Alert budgets at 80", subject_digest: { algorithm: "sha256", value: "a".repeat(64) }, impact: [],
           proposed_by: { kind: "human", id: "ben" }, proposal: { settings: { budget_near_percent: "80" }, hardware_attestation_formats: [] } },
@@ -53,14 +53,20 @@ function view(over: Partial<AdminView> = {}): AdminView {
 }
 
 const sent: { name: string; body: any }[] = [];
+const asked: { name: string; body: any }[] = [];
 beforeEach(() => {
   sent.length = 0;
+  asked.length = 0;
   server.use(
-    http.post("*/admin/commands/:name/options", () => HttpResponse.json({ subject_digest: { algorithm: "sha256", value: "c".repeat(64) }, options: {} })),
+    http.post("*/admin/commands/:name/options", async ({ params, request }) => {
+      asked.push({ name: String(params["name"]), body: await request.json() });
+      return HttpResponse.json({ subject_digest: { algorithm: "sha256", value: "c".repeat(64) }, options: {} });
+    }),
     http.post("*/admin/commands/:name", async ({ params, request }) => {
       const body = await request.json();
       sent.push({ name: String(params["name"]), body });
       if (params["name"] === "member.invite") return HttpResponse.json({ member_id: "mem_dora", invitation: { token: "tok_abc", expires_at: new Date("2026-11-10T00:00:00Z").toISOString() } });
+      if (params["name"] === "member.enroll") return HttpResponse.json({ member: { id: "mem_eve", user_name: "eve" }, invitation: { token: "tok_eve", expires_at: new Date("2026-11-10T00:00:00Z").toISOString() } });
       return HttpResponse.json({ ok: true });
     }),
   );
@@ -81,6 +87,19 @@ describe("administration forms", () => {
     await user.click(sign);
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]).toEqual({ name: "member.suspend", body: { payload: { member_id: "mem_dora", reason: "Left the project" }, assertion: { signed: true } } });
+    // The challenge was issued over exactly the payload that was then sent.
+    expect(asked).toEqual([{ name: "member.suspend", body: { payload: sent[0]!.body.payload } }]);
+  });
+
+  it("enrolls a member and gives the invitation enrollment created", async () => {
+    const user = userEvent.setup();
+    await renderPage(<MembersSection view={view()} passkeys={passkeys} />);
+    const f = form("Enroll a member");
+    await user.type(within(f).getByRole("textbox", { name: "User name (required)" }), "eve");
+    expect(within(f).getByText(/and creates a one time invitation for them to register a passkey/)).toBeTruthy();
+    await user.click(within(f).getByRole("button", { name: "Sign with your passkey and enroll" }));
+    expect(await within(f).findByText("Enrolled eve.")).toBeTruthy();
+    expect(within(f).getByText(`${window.location.origin}/#invitation=tok_eve`)).toBeTruthy();
   });
 
   it("gives an invitation link carrying the token in the fragment, shown once", async () => {
@@ -125,7 +144,7 @@ describe("administration forms", () => {
     // A malformed license line: nothing to sign until it is right.
     expect(within(f).getByText("Fill in the required fields to see exactly what this changes.")).toBeTruthy();
     await user.type(within(f).getByRole("textbox", { name: "Licenses" }), ", 2027-06-30");
-    expect(within(f).getByText(/^Replaces Dora's qualification with: roles checker; no authority; grades material; no discipline; 1 license\./)).toBeTruthy();
+    expect(within(f).getByText(/^Replaces Dora's qualification with: roles checker; no authority; grades material; no discipline; licenses US-SC 12345 expiring 2027-06-30\./)).toBeTruthy();
     await user.click(within(f).getByRole("button", { name: "Sign with your passkey and issue" }));
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]!.body.payload).toEqual({ member_id: "mem_dora", roles: ["checker"], authorities: [], grades: ["material"], disciplines: [],
@@ -166,26 +185,42 @@ describe("administration forms", () => {
     expect(sent[0]!.body.payload).toEqual({ scope: "organization", scope_id: "org_local", mode: "hard-cap", limit: { value: "600", unit: "minute" }, period: "P1W" });
   });
 
+  it("changes an existing budget, sending only what changes, in the budget's own unit", async () => {
+    const user = userEvent.setup();
+    const budgets = [{ id: "bud_1", org_id: "org_local", scope: "organization", scope_id: "org_local", mode: "alert", limit: { value: "600", unit: "minute" }, period: "P1W", status: "active" }];
+    await renderPage(<BudgetsSection view={view({ registry: { ...(view().registry as object), budgets } as never })} passkeys={passkeys} />);
+    const f = form("Change a budget");
+    await user.selectOptions(within(f).getByRole("combobox", { name: "Budget (required)" }), "bud_1");
+    expect(within(f).getByText("Fill in the required fields to see exactly what this changes.")).toBeTruthy();
+    await user.selectOptions(within(f).getByRole("combobox", { name: "New mode (leave empty to keep)" }), "hard-cap");
+    await user.type(within(f).getByRole("textbox", { name: "New limit, in its unit (leave empty to keep)" }), "480");
+    expect(within(f).getByText("Changes bud_1: alert 600 minutes of run time per week on the organization: mode to hard-cap and limit to 480 minutes of run time. Work that would pass it is held before it starts.")).toBeTruthy();
+    await user.click(within(f).getByRole("button", { name: "Sign with your passkey and change" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]!.body.payload).toEqual({ budget_id: "bud_1", mode: "hard-cap", limit: { value: "480", unit: "minute" } });
+  });
+
   it("offers the first Member their own first qualification while no administrator exists", async () => {
     server.use(http.get("*/admin", () => HttpResponse.json(view({ bootstrap: true }))));
     const user = userEvent.setup();
     await renderPage(<Policies passkeys={passkeys} />);
     const f = await screen.findByRole("form", { name: "Issue your own first qualification" });
-    await user.click(within(f).getByRole("checkbox", { name: "administrator" }));
+    // Administrator and policy authority always: issuing anyone a qualification needs both.
     await user.type(within(f).getByRole("textbox", { name: "Why (required)" }), "First administrator");
+    expect(within(f).getByText(/^Issues your own first qualification: authorities administrator and policy;/)).toBeTruthy();
     await user.click(within(f).getByRole("button", { name: "Sign with your passkey and issue it" }));
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]!.body.payload).toMatchObject({ member_id: "mem_ben", authorities: ["administrator"], reason: "First administrator" });
+    expect(sent[0]!.body.payload).toMatchObject({ member_id: "mem_ben", authorities: ["administrator", "policy"], reason: "First administrator" });
   });
 });
 
 describe("accepting an invitation", () => {
-  it("registers the invited person's passkey from the link, then clears the token from the address", async () => {
+  it("takes the token out of the address at once, then registers the invited person's passkey with it", async () => {
     window.history.replaceState(null, "", "/#invitation=tok_abc");
-    let asked: unknown;
+    let registered: unknown;
     server.use(
       http.post("*/auth/register/options", async ({ request }) => {
-        asked = await request.json();
+        registered = await request.json();
         return HttpResponse.json({ options: { challenge: "c" } });
       }),
       http.post("*/auth/register/verify", () => HttpResponse.json({ registered: true, signed_in: true, user: "dora" })),
@@ -193,8 +228,9 @@ describe("accepting an invitation", () => {
     const user = userEvent.setup();
     await renderPage(<SignIn session={{ registered: true, signed_in: false } as never} passkeys={passkeys} />);
     expect(screen.getByRole("heading", { name: "Accept your invitation" })).toBeTruthy();
+    // Out of the address at once, before anything is registered; held in memory for the attempt.
+    expect(window.location.hash).toBe("");
     await user.click(screen.getByRole("button", { name: "Register my passkey" }));
-    await waitFor(() => expect(asked).toEqual({ invitation: "tok_abc" }));
-    await waitFor(() => expect(window.location.hash).toBe(""));
+    await waitFor(() => expect(registered).toEqual({ invitation: "tok_abc" }));
   });
 });

@@ -1300,6 +1300,27 @@ select {
   margin: 0;
   font-size: 15px;
 }
+/* A field: its label above its control, its hint below; nothing wider than the card. */
+.admin-form {
+  min-width: 0;
+}
+.admin-form .field {
+  margin-bottom: 0;
+  min-width: 0;
+}
+.admin-form .field > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.admin-form .field select,
+.admin-form .field input,
+.admin-form .field textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
 .admin-form > fieldset {
   display: grid;
   gap: 8px;

@@ -28,7 +28,7 @@ import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
 import { activeScramsFor, scramPreview, scramView } from "./scram.js";
 import { roster } from "./roster.js";
-import { adminRegistry } from "./registry.js";
+import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { chainHead, inclusionProof, verifyRecords } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
@@ -273,7 +273,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       // The floors (specification 11.2): no person, decision or setting lifts them.
       floors: Object.entries(REASONS).filter(([, r]) => r.floor).map(([code, r]) => ({ code, sentence: r.sentence, change: r.change })),
       // The records the administrative forms choose from (plan task 5.4).
-      registry: await adminRegistry(db, caller.orgId),
+      registry: await adminRegistry(db, { ...caller, administrator: isAdministrator(await currentQualification(db, caller.memberId)) }),
     };
   });
   app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown> } }>("/admin/commands/:name/options", async (req) => {

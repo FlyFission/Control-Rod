@@ -10,3 +10,7 @@ Reviewed 6e41a51..58a8fd8. Both findings accepted.
 ## Round 5
 
 Codex round 5 on 58a8fd8..20ee77d: MERGE, no defects. One later review thread, accepted: a hard cap set while scoped runs were already in flight did not count their reservations, which belonged to other budgets. Fixed: a minute budget counts each unmeasured run in its scope once, at its open (or settled in full) reservation, whichever budget holds it. Test: a cap set after a run was dispatched counts that run and holds the next. The test helper that stops earlier runs now records their finish and settles them, as a real stop and sweep would, since the new rule correctly charges a stopped run's reservation in full until it is settled.
+
+## Round 6
+
+Codex round 6 on 20ee77d..cap-in-flight fix: MERGE, no defects. One later thread, accepted: cap admission compared floating point sums, so a reservation exactly filling a cap could be held. Fixed: admission compares whole hundredths of a minute (the ledger's precision), with the limit floored to hundredths. Test: three reservations exactly filling a cap are all admitted.

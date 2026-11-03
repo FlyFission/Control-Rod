@@ -463,6 +463,27 @@ describe("presenting and racing", () => {
     await retire(before.id);
   });
 
+  it("counts a run dispatched before any minute budget existed at its recorded size, and holds behind a run of unknown size", async () => {
+    // No minute budget: nothing is reserved, but the run records what a reservation would take.
+    const sized = await claimed("WP-BUD-PRE");
+    expect(await reservations(sized)).toEqual([]);
+    expect((await run(sized)).body.reserve_minutes).toBe(RESERVED);
+    const probe = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    const seen = (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === probe.id);
+    expect(seen.in_flight).toBeGreaterThanOrEqual(Number(RESERVED));
+    await retire(probe.id);
+    // A run of unknown size in flight: a hard cap cannot know what is left, so it holds.
+    const unsized = await queued("WP-BUD-UNSIZED", true);
+    const res = await claim(null);
+    expect(res.json().run.id).toBe(unsized);
+    claims.set(unsized, res.json().claim.token);
+    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    const next = await queued("WP-BUD-BEHINDUNK", true);
+    expect((await claim()).statusCode).toBe(204);
+    expect((await run(next)).body.waiting_reason).toMatch(/a run already in flight under it reported no run time ceiling/);
+    await retire(cap.id);
+  });
+
   it("admits a run whose reservation fills a hard cap exactly", async () => {
     await queued("WP-BUD-EXACTFILL-A");
     const probe = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });

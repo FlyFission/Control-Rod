@@ -130,6 +130,14 @@ model Run {
   @minValue(1)
   budget_ceiling_seconds?: int32;
 
+  /**
+   * The minutes a reservation for this run takes (its ceiling and the control plane's margins,
+   * rounded up), recorded whenever the daemon reported a ceiling, budget or not, so a minute budget
+   * set while the run is in flight counts it at that size.
+   */
+  @pattern("^[0-9]+\\.[0-9]{2}$")
+  reserve_minutes?: string;
+
   /** Why a queued run is not being handed out, in plain words. */
   @maxLength(300)
   waiting_reason?: string;

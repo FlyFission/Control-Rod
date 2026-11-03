@@ -23,6 +23,16 @@ test.beforeEach(async ({ page }) => {
     if (accept.includes("text/html") || /\.(js|css|svg|png|woff2|webp|json)$/.test(u.pathname) && !u.pathname.startsWith("/packages")) return r.fallback();
     const p = u.pathname;
     if (p === "/auth/session") return r.fulfill(json({ registered: true, signed_in: true, user: "ben" }));
+    if (p === "/office/figures") {
+      const fig = (id: string, packageId: string, state: string, place: string, cause: string, extra: Record<string, unknown> = {}) => ({
+        id, package_id: packageId, package_revision: 1, title: packageId, role: "author", state, cause, since: new Date(Date.now() - 3600e3).toISOString(), place,
+        marks: { gate: false, safety: false }, gate_stage: "in-work", data_lane: "internal", href: { to: "/packages/$id", id: packageId, hash: "runs" }, ...extra });
+      return r.fulfill(json({ figures: [
+        fig("R-1", "WP-0007", "needs", "your-office", "Pre-check passed. Review and accept.", { gate_stage: "accept", marks: { gate: true, safety: false } }),
+        fig("R-2", "WP-0008", "working", "electrical", "Routing cable tray in Area 2"),
+        fig("R-3", "WP-0011", "stuck", "review", "Author run lost: its outcome is unknown."),
+      ], needs_me: 1, hidden: 0, generated_at: new Date().toISOString() }));
+    }
     if (p === "/office") return r.fulfill(json([{ kind: "accept", package_id: "WP-0007", package_revision: 1, title: "Pump skid P-101 datasheet", detail: "Pre-check passed with two minor findings.", since: new Date(Date.now() - 3600e3).toISOString() }]));
     if (p === "/packages") return r.fulfill(json(pkgs));
     if (p === "/packages/WP-0007") return r.fulfill(json({

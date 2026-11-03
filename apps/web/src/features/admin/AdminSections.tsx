@@ -46,6 +46,8 @@ function useSection(view: AdminView) {
 
 export function MembersSection({ view, passkeys = browserPasskeys }: Props) {
   const { action, memberName, members, registry } = useSection(view);
+  // Passkeys are an administrator's to see; anyone else sees only their own.
+  const seesAll = Boolean(view.qualification && !view.qualification.revoked && view.qualification.authorities.includes("administrator"));
   const reasonField = { key: "reason", label: "Why", kind: "textarea", required: true } as const;
   const memberField = { key: "member_id", label: "Member", kind: "select", options: members, required: true } as const;
   const specs: CommandSpec[] = [
@@ -71,17 +73,17 @@ export function MembersSection({ view, passkeys = browserPasskeys }: Props) {
     },
     {
       name: "member.suspend", verb: "suspend", fields: [memberField, reasonField],
-      describe: (v) => `Suspends ${memberName(str(v, "member_id"))}: their sessions end, and every signature or registration they have not completed is voided. Reactivating restores them.`,
+      describe: (v) => `Suspends ${memberName(str(v, "member_id"))}: their sessions end, any invitation they have not used is used up, and every signature or registration they have not completed is voided. Reactivating restores their membership; if they have no passkey yet, they then need a new invitation.`,
       payload: (v) => ({ member_id: str(v, "member_id"), reason: str(v, "reason") }),
     },
     {
       name: "member.reactivate", verb: "reactivate", fields: [memberField, reasonField],
-      describe: (v) => `Reactivates ${memberName(str(v, "member_id"))}.`,
+      describe: (v) => `Reactivates ${memberName(str(v, "member_id"))}: their membership is active again and they can sign in with a passkey they already have. An invitation used up by their suspension stays used; invite them again if they have no passkey.`,
       payload: (v) => ({ member_id: str(v, "member_id"), reason: str(v, "reason") }),
     },
     {
       name: "member.remove", verb: "remove", fields: [memberField, reasonField],
-      describe: (v) => `Removes ${memberName(str(v, "member_id"))} for good: their sessions end, every delegation they gave or hold ends, and they cannot sign in again. Their past signatures stay on the record.`,
+      describe: (v) => `Removes ${memberName(str(v, "member_id"))} for good: their sessions end, any invitation they have not used is used up, every delegation they gave or hold ends, and they cannot sign in again. Their past signatures stay on the record.`,
       payload: (v) => ({ member_id: str(v, "member_id"), reason: str(v, "reason") }),
     },
     {
@@ -120,7 +122,9 @@ export function MembersSection({ view, passkeys = browserPasskeys }: Props) {
                   </td>
                   <td className="small">{m.status}</td>
                   <td className="small">
-                    {keys.length === 0
+                    {!seesAll && m.id !== view.me.memberId
+                      ? "Not available to you"
+                      : keys.length === 0
                       ? "None"
                       : `${keys.filter((k: Json) => !k.revoked).length} usable, ${keys.filter((k: Json) => k.revoked).length} revoked`}
                   </td>
@@ -416,9 +420,11 @@ export function PolicySection({ view, passkeys = browserPasskeys }: Props) {
         },
         reason: str(v, "reason"),
       }),
+      // The form starts from the policy in force, so changing one setting never drops another.
       initial: {
         autonomy_ceiling: current?.settings?.["autonomy_ceiling"] ?? "",
         budget_near_percent: current?.settings?.["budget_near_percent"] ?? "",
+        hardware_attestation_formats: [...(current?.hardware_attestation_formats ?? [])],
       },
     },
     {

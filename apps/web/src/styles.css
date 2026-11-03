@@ -1280,3 +1280,44 @@ select {
 .prep-item { border-block-start: 1px solid var(--line, #ddd); padding-block: 1rem; margin-block: 1rem; }
 .preparation fieldset label { display: block; }
 .preparation .mono { overflow-wrap: anywhere; }
+
+/* Administrative command forms (plan task 5.4). */
+.admin-forms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.admin-form {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+}
+.admin-form h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.admin-form > fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.admin-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+}
+.admin-describe {
+  margin: 0;
+  color: var(--text-2);
+}

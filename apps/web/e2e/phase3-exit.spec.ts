@@ -166,3 +166,13 @@ test("case view interactive with 1,000 events", async ({ page, browserName }) =>
   expect(ms).toBeLessThan(1500);
   expect(all).toBeLessThan(1500);
 });
+
+test("an invitation link survives routing, and leaves the address before anything else happens", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium");
+  await page.route("**/auth/session", (r) => r.fulfill(json({ registered: true, signed_in: false })));
+  await page.goto("/#invitation=tok_e2e");
+  await expect(page.getByRole("heading", { name: "Accept your invitation" })).toBeVisible();
+  expect(new URL(page.url()).hash).toBe("");
+  // Nothing about it is kept in the history entry either.
+  expect(await page.evaluate(() => window.location.href.includes("tok_e2e"))).toBe(false);
+});

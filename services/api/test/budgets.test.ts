@@ -42,7 +42,13 @@ const reservations = async (runId: string) => (await h.db.query<{ body: Json }>(
 
 /** Queues one author run; unless `alongside`, everything else queued or running is stopped first. */
 async function queued(id: string, alongside = false) {
-  if (!alongside) await h.admin.query("update runs set status = 'stopped' where status in ('queued', 'running')");
+  // Stopped as a run really stops: a running one records its finish, so it is measured, not charged in full.
+  if (!alongside) await h.admin.query(
+    `update runs set status = 'stopped', body = body || jsonb_build_object('status', 'stopped')
+       || case when body ? 'started_at' then jsonb_build_object('finished_at', to_jsonb(now()::text)) else '{}'::jsonb end
+     where status in ('queued', 'running')`);
+  // And is settled, as the sweep would before the next dispatch.
+  if (!alongside) await sweep();
   await h.admin.query("insert into packages (id, revision, status, body) values ($1, 0, 'released', $2)",
     [id, { ...example, id, revision: 0, status: "released", data_lane: "internal", design_inputs: [] }]);
   const r = { schema_version: "0.1.0", id: `R-${id.slice(-8).toLowerCase()}`, package_id: id, package_revision: 0, role: "author", agent_baseline: "unassigned",
@@ -53,7 +59,7 @@ async function queued(id: string, alongside = false) {
 async function claimed(id: string) {
   const runId = await queued(id);
   const res = await claim();
-  expect(res.statusCode, res.body).toBe(200);
+  expect(res.statusCode, res.body || String((await run(runId)).body.waiting_reason)).toBe(200);
   expect(res.json().run.id).toBe(runId);
   claims.set(runId, res.json().claim.token);
   return runId;
@@ -122,8 +128,8 @@ describe("a hard cap on run time", () => {
 describe("settlement", () => {
   it("settles a finished run at its measured run time, records reported tokens, and frees the cap for what it did not use", async () => {
     const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: "60", unit: "minute" }, period: "P1D" });
-    const cursor = (await get("/inbox")).json().digest.head;
     const id = await claimed("WP-BUD-SETTLE");
+    const cursor = (await get("/inbox")).json().digest.head;
     // The run reports usage events, then completes.
     const log = await daemon(`/runner/runs/${id}/log`, { lines: [], events: [{ kind: "usage", at: new Date().toISOString(), input_tokens: 1200, output_tokens: 300, cached_tokens: 50 }], events_from: 0 });
     expect(log.statusCode, log.body).toBe(200);
@@ -441,14 +447,30 @@ describe("presenting and racing", () => {
     await retire(paused.id);
   });
 
+  it("counts work already in flight against a hard cap set after it was dispatched", async () => {
+    const before = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    const running = await claimed("WP-BUD-INFLIGHT");
+    expect((await reservations(running)).map((r) => r.budget_id)).toEqual([before.id]);
+    const used = (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === before.id).used as number;
+    // Room for one ceiling over everything so far, the running run's included: another run must not fit.
+    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: (used + 1).toFixed(2), unit: "minute" }, period: "P1D" });
+    const after = (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === cap.id);
+    expect(after.in_flight).toBeGreaterThanOrEqual(Number(RESERVED));
+    const next = await queued("WP-BUD-INFLIGHT-2", true);
+    expect((await claim()).statusCode).toBe(204);
+    expect((await run(next)).body.waiting_cause).toBe("budget");
+    await retire(cap.id);
+    await retire(before.id);
+  });
+
   it("lets only one of two racing dispatches take a hard cap's last room", async () => {
-    // Room for exactly one more reservation over what earlier runs measured today.
+    await queued("WP-BUD-RACE-A");
+    await queued("WP-BUD-RACE-B", true);
+    // Room for exactly one more reservation over what earlier runs used today.
     const probe = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });
     const used = (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === probe.id).used as number;
     await retire(probe.id);
     const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: (used + Number(RESERVED) + 1).toFixed(2), unit: "minute" }, period: "P1D" });
-    await queued("WP-BUD-RACE-A");
-    await queued("WP-BUD-RACE-B", true);
     const [a, b] = await Promise.all([claim(), claim()]);
     expect([a.statusCode, b.statusCode].sort()).toEqual([200, 204]);
     expect((await h.db.query("select 1 from budget_reservations where body->>'budget_id' = $1", [cap.id])).rowCount).toBe(1);

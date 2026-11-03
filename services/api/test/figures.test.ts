@@ -155,7 +155,7 @@ describe("office figures", () => {
     expect(figure(floor, "WP-FIG-HOLD")).toMatchObject({ state: "needs", cause_key: "run:R-fig-hold" });
     const forAlice = figure(await get("/office/figures", await aliceCookie()), "WP-FIG-HOLD");
     expect(forAlice.state).toBe("waiting");
-    expect(forAlice.cause_key).toBe(`hold:lane\u0000Its sources are proprietary; a lane holder must admit the run\u0000${forAlice.waiting_on}`);
+    expect(forAlice.cause_key).toBe(`hold:lane:internal\u0000${forAlice.waiting_on}`);
     // Every figure says why, and when the state began.
     for (const f of floor.figures) {
       expect(f.cause_key.length).toBeGreaterThan(0);
@@ -273,6 +273,25 @@ describe("office figures", () => {
     expect(cubeFor("bespoke")).toEqual({ place: "process", defaulted: true });
   });
 
+  it("groups holds only by a recorded shared identity: a lane's admission or a runtime pin, never alike messages", async () => {
+    const message = "The preparation could not be read: the basis digest does not match";
+    for (const id of ["A", "B"]) {
+      await pkg(`WP-FIG-PREP-${id}`, "in-work", { discipline: "civil" });
+      await run(`R-fig-prep-${id.toLowerCase()}`, `WP-FIG-PREP-${id}`, "queued", { waiting_reason: message, waiting_cause: "preparation" });
+    }
+    await pkg("WP-FIG-HOLD2", "in-work", { discipline: "electrical" });
+    await run("R-fig-hold2", "WP-FIG-HOLD2", "queued", { waiting_reason: "Its sources are proprietary; a lane holder must admit the run", waiting_cause: "lane" });
+    const floor = await get("/office/figures", await aliceCookie());
+    const a = figure(floor, "WP-FIG-PREP-A");
+    const b = figure(floor, "WP-FIG-PREP-B");
+    expect(a.cause).toBe(b.cause);
+    expect(a.cause_key).toBe("run:R-fig-prep-a");
+    expect(b.cause_key).toBe("run:R-fig-prep-b");
+    // Two runs held for admission to the same lane wait on one decision.
+    expect(figure(floor, "WP-FIG-HOLD2").cause_key).toBe(figure(floor, "WP-FIG-HOLD").cause_key);
+    expect(figure(floor, "WP-FIG-HOLD").cause_key).toMatch(/^hold:lane:internal\u0000/);
+  });
+
   it("puts work an active SCRAM holds in Quarantine above everything else, even a finished run", async () => {
     await pkg("WP-FIG-HELD", "in-verification", { discipline: "mechanical" });
     await run("R-fig-held", "WP-FIG-HELD", "succeeded", { finished_at: ago(0.2) }, "pre-check");
@@ -288,6 +307,10 @@ describe("office figures", () => {
     // Every agent the SCRAM reaches stands in Quarantine, whatever it was doing.
     expect(figure(floor, "WP-FIG-WORK")).toMatchObject({ state: "stuck", place: "quarantine", cause_key: `scram:${pulled.json().id}` });
     expect(held.cause_key).toBe(`scram:${pulled.json().id}`);
+    // Presenting, the SCRAM's reason appears nowhere in the response, though the held work is shown.
+    const presenting = await get("/office/figures?presenting=true");
+    expect(figure(presenting, "WP-FIG-WORK")).toMatchObject({ place: "quarantine", cause: `Author run stopped by SCRAM ${pulled.json().id}` });
+    expect(JSON.stringify(presenting)).not.toContain("Bad prompt shipped to every agent");
     // The floor's one-load index gives the same answer as the per-subject check, for every agent.
     const index = await scramHoldIndex(h.db);
     const ids = (await h.db.query<{ id: string }>("select distinct id from packages")).rows.map((r) => r.id);

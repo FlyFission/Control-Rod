@@ -892,6 +892,7 @@ export interface paths {
         /**
          * @description What pulling SCRAM with this scope would stop now, by the pull's own selection: the runs running
          *     (stopped where they stand) and queued (held). The pull selects again when it fires.
+         *     Presenting, only the counts.
          */
         get: operations["scramPreview"];
         put?: never;
@@ -6130,6 +6131,7 @@ export interface operations {
             query: {
                 scope: "organization" | "project";
                 project_id?: string;
+                presenting?: boolean;
             };
             header?: never;
             path?: never;
@@ -6147,8 +6149,14 @@ export interface operations {
                         /** @enum {string} */
                         scope: "organization" | "project";
                         project_id?: string;
-                        running: string[];
-                        queued: string[];
+                        /** Format: int32 */
+                        running_count: number;
+                        /** Format: int32 */
+                        queued_count: number;
+                        /** @description The runs themselves; left out when presenting, where they would name restricted work. */
+                        running?: string[];
+                        queued?: string[];
+                        presenting?: boolean;
                         /** Format: date-time */
                         counted_at: string;
                     } | components["schemas"]["ApiError"];

@@ -144,18 +144,22 @@ async function runsInReach(c: Db | Tx, draft: { org_id: string; scope: string; p
  * What pulling SCRAM with this scope would stop now, by the same selection the pull makes: the runs
  * running (stopped where they stand) and the runs queued (held, never claimed). It is a count at a
  * moment; the pull selects again when it fires, so a run that starts in between is stopped too.
+ * Presenting, it gives the counts without the runs.
  */
-export async function scramPreview(q: Db, orgId: string, p: { scope?: string; project_id?: string }) {
+export async function scramPreview(q: Db, orgId: string, p: { scope?: string; project_id?: string }, presenting = false) {
   const scope = p.scope === "project" ? "project" : p.scope === "organization" ? "organization" : null;
   if (!scope) throw new Refusal(400, "invalid", "scope must be organization or project");
   const projectId = scope === "project" ? String(p.project_id ?? "") : undefined;
   if (scope === "project" && !(await q.query("select 1 from projects where id = $1 and org_id = $2", [projectId, orgId])).rowCount)
     throw new Refusal(404, "not-found", "No such project");
   const draft = { org_id: orgId, scope, ...(projectId ? { project_id: projectId } : {}) };
+  const running = await runsInReach(q, draft, "running");
+  const queued = await runsInReach(q, draft, "queued");
+  // Presenting, only the counts: run identifiers would name restricted work the floor leaves out.
   return {
     scope, ...(projectId ? { project_id: projectId } : {}),
-    running: await runsInReach(q, draft, "running"),
-    queued: await runsInReach(q, draft, "queued"),
+    running_count: running.length, queued_count: queued.length,
+    ...(presenting ? { presenting: true } : { running, queued }),
     counted_at: new Date().toISOString(),
   };
 }
@@ -341,8 +345,10 @@ export async function restartAfterScram(c: Tx, orgId: string, memberId: string, 
   const target = scope === "package" ? String(p.package_id ?? "") : scope === "discipline" ? String(p.discipline ?? "") : "";
   if (scope !== "all" && !target) throw new Refusal(400, "invalid", `${scope} is required`);
   // A restart names something this SCRAM holds: a package it reaches, or a discipline one of them has.
-  if (scope !== "all" && !(await scopePackages(c, scram)).some((x) => (scope === "package" ? x.id : x.discipline) === target))
-    throw new Refusal(400, "not-in-scope", `${scope === "package" ? "Package" : "Discipline"} ${target} is not in what SCRAM ${scramId} holds`);
+  // A restart names something this SCRAM still holds: a package it reaches and no restart has lifted,
+  // or a discipline with at least one such package.
+  if (scope !== "all" && !(await scopePackages(c, scram)).some((x) => !x.lifted && (scope === "package" ? x.id : x.discipline) === target))
+    throw new Refusal(400, "not-in-scope", `${scope === "package" ? "Package" : "Discipline"} ${target} is not something SCRAM ${scramId} still holds`);
 
   const inScope = async (r: { role: string; package_id: string }) => {
     const s = await runSubject(c, r);

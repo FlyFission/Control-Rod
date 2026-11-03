@@ -623,14 +623,20 @@ op scrams(@query presenting?: boolean): {
 /**
  * What pulling SCRAM with this scope would stop now, by the pull's own selection: the runs running
  * (stopped where they stand) and queued (held). The pull selects again when it fires.
+ * Presenting, only the counts.
  */
 @route("/scrams/preview")
 @get
-op scramPreview(@query scope: "organization" | "project", @query project_id?: string): {
+op scramPreview(@query scope: "organization" | "project", @query project_id?: string, @query presenting?: boolean): {
   scope: "organization" | "project";
   project_id?: string;
-  running: string[];
-  queued: string[];
+  @minValue(0) running_count: int32;
+  @minValue(0) queued_count: int32;
+
+  /** The runs themselves; left out when presenting, where they would name restricted work. */
+  running?: string[];
+  queued?: string[];
+  presenting?: boolean;
   counted_at: utcDateTime;
 } | ApiError;
 

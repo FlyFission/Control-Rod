@@ -40,8 +40,12 @@ export interface ScramSummary extends ScramTiming {
 export interface ScramPreview {
   scope: "organization" | "project";
   project_id?: string;
-  running: string[];
-  queued: string[];
+  running_count: number;
+  queued_count: number;
+  /** Left out when presenting, where they would name restricted work. */
+  running?: string[];
+  queued?: string[];
+  presenting?: boolean;
   counted_at: string;
 }
 export interface ScramDetail extends ScramTiming {

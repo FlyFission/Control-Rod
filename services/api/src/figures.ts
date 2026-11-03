@@ -164,7 +164,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
     const pending = pendingFor.get(p.id) ?? [];
     const changed = changedInput(deps.get(p.id) ?? [], pinned.get(p.id), currentRevision);
     const { hash, ...figure } = project({
-      run, held, cube, own: mine.get(p.id), theirs: others.get(p.id), changed,
+      run, held, cube, own: mine.get(p.id), theirs: others.get(p.id), changed, lane, presenting,
       // Dispatch holds only an author run on a released package for its dependencies (claim in
       // work.ts); any other queued run is not waiting on them.
       unaccepted: run.role === "author" && p.status === "released" ? (deps.get(p.id) ?? []).filter((d) => d.status !== "accepted").map((d) => d.depends_on) : [],
@@ -228,7 +228,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       continue;
     }
     const held = holdOf({ kind: "capture", id: run.package_id });
-    const { hash: _hash, ...figure } = project({ run, held, cube: { place: "interface" }, own, theirs, changed: { changed: null }, unaccepted: [] });
+    const { hash: _hash, ...figure } = project({ run, held, cube: { place: "interface" }, own, theirs, changed: { changed: null }, unaccepted: [], lane, presenting });
     const first = (run.text ?? "").split("\n")[0]!.trim();
     figures.push({
       id: run.id,
@@ -273,6 +273,8 @@ function project(a: {
   theirs: Json | undefined;
   changed: { changed: { input: string; revision: number } | null };
   unaccepted: string[];
+  lane: string;
+  presenting: boolean;
 }): { state: State; cause: string; cause_key: string; place: Place; since: string; waiting_on?: string; hash: string } {
   const { run, held, own, theirs } = a;
   const r = run.body;
@@ -285,11 +287,16 @@ function project(a: {
   const itself = `run:${run.id}`;
   const out = (state: State, place: Place, cause: string, since: string, extra: { waiting_on?: string; hash?: string; key?: string } = {}) =>
     ({ state, place, cause: clip(cause), cause_key: extra.key ?? itself, since, hash: extra.hash ?? "runs", ...(extra.waiting_on ? { waiting_on: extra.waiting_on } : {}) });
-  const holdKey = (who: string) => `hold:${String(r.waiting_cause ?? "unrecorded")}\u0000${String(r.waiting_reason)}\u0000${who}`;
+  // A hold is shared only where its recorded cause names something shared: a lane's admission (one
+  // decision for the lane) or a runtime pin for the role. Any other hold (a preparation that failed, an
+  // independence conflict, a cause not recorded) is this run's own, however alike the messages read.
+  const holdKey = (who: string) =>
+    r.waiting_cause === "lane" ? `hold:lane:${a.lane}\u0000${who}` : r.waiting_cause === "runtime-pin" ? `hold:runtime-pin:${run.role}\u0000${who}` : itself;
 
   if (held)
     return out("stuck", "quarantine",
-      `${run.status === "stopped" || r.scram_id ? `${role} stopped by` : "Held by"} SCRAM ${held.id}${held.reason ? `: ${held.reason}` : ""}`,
+      // Presenting, a SCRAM's reason is never shown, as GET /scrams?presenting=true leaves it out.
+      `${run.status === "stopped" || r.scram_id ? `${role} stopped by` : "Held by"} SCRAM ${held.id}${held.reason && !a.presenting ? `: ${held.reason}` : ""}`,
       at(held.recorded_at ?? held.pulled_at ?? r.finished_at ?? r.queued_at), { key: `scram:${held.id}` });
   if (own) return out("needs", "your-office", String(own.detail ?? own.title), String(own.since), { hash: String(own.href?.hash ?? "decide") });
   if (theirs && (theirs.kind === "dispute" || theirs.kind === "lost")) {

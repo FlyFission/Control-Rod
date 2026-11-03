@@ -198,6 +198,30 @@ describe("exceptions overlay and portfolio (OV-26)", () => {
   });
 });
 
+describe("SCRAM while presenting", () => {
+  it("keeps SCRAM at hand, but its count names no runs and asks the control plane for counts only", async () => {
+    const asked: string[] = [];
+    server.use(
+      http.get("*/scrams", () => HttpResponse.json({ scrams: [] })),
+      http.get("*/office/figures", () => HttpResponse.json({ figures: [figure()], needs_me: 0, inbox_items: 0, hidden: 2, generated_at: new Date().toISOString() })),
+      http.get("*/admin", () => HttpResponse.json({ projects: [] })),
+      http.get("*/scrams/preview", ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return HttpResponse.json({ scope: "organization", running_count: 3, queued_count: 1, presenting: true, counted_at: new Date().toISOString() });
+      }),
+    );
+    await renderPage(<OfficeView />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Presenting mode" }));
+    await user.click(screen.getByRole("button", { name: "SCRAM" }));
+    const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
+    expect(await within(dialog).findByText(/3 runs running now stop, and 1 queued run is held\./)).toBeTruthy();
+    expect(asked.every((q) => q.includes("presenting=true"))).toBe(true);
+    expect(within(dialog).queryByText("Which runs")).toBeNull();
+    expect(within(dialog).getByText("Which runs is not shown while presenting.")).toBeTruthy();
+  });
+});
+
 describe("shared causes (OV-03)", () => {
   beforeEach(() => server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] }))));
   const held = (i: number) =>

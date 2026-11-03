@@ -77,7 +77,7 @@ export function OfficeView() {
           <button type="button" className="btn small" aria-pressed={presenting} onClick={() => setPresenting((v) => !v)}>
             Presenting mode
           </button>
-          <ScramControl />
+          <ScramControl presenting={presenting} />
         </div>
       </header>
       <ScramBanner presenting={presenting} />
@@ -197,16 +197,17 @@ function age(since: string): string {
 
 /** One chip per shared cause (OV-03): the cause, who it waits on, how long, how many; opens to list them. */
 function CauseChips({ groups, onSelect }: { groups: CauseGroup[]; onSelect: (id: string) => void }) {
-  const [open, setOpen] = useState<number>();
+  // Chips are identified by the recorded cause, so an open chip stays open as the floor refreshes.
+  const [open, setOpen] = useState<string>();
   return (
     <section className="office-causes" aria-label="Shared causes">
-      {groups.map((g, i) => (
-        <div key={`${g.state}${g.cause}${g.waiting_on ?? ""}`} className="office-cause">
-          <button type="button" className="btn small" aria-expanded={open === i} onClick={() => setOpen(open === i ? undefined : i)}>
+      {groups.map((g) => (
+        <div key={g.key} className="office-cause">
+          <button type="button" className="btn small" aria-expanded={open === g.key} onClick={() => setOpen(open === g.key ? undefined : g.key)}>
             {g.figures.length} {g.state === "stuck" ? "stuck" : "waiting"}: {g.cause}
             {g.waiting_on ? `, waiting on ${g.waiting_on}` : ""}, for {age(g.since)}
           </button>
-          {open === i && (
+          {open === g.key && (
             <ul>
               {g.figures.map((f) => (
                 <li key={f.id}>

@@ -14,3 +14,7 @@ Codex round 5 on 58a8fd8..20ee77d: MERGE, no defects. One later review thread, a
 ## Round 6
 
 Codex round 6 on 20ee77d..cap-in-flight fix: MERGE, no defects. One later thread, accepted: cap admission compared floating point sums, so a reservation exactly filling a cap could be held. Fixed: admission compares whole hundredths of a minute (the ledger's precision), with the limit floored to hundredths. Test: three reservations exactly filling a cap are all admitted.
+
+## Round 7
+
+One later thread, accepted: runs dispatched before any minute budget existed had no reservation, so a cap created afterwards could not count them. Fixed: every run records `reserve_minutes` (its ceiling plus margins, rounded up) whenever the daemon reported a ceiling, budget or not; a minute budget counts an unreserved, unmeasured run in its scope at that size; a running run with neither a reservation nor a recorded size makes a hard cap in its scope hold further dispatch, with a teaching reason. Test: a run dispatched with no budget counts once a budget exists, and a run of unknown size in flight holds the next dispatch under a cap.

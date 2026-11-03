@@ -129,7 +129,8 @@ export interface BudgetUse {
  * scope measured in the window, whether or not anything reserved for it; plus, once per run in its
  * scope that nothing measured, the run's open reservation however old (a run still running, lost or
  * unknown stays charged) or its reservation settled in full in the window, whichever budget holds
- * it, so a budget set while work is in flight counts that work too. Tokens: what runs measured in the
+ * it, so a budget set while work is in flight counts that work too; a run that no budget reserved
+ * for counts at the reservation size it recorded (`reserve_minutes`) until it is measured. Tokens: what runs measured in the
  * window reported, and how many reported no complete counts. Money: nothing reports it.
  */
 export async function budgetUse(q: Db | Tx, b: Json, now = new Date()): Promise<BudgetUse> {
@@ -137,7 +138,7 @@ export async function budgetUse(q: Db | Tx, b: Json, now = new Date()): Promise<
   if (b.limit.unit === "minute") {
     // Measured run time of every run in scope, reserved or not; then, for runs nothing measured, the
     // full reservation: open ones however old, settled ones (charged in full) within the window.
-    const r = (await q.query<{ measured: string; open: string; unmeasured: string }>(
+    const r = (await q.query<{ measured: string; open: string; unmeasured: string; unreserved: string }>(
       `with scoped as (
          select r.id from runs r
            join object_owners o on o.object_kind = case when r.role = 'intake' then 'capture' else 'package' end and o.object_id = r.package_id
@@ -154,9 +155,15 @@ export async function budgetUse(q: Db | Tx, b: Json, now = new Date()): Promise<
             select max((x.body->'amount'->>'value')::numeric) as amount from budget_reservations x join scoped s on s.id = x.run_id
              where x.body->>'status' = 'settled' and x.recorded_at > $4
                and not exists (select 1 from usage_records m where m.run_id = x.run_id and m.body->>'source' = 'measured')
-             group by x.run_id) u)::text as unmeasured`,
+             group by x.run_id) u)::text as unmeasured,
+         (select coalesce(sum((r.body->>'reserve_minutes')::numeric), 0) from runs r join scoped s on s.id = r.id
+           where r.status <> 'queued' and r.body ? 'reserve_minutes'
+             and not exists (select 1 from budget_reservations x where x.run_id = r.id)
+             and not exists (select 1 from usage_records m where m.run_id = r.id and m.body->>'source' = 'measured')
+             and (r.status = 'running' or coalesce((r.body->>'finished_at')::timestamptz, now()) > $4))::text as unreserved`,
       [b.org_id, b.scope, b.scope === "organization" ? null : b.scope_id, since])).rows[0]!;
-    return { used: Number(r.measured) + Number(r.open) + Number(r.unmeasured), in_flight: Number(r.open), unreported_runs: 0, since: since.toISOString() };
+    return { used: Number(r.measured) + Number(r.open) + Number(r.unmeasured) + Number(r.unreserved), in_flight: Number(r.open) + Number(r.unreserved),
+      unreported_runs: 0, since: since.toISOString() };
   }
   if (b.limit.unit === "token") {
     const t = (await q.query<{ reported: number; unreported: number; total: string | null }>(
@@ -173,6 +180,16 @@ export async function budgetUse(q: Db | Tx, b: Json, now = new Date()): Promise<
     return { used: t.reported > 0 ? Number(t.total) : null, in_flight: 0, unreported_runs: t.unreported, since: since.toISOString() };
   }
   return { used: null, in_flight: 0, unreported_runs: 0, since: since.toISOString() };
+}
+
+/** Whether a run in a budget's scope is running with no reservation and no recorded size, so no cap can account for it. */
+async function unsizedInFlight(q: Db | Tx, s: RunScope, b: Json): Promise<boolean> {
+  const r = await q.query(
+    `select 1 from runs r join object_owners o on o.object_kind = case when r.role = 'intake' then 'capture' else 'package' end and o.object_id = r.package_id
+      where r.status = 'running' and not r.body ? 'reserve_minutes' and not exists (select 1 from budget_reservations x where x.run_id = r.id)
+        and o.org_id = $1 and case $2::text when 'organization' then true when 'project' then o.project_id = $3 else r.body->>'agent_baseline' = $3 end
+      limit 1`, [s.orgId, b.scope, b.scope === "organization" ? null : b.scope_id]);
+  return Boolean(r.rowCount);
 }
 
 /** A budget's state from its use: over and near only when established, partial or not reported otherwise. */
@@ -201,6 +218,8 @@ export async function reserveForRun(c: Tx, run: { id: string; role: string; pack
   const amount = ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null;
   for (const b of budgets) {
     if (b.mode !== "hard-cap") continue;
+    if (await unsizedInFlight(c, scope, b))
+      return { held: { budget: b.id, reason: `Held by budget ${b.id}: a run already in flight under it reported no run time ceiling, so what is left under the hard cap is not known until it ends` } };
     if (amount === null)
       return { held: { budget: b.id, reason: `Held by budget ${b.id}: the daemon did not report its run time ceiling, so this run's reservation cannot be sized against the hard cap` } };
     const { used } = await budgetUse(c, b);

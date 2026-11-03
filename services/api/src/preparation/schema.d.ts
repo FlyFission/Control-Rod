@@ -2133,6 +2133,12 @@ export interface components {
              *     graceful stop ladder). The control plane asks the run to stop once it has run this long.
              */
             budget_ceiling_seconds?: number;
+            /**
+             * @description The minutes a reservation for this run takes (its ceiling and the control plane's margins,
+             *     rounded up), recorded whenever the daemon reported a ceiling, budget or not, so a minute budget
+             *     set while the run is in flight counts it at that size.
+             */
+            reserve_minutes?: string;
             /** @description Why a queued run is not being handed out, in plain words. */
             waiting_reason?: string;
             /**

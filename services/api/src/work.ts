@@ -14,7 +14,7 @@ import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, rais
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramOfHold, scramRunEnded } from "./scram.js";
-import { budgetOfHold, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
+import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -894,7 +894,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
             await appendEvent(c, "package.claimed", pkg.id, { kind: "agent", id: baseline }, { revision: pkg.revision, status: next });
           }
-          return startRun(c, cfg, row, runtime, baseline, budget.reservedSeconds);
+          return startRun(c, cfg, row, runtime, baseline, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
         // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
@@ -922,7 +922,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           continue;
         }
         await releaseHold(c, cfg, row, "budget");
-        return startRun(c, cfg, row, runtime, `intake-${runtime}`, budget.reservedSeconds);
+        return startRun(c, cfg, row, runtime, `intake-${runtime}`, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
       }
     }
     return null;
@@ -1218,7 +1218,8 @@ function requireLegacyRun(row: { role: string; body: Json }): void {
   if (!legacyRun(row)) throw new Refusal(409,"unsupported-run-role","This run needs its own approved execution and custody path; legacy processing is refused");
 }
 
-async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, baseline: string, budgetCeilingSeconds: number | null = null) {
+async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, baseline: string, budgetCeilingSeconds: number | null = null,
+  reserveMinutes: string | null = null) {
   requireLegacyRun(row as {role:string;body:Json});
   const token = randomBytes(32).toString("base64url");
   const lease = leaseFromNow(cfg);
@@ -1226,6 +1227,8 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     ...row.body,
     // The ceiling its budget reservation was sized from; the sweep stops it once it has run that long.
     ...(budgetCeilingSeconds !== null ? { budget_ceiling_seconds: budgetCeilingSeconds } : {}),
+    // What a reservation for it takes, whether or not a budget took one, so a budget set later counts it.
+    ...(reserveMinutes !== null ? { reserve_minutes: reserveMinutes } : {}),
     agent_baseline: baseline,
     runtime: runtimeRef(runtime),
     status: "running",

@@ -1988,6 +1988,12 @@ export interface components {
              * @enum {string}
              */
             waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
+            /**
+             * @description What the hold waits on, where one decision resolves it for every run that names it: a lane's
+             *     admission, or a runtime pin for a role and the runtimes it was offered. Absent when the hold is
+             *     the run's own (a preparation, an unclassified source, an independence conflict, a SCRAM).
+             */
+            waiting_key?: string;
             /** @description The owner let this pre-check run on the author's runtime. Recorded before it ran. */
             independence_override?: components["schemas"]["ControlRod.Records.OwnerOverride"];
             /**

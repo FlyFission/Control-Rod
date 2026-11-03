@@ -380,6 +380,13 @@ export async function restartAfterScram(c: Tx, orgId: string, memberId: string, 
   const restart = { id: idFor("srs"), org_id: orgId, scram_id: scramId, scope, ...(scope === "package" ? { package_id: target } : {}),
     ...(scope === "discipline" ? { discipline: target } : {}), released_by: memberId, reason: reason.slice(0, 2000), assertion };
   await recordObject(c, "scram_restart", restart as never, actor);
+  // What the restart lifts no longer carries the SCRAM's words: a queued run's recorded hold is
+  // cleared once nothing holds it, so no view shows a stale reason before its next claim attempt.
+  const words = (await c.query<{ id: string; role: string; package_id: string }>(
+    "select id, role, package_id from runs where status = 'queued' and body->>'waiting_cause' = 'scram' order by id for update")).rows;
+  for (const r of words)
+    if (!(await scramHolding(c, await runSubject(c, r))))
+      await c.query("update runs set body = body - 'waiting_reason' - 'waiting_cause' - 'waiting_key' where id = $1", [r.id]);
   return restart;
 }
 

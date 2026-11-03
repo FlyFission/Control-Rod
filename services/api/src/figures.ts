@@ -164,7 +164,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
     const pending = pendingFor.get(p.id) ?? [];
     const changed = changedInput(deps.get(p.id) ?? [], pinned.get(p.id), currentRevision);
     const { hash, ...figure } = project({
-      run, held, cube, own: mine.get(p.id), theirs: others.get(p.id), changed, lane, presenting,
+      run, held, cube, own: mine.get(p.id), theirs: others.get(p.id), changed, presenting,
       // Dispatch holds only an author run on a released package for its dependencies (claim in
       // work.ts); any other queued run is not waiting on them.
       unaccepted: run.role === "author" && p.status === "released" ? (deps.get(p.id) ?? []).filter((d) => d.status !== "accepted").map((d) => d.depends_on) : [],
@@ -228,7 +228,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       continue;
     }
     const held = holdOf({ kind: "capture", id: run.package_id });
-    const { hash: _hash, ...figure } = project({ run, held, cube: { place: "interface" }, own, theirs, changed: { changed: null }, unaccepted: [], lane, presenting });
+    const { hash: _hash, ...figure } = project({ run, held, cube: { place: "interface" }, own, theirs, changed: { changed: null }, unaccepted: [], presenting });
     const first = (run.text ?? "").split("\n")[0]!.trim();
     figures.push({
       id: run.id,
@@ -273,7 +273,6 @@ function project(a: {
   theirs: Json | undefined;
   changed: { changed: { input: string; revision: number } | null };
   unaccepted: string[];
-  lane: string;
   presenting: boolean;
 }): { state: State; cause: string; cause_key: string; place: Place; since: string; waiting_on?: string; hash: string } {
   const { run, held, own, theirs } = a;
@@ -285,13 +284,16 @@ function project(a: {
   // the dependencies awaited, or the run itself), so agents are grouped by what holds them and never
   // by matching prose (OV-03). A key unique to the run means its cause is its own.
   const itself = `run:${run.id}`;
+  // A SCRAM hold's recorded words carry its reason. Presenting, they are never shown, even if a
+  // restart has lifted the hold and the words are still on the run until its next claim attempt.
+  const scramWords = a.presenting && r.waiting_cause === "scram";
   const out = (state: State, place: Place, cause: string, since: string, extra: { waiting_on?: string; hash?: string; key?: string } = {}) =>
-    ({ state, place, cause: clip(cause), cause_key: extra.key ?? itself, since, hash: extra.hash ?? "runs", ...(extra.waiting_on ? { waiting_on: extra.waiting_on } : {}) });
-  // A hold is shared only where its recorded cause names something shared: a lane's admission (one
-  // decision for the lane) or a runtime pin for the role. Any other hold (a preparation that failed, an
-  // independence conflict, a cause not recorded) is this run's own, however alike the messages read.
-  const holdKey = (who: string) =>
-    r.waiting_cause === "lane" ? `hold:lane:${a.lane}\u0000${who}` : r.waiting_cause === "runtime-pin" ? `hold:runtime-pin:${run.role}\u0000${who}` : itself;
+    ({ state, place, cause: clip(scramWords && !held ? `${role} was held by a SCRAM; its reason is not shown while presenting` : cause), cause_key: extra.key ?? itself, since,
+      hash: extra.hash ?? "runs", ...(extra.waiting_on ? { waiting_on: extra.waiting_on } : {}) });
+  // A hold is shared only where dispatch recorded what it waits on (waiting_key: a lane's admission, or
+  // a runtime pin for a role and the runtimes offered), so one decision resolves it for every run that
+  // names it. Any other hold is this run's own, however alike the messages read.
+  const holdKey = (who: string) => (typeof r.waiting_key === "string" && r.waiting_key ? `hold:${r.waiting_key}\u0000${who}` : itself);
 
   if (held)
     return out("stuck", "quarantine",

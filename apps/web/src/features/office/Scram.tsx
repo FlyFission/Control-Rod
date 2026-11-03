@@ -17,13 +17,16 @@ import { time } from "../../lib/format.js";
 const seconds = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+/** How long the count may take before the person is offered to stop without it. */
+export const COUNT_PATIENCE_MS = 6000;
+
 const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href], [tabindex]:not([tabindex="-1"])';
 
 /**
  * The SCRAM control. It stays available while presenting, since an emergency stop is never hidden;
  * presenting, its count names no runs.
  */
-export function ScramControl({ passkeys = browserPasskeys, presenting = false }: { passkeys?: Passkeys; presenting?: boolean }) {
+export function ScramControl({ passkeys = browserPasskeys, presenting = false, patienceMs = COUNT_PATIENCE_MS }: { passkeys?: Passkeys; presenting?: boolean; patienceMs?: number }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   // Focus goes back to the control that opened the dialog.
@@ -36,12 +39,12 @@ export function ScramControl({ passkeys = browserPasskeys, presenting = false }:
       <button ref={trigger} type="button" className="btn small danger" onClick={() => setOpen(true)} aria-haspopup="dialog">
         SCRAM
       </button>
-      {open && <ScramDialog passkeys={passkeys} presenting={presenting} onClose={close} />}
+      {open && <ScramDialog passkeys={passkeys} presenting={presenting} patienceMs={patienceMs} onClose={close} />}
     </>
   );
 }
 
-function ScramDialog({ passkeys, presenting, onClose }: { passkeys: Passkeys; presenting: boolean; onClose: () => void }) {
+function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: Passkeys; presenting: boolean; patienceMs: number; onClose: () => void }) {
   const qc = useQueryClient();
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -69,9 +72,18 @@ function ScramDialog({ passkeys, presenting, onClose }: { passkeys: Passkeys; pr
       onClose();
     },
   });
-  // The count is stated before anything fires. If it cannot be had, the stop still must be possible,
-  // but only once the person says they stop without it; while it is loading, nothing fires.
-  const counted = preview.isSuccess || (preview.isError && uncounted);
+  // The count is stated before anything fires. If it fails, or does not arrive in time, the stop must
+  // still be possible, but only once the person says they stop without it; until then nothing fires.
+  const [stalled, setStalled] = useState(false);
+  useEffect(() => {
+    setStalled(false);
+    setUncounted(false);
+    if (!chosen) return;
+    const t = setTimeout(() => setStalled(true), patienceMs);
+    return () => clearTimeout(t);
+  }, [scope, project, chosen, patienceMs]);
+  const waivable = !preview.isSuccess && (preview.isError || stalled);
+  const counted = preview.isSuccess || (waivable && uncounted);
   const ready = reason.trim().length > 0 && chosen && counted;
   // Once the signed stop is in flight its payload is fixed, so nothing in the form may change.
   const frozen = pull.isPending;
@@ -152,9 +164,11 @@ function ScramDialog({ passkeys, presenting, onClose }: { passkeys: Passkeys; pr
       <div className="office-scram-scope" role="status">
         {!chosen ? (
           <p>Choose the project to see what this stops.</p>
-        ) : preview.isError ? (
+        ) : waivable ? (
           <>
-            <p>This stops every running agent in {where} where it stands. How many could not be counted just now.</p>
+            <p>
+              This stops every running agent in {where} where it stands. {preview.isError ? "How many could not be counted just now." : "Counting what it stops is taking too long."}
+            </p>
             <label className="office-choice">
               <input type="checkbox" checked={uncounted} disabled={frozen} onChange={(e) => setUncounted(e.target.checked)} /> Stop without a count
             </label>
@@ -338,7 +352,7 @@ function RunReview({ scramId, run: r, passkeys }: { scramId: string; run: Stoppe
         </ol>
       )}
       {needsReview && (
-        <div className="office-scram-form">
+        <fieldset className="office-scram-form" disabled={review.isPending}>
           {moved && (
             <div className="office-scram-new" role="alert">
               <p className="small">
@@ -373,7 +387,7 @@ function RunReview({ scramId, run: r, passkeys }: { scramId: string; run: Stoppe
               {review.error.message}
             </p>
           )}
-        </div>
+        </fieldset>
       )}
     </li>
   );
@@ -441,8 +455,9 @@ function Restart({ detail, passkeys }: { detail: ScramDetail; passkeys: Passkeys
         : scope === "package"
           ? `This restarts package ${pkg!.title} (${pkg!.id}) only, and the ${plural(stoppedIn(new Set([pkg!.id])), "run", "runs")} the SCRAM stopped on it.`
           : `This restarts the ${target} discipline: ${inDiscipline.map((p) => p.id).join(", ")}, and the ${plural(stoppedIn(new Set(inDiscipline.map((p) => p.id))), "run", "runs")} the SCRAM stopped on them.`;
+  // Once a signature is in flight its payload is fixed, so the form that states it is too.
   return (
-    <div className="office-scram-form">
+    <fieldset className="office-scram-form" disabled={restart.isPending}>
       <h3>Staged restart</h3>
       {detail.restarts.length > 0 && (
         <ul className="small">
@@ -502,6 +517,6 @@ function Restart({ detail, passkeys }: { detail: ScramDetail; passkeys: Passkeys
           {restart.error.message}
         </p>
       )}
-    </div>
+    </fieldset>
   );
 }

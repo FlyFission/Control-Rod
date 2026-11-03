@@ -41,6 +41,13 @@ const GATE_STEPS: Record<AgentFigure["gate_stage"], LensScaleStep> = {
 
 const STATES = ["working", "needs", "waiting", "stuck", "changed"] as const;
 
+/** The Change lens's step for a figure, from established evidence only. */
+export function changeStep(f: AgentFigure): "changed" | "unknown" | "current" {
+  if (f.marks.changed_input) return "changed";
+  if (f.unverified_inputs?.length || !f.current_inputs?.length) return "unknown";
+  return "current";
+}
+
 export const LENSES: readonly Lens[] = [
   {
     id: "status",
@@ -59,12 +66,20 @@ export const LENSES: readonly Lens[] = [
   {
     id: "change",
     label: "Change",
+    // Current only where established: a pinned package input still at its pinned revision, and no
+    // input whose freshness is unknown. Anything not established is said to be unknown.
     scale: [
       { key: "changed", label: "An input changed", color: GREY.brightest },
-      { key: "current", label: "Inputs current", color: GREY.dim },
+      { key: "unknown", label: "Freshness unknown", color: GREY.mid },
+      { key: "current", label: "Inputs current as pinned", color: GREY.dim },
     ],
-    tint: (f) => (f.marks.changed_input ? GREY.brightest : GREY.dim),
-    value: (f) => (f.marks.changed_input ? `Input ${f.marks.changed_input} changed` : f.unverified_inputs?.length ? "Inputs current as far as recorded" : "Inputs current"),
+    tint: (f) => GREY[changeStep(f) === "changed" ? "brightest" : changeStep(f) === "unknown" ? "mid" : "dim"],
+    value: (f) => {
+      const step = changeStep(f);
+      if (step === "changed") return `Input ${f.marks.changed_input} changed`;
+      if (step === "unknown") return f.unverified_inputs?.length ? `Freshness unknown for ${f.unverified_inputs.join(", ")}` : "Freshness unknown: no package input revisions were pinned";
+      return `Inputs current as pinned (${f.current_inputs!.join(", ")})`;
+    },
   },
   {
     id: "spend",

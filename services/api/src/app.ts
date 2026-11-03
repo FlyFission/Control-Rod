@@ -532,8 +532,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   /** The Roster: roles, baselines as recorded on runs, versions a pin may name, and sandboxes as launched (plan task 5.1). */
   app.get("/roster", async (req) => {
-    await person(req);
-    return roster(db);
+    const caller = await callerFor(db, await person(req));
+    return roster(db, caller.orgId);
   });
   app.get("/runtimes", async (req) => {
     await person(req);

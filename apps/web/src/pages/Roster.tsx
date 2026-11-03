@@ -215,24 +215,34 @@ function Roles({ view, rollback, passkeys }: { view: RosterView; rollback: Allow
                   ) : r.pins.length === 0 ? (
                     <span className="muted">Unpinned: launches what the daemon last checked</span>
                   ) : (
-                    r.pins.map((p) => (
-                      <div key={p.id}>
-                        <span className="mono">
-                          {p.runtime} {shortDigest(p.artifact_digest)}
-                        </span>
-                        {r.rollback.includes(p.runtime) && (
-                          <button
-                            type="button"
-                            className="btn small"
-                            disabled={!rollback?.allowed || command.isPending}
-                            title={rollback?.allowed ? undefined : rollback?.reason}
-                            onClick={() => command.mutate({ runtime: p.runtime, role: r.role })}
-                          >
-                            Roll back {p.runtime} for {(ROLE_NAMES[r.role] ?? r.role).toLowerCase()}
-                          </button>
-                        )}
-                      </div>
-                    ))
+                    r.pins.map((p) => {
+                      const back = r.rollback.find((b) => b.runtime === p.runtime);
+                      return (
+                        <div key={p.id}>
+                          <span className="mono">
+                            {p.runtime} {shortDigest(p.artifact_digest)}
+                          </span>
+                          {back !== undefined && (
+                            <>
+                              {/* The signature covers both artifacts shown here; a change in between refuses it. */}
+                              <p className="muted">
+                                A rollback restores <span className="mono">{shortDigest(back.restore)}</span> in place of{" "}
+                                <span className="mono">{shortDigest(back.current)}</span>.
+                              </p>
+                              <button
+                                type="button"
+                                className="btn small"
+                                disabled={!rollback?.allowed || command.isPending}
+                                title={rollback?.allowed ? undefined : rollback?.reason}
+                                onClick={() => command.mutate({ runtime: p.runtime, roles: [{ role: r.role, current: back.current.value, restore: back.restore.value }] })}
+                              >
+                                Sign and roll back {p.runtime} for {(ROLE_NAMES[r.role] ?? r.role).toLowerCase()}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })
                   )}
                 </td>
                 <td className="small">
@@ -244,7 +254,7 @@ function Roles({ view, rollback, passkeys }: { view: RosterView; rollback: Allow
           </tbody>
         </table>
       </div>
-      <p className="muted small">A rollback restores the artifact pinned before the current one, signed with your passkey.</p>
+      <p className="muted small">A rollback restores the artifact pinned before the current one, signed with your passkey over both.</p>
       {command.error && (
         <p className="error" role="alert">
           {command.error.message}
@@ -279,7 +289,7 @@ function Versions({ view, pin, passkeys }: { view: RosterView; pin: Allowed; pas
               {view.versions.map((v) => {
                 const key = `${v.runtime}:${v.digest.value}`;
                 const chosen = role[key] ?? "all";
-                const roles = chosen === "all" ? "intake, author and pre-check" : (ROLE_NAMES[chosen] ?? chosen).toLowerCase();
+                const roles = chosen === "all" ? "Intake, author and pre-check" : (ROLE_NAMES[chosen] ?? chosen);
                 return (
                   <tr key={key}>
                     <td className="mono">{v.runtime}</td>
@@ -300,7 +310,8 @@ function Versions({ view, pin, passkeys }: { view: RosterView; pin: Allowed; pas
                         </select>
                       </label>
                       <p className="muted">
-                        Every {roles} run then launches exactly this {v.runtime} file.
+                        {roles} runs on {v.runtime} must then launch exactly this file, and wait while the installed {v.runtime} is a different one. Runs on
+                        other runtimes are unaffected.
                       </p>
                       <button
                         type="button"
@@ -376,11 +387,14 @@ function Baselines({ view }: { view: RosterView }) {
   );
 }
 
-/** What a reported launch sandbox means, in words; anything without one is tier none. */
+/**
+ * What the daemon asked for, in words. It is a request, not an observed result, so nothing here says
+ * a run was confined.
+ */
 function sandboxWords(s: string): string {
-  if (s === "none") return "None: tier none, the interim state; agent actions are not confined";
+  if (s === "none") return "None requested: tier none, the interim state; agent actions are not confined";
   if (s === "not reported") return "Not reported by the run, so not known to be confined";
-  return `The runtime's own sandbox (${s}); no Control Rod policy is attested for it yet`;
+  return `Requested "${s}" from the runtime's own sandbox. Whether that isolation was achieved is not verified, and no Control Rod policy is attested for it yet`;
 }
 
 function Sandbox({ view }: { view: RosterView }) {
@@ -410,7 +424,7 @@ function Sandbox({ view }: { view: RosterView }) {
             <thead>
               <tr>
                 <th scope="col">Runtime</th>
-                <th scope="col">Latest run's sandbox</th>
+                <th scope="col">Sandbox asked for on its latest finished run</th>
                 <th scope="col">Run</th>
               </tr>
             </thead>

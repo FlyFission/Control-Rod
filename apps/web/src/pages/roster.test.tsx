@@ -21,7 +21,7 @@ const view = (over: Partial<RosterView> = {}): RosterView => ({
     { role: "requirements-preparer", what: "Prepares the requirements a package will be held to", pinnable: false, baselines: [], runs: 0, pins: [], rollback: [] },
     {
       role: "author", what: "Does the work of a released package", pinnable: true, baselines: [{ runtime: "claude", baseline: "author-claude" }], runs: 3,
-      last_run_at: new Date().toISOString(), pins: [pin("author")] as never, rollback: ["claude"],
+      last_run_at: new Date().toISOString(), pins: [pin("author")] as never, rollback: [{ runtime: "claude", current: A, restore: B }],
     },
   ] as never,
   baselines: [{ id: "author-claude", roles: ["author"], runs: 3, last_run_at: new Date().toISOString(), statuses: { succeeded: 2, failed: 1 } }],
@@ -66,20 +66,28 @@ describe("Roster", () => {
     await renderPage(<Roster passkeys={passkeys} />);
     const versions = await screen.findByRole("region", { name: "Versions a pin may name" });
     const row = within(versions).getByRole("row", { name: /2\.2\.0/ });
-    expect(row.textContent).toContain("Every intake, author and pre-check run then launches exactly this claude file.");
+    expect(row.textContent).toContain("Intake, author and pre-check runs on claude must then launch exactly this file");
     await user.selectOptions(within(row).getByRole("combobox", { name: "Roles" }), "author");
-    expect(row.textContent).toContain("Every author run then launches exactly this claude file.");
+    // Scoped to the runtime it pins: other runtimes are untouched.
+    expect(row.textContent).toContain("Author runs on claude must then launch exactly this file, and wait while the installed claude is a different one. Runs on other runtimes are unaffected.");
     await user.click(within(row).getByRole("button", { name: "Sign and pin claude 2.2.0" }));
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]).toEqual({ name: "runtime.pin", body: { payload: { runtime: "claude", artifact_digest: "b".repeat(64), role: "author" }, assertion: { signed: true } } });
   });
 
-  it("rolls a role back, signed, and shows the control plane's refusal as given", async () => {
-    server.use(http.post("*/admin/commands/:name", () => HttpResponse.json({ code: "no-previous-pin", message: "There is no earlier pin for claude author to roll back to" }, { status: 409 })));
+  it("shows what a rollback restores, signs both artifacts, and shows the control plane's refusal as given", async () => {
+    let body: any;
+    server.use(http.post("*/admin/commands/:name", async ({ request }) => {
+      body = await request.json();
+      return HttpResponse.json({ code: "pin-changed", message: "The claude author pins changed since you looked; review them again before rolling back" }, { status: 409 });
+    }));
     const user = userEvent.setup();
     await renderPage(<Roster passkeys={passkeys} />);
-    await user.click(await screen.findByRole("button", { name: "Roll back claude for author" }));
-    expect(await screen.findByText("There is no earlier pin for claude author to roll back to")).toBeTruthy();
+    const author = within(await screen.findByRole("region", { name: "Roles" })).getByRole("row", { name: /Author/ });
+    expect(author.textContent).toContain(`A rollback restores sha256:${"b".repeat(12)} in place of sha256:${"a".repeat(12)}.`);
+    await user.click(within(author).getByRole("button", { name: "Sign and roll back claude for author" }));
+    expect(await screen.findByText("The claude author pins changed since you looked; review them again before rolling back")).toBeTruthy();
+    expect(body.payload).toEqual({ runtime: "claude", roles: [{ role: "author", current: "a".repeat(64), restore: "b".repeat(64) }] });
   });
 
   it("offers pinning only to someone who may, saying why not", async () => {
@@ -88,17 +96,18 @@ describe("Roster", () => {
     const versions = await screen.findByRole("region", { name: "Versions a pin may name" });
     await waitFor(() => expect((within(versions).getAllByRole("button")[0] as HTMLButtonElement).disabled).toBe(true));
     expect(within(versions).getByText("This needs administrator authority")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Roll back claude for author" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Sign and roll back claude for author" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("says baselines are not yet controlled items, and never calls an unconfined run confined", async () => {
+  it("says baselines are not yet controlled items, and states a requested sandbox as a request, never as confinement", async () => {
     await renderPage(<Roster passkeys={passkeys} />);
     const baselines = await screen.findByRole("region", { name: "Baselines" });
     expect(baselines.textContent).toContain("baselines are not yet controlled items with their own approved revisions");
     expect(within(baselines).getByRole("row", { name: /author-claude/ }).textContent).toContain("1 failed, 2 succeeded");
     const sandbox = screen.getByRole("region", { name: "Sandbox policies" });
     expect(sandbox.textContent).toContain("No sandbox policy is recorded yet");
-    expect(within(sandbox).getByRole("row", { name: /^claude/ }).textContent).toContain("tier none, the interim state; agent actions are not confined");
-    expect(within(sandbox).getByRole("row", { name: /^codex/ }).textContent).toContain("The runtime's own sandbox (workspace-write); no Control Rod policy is attested for it yet");
+    expect(within(sandbox).getByRole("row", { name: /^claude/ }).textContent).toContain("None requested: tier none, the interim state; agent actions are not confined");
+    expect(within(sandbox).getByRole("row", { name: /^codex/ }).textContent).toContain('Requested "workspace-write" from the runtime\'s own sandbox. Whether that isolation was achieved is not verified');
+    expect(sandbox.textContent).not.toContain("was confined");
   });
 });

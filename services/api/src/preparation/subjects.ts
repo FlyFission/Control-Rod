@@ -2,7 +2,7 @@ import { randomUUID, createHash, randomBytes } from "node:crypto";
 import type { Db, Tx } from "../db/index.js";
 import { readTx } from "../db/index.js";
 import { teach } from "../refusals.js";
-import { lockSigner, needsOf, requireAuthority } from "../authority.js";
+import { lockSigner, needsOf, requireAuthority, requireHardwareKey } from "../authority.js";
 import { command } from "../commands/executor.js";
 import { appendEvent } from "../events.js";
 import { decidePreparation } from "../kernel.js";
@@ -114,6 +114,8 @@ export async function confirmRequirements(
     await lockSigner(c, user, String(verified.assertion.id ?? ""));
     const s = await requirementsSubject(c, id);
     await requireAuthority(c, user, "confirm", needsOf(s.pkg.body));
+    // A confirmation is a signature like any decision: Safety and Material work need the attested hardware key.
+    await requireHardwareKey(c, String(verified.assertion.id ?? ""), needsOf(s.pkg.body));
     if (
       verified.package_id !== id ||
       verified.package_revision !== s.pkg.revision ||

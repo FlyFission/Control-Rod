@@ -124,9 +124,10 @@ export interface BudgetUse {
 
 /**
  * What a budget has used in its current window. Minutes: the measured interval of every run in its
- * scope measured in the window, whether or not anything reserved for it; plus, for runs nothing
- * measured, every open reservation however old (a run still running, lost or unknown stays charged)
- * and every reservation settled in full in the window. Tokens: what runs measured in the
+ * scope measured in the window, whether or not anything reserved for it; plus, once per run in its
+ * scope that nothing measured, the run's open reservation however old (a run still running, lost or
+ * unknown stays charged) or its reservation settled in full in the window, whichever budget holds
+ * it, so a budget set while work is in flight counts that work too. Tokens: what runs measured in the
  * window reported, and how many reported no complete counts. Money: nothing reports it.
  */
 export async function budgetUse(q: Db | Tx, b: Json, now = new Date()): Promise<BudgetUse> {
@@ -141,14 +142,18 @@ export async function budgetUse(q: Db | Tx, b: Json, now = new Date()): Promise<
           where o.org_id = $1 and case $2::text when 'organization' then true when 'project' then o.project_id = $3 else r.body->>'agent_baseline' = $3 end)
        select
          (select coalesce(sum((m.body->'wall_time'->>'value')::numeric), 0) from usage_records m join scoped s on s.id = m.run_id
-           where m.body->>'source' = 'measured' and m.recorded_at > $5)::text as measured,
-         (select coalesce(sum((x.body->'amount'->>'value')::numeric), 0) from budget_reservations x
-           where x.budget_id = $4 and x.body->>'status' = 'reserved'
-             and not exists (select 1 from usage_records m where m.run_id = x.run_id and m.body->>'source' = 'measured'))::text as open,
-         (select coalesce(sum((x.body->'amount'->>'value')::numeric), 0) from budget_reservations x
-           where x.budget_id = $4 and x.body->>'status' = 'settled' and x.recorded_at > $5
-             and not exists (select 1 from usage_records m where m.run_id = x.run_id and m.body->>'source' = 'measured'))::text as unmeasured`,
-      [b.org_id, b.scope, b.scope === "organization" ? null : b.scope_id, b.id, since])).rows[0]!;
+           where m.body->>'source' = 'measured' and m.recorded_at > $4)::text as measured,
+         (select coalesce(sum(amount), 0) from (
+            select max((x.body->'amount'->>'value')::numeric) as amount from budget_reservations x join scoped s on s.id = x.run_id
+             where x.body->>'status' = 'reserved'
+               and not exists (select 1 from usage_records m where m.run_id = x.run_id and m.body->>'source' = 'measured')
+             group by x.run_id) o)::text as open,
+         (select coalesce(sum(amount), 0) from (
+            select max((x.body->'amount'->>'value')::numeric) as amount from budget_reservations x join scoped s on s.id = x.run_id
+             where x.body->>'status' = 'settled' and x.recorded_at > $4
+               and not exists (select 1 from usage_records m where m.run_id = x.run_id and m.body->>'source' = 'measured')
+             group by x.run_id) u)::text as unmeasured`,
+      [b.org_id, b.scope, b.scope === "organization" ? null : b.scope_id, since])).rows[0]!;
     return { used: Number(r.measured) + Number(r.open) + Number(r.unmeasured), in_flight: Number(r.open), unreported_runs: 0, since: since.toISOString() };
   }
   if (b.limit.unit === "token") {

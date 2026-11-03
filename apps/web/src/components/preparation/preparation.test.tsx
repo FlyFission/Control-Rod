@@ -229,4 +229,24 @@ describe("manual preparation workbench", () => {
       expect(box.value).toBe("First\n");
     }
   });
+
+  it("retires a verification check and every criterion's pointer to it", async () => {
+    const current = fixture();
+    current.snapshot.technical_plan.checks = [{ id: "K1", criterion_ids: ["C1"], method: "Review", required: true, expected_result: "Pass" }];
+    current.snapshot.criteria[0]!.verification_check_ids = ["K1"];
+    let saved: Record<string, any> | undefined;
+    server.use(
+      http.get("*/packages/:id/preparation", () => HttpResponse.json(current)),
+      http.put("*/packages/:id/preparation", async ({ request }) => {
+        saved = (await request.json()) as Record<string, any>;
+        return HttpResponse.json(current);
+      }),
+    );
+    await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Retire check 1" }));
+    await user.click(screen.getByRole("button", { name: "Save preparation" }));
+    await waitFor(() => expect(saved?.technical_plan.checks).toEqual([]));
+    expect(saved?.criteria[0].verification_check_ids).toEqual([]);
+  });
 });

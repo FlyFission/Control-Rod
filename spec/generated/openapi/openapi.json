@@ -4017,6 +4017,172 @@
         }
       }
     },
+    "/roster": {
+      "get": {
+        "operationId": "roster",
+        "description": "The Roster (plan task 5.1): roles, baselines as recorded on runs (not yet controlled items with\nrevisions, so baselines_recorded is false), the artifacts a pin may name, and sandboxes as launched.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/RosterRole"
+                          }
+                        },
+                        "baselines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "roles": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "runs": {
+                                "type": "integer",
+                                "format": "int32",
+                                "minimum": 0
+                              },
+                              "last_run_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "statuses": {
+                                "type": "object",
+                                "additionalProperties": {
+                                  "type": "integer",
+                                  "format": "int32"
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "roles",
+                              "runs",
+                              "last_run_at",
+                              "statuses"
+                            ]
+                          }
+                        },
+                        "baselines_recorded": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "versions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "runtime": {
+                                "type": "string"
+                              },
+                              "version": {
+                                "type": "string"
+                              },
+                              "digest": {
+                                "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                              },
+                              "last_passed_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "pinned_for": {
+                                "type": "array",
+                                "items": {
+                                  "$ref": "#/components/schemas/ControlRod.Records.RunRole"
+                                }
+                              }
+                            },
+                            "required": [
+                              "runtime",
+                              "version",
+                              "digest",
+                              "last_passed_at",
+                              "pinned_for"
+                            ]
+                          },
+                          "description": "Every artifact a passing probe has seen, per pinnable runtime, and the roles pinning it now."
+                        },
+                        "sandbox": {
+                          "type": "object",
+                          "properties": {
+                            "policies": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              },
+                              "description": "SandboxPolicy records in force, each with its digest."
+                            },
+                            "launched": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "runtime": {
+                                    "type": "string"
+                                  },
+                                  "sandbox": {
+                                    "type": "string"
+                                  },
+                                  "run_id": {
+                                    "type": "string"
+                                  },
+                                  "at": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "runtime",
+                                  "sandbox",
+                                  "run_id",
+                                  "at"
+                                ]
+                              },
+                              "description": "Per runtime, the sandbox the daemon asked for on its latest finished run (\"not reported\" when\nthe run gave none). A request, not an observed result."
+                            }
+                          },
+                          "required": [
+                            "policies",
+                            "launched"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "roles",
+                        "baselines",
+                        "baselines_recorded",
+                        "versions",
+                        "sandbox"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runner/claim": {
       "post": {
         "operationId": "Runner_claim",
@@ -9470,6 +9636,88 @@
           }
         },
         "description": "What a qualified checker verified in person (specification 11.5)."
+      },
+      "RosterRole": {
+        "type": "object",
+        "required": [
+          "role",
+          "what",
+          "pinnable",
+          "baselines",
+          "runs",
+          "pins",
+          "rollback"
+        ],
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunRole"
+          },
+          "what": {
+            "type": "string"
+          },
+          "pinnable": {
+            "type": "boolean",
+            "description": "Whether a runtime pin can be set for it (preparer roles launch by their own custody path)."
+          },
+          "baselines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "runtime": {
+                  "type": "string"
+                },
+                "baseline": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "runtime",
+                "baseline"
+              ]
+            },
+            "description": "Each runtime and baseline pair recorded on its runs; empty until something has run it."
+          },
+          "runs": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "last_run_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.RuntimePin"
+            }
+          },
+          "rollback": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "runtime": {
+                  "type": "string"
+                },
+                "current": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                },
+                "restore": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                }
+              },
+              "required": [
+                "runtime",
+                "current",
+                "restore"
+              ]
+            },
+            "description": "Per runtime with an earlier, different artifact to roll back to: the artifact pinned now and the\none a rollback restores. A rollback signs both; if either changes first, it is refused."
+          }
+        },
+        "description": "One run role on the Roster: what it does, who has run it, and its pins."
       },
       "Runner.Completion": {
         "type": "object",

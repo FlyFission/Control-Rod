@@ -1,0 +1,2 @@
+Upstream release Inter-4.1.zip (tag v4.1, commit e3a3d4c57d5ecc01453a575621882a384c1995a3), archive sha256 9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e
+web/InterVariable.woff2 sha256 693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3

@@ -1,0 +1,21 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ConfirmationRequest.json",
+    "type": "object",
+    "properties": {
+        "assertion": {
+            "$ref": "#/$defs/RecordUnknown"
+        }
+    },
+    "required": [
+        "assertion"
+    ],
+    "unevaluatedProperties": false,
+    "$defs": {
+        "RecordUnknown": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {}
+        }
+    }
+}

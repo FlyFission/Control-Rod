@@ -1,0 +1,61 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Decision.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "id": {
+            "type": "string"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "kind": {
+            "$ref": "DecisionKind.json"
+        },
+        "actor": {
+            "$ref": "Actor.json"
+        },
+        "subject_digest": {
+            "$ref": "Digest.json",
+            "description": "Digest of the package revision, output and pre-check record the person reviewed."
+        },
+        "reason": {
+            "type": "string",
+            "maxLength": 4000
+        },
+        "assertion": {
+            "$ref": "PasskeyAssertion.json"
+        },
+        "challenge_nonce": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "The one-time nonce the passkey challenge was built from, so the binding of the signature to\nthis subject, kind and revision can be re-verified from the record alone. Absent on decisions\nrecorded before it was kept."
+        },
+        "decided_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "schema_version",
+        "id",
+        "package_id",
+        "package_revision",
+        "kind",
+        "actor",
+        "subject_digest",
+        "assertion",
+        "decided_at"
+    ],
+    "description": "A person's decision on one package revision. Bound to the digest of what they saw.",
+    "unevaluatedProperties": false
+}

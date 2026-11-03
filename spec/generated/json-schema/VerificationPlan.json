@@ -11,6 +11,10 @@
                 },
                 {
                     "type": "string",
+                    "const": "agent-pre-check"
+                },
+                {
+                    "type": "string",
                     "const": "independent-review"
                 },
                 {

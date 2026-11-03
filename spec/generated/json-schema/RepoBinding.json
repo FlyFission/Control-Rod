@@ -1,0 +1,35 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RepoBinding.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "project_id": {
+            "$ref": "TenancyId.json"
+        },
+        "url": {
+            "type": "string"
+        },
+        "default_branch": {
+            "type": "string"
+        },
+        "status": {
+            "$ref": "LifecycleStatus.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "project_id",
+        "url",
+        "default_branch",
+        "status"
+    ],
+    "description": "A repository bound to a project (Software mode merge gate).",
+    "unevaluatedProperties": false
+}

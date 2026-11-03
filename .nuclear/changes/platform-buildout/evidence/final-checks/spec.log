@@ -1,0 +1,22 @@
+
+> control-rod@ spec /home/flyfission/worktrees/control-rod-buildout-20261023
+> pnpm --filter @control-rod/spec run build && node scripts/generate-runner-schemas.mjs && pnpm --filter @control-rod/web exec openapi-typescript ../../spec/generated/openapi/openapi.json -o ../../services/api/src/preparation/schema.d.ts
+
+
+> @control-rod/spec@ build /home/flyfission/worktrees/control-rod-buildout-20261023/spec
+> tsp compile .
+
+TypeSpec compiler v1.17.0
+
+- Compiling...
+✔ Compiling
+- Running @typespec/json-schema...
+✔ @typespec/json-schema 60ms generated/json-schema/
+- Running @typespec/openapi3...
+✔ @typespec/openapi3 73ms generated/openapi/
+
+Compilation completed successfully.
+
+Embedded 34 TypeSpec-generated runner schemas
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → ../../services/api/src/preparation/schema.d.ts [116.5ms]

@@ -1,0 +1,14 @@
+{
+  "scope": "ephemeral fixture DB; virtual passkeys and simulated daemon, not an operational owner pilot",
+  "database_version": "PostgreSQL 17.10 on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 7.5.0-3ubuntu1~18.04) 7.5.0, 64-bit",
+  "pg_dump": "pg_dump (PostgreSQL) 17.10",
+  "backup_sha256": "7c2649e5dc99284ab481c78491d7a4934f4b6f839df4734791328820445c1294",
+  "controlled_rows_digest": "35231bf0e5fe59833dcc4dddd39dfd21fad806fd7ce53de5b348382f24bc0489",
+  "event_chain": {
+    "ok": true,
+    "count": 21
+  },
+  "restored_package_state": "accepted",
+  "evidence_bytes_equal": true,
+  "legacy_writer_refused": true
+}

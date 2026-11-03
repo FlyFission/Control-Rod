@@ -1,0 +1,35 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RuntimeStatus.json",
+    "type": "object",
+    "properties": {
+        "runtime": {
+            "type": "string"
+        },
+        "ready": {
+            "type": "boolean"
+        },
+        "version": {
+            "type": "string"
+        },
+        "reason": {
+            "type": "string",
+            "maxLength": 300
+        },
+        "login_checked": {
+            "type": "boolean",
+            "description": "The CLI could say whether a login is present. The probe never signs in."
+        },
+        "artifact": {
+            "$ref": "RuntimeArtifact.json",
+            "description": "The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this."
+        }
+    },
+    "required": [
+        "runtime",
+        "ready",
+        "login_checked"
+    ],
+    "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not.",
+    "unevaluatedProperties": false
+}

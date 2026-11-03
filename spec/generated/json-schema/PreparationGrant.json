@@ -1,0 +1,104 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationGrant.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "id": {
+            "type": "string"
+        },
+        "run_id": {
+            "type": "string"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "preparation_id": {
+            "type": "string"
+        },
+        "preparation_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "base_digest": {
+            "$ref": "Digest.json"
+        },
+        "package_digest": {
+            "$ref": "Digest.json"
+        },
+        "assignment_digest": {
+            "$ref": "Digest.json",
+            "description": "Assigned baseline/runtime/round; changing them invalidates the grant."
+        },
+        "role": {
+            "type": "string",
+            "const": "requirements-preparer"
+        },
+        "lane": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "public"
+                },
+                {
+                    "type": "string",
+                    "const": "internal"
+                }
+            ]
+        },
+        "expires_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "inputs": {
+            "type": "array",
+            "items": {
+                "$ref": "PreparationGrantInput.json"
+            },
+            "maxItems": 16
+        },
+        "proposal_path": {
+            "type": "string",
+            "const": "proposal.json"
+        },
+        "max_proposal_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5242880
+        },
+        "max_operations": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+        }
+    },
+    "required": [
+        "schema_version",
+        "id",
+        "run_id",
+        "package_id",
+        "package_revision",
+        "preparation_id",
+        "preparation_revision",
+        "base_digest",
+        "package_digest",
+        "assignment_digest",
+        "role",
+        "lane",
+        "expires_at",
+        "inputs",
+        "proposal_path",
+        "max_proposal_bytes",
+        "max_operations"
+    ],
+    "unevaluatedProperties": false
+}

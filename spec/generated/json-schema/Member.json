@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Member.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "user_name": {
+            "type": "string",
+            "description": "The WebAuthn user name the Member's passkeys were registered under."
+        },
+        "display_name": {
+            "type": "string"
+        },
+        "status": {
+            "$ref": "LifecycleStatus.json"
+        },
+        "office_theme": {
+            "$ref": "OfficeThemeSelection.json",
+            "description": "The Member's own office theme: a bundled theme and the digest of its manifest when chosen."
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "user_name",
+        "display_name",
+        "status"
+    ],
+    "description": "A person in an organization. Passkeys bind here; only a passkey session of a Member is a person.",
+    "unevaluatedProperties": false
+}

@@ -1,0 +1,7 @@
+{
+  "run": "https://github.com/FlyFission/Control-Rod/actions/runs/40023277793",
+  "head": "707b26d6f051bab78c58f58a524e56579e2732d3",
+  "raw_log_sha256": "e6f0535fa6e09664cd83d695cf73804641a75438fb303fd2a21aa488f5078590",
+  "transform": "ANSI color escapes removed; no claim of successful database test execution",
+  "failure": "embedded PostgreSQL17 initdb cannot load libicuuc.so.60 on runner; 17 suites fail setup"
+}

@@ -1,0 +1,40 @@
+
+> @control-rod/api@0.0.0 test /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+> vitest run --run test/preparation-grants.test.ts -t 'requires a controlled origin pin'
+
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+
+ ❯ test/preparation-grants.test.ts (12 tests | 1 failed | 11 skipped) 1114ms
+   × requires a controlled origin pin and rechecks captured bytes rather than mutable routing 165ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/preparation-grants.test.ts > requires a controlled origin pin and rechecks captured bytes rather than mutable routing
+AssertionError: expected +0 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 0
+
+ ❯ test/preparation-grants.test.ts:335:26
+    333|     (error) => error,
+    334|   );
+    335|   expect(refused.status).toBe(409);
+       |                          ^
+    336|   const view = (await f.owner("GET", seed.p.url)).json(),
+    337|     content = preparationContent(view.snapshot);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 skipped (12)
+   Start at  16:33:57
+   Duration  1.58s (tests 75%, import 19%, transform 6%)
+
+/home/flyfission/worktrees/control-rod-buildout-20261023/services/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @control-rod/api@0.0.0 test: `vitest run --run test/preparation-grants.test.ts -t 'requires a controlled origin pin'`
+Exit status 1

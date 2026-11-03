@@ -1,0 +1,52 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ScramEvent.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "scope": {
+            "$ref": "ScramScope.json"
+        },
+        "project_id": {
+            "$ref": "TenancyId.json",
+            "description": "Present exactly when the scope is a project."
+        },
+        "pulled_by": {
+            "$ref": "TenancyId.json"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 1
+        },
+        "assertion": {
+            "$ref": "PasskeyAssertion.json"
+        },
+        "quarantine": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Run ids stopped, with their outputs quarantined."
+        },
+        "drill": {
+            "type": "boolean",
+            "description": "A practice pull: everything is stopped for real, and the time to stop is recorded as a drill."
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "scope",
+        "pulled_by",
+        "reason",
+        "assertion",
+        "quarantine"
+    ],
+    "description": "Who pulled SCRAM, where, why, and what was stopped. (A)",
+    "unevaluatedProperties": false
+}

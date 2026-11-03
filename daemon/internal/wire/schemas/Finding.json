@@ -1,0 +1,42 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Finding.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string"
+        },
+        "severity": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "info"
+                },
+                {
+                    "type": "string",
+                    "const": "minor"
+                },
+                {
+                    "type": "string",
+                    "const": "major"
+                },
+                {
+                    "type": "string",
+                    "const": "critical"
+                }
+            ]
+        },
+        "text": {
+            "type": "string"
+        },
+        "resolution": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "id",
+        "severity",
+        "text"
+    ],
+    "unevaluatedProperties": false
+}

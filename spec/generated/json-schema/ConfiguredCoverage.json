@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ConfiguredCoverage.json",
+    "type": "object",
+    "properties": {
+        "reference": {
+            "type": "string"
+        },
+        "lane": {
+            "$ref": "DataLane.json"
+        }
+    },
+    "required": [
+        "reference",
+        "lane"
+    ],
+    "description": "A configured source and the lane the owner's config gave it.",
+    "unevaluatedProperties": false
+}

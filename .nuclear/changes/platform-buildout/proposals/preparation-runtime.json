@@ -1,0 +1,21 @@
+{
+  "proposal_version": "0.1.0",
+  "activation": "hold",
+  "intended_target": "policies/preparation-runtime.json",
+  "roles": ["requirements-preparer", "technical-preparer"],
+  "repository_access": "approved immutable snapshot only",
+  "writes": "per-run proposal output only",
+  "home": "isolated empty home",
+  "environment": "explicit minimal allowlist; no inherited provider or owner secrets",
+  "tool_network": "deny",
+  "model_network": "approved provider broker only",
+  "credential_boundary": "provider credentials remain outside all agent-executable tools",
+  "human_actions": "deny confirmation, release, acceptance and blocker resolution",
+  "lanes": {
+    "public": "require proved runtime profile",
+    "internal": "require proved runtime profile",
+    "other": "hold pending approved profile"
+  },
+  "required_runtime_proofs": ["filesystem", "environment", "home", "process", "egress", "credential", "role", "lane"],
+  "native_runtime_profiles": {"claude": "unproved", "codex": "unproved"}
+}

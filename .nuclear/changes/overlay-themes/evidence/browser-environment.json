@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-26T19:06:05.327Z",
+  "engines": {
+    "chromium": "156.0.8078.4",
+    "firefox": "157.0"
+  },
+  "webkit": "Unverified: missing host libraries",
+  "actualSafariAndDevices": "Unverified"
+}

@@ -1,0 +1,73 @@
+{
+  "theme": "harness-bright",
+  "files": [
+    {
+      "file": "process.54b665d0f3a8.svg",
+      "sha256": "54b665d0f3a8de592d3916289a85e8feb67d738a9dc0f139f365053e11d248c5"
+    },
+    {
+      "file": "mechanical.bac5bbae5d7e.svg",
+      "sha256": "bac5bbae5d7e808ba06e6723b8363bfd4acbcd5fff1107fcf79ccadbf045da28"
+    },
+    {
+      "file": "electrical.db8600783578.svg",
+      "sha256": "db86007835786e8d14bd1de59f00fc57a3717111df6ca7a54c9ee3374b0d4860"
+    },
+    {
+      "file": "civil.941affe1a4c4.svg",
+      "sha256": "941affe1a4c4f053d831c095443ec66486ce64438aef8257b45f4b63dd5b6af4"
+    },
+    {
+      "file": "assurance.a57734abd78e.svg",
+      "sha256": "a57734abd78ede6c77c9fb84806b4732c7ac2440d89b21f6f95d0c6e4be04192"
+    },
+    {
+      "file": "project-controls.078c27041f49.svg",
+      "sha256": "078c27041f49b73b86f7c37eadbe9538a01fb58a259a8fbfeea11170e7af7c9b"
+    },
+    {
+      "file": "review.55fa610eecfd.svg",
+      "sha256": "55fa610eecfd4970bbe7dc4d0f38997d8bf847b4d525887f1cf2c8e43c01c56c"
+    },
+    {
+      "file": "interface.f520232c9d87.svg",
+      "sha256": "f520232c9d875b0d61c300ba87534afd6a52ccc69a5718831f8bc637fbdb9b4e"
+    },
+    {
+      "file": "verification.0aa570ea6a32.svg",
+      "sha256": "0aa570ea6a32f9ec657e24f03e6f4c88539b951b7f86d4e0c1600141e2c6b015"
+    },
+    {
+      "file": "your-office.efde7e730533.svg",
+      "sha256": "efde7e7305339748aadeccba9d4fde34d315775085b01f3224b07b48315e1bda"
+    },
+    {
+      "file": "document-control.c1a41e9c697f.svg",
+      "sha256": "c1a41e9c697fa8283bf33136bf2cfd951be74e0f6edbaf0f484939d00df6cc68"
+    },
+    {
+      "file": "bench.25268a2dfd10.svg",
+      "sha256": "25268a2dfd10be96a0aa987fbe3981f7d7d26750a02dda9c4e6738fe4d9fc3d3"
+    },
+    {
+      "file": "quarantine.e8f405eb0bdd.svg",
+      "sha256": "e8f405eb0bdd701c9257077ae9d5c83f6adf4fc55fd1e7b5f11e8c15030aaa2f"
+    },
+    {
+      "file": "body-0.0f406c89ea4b.svg",
+      "sha256": "0f406c89ea4b320a9cc6b9880919f3e2e89b996fb49a72dae5eedb5ed8f382b3"
+    },
+    {
+      "file": "body-1.6d0a3865c091.svg",
+      "sha256": "6d0a3865c091b5a62fb8be720d367f5bde07078fadba79e692c0cec5c4b30c68"
+    },
+    {
+      "file": "body-2.c7904e1640c4.svg",
+      "sha256": "c7904e1640c4cd711473bfb58cdeb365251ab680f02940e130d0e384fd158d43"
+    },
+    {
+      "file": "body-3.ab10358a0470.svg",
+      "sha256": "ab10358a0470231faf433150496ab83339b7b848d694b6fb031be1c9bc5bf3bb"
+    }
+  ]
+}

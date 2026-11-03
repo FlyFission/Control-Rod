@@ -10,6 +10,8 @@
 
 pub mod decision;
 pub mod digest;
+pub mod preparation;
+pub mod transition;
 
 pub use decision::{Decision, ReasonCode, undecided};
 pub use digest::{DigestError, canonical_sha256};

@@ -1,0 +1,124 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ExecutionTrace.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "run_id": {
+            "type": "string"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+        },
+        "agent_baseline": {
+            "type": "string"
+        },
+        "baseline_revision": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+        },
+        "tool": {
+            "$ref": "ToolRef.json"
+        },
+        "inputs": {
+            "type": "array",
+            "items": {
+                "$ref": "Artifact.json"
+            }
+        },
+        "outputs": {
+            "type": "array",
+            "items": {
+                "$ref": "Artifact.json"
+            }
+        },
+        "environment": {
+            "$ref": "#/$defs/RecordString"
+        },
+        "started_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "finished_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "runtime_mode": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "print"
+                },
+                {
+                    "type": "string",
+                    "const": "acp"
+                },
+                {
+                    "type": "string",
+                    "const": "fake"
+                }
+            ],
+            "description": "How the runtime was driven. \"print\" is a headless, one-prompt run (`claude -p`, `codex exec`)\nwhere no ACP permission binding is in force; \"acp\" is reserved for ACP sessions."
+        },
+        "requested_model": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The model the run asked for, or \"default\" when it left the choice to the runtime."
+        },
+        "reported_model": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The model the runtime said it used, read from its own event stream. Absent when it did not say."
+        },
+        "permission_mode": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Permission mode the runtime started in, when it has one."
+        },
+        "allowed_tools": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Tool allowlist passed to the runtime, when it takes one."
+        },
+        "sandbox": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Sandbox the daemon asked the runtime for: \"none\", \"workspace-write\" or \"workspace-write+network\"."
+        }
+    },
+    "required": [
+        "schema_version",
+        "run_id",
+        "package_id",
+        "package_revision",
+        "agent_baseline",
+        "baseline_revision",
+        "tool",
+        "inputs",
+        "outputs",
+        "started_at",
+        "finished_at"
+    ],
+    "description": "Proof of where outputs came from. Recorded by the runner, never by the agent.",
+    "unevaluatedProperties": false,
+    "$defs": {
+        "RecordString": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {
+                "type": "string"
+            }
+        }
+    }
+}

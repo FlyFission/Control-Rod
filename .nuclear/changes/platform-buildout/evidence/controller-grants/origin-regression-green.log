@@ -1,0 +1,13 @@
+
+> @control-rod/api@0.0.0 test /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+> vitest run --run test/preparation-grants.test.ts -t 'requires a controlled origin pin'
+
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 11 skipped (12)
+   Start at  16:34:00
+   Duration  1.67s (tests 78%, import 19%, transform 3%)
+

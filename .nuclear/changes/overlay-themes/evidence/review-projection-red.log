@@ -1,0 +1,57 @@
+
+ RUN  v5.0.5 /workspace/Control-Rod/.worktrees/overlay-themes/apps/web
+
+ ❯ src/features/floor/projection.test.ts (22 tests | 2 failed) 25ms
+   ❯ authoritative Floor projection (22)
+     × retains unknown statuses alongside later known terminal history with raw escaped context 9ms
+     × preserves conflicting cross-package run identities as neutral source rows 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/floor/projection.test.ts > authoritative Floor projection > retains unknown statuses alongside later known terminal history with raw escaped context
+AssertionError: expected [ { id: 'run:finished', …(13) } ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/features/floor/projection.test.ts:32:24
+     30|   it('retains unknown statuses alongside later known terminal history …
+     31|     const m=model([run({id:'unknown',status:'paused-for-review' as nev…
+     32|     expect(m.entities).toHaveLength(2);const unknown=m.entities.find(e…
+       |                        ^
+     33|     expect(unknown.label).toBe('Status unavailable');expect(unknown.de…
+     34|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/features/floor/projection.test.ts > authoritative Floor projection > preserves conflicting cross-package run identities as neutral source rows
+AssertionError: expected [ Array(1) ] to have a length of 2 but got 1
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/features/floor/projection.test.ts:38:24
+     36|     const a=view({runs:[run()]});const b=view({runs:[run({package_id:'…
+     37|     const m=projectFloor({packages:[a.package,b.package],views:new Map…
+     38|     expect(m.entities).toHaveLength(2);expect(new Set(m.entities.map(e…
+       |                        ^
+     39|     expect(m.entities.every(e=>e.label==='Status unavailable')).toBe(t…
+     40|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 20 passed (22)
+   Start at  18:34:07
+   Duration  740ms (environment 63%, setup 22%, transform 8%, tests 4%, import 1%, worker 1%)
+
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run src/features/floor/projection.test.ts

@@ -1,0 +1,42 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RequirementsConfirmation.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+        },
+        "requirements_digest": {
+            "$ref": "Digest.json"
+        },
+        "actor": {
+            "$ref": "Actor.json"
+        },
+        "decided_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "assertion": {
+            "$ref": "PasskeyAssertion.json"
+        }
+    },
+    "required": [
+        "id",
+        "package_id",
+        "package_revision",
+        "requirements_digest",
+        "actor",
+        "decided_at",
+        "assertion"
+    ],
+    "description": "Stored only by the later verified passkey and kernel confirmation path.",
+    "unevaluatedProperties": false
+}

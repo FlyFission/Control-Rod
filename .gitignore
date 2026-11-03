@@ -20,6 +20,8 @@ bin/
 *.pem
 *.key
 data/
+# Data that ships inside a pack's Python package is source.
+!packs/**/src/**/data/
 .pgdata/
 
 # Editors and OS
@@ -27,3 +29,13 @@ data/
 .idea/
 .vscode/
 *.swp
+
+# Agent worktrees
+.claude/worktrees/
+
+.worktrees/
+.superpowers/
+
+# Browser test output; retained release evidence is copied explicitly.
+apps/web/test-results/
+apps/web/playwright-report/

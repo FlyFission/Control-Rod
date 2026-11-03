@@ -1,0 +1,59 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ChangeRequest.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "kind": {
+            "$ref": "ChangeRequestKind.json"
+        },
+        "subject_digest": {
+            "$ref": "Digest.json"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 1
+        },
+        "impact": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Downstream objects the change affects, listed before approval."
+        },
+        "proposed_by": {
+            "$ref": "Actor.json"
+        },
+        "status": {
+            "$ref": "ChangeRequestStatus.json"
+        },
+        "proposal": {
+            "$ref": "#/$defs/RecordUnknown",
+            "description": "The proposed content (for a policy change, the policy set body); its digest is subject_digest."
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "kind",
+        "subject_digest",
+        "reason",
+        "impact",
+        "proposed_by",
+        "status"
+    ],
+    "description": "A change only an authorized person may approve, over an exact subject version. (L)",
+    "unevaluatedProperties": false,
+    "$defs": {
+        "RecordUnknown": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {}
+        }
+    }
+}

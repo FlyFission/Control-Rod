@@ -1,0 +1,95 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Completion.json",
+    "type": "object",
+    "properties": {
+        "claim_token": {
+            "type": "string"
+        },
+        "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100,
+            "description": "Chosen by the daemon once per completion and kept across retries."
+        },
+        "status": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "succeeded"
+                },
+                {
+                    "type": "string",
+                    "const": "failed"
+                },
+                {
+                    "type": "string",
+                    "const": "stopped"
+                }
+            ],
+            "description": "\"stopped\" only after the owner asked to stop the run."
+        },
+        "error": {
+            "type": "string"
+        },
+        "trace": {
+            "$ref": "ExecutionTrace.json"
+        },
+        "outputs": {
+            "type": "array",
+            "items": {
+                "$ref": "NamedFile.json"
+            }
+        },
+        "package": {
+            "$ref": "WorkPackage.json"
+        },
+        "verification": {
+            "$ref": "VerificationRecord.json"
+        },
+        "criterion_results": {
+            "$ref": "CriterionResultSubmission.json"
+        },
+        "receipt": {
+            "$ref": "OwnershipReceipt.json",
+            "description": "The run's spawn receipt, so it is on record even if no log post carried it."
+        },
+        "containment": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "cgroup"
+                },
+                {
+                    "type": "string",
+                    "const": "process-group"
+                },
+                {
+                    "type": "string",
+                    "const": "none"
+                }
+            ],
+            "description": "What proves the run's processes ended: cgroup (its scope is empty), process-group (the\nleader and its group are gone; a process that left the group is not seen) or none (no\nprocess was started). Absent means no proof: a failed or stopped run then keeps an unknown\noutcome."
+        },
+        "events": {
+            "type": "array",
+            "items": {
+                "$ref": "NormalizedEvent.json"
+            },
+            "maxItems": 500,
+            "description": "Events no log post delivered (the last upload failed), carried by the completion, which the\ndaemon retries until it is recorded. Indexed from events_from like a log batch."
+        },
+        "events_from": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "claim_token",
+        "idempotency_key",
+        "status",
+        "outputs"
+    ],
+    "unevaluatedProperties": false
+}

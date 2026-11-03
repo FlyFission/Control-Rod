@@ -1,0 +1,20 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "GrantWriteResult.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "type": "string",
+            "const": "write-proposal"
+        },
+        "content_base64": {
+            "type": "string",
+            "maxLength": 6990508
+        }
+    },
+    "required": [
+        "kind",
+        "content_base64"
+    ],
+    "unevaluatedProperties": false
+}

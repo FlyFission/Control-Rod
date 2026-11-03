@@ -1,0 +1,85 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationContent.json",
+    "type": "object",
+    "properties": {
+        "request_kind": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "general"
+                },
+                {
+                    "type": "string",
+                    "const": "bugfix"
+                },
+                {
+                    "type": "string",
+                    "const": "enhancement"
+                },
+                {
+                    "type": "string",
+                    "const": "capital-projects"
+                }
+            ]
+        },
+        "package_contract": {
+            "$ref": "PackageContract.json"
+        },
+        "requirements": {
+            "type": "array",
+            "items": {
+                "$ref": "Requirement.json"
+            }
+        },
+        "criteria": {
+            "type": "array",
+            "items": {
+                "$ref": "Criterion.json"
+            }
+        },
+        "context": {
+            "$ref": "PreparationContext.json"
+        },
+        "questions": {
+            "type": "array",
+            "items": {
+                "$ref": "OpenItem.json"
+            }
+        },
+        "resolutions": {
+            "type": "array",
+            "items": {
+                "$ref": "HumanResolution.json"
+            }
+        },
+        "escalations": {
+            "type": "array",
+            "items": {
+                "$ref": "Escalation.json"
+            }
+        },
+        "technical_plan": {
+            "$ref": "TechnicalPlan.json"
+        },
+        "basis": {
+            "type": "array",
+            "items": {
+                "$ref": "BasisRef.json"
+            }
+        }
+    },
+    "required": [
+        "request_kind",
+        "package_contract",
+        "requirements",
+        "criteria",
+        "context",
+        "questions",
+        "resolutions",
+        "escalations",
+        "technical_plan",
+        "basis"
+    ],
+    "unevaluatedProperties": false
+}

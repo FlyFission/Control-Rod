@@ -1,0 +1,48 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ScramRestart.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "scram_id": {
+            "$ref": "TenancyId.json"
+        },
+        "scope": {
+            "$ref": "ScramRestartScope.json"
+        },
+        "package_id": {
+            "type": "string",
+            "description": "Present exactly when the scope is a package."
+        },
+        "discipline": {
+            "type": "string",
+            "description": "Present exactly when the scope is a discipline."
+        },
+        "released_by": {
+            "$ref": "TenancyId.json"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 1
+        },
+        "assertion": {
+            "$ref": "PasskeyAssertion.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "scram_id",
+        "scope",
+        "released_by",
+        "reason",
+        "assertion"
+    ],
+    "description": "A staged restart after SCRAM (specification 22a): directly signed, with a reason, for one package,\none discipline, or everything the SCRAM stopped. Refused while anything in its scope has an\nunknown outcome or unreviewed quarantine. (A)",
+    "unevaluatedProperties": false
+}

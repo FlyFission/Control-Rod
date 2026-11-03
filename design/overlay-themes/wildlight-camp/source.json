@@ -1,0 +1,20 @@
+{
+  "packId": "wildlight-camp",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#4E795F",
+    "#90BCCA",
+    "#BB816A",
+    "#F1E6CF"
+  ],
+  "status": "draft",
+  "props": [
+    "specimen tray",
+    "notebook",
+    "canvas pouch",
+    "survey flag",
+    "lantern",
+    "terrarium"
+  ],
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

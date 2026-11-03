@@ -1,0 +1,130 @@
+[WebServer] (node:9028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:9043) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ python3 ../../tools/check_theme_assets.py --root ../..
+[WebServer] (node:9059) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:9074) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:9103) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:9130) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:9144) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 3 tests using 1 worker
+
+(node:9168) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 [chromium] › e2e/floor-themes.spec.ts:7:1 › short reconnect rebaselines without a submission effect (737ms)
+(node:9243) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 [chromium] › e2e/floor-themes.spec.ts:16:1 › a newer cross-tab decision cancels a pending choice even when it selects the current pack (5.8s)
+(node:9319) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  3 [chromium] › e2e/floor-themes.spec.ts:25:1 › mobile list keeps complete run identifiers and distinguishes active rounds (5.3s)
+
+
+  1) [chromium] › e2e/floor-themes.spec.ts:7:1 › short reconnect rebaselines without a submission effect 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 0
+    Received: 1
+
+      11 |  api.finishAuthor();await page.evaluate(()=>(window as unknown as {themeStream:{emit:(s:string)=>void}}).themeStream.emit('open'));
+      12 |  await expect(page.getByRole('button',{name:/WP-101.*Run finished/})).toBeVisible();
+    > 13 |  expect(await page.evaluate(()=>(window as unknown as {seenEffects:number}).seenEffects)).toBe(0);
+         |                                                                                           ^
+      14 | });
+      15 |
+      16 | test('a newer cross-tab decision cancels a pending choice even when it selects the current pack',async({page})=>{
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/floor-themes.spec.ts:13:91
+
+    Error Context: test-results/floor-themes-short-reconne-922ee-without-a-submission-effect-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/floor-themes-short-reconne-922ee-without-a-submission-effect-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/floor-themes-short-reconne-922ee-without-a-submission-effect-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [chromium] › e2e/floor-themes.spec.ts:16:1 › a newer cross-tab decision cancels a pending choice even when it selects the current pack 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('group', { name: 'Plain Floor activity scene' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('group', { name: 'Plain Floor activity scene' }) with timeout 5000ms
+      - waiting for getByRole('group', { name: 'Plain Floor activity scene' })
+
+
+      20 |  await page.evaluate(()=>window.dispatchEvent(new StorageEvent('storage',{key:'cr.floor.preferences.v1',newValue:JSON.stringify({schemaVersion:1,themeId:'plain',motion:'full',view:'scene'})})));
+      21 |  release();await done;await page.getByRole('dialog').waitFor({state:'hidden',timeout:1200}).catch(()=>{});
+    > 22 |  await page.keyboard.press('Escape');await expect(page.getByRole('group',{name:'Plain Floor activity scene'})).toBeVisible();
+         |                                                                                                                ^
+      23 | });
+      24 |
+      25 | test('mobile list keeps complete run identifiers and distinguishes active rounds',async({page})=>{
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/floor-themes.spec.ts:22:112
+
+    Error Context: test-results/floor-themes-a-newer-cross-c4a1e-it-selects-the-current-pack-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/floor-themes-a-newer-cross-c4a1e-it-selects-the-current-pack-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/floor-themes-a-newer-cross-c4a1e-it-selects-the-current-pack-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [chromium] › e2e/floor-themes.spec.ts:25:1 › mobile list keeps complete run identifiers and distinguishes active rounds 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('button', { name: /WP-101.*R-1/ })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('button', { name: /WP-101.*R-1/ }) with timeout 5000ms
+      - waiting for getByRole('button', { name: /WP-101.*R-1/ })
+
+
+      25 | test('mobile list keeps complete run identifiers and distinguishes active rounds',async({page})=>{
+      26 |  await page.setViewportSize({width:375,height:812});await page.goto('/themes.html');
+    > 27 |  await expect(page.getByRole('button',{name:/WP-101.*R-1/})).toBeVisible();
+         |                                                              ^
+      28 |  await expect(page.locator('.floor-list-id').filter({hasText:'R-1'}).first()).toBeVisible();
+      29 | });
+      30 |
+        at /workspace/Control-Rod/.worktrees/overlay-themes/apps/web/e2e/floor-themes.spec.ts:27:62
+
+    Error Context: test-results/floor-themes-mobile-list-k-83689-distinguishes-active-rounds-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/floor-themes-mobile-list-k-83689-distinguishes-active-rounds-chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/floor-themes-mobile-list-k-83689-distinguishes-active-rounds-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    [chromium] › e2e/floor-themes.spec.ts:7:1 › short reconnect rebaselines without a submission effect 
+    [chromium] › e2e/floor-themes.spec.ts:16:1 › a newer cross-tab decision cancels a pending choice even when it selects the current pack 
+    [chromium] › e2e/floor-themes.spec.ts:25:1 › mobile list keeps complete run identifiers and distinguishes active rounds 
+undefined
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: playwright test '--project=chromium' --grep 'short reconnect|cross-tab decision|mobile list keeps'

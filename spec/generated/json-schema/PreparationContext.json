@@ -1,0 +1,35 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationContext.json",
+    "type": "object",
+    "properties": {
+        "problem": {
+            "type": "string"
+        },
+        "repro": {
+            "type": "string"
+        },
+        "expected": {
+            "type": "string"
+        },
+        "actual": {
+            "type": "string"
+        },
+        "environment": {
+            "type": "string"
+        },
+        "current_journey": {
+            "type": "string"
+        },
+        "desired_journey": {
+            "type": "string"
+        },
+        "implementation_notes": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "problem"
+    ],
+    "unevaluatedProperties": false
+}

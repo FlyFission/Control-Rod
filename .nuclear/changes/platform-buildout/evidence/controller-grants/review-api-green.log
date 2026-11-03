@@ -1,0 +1,9 @@
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 14 skipped (16)
+   Start at  16:56:30
+   Duration  2.50s (tests 75%, import 16%, transform 8%)
+

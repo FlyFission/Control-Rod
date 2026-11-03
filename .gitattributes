@@ -1,0 +1,3 @@
+
+# Third-party license texts are retained byte for byte; do not apply whitespace rules.
+third_party/licenses/** -whitespace

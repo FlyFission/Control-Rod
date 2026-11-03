@@ -1,0 +1,20 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "OutcomeUnknown.json",
+    "type": "object",
+    "properties": {
+        "since": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "reason": {
+            "type": "string",
+            "maxLength": 300
+        }
+    },
+    "required": [
+        "since",
+        "reason"
+    ],
+    "unevaluatedProperties": false
+}

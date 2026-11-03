@@ -1,0 +1,7 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "GitObjectId.json",
+    "type": "string",
+    "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$",
+    "description": "A git object id: SHA-1 (40 hex) or SHA-256 (64 hex)."
+}

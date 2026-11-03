@@ -1,0 +1,68 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "OpenItem.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "minLength": 1
+        },
+        "kind": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "question"
+                },
+                {
+                    "type": "string",
+                    "const": "assumption"
+                },
+                {
+                    "type": "string",
+                    "const": "conflict"
+                }
+            ]
+        },
+        "text": {
+            "type": "string"
+        },
+        "owner": {
+            "type": "string"
+        },
+        "blocking": {
+            "type": "boolean"
+        },
+        "state": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "open"
+                },
+                {
+                    "type": "string",
+                    "const": "resolved"
+                },
+                {
+                    "type": "string",
+                    "const": "deferred"
+                }
+            ]
+        },
+        "resolution_refs": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "id",
+        "kind",
+        "text",
+        "owner",
+        "blocking",
+        "state",
+        "resolution_refs"
+    ],
+    "unevaluatedProperties": false
+}

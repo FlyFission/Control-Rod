@@ -30,11 +30,13 @@ function countLine(needsMe: number, inboxItems: number): string {
   return [agents, more].filter(Boolean).join("; ");
 }
 
-const THEME_KEY = "controlrod.office.theme";
-// The theme is a per viewer convenience: remembered where storage works, never required.
-const rememberedTheme = () => {
+// The theme is a per member convenience: remembered in this browser for the signed in member, where
+// storage works, and never required.
+const themeKey = (member: string) => `controlrod.office.theme.${member}`;
+const rememberedTheme = (member: string | undefined) => {
+  if (!member) return undefined;
   try {
-    return localStorage.getItem(THEME_KEY) ?? undefined;
+    return localStorage.getItem(themeKey(member)) ?? undefined;
   } catch {
     return undefined;
   }
@@ -42,12 +44,17 @@ const rememberedTheme = () => {
 
 export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {}) {
   const choices = officeThemeChoices(drafts);
-  const [themeId, setThemeId] = useState(() => rememberedTheme());
+  const session = useQuery({ queryKey: ["session"], queryFn: api.session });
+  const member = session.data?.signed_in ? session.data.user : undefined;
+  // A choice made in this visit holds for the member who made it; another member gets their own.
+  const [chosen, setChosen] = useState<{ member: string; id: string }>();
+  const themeId = chosen && chosen.member === member ? chosen.id : rememberedTheme(member);
   const theme = choices.find((t) => t.id === themeId) ?? DEFAULT_OFFICE_THEME;
   const chooseTheme = (id: string) => {
-    setThemeId(id);
+    if (!member) return;
+    setChosen({ member, id });
     try {
-      localStorage.setItem(THEME_KEY, id);
+      localStorage.setItem(themeKey(member), id);
     } catch {
       // Not remembered; the choice still holds for this visit.
     }
@@ -99,7 +106,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
           {choices.length > 1 && (
             <label className="office-theme-choice">
               <span>Theme</span>
-              <select value={theme.id} onChange={(e) => chooseTheme(e.target.value)}>
+              <select value={theme.id} disabled={!member} onChange={(e) => chooseTheme(e.target.value)}>
                 {choices.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.title}

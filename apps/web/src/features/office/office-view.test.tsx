@@ -199,9 +199,12 @@ describe("exceptions overlay and portfolio (OV-26)", () => {
 });
 
 describe("themes (plan task 4.9)", () => {
+  let member = "ben";
   beforeEach(() => {
     localStorage.clear();
+    member = "ben";
     server.use(
+      http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: member })),
       http.get("*/scrams", () => HttpResponse.json({ scrams: [] })),
       http.get("*/office/figures", () => HttpResponse.json({ figures: [figure()], needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })),
     );
@@ -232,13 +235,20 @@ describe("themes (plan task 4.9)", () => {
     expect(screen.getByRole("button", { name: /^WP-0001/ }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("heading", { name: "Line sizing" })).toBeTruthy();
     unmount();
+    const again = await renderPage(<OfficeView drafts />);
+    await screen.findByRole("button", { name: /^WP-0001/ });
+    await waitFor(() => expect((screen.getByRole("combobox", { name: "Theme" }) as HTMLSelectElement).value).toBe("orbital-shipyard"));
+    again.unmount();
+    // Another member signing in on this browser gets their own choice, not the last member's.
+    member = "dora";
     await renderPage(<OfficeView drafts />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect((screen.getByRole("combobox", { name: "Theme" }) as HTMLSelectElement).value).toBe("orbital-shipyard");
+    await waitFor(() => expect((screen.getByRole("combobox", { name: "Theme" }) as HTMLSelectElement).disabled).toBe(false));
+    expect((screen.getByRole("combobox", { name: "Theme" }) as HTMLSelectElement).value).toBe("standard-office");
   });
 
   it("falls back to the released theme when the remembered one is not offered in this build", async () => {
-    localStorage.setItem("controlrod.office.theme", "orbital-shipyard");
+    localStorage.setItem("controlrod.office.theme.ben", "orbital-shipyard");
     await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
     expect(art().every((src) => src.startsWith("/office-themes/standard-office/"))).toBe(true);

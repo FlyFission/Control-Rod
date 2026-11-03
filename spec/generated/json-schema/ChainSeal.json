@@ -1,0 +1,38 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ChainSeal.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "payload": {
+            "$ref": "ChainSealPayload.json"
+        },
+        "subject_digest": {
+            "$ref": "Digest.json",
+            "description": "The administrative subject digest the passkey signed (command chain.seal over the payload)."
+        },
+        "nonce": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "The challenge nonce of that signature, kept so the signature can be checked again later."
+        },
+        "assertion": {
+            "$ref": "PasskeyAssertion.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "payload",
+        "subject_digest",
+        "nonce",
+        "assertion"
+    ],
+    "description": "A Member's seal over the event chain up to a head. The chain.sealed event recording it comes after\nthe head, so the next seal covers it. Verification rechecks the chain, the head and the passkey\nsignature against the signer's retained credential. A local chain, not witnessed. (A)",
+    "unevaluatedProperties": false
+}

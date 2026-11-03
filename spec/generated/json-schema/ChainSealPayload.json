@@ -1,0 +1,42 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ChainSealPayload.json",
+    "type": "object",
+    "properties": {
+        "head_seq": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "The sequence number of the last event the seal covers."
+        },
+        "head_digest": {
+            "$ref": "Digest.json",
+            "description": "That event's digest, exactly as recorded."
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "sealed_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "signer_id": {
+            "$ref": "TenancyId.json"
+        },
+        "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+        }
+    },
+    "required": [
+        "head_seq",
+        "head_digest",
+        "org_id",
+        "sealed_at",
+        "signer_id",
+        "purpose"
+    ],
+    "description": "The payload a seal signs: the chain head before it, the organization, the time, the signer and the purpose.",
+    "unevaluatedProperties": false
+}

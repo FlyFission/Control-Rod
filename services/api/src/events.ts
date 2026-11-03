@@ -47,7 +47,7 @@ export function afterCommits(c: Tx): (() => void)[] {
 }
 
 /** The digest covers every field except the digest itself, so any edit breaks the chain. */
-function eventDigest(e: Omit<EventRecord, "digest">): string {
+export function eventDigest(e: Omit<EventRecord, "digest">): string {
   return digest(e);
 }
 
@@ -93,7 +93,7 @@ export async function listEvents(db: Db, after = 0, limit = 500): Promise<EventR
 
 /** Recomputes the whole chain. Reports the first entry whose digest or link does not hold. */
 export async function verifyChain(
-  db: Db,
+  db: Db | Tx,
 ): Promise<{ ok: boolean; count: number; broken_at?: number }> {
   const r = await db.query<{ body: EventRecord; digest: string }>(
     "select body, digest from events order by seq",

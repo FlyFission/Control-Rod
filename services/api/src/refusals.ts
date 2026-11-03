@@ -105,6 +105,8 @@ export const REASONS: Record<string, Reason> = {
   "quarantine-changed": r("The stopped run reported more after you looked, so your signature does not cover it.", "Look at the run again and sign for every batch it has now."),
   "pin-changed": r("The pins changed after you looked, so the rollback you signed no longer describes what would happen.", "Look at the Roster again and sign the rollback it shows now."),
   "not-in-scope": r("That package or discipline is not in what this SCRAM holds.", "Choose a package it holds, or a discipline one of them records."),
+  "mixed-scope": r("This part of the record also holds another organization's work, so a proof of it cannot be exported yet.", "Verify the record on the Records page; an exportable proof for shared chains needs a proof format that hides others' entries."),
+  "head-mismatch": r("The event you would seal is not the one recorded at that position.", "Reload the Records page and seal the chain as it stands now."),
   "restart-blocked": r("This restart is not safe yet: something in its scope is still running, has an unknown outcome, or has unreviewed quarantine.", "Reconcile or review what the message lists, then restart."),
   "already-restarted": r("Everything this SCRAM stopped has already been restarted.", "Nothing to do."),
   "already-reviewed": r("This quarantined run has already been reviewed.", "Nothing to do."),

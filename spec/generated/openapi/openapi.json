@@ -2894,6 +2894,185 @@
         }
       }
     },
+    "/packages/{id}/proof": {
+      "get": {
+        "operationId": "packageProof",
+        "description": "A package's inclusion proof: the whole chain from its first event through the recording event of the\nfirst valid seal covering the package's last event (or the chain head, unsealed), with that seal and\nwhat checking its signature needs. Self contained; trust in the signer's key must come from outside\nit. Refused (mixed-scope) on an installation with more than one organization, which share one chain.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "description": "The global chain verifies and the proof holds."
+                        },
+                        "chain": {
+                          "type": "object",
+                          "properties": {
+                            "ok": {
+                              "type": "boolean"
+                            },
+                            "count": {
+                              "type": "integer",
+                              "format": "int32",
+                              "minimum": 0
+                            },
+                            "broken_at": {
+                              "type": "integer",
+                              "format": "int32"
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "count"
+                          ]
+                        },
+                        "check": {
+                          "type": "object",
+                          "properties": {
+                            "ok": {
+                              "type": "boolean"
+                            },
+                            "authenticated": {
+                              "type": "boolean"
+                            },
+                            "events": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "format": "int32"
+                              }
+                            },
+                            "problem": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "authenticated",
+                            "events"
+                          ],
+                          "description": "The bundle checked on its own: links from the first event, the package's events derived from it, and the seal's signature."
+                        },
+                        "bundle": {
+                          "type": "object",
+                          "properties": {
+                            "package_id": {
+                              "type": "string"
+                            },
+                            "segment": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              }
+                            },
+                            "seal": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "seal_evidence": {
+                              "type": "object",
+                              "properties": {
+                                "public_key": {
+                                  "type": "string"
+                                },
+                                "rp_id": {
+                                  "type": "string"
+                                },
+                                "origins": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "public_key",
+                                "rp_id",
+                                "origins"
+                              ]
+                            },
+                            "head": {
+                              "type": "object",
+                              "properties": {
+                                "seq": {
+                                  "type": "integer",
+                                  "format": "int32"
+                                },
+                                "digest": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "seq",
+                                "digest"
+                              ],
+                              "description": "Unsealed: the chain head when the bundle was made, which the segment must end at. Unauthenticated."
+                            },
+                            "witnessed": {
+                              "type": "boolean",
+                              "enum": [
+                                false
+                              ]
+                            },
+                            "statement": {
+                              "type": "string",
+                              "enum": [
+                                "Local chain, not witnessed"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "package_id",
+                            "segment",
+                            "seal",
+                            "witnessed",
+                            "statement"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "chain",
+                        "check",
+                        "bundle"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/runs/{runId}/events": {
       "get": {
         "operationId": "Packages_runEvents",
@@ -4010,6 +4189,152 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/head": {
+      "get": {
+        "operationId": "recordsHead",
+        "description": "The head a seal made now would cover.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "head": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "head_seq": {
+                                  "type": "integer",
+                                  "format": "int32"
+                                },
+                                "head_digest": {
+                                  "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              },
+                              "required": [
+                                "head_seq",
+                                "head_digest",
+                                "at"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "head"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/records/verify": {
+      "get": {
+        "operationId": "verifyRecords",
+        "description": "The record verified (plan task 5.3; specification 11.6): the chain, every seal, and the unsealed suffix.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "chain": {
+                          "type": "object",
+                          "properties": {
+                            "ok": {
+                              "type": "boolean"
+                            },
+                            "count": {
+                              "type": "integer",
+                              "format": "int32",
+                              "minimum": 0
+                            },
+                            "broken_at": {
+                              "type": "integer",
+                              "format": "int32"
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "count"
+                          ]
+                        },
+                        "seals": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SealCheck"
+                          }
+                        },
+                        "last_sealed_seq": {
+                          "type": "integer",
+                          "format": "int32",
+                          "minimum": 0
+                        },
+                        "unsealed": {
+                          "type": "integer",
+                          "format": "int32",
+                          "minimum": 0,
+                          "description": "Events after the last valid seal."
+                        },
+                        "witnessed": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ],
+                          "description": "Nothing outside this database witnesses the chain yet."
+                        },
+                        "statement": {
+                          "type": "string",
+                          "enum": [
+                            "Local chain, not witnessed"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "chain",
+                        "seals",
+                        "last_sealed_seq",
+                        "unsealed",
+                        "witnessed",
+                        "statement"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
                 }
               }
             }
@@ -10107,6 +10432,58 @@
           }
         },
         "description": "When a SCRAM was pulled, and once every run it reached has stopped, how long that took."
+      },
+      "SealCheck": {
+        "type": "object",
+        "required": [
+          "id",
+          "head_seq",
+          "head_digest",
+          "sealed_at",
+          "signer_id",
+          "purpose",
+          "result"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "head_seq": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "head_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "sealed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "signer_id": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "valid",
+              "head-mismatch",
+              "head-missing",
+              "unrecorded",
+              "subject-mismatch",
+              "key-unknown",
+              "not-enrolled",
+              "key-changed",
+              "key-revoked",
+              "signature-invalid",
+              "chain-broken-before-head"
+            ],
+            "description": "valid, or why not: the head moved or is missing; no chain.sealed event records this seal as it is;\nthe subject does not match its payload; the signer's key is unknown, was not enrolled to the signer\nbefore the seal, has changed since it was recorded with the seal, or was revoked before the seal was\nrecorded; the signature fails; or the chain breaks before its head."
+          }
+        },
+        "description": "One seal as verification found it."
       }
     }
   },

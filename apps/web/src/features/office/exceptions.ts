@@ -59,6 +59,8 @@ export function portfolio(figures: readonly AgentFigure[]): ProjectRollup[] {
 }
 
 export interface CauseGroup {
+  /** The group's identity: its state, cause key and who it waits on. */
+  key: string;
   state: "stuck" | "waiting";
   cause: string;
   waiting_on?: string;
@@ -79,7 +81,7 @@ export function causeGroups(figures: readonly AgentFigure[]): CauseGroup[] {
   for (const f of figures) {
     if (f.state !== "stuck" && f.state !== "waiting") continue;
     const key = `${f.state}\u0000${f.cause_key}\u0000${f.waiting_on ?? ""}`;
-    const g = m.get(key) ?? { state: f.state, cause: f.cause, ...(f.waiting_on ? { waiting_on: f.waiting_on } : {}), since: f.since, figures: [] };
+    const g = m.get(key) ?? { key, state: f.state, cause: f.cause, ...(f.waiting_on ? { waiting_on: f.waiting_on } : {}), since: f.since, figures: [] };
     g.figures.push(f);
     if (Date.parse(f.since) < Date.parse(g.since)) g.since = f.since;
     m.set(key, g);

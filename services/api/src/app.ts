@@ -521,9 +521,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return activeScramsFor(db, caller.orgId, req.query.presenting === "true");
   });
   /** What pulling SCRAM with a scope would stop now, by the pull's own selection (OV-12). */
-  app.get<{ Querystring: { scope?: string; project_id?: string } }>("/scrams/preview", async (req) => {
+  app.get<{ Querystring: { scope?: string; project_id?: string; presenting?: string } }>("/scrams/preview", async (req) => {
     const caller = await callerFor(db, await person(req));
-    return scramPreview(db, caller.orgId, req.query);
+    return scramPreview(db, caller.orgId, req.query, req.query.presenting === "true");
   });
   app.get<{ Params: { id: string } }>("/scrams/:id", async (req) => {
     const caller = await callerFor(db, await person(req));

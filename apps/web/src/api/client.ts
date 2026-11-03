@@ -161,8 +161,8 @@ export const api = {
   adminCommand: <T = Record<string, unknown>>(name: string, payload: Record<string, unknown>, assertion: Record<string, unknown>) =>
     call<T>("POST", `/admin/commands/${enc(name)}`, { payload, assertion }),
   scrams: (presenting = false) => call<{ scrams: ScramSummary[]; presenting?: boolean }>("GET", presenting ? "/scrams?presenting=true" : "/scrams"),
-  scramPreview: (scope: "organization" | "project", projectId?: string) =>
-    call<ScramPreview>("GET", `/scrams/preview?scope=${enc(scope)}${projectId ? `&project_id=${enc(projectId)}` : ""}`),
+  scramPreview: (scope: "organization" | "project", projectId?: string, presenting = false) =>
+    call<ScramPreview>("GET", `/scrams/preview?scope=${enc(scope)}${projectId ? `&project_id=${enc(projectId)}` : ""}${presenting ? "&presenting=true" : ""}`),
   scram: (id: string) => call<ScramDetail>("GET", `/scrams/${enc(id)}`),
   packageActions: (id: string) => call<ActionDescriptor[]>("GET", `/packages/${enc(id)}/actions`),
   metrics: () => call<Metrics>("GET", "/metrics"),

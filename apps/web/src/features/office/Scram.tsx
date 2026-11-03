@@ -19,7 +19,11 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, a[href], [tabindex]:not([tabindex="-1"])';
 
-export function ScramControl({ passkeys = browserPasskeys }: { passkeys?: Passkeys }) {
+/**
+ * The SCRAM control. It stays available while presenting, since an emergency stop is never hidden;
+ * presenting, its count names no runs.
+ */
+export function ScramControl({ passkeys = browserPasskeys, presenting = false }: { passkeys?: Passkeys; presenting?: boolean }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   // Focus goes back to the control that opened the dialog.
@@ -32,12 +36,12 @@ export function ScramControl({ passkeys = browserPasskeys }: { passkeys?: Passke
       <button ref={trigger} type="button" className="btn small danger" onClick={() => setOpen(true)} aria-haspopup="dialog">
         SCRAM
       </button>
-      {open && <ScramDialog passkeys={passkeys} onClose={close} />}
+      {open && <ScramDialog passkeys={passkeys} presenting={presenting} onClose={close} />}
     </>
   );
 }
 
-function ScramDialog({ passkeys, onClose }: { passkeys: Passkeys; onClose: () => void }) {
+function ScramDialog({ passkeys, presenting, onClose }: { passkeys: Passkeys; presenting: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -46,11 +50,12 @@ function ScramDialog({ passkeys, onClose }: { passkeys: Passkeys; onClose: () =>
   const [project, setProject] = useState("");
   const [reason, setReason] = useState("");
   const [drill, setDrill] = useState(false);
+  const [uncounted, setUncounted] = useState(false);
   const chosen = scope === "organization" || project !== "";
   // Counted by the control plane with the selection the pull itself makes, so the count is what fires.
   const preview = useQuery({
-    queryKey: ["scram-preview", scope, project],
-    queryFn: () => api.scramPreview(scope, scope === "project" ? project : undefined),
+    queryKey: ["scram-preview", scope, project, presenting],
+    queryFn: () => api.scramPreview(scope, scope === "project" ? project : undefined, presenting),
     enabled: chosen,
     refetchInterval: 5000,
   });
@@ -64,7 +69,12 @@ function ScramDialog({ passkeys, onClose }: { passkeys: Passkeys; onClose: () =>
       onClose();
     },
   });
-  const ready = reason.trim().length > 0 && chosen;
+  // The count is stated before anything fires. If it cannot be had, the stop still must be possible,
+  // but only once the person says they stop without it; while it is loading, nothing fires.
+  const counted = preview.isSuccess || (preview.isError && uncounted);
+  const ready = reason.trim().length > 0 && chosen && counted;
+  // Once the signed stop is in flight its payload is fixed, so nothing in the form may change.
+  const frozen = pull.isPending;
 
   // A native modal: the page behind it is inert. Where showModal is missing it still opens.
   useEffect(() => {
@@ -115,7 +125,7 @@ function ScramDialog({ passkeys, onClose }: { passkeys: Passkeys; onClose: () =>
       }}
     >
       <h2 id={titleId}>Pull SCRAM</h2>
-      <fieldset>
+      <fieldset disabled={frozen}>
         <legend>Scope</legend>
         <label className="office-choice">
           {/* A dialog takes focus when it opens. */}
@@ -143,39 +153,48 @@ function ScramDialog({ passkeys, onClose }: { passkeys: Passkeys; onClose: () =>
         {!chosen ? (
           <p>Choose the project to see what this stops.</p>
         ) : preview.isError ? (
-          <p>This stops every running agent in {where} where it stands. How many could not be counted just now.</p>
+          <>
+            <p>This stops every running agent in {where} where it stands. How many could not be counted just now.</p>
+            <label className="office-choice">
+              <input type="checkbox" checked={uncounted} disabled={frozen} onChange={(e) => setUncounted(e.target.checked)} /> Stop without a count
+            </label>
+          </>
         ) : !p ? (
           <p>Counting what this stops…</p>
         ) : (
           <>
             <p>
-              This stops every running agent in {where} where it stands. Counted at {time(p.counted_at)}: {plural(p.running.length, "run", "runs")} running now{" "}
-              {p.running.length === 1 ? "stops" : "stop"}, and {plural(p.queued.length, "queued run is", "queued runs are")} held. Their credentials are revoked at once and
+              This stops every running agent in {where} where it stands. Counted at {time(p.counted_at)}: {plural(p.running_count, "run", "runs")} running now{" "}
+              {p.running_count === 1 ? "stops" : "stop"}, and {plural(p.queued_count, "queued run is", "queued runs are")} held. Their credentials are revoked at once and
               anything they report afterwards is quarantined, never applied.
             </p>
             <p className="small">SCRAM selects again at the moment it fires, so a run that starts before you sign is stopped too.</p>
-            {p.running.length + p.queued.length > 0 && (
-              <details>
-                <summary>Which runs</summary>
-                <ul className="small mono">
-                  {p.running.map((id) => (
-                    <li key={id}>{id} (running)</li>
-                  ))}
-                  {p.queued.map((id) => (
-                    <li key={id}>{id} (queued)</li>
-                  ))}
-                </ul>
-              </details>
+            {p.presenting ? (
+              <p className="small">Which runs is not shown while presenting.</p>
+            ) : (
+              (p.running?.length ?? 0) + (p.queued?.length ?? 0) > 0 && (
+                <details>
+                  <summary>Which runs</summary>
+                  <ul className="small mono">
+                    {p.running?.map((id) => (
+                      <li key={id}>{id} (running)</li>
+                    ))}
+                    {p.queued?.map((id) => (
+                      <li key={id}>{id} (queued)</li>
+                    ))}
+                  </ul>
+                </details>
+              )
             )}
           </>
         )}
       </div>
       <label className="field">
         <span>Why (required)</span>
-        <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+        <textarea rows={2} value={reason} disabled={frozen} onChange={(e) => setReason(e.target.value)} />
       </label>
       <label className="office-choice">
-        <input type="checkbox" checked={drill} onChange={(e) => setDrill(e.target.checked)} /> This is a drill (everything still stops for real; the time to stop is recorded as a drill)
+        <input type="checkbox" checked={drill} disabled={frozen} onChange={(e) => setDrill(e.target.checked)} /> This is a drill (everything still stops for real; the time to stop is recorded as a drill)
       </label>
       {pull.error && (
         <p className="error" role="alert">

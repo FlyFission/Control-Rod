@@ -88,6 +88,12 @@ describe("pulling SCRAM", () => {
     const preview = (await h.app.inject({ method: "GET", url: "/scrams/preview?scope=organization", headers: { cookie } })).json();
     expect(preview).toMatchObject({ scope: "organization", running: [stopping] });
     expect(preview.queued).toContain(waiting);
+    expect(preview).toMatchObject({ running_count: 1, queued_count: preview.queued.length });
+    // Presenting, only the counts: no run is named.
+    const presentingPreview = (await h.app.inject({ method: "GET", url: "/scrams/preview?scope=organization&presenting=true", headers: { cookie } })).json();
+    expect(presentingPreview).toMatchObject({ presenting: true, running_count: 1, queued_count: preview.queued.length });
+    expect(presentingPreview.running).toBeUndefined();
+    expect(presentingPreview.queued).toBeUndefined();
 
     const pulled = await signed("scram.pull", { scope: "organization", reason: "Drill: confirm everything stops", drill: true });
     expect(pulled.statusCode, pulled.body).toBe(200);
@@ -206,6 +212,10 @@ describe("pulling SCRAM", () => {
     expect((await h.db.query("select 1 from scram_restarts where scram_id = $1", [scram.id])).rowCount).toBe(0);
     const part = await signed("scram.restart", { scram_id: scram.id, scope: "discipline", discipline: "mechanical", reason: "Mechanical prompts verified" });
     expect(part.statusCode, part.body).toBe(200);
+    // What a restart already lifted is no longer held: naming it again is refused and records nothing.
+    expect((await signed("scram.restart", { scram_id: scram.id, scope: "discipline", discipline: "mechanical", reason: "Again" })).json().code).toBe("not-in-scope");
+    expect((await signed("scram.restart", { scram_id: scram.id, scope: "package", package_id: "WP-SCR-MECH", reason: "Again" })).json().code).toBe("not-in-scope");
+    expect((await h.db.query("select 1 from scram_restarts where scram_id = $1", [scram.id])).rowCount).toBe(1);
     const job = await claim();
     expect(job.statusCode, job.body).toBe(200);
     expect(job.json().run.id).toBe(mech);

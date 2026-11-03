@@ -11,7 +11,7 @@ import { ScramBanner, ScramControl } from "./Scram.js";
 
 const passkeys: Passkeys = { get: async () => ({ signed: true }), create: async () => ({}) };
 const preview = (scope: string, running: string[], queued: string[], project_id?: string) =>
-  ({ scope, ...(project_id ? { project_id } : {}), running, queued, counted_at: new Date().toISOString() });
+  ({ scope, ...(project_id ? { project_id } : {}), running_count: running.length, queued_count: queued.length, running, queued, counted_at: new Date().toISOString() });
 const digest = (c: string) => c.repeat(64);
 const scram = { id: "scr_1", org_id: "org", scope: "organization", pulled_by: "m", reason: "Bad prompt shipped", assertion: {}, quarantine: ["R-1", "R-2"] };
 
@@ -112,11 +112,38 @@ describe("SCRAM", () => {
     await user.click(within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }));
     const cancel = (await within(dialog).findByRole("button", { name: "Cancel" })) as HTMLButtonElement;
     await waitFor(() => expect(cancel.disabled).toBe(true));
+    // The payload is fixed once it is in flight, so the form that states it cannot change either.
+    for (const radio of within(dialog).getAllByRole("radio")) expect(radio.matches(":disabled")).toBe(true);
+    expect((within(dialog).getByRole("textbox", { name: "Why (required)" }) as HTMLTextAreaElement).disabled).toBe(true);
     expect(within(dialog).getByRole("button", { name: "Signing and stopping…" })).toBeTruthy();
     await user.keyboard("{Escape}");
     expect(screen.getByRole("dialog", { name: "Pull SCRAM" })).toBeTruthy();
     release({ signed: true });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("fires only once the count is stated, or the person says they stop without it", async () => {
+    let fail = false;
+    server.use(
+      http.get("*/scrams/preview", () => (fail ? HttpResponse.json({ code: "unavailable", message: "Down" }, { status: 503 }) : new Promise<never>(() => {}))),
+      http.get("*/admin", () => HttpResponse.json({ projects: [] })),
+    );
+    const { qc } = await renderPage(<ScramControl passkeys={passkeys} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "SCRAM" }));
+    const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
+    const sign = within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }) as HTMLButtonElement;
+    // Still counting: nothing fires.
+    expect(within(dialog).getByText("Counting what this stops…")).toBeTruthy();
+    expect(sign.disabled).toBe(true);
+    fail = true;
+    await qc.cancelQueries({ queryKey: ["scram-preview"] });
+    await qc.resetQueries({ queryKey: ["scram-preview"] });
+    expect(await within(dialog).findByText(/How many could not be counted just now\./, {}, { timeout: 5000 })).toBeTruthy();
+    expect(sign.disabled).toBe(true);
+    await user.click(within(dialog).getByRole("checkbox", { name: "Stop without a count" }));
+    expect(sign.disabled).toBe(false);
   });
 
   it("says pulled, not stopped, until the stop is recorded, then its latency", async () => {

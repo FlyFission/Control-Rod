@@ -4863,7 +4863,7 @@
     "/scrams/preview": {
       "get": {
         "operationId": "scramPreview",
-        "description": "What pulling SCRAM with this scope would stop now, by the pull's own selection: the runs running\n(stopped where they stand) and queued (held). The pull selects again when it fires.",
+        "description": "What pulling SCRAM with this scope would stop now, by the pull's own selection: the runs running\n(stopped where they stand) and queued (held). The pull selects again when it fires.\nPresenting, only the counts.",
         "parameters": [
           {
             "name": "scope",
@@ -4884,6 +4884,15 @@
             "required": false,
             "schema": {
               "type": "string"
+            },
+            "explode": false
+          },
+          {
+            "name": "presenting",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             },
             "explode": false
           }
@@ -4908,17 +4917,31 @@
                         "project_id": {
                           "type": "string"
                         },
+                        "running_count": {
+                          "type": "integer",
+                          "format": "int32",
+                          "minimum": 0
+                        },
+                        "queued_count": {
+                          "type": "integer",
+                          "format": "int32",
+                          "minimum": 0
+                        },
                         "running": {
                           "type": "array",
                           "items": {
                             "type": "string"
-                          }
+                          },
+                          "description": "The runs themselves; left out when presenting, where they would name restricted work."
                         },
                         "queued": {
                           "type": "array",
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "presenting": {
+                          "type": "boolean"
                         },
                         "counted_at": {
                           "type": "string",
@@ -4927,8 +4950,8 @@
                       },
                       "required": [
                         "scope",
-                        "running",
-                        "queued",
+                        "running_count",
+                        "queued_count",
                         "counted_at"
                       ]
                     },

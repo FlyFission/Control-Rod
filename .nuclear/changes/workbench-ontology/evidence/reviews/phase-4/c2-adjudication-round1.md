@@ -22,3 +22,25 @@ Codex round 1 returned REVISE with nine findings. Every finding is accepted and 
 ## Verification
 
 Web: 214 tests pass. API: 536 pass, 1 skipped (pre-existing). Typecheck and lint pass. `pnpm spec` and `gen:api` regenerated with no hand edits.
+
+# Round 2
+
+Codex round 2 confirmed the nine round 1 fixes in code and tests and returned REVISE with five findings. All are accepted and fixed.
+
+| # | Finding | Disposition |
+|---|---|---|
+| 1 | SCRAM reasons leaked through presenting figures' causes | Fixed: the projection takes the presenting flag and drops the reason from a held figure's cause. `figures.test.ts` asserts the held, presentable figure is shown and the reason appears nowhere in the presenting response |
+| 2 | The SCRAM control offered run identifiers while presenting | Fixed: the control stays available (an emergency stop is never hidden) but takes the presenting flag; `GET /scrams/preview?presenting=true` returns counts only (`running_count`, `queued_count`), and the dialog says which runs is not shown. Tested in `scram.test.ts` and through the whole `OfficeView` in `office-view.test.tsx` |
+| 3 | Hold keys still merged by prose | Fixed: a hold is shared only by a recorded identity, a lane's admission (`hold:lane:<lane>`) or a runtime pin for the role (`hold:runtime-pin:<role>`); every other hold is the run's own. `CauseGroup` carries its key, used for the React key and the open chip. `figures.test.ts` asserts two preparation holds with identical messages stay apart and two lane holds on one lane group |
+| 4 | Restart validation accepted already lifted targets | Fixed: the target must be a package no restart has lifted, or a discipline with at least one such package. `scram.test.ts` repeats a partial restart and asserts the refusal records nothing |
+| 5 | Acceptance status still exceeded evidence | Fixed: OV-02 partly met (waiting Member's name), presenting claims cite both now tested paths, and the latency is described as control plane clock time sampled before the stopped event is recorded |
+
+## Bot threads after round 1
+
+- "Bind the command to the run set": answered by design. A SCRAM must fire even if the run set moves while the dialog is open; refusing on drift would block an emergency stop. The dialog states the control plane's count and that the pull selects again when it fires; the ScramEvent records exactly the runs it stopped, shown in the banner and the review.
+- "OV-03 chip owner": the acceptance status marks OV-01, OV-02 and OV-03 partly met; the chip shows who the hold is routed to, by role, and a named Member owner needs assignment recorded.
+- "Pull allowed while the count is loading or failed": fixed. Nothing fires while counting; on a failed count the stop is possible only after the person checks "Stop without a count", so an emergency stop is never blocked by a broken read. Tested in `scram.test.tsx`.
+- "Focus trap": fixed in round 1 (native modal plus explicit Tab containment).
+- "Freeze the scope controls while pending": fixed. The scope fieldset, reason and drill controls are disabled while the signed stop is in flight; tested.
+
+Verification: web 216 tests pass; API 537 pass, 1 skipped (pre-existing); typecheck and lint pass.

@@ -138,6 +138,8 @@ export interface AdminView {
   commands: AdminCommandInfo[];
   actions: ActionDescriptor[];
   floors: { code: string; sentence: string; change: string }[];
+  /** The organization's administrative records, for the forms to choose from (plan task 5.4). */
+  registry: S["AdminRegistry"];
 }
 export type AttentionItem = S["AttentionItem"];
 export type DigestLine = S["DigestLine"];

@@ -4,9 +4,19 @@ import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { browserPasskeys, type Passkeys } from "../lib/decide.js";
 
-/** First run registers a passkey for the one local user; later visits sign in with it. */
+/** The invitation an administrator's link carries, in the address's fragment so no server ever logs it. */
+function invitationInAddress(): string | undefined {
+  const m = /(?:^|[#&])invitation=([A-Za-z0-9_-]+)/.exec(window.location.hash);
+  return m?.[1];
+}
+
+/**
+ * First run registers a passkey for the first person; a person an administrator invited registers
+ * theirs from the invitation link; later visits sign in with a passkey.
+ */
 export function SignIn({ session, passkeys = browserPasskeys }: { session: Session; passkeys?: Passkeys }) {
   const qc = useQueryClient();
+  const [invitation] = useState(invitationInAddress);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +43,16 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
       return api.registerVerify(credential);
     });
 
+  const acceptInvitation = () =>
+    run(async () => {
+      const { options } = await api.registerInvitedOptions(invitation!);
+      const credential = await passkeys.create(options);
+      const s = await api.registerVerify(credential);
+      // Used once: the invitation leaves the address so it is not kept in history or shared by accident.
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      return s;
+    });
+
   const signIn = () =>
     run(async () => {
       const { options } = await api.loginOptions();
@@ -47,7 +67,15 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
           <BrandMark />
           <span>Control Rod</span>
         </div>
-        {session.registered ? (
+        {invitation !== undefined ? (
+          <>
+            <h1>Accept your invitation</h1>
+            <p className="muted">An administrator invited you. Register a passkey on this device; it signs every decision you make.</p>
+            <button type="button" className="btn primary" onClick={acceptInvitation} disabled={busy}>
+              {busy ? "Waiting for your passkey" : "Register my passkey"}
+            </button>
+          </>
+        ) : session.registered ? (
           <>
             <h1>Sign in</h1>
             <p className="muted">Use the passkey on this machine. Touch ID works.</p>

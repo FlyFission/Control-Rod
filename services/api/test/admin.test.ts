@@ -460,3 +460,38 @@ describe("review round 3", () => {
     expect(r.json().code).toBe("unknown-setting");
   });
 });
+
+describe("the administration registry", () => {
+  it("lists each record as it stands now, for the Policies and Administration forms (plan task 5.4)", async () => {
+    const waiting = await unsigned(ben, "policy.propose", { policy: { hardware_attestation_formats: [], settings: { budget_near_percent: "80" } }, reason: "alert budgets at 80" });
+    expect(waiting.statusCode, waiting.body).toBe(200);
+    const r = await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } });
+    expect(r.statusCode, r.body).toBe(200);
+    const reg = r.json().registry;
+    // Each Member's current qualification only, never an earlier version.
+    const byMember = (id: string) => reg.qualifications.filter((q: Json) => q.member_id === id);
+    expect(byMember(ALICE)).toHaveLength(1);
+    const latest = (await h.db.query<{ v: number }>("select max(version)::int as v from signer_qualifications where member_id = $1", [ALICE])).rows[0]!.v;
+    expect(byMember(ALICE)[0].version).toBe(latest);
+    // Each passkey once, its current record, with when it was registered.
+    const ids = reg.credentials.map((c: Json) => c.credential_id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const usable = reg.credentials.filter((c: Json) => c.member_id === BEN && c.revoked !== true);
+    expect(usable.length).toBeGreaterThan(0);
+    for (const c of reg.credentials) expect(Number.isNaN(Date.parse(c.registered_at))).toBe(false);
+    // Delegations say whether they were revoked; change requests list only those waiting on approval.
+    for (const d of reg.delegations) expect(typeof d.revoked).toBe("boolean");
+    expect(reg.change_requests.map((c: Json) => c.id)).toContain(waiting.json().id);
+    expect(reg.change_requests.every((c: Json) => c.status === "proposed")).toBe(true);
+    expect(reg.bindings.length).toBeGreaterThan(0);
+    expect(reg.budgets.every((b: Json) => b.status !== "retired")).toBe(true);
+    // Only this organization's records (Control Rod holds one active organization; see migration 009).
+    const org = (await h.db.query<{ id: string }>("select tenancy_sole_org() as id")).rows[0]!.id;
+    for (const rows of [reg.qualifications, reg.credentials, reg.delegations, reg.bindings, reg.change_requests, reg.budgets])
+      for (const x of rows) expect(x.org_id).toBe(org);
+  });
+
+  it("is refused to anyone not signed in", async () => {
+    expect((await h.app.inject({ method: "GET", url: "/admin" })).statusCode).toBe(401);
+  });
+});

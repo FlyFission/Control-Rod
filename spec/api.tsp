@@ -747,7 +747,26 @@ op admin(): {
 
   /** The floors in force: no person, decision or setting lifts them. */
   floors: { code: string; sentence: string; change: string }[];
+
+  /** The organization's administrative records as they stand, for the forms to choose from (plan task 5.4). */
+  registry: AdminRegistry;
 } | ApiError;
+
+/** Each Member's current qualification, passkeys, delegations, bindings, open change requests and budgets. */
+model AdminRegistry {
+  qualifications: SignerQualification[];
+
+  /** Each passkey's current record, with when it was registered. */
+  credentials: Record<unknown>[];
+
+  /** Every delegation, with whether it was revoked. */
+  delegations: Record<unknown>[];
+  bindings: Record<unknown>[];
+
+  /** Change requests waiting on approval. */
+  change_requests: ChangeRequest[];
+  budgets: Budget[];
+}
 
 /** One quarantine batch: what a SCRAM-stopped run reported in one completion, as digests. */
 model ScramQuarantineBatch {

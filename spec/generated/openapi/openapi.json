@@ -100,6 +100,10 @@
                             ]
                           },
                           "description": "The floors in force: no person, decision or setting lifts them."
+                        },
+                        "registry": {
+                          "$ref": "#/components/schemas/AdminRegistry",
+                          "description": "The organization's administrative records as they stand, for the forms to choose from (plan task 5.4)."
                         }
                       },
                       "required": [
@@ -112,7 +116,8 @@
                         "themes",
                         "commands",
                         "actions",
-                        "floors"
+                        "floors",
+                        "registry"
                       ]
                     },
                     {
@@ -5799,6 +5804,62 @@
         },
         "description": "An administrative command and what it needs (specification 10.2)."
       },
+      "AdminRegistry": {
+        "type": "object",
+        "required": [
+          "qualifications",
+          "credentials",
+          "delegations",
+          "bindings",
+          "change_requests",
+          "budgets"
+        ],
+        "properties": {
+          "qualifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.SignerQualification"
+            }
+          },
+          "credentials": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "description": "Each passkey's current record, with when it was registered."
+          },
+          "delegations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "description": "Every delegation, with whether it was revoked."
+          },
+          "bindings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "change_requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.ChangeRequest"
+            },
+            "description": "Change requests waiting on approval."
+          },
+          "budgets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Budget"
+            }
+          }
+        },
+        "description": "Each Member's current qualification, passkeys, delegations, bindings, open change requests and budgets."
+      },
       "AgentFigure": {
         "type": "object",
         "required": [
@@ -7955,6 +8016,74 @@
           }
         },
         "description": "Something a person said they want done, before intake turns it into a package."
+      },
+      "ControlRod.Records.ChangeRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "kind",
+          "subject_digest",
+          "reason",
+          "impact",
+          "proposed_by",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "org_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ControlRod.Records.ChangeRequestKind"
+          },
+          "subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "impact": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Downstream objects the change affects, listed before approval."
+          },
+          "proposed_by": {
+            "$ref": "#/components/schemas/ControlRod.Records.Actor"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlRod.Records.ChangeRequestStatus"
+          },
+          "proposal": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "The proposed content (for a policy change, the policy set body); its digest is subject_digest."
+          }
+        },
+        "description": "A change only an authorized person may approve, over an exact subject version. (L)"
+      },
+      "ControlRod.Records.ChangeRequestKind": {
+        "type": "string",
+        "enum": [
+          "lane-lowering",
+          "declassification",
+          "policy-change",
+          "authenticator-policy"
+        ]
+      },
+      "ControlRod.Records.ChangeRequestStatus": {
+        "type": "string",
+        "enum": [
+          "proposed",
+          "approved",
+          "rejected",
+          "withdrawn"
+        ]
       },
       "ControlRod.Records.CodeOrStandard": {
         "type": "object",

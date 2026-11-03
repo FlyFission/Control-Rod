@@ -29,6 +29,7 @@ const allowedScram: ActionDescriptor = { command: "scram.pull", label: "Pull SCR
 function adminView(over: Partial<AdminView> = {}): AdminView {
   return {
     me: { userName: "ben", memberId: "mem_1", orgId: "org_local" },
+    registry: { qualifications: [], credentials: [], delegations: [], bindings: [], change_requests: [], budgets: [] },
     bootstrap: false,
     qualification: null,
     members: [{ id: "mem_1", org_id: "org_local", user_name: "ben", display_name: "Ben", status: "active" }],

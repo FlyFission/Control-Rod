@@ -168,8 +168,9 @@ function Glance({ f, view, actions, failed }: { f: AgentFigure; view: PackageVie
 function AgentActions({ f, view }: { f: AgentFigure; view: PackageView | undefined }) {
   const qc = useQueryClient();
   const [showReach, setShowReach] = useState(false);
-  const run = view?.runs.find((r) => r.id === f.id);
-  const live = run ? run.status === "running" || run.status === "queued" : false;
+  // The same rule the run log applies (canStop): queued, or running with no stop asked for yet. The
+  // projection carries the run's status, so intake agents (with no package view) are covered too.
+  const live = f.run_status === "queued" || (f.run_status === "running" && !f.stop_requested);
   const stop = useMutation({
     mutationFn: () => api.stopRun(f.package_id, f.id),
     onSuccess: () => {
@@ -211,7 +212,11 @@ function AgentActions({ f, view }: { f: AgentFigure; view: PackageView | undefin
           </button>
           <span id={`why-stop-${f.id}`} className="muted small">
             {" "}
-            {live ? "Stops this run where it stands; the control plane records who stopped it." : "Only a queued or running run can be stopped."}
+            {live
+              ? "Stops this run where it stands; the control plane records who stopped it."
+              : f.stop_requested
+                ? "A stop was asked for; the daemon has not confirmed it yet."
+                : "Only a queued or running run can be stopped."}
           </span>
           {stop.error && (
             <p className="error" role="alert">

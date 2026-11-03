@@ -23,6 +23,7 @@ const figure = (over: Partial<AgentFigure> = {}): AgentFigure => ({
   marks: { gate: false, changed_input: "WP-0002", loop: 2, safety: true },
   gate_stage: "in-work",
   data_lane: "internal",
+  run_status: "running",
   href: { to: "/packages/$id", id: "WP-0001", hash: "runs" },
   ...over,
 });
@@ -101,7 +102,7 @@ describe("agent card", () => {
 
   it("never offers stop on a run that is not queued or running", async () => {
     serve();
-    await renderPage(<AgentCard figure={figure({ id: "R-1" })} lens={undefined} />);
+    await renderPage(<AgentCard figure={figure({ id: "R-1", run_status: "succeeded" })} lens={undefined} />);
     const actions = await screen.findByRole("region", { name: "Actions on this agent" });
     await waitFor(() => expect(within(actions).getByText("Only a queued or running run can be stopped.")).toBeTruthy());
     expect((within(actions).getByRole("button", { name: "Stop" }) as HTMLButtonElement).disabled).toBe(true);
@@ -119,5 +120,22 @@ describe("agent card", () => {
     await renderPage(<AgentCard figure={figure({ marks: { gate: false, safety: false }, current_inputs: ["WP-0003"] })} lens={undefined} />);
     expect(await screen.findByText("No signature is open at this rung.")).toBeTruthy();
     expect(screen.getByText(/^Current as pinned: WP-0003\. Documents and other sources are not compared here\.$/)).toBeTruthy();
+  });
+
+  it("never offers stop twice: a stop asked for and not yet confirmed waits for the daemon", async () => {
+    serve();
+    await renderPage(<AgentCard figure={figure({ stop_requested: true })} lens={undefined} />);
+    const actions = await screen.findByRole("region", { name: "Actions on this agent" });
+    expect((within(actions).getByRole("button", { name: "Stop" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(actions).getByText("A stop was asked for; the daemon has not confirmed it yet.")).toBeTruthy();
+  });
+
+  it("stops a running intake agent, which has a capture and no package view", async () => {
+    const stopped: string[] = [];
+    serve(stopped);
+    await renderPage(<AgentCard figure={figure({ id: "R-int", package_id: "CAP-1", role: "intake", href: { to: "/packages" } })} lens={undefined} />);
+    const actions = screen.getByRole("region", { name: "Actions on this agent" });
+    await userEvent.click(within(actions).getByRole("button", { name: "Stop" }));
+    await waitFor(() => expect(stopped).toEqual(["R-int"]));
   });
 });

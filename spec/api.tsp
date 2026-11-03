@@ -475,6 +475,12 @@ model AgentFigure {
   /** The project that owns the work, for the portfolio rollup; absent for organization level work. */
   project_id?: string;
 
+  /** The run's own status, so the card offers stop exactly when the command layer would take it. */
+  run_status: RunStatus;
+
+  /** A stop was asked for and the daemon has not yet confirmed it. */
+  stop_requested?: boolean;
+
   href: AttentionTarget;
 }
 

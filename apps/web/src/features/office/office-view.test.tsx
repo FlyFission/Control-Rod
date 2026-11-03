@@ -26,6 +26,7 @@ const figure = (over: Partial<AgentFigure> = {}): AgentFigure => ({
   marks: { gate: false, safety: false },
   gate_stage: "in-work",
   data_lane: "internal",
+  run_status: "running",
   href: { to: "/packages/$id", id: "WP-0001", hash: "runs" },
   ...over,
 });

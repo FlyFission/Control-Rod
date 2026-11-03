@@ -189,6 +189,8 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       ...(run.body.permission_waits === "not-observable" ? { observability: "permission waits not observable in print mode" } : {}),
       data_lane: lane,
       ...(projects.has(`package:${p.id}`) ? { project_id: projects.get(`package:${p.id}`) } : {}),
+      run_status: run.status,
+      ...(run.body.stop_requested_at ? { stop_requested: true } : {}),
       href: { to: "/packages/$id", id: p.id, hash },
     });
   }
@@ -239,6 +241,8 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       gate_stage: "release",
       data_lane: lane,
       ...(projects.has(`capture:${run.package_id}`) ? { project_id: projects.get(`capture:${run.package_id}`) } : {}),
+      run_status: run.status,
+      ...(run.body.stop_requested_at ? { stop_requested: true } : {}),
       href: { to: "/packages" },
     });
   }

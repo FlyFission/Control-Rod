@@ -24,3 +24,13 @@ Finding 9's deferral judged reasonable.
 | 1 | The Change lens shows unknown freshness as current | Accepted | Three steps: an input changed; freshness unknown (any input not established, or no package input pinned); inputs current as pinned (only when every recorded input is established). Distinct greys, legend and accessible values; unit tests cover unverified, absent and mixed evidence. |
 
 Also from the review's validation note: the worst case harness case now fills every seat and queue place on the floor (not 40 of them), every figure carrying every mark.
+
+## Automated GitHub review threads on #33
+
+| Thread | Decision | Change |
+|---|---|---|
+| office-harness.spec.ts: pooled coverage not evaluated | Already fixed | Round 1 finding 1. |
+| AgentCard.tsx: signer picks acceptance on drafts (two threads) | Already fixed | Round 1 finding 8. |
+| AgentCard.tsx: Stop stays enabled after a stop request | Fixed | Stop follows the run log's rule: queued, or running with no stop asked for yet; once asked, the card says the daemon has not confirmed it. Test added. |
+| AgentCard.tsx: Stop always disabled for intake agents (two threads) | Fixed | The projection now carries `run_status` and `stop_requested`, so the card decides from the run itself, with or without a package view. Test: stopping a running intake agent. |
+| figures.ts: no API test for `project_id` | Fixed | API test: a package and an intake capture owned by a project carry `project_id`; organization level work carries none; run status and stop request are projected. |

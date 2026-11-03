@@ -103,7 +103,7 @@ function Budgets() {
                         <>Not reported: no runtime here reports {unit}</>
                       ) : (
                         <>
-                          {b.state === "partial" ? "At least " : ""}
+                          {b.unreported_runs > 0 ? "At least " : ""}
                           {b.used.toFixed(2)} of {b.budget.limit.value} {unit} in {b.budget.period}
                           {b.unreported_runs > 0 && <p className="muted">{b.unreported_runs} finished runs reported none, so the total is not known</p>}
                           {b.in_flight > 0 && <p className="muted">including {b.in_flight.toFixed(2)} held for runs not yet settled</p>}

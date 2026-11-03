@@ -105,7 +105,8 @@ export const LENSES: readonly Lens[] = [
       if (!s) return "No budget applies";
       const unit = s.unit === "minute" ? "minutes of run time" : s.unit === "token" ? "tokens" : "USD";
       if (s.used === undefined) return `Budget ${s.budget_id}: ${unit} are not reported, so use is unknown`;
-      if (s.state === "partial") return `Budget ${s.budget_id}: at least ${s.used} of ${s.limit} ${unit} in ${s.period}; ${s.unreported_runs ?? 0} runs reported none`;
+      // Some runs reported nothing: the total is a floor, whether or not it already passes the limit.
+      if (s.unreported_runs) return `${s.state === "over" ? "Over budget" : "Budget"} ${s.budget_id}: at least ${s.used} of ${s.limit} ${unit} in ${s.period}; ${s.unreported_runs} runs reported none`;
       const where = s.state === "over" ? "Over" : s.state === "near" ? "Near" : "Within";
       return `${where} budget ${s.budget_id}: ${s.used} of ${s.limit} ${unit} in ${s.period}`;
     },

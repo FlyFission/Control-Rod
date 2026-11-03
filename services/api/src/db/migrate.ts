@@ -17,6 +17,7 @@ import { DEPENDENCIES_SQL } from "./migrations/013-dependencies.js";
 import { RUN_EVENTS_SQL } from "./migrations/014-run-events.js";
 import { SCRAM_SQL } from "./migrations/015-scram.js";
 import { CHAIN_SEALS_SQL } from "./migrations/016-chain-seals.js";
+import { USAGE_ONCE_SQL } from "./migrations/017-usage-once.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
@@ -35,6 +36,7 @@ export const MIGRATIONS = [
   { version: "014-run-events", sql: RUN_EVENTS_SQL },
   { version: "015-scram", sql: SCRAM_SQL },
   { version: "016-chain-seals", sql: CHAIN_SEALS_SQL },
+  { version: "017-usage-once", sql: USAGE_ONCE_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

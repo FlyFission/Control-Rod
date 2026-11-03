@@ -122,23 +122,33 @@ export interface BudgetUse {
 }
 
 /**
- * What a budget has used in its current window. Minutes: every open reservation, however old (a run
- * still running, lost or unknown stays charged), plus what settled in the window, at its measured
- * interval, or at its full reservation when nothing measured it. Tokens: what runs measured in the
+ * What a budget has used in its current window. Minutes: the measured interval of every run in its
+ * scope measured in the window, whether or not anything reserved for it; plus, for runs nothing
+ * measured, every open reservation however old (a run still running, lost or unknown stays charged)
+ * and every reservation settled in full in the window. Tokens: what runs measured in the
  * window reported, and how many reported no complete counts. Money: nothing reports it.
  */
 export async function budgetUse(q: Db | Tx, b: Json, now = new Date()): Promise<BudgetUse> {
   const since = windowStart(b.period, now);
   if (b.limit.unit === "minute") {
-    const r = (await q.query<{ settled: string; open: string }>(
-      `select
-         coalesce(sum(case when x.body->>'status' = 'settled' and coalesce(u.recorded_at, x.recorded_at) > $2
-                           then coalesce((u.body->'wall_time'->>'value')::numeric, (x.body->'amount'->>'value')::numeric) end), 0)::text as settled,
-         coalesce(sum(case when x.body->>'status' = 'reserved' then (x.body->'amount'->>'value')::numeric end), 0)::text as open
-         from budget_reservations x
-         left join usage_records u on u.run_id = x.run_id and u.body->>'source' = 'measured'
-        where x.budget_id = $1`, [b.id, since])).rows[0]!;
-    return { used: Number(r.settled) + Number(r.open), in_flight: Number(r.open), unreported_runs: 0, since: since.toISOString() };
+    // Measured run time of every run in scope, reserved or not; then, for runs nothing measured, the
+    // full reservation: open ones however old, settled ones (charged in full) within the window.
+    const r = (await q.query<{ measured: string; open: string; unmeasured: string }>(
+      `with scoped as (
+         select r.id from runs r
+           join object_owners o on o.object_kind = case when r.role = 'intake' then 'capture' else 'package' end and o.object_id = r.package_id
+          where o.org_id = $1 and case $2::text when 'organization' then true when 'project' then o.project_id = $3 else r.body->>'agent_baseline' = $3 end)
+       select
+         (select coalesce(sum((m.body->'wall_time'->>'value')::numeric), 0) from usage_records m join scoped s on s.id = m.run_id
+           where m.body->>'source' = 'measured' and m.recorded_at > $5)::text as measured,
+         (select coalesce(sum((x.body->'amount'->>'value')::numeric), 0) from budget_reservations x
+           where x.budget_id = $4 and x.body->>'status' = 'reserved'
+             and not exists (select 1 from usage_records m where m.run_id = x.run_id and m.body->>'source' = 'measured'))::text as open,
+         (select coalesce(sum((x.body->'amount'->>'value')::numeric), 0) from budget_reservations x
+           where x.budget_id = $4 and x.body->>'status' = 'settled' and x.recorded_at > $5
+             and not exists (select 1 from usage_records m where m.run_id = x.run_id and m.body->>'source' = 'measured'))::text as unmeasured`,
+      [b.org_id, b.scope, b.scope === "organization" ? null : b.scope_id, b.id, since])).rows[0]!;
+    return { used: Number(r.measured) + Number(r.open) + Number(r.unmeasured), in_flight: Number(r.open), unreported_runs: 0, since: since.toISOString() };
   }
   if (b.limit.unit === "token") {
     const t = (await q.query<{ reported: number; unreported: number; total: string | null }>(
@@ -199,12 +209,14 @@ export async function reserveForRun(c: Tx, run: { id: string; role: string; pack
 /**
  * Records usage for every finished run that has none yet, whether or not a budget reserved for it,
  * and settles reservations. A run that finished with a known outcome is measured: its interval from
- * claim to recorded finish, and the tokens its usage events reported (a token field some events lack
+ * claim to recorded finish, bounded by its reservation where it has one, and the tokens its usage events reported (a token field some events lack
  * is left out, never summed as zero). A lost run is never measured. Reservations: a run that never
  * started releases them; a run with an unknown, unreconciled outcome keeps them open; otherwise they
  * settle, at the measured interval where there is one and in full where there is not. Idempotent.
  */
 export async function settleEnded(c: Tx, batch = 500): Promise<void> {
+  // The budget lock, so two sweeps never both measure one run (and claims never size against a half-settled ledger).
+  await c.query("select pg_advisory_xact_lock(hashtext('controlrod-budget'))");
   const finished = (await c.query<{ id: string; org_id: string; body: Json }>(
     `select r.id, o.org_id, r.body from runs r join object_owners o on o.object_kind = 'run' and o.object_id = r.id
       where r.status in ('succeeded', 'failed', 'stopped') and r.body ? 'started_at' and r.body ? 'finished_at'
@@ -214,15 +226,22 @@ export async function settleEnded(c: Tx, batch = 500): Promise<void> {
   for (const r of finished) {
     const ms = Date.parse(r.body.finished_at) - Date.parse(r.body.started_at);
     if (Number.isNaN(ms)) continue;
+    // The accounting deadline: a reserved run cannot have run past its reservation (the daemon stops
+    // it at its ceiling, and the reservation adds a heartbeat and a lease), so a finish recorded later
+    // (a completion accepted after a controller outage) is controller delay, and settles at the
+    // reservation, in full, never above it.
+    const reserved = (await c.query<{ v: string | null }>(
+      "select max((body->'amount'->>'value')::numeric)::text as v from budget_reservations where run_id = $1", [r.id])).rows[0]!.v;
+    const minutes = reserved !== null && Number(minutesOf(ms)) > Number(reserved) ? reserved : minutesOf(ms);
     await recordObject(c, "usage_record", { id: idFor("use"), org_id: r.org_id, run_id: r.id, source: "measured",
-      wall_time: { value: minutesOf(ms), unit: "minute" } } as never, SYSTEM);
+      wall_time: { value: minutes, unit: "minute" } } as never, SYSTEM);
     await recordReportedUsage(c, r.id, r.org_id);
   }
   const open = (await c.query<{ run_id: string; body: Json }>(
     `select distinct x.run_id, r.body from budget_reservations x join runs r on r.id = x.run_id
-      where x.body->>'status' = 'reserved' and r.status not in ('queued', 'running') order by x.run_id limit $1`, [batch])).rows;
+      where x.body->>'status' = 'reserved' and r.status not in ('queued', 'running')
+        and (not r.body ? 'outcome_unknown' or r.body ? 'reconciliation') order by x.run_id limit $1`, [batch])).rows;
   for (const r of open) {
-    if (r.body.outcome_unknown && !r.body.reconciliation) continue;
     const reservations = (await c.query<{ id: string }>(
       "select id from budget_reservations where run_id = $1 and body->>'status' = 'reserved' order by id for update", [r.run_id])).rows;
     const never = !r.body.started_at;

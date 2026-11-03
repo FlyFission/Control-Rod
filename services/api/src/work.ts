@@ -1346,6 +1346,9 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
   return command(db, "run.sweep-lost", async (c) => {
     // A lost run's unknown outcome blocks a SCRAM restart, so it lands under the gate.
     await enterScramGate(c);
+    // The budget lock in the same order a claim takes it, before any event is written here: usage is
+    // measured and settled under it (see settleEnded), and no sweep waits on a claim the other way.
+    await c.query("select pg_advisory_xact_lock(hashtext('controlrod-budget'))");
     const sup = cfg.supervision;
     const slept = controllerAbsent(cfg);
     if (sup) {
@@ -1415,12 +1418,15 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
     // Budgets (plan task 5.2): a run that has run its reserved ceiling is asked to stop on the graceful
     // path; every finished run gets its usage recorded and its reservations settled; a budget crossing
     // into near or over its limit is recorded once per window. Lost runs stay charged in full.
+    // Each run is locked and rechecked as it stands (a run being completed or heartbeating right now is
+    // skipped, never waited on, and looked at again next sweep), and only the stop fields are written.
     for (const row of (await c.query<{ id: string; package_id: string; role: string; round: number; body: Json }>(
       `select id, package_id, role, round, body from runs where status = 'running' and body ? 'budget_ceiling_seconds' and not body ? 'stop_requested_at'
-         and (body->>'started_at')::timestamptz + make_interval(secs => (body->>'budget_ceiling_seconds')::int) < now() order by id`)).rows) {
-      const body = { ...row.body, stop_requested_at: now(), stop_requested_by: "its budget ceiling", label: "Stopping" };
-      validate(cfg, "Run.json", body);
-      await c.query("update runs set body = $2 where id = $1", [row.id, body]);
+         and (body->>'started_at')::timestamptz + make_interval(secs => (body->>'budget_ceiling_seconds')::int) < now() order by id
+         for update skip locked`)).rows) {
+      const stop = { stop_requested_at: now(), stop_requested_by: "its budget ceiling", label: "Stopping" };
+      validate(cfg, "Run.json", { ...row.body, ...stop });
+      await c.query("update runs set body = body || $2::jsonb where id = $1", [row.id, stop]);
       await appendEvent(c, "run.stop-requested", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round, reason: "budget-ceiling" });
     }
     await settleEnded(c);

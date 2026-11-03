@@ -97,6 +97,9 @@ describe("lenses", () => {
     const partial = figure({ spend: { budget_id: "bud_3", mode: "alert", unit: "token", limit: "1000000", period: "P1D", state: "partial", used: "1500.00", unreported_runs: 2 } as never });
     expect(spend.value(partial)).toBe("Budget bud_3: at least 1500.00 of 1000000 tokens in P1D; 2 runs reported none");
     expect(spend.tint(partial)).toBe("#7b8494");
+    // Already past its limit with runs unreported: still a floor, never an exact total.
+    const overPartial = figure({ spend: { budget_id: "bud_3", mode: "alert", unit: "token", limit: "1000", period: "P1D", state: "over", used: "1500.00", unreported_runs: 2 } as never });
+    expect(spend.value(overPartial)).toBe("Over budget bud_3: at least 1500.00 of 1000 tokens in P1D; 2 runs reported none");
     expect(spend.value(figure({ spend: { budget_id: "bud_2", mode: "track", unit: "USD", limit: "50", period: "P1M", state: "not-reported" } as never }))).toBe("Budget bud_2: USD are not reported, so use is unknown");
     expect(spend.tint(figure({ spend: { budget_id: "bud_2", mode: "track", unit: "USD", limit: "50", period: "P1M", state: "not-reported" } as never }))).toBe("#7b8494");
     expect(LENS_COLORS.length).toBeGreaterThan(5);

@@ -16,6 +16,7 @@ import { configuredClosure, covers, declassify, downstreamOf, effectiveLane, ens
 import { teach } from "./refusals.js";
 import { pinRuntime, rollbackRuntime } from "./runtimes.js";
 import { pullScram, restartAfterScram, reviewQuarantine } from "./scram.js";
+import { sealChain } from "./seals.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
 
@@ -48,6 +49,8 @@ export interface AdminContext {
   preparationLanes?: Record<string, DataLane>;
   /** The signed command's passkey assertion, in record form, for records that keep it (SCRAM). */
   assertion?: { credential_id: string; authenticator_data: string; client_data_json: string; signature: string };
+  /** The signed subject and the challenge nonce, for records whose signature is checked again later (seals). */
+  signed?: { subject: string; nonce: string };
 }
 
 const str = (p: Record<string, unknown>, k: string, required = true): string | undefined => {
@@ -565,6 +568,16 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     },
   },
 
+  "chain.seal": {
+    label: "Seal the record",
+    // Any active Member may vouch, with their passkey, for the chain as they saw it (specification 11.6).
+    catalog: "admin.chain-seal", signature: "direct", need: "member",
+    async run(c, caller, p, ctx) {
+      if (!ctx.signed || !ctx.assertion) throw new Refusal(403, "signature-required", "A seal needs your passkey");
+      return sealChain(c, caller.orgId, caller.memberId, p, { ...ctx.signed, assertion: ctx.assertion }, actorOf(caller));
+    },
+  },
+
   "scram.pull": {
     label: "Pull SCRAM",
     // Anyone active may stop the work: stopping is always safe. It is signed and has a reason.
@@ -666,7 +679,8 @@ function translate(error: unknown): unknown {
  * the subject digest its passkey assertion was verified over; anything else refuses.
  */
 export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: Caller, payload: Record<string, unknown>,
-  signed: { subject: string; credentialId: string; assertion?: Record<string, unknown> } | null) {
+  signed: { subject: string; credentialId: string; nonce?: string; assertion?: Record<string, unknown> } | null) {
+  if (signed?.nonce) ctx = { ...ctx, signed: { subject: signed.subject, nonce: signed.nonce } };
   if (signed?.assertion) {
     const a = signed.assertion as { id?: unknown; response?: Record<string, unknown> };
     ctx = { ...ctx, assertion: { credential_id: String(a.id ?? ""), authenticator_data: String(a.response?.authenticatorData ?? ""),

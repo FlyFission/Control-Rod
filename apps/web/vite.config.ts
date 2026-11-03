@@ -31,6 +31,7 @@ const apiPaths = [
   "/office",
   "/packages",
   "/roster",
+  "/records",
   "/runs",
   "/runtimes",
   "/scrams",

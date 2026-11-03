@@ -550,6 +550,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/proof": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A package's inclusion proof: the chain segment from just before its first event to the head of the
+         *     first valid seal covering its last (or to the chain head, unsealed), with that seal. Self contained:
+         *     every digest and link can be recomputed from the bundle.
+         */
+        get: operations["packageProof"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/runs/{runId}/events": {
         parameters: {
             query?: never;
@@ -722,6 +743,40 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["revokePreparationGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/records/head": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The head a seal made now would cover. */
+        get: operations["recordsHead"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/records/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The record verified (plan task 5.3; specification 11.6): the chain, every seal, and the unsealed suffix. */
+        get: operations["verifyRecords"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2477,6 +2532,22 @@ export interface components {
                 /** Format: date-time */
                 at: string;
             };
+        };
+        /** @description One seal as verification found it. */
+        SealCheck: {
+            id: string;
+            /** Format: int32 */
+            head_seq: number;
+            head_digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** Format: date-time */
+            sealed_at: string;
+            signer_id: string;
+            purpose: string;
+            /**
+             * @description valid, or why not: the head moved or is missing, the subject does not match, the signer's key is unknown, the signature fails, or the chain breaks before its head.
+             * @enum {string}
+             */
+            result: "valid" | "head-mismatch" | "head-missing" | "subject-mismatch" | "key-unknown" | "signature-invalid" | "chain-broken-before-head";
         };
     };
     responses: never;
@@ -4754,6 +4825,53 @@ export interface operations {
             };
         };
     };
+    packageProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bundle: {
+                            package_id: string;
+                            events: number[];
+                            anchor?: {
+                                /** Format: int32 */
+                                seq: number;
+                                digest: string;
+                            };
+                            segment: {
+                                [key: string]: unknown;
+                            }[];
+                            seal: {
+                                [key: string]: unknown;
+                            } | null;
+                            /** @enum {boolean} */
+                            witnessed: false;
+                            /** @enum {string} */
+                            statement: "Local chain, not witnessed";
+                        };
+                        /** @description The control plane's own check of the bundle: every digest and link recomputed. */
+                        check: {
+                            ok: boolean;
+                            problem?: string;
+                        };
+                    } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Packages_runEvents: {
         parameters: {
             query?: {
@@ -5571,6 +5689,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    recordsHead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        head: {
+                            /** Format: int32 */
+                            head_seq: number;
+                            head_digest: components["schemas"]["ControlRod.Records.Digest"];
+                            /** Format: date-time */
+                            at: string;
+                        } | null;
+                    } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    verifyRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        chain: {
+                            ok: boolean;
+                            /** Format: int32 */
+                            count: number;
+                            /** Format: int32 */
+                            broken_at?: number;
+                        };
+                        seals: components["schemas"]["SealCheck"][];
+                        /** Format: int32 */
+                        last_sealed_seq: number;
+                        /**
+                         * Format: int32
+                         * @description Events after the last valid seal.
+                         */
+                        unsealed: number;
+                        /**
+                         * @description Nothing outside this database witnesses the chain yet.
+                         * @enum {boolean}
+                         */
+                        witnessed: false;
+                        /** @enum {string} */
+                        statement: "Local chain, not witnessed";
+                    } | components["schemas"]["ApiError"];
                 };
             };
         };

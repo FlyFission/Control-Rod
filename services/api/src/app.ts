@@ -28,6 +28,7 @@ import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
 import { activeScramsFor, scramPreview, scramView } from "./scram.js";
 import { roster } from "./roster.js";
+import { chainHead, inclusionProof, verifyInclusion, verifyRecords } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
 import {
@@ -284,11 +285,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown>; assertion?: Record<string, unknown> } }>("/admin/commands/:name", async (req) => {
     const user = await person(req);
     const caller = await callerFor(db, user);
-    let signed: { subject: string; credentialId: string; assertion: Record<string, unknown> } | null = null;
+    let signed: { subject: string; credentialId: string; nonce: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
       const ok = await assertionVerify(db, auth, "admin", req.body.assertion as never);
       if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId)
-        signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, assertion: req.body.assertion };
+        signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, nonce: String(ok.data.nonce), assertion: req.body.assertion };
     }
     return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, req.params.name, caller, req.body?.payload ?? {}, signed);
   });
@@ -534,6 +535,23 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.get("/roster", async (req) => {
     const caller = await callerFor(db, await person(req));
     return roster(db, caller.orgId);
+  });
+  /** The record verified: the chain, each seal checked again, and what no seal covers yet (plan task 5.3). */
+  app.get("/records/verify", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return verifyRecords(db, auth, caller.orgId);
+  });
+  /** The head a seal made now would cover, for the screen to show and the signature to name. */
+  app.get("/records/head", async (req) => {
+    await person(req);
+    return { head: await chainHead(db) };
+  });
+  /** A package's inclusion proof: the chain segment holding its events, up to the seal that covers them. */
+  app.get<{ Params: { id: string } }>("/packages/:id/proof", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    // The bundle is self contained; the control plane's own check of it travels beside it.
+    const bundle = await inclusionProof(db, auth, caller.orgId, req.params.id);
+    return { bundle, check: verifyInclusion(bundle) };
   });
   app.get("/runtimes", async (req) => {
     await person(req);

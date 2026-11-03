@@ -89,6 +89,7 @@ export const COMMANDS = {
   "admin.marking-approve": entry("member", "direct", "Lower or declassify lane (approval)", "write"),
   "admin.budget-set": entry("member", "direct", "Set budget"),
   "admin.theme-select": entry("member", "none", "Select office theme"),
+  "admin.chain-seal": entry("member", "direct", "Seal chain"),
 
   // Grants.
   "grant.issue": entry("system", "none", "Grant issue"),

@@ -16,7 +16,7 @@ import type { ActionDescriptor, AdminView, RosterView, DataLane, InboxView, Norm
   OfficeItem,
   OfficeFloor,
   ScramDetail,
-  ScramPreview, ScramSummary,
+  ChainHead, PackageProof, RecordsVerification, ScramPreview, ScramSummary,
   PackageView,
   Run,
   RuntimeStatus,
@@ -181,6 +181,9 @@ export const api = {
     return out;
   },
   verifyEvents: () => call<{ ok: boolean; count: number; broken_at?: number }>("GET", "/events/verify"),
+  verifyRecords: () => call<RecordsVerification>("GET", "/records/verify"),
+  recordsHead: () => call<{ head: ChainHead | null }>("GET", "/records/head"),
+  packageProof: (id: string) => call<PackageProof>("GET", `/packages/${enc(id)}/proof`),
   streamUrl: () => url("/events/stream"),
 };
 

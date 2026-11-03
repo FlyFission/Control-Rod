@@ -525,6 +525,48 @@ op runtimes(): {
   pins: RuntimePin[];
 };
 
+/** One run role on the Roster: what it does, who has run it, and its pins. */
+model RosterRole {
+  role: RunRole;
+  what: string;
+
+  /** Whether a runtime pin can be set for it (preparer roles launch by their own custody path). */
+  pinnable: boolean;
+
+  /** Each runtime and baseline pair recorded on its runs; empty until something has run it. */
+  baselines: { runtime: string; baseline: string }[];
+
+  @minValue(0) runs: int32;
+  last_run_at?: utcDateTime;
+  pins: RuntimePin[];
+
+  /** Runtimes whose pin for this role has an earlier, different artifact to roll back to. */
+  rollback: string[];
+}
+
+/**
+ * The Roster (plan task 5.1): roles, baselines as recorded on runs (not yet controlled items with
+ * revisions, so baselines_recorded is false), the artifacts a pin may name, and sandboxes as launched.
+ */
+@route("/roster")
+@get
+op roster(): {
+  roles: RosterRole[];
+  baselines: { id: string; roles: string[]; @minValue(0) runs: int32; last_run_at: utcDateTime; statuses: Record<int32> }[];
+  baselines_recorded: false;
+
+  /** Every artifact a passing probe has seen, per pinnable runtime, and the roles pinning it now. */
+  versions: { runtime: string; version: string; digest: Digest; last_passed_at: utcDateTime; pinned_for: RunRole[] }[];
+
+  sandbox: {
+    /** SandboxPolicy records in force, each with its digest. */
+    policies: Record<unknown>[];
+
+    /** Per runtime, the sandbox its latest completed run reported launching with. */
+    launched: { runtime: string; sandbox: string; run_id: string; at: string }[];
+  };
+} | ApiError;
+
 /** The viewing member, as the command layer knows them. */
 model Caller {
   userName: string;

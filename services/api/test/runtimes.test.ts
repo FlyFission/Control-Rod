@@ -87,3 +87,40 @@ describe("pins", () => {
     expect((await signed("runtime.pin", { runtime: "fake", artifact_digest: A })).statusCode).toBe(400);
   });
 });
+
+describe("roster (plan task 5.1)", () => {
+  it("states each role's recorded baselines and pins, the versions a pin may name, and sandboxes as launched", async () => {
+    // A completed author run, as the daemon reports it: its baseline, runtime and launch sandbox.
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-ROSTER', 0, 'in-work', $1)",
+      [{ ...example, id: "WP-ROSTER", revision: 0, status: "in-work", data_lane: "internal", design_inputs: [] }]);
+    const done = { schema_version: "0.1.0", id: "R-roster01", package_id: "WP-ROSTER", package_revision: 0, role: "author", agent_baseline: "author-claude",
+      runtime: { kind: "subscription", provider: "claude", model: "default" }, round: 1, status: "succeeded", queued_at: new Date().toISOString(),
+      finished_at: new Date().toISOString(), generation: 1, trace: { sandbox: "none" } };
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ('R-roster01', 'WP-ROSTER', 0, 'author', 1, 'succeeded', $1)", [done]);
+    const res = await h.app.inject({ method: "GET", url: "/roster", headers: { cookie } });
+    expect(res.statusCode, res.body).toBe(200);
+    const r = res.json();
+    const role = (name: string) => r.roles.find((x: Json) => x.role === name);
+    // Baselines come from what runs recorded, never from a naming rule.
+    expect(role("author").baselines).toEqual([{ runtime: "claude", baseline: "author-claude" }]);
+    expect(role("author").pins.map((p: Json) => p.artifact_digest.value)).toEqual([A]);
+    // Author was pinned to B and rolled back to A, so B is retired and a rollback target exists.
+    expect(role("author").rollback).toEqual(["claude"]);
+    expect(role("intake").rollback).toEqual([]);
+    expect(role("requirements-preparer")).toMatchObject({ pinnable: false, baselines: [], runs: 0, pins: [] });
+    // Earlier tests in this file left a running author-claude run, so the counts include it.
+    expect(r.baselines.map((b: Json) => b.id)).toEqual(["author-claude"]);
+    expect(r.baselines[0]).toMatchObject({ roles: ["author"], runs: 2, statuses: { succeeded: 1, running: 1 } });
+    expect(r.baselines_recorded).toBe(false);
+    // Only artifacts a passing probe saw, each once, with the roles pinning it now.
+    const versions = r.versions.filter((v: Json) => v.runtime === "claude");
+    expect(versions.map((v: Json) => v.digest.value).sort()).toEqual([A, B].sort());
+    expect(versions.find((v: Json) => v.digest.value === A).pinned_for).toEqual(["author", "intake", "pre-check"]);
+    expect(versions.find((v: Json) => v.digest.value === B).pinned_for).toEqual([]);
+    expect(r.versions.some((v: Json) => v.digest.value === C)).toBe(false);
+    // No sandbox policy is recorded; the launch is reported as the run gave it.
+    expect(r.sandbox.policies).toEqual([]);
+    expect(r.sandbox.launched).toEqual([expect.objectContaining({ runtime: "claude", sandbox: "none", run_id: "R-roster01" })]);
+    expect((await h.app.inject({ method: "GET", url: "/roster" })).statusCode).toBe(401);
+  });
+});

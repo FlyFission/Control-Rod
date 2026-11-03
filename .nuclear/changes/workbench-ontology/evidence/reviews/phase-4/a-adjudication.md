@@ -28,3 +28,11 @@ Additional defects the stricter harness exposed and fixed: figures were taller a
 | 6 | Figure bodies not clipped to the silhouette | Accepted | Body images are clipped to the outline's 14px inner radius. The harness compares the scene with and without bodies inside each body image's box, outside that circle (tolerance 24 per channel; re-rasterized art differs by up to about 8). Controls: a full-square body clipped passes; unclipped it fails. |
 
 Also found and fixed while tightening: the outline (positioned) painted over its code plate (not positioned), so the outline's ring crossed the top of the code text; the code plate now stacks above the outline. The chip now sits level with the outline's top so its ring stays clear of the code plate.
+
+## Round 3 (Codex, `a-codex-round3.md`): REVISE, one finding, accepted
+
+Round 2 findings 2 to 6 verified fixed. Finding 1 was partial: pooled ink let visible glyphs stand in for clipped ones.
+
+| # | Finding | Decision | Change |
+|---|---|---|---|
+| 1 | Half-clipped room names pass the pooled ink floor | Accepted | Every glyph is measured in its own box (a range over that character) and must carry at least 2 owned inked pixels at 3:1; measured, the thinnest real glyph carries 4 and a clipped one 0. Control: half of every canonical name clipped with `clip-path`, its box unchanged, must report the missing glyphs, and does. |

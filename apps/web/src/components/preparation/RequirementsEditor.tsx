@@ -108,21 +108,37 @@ export function RequirementsEditor({
               </label>
             ))}
           </fieldset>
-          <button
-            type="button"
-            className="btn ghost small"
-            onClick={() =>
-              change((d) => {
-                // Retiring a criterion retires every check and escalation reference to it.
-                const [gone] = d.criteria.splice(i, 1);
-                const keep = (ids: string[]) => ids.filter((id) => id !== gone?.id);
-                for (const k of d.technical_plan.checks) k.criterion_ids = keep(k.criterion_ids);
-                for (const e of d.escalations) e.criterion_ids = keep(e.criterion_ids);
-              })
-            }
-          >
-            Retire criterion {i + 1}
-          </button>
+          {(() => {
+            // A resolved escalation is a recorded human decision and never changes, and every
+            // escalation must cite current criteria, so a criterion one rests on cannot be retired.
+            const pinned = value.escalations.some((e) => e.resolution_refs.length > 0 && e.criterion_ids.includes(c.id));
+            return (
+              <>
+                <button
+                  type="button"
+                  className="btn ghost small"
+                  disabled={pinned}
+                  aria-describedby={pinned ? `pinned-${c.id}` : undefined}
+                  onClick={() =>
+                    change((d) => {
+                      // Retiring a criterion retires every check and open escalation reference to it.
+                      const [gone] = d.criteria.splice(i, 1);
+                      const keep = (ids: string[]) => ids.filter((id) => id !== gone?.id);
+                      for (const k of d.technical_plan.checks) k.criterion_ids = keep(k.criterion_ids);
+                      for (const e of d.escalations) if (e.resolution_refs.length === 0) e.criterion_ids = keep(e.criterion_ids);
+                    })
+                  }
+                >
+                  Retire criterion {i + 1}
+                </button>
+                {pinned && (
+                  <p className="muted small" id={`pinned-${c.id}`}>
+                    A resolved escalation rests on this criterion, so it stays. Record a new escalation if its basis changes.
+                  </p>
+                )}
+              </>
+            );
+          })()}
         </div>
       ))}
       <button

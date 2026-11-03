@@ -72,6 +72,8 @@ export function validateSvg(text: string, size: { width: number; height: number 
   if (/<!DOCTYPE|<!ENTITY|<\?(?!xml\s)/i.test(text)) problems.push(`${where} declares a doctype, entity or processing instruction`);
   if (/<!\[CDATA\[/i.test(text)) problems.push(`${where} contains CDATA`);
   const body = text.replace(/^\s*<\?xml[^>]*\?>/, "").replace(/<!--[\s\S]*?-->/g, "");
+  // Only the five predefined entities and character references; anything else fails to parse.
+  if (/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/.test(body)) problems.push(`${where} has an undefined entity or a bare ampersand`);
   const tag = /<\s*(\/?)\s*([A-Za-z][\w:.-]*)([^>]*?)(\/?)\s*>/g;
   const stack: string[] = [];
   let roots = 0;
@@ -89,8 +91,10 @@ export function validateSvg(text: string, size: { width: number; height: number 
     const [, closing, rawName, attrs, selfClosing] = m;
     const name = rawName!.toLowerCase();
     if (closing) {
+      // XML names are case sensitive, and a closing tag carries nothing but its name.
       const open = stack.pop();
-      if (open !== name) problems.push(`${where} closes <${rawName}> where <${open ?? "nothing"}> is open`);
+      if (open !== rawName) problems.push(`${where} closes <${rawName}> where <${open ?? "nothing"}> is open`);
+      if (attrs!.trim() || selfClosing) problems.push(`${where} has a malformed closing tag </${rawName}>`);
       if (stack.length === 0) closedRoot = true;
       continue;
     }
@@ -100,12 +104,14 @@ export function validateSvg(text: string, size: { width: number; height: number 
       if (name !== "svg") problems.push(`${where} has the root <${rawName}>, not <svg>`);
     } else if (name === "svg") problems.push(`${where} nests an <svg>`);
     if (!ELEMENTS.has(name)) problems.push(`${where} uses the element <${rawName}>`);
-    if (!selfClosing) stack.push(name);
+    if (!selfClosing) stack.push(rawName!);
     else if (stack.length === 0) closedRoot = true;
     if (!ELEMENTS.has(name)) continue;
     const attrRe = /([A-Za-z_:][\w:.-]*)\s*=\s*("([^"]*)"|'([^']*)')/g;
     const leftover = attrs!.replace(attrRe, "").trim();
     if (leftover) problems.push(`${where} has an attribute without a quoted value on <${rawName}>`);
+    // Every attribute is preceded by whitespace (XML requires it between attributes).
+    else if (!/^(?:\s+[A-Za-z_:][\w:.-]*\s*=\s*(?:"[^"]*"|'[^']*'))*\s*$/.test(attrs!)) problems.push(`${where} runs attributes together on <${rawName}>`);
     const seen = new Set<string>();
     let a: RegExpExecArray | null;
     while ((a = attrRe.exec(attrs!))) {

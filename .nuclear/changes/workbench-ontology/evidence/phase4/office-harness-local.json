@@ -4,23 +4,28 @@
       "plate": 13,
       "code": 40,
       "mark": 40,
-      "outline": 40
+      "outline": 40,
+      "body": 40
     },
     "shapes": {
-      "working": "{\"shape\":\"circle\",\"size\":13,\"fill\":0.72,\"hole\":1,\"lean\":1}",
-      "needs": "{\"shape\":\"diamond\",\"size\":11,\"fill\":0.54,\"hole\":1,\"lean\":1}",
-      "waiting": "{\"shape\":\"ring\",\"size\":13,\"fill\":0.32,\"hole\":0,\"lean\":0.98}",
-      "stuck": "{\"shape\":\"square\",\"size\":11,\"fill\":1.09,\"hole\":1,\"lean\":1}",
-      "changed": "{\"shape\":\"triangle\",\"size\":11,\"fill\":0.54,\"hole\":1,\"lean\":0.29}"
+      "working": "{\"shape\":\"circle\",\"size\":13,\"mismatch\":0.08,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.05,\"margin\":0.35}",
+      "waiting": "{\"shape\":\"ring\",\"size\":13,\"mismatch\":0.21,\"margin\":0.38}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.08,\"margin\":0.08}",
+      "changed": "{\"shape\":\"triangle\",\"size\":11,\"mismatch\":0.1,\"margin\":0.36}"
     },
     "worstTextRatio": 12.65,
+    "worstInkPerChar": 14.6,
     "worstMarkRatio": 7.71,
-    "worstEdgeRatio": 4.18
+    "worstEdgeRatio": 4.18,
+    "worstEdgeCoverage": 0.28,
+    "worstTemplateMismatch": 0.21,
+    "smallestTemplateMargin": 0.08
   },
   "harness-bright/frames": {
     "frames": 120,
-    "p95Ms": 16.7,
-    "eventToScreenMs": 11,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 10,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
@@ -42,12 +47,12 @@
   },
   "harness-bright/occlusion": {
     "parts": 133,
-    "openFloorProbes": 272
+    "openFloorProbes": 275
   },
   "harness-bright/reference-frames": {
     "machineName": "candidate only: WSL2 development machine, not designated by the owner",
     "frames": 120,
-    "p95Ms": 16.7,
+    "p95Ms": 16.8,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
@@ -59,22 +64,27 @@
       "plate": 13,
       "code": 40,
       "mark": 40,
-      "outline": 40
+      "outline": 40,
+      "body": 40
     },
     "shapes": {
-      "working": "{\"shape\":\"circle\",\"size\":13,\"fill\":0.72,\"hole\":1,\"lean\":1}",
-      "needs": "{\"shape\":\"diamond\",\"size\":11,\"fill\":0.54,\"hole\":1,\"lean\":1}",
-      "waiting": "{\"shape\":\"ring\",\"size\":13,\"fill\":0.32,\"hole\":0,\"lean\":0.98}",
-      "stuck": "{\"shape\":\"square\",\"size\":11,\"fill\":1.09,\"hole\":1,\"lean\":1}",
-      "changed": "{\"shape\":\"triangle\",\"size\":11,\"fill\":0.54,\"hole\":1,\"lean\":0.29}"
+      "working": "{\"shape\":\"circle\",\"size\":13,\"mismatch\":0.08,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.05,\"margin\":0.35}",
+      "waiting": "{\"shape\":\"ring\",\"size\":13,\"mismatch\":0.21,\"margin\":0.38}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.08,\"margin\":0.08}",
+      "changed": "{\"shape\":\"triangle\",\"size\":11,\"mismatch\":0.1,\"margin\":0.36}"
     },
     "worstTextRatio": 11.8,
+    "worstInkPerChar": 15,
     "worstMarkRatio": 7.71,
-    "worstEdgeRatio": 10.58
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.28,
+    "worstTemplateMismatch": 0.21,
+    "smallestTemplateMargin": 0.08
   },
   "standard-office/frames": {
     "frames": 120,
-    "p95Ms": 16.7,
+    "p95Ms": 16.8,
     "eventToScreenMs": 11,
     "machine": {
       "browser": "chromium 156.0.8078.4",
@@ -97,12 +107,12 @@
   },
   "standard-office/occlusion": {
     "parts": 133,
-    "openFloorProbes": 271
+    "openFloorProbes": 274
   },
   "standard-office/reference-frames": {
     "machineName": "candidate only: WSL2 development machine, not designated by the owner",
     "frames": 120,
-    "p95Ms": 16.8,
+    "p95Ms": 16.7,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",

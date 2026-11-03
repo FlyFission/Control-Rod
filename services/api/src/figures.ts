@@ -159,7 +159,9 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
     const changed = changedInput(deps.get(p.id) ?? [], pinned.get(p.id), currentRevision);
     const { hash, ...figure } = project({
       run, held, cube, own: mine.get(p.id), theirs: others.get(p.id), changed,
-      unaccepted: (deps.get(p.id) ?? []).filter((d) => d.status !== "accepted").map((d) => d.depends_on),
+      // Dispatch holds only an author run on a released package for its dependencies (claim in
+      // work.ts); any other queued run is not waiting on them.
+      unaccepted: run.role === "author" && p.status === "released" ? (deps.get(p.id) ?? []).filter((d) => d.status !== "accepted").map((d) => d.depends_on) : [],
     });
     figures.push({
       id: run.id,

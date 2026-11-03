@@ -41,3 +41,9 @@ Round 1 findings 1, 2, 3 and 9 verified fixed; deferring 7 and 8 to PR C judged 
 | figures.ts: per-package queries | Fixed | Batched reads and the constant query count test (round 2 finding 3). |
 | office-harness.spec.ts: lens threshold below the reported 5.25:1 | Not a defect; wording corrected | The requirement is 3:1 for non-text contrast (WCAG 1.4.11), which the harness enforces; 5.25:1 is what the colours measure. The ledger now says so. |
 | OfficePlace.tsx: "Floor" label | Not a defect | The office view is the floor (the cube sets and rooms); the station floor at `/floor` is deliberately left out of the switcher until plan task 4.9 moves its worlds to the rooms and retires it. |
+
+## Round 3 (Codex, `b-codex-round3.md`): MERGE
+
+| Thread (after round 3) | Decision | Change |
+|---|---|---|
+| figures.ts: dependency wait shown for runs dispatch does not hold (P2) | Fixed | Only an author run on a released package waits on unaccepted dependencies, exactly as `claim()` applies the rule; any other queued run (a pre-check, a later round) waits for a runtime. Test: a queued pre-check on a package with an unaccepted dependency stands on the Bench. |

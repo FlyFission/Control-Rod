@@ -251,6 +251,12 @@ model NormalizedEvent {
   @minValue(0) output_tokens?: int32;
   @minValue(0) cached_tokens?: int32;
 
+  /**
+   * Usage: true when the counts are the whole run's so far (a runtime's final result), not one
+   * step's, so they replace the steps' counts rather than add to them.
+   */
+  cumulative?: boolean;
+
   /** How many events admission refused before this one (kind dropped). */
   @minValue(1) dropped?: int32;
 }

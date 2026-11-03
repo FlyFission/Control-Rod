@@ -45,7 +45,7 @@ export function story(events: { seq: number; event: NormalizedEvent }[]): StoryS
         steps.push({ seq, kind: "asked", text: `Asked permission: ${e.summary ?? e.tool ?? "a tool"}`, detail: "Print mode refuses it, so the run went on without it." });
         break;
       case "usage":
-        steps.push({ seq, kind: "usage", text: `Used ${e.input_tokens ?? 0} input and ${e.output_tokens ?? 0} output tokens${e.cached_tokens ? ` (${e.cached_tokens} cached)` : ""}` });
+        steps.push({ seq, kind: "usage", text: `${e.cumulative ? "In all, used" : "Used"} ${e.input_tokens ?? "an unreported number of"} input and ${e.output_tokens ?? "an unreported number of"} output tokens${e.cached_tokens ? ` (${e.cached_tokens} cached)` : ""}` });
         break;
       case "error":
         steps.push({ seq, kind: "problem", text: e.text ?? "An error" });

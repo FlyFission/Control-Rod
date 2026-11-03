@@ -250,3 +250,15 @@ func TestUsageKeepsReportedZeroAndOmitsMissing(t *testing.T) {
 		t.Fatalf("usage serialized as %s", s)
 	}
 }
+
+// Claude's result carries the whole run's usage, so it is marked cumulative; a step's usage is not.
+func TestClaudeResultUsageIsCumulative(t *testing.T) {
+	step := Normalize(`{"type":"assistant","message":{"content":[],"usage":{"input_tokens":10,"output_tokens":5}}}`, t0)
+	result := Normalize(`{"type":"result","subtype":"success","result":"ok","usage":{"input_tokens":30,"output_tokens":9}}`, t0)
+	if len(step) != 1 || step[0].Cumulative {
+		t.Fatalf("step usage %+v", step)
+	}
+	if len(result) != 1 || !result[0].Cumulative || *result[0].InputTokens != 30 {
+		t.Fatalf("result usage %+v", result)
+	}
+}

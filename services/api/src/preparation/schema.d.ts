@@ -1891,6 +1891,11 @@ export interface components {
             /** Format: int32 */
             cached_tokens?: number;
             /**
+             * @description Usage: true when the counts are the whole run's so far (a runtime's final result), not one
+             *     step's, so they replace the steps' counts rather than add to them.
+             */
+            cumulative?: boolean;
+            /**
              * Format: int32
              * @description How many events admission refused before this one (kind dropped).
              */

@@ -35,6 +35,8 @@ type Event struct {
 	InputTokens  *int `json:"input_tokens,omitempty"`
 	OutputTokens *int `json:"output_tokens,omitempty"`
 	CachedTokens *int `json:"cached_tokens,omitempty"`
+	// Cumulative marks usage that is the whole run's so far (Claude's result), not one step's.
+	Cumulative bool `json:"cumulative,omitempty"`
 	// Dropped counts events admission refused since the last one sent (kind "dropped").
 	Dropped int `json:"dropped,omitempty"`
 
@@ -147,9 +149,11 @@ func Normalize(line string, now time.Time) []Event {
 		if failed {
 			out = append(out, Event{Kind: EvError, At: at, Text: clipText(str(ev, "result"))})
 		}
+		// The result's usage is the whole run's, not this step's (Claude's cost tracking documents it
+		// as cumulative), so it is marked to replace the steps' counts, never to add to them.
 		if usage, ok := ev["usage"].(map[string]any); ok {
 			out = append(out, Event{Kind: EvUsage, At: at, InputTokens: num(usage, "input_tokens"), OutputTokens: num(usage, "output_tokens"),
-				CachedTokens: num(usage, "cache_read_input_tokens")})
+				CachedTokens: num(usage, "cache_read_input_tokens"), Cumulative: true})
 		}
 	// Codex --json.
 	case "item.started", "item.completed":

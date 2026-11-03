@@ -1,0 +1,81 @@
+{
+  "theme": "clockwork-observatory",
+  "files": [
+    {
+      "file": "process.35ec1afa85b2.svg",
+      "sha256": "35ec1afa85b2d5adba492c3b992774652ec1968c45cc281c5f08745722acc5a3"
+    },
+    {
+      "file": "mechanical.19480e79d74a.svg",
+      "sha256": "19480e79d74afc1037586a4e61df54b6123522b4bbcdcf107f5f9eb11fb7d02f"
+    },
+    {
+      "file": "electrical.9e9ef1a5df36.svg",
+      "sha256": "9e9ef1a5df36e997856b6058ec73c40995f228c695692a62baca300ed321eae9"
+    },
+    {
+      "file": "civil.e8222f92e34e.svg",
+      "sha256": "e8222f92e34e834dbc749572fe1844f5c4319815cdfc7c965d1844656a213467"
+    },
+    {
+      "file": "assurance.e433742f3f4f.svg",
+      "sha256": "e433742f3f4f0dd124ea6306bb3a0c7a072f9edf41d4e5b79abadbc0358216b0"
+    },
+    {
+      "file": "project-controls.6a87057897f1.svg",
+      "sha256": "6a87057897f1a0c70557b703bea25ecad02b4ec9b7953495dbd4ec8263796190"
+    },
+    {
+      "file": "review.a9ff73ca6df8.svg",
+      "sha256": "a9ff73ca6df81be643946bbadf6ab8a205bdb9315603a2b0c6dd6076afd22ec5"
+    },
+    {
+      "file": "interface.f333be584b81.svg",
+      "sha256": "f333be584b81498a9f9eaaf092a95674414dea7a8fb3c59a7eb3edda6a1e7676"
+    },
+    {
+      "file": "verification.29d9ceaf147f.svg",
+      "sha256": "29d9ceaf147f3b0ea7b04728282d96af9a93b64b5ee9c8d5221231c6631b0e7d"
+    },
+    {
+      "file": "your-office.4ecef343470b.svg",
+      "sha256": "4ecef343470bbb93ef7221d13a16c139a34e2157c68998c8fc93a282752487f2"
+    },
+    {
+      "file": "document-control.aabc17b51e02.svg",
+      "sha256": "aabc17b51e02377b68ea714ba23bc3f540244fb83f0a551c38802cb4226f41b4"
+    },
+    {
+      "file": "bench.4a27ec4c92fd.svg",
+      "sha256": "4a27ec4c92fd8e99bcfa1447055037b10ead2f81f826e8b6e2abc172e3f28e4f"
+    },
+    {
+      "file": "quarantine.4a72f54d7a27.svg",
+      "sha256": "4a72f54d7a273f34a562b40a92f79d68c8ba9b3030f1ddfa61f6f52f9ac03d48"
+    },
+    {
+      "file": "body-0.92cb1b944133.svg",
+      "sha256": "92cb1b9441336506ebf1748a6ad76011ca5702896f698602010879ee6a346496"
+    },
+    {
+      "file": "body-1.9f69c8a69f66.svg",
+      "sha256": "9f69c8a69f6602f91eec616cc067d66b3330256ad54952f40f11445dbd869f94"
+    },
+    {
+      "file": "body-2.3be50aa1b851.svg",
+      "sha256": "3be50aa1b8512c4a43bcb526d3849a7cd5c3782275f6c216268b607cbbe8dc94"
+    },
+    {
+      "file": "body-3.ff6bc2692a79.svg",
+      "sha256": "ff6bc2692a79ad5e3ff1077f1718bd539c66c5c2d5ce158d6fb4e2451d943d8f"
+    },
+    {
+      "file": "body-4.13576becb4ab.svg",
+      "sha256": "13576becb4abadf8210191c01d2c099f6974970d78b8525904f8344bff0f41ad"
+    },
+    {
+      "file": "body-5.5873a2274ecd.svg",
+      "sha256": "5873a2274ecdf6b249e4f96e54b9a8941e84d22364be83d309eed3468972dbb6"
+    }
+  ]
+}

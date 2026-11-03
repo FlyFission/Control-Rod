@@ -90,7 +90,7 @@ export function PackagePage({ id }: { id: string }) {
               </>
             )}
           </section>
-          <PreparationPanel key={pkg.id} pkg={pkg} enabled={view.preparation_enabled ?? false} enrolled={view.preparation_enrolled ?? false} />
+          <Preparation pkg={pkg} view={view} />
           <Criteria pkg={pkg} etag={view.draft_etag} enrolled={view.preparation_enrolled ?? false} />
           <section id="runs" className="panel" aria-labelledby="runs-title">
             <h2 id="runs-title">Runs</h2>
@@ -125,6 +125,14 @@ export function PackagePage({ id }: { id: string }) {
  * the draft as it was when editing began: background refreshes never replace what is being typed, and
  * a save that finds the draft changed says so and keeps the text, instead of losing it.
  */
+/**
+ * The package's preparation panel, keyed by package: moving to another package mounts a fresh
+ * panel, so an unsaved draft of one package never carries over to the next.
+ */
+export function Preparation({ pkg, view }: { pkg: WorkPackage; view: PackageView }) {
+  return <PreparationPanel key={pkg.id} pkg={pkg} enabled={view.preparation_enabled ?? false} enrolled={view.preparation_enrolled ?? false} />;
+}
+
 export function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: string | undefined; enrolled:boolean }) {
   const qc = useQueryClient();
   const editable = pkg.status === "draft" && !enrolled && etag !== undefined;

@@ -58,3 +58,7 @@ The branch rules require every review thread resolved. Each was checked against 
 | RequirementsEditor: retiring leaves references | Fixed | Retiring a requirement removes it from every criterion; retiring a criterion removes it from every check and escalation (test added). |
 | PreparationPanel: unsaved edits carried to another package | Fixed | The package page keys the panel by package id, so a different package mounts a fresh panel. |
 | TechnicalPlanEditor: new lines vanish while typing | Fixed | A `Lines` field keeps the raw text while typing and saves only trimmed, non-empty entries; all four one-per-line fields use it (test added). |
+
+## Round 5 (Codex, delta `0addc73..70e8c56`, `a-codex-round5.md`): MERGE
+
+Codex noted partial test proof; closed before merging: a regression test switches the package page's preparation slot from one package with unsaved edits to another and requires the second package's content (it fails without the key and passes with it); every one-per-line field is exercised; wrong-kind rejection has an assertion.

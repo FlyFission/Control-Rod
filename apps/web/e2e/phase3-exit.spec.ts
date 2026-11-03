@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
     if (p === "/office/figures") {
       const fig = (id: string, packageId: string, state: string, place: string, cause: string, extra: Record<string, unknown> = {}) => ({
         id, package_id: packageId, package_revision: 1, title: packageId, role: "author", state, cause, since: new Date(Date.now() - 3600e3).toISOString(), place,
-        marks: { gate: false, safety: false }, gate_stage: "in-work", data_lane: "internal", href: { to: "/packages/$id", id: packageId, hash: "runs" }, ...extra });
+        marks: { gate: false, safety: false }, gate_stage: "in-work", data_lane: "internal", run_status: "running", href: { to: "/packages/$id", id: packageId, hash: "runs" }, ...extra });
       return r.fulfill(json({ figures: [
         fig("R-1", "WP-0007", "needs", "your-office", "Pre-check passed. Review and accept.", { gate_stage: "accept", marks: { gate: true, safety: false } }),
         fig("R-2", "WP-0008", "working", "electrical", "Routing cable tray in Area 2"),

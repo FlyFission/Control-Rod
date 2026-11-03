@@ -3,10 +3,10 @@ import { STATE_INFO } from "../../components/StateMark.js";
 
 /**
  * Lenses (specification 13; plan task 4.8; OV-07). A lens recolours the same figures and never moves
- * one or changes a state shape. Its colour is drawn as a ring inside the figure's dark outline, so the
- * outline's dark border and light ring keep their contrast over any theme, and every lens colour is
- * checked against that dark border by the quality harness. Lens colours are the application's, never
- * a theme's. Lens scales are neutral greys (specification 17); the Status lens uses the state colours.
+ * one or changes a state shape: it recolours the state shape in the figure's mark chip, which nothing
+ * else on the figure covers, against the chip's opaque dark plate, so every lens colour is checked
+ * there by the quality harness. Lens colours are the application's, never a theme's. Lens scales are
+ * neutral greys (specification 17); the Status lens uses the state colours.
  */
 
 export type LensId = "status" | "gate" | "change" | "spend";
@@ -28,7 +28,7 @@ export interface Lens {
   value: (f: AgentFigure) => string;
 }
 
-/** Four greys, evenly spaced in luminance, each at least 4.5:1 against the dark outline (#0a0a0c). */
+/** Four greys, evenly spaced in luminance, each at least 4.5:1 against the dark plate (#0a0a0c). */
 const GREY = { brightest: "#f3f4f6", bright: "#c7ccd4", mid: "#9aa2ae", dim: "#7b8494" } as const;
 
 const GATE_STEPS: Record<AgentFigure["gate_stage"], LensScaleStep> = {
@@ -40,6 +40,13 @@ const GATE_STEPS: Record<AgentFigure["gate_stage"], LensScaleStep> = {
 };
 
 const STATES = ["working", "needs", "waiting", "stuck", "changed"] as const;
+
+/** The Change lens's step for a figure, from established evidence only. */
+export function changeStep(f: AgentFigure): "changed" | "unknown" | "current" {
+  if (f.marks.changed_input) return "changed";
+  if (f.unverified_inputs?.length || !f.current_inputs?.length) return "unknown";
+  return "current";
+}
 
 export const LENSES: readonly Lens[] = [
   {
@@ -59,12 +66,20 @@ export const LENSES: readonly Lens[] = [
   {
     id: "change",
     label: "Change",
+    // Current only where established: a pinned package input still at its pinned revision, and no
+    // input whose freshness is unknown. Anything not established is said to be unknown.
     scale: [
       { key: "changed", label: "An input changed", color: GREY.brightest },
-      { key: "current", label: "Inputs current", color: GREY.dim },
+      { key: "unknown", label: "Freshness unknown", color: GREY.mid },
+      { key: "current", label: "Inputs current as pinned", color: GREY.dim },
     ],
-    tint: (f) => (f.marks.changed_input ? GREY.brightest : GREY.dim),
-    value: (f) => (f.marks.changed_input ? `Input ${f.marks.changed_input} changed` : f.unverified_inputs?.length ? "Inputs current as far as recorded" : "Inputs current"),
+    tint: (f) => GREY[changeStep(f) === "changed" ? "brightest" : changeStep(f) === "unknown" ? "mid" : "dim"],
+    value: (f) => {
+      const step = changeStep(f);
+      if (step === "changed") return `Input ${f.marks.changed_input} changed`;
+      if (step === "unknown") return f.unverified_inputs?.length ? `Freshness unknown for ${f.unverified_inputs.join(", ")}` : "Freshness unknown: no package input revisions were pinned";
+      return `Inputs current as pinned (${f.current_inputs!.join(", ")})`;
+    },
   },
   {
     id: "spend",

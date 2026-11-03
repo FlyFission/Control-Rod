@@ -6,9 +6,10 @@ import type { AgentFigure } from "../../api/types.js";
 import { server } from "../../test/server.js";
 import { renderPage } from "../../test/render.js";
 import { REGION } from "./layout.js";
-import { LENSES, LENS_COLORS, lensById } from "./lenses.js";
+import { LENSES, LENS_COLORS, changeStep, lensById } from "./lenses.js";
 import { OfficeView } from "./OfficeView.js";
 import { seatFigures, shortCode } from "./seat.js";
+import { exceptionsView, portfolio } from "./exceptions.js";
 
 /** The office view: seating, lenses, presenting mode and the card (plan tasks 4.5 and 4.8; OV-01, OV-07). */
 
@@ -25,6 +26,7 @@ const figure = (over: Partial<AgentFigure> = {}): AgentFigure => ({
   marks: { gate: false, safety: false },
   gate_stage: "in-work",
   data_lane: "internal",
+  run_status: "running",
   href: { to: "/packages/$id", id: "WP-0001", hash: "runs" },
   ...over,
 });
@@ -61,6 +63,20 @@ describe("lenses", () => {
     for (const s of seatedBy) expect({ state: s.state, at: s.at, region: s.region }).toEqual({ state: "needs", at: REGION["your-office"].seats[0], region: "your-office" });
   });
 
+  it("calls inputs current under the Change lens only where that is established", () => {
+    const change = lensById("change");
+    const base = figure();
+    expect(changeStep(base)).toBe("unknown");
+    expect(change.value(base)).toBe("Freshness unknown: no package input revisions were pinned");
+    expect(changeStep(figure({ current_inputs: ["WP-3"] }))).toBe("current");
+    expect(change.value(figure({ current_inputs: ["WP-3"] }))).toBe("Inputs current as pinned (WP-3)");
+    // Mixed evidence: one input current, another unknown, is unknown.
+    expect(changeStep(figure({ current_inputs: ["WP-3"], unverified_inputs: ["WP-4"] }))).toBe("unknown");
+    expect(change.value(figure({ current_inputs: ["WP-3"], unverified_inputs: ["WP-4"] }))).toBe("Freshness unknown for WP-4");
+    expect(changeStep(figure({ current_inputs: ["WP-3"], marks: { gate: false, safety: false, changed_input: "WP-5" } }))).toBe("changed");
+    expect(new Set([base, figure({ current_inputs: ["WP-3"] }), figure({ marks: { gate: false, safety: false, changed_input: "WP-5" } })].map(change.tint)).size).toBe(3);
+  });
+
   it("offers Spend only once usage is recorded, and says so", () => {
     expect(lensById("spend").unavailable).toMatch(/5\.2/);
     expect(LENS_COLORS.length).toBeGreaterThan(5);
@@ -88,7 +104,7 @@ describe("office view", () => {
     expect(await screen.findByText(/1 agent waits on you; 2 more in the Inbox with no agent yet · 2 agents on the floor/)).toBeTruthy();
     const office = screen.getByRole("region", { name: /^Your office:/ });
     expect(office).toBeTruthy();
-    const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Pre-check passed. Review and accept. Status lens: Needs you." });
+    const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Pre-check passed. Review and accept. Marks: a gate decision waits, Safety grade. Status lens: Needs you." });
     await userEvent.click(needs);
     const card = screen.getByRole("complementary", { name: "Selected agent" });
     expect(within(card).getByText("Pre-check passed. Review and accept.")).toBeTruthy();
@@ -127,5 +143,47 @@ describe("office view", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.queryByText(/No agent is working right now/)).toBeNull();
     await waitFor(() => expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy());
+  });
+});
+
+describe("exceptions overlay and portfolio (OV-26)", () => {
+  const many = () => [
+    ...Array.from({ length: 45 }, (_, i) =>
+      figure({ id: `R-w${i}`, package_id: `WP-W${i}`, place: (["process", "mechanical", "electrical"] as const)[i % 3]!, project_id: i % 2 ? "plant-a" : "plant-b" }),
+    ),
+    figure({ id: "R-n", package_id: "WP-N", state: "needs", place: "your-office", cause: "Your signature", project_id: "plant-a" }),
+    figure({ id: "R-s", package_id: "WP-S", state: "stuck", place: "review", cause: "Run failed", project_id: "plant-b" }),
+    figure({ id: "R-g", package_id: "WP-G", marks: { gate: true, safety: false }, project_id: "plant-a" }),
+    figure({ id: "R-u", package_id: "WP-U", unverified_inputs: ["WP-9"], project_id: "plant-b" }),
+  ];
+
+  it("folds healthy work past forty agents and keeps every agent needing attention drawn", () => {
+    const v = exceptionsView(many(), false);
+    expect(v.active).toBe(true);
+    // An agent whose input freshness is unknown is not healthy: it stays drawn.
+    expect(v.shown.map((f) => f.id).sort()).toEqual(["R-g", "R-n", "R-s", "R-u"]);
+    expect(v.folded).toEqual([{ place: "process", count: 15 }, { place: "mechanical", count: 15 }, { place: "electrical", count: 15 }]);
+    expect(exceptionsView(many().slice(0, 40), false).active).toBe(false);
+    expect(exceptionsView(many(), true).shown).toHaveLength(49);
+  });
+
+  it("rolls the portfolio up per project, the ones needing attention first", () => {
+    expect(portfolio(many())).toEqual([
+      { project: "plant-a", agents: 24, needs: 1, stuck: 0 },
+      { project: "plant-b", agents: 25, needs: 0, stuck: 1 },
+    ]);
+  });
+
+  it("shows the folded counts and lets the viewer show everyone", async () => {
+    server.use(http.get("*/office/figures", () => HttpResponse.json({ figures: many(), needs_me: 1, inbox_items: 1, hidden: 0, generated_at: new Date().toISOString() })));
+    await renderPage(<OfficeView />);
+    const folded = await screen.findByRole("list", { name: "Healthy work folded" });
+    expect(within(folded).getByText("Process: 15 working")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^WP-N: Needs you/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^WP-W0: Working/ })).toBeNull();
+    expect(screen.getByRole("table", { name: "Portfolio" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Show everyone" }));
+    expect(screen.getByRole("button", { name: /^WP-W0: Working/ })).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Healthy work folded" })).toBeNull();
   });
 });

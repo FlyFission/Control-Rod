@@ -1,5 +1,5 @@
 import type { FigureState, StageFigure } from "./OfficeStage.js";
-import { CUBE_SETS, type Point, REGION, type RegionId } from "./layout.js";
+import { CUBE_SETS, type Point, REGION, REGIONS, type RegionId } from "./layout.js";
 
 /**
  * Deterministic figures for the quality harness (plan task 4.3): n agents spread over the five states
@@ -33,7 +33,9 @@ export function harnessFigures(n: number): StageFigure[] {
     const state = ORDER[i % ORDER.length]!;
     const at = place(HOME[state], used) ?? place(CUBE_SETS, used);
     if (!at) throw new Error(`the office has no place for figure ${i + 1}`);
-    out.push({ id: `f${i + 1}`, code: `WP-${101 + i}`, state, cause: CAUSES[state], region: at.region, at: at.point, body: i });
+    // Every combination of marks turns up on a 40 agent floor, all four together on every twelfth.
+    const marks = { gate: i % 3 === 0, changed: i % 4 === 0, ...(i % 6 === 0 ? { loop: 2 + (i % 2) } : {}), safety: i % 2 === 0 };
+    out.push({ id: `f${i + 1}`, code: `WP-${101 + i}`, state, cause: CAUSES[state], region: at.region, at: at.point, body: i, marks });
   }
   return out;
 }
@@ -51,3 +53,16 @@ function place(regions: readonly RegionId[], used: Set<string>): { region: Regio
   }
   return undefined;
 }
+
+/** One figure in every seat and queue place on the floor, states in turn: the floor at its fullest. */
+export function everyPlace(): StageFigure[] {
+  const out: StageFigure[] = [];
+  for (const r of REGIONS)
+    for (const p of [...r.seats, ...r.queue]) {
+      const i = out.length;
+      const state = ORDER[i % ORDER.length]!;
+      out.push({ id: `f${i + 1}`, code: `WP-${101 + i}`, state, cause: CAUSES[state], region: r.id, at: p, body: i });
+    }
+  return out;
+}
+

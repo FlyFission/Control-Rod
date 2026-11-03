@@ -322,6 +322,9 @@ model OfficeItem {
   title: string;
   detail: string;
   since: utcDateTime;
+
+  /** For a run a SCRAM holds: that SCRAM, so a view that must not show its reason knows these words carry it. */
+  scram_id?: string;
 }
 
 /** Where an item opens: a page, and for a package which one and which section. */
@@ -432,6 +435,12 @@ model AgentFigure {
   @maxLength(300)
   cause: string;
 
+  /**
+   * The recorded thing behind the cause (a SCRAM, a hold, an input revision, the dependencies
+   * awaited, or the run itself), so agents are grouped by what holds them, never by matching words.
+   */
+  cause_key: string;
+
   /** Who it waits on, by name, when waiting. */
   waiting_on?: string;
 
@@ -533,6 +542,21 @@ model AdminCommandInfo {
   need: string;
 }
 
+/**
+ * Step 1 of an administrative command: the subject it would change, and a passkey challenge over it.
+ * Step 2 sends the same payload with the signed assertion; the command runs only if it still matches.
+ */
+@route("/admin/commands/{name}/options")
+@post
+op adminCommandOptions(@path name: string, @body body: { payload?: Record<unknown> }): {
+  subject_digest: Digest;
+  options: Record<unknown>;
+} | Refused;
+
+@route("/admin/commands/{name}")
+@post
+op adminCommand(@path name: string, @body body: { payload?: Record<unknown>; assertion?: Record<unknown> }): Record<unknown> | Refused;
+
 /** Administration: who is here, what is in force, and every command with the viewer's standing. */
 @route("/admin")
 @get
@@ -560,19 +584,88 @@ model ScramQuarantineBatch {
   outputs: { name: string; @pattern("^[0-9a-f]{64}$") sha256: string }[];
 }
 
+/** When a SCRAM was pulled, and once every run it reached has stopped, how long that took. */
+model ScramTiming {
+  pulled_at?: utcDateTime;
+
+  /** Present once every run in scope has stopped: the stop latency (OV-12). */
+  stopped?: {
+    @minValue(0) ms_to_stop: int32;
+    @minValue(0) runs: int32;
+    at: utcDateTime;
+  };
+}
+
+/** A SCRAM as presenting mode shows it: that it holds and over what, never its reason or runs. */
+model ScramPresented {
+  id: string;
+  org_id: string;
+  scope: "organization" | "project";
+  project_id?: string;
+  drill?: boolean;
+}
+
+/**
+ * The SCRAMs in force in the viewer's organization (not yet restarted for their whole scope).
+ * Presenting, each is a ScramPresented.
+ */
+@route("/scrams")
+@get
+op scrams(@query presenting?: boolean): {
+  scrams: {
+    scram: ScramEvent | ScramPresented;
+
+    /** How many runs it stopped where they stood. */
+    @minValue(0) run_count: int32;
+
+    ...ScramTiming;
+  }[];
+  presenting?: boolean;
+} | ApiError;
+
+/**
+ * What pulling SCRAM with this scope would stop now, by the pull's own selection: the runs running
+ * (stopped where they stand) and queued (held). The pull selects again when it fires.
+ * Presenting, only the counts.
+ */
+@route("/scrams/preview")
+@get
+op scramPreview(@query scope: "organization" | "project", @query project_id?: string, @query presenting?: boolean): {
+  scope: "organization" | "project";
+  project_id?: string;
+  @minValue(0) running_count: int32;
+  @minValue(0) queued_count: int32;
+
+  /** The runs themselves; left out when presenting, where they would name restricted work. */
+  running?: string[];
+  queued?: string[];
+  presenting?: boolean;
+  counted_at: utcDateTime;
+} | ApiError;
+
 /** A SCRAM, the runs it stopped with their quarantine and reviews, and its restarts. */
 @route("/scrams/{id}")
 @get
 op scram(@path id: string): {
+  ...ScramTiming;
   scram: ScramEvent;
   runs: {
     run_id: string;
+    role: RunRole;
+
+    /** What the run worked on: a package, or a capture for intake. */
+    subject: "package" | "capture";
+    subject_id: string;
+    discipline?: string;
     status: RunStatus;
     outcome_unknown: boolean;
     batches: ScramQuarantineBatch[];
     reviews: QuarantineReview[];
   }[];
   restarts: ScramRestart[];
+
+  /** Every package the SCRAM reaches, so a staged restart names one it holds; lifted once a restart covers it. */
+  packages: { id: string; title: string; discipline?: string; lifted: boolean }[];
 } | ApiError;
 
 /** Runs that are queued or running, across every package, for the floor and board. */

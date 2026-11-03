@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -9,7 +9,7 @@ import { REGION } from "./layout.js";
 import { LENSES, LENS_COLORS, changeStep, lensById } from "./lenses.js";
 import { OfficeView } from "./OfficeView.js";
 import { seatFigures, shortCode } from "./seat.js";
-import { exceptionsView, portfolio } from "./exceptions.js";
+import { causeGroups, exceptionsView, portfolio } from "./exceptions.js";
 
 /** The office view: seating, lenses, presenting mode and the card (plan tasks 4.5 and 4.8; OV-01, OV-07). */
 
@@ -29,6 +29,8 @@ const figure = (over: Partial<AgentFigure> = {}): AgentFigure => ({
   run_status: "running",
   href: { to: "/packages/$id", id: "WP-0001", hash: "runs" },
   ...over,
+  // A cause of its own unless a test gives it a shared one.
+  cause_key: over.cause_key ?? `run:${over.id ?? "R-1"}`,
 });
 
 describe("seating", () => {
@@ -44,6 +46,12 @@ describe("seating", () => {
     // Two more than the room and its queue hold: listed, never drawn on top of each other.
     expect(overflow.map((f) => f.id)).toEqual(["R-10", "R-11"]);
     expect(new Set(seated.map((f) => `${f.at.x},${f.at.y}`)).size).toBe(seated.length);
+  });
+
+  it("leaves empty cube sets and rooms empty: a figure stands only in its own place (OV-26)", () => {
+    const { seated } = seatFigures([figure({ id: "R-a", place: "process" }), figure({ id: "R-b", package_id: "WP-B", place: "review", state: "stuck" })], () => "#fff");
+    expect(new Set(seated.map((f) => f.region))).toEqual(new Set(["process", "review"]));
+    for (const f of seated) expect(REGION[f.region].seats.concat(REGION[f.region].queue)).toContainEqual(f.at);
   });
 
   it("shortens long codes for the plate and keeps the full id for the name", () => {
@@ -84,6 +92,7 @@ describe("lenses", () => {
 });
 
 describe("office view", () => {
+  beforeEach(() => server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] }))));
   it("shows the figures, what waits on the viewer, and a card that says why (OV-01, OV-02)", async () => {
     server.use(
       http.get("*/office/figures", () =>
@@ -147,6 +156,7 @@ describe("office view", () => {
 });
 
 describe("exceptions overlay and portfolio (OV-26)", () => {
+  beforeEach(() => server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] }))));
   const many = () => [
     ...Array.from({ length: 45 }, (_, i) =>
       figure({ id: `R-w${i}`, package_id: `WP-W${i}`, place: (["process", "mechanical", "electrical"] as const)[i % 3]!, project_id: i % 2 ? "plant-a" : "plant-b" }),
@@ -187,3 +197,62 @@ describe("exceptions overlay and portfolio (OV-26)", () => {
     expect(screen.queryByRole("list", { name: "Healthy work folded" })).toBeNull();
   });
 });
+
+describe("SCRAM while presenting", () => {
+  it("keeps SCRAM at hand, but its count names no runs and asks the control plane for counts only", async () => {
+    const asked: string[] = [];
+    server.use(
+      http.get("*/scrams", () => HttpResponse.json({ scrams: [] })),
+      http.get("*/office/figures", () => HttpResponse.json({ figures: [figure()], needs_me: 0, inbox_items: 0, hidden: 2, generated_at: new Date().toISOString() })),
+      http.get("*/admin", () => HttpResponse.json({ projects: [] })),
+      http.get("*/scrams/preview", ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return HttpResponse.json({ scope: "organization", running_count: 3, queued_count: 1, presenting: true, counted_at: new Date().toISOString() });
+      }),
+    );
+    await renderPage(<OfficeView />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Presenting mode" }));
+    await user.click(screen.getByRole("button", { name: "SCRAM" }));
+    const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
+    expect(await within(dialog).findByText(/3 runs running now stop, and 1 queued run is held\./)).toBeTruthy();
+    expect(asked.every((q) => q.includes("presenting=true"))).toBe(true);
+    expect(within(dialog).queryByText("Which runs")).toBeNull();
+    expect(within(dialog).getByText("Which runs is not shown while presenting.")).toBeTruthy();
+  });
+});
+
+describe("shared causes (OV-03)", () => {
+  beforeEach(() => server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] }))));
+  const held = (i: number) =>
+    figure({ id: `R-h${i}`, package_id: `WP-H${i}`, state: "waiting", place: "interface", cause: "Author run waits for WP-PUMP to be accepted", cause_key: "deps:author:WP-PUMP", waiting_on: "the work it depends on (WP-PUMP)", since: new Date(Date.now() - (2 * 24 + i) * 3600e3).toISOString() });
+
+  it("groups agents held by the same recorded cause into one chip, and never groups one", () => {
+    const five = [0, 1, 2, 3, 4].map(held);
+    const groups = causeGroups([...five, figure({ id: "R-lone", state: "stuck", cause: "Run failed" }), figure()]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({ state: "waiting", cause: "Author run waits for WP-PUMP to be accepted", waiting_on: "the work it depends on (WP-PUMP)" });
+    expect(groups[0]!.figures).toHaveLength(5);
+    expect(groups[0]!.since).toBe(five[4]!.since);
+  });
+
+  it("groups by the recorded cause, never by matching words: two unrelated failures that read alike stay apart", () => {
+    const failed = (id: string) => figure({ id, package_id: `WP-${id}`, state: "stuck", place: "review", cause: "Author run failed" });
+    expect(causeGroups([failed("R-x"), failed("R-y")])).toEqual([]);
+    // The same recorded hold groups even when one cause was clipped differently.
+    const hold = (id: string, cause: string) => figure({ id, package_id: `WP-${id}`, state: "waiting", place: "interface", cause, cause_key: "hold:lane\u0000Lane held\u0000someone with lane authority", waiting_on: "someone with lane authority" });
+    const groups = causeGroups([hold("R-p", "Lane held"), hold("R-q", "Lane held")]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.figures.map((f) => f.id)).toEqual(["R-p", "R-q"]);
+  });
+
+  it("shows the chip with its input, owner, age and count, and opens to list the agents", async () => {
+    server.use(http.get("*/office/figures", () => HttpResponse.json({ figures: [0, 1, 2, 3, 4].map(held), needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })));
+    await renderPage(<OfficeView />);
+    const chip = await screen.findByRole("button", { name: /^5 waiting: Author run waits for WP-PUMP to be accepted, waiting on the work it depends on \(WP-PUMP\), for 2 days$/ });
+    await userEvent.click(chip);
+    const list = within(screen.getByRole("region", { name: "Shared causes" })).getAllByRole("button", { name: /^WP-H\d: / });
+    expect(list).toHaveLength(5);
+  });
+});
+

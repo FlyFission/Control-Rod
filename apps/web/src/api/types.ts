@@ -21,6 +21,49 @@ export type VerificationRecord = S["ControlRod.Records.VerificationRecord"];
 export type Finding = S["ControlRod.Records.Finding"];
 export type OfficeItem = S["OfficeItem"];
 export type AgentFigure = S["AgentFigure"];
+export type ScramEvent = S["ControlRod.Records.ScramEvent"];
+export type QuarantineReview = S["ControlRod.Records.QuarantineReview"];
+export type ScramRestart = S["ControlRod.Records.ScramRestart"];
+export type ScramQuarantineBatch = S["ScramQuarantineBatch"];
+/** When a SCRAM was pulled and, once every run it reached has stopped, how long that took. */
+export interface ScramTiming {
+  pulled_at?: string;
+  stopped?: { ms_to_stop: number; runs: number; at: string };
+}
+export type ScramPresented = S["ScramPresented"];
+export interface ScramSummary extends ScramTiming {
+  /** Presenting, only that it holds and over what (ScramPresented): never its reason or runs. */
+  scram: ScramEvent | ScramPresented;
+  run_count: number;
+}
+/** What pulling SCRAM with a scope would stop now, by the pull's own selection. */
+export interface ScramPreview {
+  scope: "organization" | "project";
+  project_id?: string;
+  running_count: number;
+  queued_count: number;
+  /** Left out when presenting, where they would name restricted work. */
+  running?: string[];
+  queued?: string[];
+  presenting?: boolean;
+  counted_at: string;
+}
+export interface ScramDetail extends ScramTiming {
+  scram: ScramEvent;
+  runs: {
+    run_id: string;
+    role: Run["role"];
+    subject: "package" | "capture";
+    subject_id: string;
+    discipline?: string;
+    status: Run["status"];
+    outcome_unknown: boolean;
+    batches: ScramQuarantineBatch[];
+    reviews: QuarantineReview[];
+  }[];
+  restarts: ScramRestart[];
+  packages: { id: string; title: string; discipline?: string; lifted: boolean }[];
+}
 export interface OfficeFloor {
   figures: AgentFigure[];
   needs_me: number;

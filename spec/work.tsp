@@ -130,6 +130,14 @@ model Run {
   /** The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it). */
   waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
 
+  /**
+   * What the hold waits on, where one decision resolves it for every run that names it: a lane's
+   * admission, or a runtime pin for a role and the runtimes it was offered. Absent when the hold is
+   * the run's own (a preparation, an unclassified source, an independence conflict, a SCRAM).
+   */
+  @maxLength(300)
+  waiting_key?: string;
+
   /** The owner let this pre-check run on the author's runtime. Recorded before it ran. */
   independence_override?: OwnerOverride;
 

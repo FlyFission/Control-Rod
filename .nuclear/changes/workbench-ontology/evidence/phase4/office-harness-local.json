@@ -61,7 +61,7 @@
   "harness-bright/frames": {
     "frames": 120,
     "p95Ms": 16.8,
-    "eventToScreenMs": 9,
+    "eventToScreenMs": 10,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
@@ -170,7 +170,7 @@
   },
   "standard-office/frames": {
     "frames": 120,
-    "p95Ms": 16.8,
+    "p95Ms": 16.7,
     "eventToScreenMs": 10,
     "machine": {
       "browser": "chromium 156.0.8078.4",

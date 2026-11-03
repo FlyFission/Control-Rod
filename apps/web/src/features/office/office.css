@@ -381,4 +381,107 @@
   margin: 0;
   flex-basis: 100%;
 }
+.btn.danger {
+  border-color: var(--stuck);
+  color: var(--stuck);
+}
+/* A native modal dialog: the page behind it is inert and focus stays inside. */
+.office-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+.office-dialog[open] {
+  display: grid;
+}
+.office-dialog {
+  gap: 10px;
+  color: inherit;
+  width: min(560px, calc(100vw - 32px));
+  padding: 18px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.office-dialog h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.office-dialog fieldset {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.office-dialog-actions {
+  display: flex;
+  gap: 8px;
+}
+.office-scram-scope {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--stuck);
+}
+.office-scram {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--stuck);
+  border-radius: 8px;
+}
+.office-scram-item p {
+  margin: 0 0 6px;
+}
+.office-scram-detail ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.office-scram-form {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
+}
+.office-scram-form fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.office-causes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.office-cause ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+/* A radio or checkbox and its words, on one line. */
+.office-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.office-choice input {
+  flex: none;
+  width: auto;
+  margin: 0;
+}
 
+.office-scram-batches {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.office-scram-batches code {
+  word-break: break-all;
+}
+.office-scram-new {
+  padding: 6px 8px;
+  border-left: 3px solid var(--stuck);
+}

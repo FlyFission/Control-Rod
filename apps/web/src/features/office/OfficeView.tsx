@@ -16,6 +16,15 @@ import { seatFigures } from "./seat.js";
  * selected figure. Every state and cause comes from GET /office/figures; nothing here guesses.
  */
 
+/** What waits on the viewer: agents in Your office, and anything else in the Inbox with no agent yet. */
+function countLine(needsMe: number, inboxItems: number): string {
+  const rest = Math.max(0, inboxItems - needsMe);
+  const agents = needsMe === 0 ? "" : `${needsMe} ${needsMe === 1 ? "agent waits" : "agents wait"} on you`;
+  const more = rest === 0 ? "" : `${rest} more in the Inbox with no agent yet`;
+  if (!agents && !more) return "Nothing waits on you";
+  return [agents, more].filter(Boolean).join("; ");
+}
+
 const HOUR = 3600e3;
 function howLong(since: string, now: number): string {
   const ms = Math.max(0, now - Date.parse(since));
@@ -32,7 +41,7 @@ export function OfficeView() {
   const q = useQuery({ queryKey: ["office-figures", presenting], queryFn: () => api.officeFigures(presenting), refetchInterval: 30_000 });
   const active = lensById(lens);
   const floor = q.data;
-  const { seated, overflow } = useMemo(() => (floor ? seatFigures(floor.figures, active.tint) : { seated: [], overflow: [] }), [floor, active]);
+  const { seated, overflow } = useMemo(() => (floor ? seatFigures(floor.figures, active.tint, active.unavailable ? undefined : active) : { seated: [], overflow: [] }), [floor, active]);
   const open = floor?.figures.find((f) => f.id === selected);
 
   return (
@@ -42,7 +51,7 @@ export function OfficeView() {
           <h1 id="office-title">Office</h1>
           {floor && (
             <p className="office-count" aria-live="polite">
-              {floor.needs_me === 0 ? "Nothing waits on you" : `${floor.needs_me} ${floor.needs_me === 1 ? "waits" : "wait"} on you`}
+              {countLine(floor.needs_me, floor.inbox_items)}
               {" · "}
               {floor.figures.length} {floor.figures.length === 1 ? "agent" : "agents"} on the floor
             </p>
@@ -123,14 +132,14 @@ export function OfficeView() {
               </div>
             )}
           </div>
-          <FigureCard figure={open} />
+          <FigureCard figure={open} lens={active.unavailable ? undefined : `${active.label} lens: ${open ? active.value(open) : ""}`} />
         </div>
       )}
     </section>
   );
 }
 
-function FigureCard({ figure: f }: { figure: AgentFigure | undefined }) {
+function FigureCard({ figure: f, lens }: { figure: AgentFigure | undefined; lens: string | undefined }) {
   if (!f)
     return (
       <aside className="office-card" aria-label="Selected agent">
@@ -164,10 +173,20 @@ function FigureCard({ figure: f }: { figure: AgentFigure | undefined }) {
           ))}
         </ul>
       )}
+      {lens && <p className="small">{lens}</p>}
+      {f.unverified_inputs && f.unverified_inputs.length > 0 && (
+        <p className="muted small">Freshness unknown for {f.unverified_inputs.join(", ")}: no preparation pinned the revision it used.</p>
+      )}
       {f.observability && <p className="muted small">This runtime cannot report permission waits: {f.observability}.</p>}
-      <Link to="/packages/$id" params={{ id: f.package_id }} {...(f.href.hash ? { hash: f.href.hash } : {})} className="btn small">
-        Open the package
-      </Link>
+      {f.href.to === "/packages/$id" ? (
+        <Link to="/packages/$id" params={{ id: f.package_id }} {...(f.href.hash ? { hash: f.href.hash } : {})} className="btn small">
+          Open the package
+        </Link>
+      ) : (
+        <Link to="/packages" className="btn small">
+          Open captures and packages
+        </Link>
+      )}
     </aside>
   );
 }

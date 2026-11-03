@@ -24,6 +24,8 @@ export interface Lens {
   unavailable?: string;
   scale: readonly LensScaleStep[];
   tint: (f: AgentFigure) => string;
+  /** The same value in words, for the figure's accessible name and the card: colour is never the only signal. */
+  value: (f: AgentFigure) => string;
 }
 
 /** Four greys, evenly spaced in luminance, each at least 4.5:1 against the dark outline (#0a0a0c). */
@@ -45,12 +47,14 @@ export const LENSES: readonly Lens[] = [
     label: "Status",
     scale: STATES.map((s) => ({ key: s, label: STATE_INFO[s].label, color: STATE_INFO[s].color })),
     tint: (f) => STATE_INFO[f.state].color,
+    value: (f) => STATE_INFO[f.state].label,
   },
   {
     id: "gate",
     label: "Gate",
     scale: (["release", "in-work", "pre-check", "accept"] as const).map((k) => GATE_STEPS[k]),
     tint: (f) => GATE_STEPS[f.gate_stage].color,
+    value: (f) => GATE_STEPS[f.gate_stage].label,
   },
   {
     id: "change",
@@ -60,6 +64,7 @@ export const LENSES: readonly Lens[] = [
       { key: "current", label: "Inputs current", color: GREY.dim },
     ],
     tint: (f) => (f.marks.changed_input ? GREY.brightest : GREY.dim),
+    value: (f) => (f.marks.changed_input ? `Input ${f.marks.changed_input} changed` : f.unverified_inputs?.length ? "Inputs current as far as recorded" : "Inputs current"),
   },
   {
     id: "spend",
@@ -67,6 +72,7 @@ export const LENSES: readonly Lens[] = [
     unavailable: "Spend arrives with usage metering (plan task 5.2); nothing is recorded to show yet.",
     scale: [],
     tint: () => "transparent",
+    value: () => "Not recorded yet",
   },
 ];
 

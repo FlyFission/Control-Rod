@@ -59,6 +59,33 @@ async function seed() {
   await pkg("WP-FIG-CHANGED", "in-work", { discipline: "structural", depends_on: [{ package_id: "WP-FIG-DEP", reason: "Uses its loads" }] }, 4);
   await run("R-fig-changed", "WP-FIG-CHANGED", "running", { started_at: ago(0.3) });
   await pkg("WP-FIG-DEP", "draft", { title: "Revised loads" }, 1, 1);
+  // The dependent's preparation pinned the dependency at revision 0, the baseline for "changed".
+  await h.admin.query(
+    `insert into preparation_snapshots (preparation_id, revision, package_id, package_revision, content_digest, requirements_digest, body, created_at)
+     values ('PREP-FIG-CHANGED', 0, 'WP-FIG-CHANGED', 0, $1, $1, $2, now())`,
+    ["f".repeat(64), { basis: [{ kind: "package", reference: "package:WP-FIG-DEP", revision: "0", digest: { algorithm: "sha256", value: "0".repeat(64) } }] }],
+  );
+  await h.admin.query("insert into preparation_heads (package_id, preparation_id, revision) values ('WP-FIG-CHANGED', 'PREP-FIG-CHANGED', 0)");
+  // A dependent with no preparation: the dependency's freshness is unknown, never claimed changed.
+  await pkg("WP-FIG-UNPINNED", "in-work", { discipline: "civil", depends_on: [{ package_id: "WP-FIG-DEP", reason: "Uses its loads" }] }, 4);
+  await run("R-fig-unpinned", "WP-FIG-UNPINNED", "running", { started_at: ago(0.3) });
+  // A queued run held back because its dependency is not accepted: not a runtime wait.
+  await pkg("WP-FIG-BLOCKED", "released", { discipline: "civil", depends_on: [{ package_id: "WP-FIG-DEP", reason: "Needs its loads" }] }, 3);
+  await run("R-fig-blocked", "WP-FIG-BLOCKED", "queued");
+  // Work stated internal in its body but raised to restricted by its marking.
+  await pkg("WP-FIG-RAISED", "in-work", { discipline: "civil", title: "Raised later" });
+  await run("R-fig-raised", "WP-FIG-RAISED", "running", { started_at: ago(0.1) });
+  const v = (await h.admin.query("select coalesce(max(version), 0) + 1 as v from object_markings where object_kind = 'package' and object_id = 'WP-FIG-RAISED'")).rows[0].v;
+  await h.admin.query("insert into object_markings (body) values ($1)", [{ object_kind: "package", object_id: "WP-FIG-RAISED", version: v, lane: "internal", effective_lane: "restricted" }]);
+  // A failed run the viewer may rule on: a dispute in Your office (OV-05).
+  await pkg("WP-FIG-FAILED", "in-work", { discipline: "electrical" });
+  await run("R-fig-failed", "WP-FIG-FAILED", "failed", { finished_at: ago(0.5), error: "the pump curve file is missing" });
+  // An intake agent on a capture, before any package exists.
+  await h.admin.query("insert into captures (id, body, created_at) values ('CAP-FIG', $1, now())", [{ id: "CAP-FIG", text: "Size the cooling water pumps\nfor the new skid" }]);
+  await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ('R-fig-intake', 'CAP-FIG', 0, 'intake', 1, 'queued', $1)",
+    [{ schema_version: "0.1.0", id: "R-fig-intake", package_id: "CAP-FIG", package_revision: 0, role: "intake", agent_baseline: "intake-claude",
+      runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "queued", queued_at: ago(0.4), generation: 1,
+      waiting_reason: "No runtime version is pinned for intake; an administrator pins one", waiting_cause: "runtime-pin" }]);
   // Settled work and work no agent has touched are not figures.
   await pkg("WP-FIG-DONE", "accepted");
   await run("R-fig-done", "WP-FIG-DONE", "succeeded", { finished_at: ago(1) });
@@ -73,11 +100,15 @@ describe("office figures", () => {
     const work = figure(floor, "WP-FIG-WORK");
     expect(work).toMatchObject({ state: "working", place: "mechanical", cause: "Drafting the line sizing calculation", role: "author", title: "Line sizing" });
     expect(figure(floor, "WP-FIG-QUEUED")).toMatchObject({ state: "waiting", place: "bench", waiting_on: "a runtime", cause: "Author run queued for a runtime" });
-    const lost = figure(floor, "WP-FIG-LOST");
-    expect(lost).toMatchObject({ state: "stuck", place: "review" });
-    expect(lost.cause).toMatch(/outcome is unknown/);
+    expect(figure(floor, "WP-FIG-LOST").cause).toMatch(/outcome is unknown/);
     const changed = figure(floor, "WP-FIG-CHANGED");
-    expect(changed).toMatchObject({ state: "changed", place: "civil", cause: "Input WP-FIG-DEP moved to revision 1 after this revision was prepared", marks: { changed_input: "WP-FIG-DEP" } });
+    expect(changed).toMatchObject({ state: "changed", place: "civil", cause: "Input WP-FIG-DEP moved to revision 1 after the preparation pinned it", marks: { changed_input: "WP-FIG-DEP" } });
+    // Without a pinned baseline the input's freshness is said to be unknown, never guessed changed.
+    const unpinned = figure(floor, "WP-FIG-UNPINNED");
+    expect(unpinned).toMatchObject({ state: "working", unverified_inputs: ["WP-FIG-DEP"] });
+    expect(unpinned.marks.changed_input).toBeUndefined();
+    // Held back by a dependency not yet accepted, which is not a wait for a runtime.
+    expect(figure(floor, "WP-FIG-BLOCKED")).toMatchObject({ state: "waiting", place: "interface", cause: "Author run waits for WP-FIG-DEP to be accepted" });
     // Every figure says why, and when the state began.
     for (const f of floor.figures) {
       expect(f.cause.length).toBeGreaterThan(0);
@@ -91,13 +122,24 @@ describe("office figures", () => {
     const mine = await get("/office/figures");
     expect(figure(mine, "WP-FIG-HOLD")).toMatchObject({ state: "needs", place: "your-office", cause: "Its sources are proprietary; a lane holder must admit the run" });
     expect(mine.needs_me).toBe(mine.figures.filter((f: Json) => f.place === "your-office").length);
-    expect(mine.needs_me).toBe(1);
+    // A failed run the viewer may requeue or rule on is a dispute in Your office (OV-05), counted.
+    expect(figure(mine, "WP-FIG-FAILED")).toMatchObject({ state: "needs", place: "your-office" });
+    expect(figure(mine, "WP-FIG-FAILED").cause).toMatch(/pump curve file is missing/);
+    // The lost run the viewer may reconcile is theirs too.
+    expect(figure(mine, "WP-FIG-LOST")).toMatchObject({ state: "needs", place: "your-office" });
+    expect(mine.needs_me).toBe(4);
+    // An intake agent on a capture is on the floor too, routed like the Inbox routes its hold.
+    expect(figure(mine, "CAP-FIG")).toMatchObject({ role: "intake", state: "needs", place: "your-office", title: "Intake: Size the cooling water pumps", cause: "No runtime version is pinned for intake; an administrator pins one" });
+    // The Inbox holds the drafts too, which have no agent: the floor reports both.
+    expect(mine.inbox_items).toBeGreaterThan(mine.needs_me);
     // Someone with no lane authority sees the same agent waiting on another, by name, never in their office.
     const theirs = await get("/office/figures", await aliceCookie());
     const hold = figure(theirs, "WP-FIG-HOLD");
     expect(hold).toMatchObject({ state: "waiting", place: "interface" });
     expect(hold.waiting_on).toMatch(/lane/);
-    expect(theirs.needs_me).toBe(0);
+    // Only what is theirs to act on: any member may requeue a failed run, so that dispute is in their office too.
+    expect(theirs.figures.filter((f: Json) => f.place === "your-office").map((f: Json) => f.package_id)).toEqual(["WP-FIG-FAILED"]);
+    expect(theirs.needs_me).toBe(1);
     // A lost run they may not reconcile is still ruled on in Review, and says who may.
     expect(figure(theirs, "WP-FIG-LOST")).toMatchObject({ state: "stuck", place: "review", waiting_on: expect.stringMatching(/^someone who is/) });
   });
@@ -114,11 +156,15 @@ describe("office figures", () => {
   });
 
   it("leaves restricted work out of presenting mode entirely and only counts it (OV-07)", async () => {
-    expect(figure(await get("/office/figures"), "WP-FIG-SECRET")).toBeDefined();
+    const all = await get("/office/figures");
+    expect(figure(all, "WP-FIG-SECRET")).toBeDefined();
+    // The effective lane comes from the current marking, not the lane the signed body states.
+    expect(figure(all, "WP-FIG-RAISED").data_lane).toBe("restricted");
     const presenting = await get("/office/figures?presenting=true");
     expect(figure(presenting, "WP-FIG-SECRET")).toBeUndefined();
-    expect(presenting.hidden).toBe(1);
-    expect(JSON.stringify(presenting)).not.toContain("WP-FIG-SECRET");
+    expect(figure(presenting, "WP-FIG-RAISED")).toBeUndefined();
+    expect(presenting.hidden).toBeGreaterThanOrEqual(2);
+    for (const leaked of ["WP-FIG-SECRET", "WP-FIG-RAISED", "Raised later"]) expect(JSON.stringify(presenting)).not.toContain(leaked);
   });
 
   it("maps a discipline to its cube set by its words, and says when it had to default", () => {
@@ -130,5 +176,21 @@ describe("office figures", () => {
     expect(cubeFor("process piping")).toEqual({ place: "mechanical", defaulted: false });
     expect(cubeFor(undefined)).toEqual({ place: "process", defaulted: true });
     expect(cubeFor("bespoke")).toEqual({ place: "process", defaulted: true });
+  });
+
+  it("puts work an active SCRAM holds in Quarantine above everything else, even a finished run", async () => {
+    await pkg("WP-FIG-HELD", "in-verification", { discipline: "mechanical" });
+    await run("R-fig-held", "WP-FIG-HELD", "succeeded", { finished_at: ago(0.2) }, "pre-check");
+    const payload = { scope: "organization", reason: "Bad prompt shipped to every agent" };
+    const o = await h.app.inject({ method: "POST", url: "/admin/commands/scram.pull/options", headers: { cookie, origin: ORIGIN }, payload: { payload } });
+    expect(o.statusCode, o.body).toBe(200);
+    const pulled = await h.app.inject({ method: "POST", url: "/admin/commands/scram.pull", headers: { cookie, origin: ORIGIN }, payload: { payload, assertion: key.assert(o.json().options) } });
+    expect(pulled.statusCode, pulled.body).toBe(200);
+    const floor = await get("/office/figures");
+    const held = figure(floor, "WP-FIG-HELD");
+    expect(held).toMatchObject({ state: "stuck", place: "quarantine" });
+    expect(held.cause).toMatch(/^Held by SCRAM scr_.+: Bad prompt shipped to every agent$/);
+    // Every agent the SCRAM reaches stands in Quarantine, whatever it was doing.
+    expect(figure(floor, "WP-FIG-WORK")).toMatchObject({ state: "stuck", place: "quarantine" });
   });
 });

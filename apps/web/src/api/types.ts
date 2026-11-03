@@ -20,6 +20,13 @@ export type DecisionRequest = S["Packages.DecisionRequest"];
 export type VerificationRecord = S["ControlRod.Records.VerificationRecord"];
 export type Finding = S["ControlRod.Records.Finding"];
 export type OfficeItem = S["OfficeItem"];
+export type AgentFigure = S["AgentFigure"];
+export interface OfficeFloor {
+  figures: AgentFigure[];
+  needs_me: number;
+  hidden: number;
+  generated_at: string;
+}
 export type CrEvent = S["ControlRod.Records.Event"];
 export type Metrics = S["Metrics"];
 export type ApiErrorBody = S["ApiError"];

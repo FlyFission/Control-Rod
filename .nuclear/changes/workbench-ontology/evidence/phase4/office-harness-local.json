@@ -5,7 +5,8 @@
       "code": 40,
       "mark": 40,
       "outline": 40,
-      "body": 40
+      "body": 40,
+      "tint": 0
     },
     "shapes": {
       "working": "{\"shape\":\"circle\",\"size\":13,\"mismatch\":0.08,\"margin\":0.11}",
@@ -15,6 +16,7 @@
       "changed": "{\"shape\":\"triangle\",\"size\":11,\"mismatch\":0.1,\"margin\":0.36}"
     },
     "worstTextRatio": 12.65,
+    "worstTintRatio": null,
     "worstInkPerChar": 14.6,
     "fewestGlyphInk": 4,
     "worstMarkRatio": 7.71,
@@ -39,6 +41,20 @@
       "name": 12,
       "label": 11,
       "code": 10
+    }
+  },
+  "harness-bright/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.18
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.18
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.18
     }
   },
   "harness-bright/motion": {
@@ -66,7 +82,8 @@
       "code": 40,
       "mark": 40,
       "outline": 40,
-      "body": 40
+      "body": 40,
+      "tint": 0
     },
     "shapes": {
       "working": "{\"shape\":\"circle\",\"size\":13,\"mismatch\":0.08,\"margin\":0.11}",
@@ -76,6 +93,7 @@
       "changed": "{\"shape\":\"triangle\",\"size\":11,\"mismatch\":0.1,\"margin\":0.36}"
     },
     "worstTextRatio": 11.8,
+    "worstTintRatio": null,
     "worstInkPerChar": 15,
     "fewestGlyphInk": 4,
     "worstMarkRatio": 7.71,
@@ -86,7 +104,7 @@
   },
   "standard-office/frames": {
     "frames": 120,
-    "p95Ms": 16.8,
+    "p95Ms": 16.7,
     "eventToScreenMs": 11,
     "machine": {
       "browser": "chromium 156.0.8078.4",
@@ -100,6 +118,20 @@
       "name": 12,
       "label": 11,
       "code": 10
+    }
+  },
+  "standard-office/lenses": {
+    "status": {
+      "worstTintRatio": 7.71,
+      "worstEdgeRatio": 4.15
+    },
+    "gate": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
+    },
+    "change": {
+      "worstTintRatio": 5.25,
+      "worstEdgeRatio": 4.15
     }
   },
   "standard-office/motion": {

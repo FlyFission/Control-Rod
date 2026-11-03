@@ -938,6 +938,70 @@
         }
       }
     },
+    "/office/figures": {
+      "get": {
+        "operationId": "officeFigures",
+        "description": "The office floor for the viewing person. In presenting mode, work above the internal lane is left\nout of the response entirely and only counted.",
+        "parameters": [
+          {
+            "name": "presenting",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "figures": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AgentFigure"
+                          }
+                        },
+                        "needs_me": {
+                          "type": "integer",
+                          "format": "int32",
+                          "description": "How many figures stand in Your office: the viewer's own (OV-01)."
+                        },
+                        "hidden": {
+                          "type": "integer",
+                          "format": "int32",
+                          "description": "Figures left out because presenting mode hides lanes above internal."
+                        },
+                        "generated_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "figures",
+                        "needs_me",
+                        "hidden",
+                        "generated_at"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages": {
       "get": {
         "operationId": "Packages_list",
@@ -4638,6 +4702,124 @@
           }
         },
         "description": "An administrative command and what it needs (specification 10.2)."
+      },
+      "AgentFigure": {
+        "type": "object",
+        "required": [
+          "id",
+          "package_id",
+          "package_revision",
+          "title",
+          "role",
+          "state",
+          "cause",
+          "since",
+          "place",
+          "marks",
+          "gate_stage",
+          "data_lane",
+          "href"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The run the figure stands for."
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "title": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunRole"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "working",
+              "needs",
+              "waiting",
+              "stuck",
+              "changed"
+            ],
+            "description": "The five states (OV-02); each always carries a cause."
+          },
+          "cause": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why, in words: what it is doing, what you must decide, who it waits on, what blocks it, which input changed."
+          },
+          "waiting_on": {
+            "type": "string",
+            "description": "Who it waits on, by name, when waiting."
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the present state began, so a reader sees how long."
+          },
+          "place": {
+            "$ref": "#/components/schemas/FigurePlace"
+          },
+          "place_defaulted": {
+            "type": "boolean",
+            "description": "True when the discipline is unset or unmapped, so the figure stands in Process by default."
+          },
+          "marks": {
+            "type": "object",
+            "properties": {
+              "gate": {
+                "type": "boolean",
+                "description": "A gate decision (release or accept) waits on this package."
+              },
+              "changed_input": {
+                "type": "string",
+                "description": "The input that changed, when one did."
+              },
+              "loop": {
+                "type": "integer",
+                "format": "int32",
+                "description": "The run's round, when past the first."
+              },
+              "safety": {
+                "type": "boolean",
+                "description": "Safety grade work."
+              }
+            },
+            "required": [
+              "gate",
+              "safety"
+            ],
+            "description": "At most these marks besides the state shape (OV-06)."
+          },
+          "gate_stage": {
+            "type": "string",
+            "enum": [
+              "release",
+              "in-work",
+              "pre-check",
+              "accept",
+              "settled"
+            ],
+            "description": "The nearest gate, for the Gate lens."
+          },
+          "observability": {
+            "type": "string",
+            "description": "Recorded once a permission wait cannot be observed for this runtime (print mode, plan task 2.9)."
+          },
+          "data_lane": {
+            "$ref": "#/components/schemas/ControlRod.Records.DataLane"
+          },
+          "href": {
+            "$ref": "#/components/schemas/AttentionTarget"
+          }
+        },
+        "description": "One agent on the office floor (AgentFigure, specification 13 and 18; plan task 4.6), projected only\nfrom recorded data: the package, its latest run at the current revision, what the Inbox routes to\nthe viewer, SCRAM holds and recorded dependencies. Never guessed from terminal output."
       },
       "ApiError": {
         "type": "object",
@@ -8461,6 +8643,25 @@
           }
         },
         "description": "A line of the \"since you last looked\" digest, in words."
+      },
+      "FigurePlace": {
+        "type": "string",
+        "enum": [
+          "process",
+          "mechanical",
+          "electrical",
+          "civil",
+          "assurance",
+          "project-controls",
+          "review",
+          "interface",
+          "verification",
+          "your-office",
+          "document-control",
+          "bench",
+          "quarantine"
+        ],
+        "description": "Where a figure stands in the office (specification 13): a discipline's cube set, or a room."
       },
       "Health": {
         "type": "object",

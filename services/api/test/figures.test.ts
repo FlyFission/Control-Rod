@@ -1,0 +1,134 @@
+import { readFileSync } from "node:fs";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { parse } from "yaml";
+import { cubeFor } from "../src/figures.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, registerWithInvitation, signIn, startHarness } from "./harness.js";
+
+/** The AgentFigure projection behind the office view (plan task 4.6; specification 13; OV-01, OV-02, OV-07). */
+let h: Harness;
+let cookie: string;
+const key = new VirtualAuthenticator();
+const example = parse(readFileSync(new URL("../../../spec/examples/work-package.hvac-load-calc.yaml", import.meta.url), "utf8"));
+type Json = Record<string, any>;
+const ago = (hours: number) => new Date(Date.now() - hours * 3600e3).toISOString();
+
+beforeAll(async () => {
+  h = await startHarness();
+  cookie = await signIn(h.app, key);
+  await seed();
+}, 120_000);
+afterAll(async () => h?.stop());
+
+const get = async (url: string, as = cookie) => (await h.app.inject({ method: "GET", url, headers: { cookie: as } })).json();
+let alice: string | undefined;
+async function aliceCookie() {
+  if (alice) return alice;
+  const payload = { user_name: "alice" };
+  const o = await h.app.inject({ method: "POST", url: "/admin/commands/member.enroll/options", headers: { cookie, origin: ORIGIN }, payload: { payload } });
+  const r = await h.app.inject({ method: "POST", url: "/admin/commands/member.enroll", headers: { cookie, origin: ORIGIN }, payload: { payload, assertion: key.assert(o.json().options) } });
+  expect(r.statusCode, r.body).toBe(200);
+  alice = await registerWithInvitation(h.app, r.json().invitation.token, new VirtualAuthenticator());
+  return alice;
+}
+
+async function pkg(id: string, status: string, over: Json = {}, createdHoursAgo = 2, revision = 0) {
+  await h.admin.query("insert into packages (id, revision, status, body, created_at) values ($1, $2, $3, $4, $5)",
+    [id, revision, status, { ...example, id, revision, status, data_lane: "internal", design_inputs: [], ...over }, ago(createdHoursAgo)]);
+}
+async function run(id: string, packageId: string, status: string, over: Json = {}, role = "author", round = 1) {
+  const body = { schema_version: "0.1.0", id, package_id: packageId, package_revision: 0, role, agent_baseline: "author-claude",
+    runtime: { kind: "local", provider: "claude", model: "any" }, round, status, queued_at: ago(1), generation: 1, ...over };
+  await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, $3, $4, $5, $6)", [id, packageId, role, round, status, body]);
+}
+
+async function seed() {
+  await pkg("WP-FIG-WORK", "in-work", { discipline: "mechanical-hvac", title: "Line sizing" });
+  await run("R-fig-work", "WP-FIG-WORK", "running", { started_at: ago(0.5), label: "Drafting the line sizing calculation" });
+  await pkg("WP-FIG-HOLD", "in-work", { discipline: "electrical" });
+  await run("R-fig-hold", "WP-FIG-HOLD", "queued", { waiting_reason: "Its sources are proprietary; a lane holder must admit the run", waiting_cause: "lane" });
+  await pkg("WP-FIG-LOST", "in-work", { discipline: "civil" });
+  await run("R-fig-lost", "WP-FIG-LOST", "lost", { finished_at: ago(3), outcome_unknown: { since: ago(3), reason: "the daemon stopped renewing the lease" } });
+  await pkg("WP-FIG-QUEUED", "in-work", { discipline: "process piping" });
+  await run("R-fig-queued", "WP-FIG-QUEUED", "queued");
+  await pkg("WP-FIG-CHECK", "in-verification", { grade: "safety" });
+  await run("R-fig-check", "WP-FIG-CHECK", "running", { started_at: ago(0.2), permission_waits: "not-observable" }, "pre-check", 2);
+  await pkg("WP-FIG-SECRET", "in-work", { data_lane: "restricted", discipline: "civil" });
+  await run("R-fig-secret", "WP-FIG-SECRET", "running", { started_at: ago(0.1) });
+  // A dependency whose target is revised after the dependent revision was made.
+  await pkg("WP-FIG-DEP", "draft", {}, 5);
+  await pkg("WP-FIG-CHANGED", "in-work", { discipline: "structural", depends_on: [{ package_id: "WP-FIG-DEP", reason: "Uses its loads" }] }, 4);
+  await run("R-fig-changed", "WP-FIG-CHANGED", "running", { started_at: ago(0.3) });
+  await pkg("WP-FIG-DEP", "draft", { title: "Revised loads" }, 1, 1);
+  // Settled work and work no agent has touched are not figures.
+  await pkg("WP-FIG-DONE", "accepted");
+  await run("R-fig-done", "WP-FIG-DONE", "succeeded", { finished_at: ago(1) });
+  await pkg("WP-FIG-DRAFT", "draft");
+}
+
+const figure = (floor: Json, packageId: string) => floor.figures.find((f: Json) => f.package_id === packageId);
+
+describe("office figures", () => {
+  it("projects each state with its cause and place from recorded data (OV-02)", async () => {
+    const floor = await get("/office/figures");
+    const work = figure(floor, "WP-FIG-WORK");
+    expect(work).toMatchObject({ state: "working", place: "mechanical", cause: "Drafting the line sizing calculation", role: "author", title: "Line sizing" });
+    expect(figure(floor, "WP-FIG-QUEUED")).toMatchObject({ state: "waiting", place: "bench", waiting_on: "a runtime", cause: "Author run queued for a runtime" });
+    const lost = figure(floor, "WP-FIG-LOST");
+    expect(lost).toMatchObject({ state: "stuck", place: "review" });
+    expect(lost.cause).toMatch(/outcome is unknown/);
+    const changed = figure(floor, "WP-FIG-CHANGED");
+    expect(changed).toMatchObject({ state: "changed", place: "civil", cause: "Input WP-FIG-DEP moved to revision 1 after this revision was prepared", marks: { changed_input: "WP-FIG-DEP" } });
+    // Every figure says why, and when the state began.
+    for (const f of floor.figures) {
+      expect(f.cause.length).toBeGreaterThan(0);
+      expect(Number.isNaN(Date.parse(f.since))).toBe(false);
+    }
+    expect(figure(floor, "WP-FIG-DONE")).toBeUndefined();
+    expect(figure(floor, "WP-FIG-DRAFT")).toBeUndefined();
+  });
+
+  it("puts what waits on the viewer in Your office and counts only that (OV-01)", async () => {
+    const mine = await get("/office/figures");
+    expect(figure(mine, "WP-FIG-HOLD")).toMatchObject({ state: "needs", place: "your-office", cause: "Its sources are proprietary; a lane holder must admit the run" });
+    expect(mine.needs_me).toBe(mine.figures.filter((f: Json) => f.place === "your-office").length);
+    expect(mine.needs_me).toBe(1);
+    // Someone with no lane authority sees the same agent waiting on another, by name, never in their office.
+    const theirs = await get("/office/figures", await aliceCookie());
+    const hold = figure(theirs, "WP-FIG-HOLD");
+    expect(hold).toMatchObject({ state: "waiting", place: "interface" });
+    expect(hold.waiting_on).toMatch(/lane/);
+    expect(theirs.needs_me).toBe(0);
+    // A lost run they may not reconcile is still ruled on in Review, and says who may.
+    expect(figure(theirs, "WP-FIG-LOST")).toMatchObject({ state: "stuck", place: "review", waiting_on: expect.stringMatching(/^someone who is/) });
+  });
+
+  it("carries the marks, the gate stage and what a print mode run cannot report (OV-06)", async () => {
+    const floor = await get("/office/figures");
+    const check = figure(floor, "WP-FIG-CHECK");
+    expect(check).toMatchObject({ state: "working", place: "verification", gate_stage: "pre-check", marks: { gate: false, loop: 2, safety: true },
+      observability: "permission waits not observable in print mode" });
+    // It stands in Verification, not a defaulted cube, so it carries no default flag.
+    expect(check.place_defaulted).toBeUndefined();
+    expect(figure(floor, "WP-FIG-WORK").marks).toEqual({ gate: false, safety: false });
+    expect(figure(floor, "WP-FIG-WORK").gate_stage).toBe("in-work");
+  });
+
+  it("leaves restricted work out of presenting mode entirely and only counts it (OV-07)", async () => {
+    expect(figure(await get("/office/figures"), "WP-FIG-SECRET")).toBeDefined();
+    const presenting = await get("/office/figures?presenting=true");
+    expect(figure(presenting, "WP-FIG-SECRET")).toBeUndefined();
+    expect(presenting.hidden).toBe(1);
+    expect(JSON.stringify(presenting)).not.toContain("WP-FIG-SECRET");
+  });
+
+  it("maps a discipline to its cube set by its words, and says when it had to default", () => {
+    expect(cubeFor("mechanical-hvac")).toEqual({ place: "mechanical", defaulted: false });
+    expect(cubeFor("Instrumentation and controls")).toEqual({ place: "electrical", defaulted: false });
+    expect(cubeFor("structural")).toEqual({ place: "civil", defaulted: false });
+    expect(cubeFor("quality assurance")).toEqual({ place: "assurance", defaulted: false });
+    expect(cubeFor("project controls")).toEqual({ place: "project-controls", defaulted: false });
+    expect(cubeFor("process piping")).toEqual({ place: "mechanical", defaulted: false });
+    expect(cubeFor(undefined)).toEqual({ place: "process", defaulted: true });
+    expect(cubeFor("bespoke")).toEqual({ place: "process", defaulted: true });
+  });
+});

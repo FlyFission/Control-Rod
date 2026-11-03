@@ -25,6 +25,7 @@ import { loadValidator } from "./schemas.js";
 import { REASONS, teach } from "./refusals.js";
 import { personVerificationSubject, recordPersonVerification } from "./person-verification.js";
 import { inbox } from "./inbox.js";
+import { officeFigures } from "./figures.js";
 import { scramView } from "./scram.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
@@ -507,6 +508,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await person(req);
     await sweep();
     return office(db);
+  });
+  /** The office floor for the viewer: one AgentFigure per agent, from recorded data only (plan task 4.6). */
+  app.get<{ Querystring: { presenting?: string } }>("/office/figures", async (req) => {
+    const user = await person(req);
+    await sweep();
+    return officeFigures(db, cfg, user, req.query.presenting === "true");
   });
   /** A SCRAM, its stopped runs and every quarantine batch with digests, for the people reviewing it. */
   app.get<{ Params: { id: string } }>("/scrams/:id", async (req) => {

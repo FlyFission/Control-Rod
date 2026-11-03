@@ -21,6 +21,8 @@ const RESULT_WORDS: Record<SealCheck["result"], string> = {
   "head-missing": "Not valid: the event it names is missing",
   unrecorded: "Not valid: the chain does not record this seal as it stands",
   "key-revoked": "Not valid: made with a passkey already revoked",
+  "not-enrolled": "Not valid: the passkey was not enrolled to the signer before the seal",
+  "key-changed": "Not valid: the signer's retained key is not the one recorded with the seal",
   "subject-mismatch": "Not valid: what is recorded is not what was signed",
   "key-unknown": "Not valid: the signer's passkey is not known",
   "signature-invalid": "Not valid: the signature does not check",
@@ -229,7 +231,9 @@ function Proof() {
         className="office-scram-form"
         onSubmit={(e) => {
           e.preventDefault();
-          setAsked(id.trim());
+          // The same package asked again is proven again: a seal made since may now cover it.
+          if (id.trim() === asked) void q.refetch();
+          else setAsked(id.trim());
         }}
       >
         <label className="field">

@@ -6,7 +6,7 @@ import { type InclusionBundle, verifyInclusion } from "../src/seals.js";
 import { currentCredential, recordCredential } from "../src/tenancy.js";
 import { recordObject } from "../src/workbench.js";
 import { appendEvent } from "../src/events.js";
-import { sealChallenge, sealSubject } from "../src/seals.js";
+import { keyDigest, sealChallenge, sealSubject } from "../src/seals.js";
 
 /** Chain seals and inclusion proofs (workbench plan task 5.3; specification 11.6, WB-20). */
 let h: Harness;
@@ -34,6 +34,8 @@ async function seal(purpose = "End of day") {
   return signed("chain.seal", { head_seq: head.head_seq, head_digest: head.head_digest.value, purpose, sealed_at: new Date().toISOString() });
 }
 const verify = async () => (await get("/records/verify")).json();
+/** The digest of the signed-in Member's retained passkey, as a seal's recording event names it. */
+const realKey = async () => keyDigest((await h.db.query<{ k: Buffer }>("select public_key as k from credentials limit 1")).rows[0]!.k);
 const eventCount = async () => (await h.db.query<{ n: number }>("select count(*)::int as n from events")).rows[0]!.n;
 
 async function pkg(id: string) {
@@ -105,7 +107,7 @@ describe("sealing the chain", () => {
         await c.query("begin");
         const body = change(structuredClone({ ...real, id }));
         await recordObject(c, "chain_seal", body as never, { kind: "system", id: "test" });
-        if (withEvent) await appendEvent(c, "chain.sealed", id, { kind: "system", id: "test" }, { head_seq: body.payload.head_seq, seal_digest: digest(body) });
+        if (withEvent) await appendEvent(c, "chain.sealed", id, { kind: "system", id: "test" }, { head_seq: body.payload.head_seq, seal_digest: digest(body), key_digest: await realKey() });
         await c.query("commit");
       } finally {
         c.release();
@@ -144,7 +146,10 @@ describe("inclusion proofs", () => {
     expect(b.seal.id).toBe(covering.json().id);
     // The whole chain from its first event, ending at the seal's head: nothing earlier left out.
     expect(b.segment[0]!.seq).toBe(1);
-    expect(b.segment.at(-1)!.seq).toBe(covering.json().payload.head_seq);
+    // Through the seal's own recording event, so its head and its record are both inside.
+    const recorded = (await h.db.query<{ seq: number }>("select seq from events where body->>'type' = 'chain.sealed' and body->>'subject' = $1", [b.seal.id])).rows[0]!.seq;
+    expect(b.segment.at(-1)!.seq).toBe(recorded);
+    expect(recorded).toBeGreaterThan(covering.json().payload.head_seq);
     expect(b.seal_evidence).toMatchObject({ rp_id: "localhost" });
     expect(b).toMatchObject({ witnessed: false, statement: "Local chain, not witnessed" });
     // The package's events are derived from the chain, never taken from a list.
@@ -163,24 +168,60 @@ describe("inclusion proofs", () => {
     expect((await edit((x) => (x.segment[3].data = { note: "edited" }))).ok).toBe(false);
     expect((await edit((x) => x.segment.splice(2, 1))).problem).toBe("event 3 is missing from the segment");
     expect((await edit((x) => x.segment.shift())).ok).toBe(false);
-    expect(await edit((x) => (x.package_id = "WP-SOMETHING-ELSE"))).toMatchObject({ ok: false, problem: "the segment records nothing of WP-SOMETHING-ELSE" });
-    expect((await edit((x) => (x.seal.payload.head_digest.value = "f".repeat(64)))).problem).toBe("the segment does not end at the seal's head");
-    expect((await edit((x) => (x.seal.payload.purpose = "Another purpose"))).problem).toBe("the seal's subject is not what its payload signs");
-    // A fabricated seal over the same head, subject recomputed, with another signature.
-    expect((await edit((x) => {
-      x.seal.payload.purpose = "Fabricated";
-      x.seal.subject_digest.value = sealSubject(x.seal.payload.signer_id, x.seal.payload.org_id,
-        { head_seq: x.seal.payload.head_seq, head_digest: x.seal.payload.head_digest.value, purpose: "Fabricated", sealed_at: x.seal.payload.sealed_at });
-    })).problem).toBe("the seal's signature does not check");
+    expect(await edit((x) => (x.package_id = "WP-SOMETHING-ELSE"))).toMatchObject({ ok: false, problem: "the segment records nothing of WP-SOMETHING-ELSE itself" });
+    expect((await edit((x) => (x.seal.payload.head_digest.value = "f".repeat(64)))).problem).toBe("the seal's head is not in the segment as it signed it");
+    // A changed seal no longer matches the seal its recording event names.
+    expect((await edit((x) => (x.seal.payload.purpose = "Another purpose"))).problem).toBe("the segment does not record this seal as it stands");
+    // A forger holding only the bundle can recompute every digest, since none needs a secret; only the
+    // passkey signature then stands between them and a fabricated seal.
+    const { digest } = await import("../src/kernel.js");
+    const { eventDigest } = await import("../src/events.js");
+    const rechain = (x: Json, change: (seal: Json) => void) => {
+      change(x.seal);
+      const record = x.segment.find((e: Json) => e.type === "chain.sealed" && e.subject === x.seal.id);
+      record.data.seal_digest = digest(x.seal);
+      for (let i = record.seq - 1; i < x.segment.length; i++) {
+        const e = x.segment[i];
+        if (i > 0) e.prev = { algorithm: "sha256", value: x.segment[i - 1].digest.value };
+        const { digest: _d, ...rest } = e;
+        e.digest = { algorithm: "sha256", value: eventDigest(rest) };
+      }
+    };
+    expect((await edit((x) => rechain(x, (seal) => (seal.payload.purpose = "Another purpose")))).problem).toBe("the seal's subject is not what its payload signs");
+    expect((await edit((x) => rechain(x, (seal) => {
+      seal.payload.purpose = "Fabricated";
+      seal.subject_digest.value = sealSubject(seal.payload.signer_id, seal.payload.org_id,
+        { head_seq: seal.payload.head_seq, head_digest: seal.payload.head_digest.value, purpose: "Fabricated", sealed_at: seal.payload.sealed_at });
+    }))).problem).toBe("the seal's signature does not check");
     expect((await edit((x) => delete x.seal_evidence)).problem).toBe("the bundle does not carry what checking the seal's signature needs");
+    // Another key, with a signature made by it, would still have to be the key recorded with the seal.
+    expect((await edit((x) => (x.seal_evidence.public_key = Buffer.from("not the key").toString("base64url")))).problem).toBe("the key the bundle carries is not the one recorded with the seal");
+    // Cut back to the seal's head: its recording event is gone.
+    expect((await edit((x) => (x.segment = x.segment.slice(0, x.seal.payload.head_seq)))).problem).toBe("the segment does not record this seal as it stands");
+  });
+
+  it("refuses a package the chain names only through run announcements, and runs announced for two packages", async () => {
+    const { packageEvents } = await import("../src/seals.js");
+    const ev = (seq: number, type: string, subject: string, data?: Json) => ({ seq, at: "", type, subject, actor: { kind: "system", id: "t" }, ...(data ? { data } : {}), digest: { algorithm: "sha256" as const, value: "" } });
+    const runsOnly = [ev(1, "run.queued", "R-1", { package: "WP-GHOST" }), ev(2, "run.started", "R-1", { package: "WP-GHOST" })];
+    expect(packageEvents(runsOnly as never, "WP-GHOST")).toEqual({ events: [], problem: "the segment records nothing of WP-GHOST itself" });
+    const conflicting = [ev(1, "package.noted", "WP-A"), ev(2, "package.noted", "WP-B"), ev(3, "run.queued", "R-1", { package: "WP-A" }), ev(4, "run.started", "R-1", { package: "WP-B" })];
+    expect(packageEvents(conflicting as never, "WP-B")).toEqual({ events: [], problem: "run R-1 is announced for WP-A and then for WP-B" });
+    expect(packageEvents([ev(1, "package.noted", "WP-A"), ev(2, "run.queued", "R-1", { package: "WP-A" })] as never, "WP-A")).toEqual({ events: [1, 2] });
   });
 
   it("says when no seal covers a package's events yet, running the chain to its head", async () => {
     await pkg("WP-PROOF-2");
+    // Something else happens after, so the package's own event is not the chain's last.
+    await pkg("WP-PROOF-2-LATER");
     const p = await proof("WP-PROOF-2");
     expect(p).toMatchObject({ ok: true, check: { ok: true, authenticated: false } });
     expect(p.bundle.seal).toBeNull();
     expect(p.bundle.segment.at(-1).seq).toBe((await get("/records/head")).json().head.head_seq);
+    // Unsealed, the segment must end at the head the bundle states: a cut tail is found out.
+    const cut = structuredClone(p.bundle);
+    cut.segment.pop();
+    expect((await verifyInclusion(cut)).problem).toBe("the segment does not end at the head the bundle states");
     expect((await get("/packages/WP-NO-SUCH/proof")).statusCode).toBe(404);
   });
 });
@@ -225,13 +266,27 @@ describe("key history", () => {
     try {
       await c.query("begin");
       await recordObject(c, "chain_seal", body as never, { kind: "system", id: "test" });
-      await appendEvent(c, "chain.sealed", body.id, { kind: "system", id: "test" }, { head_seq: req.head_seq, seal_digest: digest(body) });
+      await appendEvent(c, "chain.sealed", body.id, { kind: "system", id: "test" }, { head_seq: req.head_seq, seal_digest: digest(body), key_digest: await realKey() });
       await c.query("commit");
     } finally {
       c.release();
     }
     const results = Object.fromEntries((await verify()).seals.map((x: Json) => [x.id, x.result]));
     expect(results["seal_afterrevoke"]).toBe("key-revoked");
+  });
+});
+
+describe("a substituted key", () => {
+  it("makes every seal recorded with the old key read as changed", async () => {
+    const { id, original } = (await h.db.query<{ id: string; original: Buffer }>("select id, public_key as original from credentials limit 1")).rows[0]!;
+    await h.admin.query("update credentials set public_key = $2 where id = $1", [id, Buffer.from("a substituted key")]);
+    const real = (await verify()).seals.filter((x: Json) => !x.id.startsWith("seal_forged") && x.id !== "seal_afterrevoke");
+    expect(real.length).toBeGreaterThan(0);
+    expect(real.map((x: Json) => x.result)).toEqual(real.map(() => "key-changed"));
+    // Put back, the key is the recorded one again and the seals verify.
+    await h.admin.query("update credentials set public_key = $2 where id = $1", [id, original]);
+    const again = (await verify()).seals.filter((x: Json) => !x.id.startsWith("seal_forged") && x.id !== "seal_afterrevoke");
+    expect(again.map((x: Json) => x.result)).toEqual(again.map(() => "valid"));
   });
 });
 

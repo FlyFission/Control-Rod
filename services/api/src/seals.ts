@@ -33,6 +33,9 @@ const SEAL_CLOCK_SKEW_MS = 5 * 60_000;
 
 const idFor = () => `seal_${randomUUID().replaceAll("-", "").slice(0, 20)}`;
 
+/** The digest of a retained public key, as a seal's recording event names it. */
+export const keyDigest = (publicKey: Buffer | Uint8Array) => createHash("sha256").update(publicKey).digest("hex");
+
 /** The administrative payload a Member signs to seal: what the screen showed, nothing more. */
 export interface SealRequest { head_seq: number; head_digest: string; purpose: string; sealed_at: string }
 
@@ -67,6 +70,8 @@ export async function sealChain(c: Tx, orgId: string, memberId: string, p: Json,
   if (purpose !== p.purpose) throw new Refusal(400, "invalid", "purpose must not start or end with spaces");
   const head = (await c.query<{ digest: string }>("select digest from events where seq = $1", [headSeq])).rows[0];
   if (!head) throw new Refusal(404, "not-found", `There is no event ${headSeq}`);
+  const key = (await c.query<{ public_key: Buffer }>("select public_key from credentials where id = $1", [signed.assertion.credential_id])).rows[0];
+  if (!key) throw new Refusal(403, "signature-revoked", "The passkey that signed this is not known");
   if (head.digest !== headDigest) throw new Refusal(409, "head-mismatch", `Event ${headSeq} does not have the digest you saw`);
   const seal = {
     id: idFor(), org_id: orgId,
@@ -76,13 +81,13 @@ export async function sealChain(c: Tx, orgId: string, memberId: string, p: Json,
     assertion: signed.assertion,
   };
   await recordObject(c, "chain_seal", seal as never, actor);
-  // The seal's own digest goes into the chain, so a seal row nothing recorded, or one changed since,
-  // is found out, and the event's place fixes when the seal was made.
-  await appendEvent(c, "chain.sealed", seal.id, actor, { head_seq: headSeq, head_digest: headDigest, purpose, seal_digest: digest(seal) });
+  // The seal's own digest and its signer's key digest go into the chain: a seal row nothing recorded,
+  // one changed since, or a key swapped since is found out, and the event's place fixes when it was made.
+  await appendEvent(c, "chain.sealed", seal.id, actor, { head_seq: headSeq, head_digest: headDigest, purpose, seal_digest: digest(seal), key_digest: keyDigest(key.public_key) });
   return seal;
 }
 
-type SealCheck = "valid" | "head-mismatch" | "head-missing" | "unrecorded" | "subject-mismatch" | "key-unknown" | "key-revoked" | "signature-invalid";
+type SealCheck = "valid" | "head-mismatch" | "head-missing" | "unrecorded" | "subject-mismatch" | "key-unknown" | "not-enrolled" | "key-changed" | "key-revoked" | "signature-invalid";
 
 /** Everything needed to check a seal's passkey signature away from this database. */
 export interface SealEvidence {
@@ -116,39 +121,47 @@ export async function checkSealSignature(seal: Json, ev: SealEvidence): Promise<
   }
 }
 
-/** The signer's retained key, if the credential is the signer's. */
-async function signerKey(q: Db | Tx, auth: AuthConfig, seal: Json): Promise<SealEvidence | null> {
-  const cred = (await q.query<{ public_key: Buffer }>(
-    `select c.public_key from credentials c join members m on m.user_name = c.user_name where c.id = $1 and m.id = $2`,
-    [seal.assertion.credential_id, seal.payload.signer_id])).rows[0];
-  return cred ? { public_key: Buffer.from(cred.public_key).toString("base64url"), rp_id: auth.rpID, origins: auth.origins } : null;
+/**
+ * The retained key of the seal's credential, bound to its signer by the credential's own record
+ * (member and organization), never by a user name.
+ */
+async function signerKey(q: Db | Tx, auth: AuthConfig, seal: Json): Promise<(SealEvidence & { record_id: string }) | null> {
+  const r = (await q.query<{ record_id: string; public_key: Buffer }>(
+    `select a.id as record_id, c.public_key from authenticator_credentials a join credentials c on c.id = a.credential_id
+      where a.credential_id = $1 and a.member_id = $2 and a.org_id = $3 order by a.version limit 1`,
+    [seal.assertion.credential_id, seal.payload.signer_id, seal.payload.org_id])).rows[0];
+  return r ? { record_id: r.record_id, public_key: Buffer.from(r.public_key).toString("base64url"), rp_id: auth.rpID, origins: auth.origins } : null;
 }
 
 /**
- * Checks one seal against the chain: its head is the event it names; the chain recorded it (a
- * chain.sealed event carrying this seal's digest); its passkey was not revoked before that event; and
- * its subject and signature hold against the signer's retained key. A revoked key keeps the seals it
- * made before revocation valid, and makes none after.
+ * Checks one seal against the chain: its head is the event it names; the chain recorded it after that
+ * head (a chain.sealed event carrying this seal's digest and its key's digest); the passkey was
+ * enrolled to the signer, in the seal's organization, before that event, and not revoked before it;
+ * the retained key is still the one recorded; and its subject and signature hold against that key.
+ * A revoked passkey keeps the seals it made before revocation valid, and makes none after.
  */
 async function checkSeal(q: Db | Tx, auth: AuthConfig, seal: Json): Promise<{ result: SealCheck; recorded_seq?: number }> {
   const p = seal.payload;
   const head = (await q.query<{ digest: string }>("select digest from events where seq = $1", [p.head_seq])).rows[0];
   if (!head) return { result: "head-missing" };
   if (head.digest !== p.head_digest.value) return { result: "head-mismatch" };
-  const recorded = (await q.query<{ seq: number }>(
-    "select seq from events where body->>'type' = 'chain.sealed' and body->>'subject' = $1 and body->'data'->>'seal_digest' = $2 order by seq limit 1",
+  const recorded = (await q.query<{ seq: number; key: string | null }>(
+    "select seq, body->'data'->>'key_digest' as key from events where body->>'type' = 'chain.sealed' and body->>'subject' = $1 and body->'data'->>'seal_digest' = $2 order by seq limit 1",
     [seal.id, digest(seal)])).rows[0];
   if (!recorded || recorded.seq <= p.head_seq) return { result: "unrecorded" };
   const key = await signerKey(q, auth, seal);
   if (!key) return { result: "key-unknown", recorded_seq: recorded.seq };
-  // Where the chain first recorded a revoked version of this passkey: every credential version is
-  // recorded with its digest, whichever path revoked it.
-  const revoked = (await q.query<{ seq: number | null }>(
-    `select min(e.seq)::int as seq from events e
-       join authenticator_credentials a on a.digest = e.body->'data'->>'digest'
-      where e.body->>'type' = 'authenticator-credential.recorded' and e.body->>'subject' = a.id
-        and a.credential_id = $1 and (a.body->>'revoked')::boolean is true`, [seal.assertion.credential_id])).rows[0]?.seq;
-  if (revoked != null && revoked < recorded.seq) return { result: "key-revoked", recorded_seq: recorded.seq };
+  // Every version of the credential's record is recorded in the chain with its digest: the first
+  // usable one must come before the seal, and no revoked one may.
+  const history = (await q.query<{ first_ok: number | null; first_revoked: number | null }>(
+    `select min(e.seq) filter (where coalesce((a.body->>'revoked')::boolean, false) is false)::int as first_ok,
+            min(e.seq) filter (where (a.body->>'revoked')::boolean is true)::int as first_revoked
+       from events e join authenticator_credentials a on a.digest = e.body->'data'->>'digest' and a.id = e.body->>'subject'
+      where e.body->>'type' = 'authenticator-credential.recorded' and a.id = $1 and a.member_id = $2 and a.org_id = $3`,
+    [key.record_id, p.signer_id, p.org_id])).rows[0]!;
+  if (history.first_ok == null || history.first_ok > recorded.seq) return { result: "not-enrolled", recorded_seq: recorded.seq };
+  if (history.first_revoked != null && history.first_revoked < recorded.seq) return { result: "key-revoked", recorded_seq: recorded.seq };
+  if (recorded.key !== keyDigest(Buffer.from(key.public_key, "base64url"))) return { result: "key-changed", recorded_seq: recorded.seq };
   return { result: await checkSealSignature(seal, key), recorded_seq: recorded.seq };
 }
 
@@ -190,52 +203,80 @@ export async function chainHead(db: Db) {
 
 export interface InclusionBundle {
   package_id: string;
-  /** The chain from its first event through the covering head, as recorded: nothing before is left out. */
+  /**
+   * The chain from its first event: through the covering seal's recording event when sealed (so the
+   * seal's head and its record are both inside), or through the chain head when unsealed.
+   */
   segment: EventRecord[];
   /** The first valid seal covering the package's last event, or null when none does yet. */
   seal: Json | null;
   /** What checking the seal's signature needs, away from this database. Absent with no seal. */
   seal_evidence?: SealEvidence;
+  /** Unsealed: the chain head when the bundle was made, which the segment must end at. Unauthenticated. */
+  head?: { seq: number; digest: string };
   witnessed: false;
   statement: string;
 }
 
-/** The runs of a package, as the chain itself announced them (run.queued and run.started name the package). */
-function packageRuns(segment: EventRecord[], packageId: string): Set<string> {
-  return new Set(segment.filter((e) => (e.type === "run.queued" || e.type === "run.started") && e.data?.package === packageId).map((e) => e.subject));
+/**
+ * The runs of a package as the chain announced them (run.queued and run.started name the package).
+ * The first announcement binds a run; a later one naming another package is a conflict.
+ */
+function packageRuns(segment: EventRecord[], packageId: string): { runs: Set<string>; conflict?: string } {
+  const owner = new Map<string, string>();
+  for (const e of segment) {
+    if (e.type !== "run.queued" && e.type !== "run.started") continue;
+    const pkg = typeof e.data?.package === "string" ? e.data.package : undefined;
+    if (!pkg) continue;
+    const was = owner.get(e.subject);
+    if (was !== undefined && was !== pkg) return { runs: new Set(), conflict: `run ${e.subject} is announced for ${was} and then for ${pkg}` };
+    owner.set(e.subject, pkg);
+  }
+  return { runs: new Set([...owner].filter(([, p]) => p === packageId).map(([r]) => r)) };
 }
 
 /** The package's events in a segment: its own, and its runs'. Derived from the chain, never from a list. */
-export function packageEvents(segment: EventRecord[], packageId: string): number[] {
-  const runs = packageRuns(segment, packageId);
-  return segment.filter((e) => e.subject === packageId || runs.has(e.subject)).map((e) => e.seq);
+export function packageEvents(segment: EventRecord[], packageId: string): { events: number[]; problem?: string } {
+  const { runs, conflict } = packageRuns(segment, packageId);
+  if (conflict) return { events: [], problem: conflict };
+  // A package exists in the chain only through events of its own; runs alone never make one.
+  if (!segment.some((e) => e.subject === packageId)) return { events: [], problem: `the segment records nothing of ${packageId} itself` };
+  return { events: segment.filter((e) => e.subject === packageId || runs.has(e.subject)).map((e) => e.seq) };
 }
 
 /**
  * The inclusion proof of a package's events. The bundle carries the whole chain from its first event
- * through the head of the first valid seal covering the package's last event (or the chain head,
- * unsealed), so no earlier event can be left out, with that seal and what checking its signature
- * needs. Refused when the chain holds another organization's events, which a bundle would disclose.
+ * through the recording event of the first valid seal covering the package's last event (or through
+ * the chain head, unsealed), with that seal and what checking its signature needs.
+ *
+ * Disclosure: the bundle carries the same event records the Records page shows every Member of the
+ * organization (GET /events). An installation holding more than one organization shares one chain, so
+ * a bundle would carry others' events; export is refused there until per organization chains exist.
  */
 export async function inclusionProof(db: Db, auth: AuthConfig, orgId: string, packageId: string) {
   return readTx(db, async (c) => {
     const owner = (await c.query<{ org_id: string }>("select org_id from object_owners where object_kind = 'package' and object_id = $1", [packageId])).rows[0];
     if (!owner || owner.org_id !== orgId) throw new Refusal(404, "not-found", "No such package");
+    const orgs = (await c.query<{ n: number }>("select count(*)::int as n from organizations")).rows[0]!.n;
+    if (orgs !== 1) throw new Refusal(409, "mixed-scope", "This installation records more than one organization in one chain, so a proof from it cannot be exported yet");
     const report = await verifyOn(c, auth, orgId);
     const all = (await c.query<{ body: EventRecord }>("select body from events order by seq")).rows.map((r) => r.body);
     const mine = packageEvents(all, packageId);
-    if (!mine.length) throw new Refusal(404, "not-found", "This package has no recorded events");
-    const last = mine.at(-1)!;
+    if (!mine.events.length) throw new Refusal(404, "not-found", "This package has no recorded events");
+    const last = mine.events.at(-1)!;
     const covering = report.seals.filter((s) => s.result === "valid" && s.head_seq >= last).sort((a, b) => a.head_seq - b.head_seq)[0];
     const seal = covering ? (await c.query<{ body: Json }>("select body from chain_seals where id = $1", [covering.id])).rows[0]!.body : null;
-    const top = seal ? seal.payload.head_seq : all.at(-1)!.seq;
+    const recordedAt = seal ? all.find((e) => e.type === "chain.sealed" && e.subject === seal.id && e.data?.seal_digest === digest(seal))?.seq : undefined;
+    const top = seal && recordedAt !== undefined ? recordedAt : all.at(-1)!.seq;
     const segment = all.filter((e) => e.seq <= top);
-    // Every subject the segment names that an ownership record ties to another organization.
-    const foreign = (await c.query<{ n: number }>(
-      "select count(*)::int as n from object_owners where object_id = any($1) and org_id <> $2", [[...new Set(segment.map((e) => e.subject))], orgId])).rows[0]!.n;
-    if (foreign) throw new Refusal(409, "mixed-scope", "This part of the chain also records another organization's work, so a proof of it cannot be exported yet");
     const evidence = seal ? await signerKey(c, auth, seal) : null;
-    const bundle: InclusionBundle = { package_id: packageId, segment, seal, ...(evidence ? { seal_evidence: evidence } : {}), witnessed: false, statement: NOT_WITNESSED };
+    const tail = segment.at(-1)!;
+    const bundle: InclusionBundle = {
+      package_id: packageId, segment, seal,
+      ...(evidence ? { seal_evidence: { public_key: evidence.public_key, rp_id: evidence.rp_id, origins: evidence.origins } } : {}),
+      ...(seal ? {} : { head: { seq: tail.seq, digest: tail.digest.value } }),
+      witnessed: false, statement: NOT_WITNESSED,
+    };
     const check = await verifyInclusion(bundle);
     // Per package verification is global chain verification plus the inclusion proof (11.6): a chain
     // broken anywhere fails it, however consistent the package's own segment is.
@@ -245,10 +286,12 @@ export async function inclusionProof(db: Db, auth: AuthConfig, orgId: string, pa
 
 /**
  * Checks a bundle with nothing but the bundle: every digest and link recomputes from the chain's first
- * event; the package's events are derived from the chain; the segment ends at the seal's head with the
- * digest it signed; and the seal's subject and passkey signature hold against the key the bundle
- * carries. `authenticated` is true only when a seal covers the events and its signature checks; it
- * says nothing about whether that key is the signer's, which must be confirmed from outside the bundle.
+ * event; the package's events are derived from the chain, with run announcements consistent; with a
+ * seal, its head is inside the segment with the digest it signed, its recording event follows with the
+ * seal's digest and the digest of the key the bundle carries, and its subject and passkey signature
+ * hold against that key. `authenticated` is true only then; it does not establish that the key is the
+ * signer's, which must be confirmed from outside the bundle. Unsealed, the segment must end at the head
+ * the bundle states, which nothing authenticates.
  */
 export async function verifyInclusion(b: InclusionBundle): Promise<{ ok: boolean; authenticated: boolean; events: number[]; problem?: string }> {
   const fail = (problem: string) => ({ ok: false, authenticated: false, events: [] as number[], problem });
@@ -261,13 +304,21 @@ export async function verifyInclusion(b: InclusionBundle): Promise<{ ok: boolean
     if (rest.prev?.value !== prev) return fail(`event ${e.seq} does not link to the one before it`);
     prev = d.value;
   }
-  const events = packageEvents(b.segment, b.package_id);
-  if (!events.length) return fail(`the segment records nothing of ${b.package_id}`);
-  if (!b.seal) return { ok: true, authenticated: false, events };
+  const mine = packageEvents(b.segment, b.package_id);
+  if (mine.problem) return fail(mine.problem);
   const tail = b.segment.at(-1)!;
-  if (tail.seq !== b.seal.payload.head_seq || tail.digest.value !== b.seal.payload.head_digest.value) return fail("the segment does not end at the seal's head");
+  if (!b.seal) {
+    if (!b.head || tail.seq !== b.head.seq || tail.digest.value !== b.head.digest) return fail("the segment does not end at the head the bundle states");
+    return { ok: true, authenticated: false, events: mine.events };
+  }
+  const head = b.segment[b.seal.payload.head_seq - 1];
+  if (!head || head.digest.value !== b.seal.payload.head_digest.value) return fail("the seal's head is not in the segment as it signed it");
+  if (mine.events.at(-1)! > b.seal.payload.head_seq) return fail("the seal does not cover the package's last event");
   if (!b.seal_evidence) return fail("the bundle does not carry what checking the seal's signature needs");
+  const record = b.segment.find((e) => e.seq > b.seal.payload.head_seq && e.type === "chain.sealed" && e.subject === b.seal.id);
+  if (!record || record.data?.seal_digest !== digest(b.seal)) return fail("the segment does not record this seal as it stands");
+  if (record.data?.key_digest !== keyDigest(Buffer.from(b.seal_evidence.public_key, "base64url"))) return fail("the key the bundle carries is not the one recorded with the seal");
   const signature = await checkSealSignature(b.seal, b.seal_evidence);
   if (signature !== "valid") return fail(signature === "subject-mismatch" ? "the seal's subject is not what its payload signs" : "the seal's signature does not check");
-  return { ok: true, authenticated: true, events };
+  return { ok: true, authenticated: true, events: mine.events };
 }

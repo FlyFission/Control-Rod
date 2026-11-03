@@ -94,6 +94,16 @@ describe("Records", () => {
     expect(await within(region).findByText("2 entries of WP-1 recompute and link through the chain from its first entry.")).toBeTruthy();
     expect(region.textContent).toContain("Covered by seal seal_1 through entry 30 (End of day), and its passkey signature checks against the key in the bundle.");
     expect(region.textContent).toContain("Whether that key is the signer's must be confirmed from outside the bundle.");
+    // Asked again, it is proven again.
+    let asked = 0;
+    server.use(http.get("*/packages/WP-1/proof", () => {
+      asked++;
+      return HttpResponse.json({ ok: true, chain: { ok: true, count: 51 }, check: { ok: true, authenticated: true, events: [3, 9] },
+        bundle: { package_id: "WP-1", segment: [], seal: { id: "seal_2", payload: { head_seq: 50, purpose: "Later" } }, statement: "Local chain, not witnessed" } });
+    }));
+    await user.click(within(region).getByRole("button", { name: "Prove it" }));
+    await waitFor(() => expect(asked).toBe(1));
+    expect(await within(region).findByText(/Covered by seal seal_2 through entry 50/)).toBeTruthy();
     const link = within(region).getByRole("link", { name: "Download the proof bundle" }) as HTMLAnchorElement;
     expect(link.getAttribute("download")).toBe("WP-1-inclusion-proof.json");
     expect(JSON.parse(decodeURIComponent(link.href.split(",")[1]!))).toMatchObject({ package_id: "WP-1" });

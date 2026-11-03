@@ -584,10 +584,11 @@ model SealCheck {
 
   /**
    * valid, or why not: the head moved or is missing; no chain.sealed event records this seal as it is;
-   * the subject does not match its payload; the signer's key is unknown, or was revoked before the seal
-   * was recorded; the signature fails; or the chain breaks before its head.
+   * the subject does not match its payload; the signer's key is unknown, was not enrolled to the signer
+   * before the seal, has changed since it was recorded with the seal, or was revoked before the seal was
+   * recorded; the signature fails; or the chain breaks before its head.
    */
-  result: "valid" | "head-mismatch" | "head-missing" | "unrecorded" | "subject-mismatch" | "key-unknown" | "key-revoked" | "signature-invalid" | "chain-broken-before-head";
+  result: "valid" | "head-mismatch" | "head-missing" | "unrecorded" | "subject-mismatch" | "key-unknown" | "not-enrolled" | "key-changed" | "key-revoked" | "signature-invalid" | "chain-broken-before-head";
 }
 
 /** The record verified (plan task 5.3; specification 11.6): the chain, every seal, and the unsealed suffix. */
@@ -614,10 +615,10 @@ op recordsHead(): {
 } | ApiError;
 
 /**
- * A package's inclusion proof: the whole chain from its first event through the head of the first
- * valid seal covering the package's last event (or the chain head, unsealed), with that seal and what
- * checking its signature needs. Self contained; trust in the signer's key must come from outside it.
- * Refused (mixed-scope) when that part of the chain records another organization's work.
+ * A package's inclusion proof: the whole chain from its first event through the recording event of the
+ * first valid seal covering the package's last event (or the chain head, unsealed), with that seal and
+ * what checking its signature needs. Self contained; trust in the signer's key must come from outside
+ * it. Refused (mixed-scope) on an installation with more than one organization, which share one chain.
  */
 @route("/packages/{id}/proof")
 @get
@@ -635,6 +636,9 @@ op packageProof(@path id: string): {
     segment: Record<unknown>[];
     seal: Record<unknown> | null;
     seal_evidence?: { public_key: string; rp_id: string; origins: string[] };
+
+    /** Unsealed: the chain head when the bundle was made, which the segment must end at. Unauthenticated. */
+    head?: { seq: int32; digest: string };
     witnessed: false;
     statement: "Local chain, not witnessed";
   };

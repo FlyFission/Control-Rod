@@ -89,10 +89,32 @@ export default defineConfig(({ mode }) => {
             out = outDir;
           if (!existsSync(publicRoot)) return;
           for (const name of readdirSync(publicRoot))
-            if (name !== "floor-themes")
+            if (name !== "floor-themes" && name !== "office-themes")
               cpSync(resolve(publicRoot, name), resolve(out, name), {
                 recursive: true,
               });
+          // Office themes: released ones always, development ones (the structural test theme)
+          // only in a draft build, beside the draft harness page that uses them.
+          const officeArt = resolve(publicRoot, "office-themes");
+          if (existsSync(officeArt)) {
+            const released = JSON.parse(
+              readFileSync(
+                resolve("src/features/office/themes/released.json"),
+                "utf8",
+              ),
+            ) as unknown;
+            if (!Array.isArray(released))
+              throw new Error("Invalid office theme release list");
+            for (const id of draftBuild
+              ? readdirSync(officeArt)
+              : (released as string[])) {
+              if (!/^[a-z][a-z0-9-]*$/.test(id))
+                throw new Error("Invalid office theme ID");
+              cpSync(resolve(officeArt, id), resolve(out, "office-themes", id), {
+                recursive: true,
+              });
+            }
+          }
           const art = resolve(publicRoot, "floor-themes");
           if (!existsSync(art)) return;
           const records = JSON.parse(
@@ -136,7 +158,8 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       proxy: Object.fromEntries(
-        apiPaths.map((p) => [p, { target, changeOrigin: false, bypass: pageLoad }]),
+        // Anchored, so /office matches /office and /office/... but never /office-themes/ art.
+        apiPaths.map((p) => [`^${p}(?:[/?]|$)`, { target, changeOrigin: false, bypass: pageLoad }]),
       ),
     },
     build: {
@@ -145,7 +168,7 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       rollupOptions: {
         input: draftBuild
-          ? { app: "index.html", themes: "themes.html" }
+          ? { app: "index.html", themes: "themes.html", officeHarness: "office-harness.html" }
           : { app: "index.html" },
       },
     },

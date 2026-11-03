@@ -103,6 +103,7 @@ export const REASONS: Record<string, Reason> = {
   "scram-stopped": r("SCRAM has stopped this work; nothing in its scope is claimed, requeued or released.", "A person with administrator authority restarts it, signed, once its quarantine is reviewed and no outcome is unknown."),
   "scram-quarantined": r("SCRAM stopped this run, so what it reported is quarantined: kept privately with its digests and never applied.", "A person reviews the quarantined run, signed, and decides to discard or retain it."),
   "quarantine-changed": r("The stopped run reported more after you looked, so your signature does not cover it.", "Look at the run again and sign for every batch it has now."),
+  "pin-changed": r("The pins changed after you looked, so the rollback you signed no longer describes what would happen.", "Look at the Roster again and sign the rollback it shows now."),
   "not-in-scope": r("That package or discipline is not in what this SCRAM holds.", "Choose a package it holds, or a discipline one of them records."),
   "restart-blocked": r("This restart is not safe yet: something in its scope is still running, has an unknown outcome, or has unreviewed quarantine.", "Reconcile or review what the message lists, then restart."),
   "already-restarted": r("Everything this SCRAM stopped has already been restarted.", "Nothing to do."),

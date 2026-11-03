@@ -27,6 +27,7 @@ import { personVerificationSubject, recordPersonVerification } from "./person-ve
 import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
 import { activeScramsFor, scramPreview, scramView } from "./scram.js";
+import { roster } from "./roster.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
 import {
@@ -528,6 +529,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.get<{ Params: { id: string } }>("/scrams/:id", async (req) => {
     const caller = await callerFor(db, await person(req));
     return scramView(db, caller.orgId, req.params.id);
+  });
+  /** The Roster: roles, baselines as recorded on runs, versions a pin may name, and sandboxes as launched (plan task 5.1). */
+  app.get("/roster", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return roster(db, caller.orgId);
   });
   app.get("/runtimes", async (req) => {
     await person(req);

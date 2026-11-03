@@ -91,12 +91,13 @@ export const LENSES: readonly Lens[] = [
     id: "spend",
     label: "Spend",
     // From the agent's tightest budget this window (plan task 5.2). Brighter is closer to the limit;
-    // a budget whose use is not reported, or none at all, is the dimmest and says so in words.
+    // near only where the approved policy draws the line. A budget whose use is not, or not fully,
+    // reported, or none at all, is the dimmest and says so in words.
     scale: [
       { key: "over", label: "Over its budget", color: GREY.brightest },
       { key: "near", label: "Near its budget", color: GREY.bright },
       { key: "within", label: "Within its budget", color: GREY.mid },
-      { key: "none", label: "No budget, or use not reported", color: GREY.dim },
+      { key: "none", label: "No budget, or use not fully reported", color: GREY.dim },
     ],
     tint: (f) => GREY[spendStep(f) === "over" ? "brightest" : spendStep(f) === "near" ? "bright" : spendStep(f) === "within" ? "mid" : "dim"],
     value: (f) => {
@@ -104,6 +105,7 @@ export const LENSES: readonly Lens[] = [
       if (!s) return "No budget applies";
       const unit = s.unit === "minute" ? "minutes of run time" : s.unit === "token" ? "tokens" : "USD";
       if (s.used === undefined) return `Budget ${s.budget_id}: ${unit} are not reported, so use is unknown`;
+      if (s.state === "partial") return `Budget ${s.budget_id}: at least ${s.used} of ${s.limit} ${unit} in ${s.period}; ${s.unreported_runs ?? 0} runs reported none`;
       const where = s.state === "over" ? "Over" : s.state === "near" ? "Near" : "Within";
       return `${where} budget ${s.budget_id}: ${s.used} of ${s.limit} ${unit} in ${s.period}`;
     },

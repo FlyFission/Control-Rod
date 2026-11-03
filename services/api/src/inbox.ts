@@ -5,6 +5,7 @@ import { bindingSentence, plural } from "./binding.js";
 import { pendingConfirmation } from "./preparation/subjects.js";
 import { currentQualification } from "./tenancy.js";
 import { runSubject, scramAttention, scramHolding, scramOfHold } from "./scram.js";
+import { budgetOfHold } from "./budgets.js";
 import { type WorkConfig, currentPackage, office, packageActions, subjectOf } from "./work.js";
 
 /**
@@ -175,6 +176,7 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
       kind: "permission", capture_id: r.package_id, title: `Intake: ${first.length > 80 ? `${first.slice(0, 79)}…` : first || r.package_id}`,
       detail: String(r.body.waiting_reason), since: String(r.body.queued_at ?? new Date().toISOString()), risk: gateRisk("permission", undefined),
       ...scramOfHold(r.body),
+      ...budgetOfHold(r.body),
       href: r.body.waiting_cause === "runtime-pin" ? { to: "/roster" } : { to: "/packages" },
     };
     const held = await scramHolding(db, { kind: "capture", id: r.package_id });
@@ -229,7 +231,7 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
   const order = (x: Json, y: Json) => x.risk.rank - y.risk.rank || Date.parse(x.since) - Date.parse(y.since);
   mine.sort(order);
   others.sort(order);
-  return { items: mine, waiting_on_others: others, digest: await digestSince(db, since, mine, [...mine, ...others].filter((x) => x.kind === "dispute").length) };
+  return { items: mine, waiting_on_others: others, digest: await digestSince(db, since, mine, [...mine, ...others].filter((x) => x.kind === "dispute").length, caller.orgId) };
 }
 
 const CHANGE_TYPES: Record<string, string> = {
@@ -265,20 +267,24 @@ const DECISION_WORDS: Record<string, string> = {
  * budget that crossed near or over its limit since. Tokens and money are left to the Usage page, where
  * what is not reported can say so.
  */
-async function spendLine(db: Db, rows: { type: string; subject: string }[]) {
+async function spendLine(db: Db, rows: { type: string; subject: string }[], orgId: string) {
+  // Only the viewer's organization: its usage records, and crossings of its own budgets.
   const settled = rows.filter((r) => r.type === "usage-record.recorded").map((r) => r.subject);
   const minutes = settled.length
     ? (await db.query<{ n: number; m: string }>(
-        "select count(*)::int as n, coalesce(sum((body->'wall_time'->>'value')::numeric), 0)::text as m from usage_records where id = any($1) and body->>'source' = 'measured'",
-        [settled])).rows[0]!
+        "select count(*)::int as n, coalesce(sum((body->'wall_time'->>'value')::numeric), 0)::text as m from usage_records where id = any($1) and org_id = $2 and body->>'source' = 'measured'",
+        [settled, orgId])).rows[0]!
     : { n: 0, m: "0" };
-  const crossed = new Set(rows.filter((r) => r.type === "budget.crossed").map((r) => r.subject));
+  const crossing = [...new Set(rows.filter((r) => r.type === "budget.crossed").map((r) => r.subject))];
+  const crossed = new Set(crossing.length
+    ? (await db.query<{ id: string }>("select id from budgets where id = any($1) and org_id = $2 order by id", [crossing, orgId])).rows.map((r) => r.id)
+    : []);
   const runs = minutes.n === 0 ? "No run settled." : `${plural(minutes.n, "run")} settled, ${Number(minutes.m).toFixed(2)} minutes of agent run time.`;
   const budgets = crossed.size === 0 ? "" : ` ${plural(crossed.size, "budget")} reached near or over ${crossed.size === 1 ? "its" : "their"} limit: ${[...crossed].join(", ")}.`;
   return { topic: "spend", text: runs + budgets, count: minutes.n + crossed.size };
 }
 
-export async function digestSince(db: Db, since: number | undefined, mine: Json[], openDisputes = 0) {
+export async function digestSince(db: Db, since: number | undefined, mine: Json[], openDisputes: number, orgId: string) {
   const head = (await db.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from events")).rows[0]!.n;
   if (since === undefined || !Number.isInteger(since) || since < 0 || since > head) return { head, lines: [] };
   // Bounded by the head this answer reports, so marking seen never skips or double counts an event.
@@ -337,7 +343,7 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
       { topic: "lateness", text: lateness, count: late },
       { topic: "disputes", text: disputeLine, count: disputes },
       { topic: "gates", text: gateLine, count: gates.criteria },
-      await spendLine(db, rows),
+      await spendLine(db, rows, orgId),
     ],
   };
 }

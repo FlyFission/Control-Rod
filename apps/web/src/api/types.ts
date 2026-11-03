@@ -33,7 +33,8 @@ export interface UsageView {
   records: { id: string; run_id: string; source: "measured" | "reported"; wall_time?: { value: string; unit: string }; input_tokens?: { value: string }; output_tokens?: { value: string };
     recorded_at: string; package_id: string; role: string; runtime: string | null; baseline: string | null }[];
   telemetry: { runtime: string; runs: number; reported: number }[];
-  near_share: number;
+  /** From the approved policy's budget_near_percent; null when unset. */
+  near_share: number | null;
 }
 /** The record verified (plan task 5.3). */
 export interface RecordsVerification {

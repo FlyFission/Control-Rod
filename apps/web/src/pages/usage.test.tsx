@@ -10,7 +10,7 @@ import { Usage } from "./Usage.js";
 const metrics = { packages_accepted: 0, first_pass_accepted: 0, findings_caught_before_review: 0, median_review_minutes: null, median_minutes_to_done: null, quick_answers: 0 };
 const budget = (id: string, over: Record<string, unknown>) => ({
   budget: { id, org_id: "org_local", scope: "organization", scope_id: "org_local", mode: "hard-cap", limit: { value: "60", unit: "minute" }, period: "P1D", status: "active", ...over },
-  used: 50, in_flight: 45, since: new Date().toISOString(), state: "near",
+  used: 50, in_flight: 45, unreported_runs: 0, since: new Date().toISOString(), state: "near",
 });
 
 describe("Usage", () => {
@@ -47,6 +47,22 @@ describe("Usage", () => {
     expect(ledger.textContent).toContain("codex: none of its 2 finished runs reported tokens, so its token use is not known");
     expect(ledger.textContent).toContain("12.50 minutes of run time, measured");
     expect(ledger.textContent).toContain("1200 tokens in, 300 out, as the runtime reported");
+  });
+
+  it("says nothing is called near when the policy draws no line, and shows partial token use as at least", async () => {
+    server.use(
+      http.get("*/metrics", () => HttpResponse.json(metrics)),
+      http.get("*/usage", () => HttpResponse.json({
+        budgets: [{ ...budget("bud_4", { mode: "alert", limit: { value: "1000000", unit: "token" } }), used: 1500, in_flight: 0, unreported_runs: 2, state: "partial" }],
+        records: [], telemetry: [], near_share: null,
+      })),
+    );
+    await renderPage(<Usage />);
+    expect(await screen.findByText("No budget is called near its limit: the approved policy does not set the line (budget_near_percent).")).toBeTruthy();
+    const row = screen.getByRole("row", { name: /bud_4/ });
+    expect(row.textContent).toContain("At least 1500.00 of 1000000 tokens in P1D");
+    expect(row.textContent).toContain("2 finished runs reported none, so the total is not known");
+    expect(row.textContent).toContain("Not fully reported");
   });
 
   it("says when no budget is set, and never shows a failed load as empty", async () => {

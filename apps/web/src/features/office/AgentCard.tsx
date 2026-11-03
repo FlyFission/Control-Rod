@@ -171,6 +171,8 @@ function spendWords(f: AgentFigure): string {
   const unit = s.unit === "minute" ? "minutes of run time" : s.unit === "token" ? "tokens" : "USD";
   const mode = s.mode === "hard-cap" ? "hard cap" : s.mode;
   if (s.used === undefined) return `Budget ${s.budget_id} (${mode}, ${s.limit} ${unit} in ${s.period}): no runtime here reports ${unit}, so use is not known.`;
+  if (s.state === "partial")
+    return `At least ${s.used} of ${s.limit} ${unit} in ${s.period} on budget ${s.budget_id} (${mode}): ${s.unreported_runs ?? 0} runs reported none, so the total is not known.`;
   const where = s.state === "over" ? "over its limit" : s.state === "near" ? "near its limit" : "within its limit";
   return `${s.used} of ${s.limit} ${unit} in ${s.period} on budget ${s.budget_id} (${mode}), ${where}.`;
 }

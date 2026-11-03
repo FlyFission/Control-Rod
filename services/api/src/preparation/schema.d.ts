@@ -1193,12 +1193,17 @@ export interface components {
              */
             in_flight: number;
             /**
+             * Format: int32
+             * @description Tokens: measured runs in the window that reported no complete counts.
+             */
+            unreported_runs: number;
+            /**
              * Format: date-time
              * @description Where the rolling window starts.
              */
             since: string;
             /** @enum {string} */
-            state: "within" | "near" | "over" | "not-reported";
+            state: "within" | "near" | "over" | "partial" | "not-reported";
         };
         /** @description The viewing member, as the command layer knows them. */
         Caller: {
@@ -2117,6 +2122,12 @@ export interface components {
              *     quarantined: retained privately with its digests and never applied until a person reviews it.
              */
             scram_id?: string;
+            /**
+             * Format: int32
+             * @description The run ceiling its budget reservation was sized from, in seconds (the daemon's timeout and
+             *     graceful stop ladder). The control plane asks the run to stop once it has run this long.
+             */
+            budget_ceiling_seconds?: number;
             /** @description Why a queued run is not being handed out, in plain words. */
             waiting_reason?: string;
             /**
@@ -2350,9 +2361,17 @@ export interface components {
             unit: "minute" | "token" | "USD";
             limit: string;
             period: string;
-            /** @enum {string} */
-            state: "within" | "near" | "over" | "not-reported";
+            /**
+             * @description near only when the approved policy sets budget_near_percent; partial when some runs reported nothing.
+             * @enum {string}
+             */
+            state: "within" | "near" | "over" | "partial" | "not-reported";
             used?: string;
+            /**
+             * Format: int32
+             * @description Tokens: runs that reported no complete counts, so use is at least `used`.
+             */
+            unreported_runs?: number;
         };
         Health: {
             /** @enum {string} */
@@ -5932,9 +5951,9 @@ export interface operations {
                     runtime_status?: components["schemas"]["Runner.RuntimeStatus"][];
                     /**
                      * Format: int32
-                     * @description The daemon's run time ceiling: it stops a run that outlives it. Sizes budget reservations.
+                     * @description The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations.
                      */
-                    run_timeout_seconds?: number;
+                    run_ceiling_seconds?: number;
                 };
             };
         };
@@ -6650,11 +6669,8 @@ export interface operations {
                             /** Format: int32 */
                             reported: number;
                         }[];
-                        /**
-                         * Format: double
-                         * @description The share of a limit at which a budget reads as near it: a display choice.
-                         */
-                        near_share: number;
+                        /** @description The share of a limit at which a budget reads as near it, from the approved policy (budget_near_percent); null when unset. */
+                        near_share: number | null;
                     } | components["schemas"]["ApiError"];
                 };
             };

@@ -4607,11 +4607,11 @@
                       "$ref": "#/components/schemas/Runner.RuntimeStatus"
                     }
                   },
-                  "run_timeout_seconds": {
+                  "run_ceiling_seconds": {
                     "type": "integer",
                     "format": "int32",
                     "minimum": 1,
-                    "description": "The daemon's run time ceiling: it stops a run that outlives it. Sizes budget reservations."
+                    "description": "The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations."
                   }
                 },
                 "required": [
@@ -5681,9 +5681,16 @@
                           }
                         },
                         "near_share": {
-                          "type": "number",
-                          "format": "double",
-                          "description": "The share of a limit at which a budget reads as near it: a display choice."
+                          "anyOf": [
+                            {
+                              "type": "number",
+                              "format": "double"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "The share of a limit at which a budget reads as near it, from the approved policy (budget_near_percent); null when unset."
                         }
                       },
                       "required": [
@@ -6115,6 +6122,7 @@
           "budget",
           "used",
           "in_flight",
+          "unreported_runs",
           "since",
           "state"
         ],
@@ -6140,6 +6148,12 @@
             "minimum": 0,
             "description": "Of that, what open reservations hold for runs not yet settled."
           },
+          "unreported_runs": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "description": "Tokens: measured runs in the window that reported no complete counts."
+          },
           "since": {
             "type": "string",
             "format": "date-time",
@@ -6151,6 +6165,7 @@
               "within",
               "near",
               "over",
+              "partial",
               "not-reported"
             ]
           }
@@ -9213,6 +9228,12 @@
             "type": "string",
             "description": "The SCRAM that stopped this run (specification 22a). Whatever the run reports afterwards is\nquarantined: retained privately with its digests and never applied until a person reviews it."
           },
+          "budget_ceiling_seconds": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "description": "The run ceiling its budget reservation was sized from, in seconds (the daemon's timeout and\ngraceful stop ladder). The control plane asks the run to stop once it has run this long."
+          },
           "waiting_reason": {
             "type": "string",
             "maxLength": 300,
@@ -9942,11 +9963,19 @@
               "within",
               "near",
               "over",
+              "partial",
               "not-reported"
-            ]
+            ],
+            "description": "near only when the approved policy sets budget_near_percent; partial when some runs reported nothing."
           },
           "used": {
             "type": "string"
+          },
+          "unreported_runs": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "description": "Tokens: runs that reported no complete counts, so use is at least `used`."
           }
         },
         "description": "A budget as a figure carries it. `used` is absent when the budget's unit is not reported."

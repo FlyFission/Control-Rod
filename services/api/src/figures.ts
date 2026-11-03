@@ -2,7 +2,7 @@ import type { Db } from "./db/index.js";
 import { isLane } from "./disclosure.js";
 import { inbox } from "./inbox.js";
 import { effectiveLane } from "./markings.js";
-import { activeScrams, runSubject, scramHolding } from "./scram.js";
+import { scramHoldIndex } from "./scram.js";
 import type { WorkConfig } from "./work.js";
 
 /**
@@ -135,7 +135,9 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
     for (const e of b.basis ?? []) if (e?.kind === "package" && String(e.reference).startsWith("package:")) m.set(String(e.reference).slice(8), Number(e.revision));
     pinned.set(b.package_id, m);
   }
-  const scramsActive = (await activeScrams(db)).length > 0;
+  // SCRAM holds for every agent from one load of the active SCRAMs, owners and restarts.
+  const holdOf = await scramHoldIndex(db);
+  const currentRevision = new Map(packages.map((p) => [p.id, p.revision]));
 
   const figures: Json[] = [];
   let hidden = 0;
@@ -151,10 +153,10 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       hidden++;
       continue;
     }
-    const held = scramsActive ? await scramHolding(db, await runSubject(db, { role: run.role, package_id: p.id })) : null;
+    const held = holdOf({ kind: "package", id: p.id, ...(typeof p.body.discipline === "string" ? { discipline: p.body.discipline } : {}) });
     const cube = cubeFor(p.body.discipline);
     const pending = pendingFor.get(p.id) ?? [];
-    const changed = changedInput(deps.get(p.id) ?? [], pinned.get(p.id));
+    const changed = changedInput(deps.get(p.id) ?? [], pinned.get(p.id), currentRevision);
     const { hash, ...figure } = project({
       run, held, cube, own: mine.get(p.id), theirs: others.get(p.id), changed,
       unaccepted: (deps.get(p.id) ?? []).filter((d) => d.status !== "accepted").map((d) => d.depends_on),
@@ -196,17 +198,24 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       )
     ).rows.map((m) => [m.object_id, effectiveLane(m.body as never)]),
   );
+  // A capture whose intake produced a package is settled; its work is on that package's figure.
+  const promoted = new Set(
+    (await db.query<{ capture_id: string }>("select distinct capture_id from packages where capture_id is not null")).rows.map((r) => r.capture_id),
+  );
   for (const run of intakes) {
     const own = mineCapture.get(run.package_id);
     const theirs = othersCapture.get(run.package_id);
-    if (!own && !theirs && run.status !== "queued" && run.status !== "running") continue;
+    // Active intake, anything the Inbox routes, and an intake that failed, stopped or was lost
+    // (an unknown outcome included) before its capture became a package: none may vanish.
+    const unresolved = (run.status === "failed" || run.status === "stopped" || run.status === "lost") && !promoted.has(run.package_id);
+    if (!own && !theirs && run.status !== "queued" && run.status !== "running" && !unresolved) continue;
     // Fail closed: a capture with no marking counts as above internal.
     const lane = captureLanes.get(run.package_id) ?? "restricted";
     if (presenting && !PRESENTABLE.has(lane)) {
       hidden++;
       continue;
     }
-    const held = scramsActive ? await scramHolding(db, { kind: "capture", id: run.package_id }) : null;
+    const held = holdOf({ kind: "capture", id: run.package_id });
     const { hash: _hash, ...figure } = project({ run, held, cube: { place: "interface" }, own, theirs, changed: { changed: null }, unaccepted: [] });
     const first = (run.text ?? "").split("\n")[0]!.trim();
     figures.push({
@@ -289,16 +298,20 @@ function project(a: {
 }
 
 /**
- * Whether a recorded dependency moved past the revision the preparation pinned. Without a pinned
- * revision there is no baseline, so the input's freshness is unknown and said so, never guessed.
+ * Whether an input moved past the revision the preparation pinned: every package the preparation's
+ * basis pinned (a design input or a dependency alike) is compared with its current revision. A
+ * recorded dependency no basis pinned has no baseline, so its freshness is unknown and said so,
+ * never guessed.
  */
-function changedInput(deps: { depends_on: string; revision: number }[], basis: Map<string, number> | undefined) {
+function changedInput(deps: { depends_on: string }[], basis: Map<string, number> | undefined, current: Map<string, number>) {
   let changed: { input: string; revision: number } | null = null;
-  const unverified: string[] = [];
-  for (const d of deps) {
-    const was = basis?.get(d.depends_on);
-    if (was === undefined || Number.isNaN(was)) unverified.push(d.depends_on);
-    else if (d.revision > was && !changed) changed = { input: d.depends_on, revision: d.revision };
+  for (const [input, was] of basis ?? []) {
+    const now = current.get(input);
+    if (now !== undefined && !Number.isNaN(was) && now > was && !changed) changed = { input, revision: now };
   }
+  const unverified = deps.map((d) => d.depends_on).filter((id) => {
+    const was = basis?.get(id);
+    return was === undefined || Number.isNaN(was);
+  });
   return { changed, unverified };
 }

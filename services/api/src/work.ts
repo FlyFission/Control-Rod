@@ -2205,6 +2205,22 @@ export async function applyDecision(
 export async function office(db: Db) {
   const items: Json[] = [];
   const pk = await db.query<PackageRow>("select distinct on (id) * from packages order by id, revision desc");
+  // Everything the loop needs about runs and pre-checks at each current revision, read once for all
+  // packages (the same rows the per-package queries returned), so the cost does not grow with them.
+  const current = "(select distinct on (id) id, revision from packages order by id, revision desc)";
+  const byPackage = <T extends { package_id: string }>(rows: T[]) => new Map(rows.map((r) => [r.package_id, r]));
+  const latestRuns = byPackage((await db.query<{ package_id: string; status: string; body: Json }>(
+    `select distinct on (r.package_id) r.package_id, r.status, r.body from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
+      order by r.package_id, r.created_at desc`)).rows);
+  const latestFailed = byPackage((await db.query<{ package_id: string; body: Json }>(
+    `select distinct on (r.package_id) r.package_id, r.body from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
+      where r.status = 'failed' order by r.package_id, r.created_at desc`)).rows);
+  const latestAuthors = byPackage((await db.query<{ package_id: string; round: number }>(
+    `select distinct on (r.package_id) r.package_id, r.round from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
+      where r.role = 'author' order by r.package_id, r.round desc, r.created_at desc`)).rows);
+  const verifications = new Map((await db.query<{ package_id: string; round: number; body: Json; created_at: Date }>(
+    `select distinct on (v.package_id, v.round) v.package_id, v.round, v.body, v.created_at from verifications v join ${current} c on c.id = v.package_id and c.revision = v.package_revision
+      order by v.package_id, v.round, v.created_at desc`)).rows.map((v) => [`${v.package_id}#${v.round}`, v]));
   for (const p of pk.rows) {
     const title = String(p.body.title ?? p.id);
     const since = new Date(p.updated_at).toISOString();
@@ -2213,8 +2229,8 @@ export async function office(db: Db) {
       continue;
     }
     if (p.status === "in-verification") {
-      const author = await latestAuthorRun(db, p.id, p.revision);
-      const ver = author ? await latestVerification(db, p.id, p.revision, author.round) : null;
+      const author = latestAuthors.get(p.id) ?? null;
+      const ver = author ? verifications.get(`${p.id}#${author.round}`) ?? null : null;
       if (!ver) {
         // No pre-check yet: nothing to accept, but a held, lost or failed pre-check still shows below.
       } else if (ver.body.outcome === "pass") {
@@ -2231,15 +2247,9 @@ export async function office(db: Db) {
       }
     }
     if (p.status === "in-work" || p.status === "in-verification" || p.status === "released") {
-      const failed = await db.query<{ body: Json }>(
-        "select body from runs where package_id = $1 and package_revision = $2 and status = 'failed' order by created_at desc limit 1",
-        [p.id, p.revision],
-      );
-      const latest = await db.query<{ status: string; body: Json }>(
-        "select status, body from runs where package_id = $1 and package_revision = $2 order by created_at desc limit 1",
-        [p.id, p.revision],
-      );
-      const last = latest.rows[0];
+      const failedRun = latestFailed.get(p.id);
+      const failed = { rows: failedRun ? [failedRun] : [] };
+      const last = latestRuns.get(p.id);
       if (last?.status === "queued" && last.body.waiting_reason) {
         items.push({
           kind: "permission",

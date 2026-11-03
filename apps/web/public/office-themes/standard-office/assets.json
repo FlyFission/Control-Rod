@@ -1,0 +1,81 @@
+{
+  "theme": "standard-office",
+  "files": [
+    {
+      "file": "process.9b9563b754fa.svg",
+      "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37"
+    },
+    {
+      "file": "mechanical.9b9563b754fa.svg",
+      "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37"
+    },
+    {
+      "file": "electrical.9b9563b754fa.svg",
+      "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37"
+    },
+    {
+      "file": "civil.9b9563b754fa.svg",
+      "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37"
+    },
+    {
+      "file": "assurance.9b9563b754fa.svg",
+      "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37"
+    },
+    {
+      "file": "project-controls.9b9563b754fa.svg",
+      "sha256": "9b9563b754fa0e62d974708a5a512d863cbbc394689d4443ce19ecea78cbaa37"
+    },
+    {
+      "file": "review.d736ccf69602.svg",
+      "sha256": "d736ccf696020091f55fb618d71cbbc84537d57ad4574ea29888f0b4e4bd1242"
+    },
+    {
+      "file": "interface.ab5fd5e7b257.svg",
+      "sha256": "ab5fd5e7b2571c58df5d8d8edeaa2440f34e8a1b4a02a998cd34cf05ca1aca79"
+    },
+    {
+      "file": "verification.618255808deb.svg",
+      "sha256": "618255808deb454043b5e12a70e1078f44eaffceacf20d2399c79713e6ddba15"
+    },
+    {
+      "file": "your-office.ceb97c1e9003.svg",
+      "sha256": "ceb97c1e9003cad5649fb577b7120f8863d8863e70b13b1b030438a9dd668c82"
+    },
+    {
+      "file": "document-control.e7b98d8ea8ef.svg",
+      "sha256": "e7b98d8ea8ef144d0c0ea2900d48cd6f6d112965f8681d17727cf6adcb56415b"
+    },
+    {
+      "file": "bench.ab5fd5e7b257.svg",
+      "sha256": "ab5fd5e7b2571c58df5d8d8edeaa2440f34e8a1b4a02a998cd34cf05ca1aca79"
+    },
+    {
+      "file": "quarantine.357d5b848326.svg",
+      "sha256": "357d5b8483261be873b30750fa1571c8be71c5b02549b82aed3cb8e78e0c904a"
+    },
+    {
+      "file": "body-0.bf3f65601c91.svg",
+      "sha256": "bf3f65601c9118d5a0f8f6db2f3f0f78e10afec3e857a37c71340c141277a008"
+    },
+    {
+      "file": "body-1.d903cc1f02b4.svg",
+      "sha256": "d903cc1f02b493f6c896c798141edc344911a3df954042c3484683af1df25706"
+    },
+    {
+      "file": "body-2.796845389e71.svg",
+      "sha256": "796845389e7158641018c29d99d3cc6ce2a8e951326cf982897a709787995971"
+    },
+    {
+      "file": "body-3.1520448e6987.svg",
+      "sha256": "1520448e69879a9f4d33cc8ebae2b91f760d3c0d7d96d4c79ad7bbfd54d43495"
+    },
+    {
+      "file": "body-4.ca2ede07083e.svg",
+      "sha256": "ca2ede07083eae551053ecc9fe83efc1b3766710852aac4e83b0b8a83cb6de0f"
+    },
+    {
+      "file": "body-5.96ff340ffde5.svg",
+      "sha256": "96ff340ffde5174662ffb990497893caee5ee1467db333837c49d982c9d13130"
+    }
+  ]
+}

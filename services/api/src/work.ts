@@ -14,7 +14,7 @@ import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, rais
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramOfHold, scramRunEnded } from "./scram.js";
-import { noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
+import { budgetOfHold, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -787,8 +787,14 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
 }
 
 export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(), runCeilingSeconds?: number) {
+  // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
+  // one lease (when a completion that never comes makes it lost), from the claim to the recorded finish.
+  const ceiling = runCeilingSeconds === undefined ? undefined : { runSeconds: runCeilingSeconds, marginSeconds: heartbeatSeconds(cfg) + leaseSeconds(cfg) };
   return command(db, "run.claim", async (c) => {
     await enterScramGate(c);
+    // The budget lock, before any event is written here: every claim takes it in this order, so two
+    // dispatches cannot both take a hard cap's last room, and no claim waits on another the other way.
+    await c.query("select pg_advisory_xact_lock(hashtext('controlrod-budget'))");
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
     // Keyset paging: rows this loop stops leave the queue, so an offset would skip work.
     let cursor: { at: string; id: string } | null = null;
@@ -872,6 +878,14 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           }
           if (!runtime) continue;
           const baseline = `${row.role === "pre-check" ? "checker" : "author"}-${runtime}`;
+          // Budgets: the run's reservation is taken before anything moves, or a hard cap holds it here
+          // and the package stays where it was (plan task 5.2).
+          const budget = await reserveForRun(c, row, baseline, ceiling);
+          if ("held" in budget) {
+            await holdRun(c, cfg, row, pkg.id, budget.held.reason.slice(0, 300), "budget", `budget:${budget.held.budget}`);
+            continue;
+          }
+          await releaseHold(c, cfg, row, "budget");
           if (row.role === "author" && pkg.status === "released") {
             const next = kernel(
               decide({ status: pkg.status, action: "claim", actor_kind: "agent", actor_id: baseline, ...(preparation?{preparation}:{}) }),
@@ -880,14 +894,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
             await appendEvent(c, "package.claimed", pkg.id, { kind: "agent", id: baseline }, { revision: pkg.revision, status: next });
           }
-          // Budgets: the run's reservation is taken now, or a hard cap holds it here (plan task 5.2).
-          const capped = await reserveForRun(c, row, baseline, runCeilingSeconds);
-          if (capped) {
-            await holdRun(c, cfg, row, pkg.id, capped.reason.slice(0, 300), "budget", `budget:${capped.budget}`);
-            continue;
-          }
-          await releaseHold(c, cfg, row, "budget");
-          return startRun(c, cfg, row, runtime, baseline);
+          return startRun(c, cfg, row, runtime, baseline, budget.reservedSeconds);
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
         // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
@@ -909,13 +916,13 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
         if(!locked.rows[0]) continue;row=locked.rows[0];
           if(!legacyRun(row)) continue;
-        const capped = await reserveForRun(c, row, `intake-${runtime}`, runCeilingSeconds);
-        if (capped) {
-          await holdRun(c, cfg, row, row.package_id, capped.reason.slice(0, 300), "budget", `budget:${capped.budget}`);
+        const budget = await reserveForRun(c, row, `intake-${runtime}`, ceiling);
+        if ("held" in budget) {
+          await holdRun(c, cfg, row, row.package_id, budget.held.reason.slice(0, 300), "budget", `budget:${budget.held.budget}`);
           continue;
         }
         await releaseHold(c, cfg, row, "budget");
-        return startRun(c, cfg, row, runtime, `intake-${runtime}`);
+        return startRun(c, cfg, row, runtime, `intake-${runtime}`, budget.reservedSeconds);
       }
     }
     return null;
@@ -1211,12 +1218,14 @@ function requireLegacyRun(row: { role: string; body: Json }): void {
   if (!legacyRun(row)) throw new Refusal(409,"unsupported-run-role","This run needs its own approved execution and custody path; legacy processing is refused");
 }
 
-async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, baseline: string) {
+async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, baseline: string, budgetCeilingSeconds: number | null = null) {
   requireLegacyRun(row as {role:string;body:Json});
   const token = randomBytes(32).toString("base64url");
   const lease = leaseFromNow(cfg);
   const body = {
     ...row.body,
+    // The ceiling its budget reservation was sized from; the sweep stops it once it has run that long.
+    ...(budgetCeilingSeconds !== null ? { budget_ceiling_seconds: budgetCeilingSeconds } : {}),
     agent_baseline: baseline,
     runtime: runtimeRef(runtime),
     status: "running",
@@ -1403,8 +1412,17 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
       await scramRunEnded(c, row.id);
       lost.push(row.id);
     }
-    // Budgets: every finished run settles at its measured run time, and a budget crossing into near
-    // or over its limit is recorded once per window (plan task 5.2). Lost runs stay charged in full.
+    // Budgets (plan task 5.2): a run that has run its reserved ceiling is asked to stop on the graceful
+    // path; every finished run gets its usage recorded and its reservations settled; a budget crossing
+    // into near or over its limit is recorded once per window. Lost runs stay charged in full.
+    for (const row of (await c.query<{ id: string; package_id: string; role: string; round: number; body: Json }>(
+      `select id, package_id, role, round, body from runs where status = 'running' and body ? 'budget_ceiling_seconds' and not body ? 'stop_requested_at'
+         and (body->>'started_at')::timestamptz + make_interval(secs => (body->>'budget_ceiling_seconds')::int) < now() order by id`)).rows) {
+      const body = { ...row.body, stop_requested_at: now(), stop_requested_by: "its budget ceiling", label: "Stopping" };
+      validate(cfg, "Run.json", body);
+      await c.query("update runs set body = $2 where id = $1", [row.id, body]);
+      await appendEvent(c, "run.stop-requested", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round, reason: "budget-ceiling" });
+    }
     await settleEnded(c);
     for (const { org_id } of (await c.query<{ org_id: string }>("select distinct org_id from budgets where body->>'status' = 'active' order by org_id")).rows)
       await noteBudgetCrossings(c, org_id);
@@ -2285,6 +2303,7 @@ export async function office(db: Db) {
           detail: String(last.body.waiting_reason),
           since: String(last.body.queued_at ?? new Date().toISOString()),
           ...scramOfHold(last.body),
+          ...budgetOfHold(last.body),
         });
       } else if (last?.status === "stopped") {
         items.push({

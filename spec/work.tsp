@@ -123,6 +123,13 @@ model Run {
    */
   scram_id?: string;
 
+  /**
+   * The run ceiling its budget reservation was sized from, in seconds (the daemon's timeout and
+   * graceful stop ladder). The control plane asks the run to stop once it has run this long.
+   */
+  @minValue(1)
+  budget_ceiling_seconds?: int32;
+
   /** Why a queued run is not being handed out, in plain words. */
   @maxLength(300)
   waiting_reason?: string;

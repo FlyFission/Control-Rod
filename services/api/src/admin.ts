@@ -164,7 +164,12 @@ async function hasPasskey(c: Tx, m: Member): Promise<boolean> {
 }
 
 /** Policy settings Control Rod understands, each with its allowed values. Anything else is refused. */
-const POLICY_SETTINGS: Record<string, RegExp> = { autonomy_ceiling: /^[0-3]$/ };
+/**
+ * The policy settings Control Rod understands. autonomy_ceiling caps a project's autonomy level;
+ * budget_near_percent is the share of a budget's limit, in whole percent, at which it reads as near
+ * and alerts (plan task 5.2). Unset, no budget is called near: the line is the organization's to draw.
+ */
+const POLICY_SETTINGS: Record<string, RegExp> = { autonomy_ceiling: /^[0-3]$/, budget_near_percent: /^[1-9][0-9]?$/ };
 
 function checkPolicy(proposal: unknown): { hardware_attestation_formats: string[]; settings: Record<string, string> } {
   if (!proposal || typeof proposal !== "object") throw new Refusal(400, "invalid", "policy is required");

@@ -74,6 +74,9 @@ function Budgets() {
           Budgets could not be loaded.
         </p>
       )}
+      {v && v.near_share === null && v.budgets.length > 0 && (
+        <p className="muted small">No budget is called near its limit: the approved policy does not set the line (budget_near_percent).</p>
+      )}
       {v && v.budgets.length === 0 && <p className="muted">No budget is set. Set one under Policies with policy authority.</p>}
       {v && v.budgets.length > 0 && (
         <div className="table-wrap">
@@ -100,7 +103,9 @@ function Budgets() {
                         <>Not reported: no runtime here reports {unit}</>
                       ) : (
                         <>
+                          {b.state === "partial" ? "At least " : ""}
                           {b.used.toFixed(2)} of {b.budget.limit.value} {unit} in {b.budget.period}
+                          {b.unreported_runs > 0 && <p className="muted">{b.unreported_runs} finished runs reported none, so the total is not known</p>}
                           {b.in_flight > 0 && <p className="muted">including {b.in_flight.toFixed(2)} held for runs not yet settled</p>}
                         </>
                       )}
@@ -110,10 +115,12 @@ function Budgets() {
                       {b.state === "over"
                         ? "Over its limit"
                         : b.state === "near"
-                          ? `Near its limit (${Math.round(v.near_share * 100)}% or more used)`
+                          ? `Near its limit (${Math.round((v.near_share ?? 0) * 100)}% or more used)`
                           : b.state === "within"
                             ? "Within its limit"
-                            : "Use not known"}
+                            : b.state === "partial"
+                              ? "Not fully reported"
+                              : "Use not known"}
                     </td>
                   </tr>
                 );

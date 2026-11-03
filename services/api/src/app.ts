@@ -664,7 +664,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_timeout_seconds?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
     // left out even if it is also listed.
@@ -675,8 +675,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       .map(String)
       .filter((r) => ["claude", "codex", "fake"].includes(r) && !notReady.has(r));
     await sweep();
-    // The daemon's run time ceiling sizes budget reservations; one it did not report is never guessed.
-    const ceiling = req.body?.run_timeout_seconds;
+    // The daemon's run ceiling sizes budget reservations; one it did not report is never guessed.
+    const ceiling = req.body?.run_ceiling_seconds;
     const job = await claim(db, cfg, runtimes, artifacts, Number.isInteger(ceiling) && (ceiling as number) > 0 ? (ceiling as number) : undefined);
     if (!job) return reply.code(204).send();
     return job;

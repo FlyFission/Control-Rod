@@ -73,26 +73,34 @@ func TestRunnerRequiresARecordedReceipt(t *testing.T) {
 	}
 }
 
-// The claim tells the control plane the daemon's run time ceiling, which sizes budget reservations;
-// with no ceiling the field is left out rather than sent as zero.
-func TestClaimReportsTheRunTimeCeiling(t *testing.T) {
+// The claim tells the control plane the longest a run lasts here, rounded up to a whole second so a
+// reservation sized from it is never short; with no ceiling the field is left out rather than zero.
+func TestClaimReportsTheRunCeiling(t *testing.T) {
 	var got map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&got)
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer srv.Close()
-	if _, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 45*time.Minute); err != ErrNoWork {
+	if _, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 45*time.Minute+12*time.Second+300*time.Millisecond); err != ErrNoWork {
 		t.Fatalf("claim: %v", err)
 	}
-	if got["run_timeout_seconds"] != float64(2700) {
-		t.Fatalf("run_timeout_seconds = %v, want 2700", got["run_timeout_seconds"])
+	if got["run_ceiling_seconds"] != float64(2713) {
+		t.Fatalf("run_ceiling_seconds = %v, want 2713", got["run_ceiling_seconds"])
 	}
 	got = nil
 	if _, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 0); err != ErrNoWork {
 		t.Fatalf("claim: %v", err)
 	}
-	if _, ok := got["run_timeout_seconds"]; ok {
+	if _, ok := got["run_ceiling_seconds"]; ok {
 		t.Fatalf("a missing ceiling was sent: %v", got)
+	}
+}
+
+// A run lasts its timeout and then the graceful stop ladder, all of which the ceiling covers.
+func TestRunCeilingCoversTheTimeoutAndTheStopLadder(t *testing.T) {
+	d := New(Config{Timeout: 45 * time.Minute})
+	if got, want := d.RunCeiling(), 45*time.Minute+2*time.Second+10*time.Second; got != want {
+		t.Fatalf("RunCeiling = %v, want %v", got, want)
 	}
 }

@@ -657,8 +657,12 @@ model FigureSpend {
   unit: "minute" | "token" | "USD";
   limit: string;
   period: string;
-  state: "within" | "near" | "over" | "not-reported";
+  /** near only when the approved policy sets budget_near_percent; partial when some runs reported nothing. */
+  state: "within" | "near" | "over" | "partial" | "not-reported";
   used?: string;
+
+  /** Tokens: runs that reported no complete counts, so use is at least `used`. */
+  @minValue(1) unreported_runs?: int32;
 }
 
 /** One budget and what it has used in its current rolling window. */
@@ -671,10 +675,13 @@ model BudgetStatus {
   /** Of that, what open reservations hold for runs not yet settled. */
   @minValue(0) in_flight: float64;
 
+  /** Tokens: measured runs in the window that reported no complete counts. */
+  @minValue(0) unreported_runs: int32;
+
   /** Where the rolling window starts. */
   since: utcDateTime;
 
-  state: "within" | "near" | "over" | "not-reported";
+  state: "within" | "near" | "over" | "partial" | "not-reported";
 }
 
 /**
@@ -688,8 +695,8 @@ op usage(): {
   records: Record<unknown>[];
   telemetry: { runtime: string; @minValue(0) runs: int32; @minValue(0) reported: int32 }[];
 
-  /** The share of a limit at which a budget reads as near it: a display choice. */
-  near_share: float64;
+  /** The share of a limit at which a budget reads as near it, from the approved policy (budget_near_percent); null when unset. */
+  near_share: float64 | null;
 } | ApiError;
 
 /** The viewing member, as the command layer knows them. */
@@ -955,8 +962,8 @@ namespace Runner {
 
     runtime_status?: RuntimeStatus[];
 
-    /** The daemon's run time ceiling: it stops a run that outlives it. Sizes budget reservations. */
-    @minValue(1) run_timeout_seconds?: int32;
+    /** The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations. */
+    @minValue(1) run_ceiling_seconds?: int32;
   }): Job | {
     @statusCode _: 204;
   } | Refused;

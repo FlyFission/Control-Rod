@@ -9,7 +9,12 @@ let cookie: string;
 const key = new VirtualAuthenticator();
 const example = parse(readFileSync(new URL("../../../spec/examples/work-package.hvac-load-calc.yaml", import.meta.url), "utf8"));
 type Json = Record<string, any>;
-const CEILING = 45 * 60;
+/** The daemon's run ceiling: its 45 minute timeout and its 12 second graceful stop ladder. */
+const CEILING = 45 * 60 + 12;
+/** The control plane's margins on it: one heartbeat and one lease (the harness keeps the defaults). */
+const MARGIN = 30 + 90;
+/** The reservation: the ceiling and its margins, in minutes rounded up to the hundredth. */
+const RESERVED = (Math.ceil((CEILING + MARGIN) / 0.6) / 100).toFixed(2);
 
 beforeAll(async () => {
   h = await startHarness();
@@ -22,7 +27,7 @@ const get = async (url: string) => h.app.inject({ method: "GET", url, headers: {
 const daemon = (url: string, payload: Json) => h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: withClaim(url, payload) });
 /** The daemon asks for work, reporting its run time ceiling, or (null) reporting none. */
 const claim = (ceiling: number | null = CEILING) =>
-  h.app.inject({ method: "POST", url: "/runner/claim", headers: daemonHeaders, payload: { runtimes: ["fake"], ...(ceiling === null ? {} : { run_timeout_seconds: ceiling }) } });
+  h.app.inject({ method: "POST", url: "/runner/claim", headers: daemonHeaders, payload: { runtimes: ["fake"], ...(ceiling === null ? {} : { run_ceiling_seconds: ceiling }) } });
 async function signed(name: string, payload: Json) {
   const o = await post(`/admin/commands/${name}/options`, { payload });
   expect(o.statusCode, o.body).toBe(200);
@@ -77,15 +82,19 @@ describe("a hard cap on run time", () => {
   it("reserves each dispatched run's ceiling, and holds a dispatch that would pass the cap, saying why, for someone with policy authority", async () => {
     const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: "60", unit: "minute" }, period: "P1D" });
     const first = await claimed("WP-BUD-ONE");
-    expect(await reservations(first)).toEqual([expect.objectContaining({ budget_id: cap.id, amount: { value: "45.00", unit: "minute" }, status: "reserved" })]);
-    // 45 reserved while the first run runs; another 45 would pass 60.
+    expect(await reservations(first)).toEqual([expect.objectContaining({ budget_id: cap.id, amount: { value: RESERVED, unit: "minute" }, status: "reserved" })]);
+    // The run carries the ceiling its reservation was sized from.
+    expect((await run(first)).body.budget_ceiling_seconds).toBe(CEILING);
+    // One reservation is held while the first run runs; another would pass 60.
     const second = await queued("WP-BUD-TWO", true);
     expect((await run(first)).status).toBe("running");
     expect((await claim()).statusCode).toBe(204);
     const held = await run(second);
     expect(held.status).toBe("queued");
     expect(held.body).toMatchObject({ waiting_cause: "budget", waiting_key: `budget:${cap.id}` });
-    expect(held.body.waiting_reason).toMatch(new RegExp(`^Held by budget ${cap.id}: reserving this run's 45 minute ceiling would take it past its hard cap of 60 minutes in P1D \\(45\\.00 used or reserved\\)`));
+    expect(held.body.waiting_reason).toBe(`Held by budget ${cap.id}: reserving this run's ${RESERVED} minute ceiling would take it past its hard cap of 60 minutes in P1D (${RESERVED} used or reserved)`);
+    // The package was not moved on for a run that did not start.
+    expect((await h.db.query<{ status: string }>("select status from packages where id = 'WP-BUD-TWO' order by revision desc limit 1")).rows[0]!.status).toBe("released");
     expect(await reservations(second)).toEqual([]);
     await retire(cap.id);
     // With the cap gone, the held run is dispatched and its hold cleared.
@@ -138,15 +147,43 @@ describe("settlement", () => {
     await retire(cap.id);
   });
 
-  it("keeps a lost run charged at its full reservation until it is reconciled", async () => {
+  it("keeps a lost run charged in full; reconciled, it settles in full, never as measured", async () => {
     const cap = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "600", unit: "minute" }, period: "P1D" });
     const id = await claimed("WP-BUD-LOST");
     await h.admin.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [id]);
     await sweep();
     expect((await run(id)).status).toBe("lost");
-    expect((await reservations(id)).find((r) => r.budget_id === cap.id)).toMatchObject({ status: "reserved", amount: { value: "45.00" } });
-    const u = (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === cap.id);
-    expect(u.in_flight).toBeGreaterThanOrEqual(45);
+    expect((await reservations(id)).find((r) => r.budget_id === cap.id)).toMatchObject({ status: "reserved", amount: { value: RESERVED } });
+    const before = (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === cap.id);
+    expect(before.in_flight).toBeGreaterThanOrEqual(Number(RESERVED));
+    // Reconciled: settled, still charged in full, and no measured usage, since nothing measured it.
+    const lost = (await run(id)).body;
+    await h.admin.query("update runs set body = $2 where id = $1", [id, { ...lost, reconciliation: { disposition: "process-gone", recorded_at: new Date().toISOString() } }]);
+    await sweep();
+    expect((await reservations(id)).find((r) => r.budget_id === cap.id)).toMatchObject({ status: "settled" });
+    expect((await h.db.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'measured'", [id])).rowCount).toBe(0);
+    const after = (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === cap.id);
+    expect(after.used).toBeGreaterThanOrEqual(Number(RESERVED));
+    await retire(cap.id);
+  });
+
+  it("records usage for every finished run, with no budget at all", async () => {
+    const id = await claimed("WP-BUD-NOBUDGET");
+    const done = await daemon(`/runner/runs/${id}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] });
+    expect(done.statusCode, done.body).toBe(200);
+    await sweep();
+    expect((await h.db.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'measured'", [id])).rowCount).toBe(1);
+    expect(await reservations(id)).toEqual([]);
+  });
+
+  it("asks a run that has run its reserved ceiling to stop, on the graceful path", async () => {
+    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "600", unit: "minute" }, period: "P1D" });
+    const id = await claimed("WP-BUD-LONG");
+    const body = (await run(id)).body;
+    await h.admin.query("update runs set body = $2 where id = $1", [id, { ...body, started_at: new Date(Date.now() - (CEILING + 5) * 1000).toISOString() }]);
+    await sweep();
+    expect((await run(id)).body).toMatchObject({ stop_requested_by: "its budget ceiling", label: "Stopping" });
+    expect((await daemon(`/runner/runs/${id}/log`, { lines: [] })).json().stop).toBe(true);
     await retire(cap.id);
   });
 });
@@ -156,19 +193,26 @@ describe("tracking, alerting and the Usage view", () => {
     const o = await org();
     const tokens = await budget({ scope: "organization", scope_id: o, mode: "alert", limit: { value: "1000", unit: "token" }, period: "P1D" });
     const money = await budget({ scope: "organization", scope_id: o, mode: "track", limit: { value: "50", unit: "USD" }, period: "P1M" });
+    const roomy = await budget({ scope: "organization", scope_id: o, mode: "track", limit: { value: "1000000000", unit: "token" }, period: "P1D" });
     await sweep();
     await sweep();
     const view = (await get("/usage")).json();
     const t = view.budgets.find((b: Json) => b.budget.id === tokens.id);
     expect(t.used).toBeGreaterThanOrEqual(1500);
     expect(t.state).toBe("over");
+    // Other finished runs reported no tokens: the total is at least what was reported, never complete.
+    expect(t.unreported_runs).toBeGreaterThan(0);
+    const r = view.budgets.find((b: Json) => b.budget.id === roomy.id);
+    expect(r).toMatchObject({ state: "partial" });
+    expect(r.used).toBeGreaterThanOrEqual(1500);
     const m = view.budgets.find((b: Json) => b.budget.id === money.id);
     expect(m).toMatchObject({ used: null, state: "not-reported" });
     const crossings = (await h.db.query("select 1 from events where body->>'type' = 'budget.crossed' and body->>'subject' = $1", [tokens.id])).rowCount;
     expect(crossings).toBe(1);
     expect(view.records.some((r: Json) => r.source === "reported")).toBe(true);
     expect(view.telemetry).toEqual(expect.arrayContaining([expect.objectContaining({ runtime: "fake" })]));
-    expect(view.near_share).toBe(0.8);
+    // No policy draws the near line, so nothing is called near.
+    expect(view.near_share).toBeNull();
     // Each agent on the floor carries its tightest budget, the token budget it is over; never while presenting.
     await queued("WP-BUD-FLOOR");
     const floor = (await get("/office/figures")).json();
@@ -179,6 +223,27 @@ describe("tracking, alerting and the Usage view", () => {
     expect(presenting.figures.every((x: Json) => x.spend === undefined)).toBe(true);
     await retire(tokens.id);
     await retire(money.id);
+    await retire(roomy.id);
+  });
+
+  it("calls a budget near only where the approved policy draws the line", async () => {
+    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "alert", limit: { value: "10", unit: "minute" }, period: "P1D" });
+    // Some use: a run dispatched under it reserves its ceiling. Far below a large limit: within.
+    await h.admin.query("update budgets set body = jsonb_set(body, '{limit,value}', '\"1000\"') where id = $1", [cap.id]);
+    await claimed("WP-BUD-NEAR");
+    const use = async () => (await get("/usage")).json().budgets.find((b: Json) => b.budget.id === cap.id);
+    const used = (await use()).used as number;
+    expect((await use()).state).toBe("within");
+    // A limit just above the use, and a policy that draws the line at half: near.
+    await h.admin.query("update budgets set body = jsonb_set(body, '{limit,value}', to_jsonb($2::text)) where id = $1", [cap.id, String(Math.ceil(used) + 1)]);
+    const proposed = await post("/admin/commands/policy.propose", { payload: { policy: { hardware_attestation_formats: [], settings: { budget_near_percent: "50" } }, reason: "Alert budgets at half" } });
+    expect(proposed.statusCode, proposed.body).toBe(200);
+    expect((await signed("policy.approve", { change_request_id: proposed.json().id })).statusCode).toBe(200);
+    const v = (await get("/usage")).json();
+    expect(v.near_share).toBe(0.5);
+    expect(v.budgets.find((b: Json) => b.budget.id === cap.id).state).toBe("near");
+    expect((await signed("policy.approve", { change_request_id: proposed.json().id })).json().code).toBe("not-proposed");
+    await retire(cap.id);
   });
 
   it("applies a project budget only to that project's runs, and an agent budget only to that baseline", async () => {
@@ -191,5 +256,44 @@ describe("tracking, alerting and the Usage view", () => {
     expect(ids).not.toContain(projectCap.id);
     await retire(projectCap.id);
     await retire(agentCap.id);
+  });
+});
+
+describe("calendar windows", () => {
+  it("steps back a month to the shorter month's last day, and across leap years", async () => {
+    const { windowStart } = await import("../src/budgets.js");
+    const at = (iso: string) => new Date(iso);
+    expect(windowStart("P1M", at("2026-03-31T10:00:00.000Z")).toISOString()).toBe("2026-02-28T10:00:00.000Z");
+    expect(windowStart("P1M", at("2028-03-31T10:00:00.000Z")).toISOString()).toBe("2028-02-29T10:00:00.000Z");
+    expect(windowStart("P1Y", at("2028-02-29T10:00:00.000Z")).toISOString()).toBe("2027-02-28T10:00:00.000Z");
+    expect(windowStart("P3M", at("2026-05-31T00:00:00.000Z")).toISOString()).toBe("2026-02-28T00:00:00.000Z");
+    expect(windowStart("P2W", at("2026-03-15T00:00:00.000Z")).toISOString()).toBe("2026-03-01T00:00:00.000Z");
+  });
+});
+
+describe("presenting and racing", () => {
+  it("never shows a budget hold's spend while presenting, on any path", async () => {
+    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: "1", unit: "minute" }, period: "P1D" });
+    const id = await queued("WP-BUD-PRESENT");
+    expect((await claim()).statusCode).toBe(204);
+    expect((await run(id)).body.waiting_cause).toBe("budget");
+    const text = (await get("/office/figures?presenting=true")).body;
+    expect(text).not.toContain("Held by budget");
+    expect(text).not.toContain(cap.id);
+    expect(JSON.parse(text).figures.find((f: Json) => f.package_id === "WP-BUD-PRESENT").cause).toBe("Author run is held by a budget; spend is not shown while presenting");
+    // Not presenting, the figure names the holding budget.
+    const plain = (await get("/office/figures")).json().figures.find((f: Json) => f.package_id === "WP-BUD-PRESENT");
+    expect(plain.spend.budget_id).toBe(cap.id);
+    await retire(cap.id);
+  });
+
+  it("lets only one of two racing dispatches take a hard cap's last room", async () => {
+    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: String(Number(RESERVED) + 1), unit: "minute" }, period: "P1D" });
+    await queued("WP-BUD-RACE-A");
+    await queued("WP-BUD-RACE-B", true);
+    const [a, b] = await Promise.all([claim(), claim()]);
+    expect([a.statusCode, b.statusCode].sort()).toEqual([200, 204]);
+    expect((await h.db.query("select 1 from budget_reservations where body->>'budget_id' = $1", [cap.id])).rowCount).toBe(1);
+    await retire(cap.id);
   });
 });

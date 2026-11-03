@@ -88,6 +88,12 @@
             "type": "string",
             "description": "The SCRAM that stopped this run (specification 22a). Whatever the run reports afterwards is\nquarantined: retained privately with its digests and never applied until a person reviews it."
         },
+        "budget_ceiling_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "The run ceiling its budget reservation was sized from, in seconds (the daemon's timeout and\ngraceful stop ladder). The control plane asks the run to stop once it has run this long."
+        },
         "waiting_reason": {
             "type": "string",
             "maxLength": 300,

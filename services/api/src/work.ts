@@ -13,7 +13,7 @@ import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
-import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramRunEnded } from "./scram.js";
+import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramOfHold, scramRunEnded } from "./scram.js";
 import { bindingSentence } from "./binding.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -809,7 +809,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         // SCRAM holds everything in its scope: nothing there is handed out until a restart lifts it.
         const scram = await scramHolding(c, await runSubject(c, row));
         if (scram) {
-          await holdRun(c, cfg, row, row.package_id, `SCRAM ${scram.id} has stopped this work: ${scram.reason}`.slice(0, 300), "scram");
+          await holdRun(c, cfg, row, row.package_id, `SCRAM ${scram.id} has stopped this work: ${scram.reason}`.slice(0, 300), "scram", `scram:${scram.id}`);
           continue;
         }
         if (row.role !== "intake") {
@@ -887,7 +887,8 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
         const admittedIntake = admitted(capLane, runtimes);
         if (admittedIntake.length === 0) {
-          await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane), "lane", `lane-admission:${capLane}`);
+          // An unclassified capture has no lane to be admitted to: its hold is its own.
+          await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane), "lane", capLane ? `lane-admission:${capLane}` : undefined);
           continue;
         }
         const pinnedIntake = await pinnedOffer(c, admittedIntake, "intake", artifacts);
@@ -2264,6 +2265,7 @@ export async function office(db: Db) {
           title,
           detail: String(last.body.waiting_reason),
           since: String(last.body.queued_at ?? new Date().toISOString()),
+          ...scramOfHold(last.body),
         });
       } else if (last?.status === "stopped") {
         items.push({

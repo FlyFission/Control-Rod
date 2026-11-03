@@ -322,6 +322,9 @@ model OfficeItem {
   title: string;
   detail: string;
   since: utcDateTime;
+
+  /** For a run a SCRAM holds: that SCRAM, so a view that must not show its reason knows these words carry it. */
+  scram_id?: string;
 }
 
 /** Where an item opens: a page, and for a package which one and which section. */

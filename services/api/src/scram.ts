@@ -111,6 +111,10 @@ export async function scramHoldIndex(q: Db | Tx): Promise<(s: ScramSubject) => J
   };
 }
 
+/** For a run held by a SCRAM, the SCRAM it names, so its words are known for what they are. */
+export const scramOfHold = (body: Json): { scram_id?: string } =>
+  body?.waiting_cause === "scram" ? { scram_id: String(body.waiting_key ?? "").replace(/^scram:/, "") || "unrecorded" } : {};
+
 /** Refuses a command on a subject SCRAM holds stopped. */
 export async function refuseIfScrammed(q: Db | Tx, s: ScramSubject): Promise<void> {
   const scram = await scramHolding(q, s);

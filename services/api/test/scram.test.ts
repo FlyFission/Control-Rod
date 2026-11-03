@@ -110,6 +110,11 @@ describe("pulling SCRAM", () => {
     // Nothing in scope is claimed, and the office says why.
     expect((await claim()).statusCode).toBe(204);
     expect((await run(waiting)).body.waiting_reason).toMatch(new RegExp(`^SCRAM ${scram.id} has stopped this work: Drill`));
+    // The hold names its SCRAM, and so does the Inbox item made from it, so a presenting view knows these words carry its reason.
+    expect((await run(waiting)).body.waiting_key).toBe(`scram:${scram.id}`);
+    const box = (await h.app.inject({ method: "GET", url: "/inbox", headers: { cookie } })).json();
+    const item = [...box.items, ...box.waiting_on_others].find((i: Json) => i.package_id === "WP-SCR-WAIT");
+    expect(item.scram_id).toBe(scram.id);
 
     // Nothing in scope is released.
     const o = await post("/packages/WP-SCR-WAIT/decisions/options", { kind: "release", package_revision: 0 });

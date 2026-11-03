@@ -49,6 +49,23 @@ describe("captures", () => {
     expect(ev.rows[0].d.unclassified).toBe(true);
   });
 
+  it("keeps an existing queued intake on an unclassified capture its own hold, never one shared with another capture", async () => {
+    await h.admin.query("update runs set status = 'stopped' where status = 'queued'");
+    for (const id of ["CAP-UNCL-A", "CAP-UNCL-B"]) {
+      await h.admin.query("insert into captures (id, body, created_at) values ($1, $2, now())", [id, { id, text: `Legacy request ${id}` }]);
+      await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'intake', 1, 'queued', $3)",
+        [`R-${id.toLowerCase()}`, id, { schema_version: "0.1.0", id: `R-${id.toLowerCase()}`, package_id: id, package_revision: 0, role: "intake", agent_baseline: "intake-claude",
+          runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "queued", queued_at: new Date().toISOString(), generation: 1 }]);
+    }
+    expect((await claim(["claude", "codex"])).statusCode).toBe(204);
+    for (const id of ["CAP-UNCL-A", "CAP-UNCL-B"]) {
+      const [held] = await queuedFor(id);
+      expect(held!.body.waiting_reason).toBeTruthy();
+      // No lane, so no admission to share: nothing groups these two holds.
+      expect(held!.body.waiting_key).toBeUndefined();
+    }
+  });
+
   it("releases the capture to intake once a person with lane authority classifies it, and never lowers it", async () => {
     const c = (await post("/captures", { text: "Classify me later" })).json();
     const r = await post(`/captures/${c.id}/classify`, { lane: "internal" });

@@ -2239,6 +2239,8 @@ export interface components {
             detail: string;
             /** Format: date-time */
             since: string;
+            /** @description For a run a SCRAM holds: that SCRAM, so a view that must not show its reason knows these words carry it. */
+            scram_id?: string;
         };
         /** @description What the web app shows for one package: the revision, its runs, output and decisions. */
         PackageView: {

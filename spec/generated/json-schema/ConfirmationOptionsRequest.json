@@ -1,0 +1,14 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ConfirmationOptionsRequest.json",
+    "type": "object",
+    "properties": {
+        "expected_requirements_digest": {
+            "$ref": "Digest.json"
+        }
+    },
+    "required": [
+        "expected_requirements_digest"
+    ],
+    "unevaluatedProperties": false
+}

@@ -1,0 +1,60 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Promotion.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "checkpoint_id": {
+            "$ref": "TenancyId.json"
+        },
+        "capture_id": {
+            "type": "string"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Intake drafts revision 0; it can be released as is."
+        },
+        "source_manifest_digest": {
+            "$ref": "Digest.json"
+        },
+        "mode": {
+            "$ref": "Mode.json"
+        },
+        "rigor": {
+            "$ref": "RigorMode.json"
+        },
+        "grade": {
+            "$ref": "SignerGrade.json"
+        },
+        "lane": {
+            "$ref": "DataLane.json"
+        },
+        "promoted_by": {
+            "$ref": "TenancyId.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "package_id",
+        "package_revision",
+        "source_manifest_digest",
+        "mode",
+        "rigor",
+        "grade",
+        "lane",
+        "promoted_by"
+    ],
+    "description": "Exactly one checkpoint or capture becomes a Draft package revision bound to a SourceManifest. (A)",
+    "unevaluatedProperties": false
+}

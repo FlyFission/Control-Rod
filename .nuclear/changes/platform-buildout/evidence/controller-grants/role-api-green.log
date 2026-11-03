@@ -1,0 +1,13 @@
+
+> @control-rod/api@0.0.0 test /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+> vitest run --run test/preparation-role-boundary.test.ts
+
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  15:31:05
+   Duration  1.44s (tests 74%, import 18%, transform 8%)
+

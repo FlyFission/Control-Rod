@@ -1,0 +1,5 @@
+d7f1e35d7c3c046904bf38dbc1147c207618dd96	refs/heads/docs/guided-preparation-plan-20261023
+6865cbbc1a31d125f002e1e7ec185ccf6a9730e4	refs/heads/docs/kandev-patterns
+40763d4153eabd542d0c7ef028b8aab5de8d6522	refs/heads/main
+8a54ff47e4b542c679d6747d11512c92c24d002f	refs/heads/mvp/site-concept
+5c7fef09116e739837d9f636407fcbf81c06ef33	refs/heads/phase-0/drawing-engine

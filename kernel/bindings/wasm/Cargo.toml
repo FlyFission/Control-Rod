@@ -1,0 +1,20 @@
+[package]
+name = "controlrod-kernel-wasm"
+version = "0.0.0"
+description = "WebAssembly binding of the Control Rod kernel for the control plane."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+controlrod-kernel = { path = "../..", version = "=0.0.0" }
+serde_json = "1.0.154"
+wasm-bindgen = "=0.2.104"

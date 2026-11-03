@@ -51,6 +51,50 @@
         "finished_at": {
             "type": "string",
             "format": "date-time"
+        },
+        "runtime_mode": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "print"
+                },
+                {
+                    "type": "string",
+                    "const": "acp"
+                },
+                {
+                    "type": "string",
+                    "const": "fake"
+                }
+            ],
+            "description": "How the runtime was driven. \"print\" is a headless, one-prompt run (`claude -p`, `codex exec`)\nwhere no ACP permission binding is in force; \"acp\" is reserved for ACP sessions."
+        },
+        "requested_model": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The model the run asked for, or \"default\" when it left the choice to the runtime."
+        },
+        "reported_model": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The model the runtime said it used, read from its own event stream. Absent when it did not say."
+        },
+        "permission_mode": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Permission mode the runtime started in, when it has one."
+        },
+        "allowed_tools": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Tool allowlist passed to the runtime, when it takes one."
+        },
+        "sandbox": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Sandbox the daemon asked the runtime for: \"none\", \"workspace-write\" or \"workspace-write+network\"."
         }
     },
     "required": [

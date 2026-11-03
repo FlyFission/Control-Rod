@@ -1,0 +1,13 @@
+
+> @control-rod/api@0.0.0 test /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+> vitest run --run test/database-deadline.test.ts test/preparation-grants.test.ts test/preparation-grant-concurrency.test.ts
+
+
+ RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+
+
+ Test Files  3 passed (3)
+      Tests  18 passed (18)
+   Start at  16:11:57
+   Duration  9.54s (tests 92%, import 6%, transform 2%)
+

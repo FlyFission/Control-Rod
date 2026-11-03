@@ -1,0 +1,44 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Comment.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "subject_digest": {
+            "$ref": "Digest.json"
+        },
+        "locator": {
+            "type": "string",
+            "description": "Where in the subject, in the subject type's declared locator scheme."
+        },
+        "author": {
+            "$ref": "Actor.json"
+        },
+        "text": {
+            "type": "string",
+            "minLength": 1
+        },
+        "reply_to": {
+            "$ref": "TenancyId.json"
+        },
+        "status": {
+            "$ref": "CommentStatus.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "subject_digest",
+        "locator",
+        "author",
+        "text",
+        "status"
+    ],
+    "description": "A comment anchored to a subject digest and a locator. Valid for that digest only. (L)",
+    "unevaluatedProperties": false
+}

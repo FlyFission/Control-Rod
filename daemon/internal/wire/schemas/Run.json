@@ -1,0 +1,177 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Run.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "id": {
+            "type": "string"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "role": {
+            "$ref": "RunRole.json"
+        },
+        "agent_baseline": {
+            "type": "string"
+        },
+        "runtime": {
+            "$ref": "RuntimeRef.json"
+        },
+        "round": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Author and pre-check rounds start at 1; round 3 escalates a dispute to a person."
+        },
+        "status": {
+            "$ref": "RunStatus.json"
+        },
+        "queued_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "preparation_manifest_digest": {
+            "$ref": "Digest.json",
+            "description": "Controlled preparation basis; absent for historical legacy runs."
+        },
+        "started_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "finished_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "label": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Short label the runner writes for the office view. Never raw model text."
+        },
+        "error": {
+            "type": "string"
+        },
+        "trace": {
+            "$ref": "ExecutionTrace.json"
+        },
+        "lease_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "While running: when the claim lapses unless the daemon renews it with a log post."
+        },
+        "requeue_of": {
+            "type": "string",
+            "description": "The run this one was requeued from, after it was lost, failed or stopped."
+        },
+        "requeued_as": {
+            "type": "string",
+            "description": "The run the owner queued to replace this one."
+        },
+        "stop_requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The owner asked to stop this run. It shows as stopping until the daemon confirms."
+        },
+        "stop_requested_by": {
+            "type": "string"
+        },
+        "scram_id": {
+            "type": "string",
+            "description": "The SCRAM that stopped this run (specification 22a). Whatever the run reports afterwards is\nquarantined: retained privately with its digests and never applied until a person reviews it."
+        },
+        "waiting_reason": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why a queued run is not being handed out, in plain words."
+        },
+        "waiting_cause": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "scram"
+                },
+                {
+                    "type": "string",
+                    "const": "lane"
+                },
+                {
+                    "type": "string",
+                    "const": "runtime-pin"
+                },
+                {
+                    "type": "string",
+                    "const": "independent-runtime"
+                },
+                {
+                    "type": "string",
+                    "const": "preparation"
+                }
+            ],
+            "description": "The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it)."
+        },
+        "independence_override": {
+            "$ref": "OwnerOverride.json",
+            "description": "The owner let this pre-check run on the author's runtime. Recorded before it ran."
+        },
+        "generation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Which attempt this is at its package revision, role and round, counting from 1. Reports from an\nattempt a later one superseded are refused (the generation fence, specification 22)."
+        },
+        "receipt": {
+            "$ref": "OwnershipReceipt.json",
+            "description": "The process the daemon spawned for this run, as it recorded it at spawn."
+        },
+        "outcome_unknown": {
+            "$ref": "OutcomeUnknown.json",
+            "description": "Set when the run was dispatched but its exit or completion was never observed (specification\n9 and 22). It holds requeue until a reconciliation records what happened."
+        },
+        "reconciliation": {
+            "$ref": "Reconciliation.json",
+            "description": "What settled an unknown outcome, and the evidence for it."
+        },
+        "grace_renewals": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Lease renewals granted without a heartbeat (after a controller restart, a machine sleep or an\napparent outage). At most one is granted until a heartbeat proves the run alive, so no number\nof restarts keeps a dead run running."
+        },
+        "permission_waits": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "observed"
+                },
+                {
+                    "type": "string",
+                    "const": "not-observable"
+                }
+            ],
+            "description": "Whether this run can show that it needs a person's permission (plan task 2.9). observed: a\nClaude Code PermissionRequest hook reports each request. not-observable: Codex exec mode gives\nno such signal, so a refused action shows only as a failed tool call."
+        }
+    },
+    "required": [
+        "schema_version",
+        "id",
+        "package_id",
+        "package_revision",
+        "role",
+        "agent_baseline",
+        "runtime",
+        "round",
+        "status",
+        "queued_at"
+    ],
+    "description": "One agent session working on one package revision in one role.",
+    "unevaluatedProperties": false
+}

@@ -1,0 +1,124 @@
+{
+  "harness-bright/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":13,\"mismatch\":0.08,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.05,\"margin\":0.35}",
+      "waiting": "{\"shape\":\"ring\",\"size\":13,\"mismatch\":0.21,\"margin\":0.38}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.08,\"margin\":0.08}",
+      "changed": "{\"shape\":\"triangle\",\"size\":11,\"mismatch\":0.1,\"margin\":0.36}"
+    },
+    "worstTextRatio": 12.65,
+    "worstInkPerChar": 14.6,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.18,
+    "worstEdgeCoverage": 0.28,
+    "worstTemplateMismatch": 0.21,
+    "smallestTemplateMargin": 0.08
+  },
+  "harness-bright/frames": {
+    "frames": 120,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 10,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "harness-bright/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "harness-bright/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "harness-bright/occlusion": {
+    "parts": 133,
+    "openFloorProbes": 275
+  },
+  "harness-bright/reference-frames": {
+    "machineName": "candidate only: WSL2 development machine, not designated by the owner",
+    "frames": 120,
+    "p95Ms": 16.7,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "standard-office/drawn": {
+    "counted": {
+      "plate": 13,
+      "code": 40,
+      "mark": 40,
+      "outline": 40,
+      "body": 40
+    },
+    "shapes": {
+      "working": "{\"shape\":\"circle\",\"size\":13,\"mismatch\":0.08,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.05,\"margin\":0.35}",
+      "waiting": "{\"shape\":\"ring\",\"size\":13,\"mismatch\":0.21,\"margin\":0.38}",
+      "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.08,\"margin\":0.08}",
+      "changed": "{\"shape\":\"triangle\",\"size\":11,\"mismatch\":0.1,\"margin\":0.36}"
+    },
+    "worstTextRatio": 11.8,
+    "worstInkPerChar": 15,
+    "fewestGlyphInk": 4,
+    "worstMarkRatio": 7.71,
+    "worstEdgeRatio": 4.15,
+    "worstEdgeCoverage": 0.28,
+    "worstTemplateMismatch": 0.21,
+    "smallestTemplateMargin": 0.08
+  },
+  "standard-office/frames": {
+    "frames": 120,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 11,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  },
+  "standard-office/legibility": {
+    "boxes": 53,
+    "smallestTextPx": {
+      "name": 12,
+      "label": 11,
+      "code": 10
+    }
+  },
+  "standard-office/motion": {
+    "animationsInFullMotion": 15,
+    "hidden": 0,
+    "reduced": 0
+  },
+  "standard-office/occlusion": {
+    "parts": 133,
+    "openFloorProbes": 274
+  },
+  "standard-office/reference-frames": {
+    "machineName": "candidate only: WSL2 development machine, not designated by the owner",
+    "frames": 120,
+    "p95Ms": 16.7,
+    "machine": {
+      "browser": "chromium 156.0.8078.4",
+      "os": "linux 6.6.114.1-microsoft-standard-WSL2",
+      "cpu": "AMD Ryzen 9 5900X 12-Core Processor x12"
+    }
+  }
+}

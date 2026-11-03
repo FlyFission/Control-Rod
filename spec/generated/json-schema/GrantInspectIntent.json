@@ -1,0 +1,15 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "GrantInspectIntent.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "type": "string",
+            "const": "inspect"
+        }
+    },
+    "required": [
+        "kind"
+    ],
+    "unevaluatedProperties": false
+}

@@ -1,0 +1,10 @@
+{
+  "description": "Decision kind mapping version 1 (workbench specification 5.5). Reads every legacy DecisionKind as a Platform Plan decision kind. Rows are DecisionKindMapping records.",
+  "rows": [
+    { "mapping_version": 1, "legacy_kind": "release", "plan_kind": "release" },
+    { "mapping_version": 1, "legacy_kind": "accept", "plan_kind": "verdict", "verdict_outcome": "accept" },
+    { "mapping_version": 1, "legacy_kind": "accept-with-findings", "plan_kind": "verdict", "verdict_outcome": "accept-with-findings" },
+    { "mapping_version": 1, "legacy_kind": "return", "plan_kind": "verdict", "verdict_outcome": "return" },
+    { "mapping_version": 1, "legacy_kind": "reject", "plan_kind": "verdict", "verdict_outcome": "reject" }
+  ]
+}

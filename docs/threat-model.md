@@ -37,3 +37,13 @@ Control Rod's central promise is that an agent cannot make its own work count. T
 ## Out of scope
 
 A malicious administrator with signing keys, a compromised host operating system, a compromised model provider, and physical attacks. Control Rod makes these detectable where it can, through the transparency log and witnesses, but cannot prevent them.
+
+## Controller grant boundary (inactive preparation dispatch)
+
+A new narrow credential class authorizes only intent-bound grant begin/finalize calls. Browser sessions and the general daemon token do not substitute for it; only a person may revoke through the owner route. No public grant issuance or preparer run creation/dispatch is present. The initial projection grants stored preparation/capture/attachment context only; external sources and technical-preparer issuance remain held.
+
+Scope/claim/assignment/preparation fences, controller-retained proposal bytes, a unique proposal slot, finite operation/pending limits and every-ack deferred database guards address the tested protocol attacks. PostgreSQL 17+ enforces the authority transaction budget; no remote file/model I/O occurs inside those transactions. A finalized original response may arrive after stop, and audit records authorization rather than model consumption. Exact retries recheck current authority; lost acknowledgment never proves rollback of controller custody.
+
+The preceding Phase 0 table includes intended controls. Native credential/tool/model-egress isolation, outside witnessing and whole-system prompt-injection resistance are not established by this grant component. Runtime preparation stays held pending real authority-adapter/native transport, approved profiles and protected activation. The current evidence packet distinguishes tested admission/custody from those remaining gates.
+
+Disclosure activation gate: an unconfirmed draft `data_lane` is not owner authorization to disclose. A future trusted coordinator must establish classification and runtime permission before preparer issuance; current SQL fixtures do not prove that gate. No public issuer or native preparer dispatch is connected.

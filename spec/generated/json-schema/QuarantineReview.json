@@ -1,0 +1,60 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "QuarantineReview.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "scram_id": {
+            "$ref": "TenancyId.json"
+        },
+        "run_id": {
+            "type": "string"
+        },
+        "disposition": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "discard"
+                },
+                {
+                    "type": "string",
+                    "const": "retain"
+                }
+            ],
+            "description": "discard: the partial work is not used. retain: kept as reference only, never applied."
+        },
+        "covers_batch": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "The newest quarantine batch this review saw for the run; absent when the run had reported\nnothing. A batch that arrives later needs a review of its own before a restart."
+        },
+        "reviewed_by": {
+            "$ref": "TenancyId.json"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 1
+        },
+        "assertion": {
+            "$ref": "PasskeyAssertion.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "scram_id",
+        "run_id",
+        "disposition",
+        "reviewed_by",
+        "reason",
+        "assertion"
+    ],
+    "description": "A person's signed review of one run SCRAM stopped, whose output was quarantined. (A)",
+    "unevaluatedProperties": false
+}

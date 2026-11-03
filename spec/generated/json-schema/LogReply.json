@@ -1,0 +1,20 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "LogReply.json",
+    "type": "object",
+    "properties": {
+        "stop": {
+            "type": "boolean",
+            "description": "End the agent process when the owner has requested a stop."
+        },
+        "lease_expires_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "stop",
+        "lease_expires_at"
+    ],
+    "unevaluatedProperties": false
+}

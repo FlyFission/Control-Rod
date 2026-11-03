@@ -1,0 +1,53 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationView.json",
+    "type": "object",
+    "properties": {
+        "snapshot": {
+            "$ref": "PreparationSnapshot.json"
+        },
+        "content_digest": {
+            "$ref": "Digest.json"
+        },
+        "requirements_digest": {
+            "$ref": "Digest.json"
+        },
+        "confirmed": {
+            "type": "boolean"
+        },
+        "readiness": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "blocked"
+                },
+                {
+                    "type": "string",
+                    "const": "ready"
+                }
+            ]
+        },
+        "blockers": {
+            "type": "array",
+            "items": {
+                "$ref": "PreparationBlocker.json"
+            }
+        },
+        "change_summary": {
+            "type": "string"
+        },
+        "manifest": {
+            "$ref": "PreparationReleaseManifest.json"
+        }
+    },
+    "required": [
+        "snapshot",
+        "content_digest",
+        "requirements_digest",
+        "confirmed",
+        "readiness",
+        "blockers",
+        "change_summary"
+    ],
+    "unevaluatedProperties": false
+}

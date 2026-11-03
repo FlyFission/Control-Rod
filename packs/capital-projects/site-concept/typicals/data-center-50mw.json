@@ -1,0 +1,23 @@
+{
+  "typical": "control-rod/site-concept/data-center",
+  "version": "0.1.0",
+  "label": "Data center, about 50 MW, concept site program",
+  "facility": "data-center",
+  "rule": "Every value is an assumption until the owner confirms it in the basis of design. No value here was invented: a value is either stated by the owner or null with the note 'owner sets'. The layout tool refuses to place a block whose size is null and lists it as a hold.",
+  "parameters": {
+    "capacity": { "value": "50", "unit": "MW", "status": "assumption", "note": "BaseMark target size stated by the owner (about 50 MW); confirm IT load versus utility demand" },
+    "property_setback": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets; check county zoning for the actual minimum" },
+    "max_buildable_slope": { "value": null, "unit": "%", "status": "assumption", "note": "owner sets; civil and geotechnical input" },
+    "block_spacing": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets; fire separation and access" },
+    "access_road_width": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" }
+  },
+  "blocks": [
+    { "id": "data_halls", "label": "DATA HALL", "count": { "value": null, "unit": "each", "status": "assumption", "note": "owner sets" }, "width": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" }, "depth": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" } },
+    { "id": "substation", "label": "SUBSTATION", "count": { "value": null, "unit": "each", "status": "assumption", "note": "owner sets; utility interconnection input" }, "width": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" }, "depth": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" } },
+    { "id": "generator_yard", "label": "GENERATOR YARD", "count": { "value": null, "unit": "each", "status": "assumption", "note": "owner sets" }, "width": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" }, "depth": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" } },
+    { "id": "cooling", "label": "COOLING", "count": { "value": null, "unit": "each", "status": "assumption", "note": "owner sets; depends on cooling technology" }, "width": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" }, "depth": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" } },
+    { "id": "admin_parking", "label": "ADMIN AND PARKING", "count": { "value": null, "unit": "each", "status": "assumption", "note": "owner sets" }, "width": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" }, "depth": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" } },
+    { "id": "stormwater_pond", "label": "STORMWATER POND", "count": { "value": null, "unit": "each", "status": "assumption", "note": "owner sets; civil sizing" }, "width": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" }, "depth": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" } },
+    { "id": "laydown", "label": "LAYDOWN", "count": { "value": null, "unit": "each", "status": "assumption", "note": "owner sets" }, "width": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" }, "depth": { "value": null, "unit": "ft", "status": "assumption", "note": "owner sets" } }
+  ]
+}

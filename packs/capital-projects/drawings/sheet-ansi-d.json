@@ -1,0 +1,56 @@
+{
+  "template": "control-rod/sheet-ansi-d",
+  "version": "0.1.0",
+  "units": "in",
+  "sheet": { "name": "ANSI D", "width": "34", "height": "22", "margin": "0.5" },
+  "zones": { "columns": 8, "rows": 4, "rowLetters": "ABCD", "labelHeight": "0.24" },
+  "font": "DejaVu Sans",
+  "rightColumn": { "width": "7.75" },
+  "revisionBlock": {
+    "height": "3.0",
+    "columns": [
+      { "header": "REV", "width": "0.75" },
+      { "header": "DATE", "width": "1.25" },
+      { "header": "DESCRIPTION", "width": "4.5" },
+      { "header": "APPR", "width": "1.25" }
+    ],
+    "rowHeight": "0.375",
+    "headerHeight": "0.15",
+    "textHeight": "0.12"
+  },
+  "titleBlock": {
+    "height": "3.0",
+    "block": "CR_TITLEBLOCK_D",
+    "labelHeight": "0.08",
+    "rows": [
+      { "bottom": "2.25", "top": "3.0", "cells": [ { "x": "0", "w": "7.75", "label": "CLIENT AND PROJECT", "tag": "PROJECT", "h": "0.16" } ] },
+      { "bottom": "1.5", "top": "2.25", "cells": [ { "x": "0", "w": "7.75", "label": "TITLE", "tag": "TITLE", "h": "0.24" } ] },
+      { "bottom": "0.75", "top": "1.5", "cells": [
+        { "x": "0", "w": "4.0", "label": "DWG NO.", "tag": "DWGNO", "h": "0.24" },
+        { "x": "4.0", "w": "1.0", "label": "REV", "tag": "REV", "h": "0.24" },
+        { "x": "5.0", "w": "1.25", "label": "SCALE", "tag": "SCALE", "h": "0.12" },
+        { "x": "6.25", "w": "1.5", "label": "SHEET", "tag": "SHEET", "h": "0.12" }
+      ] },
+      { "bottom": "0", "top": "0.75", "cells": [
+        { "x": "0", "w": "2.0", "label": "PREPARED", "tag": "PREPARED", "h": "0.1" },
+        { "x": "2.0", "w": "2.0", "label": "VERIFIED", "tag": "VERIFIED", "h": "0.1" },
+        { "x": "4.0", "w": "2.0", "label": "APPROVED", "tag": "APPROVED", "h": "0.1" },
+        { "x": "6.0", "w": "1.75", "label": "STATUS", "tag": "STATUS", "h": "0.1" }
+      ] }
+    ]
+  },
+  "notes": {
+    "headingHeight": "0.14",
+    "textHeight": "0.12",
+    "gap": "0.2",
+    "padding": "0.125",
+    "sections": [
+      { "key": "general", "heading": "GENERAL NOTES", "source": "template and project" },
+      { "key": "references", "heading": "REFERENCE DRAWINGS", "source": "register" },
+      { "key": "inputs", "heading": "DESIGN INPUTS", "source": "work package inputs with revisions" },
+      { "key": "holds", "heading": "HOLDS", "source": "holds list" },
+      { "key": "assumptions", "heading": "ASSUMPTIONS", "source": "assumption register with retiring events" },
+      { "key": "preparation", "heading": "PREPARATION RECORD", "source": "work package, check and signature records" }
+    ]
+  }
+}

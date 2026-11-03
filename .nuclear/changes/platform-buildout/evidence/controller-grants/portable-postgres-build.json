@@ -1,0 +1,22 @@
+{
+  "source_url": "https://ftp.postgresql.org/pub/source/v17.10/postgresql-17.10.tar.bz2",
+  "source_sha256": "078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90",
+  "flags": [
+    "--without-icu",
+    "--without-readline",
+    "--without-zlib",
+    "--without-openssl",
+    "--without-ldap",
+    "--without-libxml",
+    "--without-libxslt",
+    "--without-lz4",
+    "--without-zstd"
+  ],
+  "binaries": {
+    "initdb": "69aacb8f180543fb5cc2ed5cd8cab5734bd7cceada647dcbd3b6c1f716f65d3e",
+    "postgres": "452bfcee13f69ebd1a78de105c6fefa831ceb99fc0d8df119b0c1b97e5978750",
+    "pg_ctl": "0410397b060b144bc3d3c1bd9b3601ca2960fbb848212b410a72718ec47e4ca6",
+    "pg_dump": "bba42122242eb22d62b48fa05b39bb122f9c8ec0c79408cac56707d67263c8a2",
+    "pg_restore": "5daacd8f8bdce12e2b55bae79d110dc57bfe4ad8a97060af2824f1bae437638d"
+  }
+}

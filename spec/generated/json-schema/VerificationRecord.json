@@ -26,6 +26,10 @@
                 },
                 {
                     "type": "string",
+                    "const": "agent-pre-check"
+                },
+                {
+                    "type": "string",
                     "const": "independent-review"
                 },
                 {
@@ -72,6 +76,10 @@
                     "const": "inconclusive"
                 }
             ]
+        },
+        "independence": {
+            "$ref": "PreCheckIndependence.json",
+            "description": "Whether the checker ran on a runtime other than the author's, and any owner override."
         }
     },
     "required": [

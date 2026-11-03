@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "OfficeThemeSelection.json",
+    "type": "object",
+    "properties": {
+        "theme_id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{1,63}$"
+        },
+        "manifest_digest": {
+            "$ref": "Digest.json"
+        }
+    },
+    "required": [
+        "theme_id",
+        "manifest_digest"
+    ],
+    "unevaluatedProperties": false
+}

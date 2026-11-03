@@ -1,0 +1,15 @@
+{"id":"creature-dispatch","title":"The Monster Mailroom","actors":36,"frames":1799,"frameP95Ms":16.7,"cachedSwitchMs":109,"coldActivationMs":914,"pass":true}
+{"id":"pocket-lab","title":"Little Helpers Laboratory","actors":36,"frames":1799,"frameP95Ms":16.7,"cachedSwitchMs":113,"coldActivationMs":894,"pass":true}
+{"id":"midnight-bureau","title":"Heist Night","actors":36,"frames":1800,"frameP95Ms":16.8,"cachedSwitchMs":130,"coldActivationMs":912,"pass":true}
+{"id":"confectionery-works","title":"The Chocolate Factory","actors":36,"frames":1799,"frameP95Ms":16.7,"cachedSwitchMs":101,"coldActivationMs":899,"pass":true}
+{"id":"lanternwood-guild","title":"The Lantern Woods Guild","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":104,"coldActivationMs":892,"pass":true}
+{"id":"corner-cafe","title":"The Coffee House Crew","actors":36,"frames":1800,"frameP95Ms":16.8,"cachedSwitchMs":106,"coldActivationMs":894,"pass":true}
+{"id":"tumbletown-workshop","title":"Tumbletown Rhyme Works","actors":36,"frames":1798,"frameP95Ms":16.8,"cachedSwitchMs":123,"coldActivationMs":872,"pass":true}
+{"id":"orbital-shipyard","title":"Starport Shipyard","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":224,"coldActivationMs":894,"pass":true}
+{"id":"wildlight-camp","title":"Critter Expedition Camp","actors":36,"frames":1799,"frameP95Ms":16.7,"cachedSwitchMs":108,"coldActivationMs":911,"pass":true}
+{"id":"voxel-foundry","title":"Blockworks Foundry","actors":36,"frames":1799,"frameP95Ms":16.8,"cachedSwitchMs":112,"coldActivationMs":899,"pass":true}
+{"id":"cloudspring-bathhouse","title":"The Cloudspring Baths","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":104,"coldActivationMs":888,"pass":true}
+{"id":"button-and-spool","title":"Thimble Town","actors":36,"frames":1801,"frameP95Ms":16.7,"cachedSwitchMs":122,"coldActivationMs":893,"pass":true}
+{"id":"clockwork-observatory","title":"Clockwork Stargazers","actors":36,"frames":1800,"frameP95Ms":16.8,"cachedSwitchMs":103,"coldActivationMs":867,"pass":true}
+{"id":"coral-commons","title":"Reef Town","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":117,"coldActivationMs":889,"pass":true}
+{"id":"meadow-post","title":"Cozy Critter Village","actors":36,"frames":1800,"frameP95Ms":16.7,"cachedSwitchMs":180,"coldActivationMs":894,"pass":true}

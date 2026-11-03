@@ -1,0 +1,20 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RuntimeArtifact.json",
+    "type": "object",
+    "properties": {
+        "path": {
+            "type": "string",
+            "maxLength": 4096
+        },
+        "digest": {
+            "$ref": "Digest.json"
+        }
+    },
+    "required": [
+        "path",
+        "digest"
+    ],
+    "description": "A runtime's native executable and its SHA-256. A runtime whose npm launcher wraps a platform\nbinary with helper files (Codex) is identified by a digest over that whole platform directory.\nScript launchers whose own digest would not identify what runs are refused.",
+    "unevaluatedProperties": false
+}

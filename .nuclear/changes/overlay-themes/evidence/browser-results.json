@@ -1,0 +1,1427 @@
+{
+  "config": {
+    "argv": [
+      "/home/flyfission/.hermes/node/bin/node",
+      "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--project=chromium",
+      "--project=firefox"
+    ],
+    "configFile": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/playwright.config.ts",
+    "rootDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 6
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "name": "chromium",
+        "testDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
+        "snapshotDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "baseURL": "http://127.0.0.1:4173",
+          "viewport": {
+            "width": 1440,
+            "height": 1100
+          },
+          "trace": "retain-on-failure",
+          "browserName": "chromium"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "chromium"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "name": "firefox",
+        "testDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
+        "snapshotDir": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "baseURL": "http://127.0.0.1:4173",
+          "viewport": {
+            "width": 1440,
+            "height": 1100
+          },
+          "trace": "retain-on-failure",
+          "browserName": "firefox"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "firefox"
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../../.nuclear/changes/overlay-themes/evidence/browser-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.1",
+    "workers": 6,
+    "webServer": {
+      "command": "pnpm build && pnpm exec vite preview --host 127.0.0.1 --port 4173",
+      "url": "http://127.0.0.1:4173/themes.html",
+      "reuseExistingServer": false,
+      "timeout": 120000,
+      "env": {
+        "VITE_FLOOR_THEMES_ENABLED": "true",
+        "VITE_FLOOR_THEME_DRAFTS": "true"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "build-isolation.spec.ts",
+      "file": "build-isolation.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "build output isolation",
+          "file": "build-isolation.spec.ts",
+          "line": 24,
+          "column": 6,
+          "specs": [
+            {
+              "title": "a release build into a reused directory carries nothing from an earlier draft build",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2343,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-30T14:03:03.646Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c7bc5fbdfe741889fa95-c3cc875f79487544f267",
+              "file": "build-isolation.spec.ts",
+              "line": 28,
+              "column": 3
+            },
+            {
+              "title": "a build refuses a non-empty directory it did not create",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 563,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-30T14:03:06.045Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c7bc5fbdfe741889fa95-fd7b16dba39d39212bba",
+              "file": "build-isolation.spec.ts",
+              "line": 45,
+              "column": 3
+            },
+            {
+              "title": "a release build into a reused directory carries nothing from an earlier draft build",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "build-only check runs once",
+                      "location": {
+                        "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/build-isolation.spec.ts",
+                        "line": 25,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-30T14:03:03.625Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "build-only check runs once",
+                          "location": {
+                            "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/build-isolation.spec.ts",
+                            "line": 25,
+                            "column": 8
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c7bc5fbdfe741889fa95-b978ba83e5e930b40066",
+              "file": "build-isolation.spec.ts",
+              "line": 28,
+              "column": 3
+            },
+            {
+              "title": "a build refuses a non-empty directory it did not create",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "build-only check runs once",
+                      "location": {
+                        "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/build-isolation.spec.ts",
+                        "line": 25,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-10-30T14:03:03.666Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "build-only check runs once",
+                          "location": {
+                            "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/build-isolation.spec.ts",
+                            "line": 25,
+                            "column": 8
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "c7bc5fbdfe741889fa95-60e4b022cd30ad586620",
+              "file": "build-isolation.spec.ts",
+              "line": 45,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "floor-themes.spec.ts",
+      "file": "floor-themes.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "standalone scenes pause when the document is hidden and resume without replay",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 266,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:03.723Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-6f881e140509005db7af",
+          "file": "floor-themes.spec.ts",
+          "line": 12,
+          "column": 1
+        },
+        {
+          "title": "Quiet submission emphasis uses opacity without translation or scale",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 619,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:04.123Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-e9c847d46f7379006076",
+          "file": "floor-themes.spec.ts",
+          "line": 35,
+          "column": 1
+        },
+        {
+          "title": "short reconnect rebaselines without a submission effect",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 499,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:04.754Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-859e8fa8c4e6fc3d3c99",
+          "file": "floor-themes.spec.ts",
+          "line": 58,
+          "column": 1
+        },
+        {
+          "title": "a newer cross-tab decision cancels a pending choice even when it selects the current pack",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 697,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:05.272Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-3a1daf50d9f29b681f1e",
+          "file": "floor-themes.spec.ts",
+          "line": 96,
+          "column": 1
+        },
+        {
+          "title": "mobile list keeps complete run identifiers and distinguishes active rounds",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 200,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:05.979Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-5720f872be1bdbba9d8c",
+          "file": "floor-themes.spec.ts",
+          "line": 145,
+          "column": 1
+        },
+        {
+          "title": "all fifteen worlds switch without changing work and reduced motion stays still",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 4378,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:06.188Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-c344f62a9ec16ec84f52",
+          "file": "floor-themes.spec.ts",
+          "line": 156,
+          "column": 1
+        },
+        {
+          "title": "gallery keyboard, focus return, list fallback and accessibility",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 1862,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:10.587Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-e4579365885107e00d6b",
+          "file": "floor-themes.spec.ts",
+          "line": 214,
+          "column": 1
+        },
+        {
+          "title": "failed artwork keeps the current world and explains the failure inside the gallery",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 615,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:12.459Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-38bd922b486938f77062",
+          "file": "floor-themes.spec.ts",
+          "line": 242,
+          "column": 1
+        },
+        {
+          "title": "a slower earlier theme never replaces a newer selection",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 638,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:13.084Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-6858af3b816b8a7322fd",
+          "file": "floor-themes.spec.ts",
+          "line": 265,
+          "column": 1
+        },
+        {
+          "title": "stale live data pauses activity and recovery never replays submissions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 529,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:13.731Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-771add99a1f95b91f4b7",
+          "file": "floor-themes.spec.ts",
+          "line": 296,
+          "column": 1
+        },
+        {
+          "title": "late image failure uses a plain actor while retaining task access",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 638,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:14.269Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-abb27eb4453960870c2d",
+          "file": "floor-themes.spec.ts",
+          "line": 320,
+          "column": 1
+        },
+        {
+          "title": "real route limits package queries and marks failed detail coverage",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 1,
+                  "status": "passed",
+                  "duration": 1684,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:14.918Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-9dbaf3ef5392d2471ee0",
+          "file": "floor-themes.spec.ts",
+          "line": 342,
+          "column": 1
+        },
+        {
+          "title": "standalone scenes pause when the document is hidden and resume without replay",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 1839,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:03.756Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-68e8bcfb65223f63a2c9",
+          "file": "floor-themes.spec.ts",
+          "line": 12,
+          "column": 1
+        },
+        {
+          "title": "Quiet submission emphasis uses opacity without translation or scale",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 777,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:06.588Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-0927457c161f587abe6d",
+          "file": "floor-themes.spec.ts",
+          "line": 35,
+          "column": 1
+        },
+        {
+          "title": "short reconnect rebaselines without a submission effect",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 858,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:07.393Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-c8b6737aaa3647c9c330",
+          "file": "floor-themes.spec.ts",
+          "line": 58,
+          "column": 1
+        },
+        {
+          "title": "a newer cross-tab decision cancels a pending choice even when it selects the current pack",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 984,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:08.267Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-252ba07a4abc20b0167b",
+          "file": "floor-themes.spec.ts",
+          "line": 96,
+          "column": 1
+        },
+        {
+          "title": "mobile list keeps complete run identifiers and distinguishes active rounds",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 451,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:09.260Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-8b6dd303ce36767b27af",
+          "file": "floor-themes.spec.ts",
+          "line": 145,
+          "column": 1
+        },
+        {
+          "title": "all fifteen worlds switch without changing work and reduced motion stays still",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 5800,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:09.719Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-5ad00de663146c3ceaf7",
+          "file": "floor-themes.spec.ts",
+          "line": 156,
+          "column": 1
+        },
+        {
+          "title": "gallery keyboard, focus return, list fallback and accessibility",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 2202,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:15.528Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-9c4b79669c8fb0def714",
+          "file": "floor-themes.spec.ts",
+          "line": 214,
+          "column": 1
+        },
+        {
+          "title": "failed artwork keeps the current world and explains the failure inside the gallery",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 719,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:17.738Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-80edb3785ff414c39859",
+          "file": "floor-themes.spec.ts",
+          "line": 242,
+          "column": 1
+        },
+        {
+          "title": "a slower earlier theme never replaces a newer selection",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 840,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:18.466Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-fe78aec02faf36863cd2",
+          "file": "floor-themes.spec.ts",
+          "line": 265,
+          "column": 1
+        },
+        {
+          "title": "stale live data pauses activity and recovery never replays submissions",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 1395,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:19.316Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-a22ebcb43966e16ed2b0",
+          "file": "floor-themes.spec.ts",
+          "line": 296,
+          "column": 1
+        },
+        {
+          "title": "late image failure uses a plain actor while retaining task access",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 817,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:20.720Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-2dc2bb3ec41f7995cbd1",
+          "file": "floor-themes.spec.ts",
+          "line": 320,
+          "column": 1
+        },
+        {
+          "title": "real route limits package queries and marks failed detail coverage",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 5,
+                  "status": "passed",
+                  "duration": 1885,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:21.545Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "7bc25a8900dc1252fd94-118ac5b82010852531cc",
+          "file": "floor-themes.spec.ts",
+          "line": 342,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "legacy-floor.spec.ts",
+      "file": "legacy-floor.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "feature-off build preserves legacy navigation without mutations",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Run with THEME_TEST_LEGACY=true",
+                  "location": {
+                    "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
+                    "line": 6,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 2,
+                  "status": "skipped",
+                  "duration": 88,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:03.678Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Run with THEME_TEST_LEGACY=true",
+                      "location": {
+                        "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
+                        "line": 6,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "d1f15cfa5d6a28549f1f-2ea02a49a79a528597d9",
+          "file": "legacy-floor.spec.ts",
+          "line": 3,
+          "column": 1
+        },
+        {
+          "title": "feature-off build preserves legacy navigation without mutations",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Run with THEME_TEST_LEGACY=true",
+                  "location": {
+                    "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
+                    "line": 6,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 4,
+                  "status": "skipped",
+                  "duration": 1080,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:03.673Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Run with THEME_TEST_LEGACY=true",
+                      "location": {
+                        "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/legacy-floor.spec.ts",
+                        "line": 6,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "d1f15cfa5d6a28549f1f-8fa1f23a19647977c462",
+          "file": "legacy-floor.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "release-distribution.spec.ts",
+      "file": "release-distribution.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "release build excludes the draft demo and unapproved public artwork",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Run with THEME_TEST_RELEASE=true",
+                  "location": {
+                    "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/release-distribution.spec.ts",
+                    "line": 7,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 3,
+                  "status": "skipped",
+                  "duration": 86,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:03.642Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Run with THEME_TEST_RELEASE=true",
+                      "location": {
+                        "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/release-distribution.spec.ts",
+                        "line": 7,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "1fdb36186625de9ec951-37cd7ba165184c5b0b3a",
+          "file": "release-distribution.spec.ts",
+          "line": 4,
+          "column": 1
+        },
+        {
+          "title": "release build excludes the draft demo and unapproved public artwork",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Run with THEME_TEST_RELEASE=true",
+                  "location": {
+                    "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/release-distribution.spec.ts",
+                    "line": 7,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [
+                {
+                  "workerIndex": 6,
+                  "parallelIndex": 3,
+                  "status": "skipped",
+                  "duration": 1019,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-30T14:03:04.652Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "Run with THEME_TEST_RELEASE=true",
+                      "location": {
+                        "file": "/home/flyfission/worktrees/control-rod-overlay-themes/apps/web/e2e/release-distribution.spec.ts",
+                        "line": 7,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "1fdb36186625de9ec951-7ce0acffb24abf7dbd61",
+          "file": "release-distribution.spec.ts",
+          "line": 4,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-30T14:02:55.903Z",
+    "duration": 27832.319,
+    "expected": 26,
+    "skipped": 6,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

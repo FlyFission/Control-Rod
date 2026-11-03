@@ -1,0 +1,55 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "VerificationPlan.json",
+    "type": "object",
+    "properties": {
+        "method": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "test-suite"
+                },
+                {
+                    "type": "string",
+                    "const": "agent-pre-check"
+                },
+                {
+                    "type": "string",
+                    "const": "independent-review"
+                },
+                {
+                    "type": "string",
+                    "const": "design-review"
+                },
+                {
+                    "type": "string",
+                    "const": "alternate-calculation"
+                },
+                {
+                    "type": "string",
+                    "const": "qualification-test"
+                }
+            ]
+        },
+        "verifier": {
+            "type": "string"
+        },
+        "verifier_receives": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "What the verifier may see. Never the author's transcript."
+        },
+        "required_custody": {
+            "$ref": "RequiredCustody.json"
+        }
+    },
+    "required": [
+        "method",
+        "verifier",
+        "verifier_receives",
+        "required_custody"
+    ],
+    "unevaluatedProperties": false
+}

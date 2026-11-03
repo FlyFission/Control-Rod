@@ -1,0 +1,43 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Reconciliation.json",
+    "type": "object",
+    "properties": {
+        "disposition": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "completed-late"
+                },
+                {
+                    "type": "string",
+                    "const": "process-gone"
+                },
+                {
+                    "type": "string",
+                    "const": "abandoned"
+                }
+            ],
+            "description": "completed-late: the daemon's completion arrived after the run was marked lost; it is retained,\nnever applied. process-gone: the daemon proved from its receipt that the process no longer runs.\nabandoned: a person signed that the run will not report, with a reason."
+        },
+        "evidence": {
+            "type": "string",
+            "maxLength": 2000
+        },
+        "recorded_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "by": {
+            "$ref": "Actor.json"
+        }
+    },
+    "required": [
+        "disposition",
+        "evidence",
+        "recorded_at",
+        "by"
+    ],
+    "description": "How an unknown outcome was settled.",
+    "unevaluatedProperties": false
+}

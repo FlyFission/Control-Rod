@@ -11,8 +11,9 @@ using JsonSchema;
 @id("https://controlrod.dev/schemas/v0")
 namespace ControlRod.Records;
 
-/** Kind of work a project does. */
+/** Kind of work a project does. General is the base layer with no domain pack. */
 enum Mode {
+  general: "general",
   software: "software",
   capital_projects: "capital-projects",
 }
@@ -85,6 +86,16 @@ model DesignInput {
   use: string;
 }
 
+/** A package this one waits for. */
+@extension("unevaluatedProperties", false)
+model PackageDependency {
+  @minLength(1)
+  package_id: string;
+
+  /** Why this package waits for that one. */
+  reason?: string;
+}
+
 @extension("unevaluatedProperties", false)
 model Assumption {
   id: string;
@@ -105,6 +116,9 @@ model CodeOrStandard {
 model ToolRef {
   name: string;
   version?: string;
+
+  /** SHA-256 of the executable that ran (specification 21: runs launch a verified artifact). */
+  digest?: Digest;
   qualification?: "not-required" | "required-before-use" | "qualified";
 }
 
@@ -156,6 +170,7 @@ model RequiredCustody {
 model VerificationPlan {
   method:
     | "test-suite"
+    | "agent-pre-check"
     | "independent-review"
     | "design-review"
     | "alternate-calculation"
@@ -182,6 +197,13 @@ model WorkPackage {
   project: string;
   mode: Mode;
   discipline?: string;
+
+  /**
+   * The quality grade signers must hold (workbench specification 5.2). Absent means General service,
+   * as for every package drafted before grades existed.
+   */
+  grade?: "safety" | "material" | "general-service";
+
   status: PackageStatus;
   rigor_mode: RigorMode;
   data_lane: DataLane;
@@ -192,7 +214,11 @@ model WorkPackage {
   deliverables: Deliverable[];
 
   exclusions?: string[];
+  /** Citations: documents this package relies on. They never decide when the package may start. */
   design_inputs: DesignInput[];
+
+  /** Packages this one waits for: it starts only once each is accepted. Unknown targets are refused. */
+  depends_on?: PackageDependency[];
   assumptions?: Assumption[];
   codes_and_standards?: CodeOrStandard[];
   methodology?: Methodology;
@@ -262,6 +288,31 @@ model ExecutionTrace {
   environment?: Record<string>;
   started_at: utcDateTime;
   finished_at: utcDateTime;
+
+  /**
+   * How the runtime was driven. "print" is a headless, one-prompt run (`claude -p`, `codex exec`)
+   * where no ACP permission binding is in force; "acp" is reserved for ACP sessions.
+   */
+  runtime_mode?: "print" | "acp" | "fake";
+
+  /** The model the run asked for, or "default" when it left the choice to the runtime. */
+  @maxLength(200)
+  requested_model?: string;
+
+  /** The model the runtime said it used, read from its own event stream. Absent when it did not say. */
+  @maxLength(200)
+  reported_model?: string;
+
+  /** Permission mode the runtime started in, when it has one. */
+  @maxLength(100)
+  permission_mode?: string;
+
+  /** Tool allowlist passed to the runtime, when it takes one. */
+  allowed_tools?: string[];
+
+  /** Sandbox the daemon asked the runtime for: "none", "workspace-write" or "workspace-write+network". */
+  @maxLength(100)
+  sandbox?: string;
 }
 
 /** Independence of one axis of the actor and evidence coupling profile. */
@@ -317,4 +368,16 @@ model VerificationRecord {
   evidence: EvidenceItem[];
   findings: Finding[];
   outcome: "pass" | "fail" | "inconclusive";
+
+  /** Whether the checker ran on a runtime other than the author's, and any owner override. */
+  independence?: PreCheckIndependence;
+}
+
+/** Runtime identity of author and checker, and whether they could be the same. */
+@extension("unevaluatedProperties", false)
+model PreCheckIndependence {
+  runtime: "independent" | "shared";
+  author_runtime: RuntimeRef;
+  checker_runtime: RuntimeRef;
+  owner_override?: OwnerOverride;
 }

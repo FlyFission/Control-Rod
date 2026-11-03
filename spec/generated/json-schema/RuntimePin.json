@@ -1,0 +1,39 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RuntimePin.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "role": {
+            "$ref": "RunRole.json"
+        },
+        "runtime": {
+            "type": "string"
+        },
+        "artifact_version_id": {
+            "$ref": "TenancyId.json"
+        },
+        "artifact_digest": {
+            "$ref": "Digest.json"
+        },
+        "status": {
+            "$ref": "LifecycleStatus.json"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "role",
+        "runtime",
+        "artifact_version_id",
+        "artifact_digest",
+        "status"
+    ],
+    "description": "Which artifact version a role launches. Changes are directly signed commands. (L)",
+    "unevaluatedProperties": false
+}

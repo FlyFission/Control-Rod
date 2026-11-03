@@ -1,0 +1,5 @@
+?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	(cached)
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	(cached)
+?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
+?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]

@@ -1,0 +1,34 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "HumanResolution.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string",
+            "minLength": 1
+        },
+        "item_id": {
+            "type": "string"
+        },
+        "actor": {
+            "$ref": "Actor.json"
+        },
+        "rationale": {
+            "type": "string"
+        },
+        "source_refs": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "id",
+        "item_id",
+        "actor",
+        "rationale",
+        "source_refs"
+    ],
+    "unevaluatedProperties": false
+}

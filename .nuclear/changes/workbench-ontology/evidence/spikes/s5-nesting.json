@@ -1,0 +1,33 @@
+{
+  "spike": "S-5",
+  "codex": "/home/flyfission/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex",
+  "codex_sha256": "b8a11fedf24b2dfb59a70c9e52b030f9a508dcd49cd2dd0d41956f4c785156b8",
+  "codex_version": "codex-cli 0.166.0",
+  "bubblewrap": "bubblewrap 0.9.0",
+  "host": {
+    "exit": 0,
+    "result": {
+      "write_workspace": "allowed",
+      "write_outside": "OSError",
+      "network": "PermissionError"
+    },
+    "stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s5-gyxeh_ea/codex-home\"))\n",
+    "outside_marker_exists": false
+  },
+  "nested": {
+    "exit": 0,
+    "result": {
+      "write_workspace": "allowed",
+      "write_outside": "OSError",
+      "network": "PermissionError"
+    },
+    "stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/s5-urmhb4_m/codex-home\"))\n",
+    "outside_marker_exists": false
+  },
+  "checks": {
+    "host_sandbox_enforces": true,
+    "nested_sandbox_starts_and_enforces": true
+  },
+  "scope": "codex sandbox command only; no model, provider or credential; this host only",
+  "activation": "HOLD"
+}

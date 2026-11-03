@@ -1,0 +1,19 @@
+Reviewed committed HEAD `7b8700c` using the requested three-dot diff. Static review only; no tests run or files modified. Accepted limits excluded.
+
+Round 3 verification:
+
+- **S2-11 — Partial.** The lease precedes hashing, and `F_GETLEASE` correctly detects pending breaks ([lease_linux.go:15](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/lease_linux.go:15)). However, forced lease expiration restores the pre-execution mutation window; see S2-14.
+- **S2-12 — Closed.** Tree symlinks are rejected outright ([artifact.go:185](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/artifact.go:185)).
+- **S2-13 — Closed.** Unpinned rejection withdraws readiness without reprobe execution; scheduled probes resolve the artifact first ([daemon.go:884](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/daemon.go:884), [probe.go:78](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/probe.go:78)).
+- **Medium, zero index — Closed.** `events_from` no longer uses `omitempty` ([types.go:113](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/types.go:113)).
+- **Medium, leftover index — Closed.** Indices are assigned before buffering and preserved through retry and trimming ([daemon.go:574](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/daemon.go:574), [daemon.go:650](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/daemon.go:650)).
+
+Lease custody: `Apply` passes the descriptor to the child, and the systemd wrapper retains `ExtraFiles`. This shares the lease’s open file description. Verification errors close the descriptor before any child exists; start failures reach deferred `Close`; locate, receipt and confirmation failures enter whole-unit stop. Successful confirmation explicitly unlocks. On an uncontained failure, however, closing only the daemon’s descriptor cannot release a lease still referenced by a surviving child. These inheritance and release semantics follow the [Linux lease contract](https://man7.org/linux/man-pages/man2/F_SETLEASE.2const.html).
+
+| ID | Severity | Finding | Evidence (file:line) | Fix |
+|---|---|---|---|---|
+| S2-14 | High | **Lease expiration permits changed bytes to execute before rejection.** After verification, delay the daemon before `cmd.Start` and attempt a blocking write. Once the kernel’s lease-break timeout expires, the writer can rewrite and close the same inode. Resuming the daemon executes those changed bytes through the inherited descriptor. `Confirm` subsequently detects the broken lease and stops the run, after the replacement has already executed. This is the remaining S2-11 gap through the newly introduced lease mechanism. Linux explicitly [forcibly removes expired leases](https://man7.org/linux/man-pages/man2/F_SETLEASE.2const.html). | [lease_linux.go:16](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/lease_linux.go:16), [artifact.go:306](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/artifact.go:306), [runtime.go:302](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/runtime.go:302), [artifact.go:356](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/artifact.go:356) | Execute a verified immutable snapshot or enforce kernel-backed immutability. A pre-start lease recheck alone leaves another scheduling window. |
+
+Additional Medium: exit events still pass through token admission and can disappear when the bucket is exhausted ([daemon.go:946](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/daemon.go:946), [events.go:246](/home/flyfission/worktrees/control-rod-phase2b/daemon/internal/runner/events.go:246)). Reserve terminal-event admission and flush the final dropped count.
+
+BLOCK

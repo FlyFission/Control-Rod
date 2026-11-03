@@ -1,0 +1,15 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "GrantWriteIntent.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "type": "string",
+            "const": "write-proposal"
+        }
+    },
+    "required": [
+        "kind"
+    ],
+    "unevaluatedProperties": false
+}

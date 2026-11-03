@@ -1,0 +1,46 @@
+[project]
+name = "cr-site"
+version = "0.1.0"
+description = "Control Rod site concept tools: parcel resolution, plat closure, GIS constraints, layout, site plan and pre-check."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.13"
+dependencies = [
+    "shapely>=2.1",
+    "pyproj>=3.7",
+    "pyshp>=2.3",
+    "pillow>=11",
+    "pyyaml>=6",
+    "jsonschema>=4.23",
+    "referencing>=0.36",
+]
+
+[project.scripts]
+cr-site = "cr_site.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+    "pypdf>=5.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cr_site"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "PT"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]

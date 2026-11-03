@@ -1,0 +1,31 @@
+[WebServer] (node:6026) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ pnpm check:themes && pnpm gen:api && tsc -p tsconfig.json --noEmit && vite build
+[WebServer] (node:6041) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ python3 ../../tools/check_theme_assets.py --root ../..
+[WebServer] (node:6057) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] $ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+[WebServer] (node:6072) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:6101) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:6128) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:6142) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 7 tests using 1 worker
+
+(node:6166) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/floor-themes.spec.ts:5:1 › all fifteen worlds switch without changing work and reduced motion stays still (4.5s)
+  ✓  2 e2e/floor-themes.spec.ts:21:1 › gallery keyboard, focus return, list fallback and accessibility (1.9s)
+  ✓  3 e2e/floor-themes.spec.ts:33:1 › failed artwork keeps the current world and explains the failure inside the gallery (657ms)
+  ✓  4 e2e/floor-themes.spec.ts:43:1 › a slower earlier theme never replaces a newer selection (781ms)
+  ✓  5 e2e/floor-themes.spec.ts:53:1 › stale live data pauses activity and recovery never replays submissions (707ms)
+  ✓  6 e2e/floor-themes.spec.ts:64:1 › late image failure uses a plain actor while retaining task access (720ms)
+  ✓  7 e2e/floor-themes.spec.ts:72:1 › real route limits package queries and marks failed detail coverage (1.9s)
+
+  7 passed (19.9s)

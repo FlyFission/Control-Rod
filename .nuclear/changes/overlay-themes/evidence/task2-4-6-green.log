@@ -1,0 +1,12 @@
+
+ RUN  v5.0.5 /workspace/Control-Rod/.worktrees/overlay-themes/apps/web
+
+
+ Test Files  4 passed (4)
+      Tests  28 passed (28)
+   Start at  17:55:01
+   Duration  2.46s (environment 58%, setup 20%, tests 11%, transform 5%, import 5%, worker 1%)
+
+    Isolate  4 workers spawned · ~392ms startup each (spawn + environment, per file)
+             at least ~1.18s faster with isolate: false — reuses workers across files instead of one per file
+

@@ -1,0 +1,20 @@
+Scope: 3 of 4 workspace projects
+apps/web test$ pnpm gen:api && vitest run
+apps/web test: > @control-rod/web@0.0.0 gen:api /home/flyfission/worktrees/control-rod-buildout-20261023/apps/web
+apps/web test: > openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+apps/web test: ✨ openapi-typescript 7.13.0
+apps/web test: 🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [169.1ms]
+apps/web test:  RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/apps/web
+apps/web test:  Test Files  5 passed (5)
+apps/web test:       Tests  39 passed (39)
+apps/web test:    Start at  17:06:35
+apps/web test:    Duration  1.80s (tests 39%, environment 35%, setup 13%, import 9%, transform 3%)
+apps/web test: Done
+services/api test$ node ../../tools/test-api.mjs
+services/api test: [test-api] PostgreSQL fixture binaries: /home/flyfission/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+services/api test:  RUN  v5.0.5 /home/flyfission/worktrees/control-rod-buildout-20261023/services/api
+services/api test:  Test Files  21 passed (21)
+services/api test:       Tests  174 passed (174)
+services/api test:    Start at  17:06:38
+services/api test:    Duration  16.54s (tests 89%, import 10%, transform 1%)
+services/api test: Done

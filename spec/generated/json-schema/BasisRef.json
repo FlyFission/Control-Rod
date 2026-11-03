@@ -1,0 +1,74 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "BasisRef.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "capture"
+                },
+                {
+                    "type": "string",
+                    "const": "attachment"
+                },
+                {
+                    "type": "string",
+                    "const": "repository"
+                },
+                {
+                    "type": "string",
+                    "const": "document"
+                },
+                {
+                    "type": "string",
+                    "const": "package"
+                },
+                {
+                    "type": "string",
+                    "const": "policy"
+                }
+            ]
+        },
+        "reference": {
+            "type": "string"
+        },
+        "revision": {
+            "type": "string"
+        },
+        "digest": {
+            "$ref": "Digest.json"
+        },
+        "artifacts": {
+            "type": "array",
+            "items": {
+                "$ref": "Artifact.json"
+            },
+            "description": "Complete published output set when this source is a package dependency."
+        },
+        "commit": {
+            "type": "string"
+        },
+        "path": {
+            "type": "string"
+        },
+        "line_start": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "line_end": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "kind",
+        "reference",
+        "revision",
+        "digest"
+    ],
+    "unevaluatedProperties": false
+}

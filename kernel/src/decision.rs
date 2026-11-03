@@ -12,6 +12,18 @@ pub enum ReasonCode {
     PolicyError,
     /// A floor or policy forbids the request.
     Forbidden,
+    /// Only a person may take this action.
+    NotHuman,
+    /// A person's action arrived without a verified passkey assertion over the digest on record.
+    Unsigned,
+    /// The package is not in a state this action applies to.
+    WrongState,
+    /// The checker is the author, or shares the author's baseline.
+    NotIndependent,
+    /// Acceptance was asked for before any pre-check exists.
+    MissingPreCheck,
+    /// This action needs a written reason.
+    ReasonRequired,
 }
 
 /// A kernel decision with its reason code.
@@ -33,7 +45,6 @@ impl Decision {
 
     /// An approval. Crate-private: nothing outside the kernel can mint one.
     #[must_use]
-    #[allow(dead_code)] // Used by Phase 1 decision functions.
     pub(crate) const fn allow() -> Self {
         Self {
             allowed: true,

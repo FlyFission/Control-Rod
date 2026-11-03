@@ -1,0 +1,15 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PreparationGrantIntent.json",
+    "anyOf": [
+        {
+            "$ref": "GrantInspectIntent.json"
+        },
+        {
+            "$ref": "GrantReadIntent.json"
+        },
+        {
+            "$ref": "GrantWriteIntent.json"
+        }
+    ]
+}

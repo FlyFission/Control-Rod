@@ -1,0 +1,25 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "ConfirmationOptions.json",
+    "type": "object",
+    "properties": {
+        "requirements_digest": {
+            "$ref": "Digest.json"
+        },
+        "options": {
+            "$ref": "#/$defs/RecordUnknown"
+        }
+    },
+    "required": [
+        "requirements_digest",
+        "options"
+    ],
+    "unevaluatedProperties": false,
+    "$defs": {
+        "RecordUnknown": {
+            "type": "object",
+            "properties": {},
+            "unevaluatedProperties": {}
+        }
+    }
+}

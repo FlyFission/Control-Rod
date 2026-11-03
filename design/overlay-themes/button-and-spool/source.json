@@ -1,0 +1,20 @@
+{
+  "packId": "button-and-spool",
+  "generator": "tools/build_theme_art.py",
+  "palette": [
+    "#627E94",
+    "#E7DDC7",
+    "#B86D64",
+    "#695646"
+  ],
+  "status": "draft",
+  "props": [
+    "button token",
+    "spool",
+    "folded pattern",
+    "paperclip tool",
+    "measuring tape",
+    "thimble"
+  ],
+  "sourceAssets": "Editable SVG siblings; identical geometry to hashed public exports"
+}

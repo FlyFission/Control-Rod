@@ -1,0 +1,65 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "PackageContract.json",
+    "type": "object",
+    "properties": {
+        "mode": {
+            "$ref": "Mode.json"
+        },
+        "objective": {
+            "type": "string"
+        },
+        "deliverables": {
+            "type": "array",
+            "items": {
+                "$ref": "Deliverable.json"
+            }
+        },
+        "exclusions": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "design_inputs": {
+            "type": "array",
+            "items": {
+                "$ref": "DesignInput.json"
+            }
+        },
+        "assumptions": {
+            "type": "array",
+            "items": {
+                "$ref": "Assumption.json"
+            }
+        },
+        "codes_and_standards": {
+            "type": "array",
+            "items": {
+                "$ref": "CodeOrStandard.json"
+            }
+        },
+        "rigor_mode": {
+            "$ref": "RigorMode.json"
+        },
+        "data_lane": {
+            "$ref": "DataLane.json"
+        },
+        "methodology": {
+            "$ref": "Methodology.json"
+        },
+        "verification": {
+            "$ref": "VerificationPlan.json"
+        }
+    },
+    "required": [
+        "mode",
+        "objective",
+        "deliverables",
+        "design_inputs",
+        "rigor_mode",
+        "data_lane",
+        "verification"
+    ],
+    "unevaluatedProperties": false
+}

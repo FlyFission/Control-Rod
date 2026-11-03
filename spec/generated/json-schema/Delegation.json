@@ -1,0 +1,51 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Delegation.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "$ref": "TenancyId.json"
+        },
+        "org_id": {
+            "$ref": "TenancyId.json"
+        },
+        "from_member_id": {
+            "$ref": "TenancyId.json"
+        },
+        "to_member_id": {
+            "$ref": "TenancyId.json"
+        },
+        "role": {
+            "$ref": "SignerRole.json"
+        },
+        "project_id": {
+            "$ref": "TenancyId.json"
+        },
+        "discipline": {
+            "type": "string"
+        },
+        "starts_on": {
+            "type": "string",
+            "format": "date"
+        },
+        "ends_on": {
+            "type": "string",
+            "format": "date"
+        },
+        "reason": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "id",
+        "org_id",
+        "from_member_id",
+        "to_member_id",
+        "role",
+        "starts_on",
+        "ends_on",
+        "reason"
+    ],
+    "description": "A dated, scoped transfer of a role. Nothing is approved on a timeout.",
+    "unevaluatedProperties": false
+}

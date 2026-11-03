@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 
 const allowed = new Set([
-  "MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0", "0BSD", "BlueOak-1.0.0", "CC0-1.0",
+  "MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0", "0BSD", "BlueOak-1.0.0", "CC0-1.0", "Unlicense",
 ]);
 
 const raw = execFileSync("pnpm", ["licenses", "list", "--json", "--prod"], { encoding: "utf8" });

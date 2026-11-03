@@ -1,0 +1,2 @@
+# Generated from spec/generated/openapi/openapi.json by `pnpm gen:api`. Never hand-edited.
+src/api/schema.d.ts

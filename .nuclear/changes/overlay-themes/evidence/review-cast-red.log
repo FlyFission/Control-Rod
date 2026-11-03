@@ -1,0 +1,13 @@
+..F...
+======================================================================
+FAIL: test_human_and_guild_casts_have_six_distinct_structural_silhouettes (test_check_theme_assets.AssetGateTests.test_human_and_guild_casts_have_six_distinct_structural_silhouettes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/workspace/Control-Rod/.worktrees/overlay-themes/tools/test_check_theme_assets.py", line 18, in test_human_and_guild_casts_have_six_distinct_structural_silhouettes
+    self.assertEqual(len(set(geometries)),6,pack)
+AssertionError: 1 != 6 : midnight-bureau
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.003s
+
+FAILED (failures=1)

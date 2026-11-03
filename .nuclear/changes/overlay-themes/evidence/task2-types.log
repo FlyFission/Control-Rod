@@ -1,0 +1,8 @@
+$ pnpm gen:api && tsc -p tsconfig.json --noEmit
+$ openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [152.8ms]
+src/features/floor/projection.test.ts(9,155): error TS2741: Property 'kind' is missing in type '{ provider: string; model: string; }' but required in type '{ kind: "local" | "subscription" | "account"; provider: string; model: string; }'.
+/workspace/Control-Rod/.worktrees/overlay-themes/apps/web:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @control-rod/web@0.0.0 typecheck: `pnpm gen:api && tsc -p tsconfig.json --noEmit`
+Exit status 2

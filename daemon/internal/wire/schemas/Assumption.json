@@ -1,0 +1,30 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Assumption.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string"
+        },
+        "statement": {
+            "type": "string"
+        },
+        "basis": {
+            "type": "string"
+        },
+        "requires_confirmation": {
+            "type": "boolean"
+        },
+        "owner": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "id",
+        "statement",
+        "basis",
+        "requires_confirmation",
+        "owner"
+    ],
+    "unevaluatedProperties": false
+}

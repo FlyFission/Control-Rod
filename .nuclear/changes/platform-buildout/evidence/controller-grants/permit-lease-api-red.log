@@ -1,0 +1,38 @@
+
+> @control-rod/api@0.0.0 test /home/user/Control-Rod/services/api
+> node ../../tools/test-api.mjs
+
+
+ RUN  v5.0.5 /home/user/Control-Rod/services/api
+
+ ❯ test/preparation-grants.test.ts (17 tests | 1 failed) 3479ms
+   × caps each new permit and its commit guard at the currently shortened run lease 74ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/preparation-grants.test.ts > caps each new permit and its commit guard at the currently shortened run lease
+AssertionError: expected 1793302710317 to be 1793302665332 // Object.is equality
+
+- Expected
++ Received
+
+- 1793302665332
++ 1793302710317
+
+ ❯ test/preparation-grants.test.ts:586:56
+    584|   expect(permit.statusCode, permit.body).toBe(200);
+    585|   const lease = new Date(shorter).getTime();
+    586|   expect(new Date(permit.json().expires_at).getTime()).toBe(lease);
+       |                                                        ^
+    587|   const stored = (
+    588|     await f.h.db.query(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 20 passed (21)
+      Tests  1 failed | 174 passed (175)
+   Start at  19:37:23
+   Duration  19.20s (tests 83%, import 16%, transform 1%)
+
+ ELIFECYCLE  Test failed. See above for more details.

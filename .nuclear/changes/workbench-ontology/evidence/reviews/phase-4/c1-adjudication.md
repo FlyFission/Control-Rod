@@ -14,3 +14,13 @@
 | 8 | Signer always picks acceptance | Accepted | The card names the signature the rung opens: release for a draft, acceptance in verification, otherwise none. Also raised by an automated review thread. Test added. |
 | 9 | Watch live and inputs and reach record no event | Deferred: owner decision | Both are reads. Whether a read of an agent's work should be recorded as its own event (an audit trail of who watched) is a policy decision for the owner, not something to invent here. Stop is a governed command with its event now; OV-06 stays partly open in the ledger with this reason. |
 | 10 | Checker wording implies completed checking | Accepted | The checker shows its run's status (queued, checking now, finished, failed, stopped, lost) and the recorded pre-check outcome when one exists. |
+
+## Round 2 (Codex, `c1-codex-round2.md`): REVISE, one finding, accepted
+
+Finding 9's deferral judged reasonable.
+
+| # | Finding | Decision | Change |
+|---|---|---|---|
+| 1 | The Change lens shows unknown freshness as current | Accepted | Three steps: an input changed; freshness unknown (any input not established, or no package input pinned); inputs current as pinned (only when every recorded input is established). Distinct greys, legend and accessible values; unit tests cover unverified, absent and mixed evidence. |
+
+Also from the review's validation note: the worst case harness case now fills every seat and queue place on the floor (not 40 of them), every figure carrying every mark.

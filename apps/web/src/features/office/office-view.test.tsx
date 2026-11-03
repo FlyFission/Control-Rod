@@ -6,7 +6,7 @@ import type { AgentFigure } from "../../api/types.js";
 import { server } from "../../test/server.js";
 import { renderPage } from "../../test/render.js";
 import { REGION } from "./layout.js";
-import { LENSES, LENS_COLORS, lensById } from "./lenses.js";
+import { LENSES, LENS_COLORS, changeStep, lensById } from "./lenses.js";
 import { OfficeView } from "./OfficeView.js";
 import { seatFigures, shortCode } from "./seat.js";
 import { exceptionsView, portfolio } from "./exceptions.js";
@@ -60,6 +60,20 @@ describe("lenses", () => {
     const seatedBy = LENSES.filter((l) => !l.unavailable).map((l) => seatFigures([f], l.tint).seated[0]!);
     expect(new Set(seatedBy.map((s) => s.tint)).size).toBe(3);
     for (const s of seatedBy) expect({ state: s.state, at: s.at, region: s.region }).toEqual({ state: "needs", at: REGION["your-office"].seats[0], region: "your-office" });
+  });
+
+  it("calls inputs current under the Change lens only where that is established", () => {
+    const change = lensById("change");
+    const base = figure();
+    expect(changeStep(base)).toBe("unknown");
+    expect(change.value(base)).toBe("Freshness unknown: no package input revisions were pinned");
+    expect(changeStep(figure({ current_inputs: ["WP-3"] }))).toBe("current");
+    expect(change.value(figure({ current_inputs: ["WP-3"] }))).toBe("Inputs current as pinned (WP-3)");
+    // Mixed evidence: one input current, another unknown, is unknown.
+    expect(changeStep(figure({ current_inputs: ["WP-3"], unverified_inputs: ["WP-4"] }))).toBe("unknown");
+    expect(change.value(figure({ current_inputs: ["WP-3"], unverified_inputs: ["WP-4"] }))).toBe("Freshness unknown for WP-4");
+    expect(changeStep(figure({ current_inputs: ["WP-3"], marks: { gate: false, safety: false, changed_input: "WP-5" } }))).toBe("changed");
+    expect(new Set([base, figure({ current_inputs: ["WP-3"] }), figure({ marks: { gate: false, safety: false, changed_input: "WP-5" } })].map(change.tint)).size).toBe(3);
   });
 
   it("offers Spend only once usage is recorded, and says so", () => {

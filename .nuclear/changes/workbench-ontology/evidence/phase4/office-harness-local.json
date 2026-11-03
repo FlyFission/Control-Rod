@@ -2,20 +2,20 @@
   "harness-bright/all-marks": {
     "counted": {
       "plate": 13,
-      "code": 40,
-      "mark": 40,
-      "outline": 40,
-      "body": 40,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
       "tint": 0,
-      "safety": 40,
-      "flags": 40
+      "safety": 80,
+      "flags": 80
     },
     "shapes": {
       "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
       "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
       "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
       "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
-      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
     },
     "worstTextRatio": 12.65,
     "worstTintRatio": null,
@@ -27,7 +27,7 @@
     "worstTemplateMismatch": 0.22,
     "worstIconMismatch": 0.22,
     "smallestTemplateMargin": 0.1,
-    "boxes": 53
+    "boxes": 93
   },
   "harness-bright/drawn": {
     "counted": {
@@ -60,8 +60,8 @@
   },
   "harness-bright/frames": {
     "frames": 120,
-    "p95Ms": 16.7,
-    "eventToScreenMs": 11,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 9,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
@@ -102,7 +102,7 @@
   "harness-bright/reference-frames": {
     "machineName": "candidate only: WSL2 development machine, not designated by the owner",
     "frames": 120,
-    "p95Ms": 16.8,
+    "p95Ms": 16.7,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
@@ -112,20 +112,20 @@
   "standard-office/all-marks": {
     "counted": {
       "plate": 13,
-      "code": 40,
-      "mark": 40,
-      "outline": 40,
-      "body": 40,
+      "code": 80,
+      "mark": 80,
+      "outline": 80,
+      "body": 80,
       "tint": 0,
-      "safety": 40,
-      "flags": 40
+      "safety": 80,
+      "flags": 80
     },
     "shapes": {
       "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
       "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
       "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
       "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
-      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
     },
     "worstTextRatio": 11.8,
     "worstTintRatio": null,
@@ -137,7 +137,7 @@
     "worstTemplateMismatch": 0.22,
     "worstIconMismatch": 0.22,
     "smallestTemplateMargin": 0.1,
-    "boxes": 53
+    "boxes": 93
   },
   "standard-office/drawn": {
     "counted": {

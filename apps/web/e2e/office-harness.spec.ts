@@ -294,12 +294,15 @@ test.describe("office theme quality harness", () => {
         measurements[`${theme}/lenses`] = byLens;
       });
 
-      test("the worst case: every figure carries every mark, at minimum zoom with 40 agents (OV-08)", async ({ page }) => {
+      test("the worst case: every place filled and every figure carrying every mark, at minimum zoom (OV-08)", async ({ page }) => {
         await page.emulateMedia({ reducedMotion: "reduce" });
-        await open(page, `theme=${theme}&agents=40&zoom=0.8&marks=all`);
+        await open(page, `theme=${theme}&agents=all&zoom=0.8&marks=all`);
+        const places = await page.evaluate(() => document.querySelectorAll(".office-figure").length);
+        expect(places).toBeGreaterThan(40);
         const drawn = await drawnOf(page);
         expect(drawn.failures).toEqual([]);
-        expect(drawn.summary.counted).toMatchObject({ safety: 40, flags: 40 });
+        expect(drawn.summary.counted).toMatchObject({ safety: places, flags: places });
+        // The stage stays at its minimum width; only the count of figures differs from the other cases.
         const legible = await page.evaluate(measureLegibility);
         expect(legible.failures).toEqual([]);
         // The painted extents, rings and bands included, never meet between neighbours.

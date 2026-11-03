@@ -582,8 +582,12 @@ model SealCheck {
   signer_id: string;
   purpose: string;
 
-  /** valid, or why not: the head moved or is missing, the subject does not match, the signer's key is unknown, the signature fails, or the chain breaks before its head. */
-  result: "valid" | "head-mismatch" | "head-missing" | "subject-mismatch" | "key-unknown" | "signature-invalid" | "chain-broken-before-head";
+  /**
+   * valid, or why not: the head moved or is missing; no chain.sealed event records this seal as it is;
+   * the subject does not match its payload; the signer's key is unknown, or was revoked before the seal
+   * was recorded; the signature fails; or the chain breaks before its head.
+   */
+  result: "valid" | "head-mismatch" | "head-missing" | "unrecorded" | "subject-mismatch" | "key-unknown" | "key-revoked" | "signature-invalid" | "chain-broken-before-head";
 }
 
 /** The record verified (plan task 5.3; specification 11.6): the chain, every seal, and the unsealed suffix. */
@@ -610,25 +614,30 @@ op recordsHead(): {
 } | ApiError;
 
 /**
- * A package's inclusion proof: the chain segment from just before its first event to the head of the
- * first valid seal covering its last (or to the chain head, unsealed), with that seal. Self contained:
- * every digest and link can be recomputed from the bundle.
+ * A package's inclusion proof: the whole chain from its first event through the head of the first
+ * valid seal covering the package's last event (or the chain head, unsealed), with that seal and what
+ * checking its signature needs. Self contained; trust in the signer's key must come from outside it.
+ * Refused (mixed-scope) when that part of the chain records another organization's work.
  */
 @route("/packages/{id}/proof")
 @get
 op packageProof(@path id: string): {
+  /** The global chain verifies and the proof holds. */
+  ok: boolean;
+
+  chain: { ok: boolean; @minValue(0) count: int32; broken_at?: int32 };
+
+  /** The bundle checked on its own: links from the first event, the package's events derived from it, and the seal's signature. */
+  check: { ok: boolean; authenticated: boolean; events: int32[]; problem?: string };
+
   bundle: {
     package_id: string;
-    events: int32[];
-    anchor?: { seq: int32; digest: string };
     segment: Record<unknown>[];
     seal: Record<unknown> | null;
+    seal_evidence?: { public_key: string; rp_id: string; origins: string[] };
     witnessed: false;
     statement: "Local chain, not witnessed";
   };
-
-  /** The control plane's own check of the bundle: every digest and link recomputed. */
-  check: { ok: boolean; problem?: string };
 } | ApiError;
 
 /** The viewing member, as the command layer knows them. */

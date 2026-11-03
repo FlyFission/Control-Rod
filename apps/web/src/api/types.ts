@@ -40,10 +40,12 @@ export interface ChainHead {
   head_digest: Digest;
   at: string;
 }
-/** A package's inclusion proof and the control plane's check of it. */
+/** A package's inclusion proof, with the control plane's checks of the bundle and of the whole chain. */
 export interface PackageProof {
-  bundle: { package_id: string; events: number[]; segment: unknown[]; seal: { id: string; payload: { head_seq: number; purpose: string } } | null; statement: string };
-  check: { ok: boolean; problem?: string };
+  ok: boolean;
+  chain: { ok: boolean; count: number; broken_at?: number };
+  check: { ok: boolean; authenticated: boolean; events: number[]; problem?: string };
+  bundle: { package_id: string; segment: unknown[]; seal: { id: string; payload: { head_seq: number; purpose: string } } | null; seal_evidence?: unknown; statement: string };
 }
 /** When a SCRAM was pulled and, once every run it reached has stopped, how long that took. */
 export interface ScramTiming {

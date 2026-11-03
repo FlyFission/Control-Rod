@@ -28,7 +28,7 @@ import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
 import { activeScramsFor, scramPreview, scramView } from "./scram.js";
 import { roster } from "./roster.js";
-import { chainHead, inclusionProof, verifyInclusion, verifyRecords } from "./seals.js";
+import { chainHead, inclusionProof, verifyRecords } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
 import {
@@ -549,9 +549,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   /** A package's inclusion proof: the chain segment holding its events, up to the seal that covers them. */
   app.get<{ Params: { id: string } }>("/packages/:id/proof", async (req) => {
     const caller = await callerFor(db, await person(req));
-    // The bundle is self contained; the control plane's own check of it travels beside it.
-    const bundle = await inclusionProof(db, auth, caller.orgId, req.params.id);
-    return { bundle, check: verifyInclusion(bundle) };
+    // The bundle is self contained; the control plane's own checks of it and of the whole chain travel beside it.
+    return inclusionProof(db, auth, caller.orgId, req.params.id);
   });
   app.get("/runtimes", async (req) => {
     await person(req);

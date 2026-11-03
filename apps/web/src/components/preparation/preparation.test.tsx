@@ -249,4 +249,14 @@ describe("manual preparation workbench", () => {
     await waitFor(() => expect(saved?.technical_plan.checks).toEqual([]));
     expect(saved?.criteria[0].verification_check_ids).toEqual([]);
   });
+
+  it("keeps a criterion a resolved escalation rests on, and says why", async () => {
+    const current = fixture();
+    current.snapshot.escalations = [{ id: "E1", criterion_ids: ["C1"], reason: "Unclear", alternatives: [], owner: "owner", resolution_refs: ["RES-1"] }];
+    server.use(http.get("*/packages/:id/preparation", () => HttpResponse.json(current)));
+    await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const retire = (await screen.findByRole("button", { name: "Retire criterion 1" })) as HTMLButtonElement;
+    expect(retire.disabled).toBe(true);
+    expect(screen.getByText(/A resolved escalation rests on this criterion/)).toBeTruthy();
+  });
 });

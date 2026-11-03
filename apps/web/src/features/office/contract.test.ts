@@ -116,8 +116,23 @@ describe("SVG allowlist", () => {
     ["a root that is not svg", `<g/>`, "has the root <g>"],
     ["a width other than the region's", `<svg xmlns="http://www.w3.org/2000/svg" width="900" viewBox="0 0 160 300"/>`, "declares width 900"],
     ["no namespace", `<svg viewBox="0 0 160 300"/>`, "does not declare the SVG namespace"],
+    ["a closing tag in another case", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><g></G></svg>`, "closes <G> where <g> is open"],
+    ["attributes run together", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect width="1"height="1"/></svg>`, "runs attributes together"],
+    ["an undefined entity", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><title>&missing;</title></svg>`, "undefined entity"],
+    ["an attribute on a closing tag", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><g></g fill="#ffffff"></svg>`, "malformed closing tag"],
     ["an unquoted attribute", `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300"><rect width=1 height="1"/></svg>`, "without a quoted value"],
   ])("refuses %s", (_name, text, problem) => {
     expect(validateSvg(text, size, "art").some((p) => p.includes(problem))).toBe(true);
+  });
+
+  it("accepts nothing an XML parser rejects: every accepted document, theme art included, parses cleanly", async () => {
+    const parses = (text: string) => new DOMParser().parseFromString(text, "image/svg+xml").getElementsByTagName("parsererror").length === 0;
+    const accepted = [ok, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size.width} ${size.height}"><title>A &amp; B &#38;</title></svg>`];
+    for (const theme of [standard, bright])
+      for (const a of [...Object.values(theme.regions).map((r) => r.art!), ...theme.bodies]) accepted.push(new TextDecoder().decode((await read(a.path))!));
+    for (const text of accepted) expect(parses(text), text.slice(0, 80)).toBe(true);
+    // And the malformed cases above are malformed to a parser too, so the scanner is not stricter than XML by accident.
+    for (const bad of ["<g></G>", '<rect width="1"height="1"/>', "<title>&missing;</title>", '<g></g fill="#fff">'])
+      expect(parses(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 300">${bad}</svg>`)).toBe(false);
   });
 });

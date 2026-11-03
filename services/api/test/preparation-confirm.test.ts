@@ -10,6 +10,7 @@ import {
 } from "./harness.js";
 import { packageFixture } from "./preparation-fixtures.js";
 import { preparationContent } from "../src/preparation/store.js";
+import { memberIdFor } from "../src/tenancy.js";
 let h: Harness, cookie: string;
 const passkey = new VirtualAuthenticator();
 beforeAll(async () => {
@@ -204,5 +205,42 @@ describe("signed human requirements confirmation", () => {
     } finally {
       await h.admin.query("update credentials set user_name='owner'");
     }
+  });
+});
+
+describe("the hardware key floor on requirements confirmation", () => {
+  // Its own harness: issuing a Safety qualification must not change what the cases above see.
+  let hh: Harness, ben: string;
+  const key = new VirtualAuthenticator();
+  beforeAll(async () => {
+    hh = await startHarness({ guidedPreparation: true });
+    ben = await signIn(hh.app, key);
+  }, 120_000);
+  afterAll(async () => hh?.stop());
+  const send = (method: "GET" | "POST", url: string, payload?: unknown) =>
+    hh.app.inject({ method, url, headers: { cookie: ben, origin: ORIGIN }, ...(payload === undefined ? {} : { payload: payload as object }) });
+
+  it("needs the attested hardware key to confirm Safety work, like every other signature on it", async () => {
+    const qual = { member_id: memberIdFor("ben"), licenses: [{ jurisdiction: "US-SC", number: "PE-1", expires_on: "2030-01-01" }],
+      disciplines: ["general"], grades: ["general-service", "safety"], roles: ["originator", "checker", "approver"],
+      authorities: ["administrator", "lane", "policy"], reason: "qualified for Safety work" };
+    const qo = await send("POST", "/admin/commands/qualification.issue/options", { payload: qual });
+    expect(qo.statusCode, qo.body).toBe(200);
+    const issued = await send("POST", "/admin/commands/qualification.issue", { payload: qual, assertion: key.assert(qo.json().options) });
+    expect(issued.statusCode, issued.body).toBe(200);
+    const p = { ...packageFixture(), id: `WP-${randomUUID()}`, grade: "safety" };
+    await hh.admin.query("insert into packages(id,revision,status,body) values($1,0,'draft',$2)", [p.id, p]);
+    const url = `/packages/${p.id}/preparation`;
+    const view = (await send("POST", url, { package_revision: 0, idempotency_key: "request-1" })).json();
+    // The Inbox never offers what the server would refuse: the confirmation waits on a hardware key holder.
+    const box = (await send("GET", "/inbox")).json();
+    expect(box.items.some((i: { kind: string; package_id?: string }) => i.kind === "confirm" && i.package_id === p.id)).toBe(false);
+    expect(box.waiting_on_others.find((i: { kind: string; package_id?: string }) => i.kind === "confirm" && i.package_id === p.id)).toMatchObject({ reason: expect.stringContaining("attested hardware key") });
+    const o = await send("POST", url + "/confirm/options", { expected_requirements_digest: view.requirements_digest });
+    expect(o.statusCode, o.body).toBe(200);
+    const r = await send("POST", url + "/confirm", { assertion: key.assert(o.json().options) });
+    expect(r.statusCode, r.body).toBe(403);
+    expect(r.json()).toMatchObject({ code: "hardware-key-required", floor: true });
+    expect((await send("GET", url)).json().confirmed).toBe(false);
   });
 });

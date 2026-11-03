@@ -129,10 +129,13 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
       const pending = await pendingConfirmation(db, pkg.id);
       if (pending) {
         const gaps = await signingGaps(db, user, "confirm", needsOf(body));
+        // Confirming Safety or Material work needs the attested hardware key, as the server enforces.
+        const keyless = gaps.length === 0 && highConsequence(needsOf(body)) && !(await holdsHardwareKey(db, user));
         const item = { ...it, kind: "confirm", detail: "The requirements are ready to confirm with a passkey; release waits on it.", risk: { rank: risk.rank, label: risk.label },
           binds: `Signing confirms the requirements of revision ${pkg.revision} of ${pkg.id} (sha256:${pending.requirements_digest.value.slice(0, 12)}).`,
           subject_digest: pending.requirements_digest, href: { to: "/packages/$id", id: pkg.id, hash: "preparation" } };
-        if (gaps.length === 0) mine.push({ ...item, decisions: ["confirm"] });
+        if (gaps.length === 0 && !keyless) mine.push({ ...item, decisions: ["confirm"] });
+        else if (keyless) others.push({ ...item, decisions: [], waiting_on: who(ACTION_ROLES.confirm), reason: "Confirming Safety or Material work needs an attested hardware key, and none of your passkeys is one" });
         else others.push({ ...item, decisions: [], waiting_on: who(ACTION_ROLES.confirm), reason: `Confirming needs ${gaps.join(" and ")}, which your qualification does not include` });
         continue;
       }

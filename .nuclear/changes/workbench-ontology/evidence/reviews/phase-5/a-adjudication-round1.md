@@ -24,3 +24,7 @@ Codex confirmed the six round 1 fixes and returned REVISE with three findings. A
 | P2 | A rollback entry without a role selected intake | Fixed: every entry must name intake, author or pre-check before anything runs. Test: omitted, null, empty and a non pinnable role are each refused, and no pin changes |
 | P2 | The displayed target and the command's target could differ on tied timestamps | Fixed at the root: `/roster` now calls `rollbackTarget`, the command's own selection, which orders by recorded time then id, so they cannot differ. Test: signing exactly the target the roster shows succeeds and restores it |
 | P2 | The isolation test could pass on an error response, had no foreign policy, and disabled every trigger | Fixed: it asserts 200, the full role list and the viewer's own baseline, version, pin and launch; it records another organization's sandbox policy and asserts it is excluded; and it sets aside only the two ownership triggers, so foreign keys and every other trigger still hold |
+
+# Round 3
+
+Codex returned MERGE with one nonblocking P3: no test seeded tied timestamps in pin history. Added anyway: two retired author pins of different artifacts recorded in one transaction (so their `recorded_at` is equal) are seeded; the roster shows the later id's artifact as the rollback target, and signing exactly that target restores it.

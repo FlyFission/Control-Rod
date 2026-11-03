@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { settleEnded } from "../src/budgets.js";
+import { MAX_RUN_EVENTS } from "../src/work.js";
 import { command } from "../src/commands/executor.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
@@ -261,6 +262,36 @@ describe("settlement", () => {
     await sweep();
     expect((await h.db.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'reported'", [gap])).rowCount).toBe(0);
     expect((await h.db.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'measured'", [gap])).rowCount).toBe(1);
+  });
+
+  it("takes a runtime's cumulative usage as the run's total, never adding the steps to it", async () => {
+    const at = new Date().toISOString();
+    const id = await claimed("WP-BUD-CUMUL");
+    // Claude: two steps, then the result's totals for the whole run.
+    const events = [{ kind: "usage", at, input_tokens: 100, output_tokens: 10 }, { kind: "usage", at, input_tokens: 150, output_tokens: 20 },
+      { kind: "usage", at, input_tokens: 250, output_tokens: 30, cumulative: true }];
+    expect((await daemon(`/runner/runs/${id}/log`, { lines: [], events, events_from: 0 })).statusCode).toBe(200);
+    expect((await daemon(`/runner/runs/${id}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] })).statusCode).toBe(200);
+    await sweep();
+    const reported = (await h.db.query<{ body: Json }>("select body from usage_records where run_id = $1 and body->>'source' = 'reported'", [id])).rows[0]!.body;
+    expect(reported).toMatchObject({ input_tokens: { value: "250" }, output_tokens: { value: "30" } });
+  });
+
+  it("keeps a token report for a run that ended exactly at the event limit, and drops it past the limit", async () => {
+    const at = new Date().toISOString();
+    const fill = (runId: string, upTo: number) => h.admin.query(
+      `insert into run_events (run_id, seq, body) select $1, g, case when g = 1 then $2::jsonb else $3::jsonb end from generate_series(1, $4) g`,
+      [runId, { kind: "usage", at, input_tokens: 7, output_tokens: 3 }, { kind: "message", at, text: "x" }, upTo]);
+    const exact = await claimed("WP-BUD-EXACT");
+    await fill(exact, MAX_RUN_EVENTS);
+    expect((await daemon(`/runner/runs/${exact}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] })).statusCode).toBe(200);
+    const past = await claimed("WP-BUD-PAST");
+    await fill(past, MAX_RUN_EVENTS + 1);
+    expect((await daemon(`/runner/runs/${past}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] })).statusCode).toBe(200);
+    await sweep();
+    const reports = async (runId: string) => (await h.db.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'reported'", [runId])).rowCount;
+    expect(await reports(exact)).toBe(1);
+    expect(await reports(past)).toBe(0);
   });
 
   it("asks a run that has run its reserved ceiling to stop, on the graceful path", async () => {

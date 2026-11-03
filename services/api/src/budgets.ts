@@ -252,20 +252,30 @@ export async function settleEnded(c: Tx, batch = 500): Promise<void> {
   }
 }
 
-/** The tokens a run's events reported, once. Only fields every usage event carried are summed, and only when no event was lost. */
+/**
+ * The tokens a run's events reported, once. Where the runtime reported the whole run's counts (a
+ * cumulative usage event, such as Claude's result), the last of those is the run's total and the
+ * steps' counts are not added to it; otherwise the steps are summed. Only fields every counted event
+ * carried are recorded, and nothing is recorded when any event was lost.
+ */
 async function recordReportedUsage(c: Tx, runId: string, orgId: string): Promise<void> {
   if ((await c.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'reported'", [runId])).rowCount) return;
+  // Usage events lost on the way (the daemon's admission dropped some, or the run passed the most
+  // events one run keeps, after which a notice follows) leave every total unknown: no report is
+  // recorded, so the run counts as reporting none and token use reads as at least what others reported.
+  const lost = await c.query("select 1 from run_events where run_id = $1 and (body->>'kind' = 'dropped' or seq > $2) limit 1", [runId, MAX_RUN_EVENTS]);
+  if (lost.rowCount) return;
   const t = (await c.query<{ n: number; ni: number; no: number; nk: number; i: string | null; o: string | null; k: string | null }>(
-    `select count(*)::int as n,
+    `with usage as (select seq, body from run_events where run_id = $1 and body->>'kind' = 'usage'),
+          counted as (
+            select body from usage where (body->>'cumulative')::boolean is true and seq = (select max(seq) from usage where (body->>'cumulative')::boolean is true)
+            union all
+            select body from usage where not exists (select 1 from usage where (body->>'cumulative')::boolean is true))
+     select count(*)::int as n,
             count(body->'input_tokens')::int as ni, count(body->'output_tokens')::int as no, count(body->'cached_tokens')::int as nk,
             sum((body->>'input_tokens')::numeric)::text as i, sum((body->>'output_tokens')::numeric)::text as o, sum((body->>'cached_tokens')::numeric)::text as k
-       from run_events where run_id = $1 and body->>'kind' = 'usage'`, [runId])).rows[0]!;
+       from counted`, [runId])).rows[0]!;
   if (!t.n) return;
-  // Usage events lost on the way (the daemon's admission dropped some, or the run passed the most
-  // events one run keeps) leave every total unknown: no report is recorded, so the run counts as
-  // reporting none and token use reads as at least what other runs reported.
-  const lost = await c.query("select 1 from run_events where run_id = $1 and (body->>'kind' = 'dropped' or seq >= $2) limit 1", [runId, MAX_RUN_EVENTS]);
-  if (lost.rowCount) return;
   const field = (count: number, sum: string | null) => (count === t.n && sum !== null ? { value: sum, unit: "token" } : undefined);
   const input = field(t.ni, t.i);
   const output = field(t.no, t.o);

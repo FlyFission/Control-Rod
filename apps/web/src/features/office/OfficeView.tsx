@@ -5,7 +5,8 @@ import { api } from "../../api/client.js";
 import type { AgentFigure } from "../../api/types.js";
 import { STATE_INFO } from "../../components/StateMark.js";
 import { AgentCard } from "./AgentCard.js";
-import { EXCEPTIONS_AT, exceptionsView, portfolio } from "./exceptions.js";
+import { ScramBanner, ScramControl } from "./Scram.js";
+import { type CauseGroup, EXCEPTIONS_AT, causeGroups, exceptionsView, portfolio } from "./exceptions.js";
 import { REGION } from "./layout.js";
 import { LENSES, type LensId, lensById } from "./lenses.js";
 import { OfficeStage } from "./OfficeStage.js";
@@ -38,6 +39,7 @@ export function OfficeView() {
   const floor = q.data;
   const exceptions = useMemo(() => exceptionsView(floor?.figures ?? [], showEveryone), [floor, showEveryone]);
   const projects = useMemo(() => portfolio(floor?.figures ?? []), [floor]);
+  const groups = useMemo(() => causeGroups(floor?.figures ?? []), [floor]);
   const { seated, overflow } = useMemo(() => seatFigures(exceptions.shown, active.tint, active.unavailable ? undefined : active), [exceptions, active]);
   const open = floor?.figures.find((f) => f.id === selected);
 
@@ -75,8 +77,10 @@ export function OfficeView() {
           <button type="button" className="btn small" aria-pressed={presenting} onClick={() => setPresenting((v) => !v)}>
             Presenting mode
           </button>
+          <ScramControl />
         </div>
       </header>
+      <ScramBanner />
       {LENSES.filter((l) => l.unavailable).map((l) => (
         <p key={l.id} id={`lens-why-${l.id}`} className="office-note">
           {l.label} lens: {l.unavailable}
@@ -133,6 +137,7 @@ export function OfficeView() {
           </tbody>
         </table>
       )}
+      {groups.length > 0 && <CauseChips groups={groups} onSelect={setSelected} />}
       <ul className="office-legend" aria-label={`${active.label} lens`}>
         {active.scale.map((s) => (
           <li key={s.key}>
@@ -181,3 +186,40 @@ export function OfficeView() {
     </section>
   );
 }
+
+const DAY = 24 * 3600e3;
+function age(since: string): string {
+  const ms = Math.max(0, Date.now() - Date.parse(since));
+  if (ms < 3600e3) return `${Math.max(1, Math.round(ms / 60e3))} min`;
+  if (ms < 2 * DAY) return `${Math.round(ms / 3600e3)} h`;
+  return `${Math.round(ms / DAY)} days`;
+}
+
+/** One chip per shared cause (OV-03): the cause, who it waits on, how long, how many; opens to list them. */
+function CauseChips({ groups, onSelect }: { groups: CauseGroup[]; onSelect: (id: string) => void }) {
+  const [open, setOpen] = useState<number>();
+  return (
+    <section className="office-causes" aria-label="Shared causes">
+      {groups.map((g, i) => (
+        <div key={`${g.state}${g.cause}${g.waiting_on ?? ""}`} className="office-cause">
+          <button type="button" className="btn small" aria-expanded={open === i} onClick={() => setOpen(open === i ? undefined : i)}>
+            {g.figures.length} {g.state === "stuck" ? "stuck" : "waiting"}: {g.cause}
+            {g.waiting_on ? `, waiting on ${g.waiting_on}` : ""}, for {age(g.since)}
+          </button>
+          {open === i && (
+            <ul>
+              {g.figures.map((f) => (
+                <li key={f.id}>
+                  <button type="button" className="link" onClick={() => onSelect(f.id)}>
+                    {f.package_id}: {f.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}
+

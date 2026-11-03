@@ -123,6 +123,13 @@ describe("pulling SCRAM", () => {
     expect(stopped).toHaveLength(1);
     expect(stopped[0]!.data).toMatchObject({ runs: 1, drill: true });
     expect(Number.isInteger(stopped[0]!.data.ms_to_stop)).toBe(true);
+    // The office reads the SCRAMs in force, and each one's stop latency once it has stopped (OV-12).
+    const active = (await h.app.inject({ method: "GET", url: "/scrams", headers: { cookie } })).json();
+    const listed = active.scrams.find((x: { scram: { id: string } }) => x.scram.id === scram.id);
+    expect(listed).toMatchObject({ scram: { id: scram.id, scope: "organization", drill: true }, stopped: { runs: 1, ms_to_stop: stopped[0]!.data.ms_to_stop } });
+    expect(Number.isNaN(Date.parse(listed.pulled_at))).toBe(false);
+    const viewed = (await h.app.inject({ method: "GET", url: `/scrams/${scram.id}`, headers: { cookie } })).json();
+    expect(viewed.stopped).toEqual(listed.stopped);
 
     // Requeue is refused while SCRAM holds.
     expect((await post(`/packages/WP-SCR-RUN/runs/${stopping}/requeue`, {})).json().code).toBe("scram-stopped");

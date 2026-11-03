@@ -21,6 +21,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/commands/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adminCommand"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/commands/{name}/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Step 1 of an administrative command: the subject it would change, and a passkey challenge over it.
+         *     Step 2 sends the same payload with the signed assertion; the command runs only if it still matches.
+         */
+        post: operations["adminCommandOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login/options": {
         parameters: {
             query?: never;
@@ -826,6 +862,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/scrams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The SCRAMs in force in the viewer's organization (not yet restarted for their whole scope).
+         *     Presenting, each is a ScramPresented.
+         */
+        get: operations["scrams"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/scrams/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What pulling SCRAM with this scope would stop now, by the pull's own selection: the runs running
+         *     (stopped where they stand) and queued (held). The pull selects again when it fires.
+         *     Presenting, only the counts.
+         */
+        get: operations["scramPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/scrams/{id}": {
         parameters: {
             query?: never;
@@ -897,6 +974,11 @@ export interface components {
             state: "working" | "needs" | "waiting" | "stuck" | "changed";
             /** @description Why, in words: what it is doing, what you must decide, who it waits on, what blocks it, which input changed. */
             cause: string;
+            /**
+             * @description The recorded thing behind the cause (a SCRAM, a hold, an input revision, the dependencies
+             *     awaited, or the run itself), so agents are grouped by what holds them, never by matching words.
+             */
+            cause_key: string;
             /** @description Who it waits on, by name, when waiting. */
             waiting_on?: string;
             /**
@@ -1906,6 +1988,12 @@ export interface components {
              * @enum {string}
              */
             waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
+            /**
+             * @description What the hold waits on, where one decision resolves it for every run that names it: a lane's
+             *     admission, or a runtime pin for a role and the runtimes it was offered. Absent when the hold is
+             *     the run's own (a preparation, an unclassified source, an independence conflict, a SCRAM).
+             */
+            waiting_key?: string;
             /** @description The owner let this pre-check run on the author's runtime. Recorded before it ran. */
             independence_override?: components["schemas"]["ControlRod.Records.OwnerOverride"];
             /**
@@ -2151,6 +2239,8 @@ export interface components {
             detail: string;
             /** Format: date-time */
             since: string;
+            /** @description For a run a SCRAM holds: that SCRAM, so a view that must not show its reason knows these words carry it. */
+            scram_id?: string;
         };
         /** @description What the web app shows for one package: the revision, its runs, output and decisions. */
         PackageView: {
@@ -2305,6 +2395,15 @@ export interface components {
             /** @description The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this. */
             artifact?: components["schemas"]["Runner.RuntimeArtifact"];
         };
+        /** @description A SCRAM as presenting mode shows it: that it holds and over what, never its reason or runs. */
+        ScramPresented: {
+            id: string;
+            org_id: string;
+            /** @enum {string} */
+            scope: "organization" | "project";
+            project_id?: string;
+            drill?: boolean;
+        };
         /** @description One quarantine batch: what a SCRAM-stopped run reported in one completion, as digests. */
         ScramQuarantineBatch: {
             /** Format: int32 */
@@ -2318,6 +2417,20 @@ export interface components {
                 name: string;
                 sha256: string;
             }[];
+        };
+        /** @description When a SCRAM was pulled, and once every run it reached has stopped, how long that took. */
+        ScramTiming: {
+            /** Format: date-time */
+            pulled_at?: string;
+            /** @description Present once every run in scope has stopped: the stop latency (OV-12). */
+            stopped?: {
+                /** Format: int32 */
+                ms_to_stop: number;
+                /** Format: int32 */
+                runs: number;
+                /** Format: date-time */
+                at: string;
+            };
         };
     };
     responses: never;
@@ -2360,6 +2473,184 @@ export interface operations {
                             change: string;
                         }[];
                     } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    adminCommand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    payload?: {
+                        [key: string]: unknown;
+                    };
+                    assertion?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    adminCommandOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    payload?: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        subject_digest: components["schemas"]["ControlRod.Records.Digest"];
+                        options: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
         };
@@ -5800,6 +6091,87 @@ export interface operations {
             };
         };
     };
+    scrams: {
+        parameters: {
+            query?: {
+                presenting?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        scrams: {
+                            scram: components["schemas"]["ControlRod.Records.ScramEvent"] | components["schemas"]["ScramPresented"];
+                            /**
+                             * Format: int32
+                             * @description How many runs it stopped where they stood.
+                             */
+                            run_count: number;
+                            /** Format: date-time */
+                            pulled_at?: string;
+                            /** @description Present once every run in scope has stopped: the stop latency (OV-12). */
+                            stopped?: {
+                                /** Format: int32 */
+                                ms_to_stop: number;
+                                /** Format: int32 */
+                                runs: number;
+                                /** Format: date-time */
+                                at: string;
+                            };
+                        }[];
+                        presenting?: boolean;
+                    } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    scramPreview: {
+        parameters: {
+            query: {
+                scope: "organization" | "project";
+                project_id?: string;
+                presenting?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        scope: "organization" | "project";
+                        project_id?: string;
+                        /** Format: int32 */
+                        running_count: number;
+                        /** Format: int32 */
+                        queued_count: number;
+                        /** @description The runs themselves; left out when presenting, where they would name restricted work. */
+                        running?: string[];
+                        queued?: string[];
+                        presenting?: boolean;
+                        /** Format: date-time */
+                        counted_at: string;
+                    } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     scram: {
         parameters: {
             query?: never;
@@ -5818,15 +6190,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** Format: date-time */
+                        pulled_at?: string;
+                        /** @description Present once every run in scope has stopped: the stop latency (OV-12). */
+                        stopped?: {
+                            /** Format: int32 */
+                            ms_to_stop: number;
+                            /** Format: int32 */
+                            runs: number;
+                            /** Format: date-time */
+                            at: string;
+                        };
                         scram: components["schemas"]["ControlRod.Records.ScramEvent"];
                         runs: {
                             run_id: string;
+                            role: components["schemas"]["ControlRod.Records.RunRole"];
+                            /**
+                             * @description What the run worked on: a package, or a capture for intake.
+                             * @enum {string}
+                             */
+                            subject: "package" | "capture";
+                            subject_id: string;
+                            discipline?: string;
                             status: components["schemas"]["ControlRod.Records.RunStatus"];
                             outcome_unknown: boolean;
                             batches: components["schemas"]["ScramQuarantineBatch"][];
                             reviews: components["schemas"]["ControlRod.Records.QuarantineReview"][];
                         }[];
                         restarts: components["schemas"]["ControlRod.Records.ScramRestart"][];
+                        /** @description Every package the SCRAM reaches, so a staged restart names one it holds; lifted once a restart covers it. */
+                        packages: {
+                            id: string;
+                            title: string;
+                            discipline?: string;
+                            lifted: boolean;
+                        }[];
                     } | components["schemas"]["ApiError"];
                 };
             };

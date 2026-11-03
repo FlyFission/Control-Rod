@@ -141,8 +141,25 @@ describe("office figures", () => {
     expect(figure(floor, "WP-FIG-BLOCKED")).toMatchObject({ state: "waiting", place: "interface", cause: "Author run waits for WP-FIG-DEP to be accepted" });
     // Dispatch holds only author runs on released packages for dependencies; a queued pre-check waits for a runtime.
     expect(figure(floor, "WP-FIG-PRECHECK")).toMatchObject({ state: "waiting", place: "bench", cause: "Pre-check run queued for a runtime" });
+    // Each cause carries the recorded thing behind it, so the office groups by that and never by words
+    // (OV-03): the same input revision, the same dependencies awaited, the same queue; a failure or a
+    // lost run is its own cause, however alike two read.
+    expect(figure(floor, "WP-FIG-CHANGED").cause_key).toBe("input:WP-FIG-DEP@1");
+    expect(figure(floor, "WP-FIG-DESIGN").cause_key).toBe("input:WP-FIG-DEP@1");
+    expect(figure(floor, "WP-FIG-BLOCKED").cause_key).toBe("deps:author:WP-FIG-DEP");
+    expect(figure(floor, "WP-FIG-QUEUED").cause_key).toBe("queue:author");
+    expect(figure(floor, "WP-FIG-PRECHECK").cause_key).toBe("queue:pre-check");
+    expect(figure(floor, "WP-FIG-LOST").cause_key).toBe("run:R-fig-lost");
+    expect(figure(floor, "CAP-FIG-FAILED").cause_key).toBe("run:R-fig-intake-failed");
+    // A hold the viewer resolves is their own decision; for someone who cannot, it is the recorded hold.
+    expect(figure(floor, "WP-FIG-HOLD")).toMatchObject({ state: "needs", cause_key: "run:R-fig-hold" });
+    const forAlice = figure(await get("/office/figures", await aliceCookie()), "WP-FIG-HOLD");
+    expect(forAlice.state).toBe("waiting");
+    // No identity was recorded for this hold, so it stays its own for her too.
+    expect(forAlice.cause_key).toBe("run:R-fig-hold");
     // Every figure says why, and when the state began.
     for (const f of floor.figures) {
+      expect(f.cause_key.length).toBeGreaterThan(0);
       expect(f.cause.length).toBeGreaterThan(0);
       expect(Number.isNaN(Date.parse(f.since))).toBe(false);
     }
@@ -257,6 +274,39 @@ describe("office figures", () => {
     expect(cubeFor("bespoke")).toEqual({ place: "process", defaulted: true });
   });
 
+  it("groups holds only by a recorded shared identity: a lane's admission or a runtime pin, never alike messages", async () => {
+    const message = "The preparation could not be read: the basis digest does not match";
+    for (const id of ["A", "B"]) {
+      await pkg(`WP-FIG-PREP-${id}`, "in-work", { discipline: "civil" });
+      await run(`R-fig-prep-${id.toLowerCase()}`, `WP-FIG-PREP-${id}`, "queued", { waiting_reason: message, waiting_cause: "preparation" });
+    }
+    await pkg("WP-FIG-HOLD2", "in-work", { discipline: "electrical" });
+    await run("R-fig-hold2", "WP-FIG-HOLD2", "queued", { waiting_reason: "Its sources are proprietary; a lane holder must admit the run", waiting_cause: "lane", waiting_key: "lane-admission:proprietary" });
+    await pkg("WP-FIG-HOLD3", "in-work", { discipline: "electrical" });
+    await run("R-fig-hold3", "WP-FIG-HOLD3", "queued", { waiting_reason: "Its sources are proprietary; a lane holder must admit the run", waiting_cause: "lane", waiting_key: "lane-admission:proprietary" });
+    // Unclassified sources of different captures: alike words, no recorded shared identity.
+    await pkg("WP-FIG-UNCL", "in-work", { discipline: "electrical" });
+    await run("R-fig-uncl", "WP-FIG-UNCL", "queued", { waiting_reason: "Its sources are proprietary; a lane holder must admit the run", waiting_cause: "lane" });
+    // Pins for the same role but different runtimes are different decisions.
+    for (const [id, rt] of [["PINC", "claude"], ["PINX", "codex"]] as const) {
+      await pkg(`WP-FIG-${id}`, "in-work", { discipline: "electrical" });
+      await run(`R-fig-${id.toLowerCase()}`, `WP-FIG-${id}`, "queued", { waiting_reason: "Not the pinned version", waiting_cause: "runtime-pin", waiting_key: `runtime-pin:author:${rt}` });
+    }
+    const floor = await get("/office/figures", await aliceCookie());
+    const a = figure(floor, "WP-FIG-PREP-A");
+    const b = figure(floor, "WP-FIG-PREP-B");
+    expect(a.cause).toBe(b.cause);
+    expect(a.cause_key).toBe("run:R-fig-prep-a");
+    expect(b.cause_key).toBe("run:R-fig-prep-b");
+    // Two runs held for admission to the same lane wait on one decision.
+    expect(figure(floor, "WP-FIG-HOLD2").cause_key).toBe(figure(floor, "WP-FIG-HOLD3").cause_key);
+    expect(figure(floor, "WP-FIG-HOLD2").cause_key).toMatch(/^hold:lane-admission:proprietary\u0000/);
+    // A lane hold with no recorded identity is the run's own, however alike it reads.
+    expect(figure(floor, "WP-FIG-UNCL").cause_key).toBe("run:R-fig-uncl");
+    expect(figure(floor, "WP-FIG-HOLD").cause_key).toBe("run:R-fig-hold");
+    expect(figure(floor, "WP-FIG-PINC").cause_key).not.toBe(figure(floor, "WP-FIG-PINX").cause_key);
+  });
+
   it("puts work an active SCRAM holds in Quarantine above everything else, even a finished run", async () => {
     await pkg("WP-FIG-HELD", "in-verification", { discipline: "mechanical" });
     await run("R-fig-held", "WP-FIG-HELD", "succeeded", { finished_at: ago(0.2) }, "pre-check");
@@ -270,7 +320,12 @@ describe("office figures", () => {
     expect(held).toMatchObject({ state: "stuck", place: "quarantine" });
     expect(held.cause).toMatch(/^Held by SCRAM scr_.+: Bad prompt shipped to every agent$/);
     // Every agent the SCRAM reaches stands in Quarantine, whatever it was doing.
-    expect(figure(floor, "WP-FIG-WORK")).toMatchObject({ state: "stuck", place: "quarantine" });
+    expect(figure(floor, "WP-FIG-WORK")).toMatchObject({ state: "stuck", place: "quarantine", cause_key: `scram:${pulled.json().id}` });
+    expect(held.cause_key).toBe(`scram:${pulled.json().id}`);
+    // Presenting, the SCRAM's reason appears nowhere in the response, though the held work is shown.
+    const presenting = await get("/office/figures?presenting=true");
+    expect(figure(presenting, "WP-FIG-WORK")).toMatchObject({ place: "quarantine", cause: `Author run stopped by SCRAM ${pulled.json().id}` });
+    expect(JSON.stringify(presenting)).not.toContain("Bad prompt shipped to every agent");
     // The floor's one-load index gives the same answer as the per-subject check, for every agent.
     const index = await scramHoldIndex(h.db);
     const ids = (await h.db.query<{ id: string }>("select distinct id from packages")).rows.map((r) => r.id);

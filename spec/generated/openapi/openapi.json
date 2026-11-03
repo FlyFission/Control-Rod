@@ -126,6 +126,231 @@
         }
       }
     },
+    "/admin/commands/{name}": {
+      "post": {
+        "operationId": "adminCommand",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  "assertion": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/commands/{name}/options": {
+      "post": {
+        "operationId": "adminCommandOptions",
+        "description": "Step 1 of an administrative command: the subject it would change, and a passkey challenge over it.\nStep 2 sends the same payload with the signed assertion; the command runs only if it still matches.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subject_digest": {
+                      "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "subject_digest",
+                    "options"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "payload": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/login/options": {
       "post": {
         "operationId": "Auth_loginOptions",
@@ -4534,6 +4759,213 @@
         }
       }
     },
+    "/scrams": {
+      "get": {
+        "operationId": "scrams",
+        "description": "The SCRAMs in force in the viewer's organization (not yet restarted for their whole scope).\nPresenting, each is a ScramPresented.",
+        "parameters": [
+          {
+            "name": "presenting",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "scrams": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "scram": {
+                                "anyOf": [
+                                  {
+                                    "$ref": "#/components/schemas/ControlRod.Records.ScramEvent"
+                                  },
+                                  {
+                                    "$ref": "#/components/schemas/ScramPresented"
+                                  }
+                                ]
+                              },
+                              "run_count": {
+                                "type": "integer",
+                                "format": "int32",
+                                "minimum": 0,
+                                "description": "How many runs it stopped where they stood."
+                              },
+                              "pulled_at": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "stopped": {
+                                "type": "object",
+                                "properties": {
+                                  "ms_to_stop": {
+                                    "type": "integer",
+                                    "format": "int32",
+                                    "minimum": 0
+                                  },
+                                  "runs": {
+                                    "type": "integer",
+                                    "format": "int32",
+                                    "minimum": 0
+                                  },
+                                  "at": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "required": [
+                                  "ms_to_stop",
+                                  "runs",
+                                  "at"
+                                ],
+                                "description": "Present once every run in scope has stopped: the stop latency (OV-12)."
+                              }
+                            },
+                            "required": [
+                              "scram",
+                              "run_count"
+                            ]
+                          }
+                        },
+                        "presenting": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "scrams"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/scrams/preview": {
+      "get": {
+        "operationId": "scramPreview",
+        "description": "What pulling SCRAM with this scope would stop now, by the pull's own selection: the runs running\n(stopped where they stand) and queued (held). The pull selects again when it fires.\nPresenting, only the counts.",
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "organization",
+                "project"
+              ]
+            },
+            "explode": false
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "explode": false
+          },
+          {
+            "name": "presenting",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "scope": {
+                          "type": "string",
+                          "enum": [
+                            "organization",
+                            "project"
+                          ]
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "running_count": {
+                          "type": "integer",
+                          "format": "int32",
+                          "minimum": 0
+                        },
+                        "queued_count": {
+                          "type": "integer",
+                          "format": "int32",
+                          "minimum": 0
+                        },
+                        "running": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "The runs themselves; left out when presenting, where they would name restricted work."
+                        },
+                        "queued": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "presenting": {
+                          "type": "boolean"
+                        },
+                        "counted_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": [
+                        "scope",
+                        "running_count",
+                        "queued_count",
+                        "counted_at"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/scrams/{id}": {
       "get": {
         "operationId": "scram",
@@ -4558,6 +4990,35 @@
                     {
                       "type": "object",
                       "properties": {
+                        "pulled_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "stopped": {
+                          "type": "object",
+                          "properties": {
+                            "ms_to_stop": {
+                              "type": "integer",
+                              "format": "int32",
+                              "minimum": 0
+                            },
+                            "runs": {
+                              "type": "integer",
+                              "format": "int32",
+                              "minimum": 0
+                            },
+                            "at": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "ms_to_stop",
+                            "runs",
+                            "at"
+                          ],
+                          "description": "Present once every run in scope has stopped: the stop latency (OV-12)."
+                        },
                         "scram": {
                           "$ref": "#/components/schemas/ControlRod.Records.ScramEvent"
                         },
@@ -4567,6 +5028,23 @@
                             "type": "object",
                             "properties": {
                               "run_id": {
+                                "type": "string"
+                              },
+                              "role": {
+                                "$ref": "#/components/schemas/ControlRod.Records.RunRole"
+                              },
+                              "subject": {
+                                "type": "string",
+                                "enum": [
+                                  "package",
+                                  "capture"
+                                ],
+                                "description": "What the run worked on: a package, or a capture for intake."
+                              },
+                              "subject_id": {
+                                "type": "string"
+                              },
+                              "discipline": {
                                 "type": "string"
                               },
                               "status": {
@@ -4590,6 +5068,9 @@
                             },
                             "required": [
                               "run_id",
+                              "role",
+                              "subject",
+                              "subject_id",
                               "status",
                               "outcome_unknown",
                               "batches",
@@ -4602,12 +5083,39 @@
                           "items": {
                             "$ref": "#/components/schemas/ControlRod.Records.ScramRestart"
                           }
+                        },
+                        "packages": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "discipline": {
+                                "type": "string"
+                              },
+                              "lifted": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "title",
+                              "lifted"
+                            ]
+                          },
+                          "description": "Every package the SCRAM reaches, so a staged restart names one it holds; lifted once a restart covers it."
                         }
                       },
                       "required": [
                         "scram",
                         "runs",
-                        "restarts"
+                        "restarts",
+                        "packages"
                       ]
                     },
                     {
@@ -4719,6 +5227,7 @@
           "role",
           "state",
           "cause",
+          "cause_key",
           "since",
           "place",
           "marks",
@@ -4760,6 +5269,10 @@
             "type": "string",
             "maxLength": 300,
             "description": "Why, in words: what it is doing, what you must decide, who it waits on, what blocks it, which input changed."
+          },
+          "cause_key": {
+            "type": "string",
+            "description": "The recorded thing behind the cause (a SCRAM, a hold, an input revision, the dependencies\nawaited, or the run itself), so agents are grouped by what holds them, never by matching words."
           },
           "waiting_on": {
             "type": "string",
@@ -8031,6 +8544,11 @@
             ],
             "description": "The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it)."
           },
+          "waiting_key": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "What the hold waits on, where one decision resolves it for every run that names it: a lane's\nadmission, or a runtime pin for a role and the runtimes it was offered. Absent when the hold is\nthe run's own (a preparation, an unclassified source, an independence conflict, a SCRAM)."
+          },
           "independence_override": {
             "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride",
             "description": "The owner let this pre-check run on the author's runtime. Recorded before it ran."
@@ -8788,6 +9306,10 @@
           "since": {
             "type": "string",
             "format": "date-time"
+          },
+          "scram_id": {
+            "type": "string",
+            "description": "For a run a SCRAM holds: that SCRAM, so a view that must not show its reason knows these words carry it."
           }
         },
         "description": "One entry in your office: something that needs a person."
@@ -9224,6 +9746,36 @@
         },
         "description": "The daemon's probe of one runtime it found: whether it is ready for work, and why not."
       },
+      "ScramPresented": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "scope"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "organization",
+              "project"
+            ]
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "drill": {
+            "type": "boolean"
+          }
+        },
+        "description": "A SCRAM as presenting mode shows it: that it holds and over what, never its reason or runs."
+      },
       "ScramQuarantineBatch": {
         "type": "object",
         "required": [
@@ -9272,6 +9824,41 @@
           }
         },
         "description": "One quarantine batch: what a SCRAM-stopped run reported in one completion, as digests."
+      },
+      "ScramTiming": {
+        "type": "object",
+        "properties": {
+          "pulled_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stopped": {
+            "type": "object",
+            "properties": {
+              "ms_to_stop": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "runs": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "ms_to_stop",
+              "runs",
+              "at"
+            ],
+            "description": "Present once every run in scope has stopped: the stop latency (OV-12)."
+          }
+        },
+        "description": "When a SCRAM was pulled, and once every run it reached has stopped, how long that took."
       }
     }
   },

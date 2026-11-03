@@ -21,7 +21,7 @@ afterAll(async () => h?.stop());
 const post = (url: string, payload: unknown) => h.app.inject({ method: "POST", url, headers: { cookie, origin: ORIGIN }, payload: payload as object });
 const claim = (runtimes: string[]) => h.app.inject({ method: "POST", url: "/runner/claim", headers: daemonHeaders, payload: { runtimes } });
 const queuedFor = async (subject: string) =>
-  (await h.db.query<{ id: string; body: { waiting_reason?: string } }>("select id, body from runs where package_id = $1 and status = 'queued'", [subject])).rows;
+  (await h.db.query<{ id: string; body: { waiting_reason?: string; waiting_key?: string } }>("select id, body from runs where package_id = $1 and status = 'queued'", [subject])).rows;
 
 describe("lane admission table", () => {
   it("lets public and internal work use the subscription CLIs and keeps sensitive lanes local", () => {
@@ -49,6 +49,23 @@ describe("captures", () => {
     expect(ev.rows[0].d.unclassified).toBe(true);
   });
 
+  it("keeps an existing queued intake on an unclassified capture its own hold, never one shared with another capture", async () => {
+    await h.admin.query("update runs set status = 'stopped' where status = 'queued'");
+    for (const id of ["CAP-UNCL-A", "CAP-UNCL-B"]) {
+      await h.admin.query("insert into captures (id, body, created_at) values ($1, $2, now())", [id, { id, text: `Legacy request ${id}` }]);
+      await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'intake', 1, 'queued', $3)",
+        [`R-${id.toLowerCase()}`, id, { schema_version: "0.1.0", id: `R-${id.toLowerCase()}`, package_id: id, package_revision: 0, role: "intake", agent_baseline: "intake-claude",
+          runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "queued", queued_at: new Date().toISOString(), generation: 1 }]);
+    }
+    expect((await claim(["claude", "codex"])).statusCode).toBe(204);
+    for (const id of ["CAP-UNCL-A", "CAP-UNCL-B"]) {
+      const [held] = await queuedFor(id);
+      expect(held!.body.waiting_reason).toBeTruthy();
+      // No lane, so no admission to share: nothing groups these two holds.
+      expect(held!.body.waiting_key).toBeUndefined();
+    }
+  });
+
   it("releases the capture to intake once a person with lane authority classifies it, and never lowers it", async () => {
     const c = (await post("/captures", { text: "Classify me later" })).json();
     const r = await post(`/captures/${c.id}/classify`, { lane: "internal" });
@@ -68,6 +85,8 @@ describe("captures", () => {
     expect((await claim(["claude", "codex"])).statusCode).toBe(204);
     const [held] = await queuedFor(c.id);
     expect(held!.body.waiting_reason).toMatch(/proprietary lane admits none of the runtimes/);
+    // What it waits on is recorded, so the office groups it with every run that waits on the same admission.
+    expect(held!.body.waiting_key).toBe("lane-admission:proprietary");
     const local = await claim(["fake"]);
     expect(local.statusCode).toBe(200);
     expect(local.json().run.package_id).toBe(c.id);
@@ -103,6 +122,7 @@ describe("package runs", () => {
     expect((await claim(["claude", "codex"])).statusCode).toBe(204);
     const held = (await h.db.query("select body from runs where id = 'R-lane0001'")).rows[0].body;
     expect(held.waiting_reason).toMatch(/proprietary lane admits none/);
+    expect(held.waiting_key).toBe("lane-admission:proprietary");
     const ev = await h.db.query("select count(*)::int as n from events where body->>'type' = 'run.waiting' and body->>'subject' = 'R-lane0001'");
     expect(ev.rows[0].n).toBe(1);
     // Scanning again records nothing new.

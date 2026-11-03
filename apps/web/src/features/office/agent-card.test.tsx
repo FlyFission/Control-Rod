@@ -26,6 +26,8 @@ const figure = (over: Partial<AgentFigure> = {}): AgentFigure => ({
   run_status: "running",
   href: { to: "/packages/$id", id: "WP-0001", hash: "runs" },
   ...over,
+  // A cause of its own unless a test gives it a shared one.
+  cause_key: over.cause_key ?? `run:${over.id ?? "R-2"}`,
 });
 
 const run = (over: Partial<Run>): Run => ({

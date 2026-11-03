@@ -13,7 +13,7 @@ import { command } from "./commands/executor.js";
 import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, raises } from "./disclosure.js";
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
-import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramRunEnded } from "./scram.js";
+import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramOfHold, scramRunEnded } from "./scram.js";
 import { bindingSentence } from "./binding.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -249,14 +249,18 @@ async function releaseHold(c: Tx, cfg: WorkConfig, row: { id: string; body: Json
   const body = { ...row.body };
   delete body.waiting_reason;
   delete body.waiting_cause;
+  delete body.waiting_key;
   validate(cfg, "Run.json", body);
   await c.query("update runs set body = $2 where id = $1", [row.id, body]);
   row.body = body;
 }
 
-async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; body: Json }, subject: string, reason: string, cause: WaitingCause) {
-  if (row.body.waiting_reason === reason && row.body.waiting_cause === cause) return;
+/** Records why a queued run is held; `key` names what it waits on when one decision resolves it for many runs. */
+async function holdRun(c: Tx, cfg: WorkConfig, row: { id: string; role: string; body: Json }, subject: string, reason: string, cause: WaitingCause, key?: string) {
+  if (row.body.waiting_reason === reason && row.body.waiting_cause === cause && row.body.waiting_key === key) return;
   const held = { ...row.body, waiting_reason: reason, waiting_cause: cause };
+  if (key) held.waiting_key = key;
+  else delete held.waiting_key;
   validate(cfg, "Run.json", held);
   await c.query("update runs set body = $2 where id = $1", [row.id, held]);
   await appendEvent(c, "run.waiting", row.id, SYSTEM, { package: subject, role: row.role, reason });
@@ -805,7 +809,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         // SCRAM holds everything in its scope: nothing there is handed out until a restart lifts it.
         const scram = await scramHolding(c, await runSubject(c, row));
         if (scram) {
-          await holdRun(c, cfg, row, row.package_id, `SCRAM ${scram.id} has stopped this work: ${scram.reason}`.slice(0, 300), "scram");
+          await holdRun(c, cfg, row, row.package_id, `SCRAM ${scram.id} has stopped this work: ${scram.reason}`.slice(0, 300), "scram", `scram:${scram.id}`);
           continue;
         }
         if (row.role !== "intake") {
@@ -841,13 +845,13 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           const lane = gate.lane;
           const admittedHere = admitted(lane, runtimes);
           if (admittedHere.length === 0) {
-            await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane), "lane");
+            await holdRun(c, cfg, row, pkg.id, laneHoldReason(lane), "lane", `lane-admission:${lane}`);
             continue;
           }
           await releaseHold(c, cfg, row, "lane");
           const pinned = await pinnedOffer(c, admittedHere, row.role, artifacts);
           if (pinned.reason) {
-            await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin");
+            await holdRun(c, cfg, row, pkg.id, pinned.reason, "runtime-pin", `runtime-pin:${row.role}:${[...admittedHere].sort().join(",")}`);
             continue;
           }
           await releaseHold(c, cfg, row, "runtime-pin");
@@ -883,12 +887,13 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
         const admittedIntake = admitted(capLane, runtimes);
         if (admittedIntake.length === 0) {
-          await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane), "lane");
+          // An unclassified capture has no lane to be admitted to: its hold is its own.
+          await holdRun(c, cfg, row, row.package_id, laneHoldReason(capLane), "lane", capLane ? `lane-admission:${capLane}` : undefined);
           continue;
         }
         const pinnedIntake = await pinnedOffer(c, admittedIntake, "intake", artifacts);
         if (pinnedIntake.reason) {
-          await holdRun(c, cfg, row, row.package_id, pinnedIntake.reason, "runtime-pin");
+          await holdRun(c, cfg, row, row.package_id, pinnedIntake.reason, "runtime-pin", `runtime-pin:intake:${[...admittedIntake].sort().join(",")}`);
           continue;
         }
         const runtime = pickRuntime(pinnedIntake.offer);
@@ -1208,6 +1213,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
   };
   delete body.waiting_reason;
   delete body.waiting_cause;
+  delete body.waiting_key;
   validate(cfg, "Run.json", body);
   await c.query("update runs set status = 'running', body = $2, claim_token_hash = $3, lease_expires_at = $4 where id = $1", [
     row.id,
@@ -1524,6 +1530,7 @@ export async function overrideIndependence(
     const body = { ...row.body, independence_override: override };
     delete body.waiting_reason;
     delete body.waiting_cause;
+    delete body.waiting_key;
     validate(cfg, "Run.json", body);
     await c.query("update runs set body = $2 where id = $1", [runId, body]);
     await appendEvent(c, "run.independence-override", runId, { kind: "human", id: user }, {
@@ -2258,6 +2265,7 @@ export async function office(db: Db) {
           title,
           detail: String(last.body.waiting_reason),
           since: String(last.body.queued_at ?? new Date().toISOString()),
+          ...scramOfHold(last.body),
         });
       } else if (last?.status === "stopped") {
         items.push({

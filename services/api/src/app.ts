@@ -26,7 +26,7 @@ import { REASONS, teach } from "./refusals.js";
 import { personVerificationSubject, recordPersonVerification } from "./person-verification.js";
 import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
-import { scramView } from "./scram.js";
+import { activeScramsFor, scramPreview, scramView } from "./scram.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
 import {
@@ -516,6 +516,15 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return officeFigures(db, cfg, user, req.query.presenting === "true");
   });
   /** A SCRAM, its stopped runs and every quarantine batch with digests, for the people reviewing it. */
+  app.get<{ Querystring: { presenting?: string } }>("/scrams", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return activeScramsFor(db, caller.orgId, req.query.presenting === "true");
+  });
+  /** What pulling SCRAM with a scope would stop now, by the pull's own selection (OV-12). */
+  app.get<{ Querystring: { scope?: string; project_id?: string; presenting?: string } }>("/scrams/preview", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return scramPreview(db, caller.orgId, req.query, req.query.presenting === "true");
+  });
   app.get<{ Params: { id: string } }>("/scrams/:id", async (req) => {
     const caller = await callerFor(db, await person(req));
     return scramView(db, caller.orgId, req.params.id);

@@ -68,6 +68,8 @@ describe("pins", () => {
     expect(held.statusCode).toBe(204);
     const reason = (await h.db.query("select body->>'waiting_reason' as r from runs where id = $1", [runId])).rows[0].r;
     expect(reason).toMatch(/claude here is not the pinned version \(bbbbbbbbbbbb, pinned aaaaaaaaaaaa\)/);
+    // The hold names the pin it waits on: this role and the runtimes it was offered.
+    expect((await h.db.query("select body->>'waiting_key' as k from runs where id = $1", [runId])).rows[0].k).toBe("runtime-pin:author:claude");
     const job = await claim(A);
     expect(job.statusCode, job.body).toBe(200);
     expect(job.json().runtime_pin).toEqual({ runtime: "claude", digest: { algorithm: "sha256", value: A } });

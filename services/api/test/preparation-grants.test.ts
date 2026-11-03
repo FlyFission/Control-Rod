@@ -597,6 +597,27 @@ it("caps each new permit and its commit guard at the currently shortened run lea
   expect(stored[0].deadline.getTime()).toBe(lease);
 });
 
+it("a SCRAM revokes the preparation grant of every run it stops, at once (OV-12)", async () => {
+  const signed = async (name: string, payload: unknown) => {
+    const o = await f.owner("POST", `/admin/commands/${name}/options`, { payload });
+    expect(o.statusCode, o.body).toBe(200);
+    return f.owner("POST", `/admin/commands/${name}`, { payload, assertion: f.passkey.assert(o.json().options) });
+  };
+  const v = await issued();
+  const state = async () => (await f.h.db.query<{ revoked_at: Date | null }>("select revoked_at from preparation_grant_state where grant_id = $1", [v.grant.id])).rows[0]!;
+  expect((await state()).revoked_at).toBeNull();
+  // What the pull would stop is counted by its own selection before it fires.
+  const preview = await f.owner("GET", "/scrams/preview?scope=organization");
+  expect(preview.statusCode, preview.body).toBe(200);
+  expect(preview.json().running).toContain(v.run.id);
+  const pulled = await signed("scram.pull", { scope: "organization", reason: "Grant revocation check" });
+  expect(pulled.statusCode, pulled.body).toBe(200);
+  expect(pulled.json().quarantine).toContain(v.run.id);
+  // Revoked in the pull's own transaction, before the run has even heard it must stop.
+  expect((await state()).revoked_at).toBeInstanceOf(Date);
+  // The SCRAM stays in force: nothing after this in the file claims work.
+});
+
 it("migrations 009 and 010 preserve grant history (review R14)", async () => {
   const { assertMigrationsPreserveHistory } = await import("./migration-preservation.js");
   await assertMigrationsPreserveHistory(f.h.admin, ["preparation_grants", "preparation_grant_inputs", "preparation_grant_uses", "preparation_grant_receipts"]);

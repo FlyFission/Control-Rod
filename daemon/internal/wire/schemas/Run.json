@@ -114,6 +114,10 @@
                 {
                     "type": "string",
                     "const": "preparation"
+                },
+                {
+                    "type": "string",
+                    "const": "budget"
                 }
             ],
             "description": "The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it)."
@@ -121,7 +125,7 @@
         "waiting_key": {
             "type": "string",
             "maxLength": 300,
-            "description": "What the hold waits on, where one decision resolves it for every run that names it: a lane's\nadmission, or a runtime pin for a role and the runtimes it was offered. Absent when the hold is\nthe run's own (a preparation, an unclassified source, an independence conflict, a SCRAM)."
+            "description": "What the hold waits on, where one decision resolves it for every run that names it: a lane's\nadmission, a runtime pin for a role and the runtimes it was offered, or a budget's hard cap. Absent when the hold is\nthe run's own (a preparation, an unclassified source, an independence conflict, a SCRAM)."
         },
         "independence_override": {
             "$ref": "OwnerOverride.json",

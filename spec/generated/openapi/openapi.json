@@ -4606,6 +4606,12 @@
                     "items": {
                       "$ref": "#/components/schemas/Runner.RuntimeStatus"
                     }
+                  },
+                  "run_timeout_seconds": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 1,
+                    "description": "The daemon's run time ceiling: it stops a run that outlives it. Sizes budget reservations."
                   }
                 },
                 "required": [
@@ -5619,6 +5625,84 @@
           }
         }
       }
+    },
+    "/usage": {
+      "get": {
+        "operationId": "usage",
+        "description": "Usage (plan task 5.2; specification 26): every budget and its use this window, the latest usage\nrecords, and per runtime how many finished runs reported tokens, so missing telemetry reads as missing.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "budgets": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/BudgetStatus"
+                          }
+                        },
+                        "records": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          }
+                        },
+                        "telemetry": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "runtime": {
+                                "type": "string"
+                              },
+                              "runs": {
+                                "type": "integer",
+                                "format": "int32",
+                                "minimum": 0
+                              },
+                              "reported": {
+                                "type": "integer",
+                                "format": "int32",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "runtime",
+                              "runs",
+                              "reported"
+                            ]
+                          }
+                        },
+                        "near_share": {
+                          "type": "number",
+                          "format": "double",
+                          "description": "The share of a limit at which a budget reads as near it: a display choice."
+                        }
+                      },
+                      "required": [
+                        "budgets",
+                        "records",
+                        "telemetry",
+                        "near_share"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5760,6 +5844,10 @@
             "type": "string",
             "maxLength": 300,
             "description": "Why, in words: what it is doing, what you must decide, who it waits on, what blocks it, which input changed."
+          },
+          "spend": {
+            "$ref": "#/components/schemas/FigureSpend",
+            "description": "The tightest budget that applies to this agent's work (organization, its project, or its\nbaseline) and how far along it is this window; absent with no budget, and never when presenting."
           },
           "cause_key": {
             "type": "string",
@@ -6020,6 +6108,54 @@
             "type": "string"
           }
         }
+      },
+      "BudgetStatus": {
+        "type": "object",
+        "required": [
+          "budget",
+          "used",
+          "in_flight",
+          "since",
+          "state"
+        ],
+        "properties": {
+          "budget": {
+            "$ref": "#/components/schemas/ControlRod.Records.Budget"
+          },
+          "used": {
+            "anyOf": [
+              {
+                "type": "number",
+                "format": "double"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Used this window (settled at measured value, open reservations at full size); null when the unit is not reported."
+          },
+          "in_flight": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "description": "Of that, what open reservations hold for runs not yet settled."
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Where the rolling window starts."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "within",
+              "near",
+              "over",
+              "not-reported"
+            ]
+          }
+        },
+        "description": "One budget and what it has used in its current rolling window."
       },
       "Caller": {
         "type": "object",
@@ -7679,6 +7815,64 @@
         ],
         "description": "The attestation statement format a registration returned. \"none\" means no attestation."
       },
+      "ControlRod.Records.Budget": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "scope",
+          "scope_id",
+          "mode",
+          "limit",
+          "period",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "org_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ControlRod.Records.BudgetScope"
+          },
+          "scope_id": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ControlRod.Records.BudgetMode"
+          },
+          "limit": {
+            "$ref": "#/components/schemas/ControlRod.Records.Quantity",
+            "description": "The limit with its unit, for example \"USD\" or \"tokens\"."
+          },
+          "period": {
+            "type": "string",
+            "description": "ISO 8601 duration, for example \"P1M\"."
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlRod.Records.LifecycleStatus"
+          }
+        },
+        "description": "A spending or usage limit. (L)"
+      },
+      "ControlRod.Records.BudgetMode": {
+        "type": "string",
+        "enum": [
+          "track",
+          "alert",
+          "hard-cap"
+        ]
+      },
+      "ControlRod.Records.BudgetScope": {
+        "type": "string",
+        "enum": [
+          "organization",
+          "project",
+          "agent"
+        ]
+      },
       "ControlRod.Records.Capture": {
         "type": "object",
         "required": [
@@ -9031,14 +9225,15 @@
               "lane",
               "runtime-pin",
               "independent-runtime",
-              "preparation"
+              "preparation",
+              "budget"
             ],
             "description": "The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it)."
           },
           "waiting_key": {
             "type": "string",
             "maxLength": 300,
-            "description": "What the hold waits on, where one decision resolves it for every run that names it: a lane's\nadmission, or a runtime pin for a role and the runtimes it was offered. Absent when the hold is\nthe run's own (a preparation, an unclassified source, an independence conflict, a SCRAM)."
+            "description": "What the hold waits on, where one decision resolves it for every run that names it: a lane's\nadmission, a runtime pin for a role and the runtimes it was offered, or a budget's hard cap. Absent when the hold is\nthe run's own (a preparation, an unclassified source, an independence conflict, a SCRAM)."
           },
           "independence_override": {
             "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride",
@@ -9704,6 +9899,57 @@
           "quarantine"
         ],
         "description": "Where a figure stands in the office (specification 13): a discipline's cube set, or a room."
+      },
+      "FigureSpend": {
+        "type": "object",
+        "required": [
+          "budget_id",
+          "mode",
+          "unit",
+          "limit",
+          "period",
+          "state"
+        ],
+        "properties": {
+          "budget_id": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "track",
+              "alert",
+              "hard-cap"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "minute",
+              "token",
+              "USD"
+            ]
+          },
+          "limit": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "within",
+              "near",
+              "over",
+              "not-reported"
+            ]
+          },
+          "used": {
+            "type": "string"
+          }
+        },
+        "description": "A budget as a figure carries it. `used` is absent when the budget's unit is not reported."
       },
       "Health": {
         "type": "object",

@@ -41,6 +41,12 @@ const GATE_STEPS: Record<AgentFigure["gate_stage"], LensScaleStep> = {
 
 const STATES = ["working", "needs", "waiting", "stuck", "changed"] as const;
 
+/** The Spend lens's step for a figure: its tightest budget's state, or none. */
+export function spendStep(f: AgentFigure): "over" | "near" | "within" | "none" {
+  const st = f.spend?.state;
+  return st === "over" || st === "near" || st === "within" ? st : "none";
+}
+
 /** The Change lens's step for a figure, from established evidence only. */
 export function changeStep(f: AgentFigure): "changed" | "unknown" | "current" {
   if (f.marks.changed_input) return "changed";
@@ -84,10 +90,23 @@ export const LENSES: readonly Lens[] = [
   {
     id: "spend",
     label: "Spend",
-    unavailable: "Spend arrives with usage metering (plan task 5.2); nothing is recorded to show yet.",
-    scale: [],
-    tint: () => "transparent",
-    value: () => "Not recorded yet",
+    // From the agent's tightest budget this window (plan task 5.2). Brighter is closer to the limit;
+    // a budget whose use is not reported, or none at all, is the dimmest and says so in words.
+    scale: [
+      { key: "over", label: "Over its budget", color: GREY.brightest },
+      { key: "near", label: "Near its budget", color: GREY.bright },
+      { key: "within", label: "Within its budget", color: GREY.mid },
+      { key: "none", label: "No budget, or use not reported", color: GREY.dim },
+    ],
+    tint: (f) => GREY[spendStep(f) === "over" ? "brightest" : spendStep(f) === "near" ? "bright" : spendStep(f) === "within" ? "mid" : "dim"],
+    value: (f) => {
+      const s = f.spend;
+      if (!s) return "No budget applies";
+      const unit = s.unit === "minute" ? "minutes of run time" : s.unit === "token" ? "tokens" : "USD";
+      if (s.used === undefined) return `Budget ${s.budget_id}: ${unit} are not reported, so use is unknown`;
+      const where = s.state === "over" ? "Over" : s.state === "near" ? "Near" : "Within";
+      return `${where} budget ${s.budget_id}: ${s.used} of ${s.limit} ${unit} in ${s.period}`;
+    },
   },
 ];
 

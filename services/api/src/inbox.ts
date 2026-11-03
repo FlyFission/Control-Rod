@@ -80,6 +80,8 @@ async function holdResolver(db: Db, cfg: WorkConfig, user: string, run: Json, bo
       return standing.get("runtime.pin")?.allowed ? null : { who: "an administrator", why: "Pinning a runtime version needs administrator authority" };
     case "lane":
       return authorities.has("lane") ? null : { who: "someone with lane authority", why: "Changing which runtimes a data lane admits needs lane authority" };
+    case "budget":
+      return standing.get("budget.set")?.allowed ? null : { who: "someone with policy authority", why: "Raising or lifting a budget needs policy authority" };
     default:
       return null;
   }
@@ -258,6 +260,24 @@ const DECISION_WORDS: Record<string, string> = {
  * criteria not yet met, and spend. Without a cursor (a first visit) it returns only the head, so
  * the client starts counting from now.
  */
+/**
+ * Spend since the cursor (plan task 5.2): agent run time measured for runs that settled since, and any
+ * budget that crossed near or over its limit since. Tokens and money are left to the Usage page, where
+ * what is not reported can say so.
+ */
+async function spendLine(db: Db, rows: { type: string; subject: string }[]) {
+  const settled = rows.filter((r) => r.type === "usage-record.recorded").map((r) => r.subject);
+  const minutes = settled.length
+    ? (await db.query<{ n: number; m: string }>(
+        "select count(*)::int as n, coalesce(sum((body->'wall_time'->>'value')::numeric), 0)::text as m from usage_records where id = any($1) and body->>'source' = 'measured'",
+        [settled])).rows[0]!
+    : { n: 0, m: "0" };
+  const crossed = new Set(rows.filter((r) => r.type === "budget.crossed").map((r) => r.subject));
+  const runs = minutes.n === 0 ? "No run settled." : `${plural(minutes.n, "run")} settled, ${Number(minutes.m).toFixed(2)} minutes of agent run time.`;
+  const budgets = crossed.size === 0 ? "" : ` ${plural(crossed.size, "budget")} reached near or over ${crossed.size === 1 ? "its" : "their"} limit: ${[...crossed].join(", ")}.`;
+  return { topic: "spend", text: runs + budgets, count: minutes.n + crossed.size };
+}
+
 export async function digestSince(db: Db, since: number | undefined, mine: Json[], openDisputes = 0) {
   const head = (await db.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from events")).rows[0]!.n;
   if (since === undefined || !Number.isInteger(since) || since < 0 || since > head) return { head, lines: [] };
@@ -317,8 +337,7 @@ export async function digestSince(db: Db, since: number | undefined, mine: Json[
       { topic: "lateness", text: lateness, count: late },
       { topic: "disputes", text: disputeLine, count: disputes },
       { topic: "gates", text: gateLine, count: gates.criteria },
-      // Spend is recorded with budgets and usage (plan 5.2); until then there is none to report.
-      { topic: "spend", text: "No spend recorded.", count: 0 },
+      await spendLine(db, rows),
     ],
   };
 }

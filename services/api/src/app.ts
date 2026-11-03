@@ -28,6 +28,7 @@ import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
 import { activeScramsFor, scramPreview, scramView } from "./scram.js";
 import { roster } from "./roster.js";
+import { usageView } from "./budgets.js";
 import { chainHead, inclusionProof, verifyRecords } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { currentPolicySet, currentQualification } from "./tenancy.js";
@@ -552,6 +553,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     // The bundle is self contained; the control plane's own checks of it and of the whole chain travel beside it.
     return inclusionProof(db, auth, caller.orgId, req.params.id);
   });
+  /** Budgets with their use this window, the latest usage records, and which runtimes report tokens (plan task 5.2). */
+  app.get("/usage", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    await sweep();
+    return usageView(db, caller.orgId);
+  });
   app.get("/runtimes", async (req) => {
     await person(req);
     return runtimeStatus(db);
@@ -657,7 +664,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_timeout_seconds?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
     // left out even if it is also listed.
@@ -668,7 +675,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       .map(String)
       .filter((r) => ["claude", "codex", "fake"].includes(r) && !notReady.has(r));
     await sweep();
-    const job = await claim(db, cfg, runtimes, artifacts);
+    // The daemon's run time ceiling sizes budget reservations; one it did not report is never guessed.
+    const ceiling = req.body?.run_timeout_seconds;
+    const job = await claim(db, cfg, runtimes, artifacts, Number.isInteger(ceiling) && (ceiling as number) > 0 ? (ceiling as number) : undefined);
     if (!job) return reply.code(204).send();
     return job;
   });

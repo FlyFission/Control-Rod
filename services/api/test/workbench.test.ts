@@ -72,6 +72,8 @@ const EXAMPLES: [WorkbenchKind, Record<string, unknown>][] = [
   ["person_verification", { id: "pv_1", verifier_member_id: verifier, qualification_id: "qual_v", qualification_version: 1, candidate_id: "cand_2", criteria: ["C-1"], outcome: "pass", assertion }],
   ["scram_event", { id: "scram_1", scope: "project", project_id: "prj_wb", pulled_by: verifier, reason: "drill", assertion, quarantine: ["run_wb"] }],
   ["scram_event", { id: "scram_2", scope: "organization", pulled_by: verifier, reason: "drill", assertion, quarantine: [] }],
+  ["chain_seal", { id: "seal_wb", payload: { head_seq: 1, head_digest: D, org_id: LOCAL_ORG, sealed_at: "2026-10-30T12:10:00.000Z", signer_id: verifier, purpose: "drill" },
+    subject_digest: D, nonce: "0".repeat(32), assertion }],
   ["quarantine_review", { id: "qrv_1", scram_id: "scram_1", run_id: "run_wb", disposition: "discard", reviewed_by: verifier, reason: "Partial work after the stop", assertion }],
   ["scram_restart", { id: "srs_1", scram_id: "scram_1", scope: "package", package_id: "pkg_wb", released_by: verifier, reason: "Reviewed and safe", assertion }],
   ["comment", { id: "com_1", subject_digest: D, locator: "line:12", author: owner, text: "Check the units.", status: "open" }],

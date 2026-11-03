@@ -550,6 +550,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/proof": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A package's inclusion proof: the whole chain from its first event through the recording event of the
+         *     first valid seal covering the package's last event (or the chain head, unsealed), with that seal and
+         *     what checking its signature needs. Self contained; trust in the signer's key must come from outside
+         *     it. Refused (mixed-scope) on an installation with more than one organization, which share one chain.
+         */
+        get: operations["packageProof"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/runs/{runId}/events": {
         parameters: {
             query?: never;
@@ -722,6 +744,40 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["revokePreparationGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/records/head": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The head a seal made now would cover. */
+        get: operations["recordsHead"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/records/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The record verified (plan task 5.3; specification 11.6): the chain, every seal, and the unsealed suffix. */
+        get: operations["verifyRecords"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2477,6 +2533,25 @@ export interface components {
                 /** Format: date-time */
                 at: string;
             };
+        };
+        /** @description One seal as verification found it. */
+        SealCheck: {
+            id: string;
+            /** Format: int32 */
+            head_seq: number;
+            head_digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** Format: date-time */
+            sealed_at: string;
+            signer_id: string;
+            purpose: string;
+            /**
+             * @description valid, or why not: the head moved or is missing; no chain.sealed event records this seal as it is;
+             *     the subject does not match its payload; the signer's key is unknown, was not enrolled to the signer
+             *     before the seal, has changed since it was recorded with the seal, or was revoked before the seal was
+             *     recorded; the signature fails; or the chain breaks before its head.
+             * @enum {string}
+             */
+            result: "valid" | "head-mismatch" | "head-missing" | "unrecorded" | "subject-mismatch" | "key-unknown" | "not-enrolled" | "key-changed" | "key-revoked" | "signature-invalid" | "chain-broken-before-head";
         };
     };
     responses: never;
@@ -4754,6 +4829,69 @@ export interface operations {
             };
         };
     };
+    packageProof: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The global chain verifies and the proof holds. */
+                        ok: boolean;
+                        chain: {
+                            ok: boolean;
+                            /** Format: int32 */
+                            count: number;
+                            /** Format: int32 */
+                            broken_at?: number;
+                        };
+                        /** @description The bundle checked on its own: links from the first event, the package's events derived from it, and the seal's signature. */
+                        check: {
+                            ok: boolean;
+                            authenticated: boolean;
+                            events: number[];
+                            problem?: string;
+                        };
+                        bundle: {
+                            package_id: string;
+                            segment: {
+                                [key: string]: unknown;
+                            }[];
+                            seal: {
+                                [key: string]: unknown;
+                            } | null;
+                            seal_evidence?: {
+                                public_key: string;
+                                rp_id: string;
+                                origins: string[];
+                            };
+                            /** @description Unsealed: the chain head when the bundle was made, which the segment must end at. Unauthenticated. */
+                            head?: {
+                                /** Format: int32 */
+                                seq: number;
+                                digest: string;
+                            };
+                            /** @enum {boolean} */
+                            witnessed: false;
+                            /** @enum {string} */
+                            statement: "Local chain, not witnessed";
+                        };
+                    } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Packages_runEvents: {
         parameters: {
             query?: {
@@ -5571,6 +5709,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    recordsHead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        head: {
+                            /** Format: int32 */
+                            head_seq: number;
+                            head_digest: components["schemas"]["ControlRod.Records.Digest"];
+                            /** Format: date-time */
+                            at: string;
+                        } | null;
+                    } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    verifyRecords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        chain: {
+                            ok: boolean;
+                            /** Format: int32 */
+                            count: number;
+                            /** Format: int32 */
+                            broken_at?: number;
+                        };
+                        seals: components["schemas"]["SealCheck"][];
+                        /** Format: int32 */
+                        last_sealed_seq: number;
+                        /**
+                         * Format: int32
+                         * @description Events after the last valid seal.
+                         */
+                        unsealed: number;
+                        /**
+                         * @description Nothing outside this database witnesses the chain yet.
+                         * @enum {boolean}
+                         */
+                        witnessed: false;
+                        /** @enum {string} */
+                        statement: "Local chain, not witnessed";
+                    } | components["schemas"]["ApiError"];
                 };
             };
         };

@@ -29,6 +29,7 @@ export const WORKBENCH = {
   controlled_record: kind("controlled_records", "ControlledRecord", "F"),
   person_verification: kind("person_verifications", "PersonVerification", "A"),
   scram_event: kind("scram_events", "ScramEvent", "A"),
+  chain_seal: kind("chain_seals", "ChainSeal", "A"),
   scram_restart: kind("scram_restarts", "ScramRestart", "A"),
   quarantine_review: kind("quarantine_reviews", "QuarantineReview", "A"),
   comment: kind("comments", "Comment", "L"),

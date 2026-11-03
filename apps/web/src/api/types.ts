@@ -25,6 +25,28 @@ export type ScramEvent = S["ControlRod.Records.ScramEvent"];
 export type QuarantineReview = S["ControlRod.Records.QuarantineReview"];
 export type ScramRestart = S["ControlRod.Records.ScramRestart"];
 export type ScramQuarantineBatch = S["ScramQuarantineBatch"];
+export type SealCheck = S["SealCheck"];
+/** The record verified (plan task 5.3). */
+export interface RecordsVerification {
+  chain: { ok: boolean; count: number; broken_at?: number };
+  seals: SealCheck[];
+  last_sealed_seq: number;
+  unsealed: number;
+  witnessed: false;
+  statement: "Local chain, not witnessed";
+}
+export interface ChainHead {
+  head_seq: number;
+  head_digest: Digest;
+  at: string;
+}
+/** A package's inclusion proof, with the control plane's checks of the bundle and of the whole chain. */
+export interface PackageProof {
+  ok: boolean;
+  chain: { ok: boolean; count: number; broken_at?: number };
+  check: { ok: boolean; authenticated: boolean; events: number[]; problem?: string };
+  bundle: { package_id: string; segment: unknown[]; seal: { id: string; payload: { head_seq: number; purpose: string } } | null; seal_evidence?: unknown; statement: string };
+}
 /** When a SCRAM was pulled and, once every run it reached has stopped, how long that took. */
 export interface ScramTiming {
   pulled_at?: string;

@@ -579,6 +579,48 @@ model ChangeRequest {
   proposal?: Record<unknown>;
 }
 
+/* ---- Ledger: chain seals (interim tamper evidence, specification 11.6) ---- */
+
+/** The payload a seal signs: the chain head before it, the organization, the time, the signer and the purpose. */
+@extension("unevaluatedProperties", false)
+model ChainSealPayload {
+  /** The sequence number of the last event the seal covers. */
+  @minValue(1)
+  head_seq: int32;
+
+  /** That event's digest, exactly as recorded. */
+  head_digest: Digest;
+
+  org_id: TenancyId;
+  sealed_at: utcDateTime;
+  signer_id: TenancyId;
+
+  @minLength(1)
+  @maxLength(200)
+  purpose: string;
+}
+
+/**
+ * A Member's seal over the event chain up to a head. The chain.sealed event recording it comes after
+ * the head, so the next seal covers it. Verification rechecks the chain, the head and the passkey
+ * signature against the signer's retained credential. A local chain, not witnessed. (A)
+ */
+@extension("unevaluatedProperties", false)
+model ChainSeal {
+  id: TenancyId;
+  org_id: TenancyId;
+  payload: ChainSealPayload;
+
+  /** The administrative subject digest the passkey signed (command chain.seal over the payload). */
+  subject_digest: Digest;
+
+  /** The challenge nonce of that signature, kept so the signature can be checked again later. */
+  @pattern("^[0-9a-f]{32}$")
+  nonce: string;
+
+  assertion: PasskeyAssertion;
+}
+
 /* ---- Budgets and usage ---- */
 
 enum BudgetScope {

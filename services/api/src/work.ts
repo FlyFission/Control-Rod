@@ -14,6 +14,7 @@ import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, rais
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramOfHold, scramRunEnded } from "./scram.js";
+import { noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -238,7 +239,7 @@ async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<s
 
 /** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
 /** Why a queued run is held, as a code, so the Inbox can route it to whoever may resolve it. */
-type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
+type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget";
 
 /**
  * Clears a hold whose cause no longer applies, so a stale reason never masks the next one (or
@@ -785,7 +786,7 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
   return out.length || !blocked.length ? { offer: out } : { offer: out, reason: `${blocked.join("; ")}. An administrator pins the installed version, or the pinned one is reinstalled.` };
 }
 
-export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map()) {
+export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(), runCeilingSeconds?: number) {
   return command(db, "run.claim", async (c) => {
     await enterScramGate(c);
     // Scan the whole queue in pages, so work queued behind blocked or held runs is still found.
@@ -879,6 +880,13 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
             await appendEvent(c, "package.claimed", pkg.id, { kind: "agent", id: baseline }, { revision: pkg.revision, status: next });
           }
+          // Budgets: the run's reservation is taken now, or a hard cap holds it here (plan task 5.2).
+          const capped = await reserveForRun(c, row, baseline, runCeilingSeconds);
+          if (capped) {
+            await holdRun(c, cfg, row, pkg.id, capped.reason.slice(0, 300), "budget", `budget:${capped.budget}`);
+            continue;
+          }
+          await releaseHold(c, cfg, row, "budget");
           return startRun(c, cfg, row, runtime, baseline);
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
@@ -901,6 +909,12 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
         if(!locked.rows[0]) continue;row=locked.rows[0];
           if(!legacyRun(row)) continue;
+        const capped = await reserveForRun(c, row, `intake-${runtime}`, runCeilingSeconds);
+        if (capped) {
+          await holdRun(c, cfg, row, row.package_id, capped.reason.slice(0, 300), "budget", `budget:${capped.budget}`);
+          continue;
+        }
+        await releaseHold(c, cfg, row, "budget");
         return startRun(c, cfg, row, runtime, `intake-${runtime}`);
       }
     }
@@ -1389,6 +1403,11 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
       await scramRunEnded(c, row.id);
       lost.push(row.id);
     }
+    // Budgets: every finished run settles at its measured run time, and a budget crossing into near
+    // or over its limit is recorded once per window (plan task 5.2). Lost runs stay charged in full.
+    await settleEnded(c);
+    for (const { org_id } of (await c.query<{ org_id: string }>("select distinct org_id from budgets where body->>'status' = 'active' order by org_id")).rows)
+      await noteBudgetCrossings(c, org_id);
     return lost;
   });
 }

@@ -291,7 +291,7 @@ describe("since you last looked", () => {
     expect(lines.changes.text).toBe("3 packages changed: 2 drafted, 1 edited, 1 with requirements edited.");
     // The older quick draft has waited five hours; the lost run two: none past a day.
     expect(lines.lateness.text).toBe("Nothing has waited on you more than a day.");
-    expect(lines.spend.text).toBe("No spend recorded.");
+    expect(lines.spend.text).toBe("No run settled.");
     for (const l of box.digest.lines) expect(l.text).not.toMatch(/\b[a-z-]+\.[a-z-]+\b/);
   });
 

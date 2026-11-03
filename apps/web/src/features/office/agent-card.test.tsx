@@ -78,8 +78,18 @@ describe("agent card", () => {
     expect(within(card).getByText(/^Input WP-0002 changed since the preparation pinned it\. Documents and other sources are not compared here\.$/)).toBeTruthy();
     // The checker with its run's status, and the recorded pre-check's outcome.
     expect(within(card).getByText("checker-claude on claude, finished; recorded pre-check outcome: fail")).toBeTruthy();
-    expect(within(card).getByText(/Not recorded until usage metering arrives/)).toBeTruthy();
+    // No budget applies to this figure, and the card says so rather than showing zero.
+    expect(within(card).getByText("No budget applies to this agent's work.")).toBeTruthy();
     expect(within(card).getByText("No due date is recorded for this package.")).toBeTruthy();
+  });
+
+  it("states spend against the agent's tightest budget, and says when its unit is not reported (OV-08, OV-13)", async () => {
+    serve();
+    const { unmount } = await renderPage(<AgentCard figure={figure({ spend: { budget_id: "bud_1", mode: "hard-cap", unit: "minute", limit: "60", period: "P1D", state: "near", used: "50.00" } as never })} lens={undefined} />);
+    expect(await screen.findByText("50.00 of 60 minutes of run time in P1D on budget bud_1 (hard cap), near its limit.")).toBeTruthy();
+    unmount();
+    await renderPage(<AgentCard figure={figure({ spend: { budget_id: "bud_2", mode: "track", unit: "USD", limit: "50", period: "P1M", state: "not-reported" } as never })} lens={undefined} />);
+    expect(await screen.findByText("Budget bud_2 (track, 50 USD in P1M): no runtime here reports USD, so use is not known.")).toBeTruthy();
   });
 
   it("offers the actions on the agent as governed commands, and says why the rest are not available (OV-06)", async () => {
@@ -94,8 +104,13 @@ describe("agent card", () => {
       expect(b.getAttribute("aria-describedby")).toBeTruthy();
     }
     expect(within(actions).getAllByText(/session adapter \(plan task 7\.2\)/)).toHaveLength(1);
+    server.use(http.get("*/runtimes", () => HttpResponse.json({ runtimes: [], pins: [
+      { id: "pin_1", org_id: "org_local", role: "author", runtime: "claude", artifact_version_id: "rav_1", artifact_digest: { algorithm: "sha256", value: "a".repeat(64) }, status: "active" },
+    ] })));
     await userEvent.click(within(actions).getByRole("button", { name: "Inputs and reach" }));
     expect(within(actions).getByText(/Lane: internal\. Runtime: claude\./)).toBeTruthy();
+    // The provider and its pinned version (OV-13).
+    expect(await within(actions).findByText(`Pinned for author: sha256:${"a".repeat(12)}.`)).toBeTruthy();
     const stop = within(actions).getByRole("button", { name: "Stop" }) as HTMLButtonElement;
     await waitFor(() => expect(stop.disabled).toBe(false));
     await userEvent.click(stop);

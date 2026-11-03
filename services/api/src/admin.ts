@@ -17,6 +17,7 @@ import { teach } from "./refusals.js";
 import { pinRuntime, rollbackRuntime } from "./runtimes.js";
 import { pullScram, restartAfterScram, reviewQuarantine } from "./scram.js";
 import { sealChain } from "./seals.js";
+import { checkBudget } from "./budgets.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
 
@@ -557,12 +558,14 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
         const next = { ...existing };
         for (const k of ["mode", "limit", "period"]) if (p[k] !== undefined) next[k] = p[k];
         checkSchema("Budget.json", next);
+        checkBudget(next as never);
         await c.query("update budgets set body = $2 where id = $1", [existing.id, next]);
         await appendEvent(c, "budget.updated", String(existing.id), actorOf(caller), { mode: next.mode, limit: next.limit, period: next.period });
         return next;
       }
       const body = { id: idFor("bud"), org_id: caller.orgId, scope: str(p, "scope")!, scope_id: str(p, "scope_id")!, mode: str(p, "mode")!,
         limit: p.limit, period: str(p, "period")!, status: "active" };
+      checkBudget(body as never);
       await recordObject(c, "budget", body as never, actorOf(caller));
       return body;
     },

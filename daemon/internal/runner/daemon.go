@@ -217,7 +217,7 @@ claim:
 		}
 		status := d.runtimeStatus()
 		claimSent := time.Now()
-		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status)
+		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.cfg.Timeout)
 		if job != nil {
 			job.claimSent = claimSent
 		}

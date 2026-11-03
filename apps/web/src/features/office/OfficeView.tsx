@@ -64,6 +64,8 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const [selected, setSelected] = useState<string>();
   const [showEveryone, setShowEveryone] = useState(false);
   const q = useQuery({ queryKey: ["office-figures", presenting], queryFn: () => api.officeFigures(presenting), refetchInterval: 30_000 });
+  // Why a lens cannot be chosen now: its own reason, or presenting, which shows no spend.
+  const why = (l: (typeof LENSES)[number]) => l.unavailable ?? (presenting && l.id === "spend" ? "Spend is not shown while presenting." : undefined);
   const active = lensById(lens);
   const floor = q.data;
   const exceptions = useMemo(() => exceptionsView(floor?.figures ?? [], showEveryone), [floor, showEveryone]);
@@ -93,9 +95,9 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
                 type="button"
                 role="radio"
                 aria-checked={lens === l.id}
-                disabled={Boolean(l.unavailable)}
-                title={l.unavailable}
-                aria-describedby={l.unavailable ? `lens-why-${l.id}` : undefined}
+                disabled={Boolean(why(l))}
+                title={why(l)}
+                aria-describedby={why(l) ? `lens-why-${l.id}` : undefined}
                 className={lens === l.id ? "btn small active" : "btn small"}
                 onClick={() => setLens(l.id)}
               >
@@ -116,16 +118,25 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
               </select>
             </label>
           )}
-          <button type="button" className="btn small" aria-pressed={presenting} onClick={() => setPresenting((v) => !v)}>
+          <button
+            type="button"
+            className="btn small"
+            aria-pressed={presenting}
+            onClick={() => {
+              // Presenting shows no spend, so the Spend lens gives way to Status.
+              if (!presenting && lens === "spend") setLens("status");
+              setPresenting((v) => !v);
+            }}
+          >
             Presenting mode
           </button>
           <ScramControl presenting={presenting} />
         </div>
       </header>
       <ScramBanner presenting={presenting} />
-      {LENSES.filter((l) => l.unavailable).map((l) => (
+      {LENSES.filter((l) => why(l)).map((l) => (
         <p key={l.id} id={`lens-why-${l.id}`} className="office-note">
-          {l.label} lens: {l.unavailable}
+          {l.label} lens: {why(l)}
         </p>
       ))}
       {presenting && floor && (

@@ -1,8 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
-import type { Metrics } from "../api/types.js";
+import type { Metrics, UsageView } from "../api/types.js";
+import { time } from "../lib/format.js";
 
-/** Usage (specification 12): whether the work is earning its place. Spend and providers arrive with budgets (plan 5.2). */
+/**
+ * Usage (specification 12 and 26; plan task 5.2): whether the work is earning its place; every budget
+ * and what it has used this window; and the usage ledger, with telemetry a runtime does not report
+ * stated as missing, never as zero.
+ */
 export function Usage() {
   return (
     <div className="place">
@@ -11,7 +16,8 @@ export function Usage() {
         <p className="muted">Whether agents are earning their place: acceptance, findings caught before review, and time to done.</p>
       </header>
       <MetricsPanel />
-      <p className="muted small">Spend, context efficiency and providers appear here once budgets are recorded.</p>
+      <Budgets />
+      <Ledger />
     </div>
   );
 }
@@ -44,6 +50,134 @@ function MetricsPanel() {
             </div>
           ))}
         </dl>
+      )}
+    </section>
+  );
+}
+
+const UNIT_WORDS: Record<string, string> = { minute: "minutes of run time", token: "tokens", USD: "USD" };
+const MODE_WORDS: Record<string, string> = { track: "Track", alert: "Alert", "hard-cap": "Hard cap" };
+const SCOPE_WORDS = (scope: string, id: string) => (scope === "organization" ? "The organization" : scope === "project" ? `Project ${id}` : `Agent ${id}`);
+
+function Budgets() {
+  const q = useQuery({ queryKey: ["usage"], queryFn: api.usage });
+  const v: UsageView | undefined = q.data;
+  return (
+    <section className="panel" aria-labelledby="budgets-title">
+      <h2 id="budgets-title">Budgets</h2>
+      <p className="muted small">
+        A hard cap can only be set on minutes of run time: each run reserves its time ceiling before it starts, and settles at what it measured when it finishes. A
+        run that is lost, or whose outcome is unknown, stays charged in full until it is reconciled. Tokens and money can be tracked or alerted on.
+      </p>
+      {q.isError && (
+        <p className="error" role="alert">
+          Budgets could not be loaded.
+        </p>
+      )}
+      {v && v.budgets.length === 0 && <p className="muted">No budget is set. Set one under Policies with policy authority.</p>}
+      {v && v.budgets.length > 0 && (
+        <div className="table-wrap">
+          <table className="records">
+            <thead>
+              <tr>
+                <th scope="col">Budget</th>
+                <th scope="col">Applies to</th>
+                <th scope="col">Mode</th>
+                <th scope="col">Used this window</th>
+                <th scope="col">State</th>
+              </tr>
+            </thead>
+            <tbody>
+              {v.budgets.map((b) => {
+                const unit = UNIT_WORDS[b.budget.limit.unit] ?? b.budget.limit.unit;
+                return (
+                  <tr key={b.budget.id}>
+                    <td className="mono small">{b.budget.id}</td>
+                    <td className="small">{SCOPE_WORDS(b.budget.scope, b.budget.scope_id)}</td>
+                    <td className="small">{MODE_WORDS[b.budget.mode] ?? b.budget.mode}</td>
+                    <td className="small">
+                      {b.used === null ? (
+                        <>Not reported: no runtime here reports {unit}</>
+                      ) : (
+                        <>
+                          {b.used.toFixed(2)} of {b.budget.limit.value} {unit} in {b.budget.period}
+                          {b.in_flight > 0 && <p className="muted">including {b.in_flight.toFixed(2)} held for runs not yet settled</p>}
+                        </>
+                      )}
+                      <p className="muted">since {time(b.since)}</p>
+                    </td>
+                    <td className={b.state === "over" ? "small error" : "small"}>
+                      {b.state === "over"
+                        ? "Over its limit"
+                        : b.state === "near"
+                          ? `Near its limit (${Math.round(v.near_share * 100)}% or more used)`
+                          : b.state === "within"
+                            ? "Within its limit"
+                            : "Use not known"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Ledger() {
+  const q = useQuery({ queryKey: ["usage"], queryFn: api.usage });
+  const v: UsageView | undefined = q.data;
+  if (!v) return null;
+  return (
+    <section className="panel" aria-labelledby="ledger-title">
+      <h2 id="ledger-title">Usage ledger</h2>
+      {v.telemetry.length > 0 && (
+        <ul className="small">
+          {v.telemetry.map((t) => (
+            <li key={t.runtime}>
+              <span className="mono">{t.runtime}</span>:{" "}
+              {t.reported === 0
+                ? `none of its ${t.runs} finished runs reported tokens, so its token use is not known`
+                : `${t.reported} of its ${t.runs} finished runs reported tokens`}
+            </li>
+          ))}
+        </ul>
+      )}
+      {v.records.length === 0 ? (
+        <p className="muted">No run has settled yet.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="records">
+            <thead>
+              <tr>
+                <th scope="col">Run</th>
+                <th scope="col">Package</th>
+                <th scope="col">Runtime</th>
+                <th scope="col">Recorded</th>
+                <th scope="col">Use</th>
+              </tr>
+            </thead>
+            <tbody>
+              {v.records.map((r) => (
+                <tr key={r.id}>
+                  <td className="mono small">{r.run_id}</td>
+                  <td className="small">
+                    {r.package_id} <span className="muted">({r.role})</span>
+                  </td>
+                  <td className="small">{r.runtime ?? "unknown"}</td>
+                  <td className="small">{time(r.recorded_at)}</td>
+                  <td className="small">
+                    {r.source === "measured"
+                      ? `${r.wall_time?.value ?? "?"} minutes of run time, measured`
+                      : `${r.input_tokens?.value ?? "?"} tokens in, ${r.output_tokens?.value ?? "?"} out, as the runtime reported`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

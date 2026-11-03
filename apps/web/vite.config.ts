@@ -35,6 +35,7 @@ const apiPaths = [
   "/runs",
   "/runtimes",
   "/scrams",
+  "/usage",
 ];
 /** Output and evidence files open as themselves, never as the app (as the control plane does). */
 const OUTPUT_PATH = /^\/packages\/[^/?#]+\/(?:outputs\/|verification-evidence\/[^/?#]+\/)/;

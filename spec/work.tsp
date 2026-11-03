@@ -128,11 +128,11 @@ model Run {
   waiting_reason?: string;
 
   /** The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it). */
-  waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
+  waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget";
 
   /**
    * What the hold waits on, where one decision resolves it for every run that names it: a lane's
-   * admission, or a runtime pin for a role and the runtimes it was offered. Absent when the hold is
+   * admission, a runtime pin for a role and the runtimes it was offered, or a budget's hard cap. Absent when the hold is
    * the run's own (a preparation, an unclassified source, an independence conflict, a SCRAM).
    */
   @maxLength(300)

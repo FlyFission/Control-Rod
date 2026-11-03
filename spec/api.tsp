@@ -436,6 +436,12 @@ model AgentFigure {
   cause: string;
 
   /**
+   * The tightest budget that applies to this agent's work (organization, its project, or its
+   * baseline) and how far along it is this window; absent with no budget, and never when presenting.
+   */
+  spend?: FigureSpend;
+
+  /**
    * The recorded thing behind the cause (a SCRAM, a hold, an input revision, the dependencies
    * awaited, or the run itself), so agents are grouped by what holds them, never by matching words.
    */
@@ -642,6 +648,48 @@ op packageProof(@path id: string): {
     witnessed: false;
     statement: "Local chain, not witnessed";
   };
+} | ApiError;
+
+/** A budget as a figure carries it. `used` is absent when the budget's unit is not reported. */
+model FigureSpend {
+  budget_id: string;
+  mode: "track" | "alert" | "hard-cap";
+  unit: "minute" | "token" | "USD";
+  limit: string;
+  period: string;
+  state: "within" | "near" | "over" | "not-reported";
+  used?: string;
+}
+
+/** One budget and what it has used in its current rolling window. */
+model BudgetStatus {
+  budget: Budget;
+
+  /** Used this window (settled at measured value, open reservations at full size); null when the unit is not reported. */
+  used: float64 | null;
+
+  /** Of that, what open reservations hold for runs not yet settled. */
+  @minValue(0) in_flight: float64;
+
+  /** Where the rolling window starts. */
+  since: utcDateTime;
+
+  state: "within" | "near" | "over" | "not-reported";
+}
+
+/**
+ * Usage (plan task 5.2; specification 26): every budget and its use this window, the latest usage
+ * records, and per runtime how many finished runs reported tokens, so missing telemetry reads as missing.
+ */
+@route("/usage")
+@get
+op usage(): {
+  budgets: BudgetStatus[];
+  records: Record<unknown>[];
+  telemetry: { runtime: string; @minValue(0) runs: int32; @minValue(0) reported: int32 }[];
+
+  /** The share of a limit at which a budget reads as near it: a display choice. */
+  near_share: float64;
 } | ApiError;
 
 /** The viewing member, as the command layer knows them. */
@@ -906,6 +954,9 @@ namespace Runner {
     runtimes: string[];
 
     runtime_status?: RuntimeStatus[];
+
+    /** The daemon's run time ceiling: it stops a run that outlives it. Sizes budget reservations. */
+    @minValue(1) run_timeout_seconds?: int32;
   }): Job | {
     @statusCode _: 204;
   } | Refused;

@@ -1,6 +1,8 @@
 import type { Db } from "./db/index.js";
 import { isLane } from "./disclosure.js";
 import { inbox } from "./inbox.js";
+import { budgetStatuses } from "./budgets.js";
+import { callerFor } from "./admin.js";
 import { effectiveLane } from "./markings.js";
 import { scramHoldIndex } from "./scram.js";
 import type { WorkConfig } from "./work.js";
@@ -18,6 +20,8 @@ type State = "working" | "needs" | "waiting" | "stuck" | "changed";
 type Place =
   | "process" | "mechanical" | "electrical" | "civil" | "assurance" | "project-controls"
   | "review" | "interface" | "verification" | "your-office" | "document-control" | "bench" | "quarantine";
+
+const withSpend = <T>(spend: T | undefined) => (spend === undefined ? {} : { spend });
 
 /** Lanes shown in presenting mode; everything above internal is left out and only counted. */
 const PRESENTABLE = new Set(["public", "internal"]);
@@ -72,6 +76,18 @@ interface RunRow {
 
 export async function officeFigures(db: Db, cfg: WorkConfig, user: string, presenting = false) {
   const box = await inbox(db, cfg, user);
+  // Spend: each budget's use this window, read once; a figure carries its tightest applicable budget.
+  // Never while presenting (specification 13: presenting mode shows no spend).
+  const statuses = presenting ? [] : await budgetStatuses(db, (await callerFor(db, user)).orgId);
+  const spendOf = (projectId: string | undefined, baseline: unknown) => {
+    const mine = statuses.filter(({ budget: b }) => b.scope === "organization" || (b.scope === "project" && b.scope_id === projectId) || (b.scope === "agent" && b.scope_id === baseline));
+    if (!mine.length) return undefined;
+    // The tightest: the highest share of its limit used; a budget whose use is not reported counts last.
+    const share = (x: (typeof mine)[number]) => (x.used === null ? -1 : x.used / Number(x.budget.limit.value));
+    const t = [...mine].sort((a, b) => share(b) - share(a) || a.budget.id.localeCompare(b.budget.id))[0]!;
+    return { budget_id: t.budget.id, mode: t.budget.mode, unit: t.budget.limit.unit, limit: t.budget.limit.value, period: t.budget.period, state: t.state,
+      ...(t.used === null ? {} : { used: t.used.toFixed(2) }) };
+  };
   // Items arrive in gate risk order; the first for a subject is the one that matters most.
   const firstBy = (items: Json[], key: "package_id" | "capture_id") => {
     const m = new Map<string, Json>();
@@ -189,6 +205,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       ...(run.body.permission_waits === "not-observable" ? { observability: "permission waits not observable in print mode" } : {}),
       data_lane: lane,
       ...(projects.has(`package:${p.id}`) ? { project_id: projects.get(`package:${p.id}`) } : {}),
+      ...withSpend(spendOf(projects.get(`package:${p.id}`), run.body.agent_baseline)),
       run_status: run.status,
       ...(run.body.stop_requested_at ? { stop_requested: true } : {}),
       href: { to: "/packages/$id", id: p.id, hash },
@@ -241,6 +258,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       gate_stage: "release",
       data_lane: lane,
       ...(projects.has(`capture:${run.package_id}`) ? { project_id: projects.get(`capture:${run.package_id}`) } : {}),
+      ...withSpend(spendOf(projects.get(`capture:${run.package_id}`), run.body.agent_baseline)),
       run_status: run.status,
       ...(run.body.stop_requested_at ? { stop_requested: true } : {}),
       href: { to: "/packages" },

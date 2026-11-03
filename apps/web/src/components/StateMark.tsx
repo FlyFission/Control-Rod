@@ -13,8 +13,13 @@ export const STATE_INFO: Record<StateKind, { label: string; color: string }> = {
   done: { label: "Done", color: "var(--done)" },
 };
 
-export function StateMark({ kind, size = 10, title }: { kind: StateKind; size?: number; title?: string }) {
-  const { color, label } = STATE_INFO[kind];
+/**
+ * `color` recolours the shape (an office lens does, OV-07); the shape itself always follows the
+ * state, so state is never shown by colour alone.
+ */
+export function StateMark({ kind, size = 10, title, color: override }: { kind: StateKind; size?: number; title?: string; color?: string }) {
+  const { color: stateColor, label } = STATE_INFO[kind];
+  const color = override ?? stateColor;
   const s = size;
   const shape = (() => {
     switch (kind) {

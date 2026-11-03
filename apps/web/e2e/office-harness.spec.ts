@@ -200,11 +200,18 @@ test.describe("office theme quality harness", () => {
     r = await broken("standard-office", ".office-scene-body { clip-path: none !important }", squareBody);
     expect(has(r.failures, /body of f\d+ paints \d+ pixels outside its silhouette/)).toBe(true);
 
-    // A lens colour too dark to see against the dark outline.
-    r = await broken("standard-office&lens=status", "", () => {
-      for (const o of document.querySelectorAll<HTMLElement>(".office-figure-outline")) o.style.setProperty("--figure-tint", "#1c1d22");
+    // A marks pill that lets the art through, and marks with no paint.
+    r = await broken("harness-bright", ".office-figure-flags { background: transparent !important }");
+    expect(has(r.failures, /marks pill of f\d+ is drawn as/)).toBe(true);
+    r = await broken("standard-office", ".office-flag { opacity: 0 !important } .office-loop { color: transparent !important }");
+    expect(has(r.failures, /(gate|changed) mark of f\d+ is drawn at best/)).toBe(true);
+    expect(has(r.failures, /loop count of f\d+ text is drawn at best/)).toBe(true);
+
+    // A lens colour too dark to read against the mark chip's plate.
+    r = await broken("standard-office&lens=gate", "", () => {
+      for (const shape of document.querySelectorAll<SVGElement>(".office-figure-mark svg > *")) shape.style.setProperty("fill", "#1c1d22");
     });
-    expect(has(r.failures, /lens tint of f\d+ .* against the dark outline/)).toBe(true);
+    expect(has(r.failures, /mark of f\d+ .* is drawn at best [\d.]+:1 on its plate, under 3:1/)).toBe(true);
 
     // Art stacked over the semantic layer, and art that takes pointers.
     await open(page, "theme=harness-bright&agents=40&zoom=0.8");
@@ -250,11 +257,14 @@ test.describe("office theme quality harness", () => {
         measurements[`${theme}/drawn`] = result.summary;
         expect(result.failures).toEqual([]);
         // Every element was measured: 13 plates, 40 codes, marks, outlines and bodies, all five shapes.
-        expect(result.summary.counted).toEqual({ plate: 13, code: 40, mark: 40, outline: 40, body: 40, tint: 0 });
+        const withMarks = await page.evaluate(() => ({ safety: document.querySelectorAll(".office-figure-safety").length, flags: document.querySelectorAll(".office-figure-flags").length }));
+        expect(withMarks.safety).toBeGreaterThan(0);
+        expect(withMarks.flags).toBeGreaterThan(0);
+        expect(result.summary.counted).toEqual({ plate: 13, code: 40, mark: 40, outline: 40, body: 40, tint: 0, ...withMarks });
         expect(Object.keys(result.summary.shapes).sort()).toEqual(["changed", "needs", "stuck", "waiting", "working"]);
       });
 
-      test("every lens colour reads against the dark outline, and every other check holds under each lens (OV-07)", async ({ page }) => {
+      test("every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)", async ({ page }) => {
         await page.emulateMedia({ reducedMotion: "reduce" });
         const byLens: Record<string, unknown> = {};
         for (const lens of ["status", "gate", "change"]) {
@@ -430,7 +440,7 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
   };
   const failures: string[] = [];
   const worst = { tint: Infinity, glyphInk: Infinity, text: Infinity, mark: Infinity, edge: Infinity, inkPerChar: Infinity, edgeCoverage: Infinity, templateMatch: 0, templateMargin: Infinity };
-  const counted = { plate: 0, code: 0, mark: 0, outline: 0, body: 0, tint: 0 };
+  const counted = { plate: 0, code: 0, mark: 0, outline: 0, body: 0, tint: 0, safety: 0, flags: 0 };
   const shapes: Record<string, string> = {};
 
   const pixelsIn = (img: ImageData, l: number, t: number, r: number, b: number) => {
@@ -500,19 +510,26 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
    */
   let lastWorst = { v: Infinity, info: "" };
   // Parts that are actually shown, in paint order: a later part paints over an earlier one.
-  const parts = [...document.querySelectorAll(".office-plate, .office-figure-outline, .office-figure-mark, .office-figure-code")];
+  const parts = [...document.querySelectorAll(".office-plate, .office-figure-outline, .office-figure-safety, .office-figure-flags, .office-figure-mark, .office-figure-code")];
   const shown = new Set(parts.filter((e) => e.checkVisibility({ opacityProperty: true, visibilityProperty: true })));
-  // Document order is paint order here: plates, then each figure's outline, mark and code (the code stacked topmost).
-  const paintOrder = new Map(parts.map((e, i) => [e, i]));
+  // Paint order: a part with a higher z-index paints over one with a lower, and within the same
+  // z-index the later in the document paints over the earlier.
+  const paintOrder = new Map(parts.map((e, i) => [e, (Number.parseInt(getComputedStyle(e).zIndex) || 0) * 100000 + i]));
   const coveredBy = (self: Element, x: number, y: number) =>
     parts.some((e) => {
       if (e === self || !shown.has(e) || (paintOrder.get(e) ?? 0) < (paintOrder.get(self) ?? 0)) return false;
       const r = e.getBoundingClientRect();
-      const round = e.classList.contains("office-figure-mark") || e.classList.contains("office-figure-outline");
-      // The covering part's own 2px ring and its anti-aliased fringe count: where they lie, the edge
-      // seen is that part's, and its own check measures it.
-      const g = 2.75;
-      const inside = round ? Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2)) <= r.width / 2 + g : x >= r.left - g && x <= r.right + g && y >= r.top - g && y <= r.bottom + g;
+      const round = e.classList.contains("office-figure-mark") || e.classList.contains("office-figure-outline") || e.classList.contains("office-figure-safety");
+      // The covering part's own rings and their anti-aliased fringe (about a pixel more) count: where
+      // they lie, the edge seen is that part's, and its own check measures it. A Safety figure's chip,
+      // pill and code plate carry a dark band outside the light ring, 4px in all.
+      const banded = e.closest("[data-safety]") && !e.classList.contains("office-figure-outline") && !e.classList.contains("office-figure-safety");
+      const g = banded ? 5.25 : 3.25;
+      const dist = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2));
+      // The Safety ring is a ring: it covers only its own band (4px deep), never the disc it encloses.
+      const inside = e.classList.contains("office-figure-safety")
+        ? dist >= r.width / 2 - 4 - 1 && dist <= r.width / 2 + g
+        : round ? dist <= r.width / 2 + g : x >= r.left - g && x <= r.right + g && y >= r.top - g && y <= r.bottom + g;
       return inside && !unpainted(x, y);
     });
   const edgePoint = (self: Element, depth: number, ox: number, oy: number, nx: number, ny: number) => {
@@ -530,6 +547,9 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
     if (best < lastWorst.v) lastWorst = { v: best, info: `at ${Math.round(ox)},${Math.round(oy)}, scene ${sceneC.r},${sceneC.g},${sceneC.b}` };
     return best;
   };
+  // A figure's parts overlap one another, so its coverage is pooled over all its parts: the figure's
+  // silhouette must meet the scene, not every part of it. A plate stands alone and is judged alone.
+  let pool: { measured: number; total: number } | null = null;
   const edgeCheck = (where: string, self: Element, round: boolean, depth: number, radius = 0) => {
     const r = self.getBoundingClientRect();
     let c = Infinity, total = 0, measured = 0;
@@ -558,9 +578,14 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
         take(r.right, y, 1, 0);
       }
     }
-    const coverage = total ? measured / total : 0;
-    worst.edgeCoverage = Math.min(worst.edgeCoverage, coverage);
-    if (coverage < 0.25) failures.push(`${where} meets the scene along only ${Math.round(coverage * 100)}% of its edge`);
+    if (pool) {
+      pool.measured += measured;
+      pool.total += total;
+    } else {
+      const coverage = total ? measured / total : 0;
+      worst.edgeCoverage = Math.min(worst.edgeCoverage, coverage);
+      if (coverage < 0.25) failures.push(`${where} meets the scene along only ${Math.round(coverage * 100)}% of its edge`);
+    }
     worst.edge = Math.min(worst.edge, c);
     if (c < 3) failures.push(`${where} edge is ${c.toFixed(2)}:1 against the scene (${lastWorst.info})`);
   };
@@ -661,6 +686,7 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
   for (const f of document.querySelectorAll(".office-figure")) {
     const id = f.getAttribute("data-figure");
     const state = f.getAttribute("data-state")!;
+    pool = { measured: 0, total: 0 };
     const code = f.querySelector(".office-figure-code")!;
     const codeBg = drawnPlate(`code of ${id}`, code.getBoundingClientRect(), 1);
     textCheck(`code of ${id}`, code, codeBg);
@@ -696,20 +722,46 @@ async function measureDrawn(input: { full: string; scene: string; bare: string; 
     // The chip is plate from its rim to the shape's farthest corner, 2.5px in.
     edgeCheck(`mark of ${id}`, mark, true, 2);
     counted.mark++;
-    // The outline is a 2px dark border with the body art inside it.
+    // The outline is a 2px dark border with the body art inside it. A Safety ring encloses it, so
+    // then the figure's edge against the scene is the Safety ring's: light, dark and light, 6px deep.
     const outline = f.querySelector(".office-figure-outline")!;
-    edgeCheck(`outline of ${id}`, outline, true, 1.75);
+    const safety = f.querySelector(".office-figure-safety");
+    if (safety) {
+      edgeCheck(`Safety ring of ${id}`, safety, true, 3.75);
+      counted.safety++;
+    } else edgeCheck(`outline of ${id}`, outline, true, 1.75);
     counted.outline++;
-    // A lens tint is a ring just inside the dark border: where drawn (the left half, clear of the
-    // mark chip and the code plate) it must read 3:1 against that dark border.
-    const tint = (outline as HTMLElement).style.getPropertyValue("--figure-tint");
-    if (tint) {
-      const or = outline.getBoundingClientRect();
-      const ocx = or.left + or.width / 2, ocy = or.top + or.height / 2;
-      const drawn = mode([150, 165, 180, 195, 210].map((deg) => at(fullImg, ocx + 12.5 * Math.cos((deg * Math.PI) / 180), ocy + 12.5 * Math.sin((deg * Math.PI) / 180))));
-      const c = ratio(drawn, plate);
-      worst.tint = Math.min(worst.tint, c);
-      if (c < 3) failures.push(`lens tint of ${id} is drawn as rgb(${drawn.r},${drawn.g},${drawn.b}), ${c.toFixed(2)}:1 against the dark outline`);
+    // The marks pill: an opaque plate whose flag and triangle reach 3:1 and whose loop count reads 4.5:1.
+    const flags = f.querySelector(".office-figure-flags");
+    if (flags) {
+      const fr = flags.getBoundingClientRect();
+      const pillBg = drawnPlate(`marks pill of ${id}`, fr, 1);
+      for (const icon of flags.querySelectorAll("svg")) {
+        const ir = icon.getBoundingClientRect();
+        const rs = pixelsIn(fullImg, ir.left, ir.top, ir.right, ir.bottom).filter((q) => owned(q.x, q.y)).map((q) => ratio(q.c, pillBg)).sort((a, b) => b - a);
+        const c = rs[3] ?? 1;
+        worst.mark = Math.min(worst.mark, c);
+        if (c < 3) failures.push(`${icon.getAttribute("data-mark")} mark of ${id} is drawn at best ${c.toFixed(2)}:1 on its plate, under 3:1`);
+      }
+      const loop = flags.querySelector(".office-loop");
+      if (loop) textCheck(`loop count of ${id}`, loop, pillBg);
+      edgeCheck(`marks pill of ${id}`, flags, false, 1.75, 5);
+      counted.flags++;
+    }
+    // A lens recolours the state shape (OV-07): the drawn shape must be the lens colour, which its
+    // ink check above already holds to 3:1 against the chip's plate.
+    if (f.getAttribute("data-tint")) {
+      const shape = mark.querySelector("svg circle, svg rect, svg path")!;
+      const cs = getComputedStyle(shape);
+      const expected = (() => {
+        const v = cs.fill && cs.fill !== "none" ? cs.fill : cs.stroke;
+        const m = v.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/);
+        return m ? { r: +m[1]!, g: +m[2]!, b: +m[3]! } : null;
+      })();
+      const strong = pixelsIn(fullImg, svg.left, svg.top, svg.right, svg.bottom).filter((q) => onChip(q.x, q.y) && ratio(q.c, markBg) >= 3).map((q) => q.c);
+      const drawn = strong.length ? mode(strong) : null;
+      if (!expected || !drawn || !close(drawn, expected, 12)) failures.push(`lens colour of ${id} is drawn as ${drawn ? `rgb(${drawn.r},${drawn.g},${drawn.b})` : "nothing"}, not rgb(${expected?.r},${expected?.g},${expected?.b})`);
+      else worst.tint = Math.min(worst.tint, ratio(drawn, markBg));
       counted.tint++;
     }
     // The body paints nothing outside the silhouette the outline encloses (its inner radius): within
@@ -765,7 +817,7 @@ function measureOcclusion() {
     const hit = document.elementFromPoint(x, y);
     return !!hit && (hit === target || target.contains(hit));
   };
-  const parts = document.querySelectorAll(".office-plate, .office-figure-outline, .office-figure-mark, .office-figure-code");
+  const parts = document.querySelectorAll(".office-plate, .office-figure-outline, .office-figure-flags, .office-figure-mark, .office-figure-code");
   for (const p of parts) {
     const r = p.getBoundingClientRect();
     const owner = p.closest(".office-figure") ?? p;
@@ -815,7 +867,11 @@ function measureLegibility() {
   const corridorTop = Math.max(...regionBoxes.filter((r) => r.top < stage.top + stage.height / 2).map((r) => r.bottom));
   const corridorBottom = Math.min(...regionBoxes.filter((r) => r.top >= stage.top + stage.height / 2).map((r) => r.top));
   for (const f of document.querySelectorAll(".office-figure")) {
-    const box = union(`figure ${f.getAttribute("data-figure")}`, [...f.querySelectorAll(".office-figure-outline, .office-figure-mark, .office-figure-code")]);
+    const box = union(`figure ${f.getAttribute("data-figure")}`, [...f.querySelectorAll(".office-figure-outline, .office-figure-safety, .office-figure-flags, .office-figure-mark, .office-figure-code")]);
+    // At most five marks on a figure (OV-08): the state shape, and the gate flag, changed input
+    // triangle, loop count and Safety ring.
+    const marks = 1 + f.querySelectorAll(".office-figure-flags [data-mark]").length + f.querySelectorAll(".office-figure-safety").length;
+    if (marks > 5) failures.push(`figure ${f.getAttribute("data-figure")} carries ${marks} marks, more than five`);
     boxes.push(box);
     // Seated: inside its own region, clear of the name plate band. Queued: inside the corridor.
     const region = document.querySelector(`.office-region[data-region="${f.getAttribute("data-region")}"]`)!.getBoundingClientRect();

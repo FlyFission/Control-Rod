@@ -135,6 +135,12 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
     for (const e of b.basis ?? []) if (e?.kind === "package" && String(e.reference).startsWith("package:")) m.set(String(e.reference).slice(8), Number(e.revision));
     pinned.set(b.package_id, m);
   }
+  // The project that owns each package and capture, for the portfolio rollup.
+  const projects = new Map(
+    (await db.query<{ object_kind: string; object_id: string; project_id: string | null }>(
+      "select object_kind, object_id, project_id from object_owners where object_kind in ('package', 'capture') and project_id is not null",
+    )).rows.map((o) => [`${o.object_kind}:${o.object_id}`, o.project_id!]),
+  );
   // SCRAM holds for every agent from one load of the active SCRAMs, owners and restarts.
   const holdOf = await scramHoldIndex(db);
   const currentRevision = new Map(packages.map((p) => [p.id, p.revision]));
@@ -181,6 +187,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       gate_stage: gateStage(p.status, pending),
       ...(run.body.permission_waits === "not-observable" ? { observability: "permission waits not observable in print mode" } : {}),
       data_lane: lane,
+      ...(projects.has(`package:${p.id}`) ? { project_id: projects.get(`package:${p.id}`) } : {}),
       href: { to: "/packages/$id", id: p.id, hash },
     });
   }
@@ -230,6 +237,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       marks: { gate: false, safety: false },
       gate_stage: "release",
       data_lane: lane,
+      ...(projects.has(`capture:${run.package_id}`) ? { project_id: projects.get(`capture:${run.package_id}`) } : {}),
       href: { to: "/packages" },
     });
   }

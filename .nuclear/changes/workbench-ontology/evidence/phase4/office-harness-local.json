@@ -6,29 +6,31 @@
       "mark": 40,
       "outline": 40,
       "body": 40,
-      "tint": 0
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
     },
     "shapes": {
-      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.08,\"margin\":0.1}",
-      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.35}",
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
       "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
       "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
-      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
     },
     "worstTextRatio": 12.65,
     "worstTintRatio": null,
     "worstInkPerChar": 14.6,
     "fewestGlyphInk": 4,
     "worstMarkRatio": 7.71,
-    "worstEdgeRatio": 4.16,
-    "worstEdgeCoverage": 0.28,
+    "worstEdgeRatio": 4.21,
+    "worstEdgeCoverage": 1,
     "worstTemplateMismatch": 0.22,
     "smallestTemplateMargin": 0.1
   },
   "harness-bright/frames": {
     "frames": 120,
-    "p95Ms": 16.8,
-    "eventToScreenMs": 11,
+    "p95Ms": 16.7,
+    "eventToScreenMs": 10,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
@@ -46,15 +48,15 @@
   "harness-bright/lenses": {
     "status": {
       "worstTintRatio": 7.71,
-      "worstEdgeRatio": 4.16
+      "worstEdgeRatio": 4.21
     },
     "gate": {
       "worstTintRatio": 5.25,
-      "worstEdgeRatio": 4.16
+      "worstEdgeRatio": 4.21
     },
     "change": {
       "worstTintRatio": 5.25,
-      "worstEdgeRatio": 4.16
+      "worstEdgeRatio": 4.21
     }
   },
   "harness-bright/motion": {
@@ -63,8 +65,8 @@
     "reduced": 0
   },
   "harness-bright/occlusion": {
-    "parts": 133,
-    "openFloorProbes": 273
+    "parts": 153,
+    "openFloorProbes": 265
   },
   "harness-bright/reference-frames": {
     "machineName": "candidate only: WSL2 development machine, not designated by the owner",
@@ -83,29 +85,31 @@
       "mark": 40,
       "outline": 40,
       "body": 40,
-      "tint": 0
+      "tint": 0,
+      "safety": 20,
+      "flags": 20
     },
     "shapes": {
-      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.08,\"margin\":0.1}",
-      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.35}",
+      "working": "{\"shape\":\"circle\",\"size\":12,\"mismatch\":0.07,\"margin\":0.11}",
+      "needs": "{\"shape\":\"diamond\",\"size\":11,\"mismatch\":0.06,\"margin\":0.34}",
       "waiting": "{\"shape\":\"ring\",\"size\":12,\"mismatch\":0.22,\"margin\":0.37}",
       "stuck": "{\"shape\":\"square\",\"size\":11,\"mismatch\":0.06,\"margin\":0.1}",
-      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.35}"
+      "changed": "{\"shape\":\"triangle\",\"size\":10,\"mismatch\":0.11,\"margin\":0.36}"
     },
     "worstTextRatio": 11.8,
     "worstTintRatio": null,
     "worstInkPerChar": 15.82,
     "fewestGlyphInk": 4,
     "worstMarkRatio": 7.71,
-    "worstEdgeRatio": 4.15,
-    "worstEdgeCoverage": 0.28,
+    "worstEdgeRatio": 4.1,
+    "worstEdgeCoverage": 1,
     "worstTemplateMismatch": 0.22,
     "smallestTemplateMargin": 0.1
   },
   "standard-office/frames": {
     "frames": 120,
-    "p95Ms": 16.7,
-    "eventToScreenMs": 11,
+    "p95Ms": 16.8,
+    "eventToScreenMs": 9,
     "machine": {
       "browser": "chromium 156.0.8078.4",
       "os": "linux 6.6.114.1-microsoft-standard-WSL2",
@@ -123,15 +127,15 @@
   "standard-office/lenses": {
     "status": {
       "worstTintRatio": 7.71,
-      "worstEdgeRatio": 4.15
+      "worstEdgeRatio": 4.1
     },
     "gate": {
       "worstTintRatio": 5.25,
-      "worstEdgeRatio": 4.15
+      "worstEdgeRatio": 4.1
     },
     "change": {
       "worstTintRatio": 5.25,
-      "worstEdgeRatio": 4.15
+      "worstEdgeRatio": 4.1
     }
   },
   "standard-office/motion": {
@@ -140,8 +144,8 @@
     "reduced": 0
   },
   "standard-office/occlusion": {
-    "parts": 133,
-    "openFloorProbes": 272
+    "parts": 153,
+    "openFloorProbes": 264
   },
   "standard-office/reference-frames": {
     "machineName": "candidate only: WSL2 development machine, not designated by the owner",

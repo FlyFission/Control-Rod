@@ -27,10 +27,10 @@ describe("office stage", () => {
     const onSelect = vi.fn();
     const figures = harnessFigures(5);
     render(<OfficeStage theme={standard} figures={figures} selected="f2" onSelect={onSelect} />);
-    expect(screen.getByRole("button", { name: "P-101: Working. Drafting the line sizing calculation" })).toBeTruthy();
-    const needs = screen.getByRole("button", { name: "P-102: Needs you. Your signature on revision 2" });
+    expect(screen.getByRole("button", { name: "WP-101: Working. Drafting the line sizing calculation" })).toBeTruthy();
+    const needs = screen.getByRole("button", { name: "WP-102: Needs you. Your signature on revision 2" });
     expect(needs.getAttribute("aria-pressed")).toBe("true");
-    await userEvent.click(screen.getByRole("button", { name: /^P-104: Stuck/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^WP-104: Stuck/ }));
     expect(onSelect).toHaveBeenCalledWith("f4");
   });
 

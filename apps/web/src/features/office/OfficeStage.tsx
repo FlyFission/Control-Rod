@@ -26,6 +26,12 @@ export interface StageFigure {
   at: Point;
   /** Which of the theme's body styles to draw, by index. */
   body: number;
+  /** The active lens's colour, drawn as a ring inside the dark outline; never a theme's. */
+  tint?: string;
+  /** The full name read aloud and in the tooltip, when the code is shortened. */
+  name?: string;
+  /** The active lens's value in words, read with the figure. */
+  lensNote?: string;
 }
 
 const pct = (v: number, of: number) => `${(v / of) * 100}%`;
@@ -89,21 +95,22 @@ export function OfficeStage({ theme, figures, selected, onSelect }: OfficeStageP
 
 function FigureMark({ figure: f, selected, onSelect }: { figure: StageFigure; selected: boolean; onSelect: ((id: string) => void) | undefined }) {
   const label = STATE_INFO[f.state].label;
+  const name = f.name ?? f.code;
   return (
     <button
       type="button"
       className="office-figure"
       style={point(f.at)}
       aria-pressed={selected}
-      aria-label={`${f.code}: ${label}. ${f.cause}`}
-      title={`${f.code}: ${label}. ${f.cause}`}
+      aria-label={`${name}: ${label}. ${f.cause}${f.lensNote ? ` ${f.lensNote}.` : ""}`}
+      title={`${name}: ${label}. ${f.cause}${f.lensNote ? ` ${f.lensNote}.` : ""}`}
       data-semantic="figure"
       data-state={f.state}
       data-figure={f.id}
       data-region={f.region}
       onClick={() => onSelect?.(f.id)}
     >
-      <span className="office-figure-outline" aria-hidden="true" />
+      <span className="office-figure-outline" aria-hidden="true" style={f.tint ? ({ "--figure-tint": f.tint } as CSSProperties) : undefined} />
       <span className="office-figure-mark" aria-hidden="true" data-semantic="mark">
         <StateMark kind={f.state} size={13} title={label} />
       </span>

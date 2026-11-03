@@ -86,11 +86,11 @@ const BOTTOM_H = 300;
 /**
  * A grid of seats below the name band, cols by rows, inset from the walls. A seat is a figure's
  * centre: at minimum zoom (0.8) the figure reaches 18px above it, 28px below it (its package code),
- * 19px to its left (the code) and 25px to its right (the state mark), which is 22.5, 35, 24 and 31
- * layout units; SEAT_CLEARANCE rounds those up, so the insets keep every figure clear of the name
- * plate and inside its region. The quality harness measures the real extents.
+ * 20.5px to its left (a six character code) and 23px to its right (the state mark), which is 22.5,
+ * 35, 25.6 and 28.75 layout units; SEAT_CLEARANCE rounds those up, so the insets keep every figure
+ * clear of the name plate and inside its region. The quality harness measures the real extents.
  */
-export const SEAT_CLEARANCE = { above: 24, below: 36, left: 24, right: 32 } as const;
+export const SEAT_CLEARANCE = { above: 24, below: 36, left: 26, right: 30 } as const;
 
 function grid(x: number, y: number, w: number, h: number, cols: number, rows: number): Point[] {
   const top = y + NAME_BAND + SEAT_CLEARANCE.above;

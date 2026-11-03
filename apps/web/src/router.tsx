@@ -50,7 +50,7 @@ const rootRoute = createRootRoute({ component: Root });
 const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/", beforeLoad: () => { throw redirect({ to: "/inbox" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/inbox", component: Inbox }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/office", component: () => <OfficePlace view="floor" /> }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/office", component: () => <OfficePlace view="office" /> }),
   createRoute({ getParentRoute: () => rootRoute, path: "/floor", component: () => <OfficePlace view="floor" /> }),
   createRoute({ getParentRoute: () => rootRoute, path: "/board", component: () => <OfficePlace view="board" /> }),
   createRoute({ getParentRoute: () => rootRoute, path: "/packages", component: Packages }),

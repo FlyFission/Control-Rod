@@ -264,6 +264,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/office/figures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The office floor for the viewing person. In presenting mode, work above the internal lane is left
+         *     out of the response entirely and only counted.
+         */
+        get: operations["officeFigures"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages": {
         parameters: {
             query?: never;
@@ -855,6 +875,63 @@ export interface components {
             signature: "direct" | "none";
             /** @description "member", or authorities joined by "+" (any member, or each listed authority). */
             need: string;
+        };
+        /**
+         * @description One agent on the office floor (AgentFigure, specification 13 and 18; plan task 4.6), projected only
+         *     from recorded data: the package (or, for intake, the capture), its latest run at the current
+         *     revision, what the Inbox routes to the viewer, SCRAM holds, effective markings, recorded
+         *     dependencies and the revisions a preparation basis pinned. Never guessed from terminal output.
+         */
+        AgentFigure: {
+            /** @description The run the figure stands for. */
+            id: string;
+            package_id: string;
+            /** Format: int32 */
+            package_revision: number;
+            title: string;
+            role: components["schemas"]["ControlRod.Records.RunRole"];
+            /**
+             * @description The five states (OV-02); each always carries a cause.
+             * @enum {string}
+             */
+            state: "working" | "needs" | "waiting" | "stuck" | "changed";
+            /** @description Why, in words: what it is doing, what you must decide, who it waits on, what blocks it, which input changed. */
+            cause: string;
+            /** @description Who it waits on, by name, when waiting. */
+            waiting_on?: string;
+            /**
+             * Format: date-time
+             * @description When the present state began, so a reader sees how long.
+             */
+            since: string;
+            place: components["schemas"]["FigurePlace"];
+            /** @description True when the discipline is unset or unmapped, so the figure stands in Process by default. */
+            place_defaulted?: boolean;
+            /** @description At most these marks besides the state shape (OV-06). */
+            marks: {
+                /** @description A gate decision (release or accept) waits on this package. */
+                gate: boolean;
+                /** @description The input that changed, when one did. */
+                changed_input?: string;
+                /**
+                 * Format: int32
+                 * @description The run's round, when past the first.
+                 */
+                loop?: number;
+                /** @description Safety grade work. */
+                safety: boolean;
+            };
+            /** @description Recorded inputs whose freshness is unknown, because no preparation basis pinned their revision. */
+            unverified_inputs?: string[];
+            /**
+             * @description The nearest gate, for the Gate lens.
+             * @enum {string}
+             */
+            gate_stage: "release" | "in-work" | "pre-check" | "accept" | "settled";
+            /** @description Recorded once a permission wait cannot be observed for this runtime (print mode, plan task 2.9). */
+            observability?: string;
+            data_lane: components["schemas"]["ControlRod.Records.DataLane"];
+            href: components["schemas"]["AttentionTarget"];
         };
         ApiError: {
             /** @description A stable reason code (services/api/src/refusals.ts lists every one). */
@@ -2027,6 +2104,11 @@ export interface components {
             /** Format: int32 */
             count: number;
         };
+        /**
+         * @description Where a figure stands in the office (specification 13): a discipline's cube set, or a room.
+         * @enum {string}
+         */
+        FigurePlace: "process" | "mechanical" | "electrical" | "civil" | "assurance" | "project-controls" | "review" | "interface" | "verification" | "your-office" | "document-control" | "bench" | "quarantine";
         Health: {
             /** @enum {string} */
             status: "ok";
@@ -2961,6 +3043,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OfficeItem"][];
+                };
+            };
+        };
+    };
+    officeFigures: {
+        parameters: {
+            query?: {
+                presenting?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        figures: components["schemas"]["AgentFigure"][];
+                        /**
+                         * Format: int32
+                         * @description How many figures stand in Your office: the viewer's own (OV-01).
+                         */
+                        needs_me: number;
+                        /**
+                         * Format: int32
+                         * @description Everything the Inbox holds for the viewer, agents or not (a draft has no agent yet).
+                         */
+                        inbox_items: number;
+                        /**
+                         * Format: int32
+                         * @description Figures left out because presenting mode hides lanes above internal.
+                         */
+                        hidden: number;
+                        /** Format: date-time */
+                        generated_at: string;
+                    } | components["schemas"]["ApiError"];
                 };
             };
         };

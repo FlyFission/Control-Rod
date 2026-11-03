@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api } from "../../api/client.js";
 import type { AgentFigure } from "../../api/types.js";
-import { STATE_INFO, StateMark } from "../../components/StateMark.js";
+import { STATE_INFO } from "../../components/StateMark.js";
+import { AgentCard } from "./AgentCard.js";
+import { EXCEPTIONS_AT, exceptionsView, portfolio } from "./exceptions.js";
 import { REGION } from "./layout.js";
 import { LENSES, type LensId, lensById } from "./lenses.js";
 import { OfficeStage } from "./OfficeStage.js";
@@ -18,30 +20,25 @@ import { seatFigures } from "./seat.js";
 
 /** What waits on the viewer: agents in Your office, and anything else in the Inbox with no agent yet. */
 function countLine(needsMe: number, inboxItems: number): string {
-  const rest = Math.max(0, inboxItems - needsMe);
+  // A count that did not arrive is never shown as a number.
+  const rest = Number.isFinite(inboxItems) ? Math.max(0, inboxItems - needsMe) : 0;
   const agents = needsMe === 0 ? "" : `${needsMe} ${needsMe === 1 ? "agent waits" : "agents wait"} on you`;
   const more = rest === 0 ? "" : `${rest} more in the Inbox with no agent yet`;
   if (!agents && !more) return "Nothing waits on you";
   return [agents, more].filter(Boolean).join("; ");
 }
 
-const HOUR = 3600e3;
-function howLong(since: string, now: number): string {
-  const ms = Math.max(0, now - Date.parse(since));
-  if (ms < 60e3) return "under a minute";
-  if (ms < HOUR) return `${Math.round(ms / 60e3)} min`;
-  if (ms < 48 * HOUR) return `${Math.round(ms / HOUR)} h`;
-  return `${Math.round(ms / (24 * HOUR))} days`;
-}
-
 export function OfficeView() {
   const [lens, setLens] = useState<LensId>("status");
   const [presenting, setPresenting] = useState(false);
   const [selected, setSelected] = useState<string>();
+  const [showEveryone, setShowEveryone] = useState(false);
   const q = useQuery({ queryKey: ["office-figures", presenting], queryFn: () => api.officeFigures(presenting), refetchInterval: 30_000 });
   const active = lensById(lens);
   const floor = q.data;
-  const { seated, overflow } = useMemo(() => (floor ? seatFigures(floor.figures, active.tint, active.unavailable ? undefined : active) : { seated: [], overflow: [] }), [floor, active]);
+  const exceptions = useMemo(() => exceptionsView(floor?.figures ?? [], showEveryone), [floor, showEveryone]);
+  const projects = useMemo(() => portfolio(floor?.figures ?? []), [floor]);
+  const { seated, overflow } = useMemo(() => seatFigures(exceptions.shown, active.tint, active.unavailable ? undefined : active), [exceptions, active]);
   const open = floor?.figures.find((f) => f.id === selected);
 
   return (
@@ -90,6 +87,52 @@ export function OfficeView() {
           Presenting. {floor.hidden === 0 ? "No work above the internal lane is on the floor." : `${floor.hidden} ${floor.hidden === 1 ? "agent" : "agents"} on work above the internal lane ${floor.hidden === 1 ? "is" : "are"} hidden.`} Spend is not shown.
         </p>
       )}
+      {floor && floor.figures.length > EXCEPTIONS_AT && (
+        <div className="office-banner" role="status">
+          {exceptions.active ? (
+            <>
+              <p>
+                {floor.figures.length} agents are on the floor, so healthy work (working, with no changed input and no gate waiting) is folded into counts and every agent that needs attention stands out.
+              </p>
+              <ul className="office-folded" aria-label="Healthy work folded">
+                {exceptions.folded.map((f) => (
+                  <li key={f.place}>
+                    {REGION[f.place].name}: {f.count} working
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p>Every agent is drawn; past {EXCEPTIONS_AT} the floor can fold healthy work into counts.</p>
+          )}
+          <button type="button" className="btn small" aria-pressed={showEveryone} onClick={() => setShowEveryone((v) => !v)}>
+            Show everyone
+          </button>
+        </div>
+      )}
+      {projects.length > 1 && (
+        <table className="office-portfolio">
+          <caption>Portfolio</caption>
+          <thead>
+            <tr>
+              <th scope="col">Project</th>
+              <th scope="col">Agents</th>
+              <th scope="col">Need someone</th>
+              <th scope="col">Stuck</th>
+            </tr>
+          </thead>
+          <tbody>
+            {projects.map((p) => (
+              <tr key={p.project}>
+                <th scope="row">{p.project}</th>
+                <td>{p.agents}</td>
+                <td>{p.needs}</td>
+                <td>{p.stuck}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       <ul className="office-legend" aria-label={`${active.label} lens`}>
         {active.scale.map((s) => (
           <li key={s.key}>
@@ -132,61 +175,9 @@ export function OfficeView() {
               </div>
             )}
           </div>
-          <FigureCard figure={open} lens={active.unavailable ? undefined : `${active.label} lens: ${open ? active.value(open) : ""}`} />
+          <AgentCard figure={open} lens={active.unavailable ? undefined : `${active.label} lens: ${open ? active.value(open) : ""}`} />
         </div>
       )}
     </section>
-  );
-}
-
-function FigureCard({ figure: f, lens }: { figure: AgentFigure | undefined; lens: string | undefined }) {
-  if (!f)
-    return (
-      <aside className="office-card" aria-label="Selected agent">
-        <p className="office-note">Select an agent to see what it is doing and why.</p>
-      </aside>
-    );
-  const now = Date.now();
-  const marks = [
-    f.marks.gate && "A gate decision waits on this package",
-    f.marks.changed_input && `Input ${f.marks.changed_input} changed`,
-    f.marks.loop && `Round ${f.marks.loop}`,
-    f.marks.safety && "Safety grade",
-  ].filter(Boolean) as string[];
-  return (
-    <aside className="office-card" aria-label="Selected agent">
-      <h2>{f.title}</h2>
-      <p className="mono small">{f.package_id} · revision {f.package_revision}</p>
-      <p className="office-state">
-        <StateMark kind={f.state} size={12} /> {STATE_INFO[f.state].label} for {howLong(f.since, now)}
-      </p>
-      <p>{f.cause}</p>
-      {f.waiting_on && <p>Waiting on {f.waiting_on}.</p>}
-      <p className="muted small">
-        {REGION[f.place].name}
-        {f.place_defaulted ? ": shown here because the package names no discipline this office recognises" : ""}
-      </p>
-      {marks.length > 0 && (
-        <ul className="office-marks">
-          {marks.map((m) => (
-            <li key={m}>{m}</li>
-          ))}
-        </ul>
-      )}
-      {lens && <p className="small">{lens}</p>}
-      {f.unverified_inputs && f.unverified_inputs.length > 0 && (
-        <p className="muted small">Freshness unknown for {f.unverified_inputs.join(", ")}: no preparation pinned the revision it used.</p>
-      )}
-      {f.observability && <p className="muted small">This runtime cannot report permission waits: {f.observability}.</p>}
-      {f.href.to === "/packages/$id" ? (
-        <Link to="/packages/$id" params={{ id: f.package_id }} {...(f.href.hash ? { hash: f.href.hash } : {})} className="btn small">
-          Open the package
-        </Link>
-      ) : (
-        <Link to="/packages" className="btn small">
-          Open captures and packages
-        </Link>
-      )}
-    </aside>
   );
 }

@@ -85,12 +85,21 @@ const BOTTOM_H = 300;
 
 /**
  * A grid of seats below the name band, cols by rows, inset from the walls. A seat is a figure's
- * centre: at minimum zoom (0.8) the figure reaches 18px above it, 28px below it (its package code),
- * 20.5px to its left (a six character code) and 23px to its right (the state mark), which is 22.5,
- * 35, 25.6 and 28.75 layout units; SEAT_CLEARANCE rounds those up, so the insets keep every figure
- * clear of the name plate and inside its region. The quality harness measures the real extents.
+ * centre: at minimum zoom (0.8) the figure reaches 24px above it (its marks pill, three slots), 28px
+ * below it (its package code), 23px to its left (the marks pill) and 23px to its right (the state
+ * mark), rings included, which is 30, 35, 28.75 and 28.75 layout units. Above, a further 5px keeps
+ * the figure clear of the name plate's ring. SEAT_CLEARANCE rounds those up, so the insets keep
+ * every figure clear of the name plate and inside its region. The quality harness measures the real
+ * extents.
  */
-export const SEAT_CLEARANCE = { above: 24, below: 36, left: 26, right: 30 } as const;
+export const SEAT_CLEARANCE = { above: 35, below: 36, left: 30, right: 30 } as const;
+
+/**
+ * The most a figure ever paints, every mark and ring included, at minimum zoom: 50px across (marks
+ * pill to state mark) and 52px tall (marks pill to code plate), which is 62.5 by 65 layout units.
+ * No two places are closer than this, so fully marked neighbours never paint into each other.
+ */
+export const FIGURE_SPAN = { x: 62.5, y: 65 } as const;
 
 function grid(x: number, y: number, w: number, h: number, cols: number, rows: number): Point[] {
   const top = y + NAME_BAND + SEAT_CLEARANCE.above;
@@ -121,8 +130,9 @@ function buildRegions(): Region[] {
     const seats = id === "your-office" || id === "quarantine" ? grid(x, BOTTOM_Y, w, BOTTOM_H, 2, 2) : grid(x, BOTTOM_Y, w, BOTTOM_H, 2, 3);
     const door = { x: Math.round(x + w / 2), y: BOTTOM_Y };
     // The queue runs along the corridor, either side of the door, spaced so figures and their
-    // package codes never touch, and high enough that codes clear the rooms' name plates.
-    const queue = id === "your-office" ? [-64, 64, -128, 128, -192, 192].map((dx) => ({ x: door.x + dx, y: CORRIDOR_Y - 10 })) : [];
+    // package codes never touch, low enough to clear the cube sets' last row and high enough that
+    // codes clear the rooms' name plates.
+    const queue = id === "your-office" ? [-64, 64, -128, 128, -192, 192].map((dx) => ({ x: door.x + dx, y: CORRIDOR_Y - 3 })) : [];
     regions.push({ id, kind: "room", name, purpose, x, y: BOTTOM_Y, w, h: BOTTOM_H, seats, queue, door });
     x += w + GAP;
   }
@@ -164,12 +174,20 @@ export function validateLayout(regions: readonly Region[] = REGIONS): string[] {
       if (s.x - SEAT_CLEARANCE.left < r.x || s.x + SEAT_CLEARANCE.right > r.x + r.w) problems.push(`${r.id} has a seat too close to a side wall`);
     }
     for (const q of r.queue) {
-      if (q.y - SEAT_CLEARANCE.above <= TOP_Y + TOP_H || q.y + SEAT_CLEARANCE.below >= BOTTOM_Y || q.x < 0 || q.x > CANVAS.width) problems.push(`${r.id} queues outside the corridor`);
+      // In the corridor a queued figure needs its own reach above (no name plate to clear there).
+      if (q.y - (SEAT_CLEARANCE.above - 5) <= TOP_Y + TOP_H || q.y + SEAT_CLEARANCE.below >= BOTTOM_Y || q.x < 0 || q.x > CANVAS.width) problems.push(`${r.id} queues outside the corridor`);
     }
     const onEdge = r.kind === "cube-set" ? r.door.y === r.y + r.h : r.door.y === r.y;
     if (!onEdge || r.door.x < r.x || r.door.x > r.x + r.w) problems.push(`${r.id} has its door off its corridor edge`);
   }
   for (const id of REGION_IDS) if (!ids.has(id)) problems.push(`${id} is missing`);
+  // Fully marked figures in neighbouring places never meet.
+  const places = regions.flatMap((r) => [...r.seats, ...r.queue].map((p) => ({ ...p, id: r.id })));
+  for (let i = 0; i < places.length; i++)
+    for (let j = i + 1; j < places.length; j++) {
+      const a = places[i]!, b = places[j]!;
+      if (Math.abs(a.x - b.x) < FIGURE_SPAN.x && Math.abs(a.y - b.y) < FIGURE_SPAN.y) problems.push(`places in ${a.id} and ${b.id} are closer than a fully marked figure`);
+    }
   for (let i = 0; i < regions.length; i++)
     for (let j = i + 1; j < regions.length; j++) {
       const a = regions[i]!;

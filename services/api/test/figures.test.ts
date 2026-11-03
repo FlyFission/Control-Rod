@@ -90,7 +90,10 @@ async function seed() {
   await h.admin.query(
     `insert into preparation_snapshots (preparation_id, revision, package_id, package_revision, content_digest, requirements_digest, body, created_at)
      values ('PREP-FIG-DESIGN', 0, 'WP-FIG-DESIGN', 0, $1, $1, $2, now())`,
-    ["e".repeat(64), { basis: [{ kind: "package", reference: "package:WP-FIG-DEP", revision: "0", digest: { algorithm: "sha256", value: "0".repeat(64) } }] }],
+    ["e".repeat(64), { basis: [
+      { kind: "package", reference: "package:WP-FIG-DEP", revision: "0", digest: { algorithm: "sha256", value: "0".repeat(64) } },
+      { kind: "package", reference: "package:WP-FIG-WORK", revision: "0", digest: { algorithm: "sha256", value: "0".repeat(64) } },
+    ] }],
   );
   await h.admin.query("insert into preparation_heads (package_id, preparation_id, revision) values ('WP-FIG-DESIGN', 'PREP-FIG-DESIGN', 0)");
   // An intake that failed before its capture became a package.
@@ -121,6 +124,8 @@ describe("office figures", () => {
     expect(figure(floor, "WP-FIG-LOST").cause).toMatch(/outcome is unknown/);
     const changed = figure(floor, "WP-FIG-CHANGED");
     expect(changed).toMatchObject({ state: "changed", place: "civil", cause: "Input WP-FIG-DEP moved to revision 1 after the preparation pinned it", marks: { changed_input: "WP-FIG-DEP" } });
+    // Freshness is claimed only where established: a pinned input still at its pinned revision.
+    expect(figure(floor, "WP-FIG-CHANGED").current_inputs).toBeUndefined();
     // Without a pinned baseline the input's freshness is said to be unknown, never guessed changed.
     const unpinned = figure(floor, "WP-FIG-UNPINNED");
     expect(unpinned).toMatchObject({ state: "working", unverified_inputs: ["WP-FIG-DEP"] });
@@ -128,6 +133,8 @@ describe("office figures", () => {
     // A design input the preparation pinned changed, though no dependency edge names it.
     expect(figure(floor, "WP-FIG-DESIGN")).toMatchObject({ state: "changed", marks: { changed_input: "WP-FIG-DEP" } });
     expect(figure(floor, "WP-FIG-DESIGN").unverified_inputs).toBeUndefined();
+    // The other pinned input is still at its pinned revision: freshness established for it alone.
+    expect(figure(floor, "WP-FIG-DESIGN").current_inputs).toEqual(["WP-FIG-WORK"]);
     // An intake that failed before its capture became a package stays on the floor, saying why.
     expect(figure(floor, "CAP-FIG-FAILED")).toMatchObject({ role: "intake", state: "stuck", place: "review", cause: "Intake run failed: the capture names no deliverable" });
     // Held back by a dependency not yet accepted, which is not a wait for a runtime.
@@ -190,6 +197,32 @@ describe("office figures", () => {
     expect(figure(presenting, "WP-FIG-RAISED")).toBeUndefined();
     expect(presenting.hidden).toBeGreaterThanOrEqual(2);
     for (const leaked of ["WP-FIG-SECRET", "WP-FIG-RAISED", "Raised later"]) expect(JSON.stringify(presenting)).not.toContain(leaked);
+  });
+
+  it("carries the run's status and any stop asked for, and the owning project for the portfolio", async () => {
+    const signedAdmin = async (name: string, payload: Json) => {
+      const o = await h.app.inject({ method: "POST", url: `/admin/commands/${name}/options`, headers: { cookie, origin: ORIGIN }, payload: { payload } });
+      return h.app.inject({ method: "POST", url: `/admin/commands/${name}`, headers: { cookie, origin: ORIGIN }, payload: { payload, assertion: key.assert(o.json().options) } });
+    };
+    const project = await signedAdmin("project.create", { name: "Figures project", mode: "software", default_rigor: "standard", lanes: ["internal"], qa_overlays: [] });
+    expect(project.statusCode, project.body).toBe(200);
+    const projectId = project.json().id;
+    const org = (await h.db.query<{ org_id: string }>("select org_id from projects where id = $1", [projectId])).rows[0]!.org_id;
+    // Owner rows are written before the work exists (they are append only).
+    await h.admin.query("insert into object_owners (object_kind, object_id, org_id, project_id) values ('package', 'WP-FIG-PROJ', $1, $2), ('capture', 'CAP-FIG-PROJ', $1, $2)", [org, projectId]);
+    await pkg("WP-FIG-PROJ", "in-work", { discipline: "civil" });
+    await run("R-fig-proj", "WP-FIG-PROJ", "running", { started_at: ago(0.1), stop_requested_at: ago(0.01) });
+    await h.admin.query("insert into captures (id, body, created_at) values ('CAP-FIG-PROJ', $1, now())", [{ id: "CAP-FIG-PROJ", text: "Project intake" }]);
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ('R-fig-proj-intake', 'CAP-FIG-PROJ', 0, 'intake', 1, 'running', $1)",
+      [{ schema_version: "0.1.0", id: "R-fig-proj-intake", package_id: "CAP-FIG-PROJ", package_revision: 0, role: "intake", agent_baseline: "intake-claude",
+        runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "running", queued_at: ago(0.2), started_at: ago(0.1), generation: 1 }]);
+    const floor = await get("/office/figures");
+    expect(figure(floor, "WP-FIG-PROJ")).toMatchObject({ project_id: projectId, run_status: "running", stop_requested: true });
+    expect(figure(floor, "CAP-FIG-PROJ")).toMatchObject({ project_id: projectId, run_status: "running" });
+    expect(figure(floor, "CAP-FIG-PROJ").stop_requested).toBeUndefined();
+    // Organization level work names no project.
+    expect(figure(floor, "WP-FIG-WORK").project_id).toBeUndefined();
+    expect(figure(floor, "WP-FIG-QUEUED").run_status).toBe("queued");
   });
 
   it("reads the floor in a fixed number of queries, however many agents are on it", async () => {

@@ -461,6 +461,9 @@ model AgentFigure {
   /** Recorded inputs whose freshness is unknown, because no preparation basis pinned their revision. */
   unverified_inputs?: string[];
 
+  /** Package inputs the preparation pinned that are still at the pinned revision: freshness established. */
+  current_inputs?: string[];
+
   /** The nearest gate, for the Gate lens. */
   gate_stage: "release" | "in-work" | "pre-check" | "accept" | "settled";
 
@@ -468,6 +471,16 @@ model AgentFigure {
   observability?: string;
 
   data_lane: DataLane;
+
+  /** The project that owns the work, for the portfolio rollup; absent for organization level work. */
+  project_id?: string;
+
+  /** The run's own status, so the card offers stop exactly when the command layer would take it. */
+  run_status: RunStatus;
+
+  /** A stop was asked for and the daemon has not yet confirmed it. */
+  stop_requested?: boolean;
+
   href: AttentionTarget;
 }
 

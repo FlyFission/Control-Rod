@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useState } from "react";
 import { STATE_INFO } from "./components/StateMark.js";
 import { validateTheme } from "./features/office/contract.js";
-import { harnessFigures } from "./features/office/fixtures.js";
+import { everyPlace, harnessFigures } from "./features/office/fixtures.js";
 import { OfficeStage, type FigureState } from "./features/office/OfficeStage.js";
 import { OFFICE_THEMES } from "./features/office/registry.js";
 import { type LensId, lensById } from "./features/office/lenses.js";
@@ -28,7 +28,9 @@ const fetchBytes = async (path: string) => {
 function Harness() {
   const params = new URLSearchParams(location.search);
   const [themeId, setThemeId] = useState(params.get("theme") ?? OFFICE_THEMES[0]!.id);
-  const [count, setCount] = useState(Number(params.get("agents") ?? 12));
+  // "all" fills every seat and queue place on the floor, one figure each.
+  const fillAll = params.get("agents") === "all";
+  const [count, setCount] = useState(fillAll ? 0 : Number(params.get("agents") ?? 12));
   // Zoom as a fraction of the layout canvas; the stage refuses to draw below its minimum (0.8).
   const zoom = Number(params.get("zoom") ?? 0);
   // A deliberate delay before a state change commits, so the harness can prove its timer sees it.
@@ -36,18 +38,25 @@ function Harness() {
   // A lens to tint the figures with: every colour of its scale in turn, so the harness meets them all.
   const lensId = params.get("lens") as LensId | null;
   const scale = lensId ? lensById(lensId).scale : [];
+  // Every figure carrying every mark: the worst case for spacing and legibility.
+  const allMarks = params.get("marks") === "all";
   const [shifted, setShifted] = useState(0);
   const [selected, setSelected] = useState<string>();
   const [contract, setContract] = useState<{ theme: string; problems: string[] }>();
   const theme = OFFICE_THEMES.find((t) => t.id === themeId) ?? OFFICE_THEMES[0]!;
   const figures = useMemo(
     () =>
-      harnessFigures(count).map((f) => {
+      (fillAll ? everyPlace() : harnessFigures(count)).map((f) => {
         let state = f.state;
         for (let i = 0; i < shifted; i++) state = SHIFT[state];
-        return { ...f, state, ...(scale.length ? { tint: scale[Number(f.id.slice(1)) % scale.length]!.color } : {}) };
+        return {
+          ...f,
+          state,
+          ...(scale.length ? { tint: scale[Number(f.id.slice(1)) % scale.length]!.color } : {}),
+          ...(allMarks ? { marks: { gate: true, changed: true, loop: 3, safety: true } } : {}),
+        };
       }),
-    [count, shifted, scale],
+    [count, shifted, scale, allMarks],
   );
   const open = figures.find((f) => f.id === selected);
 

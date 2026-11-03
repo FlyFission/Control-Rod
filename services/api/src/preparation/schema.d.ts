@@ -923,6 +923,8 @@ export interface components {
             };
             /** @description Recorded inputs whose freshness is unknown, because no preparation basis pinned their revision. */
             unverified_inputs?: string[];
+            /** @description Package inputs the preparation pinned that are still at the pinned revision: freshness established. */
+            current_inputs?: string[];
             /**
              * @description The nearest gate, for the Gate lens.
              * @enum {string}
@@ -931,6 +933,12 @@ export interface components {
             /** @description Recorded once a permission wait cannot be observed for this runtime (print mode, plan task 2.9). */
             observability?: string;
             data_lane: components["schemas"]["ControlRod.Records.DataLane"];
+            /** @description The project that owns the work, for the portfolio rollup; absent for organization level work. */
+            project_id?: string;
+            /** @description The run's own status, so the card offers stop exactly when the command layer would take it. */
+            run_status: components["schemas"]["ControlRod.Records.RunStatus"];
+            /** @description A stop was asked for and the daemon has not yet confirmed it. */
+            stop_requested?: boolean;
             href: components["schemas"]["AttentionTarget"];
         };
         ApiError: {

@@ -4724,6 +4724,7 @@
           "marks",
           "gate_stage",
           "data_lane",
+          "run_status",
           "href"
         ],
         "properties": {
@@ -4810,6 +4811,13 @@
             },
             "description": "Recorded inputs whose freshness is unknown, because no preparation basis pinned their revision."
           },
+          "current_inputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Package inputs the preparation pinned that are still at the pinned revision: freshness established."
+          },
           "gate_stage": {
             "type": "string",
             "enum": [
@@ -4827,6 +4835,18 @@
           },
           "data_lane": {
             "$ref": "#/components/schemas/ControlRod.Records.DataLane"
+          },
+          "project_id": {
+            "type": "string",
+            "description": "The project that owns the work, for the portfolio rollup; absent for organization level work."
+          },
+          "run_status": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunStatus",
+            "description": "The run's own status, so the card offers stop exactly when the command layer would take it."
+          },
+          "stop_requested": {
+            "type": "boolean",
+            "description": "A stop was asked for and the daemon has not yet confirmed it."
           },
           "href": {
             "$ref": "#/components/schemas/AttentionTarget"

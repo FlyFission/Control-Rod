@@ -728,6 +728,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/roster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The Roster (plan task 5.1): roles, baselines as recorded on runs (not yet controlled items with
+         *     revisions, so baselines_recorded is false), the artifacts a pin may name, and sandboxes as launched.
+         */
+        get: operations["roster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runner/claim": {
         parameters: {
             query?: never;
@@ -2291,6 +2311,25 @@ export interface components {
             criteria: string[];
             /** @enum {string} */
             outcome: "pass" | "fail" | "inconclusive";
+        };
+        /** @description One run role on the Roster: what it does, who has run it, and its pins. */
+        RosterRole: {
+            role: components["schemas"]["ControlRod.Records.RunRole"];
+            what: string;
+            /** @description Whether a runtime pin can be set for it (preparer roles launch by their own custody path). */
+            pinnable: boolean;
+            /** @description Each runtime and baseline pair recorded on its runs; empty until something has run it. */
+            baselines: {
+                runtime: string;
+                baseline: string;
+            }[];
+            /** Format: int32 */
+            runs: number;
+            /** Format: date-time */
+            last_run_at?: string;
+            pins: components["schemas"]["ControlRod.Records.RuntimePin"][];
+            /** @description Runtimes whose pin for this role has an earlier, different artifact to roll back to. */
+            rollback: string[];
         };
         "Runner.Completion": {
             claim_token: string;
@@ -5525,6 +5564,63 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    roster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        roles: components["schemas"]["RosterRole"][];
+                        baselines: {
+                            id: string;
+                            roles: string[];
+                            /** Format: int32 */
+                            runs: number;
+                            /** Format: date-time */
+                            last_run_at: string;
+                            statuses: {
+                                [key: string]: number;
+                            };
+                        }[];
+                        /** @enum {boolean} */
+                        baselines_recorded: false;
+                        /** @description Every artifact a passing probe has seen, per pinnable runtime, and the roles pinning it now. */
+                        versions: {
+                            runtime: string;
+                            version: string;
+                            digest: components["schemas"]["ControlRod.Records.Digest"];
+                            /** Format: date-time */
+                            last_passed_at: string;
+                            pinned_for: components["schemas"]["ControlRod.Records.RunRole"][];
+                        }[];
+                        sandbox: {
+                            /** @description SandboxPolicy records in force, each with its digest. */
+                            policies: {
+                                [key: string]: unknown;
+                            }[];
+                            /** @description Per runtime, the sandbox its latest completed run reported launching with. */
+                            launched: {
+                                runtime: string;
+                                sandbox: string;
+                                run_id: string;
+                                at: string;
+                            }[];
+                        };
+                    } | components["schemas"]["ApiError"];
                 };
             };
         };

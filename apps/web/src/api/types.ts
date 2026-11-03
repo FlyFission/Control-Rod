@@ -84,6 +84,15 @@ export type CriterionResultSet = S["ControlRod.Preparation.CriterionResultSet"];
 
 export type ActionDescriptor = S["ActionDescriptor"];
 export type RuntimePin = S["ControlRod.Records.RuntimePin"];
+export type RosterRole = S["RosterRole"];
+/** The Roster (plan task 5.1). */
+export interface RosterView {
+  roles: RosterRole[];
+  baselines: { id: string; roles: string[]; runs: number; last_run_at: string; statuses: Record<string, number> }[];
+  baselines_recorded: false;
+  versions: { runtime: string; version: string; digest: Digest; last_passed_at: string; pinned_for: string[] }[];
+  sandbox: { policies: Record<string, unknown>[]; launched: { runtime: string; sandbox: string; run_id: string; at: string }[] };
+}
 export type AdminCommandInfo = S["AdminCommandInfo"];
 /** GET /admin: who is here, what is in force, and every administrative command with the viewer's standing. */
 export interface AdminView {

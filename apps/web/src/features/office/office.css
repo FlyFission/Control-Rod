@@ -439,7 +439,10 @@
 .office-scram-form {
   display: grid;
   gap: 6px;
-  margin-top: 6px;
+  min-width: 0;
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
 }
 .office-scram-form fieldset {
   display: flex;

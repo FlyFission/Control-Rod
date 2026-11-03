@@ -44,3 +44,23 @@ Codex round 2 confirmed the nine round 1 fixes in code and tests and returned RE
 - "Freeze the scope controls while pending": fixed. The scope fieldset, reason and drill controls are disabled while the signed stop is in flight; tested.
 
 Verification: web 216 tests pass; API 537 pass, 1 skipped (pre-existing); typecheck and lint pass.
+
+# Round 3
+
+Codex round 3 confirmed the run set decision and the count waiver as sound in principle and returned REVISE with three findings. All are accepted and fixed at the root.
+
+| # | Finding | Disposition |
+|---|---|---|
+| 1 | A SCRAM's reason survived a restart in a queued run's recorded hold words | Fixed at the root: `restartAfterScram` clears `waiting_reason`, `waiting_cause` and `waiting_key` from every queued run held by a SCRAM that nothing holds any longer, in the restart's transaction. As a second guard, the presenting projection never shows a SCRAM hold's words. `scram.test.ts` pulls, lets a claim record the hold, restarts by discipline (the lifted run's words go, the still held run keeps them) and then fully, and reads the ordinary and presenting floor before any further claim: the reason appears in neither |
+| 2 | A preview that never settles blocked the stop | Fixed: after six seconds without a count the dialog says counting is taking too long and offers "Stop without a count"; the waiver resets on a scope change. Tested with a count that never answers, through the waiver, the passkey and the stop command |
+| 3 | Hold keys still combined unrelated holds | Fixed at the root: dispatch now records `waiting_key` on the run (contract `Run.waiting_key`) only where one decision resolves the hold for every run that names it: `lane-admission:<lane>` when no offered runtime is admitted, and `runtime-pin:<role>:<offered runtimes>` for a pin. An unclassified source, a preparation, an independence conflict and a SCRAM record none, so each is the run's own. The projection groups only by a recorded key. Tests: `disclosure.test.ts` and `runtimes.test.ts` assert the recorded keys; `figures.test.ts` asserts two admissions to one lane group, an unkeyed lane hold stays apart, and pins for different runtimes stay apart |
+
+## Bot thread after round 2
+
+- "Freeze restart scope controls while signing is pending": fixed. The review and restart forms are fieldsets disabled while their signature is in flight, as the pull dialog is; `scram.test.tsx` holds a restart signature open and asserts the scope and reason cannot change.
+
+## Correction
+
+Earlier verification notes said "lint passes". The repository has no lint script (`pnpm lint` is not a command), so nothing was linted; the checks that ran are the type checks (`pnpm typecheck`, all three packages) and the test suites.
+
+Verification: web 217 tests pass; API 537 pass, 1 skipped (pre-existing); `pnpm typecheck` passes; daemon Go tests pass (the Run schema it embeds gained `waiting_key`).

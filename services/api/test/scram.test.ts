@@ -201,7 +201,7 @@ describe("pulling SCRAM", () => {
     await h.admin.query("update runs set status = 'stopped' where status in ('queued', 'running')");
     const mech = await queued("WP-SCR-MECH", "mechanical");
     const elec = await queued("WP-SCR-ELEC", "electrical");
-    const scram = (await signed("scram.pull", { scope: "organization", reason: "Bad prompt shipped" })).json();
+    const scram = (await signed("scram.pull", { scope: "organization", reason: "Bad prompt shipped (discipline check)" })).json();
     expect(scram.quarantine).toEqual([]);
     // Nothing was running, so it stopped at once.
     expect((await events("scram.stopped")).filter((e) => e.subject === scram.id)).toHaveLength(1);
@@ -216,12 +216,20 @@ describe("pulling SCRAM", () => {
     expect((await signed("scram.restart", { scram_id: scram.id, scope: "discipline", discipline: "mechanical", reason: "Again" })).json().code).toBe("not-in-scope");
     expect((await signed("scram.restart", { scram_id: scram.id, scope: "package", package_id: "WP-SCR-MECH", reason: "Again" })).json().code).toBe("not-in-scope");
     expect((await h.db.query("select 1 from scram_restarts where scram_id = $1", [scram.id])).rowCount).toBe(1);
+    // The restart lifts the hold's words with it; what is still held keeps them.
+    expect((await run(mech)).body.waiting_cause).toBeUndefined();
+    expect((await run(mech)).body.waiting_reason).toBeUndefined();
+    expect((await run(elec)).body.waiting_cause).toBe("scram");
     const job = await claim();
     expect(job.statusCode, job.body).toBe(200);
     expect(job.json().run.id).toBe(mech);
     expect((await claim()).statusCode).toBe(204);
     expect((await run(elec)).body.waiting_reason).toMatch(/^SCRAM /);
     expect((await signed("scram.restart", { scram_id: scram.id, scope: "all", reason: "All verified" })).statusCode).toBe(200);
+    // Lifted, before any claim: no run, figure or presenting view still carries the SCRAM's reason.
+    expect((await run(elec)).body.waiting_reason).toBeUndefined();
+    for (const url of ["/office/figures", "/office/figures?presenting=true"])
+      expect(JSON.stringify((await h.app.inject({ method: "GET", url, headers: { cookie } })).json())).not.toContain("Bad prompt shipped (discipline check)");
     expect((await claim()).json().run.id).toBe(elec);
   });
 

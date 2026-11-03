@@ -122,28 +122,50 @@ describe("SCRAM", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("fires only once the count is stated, or the person says they stop without it", async () => {
-    let fail = false;
+  it("fires only once the count is stated; a failed count can be waived explicitly", async () => {
     server.use(
-      http.get("*/scrams/preview", () => (fail ? HttpResponse.json({ code: "unavailable", message: "Down" }, { status: 503 }) : new Promise<never>(() => {}))),
+      http.get("*/scrams/preview", () => HttpResponse.json({ code: "unavailable", message: "Down" }, { status: 503 })),
       http.get("*/admin", () => HttpResponse.json({ projects: [] })),
     );
-    const { qc } = await renderPage(<ScramControl passkeys={passkeys} />);
+    await renderPage(<ScramControl passkeys={passkeys} patienceMs={60_000} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "SCRAM" }));
     const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
     await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
     const sign = within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }) as HTMLButtonElement;
-    // Still counting: nothing fires.
-    expect(within(dialog).getByText("Counting what this stops…")).toBeTruthy();
-    expect(sign.disabled).toBe(true);
-    fail = true;
-    await qc.cancelQueries({ queryKey: ["scram-preview"] });
-    await qc.resetQueries({ queryKey: ["scram-preview"] });
     expect(await within(dialog).findByText(/How many could not be counted just now\./, {}, { timeout: 5000 })).toBeTruthy();
     expect(sign.disabled).toBe(true);
     await user.click(within(dialog).getByRole("checkbox", { name: "Stop without a count" }));
     expect(sign.disabled).toBe(false);
+  });
+
+  it("never lets a count that does not arrive block the stop: after a while it can be waived, and the stop fires", async () => {
+    const sent: string[] = [];
+    server.use(
+      // The count never answers.
+      http.get("*/scrams/preview", () => new Promise<never>(() => {})),
+      http.get("*/admin", () => HttpResponse.json({ projects: [] })),
+      http.post("*/admin/commands/:name/options", () => HttpResponse.json({ subject_digest: { algorithm: "sha256", value: "a".repeat(64) }, options: {} })),
+      http.post("*/admin/commands/:name", ({ params }) => {
+        sent.push(String(params["name"]));
+        return HttpResponse.json(scram);
+      }),
+    );
+    await renderPage(<ScramControl passkeys={passkeys} patienceMs={300} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "SCRAM" }));
+    const dialog = screen.getByRole("dialog", { name: "Pull SCRAM" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Why (required)" }), "Bad prompt shipped");
+    const sign = within(dialog).getByRole("button", { name: "Sign with your passkey and stop" }) as HTMLButtonElement;
+    // While it is still counting, nothing fires.
+    expect(within(dialog).getByText("Counting what this stops…")).toBeTruthy();
+    expect(sign.disabled).toBe(true);
+    expect(await within(dialog).findByText(/Counting what it stops is taking too long\./)).toBeTruthy();
+    expect(sign.disabled).toBe(true);
+    await user.click(within(dialog).getByRole("checkbox", { name: "Stop without a count" }));
+    await user.click(sign);
+    await waitFor(() => expect(sent).toEqual(["scram.pull"]));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("says pulled, not stopped, until the stop is recorded, then its latency", async () => {
@@ -224,6 +246,7 @@ describe("SCRAM", () => {
 
   it("restarts only something the SCRAM holds, states the exact scope, writes the reason afresh on a new scope, and shows the refusal", async () => {
     const sent: { name: string; body: any }[] = [];
+    const held: Passkeys = { ...passkeys };
     server.use(
       http.get("*/scrams", () => HttpResponse.json({ scrams: [{ scram, run_count: 2, stopped: { ms_to_stop: 900, runs: 2, at: new Date().toISOString() } }] })),
       http.get("*/scrams/:id", () => HttpResponse.json({
@@ -236,7 +259,7 @@ describe("SCRAM", () => {
         return HttpResponse.json({ code: "restart-blocked", message: "Not yet: R-2 has an unknown outcome" }, { status: 409 });
       }),
     );
-    await renderPage(<ScramBanner passkeys={passkeys} />);
+    await renderPage(<ScramBanner passkeys={held} />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Review and restart" }));
     expect(await screen.findByText(/its outcome is unknown and must be reconciled before it can restart/)).toBeTruthy();
@@ -263,6 +286,15 @@ describe("SCRAM", () => {
     expect(await screen.findByText("Not yet: R-2 has an unknown outcome")).toBeTruthy();
     expect(sent.find((s) => s.name === "scram.restart")?.body.payload).toEqual({ scram_id: "scr_1", scope: "discipline", discipline: "process", reason: "Prompt reverted for process" });
     await user.click(screen.getByRole("radio", { name: "Everything it stopped" }));
+    // While a restart is being signed, its scope cannot change under it.
+    await user.type(why(), "Everything verified");
+    let release: (v: Record<string, unknown>) => void = () => {};
+    held.get = () => new Promise((r) => (release = r));
+    await user.click(screen.getByRole("button", { name: "Sign and restart" }));
+    await waitFor(() => expect(screen.getByRole("radio", { name: "One package" }).matches(":disabled")).toBe(true));
+    expect(why().matches(":disabled")).toBe(true);
+    release({ signed: true });
+    await waitFor(() => expect(screen.getByRole("radio", { name: "One package" }).matches(":disabled")).toBe(false));
     expect(screen.getByText("This lifts SCRAM scr_1 for everything it holds: 3 packages and any intake work on captures in its scope, and the 2 runs it stopped.")).toBeTruthy();
   });
 });

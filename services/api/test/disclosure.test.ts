@@ -21,7 +21,7 @@ afterAll(async () => h?.stop());
 const post = (url: string, payload: unknown) => h.app.inject({ method: "POST", url, headers: { cookie, origin: ORIGIN }, payload: payload as object });
 const claim = (runtimes: string[]) => h.app.inject({ method: "POST", url: "/runner/claim", headers: daemonHeaders, payload: { runtimes } });
 const queuedFor = async (subject: string) =>
-  (await h.db.query<{ id: string; body: { waiting_reason?: string } }>("select id, body from runs where package_id = $1 and status = 'queued'", [subject])).rows;
+  (await h.db.query<{ id: string; body: { waiting_reason?: string; waiting_key?: string } }>("select id, body from runs where package_id = $1 and status = 'queued'", [subject])).rows;
 
 describe("lane admission table", () => {
   it("lets public and internal work use the subscription CLIs and keeps sensitive lanes local", () => {
@@ -68,6 +68,8 @@ describe("captures", () => {
     expect((await claim(["claude", "codex"])).statusCode).toBe(204);
     const [held] = await queuedFor(c.id);
     expect(held!.body.waiting_reason).toMatch(/proprietary lane admits none of the runtimes/);
+    // What it waits on is recorded, so the office groups it with every run that waits on the same admission.
+    expect(held!.body.waiting_key).toBe("lane-admission:proprietary");
     const local = await claim(["fake"]);
     expect(local.statusCode).toBe(200);
     expect(local.json().run.package_id).toBe(c.id);
@@ -103,6 +105,7 @@ describe("package runs", () => {
     expect((await claim(["claude", "codex"])).statusCode).toBe(204);
     const held = (await h.db.query("select body from runs where id = 'R-lane0001'")).rows[0].body;
     expect(held.waiting_reason).toMatch(/proprietary lane admits none/);
+    expect(held.waiting_key).toBe("lane-admission:proprietary");
     const ev = await h.db.query("select count(*)::int as n from events where body->>'type' = 'run.waiting' and body->>'subject' = 'R-lane0001'");
     expect(ev.rows[0].n).toBe(1);
     // Scanning again records nothing new.

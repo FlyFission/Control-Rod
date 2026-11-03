@@ -155,7 +155,8 @@ describe("office figures", () => {
     expect(figure(floor, "WP-FIG-HOLD")).toMatchObject({ state: "needs", cause_key: "run:R-fig-hold" });
     const forAlice = figure(await get("/office/figures", await aliceCookie()), "WP-FIG-HOLD");
     expect(forAlice.state).toBe("waiting");
-    expect(forAlice.cause_key).toBe(`hold:lane:internal\u0000${forAlice.waiting_on}`);
+    // No identity was recorded for this hold, so it stays its own for her too.
+    expect(forAlice.cause_key).toBe("run:R-fig-hold");
     // Every figure says why, and when the state began.
     for (const f of floor.figures) {
       expect(f.cause_key.length).toBeGreaterThan(0);
@@ -280,7 +281,17 @@ describe("office figures", () => {
       await run(`R-fig-prep-${id.toLowerCase()}`, `WP-FIG-PREP-${id}`, "queued", { waiting_reason: message, waiting_cause: "preparation" });
     }
     await pkg("WP-FIG-HOLD2", "in-work", { discipline: "electrical" });
-    await run("R-fig-hold2", "WP-FIG-HOLD2", "queued", { waiting_reason: "Its sources are proprietary; a lane holder must admit the run", waiting_cause: "lane" });
+    await run("R-fig-hold2", "WP-FIG-HOLD2", "queued", { waiting_reason: "Its sources are proprietary; a lane holder must admit the run", waiting_cause: "lane", waiting_key: "lane-admission:proprietary" });
+    await pkg("WP-FIG-HOLD3", "in-work", { discipline: "electrical" });
+    await run("R-fig-hold3", "WP-FIG-HOLD3", "queued", { waiting_reason: "Its sources are proprietary; a lane holder must admit the run", waiting_cause: "lane", waiting_key: "lane-admission:proprietary" });
+    // Unclassified sources of different captures: alike words, no recorded shared identity.
+    await pkg("WP-FIG-UNCL", "in-work", { discipline: "electrical" });
+    await run("R-fig-uncl", "WP-FIG-UNCL", "queued", { waiting_reason: "Its sources are proprietary; a lane holder must admit the run", waiting_cause: "lane" });
+    // Pins for the same role but different runtimes are different decisions.
+    for (const [id, rt] of [["PINC", "claude"], ["PINX", "codex"]] as const) {
+      await pkg(`WP-FIG-${id}`, "in-work", { discipline: "electrical" });
+      await run(`R-fig-${id.toLowerCase()}`, `WP-FIG-${id}`, "queued", { waiting_reason: "Not the pinned version", waiting_cause: "runtime-pin", waiting_key: `runtime-pin:author:${rt}` });
+    }
     const floor = await get("/office/figures", await aliceCookie());
     const a = figure(floor, "WP-FIG-PREP-A");
     const b = figure(floor, "WP-FIG-PREP-B");
@@ -288,8 +299,12 @@ describe("office figures", () => {
     expect(a.cause_key).toBe("run:R-fig-prep-a");
     expect(b.cause_key).toBe("run:R-fig-prep-b");
     // Two runs held for admission to the same lane wait on one decision.
-    expect(figure(floor, "WP-FIG-HOLD2").cause_key).toBe(figure(floor, "WP-FIG-HOLD").cause_key);
-    expect(figure(floor, "WP-FIG-HOLD").cause_key).toMatch(/^hold:lane:internal\u0000/);
+    expect(figure(floor, "WP-FIG-HOLD2").cause_key).toBe(figure(floor, "WP-FIG-HOLD3").cause_key);
+    expect(figure(floor, "WP-FIG-HOLD2").cause_key).toMatch(/^hold:lane-admission:proprietary\u0000/);
+    // A lane hold with no recorded identity is the run's own, however alike it reads.
+    expect(figure(floor, "WP-FIG-UNCL").cause_key).toBe("run:R-fig-uncl");
+    expect(figure(floor, "WP-FIG-HOLD").cause_key).toBe("run:R-fig-hold");
+    expect(figure(floor, "WP-FIG-PINC").cause_key).not.toBe(figure(floor, "WP-FIG-PINX").cause_key);
   });
 
   it("puts work an active SCRAM holds in Quarantine above everything else, even a finished run", async () => {

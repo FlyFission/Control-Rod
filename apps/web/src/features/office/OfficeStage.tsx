@@ -30,6 +30,8 @@ export interface StageFigure {
   tint?: string;
   /** The full name read aloud and in the tooltip, when the code is shortened. */
   name?: string;
+  /** The active lens's value in words, read with the figure. */
+  lensNote?: string;
 }
 
 const pct = (v: number, of: number) => `${(v / of) * 100}%`;
@@ -100,8 +102,8 @@ function FigureMark({ figure: f, selected, onSelect }: { figure: StageFigure; se
       className="office-figure"
       style={point(f.at)}
       aria-pressed={selected}
-      aria-label={`${name}: ${label}. ${f.cause}`}
-      title={`${name}: ${label}. ${f.cause}`}
+      aria-label={`${name}: ${label}. ${f.cause}${f.lensNote ? ` ${f.lensNote}.` : ""}`}
+      title={`${name}: ${label}. ${f.cause}${f.lensNote ? ` ${f.lensNote}.` : ""}`}
       data-semantic="figure"
       data-state={f.state}
       data-figure={f.id}

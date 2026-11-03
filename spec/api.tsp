@@ -413,8 +413,9 @@ union FigurePlace {
 
 /**
  * One agent on the office floor (AgentFigure, specification 13 and 18; plan task 4.6), projected only
- * from recorded data: the package, its latest run at the current revision, what the Inbox routes to
- * the viewer, SCRAM holds and recorded dependencies. Never guessed from terminal output.
+ * from recorded data: the package (or, for intake, the capture), its latest run at the current
+ * revision, what the Inbox routes to the viewer, SCRAM holds, effective markings, recorded
+ * dependencies and the revisions a preparation basis pinned. Never guessed from terminal output.
  */
 model AgentFigure {
   /** The run the figure stands for. */
@@ -457,6 +458,9 @@ model AgentFigure {
     safety: boolean;
   };
 
+  /** Recorded inputs whose freshness is unknown, because no preparation basis pinned their revision. */
+  unverified_inputs?: string[];
+
   /** The nearest gate, for the Gate lens. */
   gate_stage: "release" | "in-work" | "pre-check" | "accept" | "settled";
 
@@ -478,6 +482,9 @@ op officeFigures(@query presenting?: boolean): {
 
   /** How many figures stand in Your office: the viewer's own (OV-01). */
   needs_me: int32;
+
+  /** Everything the Inbox holds for the viewer, agents or not (a draft has no agent yet). */
+  inbox_items: int32;
 
   /** Figures left out because presenting mode hides lanes above internal. */
   hidden: int32;

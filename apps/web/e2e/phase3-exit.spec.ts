@@ -31,7 +31,7 @@ test.beforeEach(async ({ page }) => {
         fig("R-1", "WP-0007", "needs", "your-office", "Pre-check passed. Review and accept.", { gate_stage: "accept", marks: { gate: true, safety: false } }),
         fig("R-2", "WP-0008", "working", "electrical", "Routing cable tray in Area 2"),
         fig("R-3", "WP-0011", "stuck", "review", "Author run lost: its outcome is unknown."),
-      ], needs_me: 1, hidden: 0, generated_at: new Date().toISOString() }));
+      ], needs_me: 1, inbox_items: 3, hidden: 0, generated_at: new Date().toISOString() }));
     }
     if (p === "/office") return r.fulfill(json([{ kind: "accept", package_id: "WP-0007", package_revision: 1, title: "Pump skid P-101 datasheet", detail: "Pre-check passed with two minor findings.", since: new Date(Date.now() - 3600e3).toISOString() }]));
     if (p === "/packages") return r.fulfill(json(pkgs));

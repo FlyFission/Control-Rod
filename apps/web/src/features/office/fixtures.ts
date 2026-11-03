@@ -3,8 +3,9 @@ import { CUBE_SETS, type Point, REGION, type RegionId } from "./layout.js";
 
 /**
  * Deterministic figures for the quality harness (plan task 4.3): n agents spread over the five states
- * and seated by where each state belongs, filling seats before queue places. They stand in for the
- * AgentFigure projection (4.6), which replaces them on the real floor.
+ * and seated by where each state belongs, filling seats before queue places. Codes are six
+ * characters, the longest a figure's plate shows (seat.ts shortCode), so spacing is measured at its
+ * worst. They stand in for the AgentFigure projection (4.6), which replaces them on the real floor.
  */
 
 const HOME: Record<FigureState, readonly RegionId[]> = {
@@ -32,7 +33,7 @@ export function harnessFigures(n: number): StageFigure[] {
     const state = ORDER[i % ORDER.length]!;
     const at = place(HOME[state], used) ?? place(CUBE_SETS, used);
     if (!at) throw new Error(`the office has no place for figure ${i + 1}`);
-    out.push({ id: `f${i + 1}`, code: `P-${101 + i}`, state, cause: CAUSES[state], region: at.region, at: at.point, body: i });
+    out.push({ id: `f${i + 1}`, code: `WP-${101 + i}`, state, cause: CAUSES[state], region: at.region, at: at.point, body: i });
   }
   return out;
 }

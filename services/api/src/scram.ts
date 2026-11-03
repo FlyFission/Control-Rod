@@ -51,7 +51,8 @@ const reaches = (scram: Json, owner: Owner | null) =>
   owner !== null && owner.org_id === scram.org_id && (scram.scope !== "project" || owner.project_id === scram.project_id);
 
 /** SCRAMs not lifted for everything, newest first. */
-async function activeScrams(q: Db | Tx): Promise<Json[]> {
+/** Every SCRAM not yet restarted for its whole scope. */
+export async function activeScrams(q: Db | Tx): Promise<Json[]> {
   const r = await q.query<{ body: Json }>(
     `select s.body from scram_events s
       where not exists (select 1 from scram_restarts x where x.scram_id = s.id and x.scope = 'all')

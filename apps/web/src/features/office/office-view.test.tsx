@@ -45,10 +45,11 @@ describe("seating", () => {
   });
 
   it("shortens long codes for the plate and keeps the full id for the name", () => {
-    expect(shortCode("WP-0001")).toBe("WP-0001");
-    expect(shortCode("WP-FIG-CHANGED")).toBe("WP-…NGED");
+    expect(shortCode("WP-101")).toBe("WP-101");
+    expect(shortCode("WP-0001")).toBe("…-0001");
+    expect(shortCode("WP-FIG-CHANGED")).toBe("…ANGED");
     const [f] = seatFigures([figure({ package_id: "WP-FIG-CHANGED" })], () => "#fff").seated;
-    expect(f).toMatchObject({ code: "WP-…NGED", name: "WP-FIG-CHANGED" });
+    expect(f).toMatchObject({ code: "…ANGED", name: "WP-FIG-CHANGED" });
   });
 });
 
@@ -76,21 +77,24 @@ describe("office view", () => {
             figure({ id: "R-2", package_id: "WP-0002", state: "needs", place: "your-office", cause: "Pre-check passed. Review and accept.", gate_stage: "accept", marks: { gate: true, safety: true }, href: { to: "/packages/$id", id: "WP-0002", hash: "decide" } }),
           ],
           needs_me: 1,
+          inbox_items: 3,
           hidden: 0,
           generated_at: new Date().toISOString(),
         }),
       ),
     );
     await renderPage(<OfficeView />);
-    expect(await screen.findByText(/1 waits on you · 2 agents on the floor/)).toBeTruthy();
+    // Agents waiting on the viewer, and the rest of the Inbox with no agent yet: never fewer than the Inbox holds.
+    expect(await screen.findByText(/1 agent waits on you; 2 more in the Inbox with no agent yet · 2 agents on the floor/)).toBeTruthy();
     const office = screen.getByRole("region", { name: /^Your office:/ });
     expect(office).toBeTruthy();
-    const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Pre-check passed. Review and accept." });
+    const needs = screen.getByRole("button", { name: "WP-0002: Needs you. Pre-check passed. Review and accept. Status lens: Needs you." });
     await userEvent.click(needs);
     const card = screen.getByRole("complementary", { name: "Selected agent" });
     expect(within(card).getByText("Pre-check passed. Review and accept.")).toBeTruthy();
     expect(within(card).getByText("A gate decision waits on this package")).toBeTruthy();
     expect(within(card).getByText("Safety grade")).toBeTruthy();
+    expect(within(card).getByText("Status lens: Needs you")).toBeTruthy();
     expect(within(card).getByRole("link", { name: "Open the package" }).getAttribute("href")).toBe("/packages/WP-0002#decide");
   });
 
@@ -99,7 +103,7 @@ describe("office view", () => {
     server.use(
       http.get("*/office/figures", ({ request }) => {
         asked.push(new URL(request.url).search);
-        return HttpResponse.json({ figures: [figure()], needs_me: 0, hidden: new URL(request.url).search ? 2 : 0, generated_at: new Date().toISOString() });
+        return HttpResponse.json({ figures: [figure()], needs_me: 0, inbox_items: 0, hidden: new URL(request.url).search ? 2 : 0, generated_at: new Date().toISOString() });
       }),
     );
     await renderPage(<OfficeView />);
@@ -109,6 +113,8 @@ describe("office view", () => {
     expect(screen.getByRole("radio", { name: "Gate" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByRole("button", { name: /^WP-0001: Working/ }).getAttribute("style")).toBe(before);
     expect(screen.getByRole("list", { name: "Gate lens" })).toBeTruthy();
+    // The lens value is read with the figure, not only shown as a colour.
+    expect(screen.getByRole("button", { name: /Gate lens: In work\.$/ })).toBeTruthy();
     expect((screen.getByRole("radio", { name: "Spend" }) as HTMLButtonElement).disabled).toBe(true);
     await userEvent.click(screen.getByRole("button", { name: "Presenting mode" }));
     expect(await screen.findByText(/2 agents on work above the internal lane are hidden/)).toBeTruthy();

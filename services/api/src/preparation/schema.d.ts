@@ -878,8 +878,9 @@ export interface components {
         };
         /**
          * @description One agent on the office floor (AgentFigure, specification 13 and 18; plan task 4.6), projected only
-         *     from recorded data: the package, its latest run at the current revision, what the Inbox routes to
-         *     the viewer, SCRAM holds and recorded dependencies. Never guessed from terminal output.
+         *     from recorded data: the package (or, for intake, the capture), its latest run at the current
+         *     revision, what the Inbox routes to the viewer, SCRAM holds, effective markings, recorded
+         *     dependencies and the revisions a preparation basis pinned. Never guessed from terminal output.
          */
         AgentFigure: {
             /** @description The run the figure stands for. */
@@ -920,6 +921,8 @@ export interface components {
                 /** @description Safety grade work. */
                 safety: boolean;
             };
+            /** @description Recorded inputs whose freshness is unknown, because no preparation basis pinned their revision. */
+            unverified_inputs?: string[];
             /**
              * @description The nearest gate, for the Gate lens.
              * @enum {string}
@@ -3068,6 +3071,11 @@ export interface operations {
                          * @description How many figures stand in Your office: the viewer's own (OV-01).
                          */
                         needs_me: number;
+                        /**
+                         * Format: int32
+                         * @description Everything the Inbox holds for the viewer, agents or not (a draft has no agent yet).
+                         */
+                        inbox_items: number;
                         /**
                          * Format: int32
                          * @description Figures left out because presenting mode hides lanes above internal.

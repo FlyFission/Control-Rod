@@ -24,6 +24,7 @@ export type AgentFigure = S["AgentFigure"];
 export interface OfficeFloor {
   figures: AgentFigure[];
   needs_me: number;
+  inbox_items: number;
   hidden: number;
   generated_at: string;
 }

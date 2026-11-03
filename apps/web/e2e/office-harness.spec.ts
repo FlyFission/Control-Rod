@@ -276,7 +276,7 @@ test.describe("office theme quality harness", () => {
         // A click on a figure reaches the application, not the art beneath it.
         await page.locator('[data-figure="f3"]').click();
         await expect(page.locator('[data-figure="f3"]')).toHaveAttribute("aria-pressed", "true");
-        await expect(page.locator('[data-harness="card"] h2')).toHaveText("P-103");
+        await expect(page.locator('[data-harness="card"] h2')).toHaveText("WP-103");
       });
 
       test("legibility at minimum zoom with 40 agents", async ({ page }) => {
@@ -346,7 +346,7 @@ test.describe("office theme quality harness", () => {
         await expect(page.locator('[data-harness="contract"]')).toHaveAttribute("data-problems", "0");
         expect(await scroller.evaluate((e) => e.scrollLeft)).toBe(240);
         await expect(page.locator('[data-figure="f7"]')).toHaveAttribute("aria-pressed", "true");
-        await expect(page.locator('[data-harness="card"] h2')).toHaveText("P-107");
+        await expect(page.locator('[data-harness="card"] h2')).toHaveText("WP-107");
         // The same element, not a rebuilt one: nothing a reader holds is torn down by the switch.
         expect(await page.locator('[data-figure="f7"]').evaluate((e) => (e as HTMLElement & { harnessMark?: boolean }).harnessMark)).toBe(true);
       });

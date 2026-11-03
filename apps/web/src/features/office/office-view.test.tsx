@@ -198,6 +198,53 @@ describe("exceptions overlay and portfolio (OV-26)", () => {
   });
 });
 
+describe("themes (plan task 4.9)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    server.use(
+      http.get("*/scrams", () => HttpResponse.json({ scrams: [] })),
+      http.get("*/office/figures", () => HttpResponse.json({ figures: [figure()], needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })),
+    );
+  });
+  const art = () => [...document.querySelectorAll<HTMLImageElement>(".office-scene-art")].map((i) => i.getAttribute("src") ?? "");
+
+  it("offers no choice in an ordinary build, where only the released theme ships", async () => {
+    await renderPage(<OfficeView drafts={false} />);
+    await screen.findByRole("button", { name: /^WP-0001/ });
+    expect(screen.queryByRole("combobox", { name: "Theme" })).toBeNull();
+    expect(art().every((src) => src.startsWith("/office-themes/standard-office/"))).toBe(true);
+  });
+
+  it("in a draft build offers the fifteen worlds as drafts, switches the scene only, keeps the open card, and remembers the choice", async () => {
+    const user = userEvent.setup();
+    const { unmount } = await renderPage(<OfficeView drafts />);
+    await user.click(await screen.findByRole("button", { name: /^WP-0001/ }));
+    const picker = screen.getByRole("combobox", { name: "Theme" });
+    const options = within(picker).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toHaveLength(16);
+    expect(options[0]).toBe("Standard Office");
+    expect(options.slice(1).every((o) => o?.endsWith(" (draft)"))).toBe(true);
+    expect(options).not.toContain("Harness Bright (draft)");
+    await user.selectOptions(picker, "orbital-shipyard");
+    expect(art().length).toBe(13);
+    expect(art().every((src) => src.startsWith("/office-themes/orbital-shipyard/"))).toBe(true);
+    // The figure, its selection and its card are the application's, untouched by the theme.
+    expect(screen.getByRole("button", { name: /^WP-0001/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("heading", { name: "Line sizing" })).toBeTruthy();
+    unmount();
+    await renderPage(<OfficeView drafts />);
+    await screen.findByRole("button", { name: /^WP-0001/ });
+    expect((screen.getByRole("combobox", { name: "Theme" }) as HTMLSelectElement).value).toBe("orbital-shipyard");
+  });
+
+  it("falls back to the released theme when the remembered one is not offered in this build", async () => {
+    localStorage.setItem("controlrod.office.theme", "orbital-shipyard");
+    await renderPage(<OfficeView drafts={false} />);
+    await screen.findByRole("button", { name: /^WP-0001/ });
+    expect(art().every((src) => src.startsWith("/office-themes/standard-office/"))).toBe(true);
+  });
+});
+
 describe("SCRAM while presenting", () => {
   it("keeps SCRAM at hand, but its count names no runs and asks the control plane for counts only", async () => {
     const asked: string[] = [];

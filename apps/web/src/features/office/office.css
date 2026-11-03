@@ -485,3 +485,12 @@
   padding: 6px 8px;
   border-left: 3px solid var(--stuck);
 }
+.office-theme-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.office-theme-choice select {
+  width: auto;
+}

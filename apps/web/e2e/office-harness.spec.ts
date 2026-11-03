@@ -2,6 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { cpus, platform, release } from "node:os";
 import { dirname } from "node:path";
+import { OFFICE_THEMES } from "../src/features/office/registry.js";
 
 /**
  * The office theme quality harness (plan task 4.3; specification 18). Every theme the repository
@@ -23,7 +24,8 @@ import { dirname } from "node:path";
  * OFFICE_REFERENCE_MACHINE to the reference machine's name to run the reference frame check.
  */
 
-const THEMES = ["standard-office", "harness-bright"] as const;
+/** Every theme the repository carries: the default, the structural test theme and the fifteen worlds. */
+const THEMES = OFFICE_THEMES.map((t) => t.id);
 const PLATE = { r: 10, g: 10, b: 12 };
 const measurements: Record<string, unknown> = {};
 

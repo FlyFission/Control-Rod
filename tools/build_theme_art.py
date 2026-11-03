@@ -167,6 +167,50 @@ def character(world,v,palette):
     return svg(grad+shadow+legs+arms+torso+eyes+extras+tool)
 
 
+def vignette(world,px,py,palette):
+    """The world's own small environmental vignette, drawn with its top left near (px, py).
+
+    The floor scene puts one at each room's quiet edge; the office worlds reuse it in their regions.
+    """
+    a,b,c,d=palette
+    s=''
+    if world==0:
+        s+=f'<rect x="{px}" y="{py}" width="23" height="47" rx="11" fill="{b}" stroke="{d}" stroke-width="2"/><circle cx="{px+11}" cy="{py+14}" r="6" fill="{a}"/><path d="M{px+11} {py+47}v13h-27" fill="none" stroke="{c}" stroke-width="5"/>'
+    elif world==1:
+        s+=f'<path d="M{px} {py+12}v41h24V{py+12}" fill="{mix(a,.8)}" stroke="{d}" stroke-width="2"/><path d="M{px-5} {py+12}h34" stroke="{c}" stroke-width="5"/><circle cx="{px+12}" cy="{py+35}" r="6" fill="{d}"/><path d="M{px+4} {py}h16v12" fill="none" stroke="{c}" stroke-width="3"/>'
+    elif world==2:
+        for j in range(5):s+=f'<rect x="{px-17+j*10}" y="{py+10+(j%3)*8}" width="8" height="{42-(j%3)*8}" fill="{mix(b,.25)}"/><path d="M{px-14+j*10} {py+24}v9" stroke="{c}" stroke-width="2"/>'
+        s+=f'<path d="M{px-20} {py+53}h65" stroke="{d}" stroke-width="2"/>'
+    elif world==3:
+        s+=f'<path d="M{px} {py+32}v28h23V{py+32}" fill="{c}"/><ellipse cx="{px+11}" cy="{py+30}" rx="19" ry="17" fill="{b}"/><path d="M{px+11} {py+13}v35" stroke="{d}" stroke-width="3"/><circle cx="{px+11}" cy="{py+30}" r="8" fill="none" stroke="{d}" stroke-width="3"/>'
+    elif world==4:
+        s+=f'<path d="M{px+10} {py+3}v14" stroke="{c}" stroke-width="3"/><path d="M{px-3} {py+20}l13-8 14 8-3 28H{px}z" fill="{c}"/><path d="M{px+5} {py+19}v26M{px+15} {py+19}v26" stroke="{d}" stroke-width="2"/>'
+        s+=leaf(px,py+65,14,a,-30)+leaf(px+15,py+69,12,c,40)
+    elif world==5:
+        s+=f'<path d="M{px} {py+39}h22l-3 23h-16z" fill="{c}"/><path d="M{px+5} {py+40}v-29M{px+12} {py+40}l15-33" stroke="{a}" stroke-width="4"/>'+leaf(px+6,py+27,12,a,-40)+leaf(px+20,py+29,12,a,40)
+    elif world==6:
+        s+=f'<path d="M{px-4} {py+64}l7-47 16-7 12 54z" fill="{b}" stroke="{d}" stroke-width="2"/><path d="M{px} {py+26}l30 5M{px} {py+39}l30 5M{px} {py+52}l30 5" stroke="{c}" stroke-width="6"/><path d="M{px+13} {py+13}l9-15" stroke="{c}" stroke-width="4"/>'
+    elif world==7:
+        s+=f'<path d="M{px-7} {py+47}l18-16 23 16-22 12z" fill="{a}"/><path d="M{px+11} {py+38}v-27l16-10v30z" fill="{c}" opacity=".6"/>'+star(px+19,py+16,9,d)
+    elif world==8:
+        s+=f'<path d="M{px-12} {py+31}l25-31 28 31z" fill="{c}"/><path d="M{px-7} {py+31}v31h40V{py+31}" fill="{b}"/><path d="M{px+8} {py+62}V{py+37}h11v25" fill="{mix(a,.3)}"/>'
+    elif world==9:
+        for j in range(3):
+            xx,yy=px+(j%2)*18,py+(j//2)*25
+            s+=f'<path d="M{xx} {yy+8}l16-8 16 8-16 8z" fill="{d}"/><path d="M{xx} {yy+8}v17l16 8V{yy+16}z" fill="{a}"/><path d="M{xx+16} {yy+16}l16-8v17l-16 8z" fill="{b}"/>'
+    elif world==10:
+        s+=f'<path d="M{px-13} {py+24}l27-20 27 20-27-5z" fill="{c}"/><path d="M{px-4} {py+24}v38h36V{py+24}" fill="{b}"/><path d="M{px+14} {py+28}v32M{px-4} {py+43}h36" stroke="{d}" stroke-width="2"/><path d="M{px-14} {py+69}q28-10 53 0" fill="none" stroke="{a}" stroke-width="4"/>'
+    elif world==11:
+        s+=f'<ellipse cx="{px+11}" cy="{py+20}" rx="21" ry="9" fill="{d}"/><path d="M{px-4} {py+20}v36h31V{py+20}" fill="{b}"/><ellipse cx="{px+11}" cy="{py+56}" rx="21" ry="9" fill="{d}"/><path d="M{px} {py+26}l23 6-23 7 23 7" fill="none" stroke="{c}" stroke-width="3"/>'
+    elif world==12:
+        s+=f'<circle cx="{px+9}" cy="{py+30}" r="26" fill="none" stroke="{c}" stroke-width="2"/><ellipse cx="{px+9}" cy="{py+30}" rx="32" ry="9" fill="none" stroke="{d}" stroke-width="2" transform="rotate(-30 {px+9} {py+30})"/><circle cx="{px+9}" cy="{py+30}" r="9" fill="{c}"/><path d="M{px+9} {py+56}v13h-19" stroke="{c}" stroke-width="3" fill="none"/>'
+    elif world==13:
+        for j in range(4):s+=f'<path d="M{px+j*5} {py+67}q-20-30 {j*6-12}-44" fill="none" stroke="{[a,c,b,d][j]}" stroke-width="6" stroke-linecap="round"/>'
+    elif world==14:
+        s+=f'<path d="M{px-8} {py+37}v29h42V{py+37}L{px+13} {py+20}z" fill="{c}"/><path d="M{px-14} {py+38}l27-24 28 24" fill="none" stroke="{b}" stroke-width="5"/><path d="M{px+6} {py+47}h15v19h-15z" fill="{d}"/>'
+    return s
+
+
 def scene(world,entry):
     a,b,c,d=entry['palette'];dark=mix(a,.18);light=mix(a,.65);accent=mix(c,.7,(255,230,195));rng=random.Random(world+17)
     s=f'<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{mix(a,.4)}"/><stop offset="1" stop-color="{dark}"/></linearGradient><linearGradient id="desk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{mix(c,.6)}"/><stop offset="1" stop-color="{mix(b,.4)}"/></linearGradient></defs><rect width="1000" height="600" fill="url(#sky)"/>'
@@ -201,41 +245,7 @@ def scene(world,entry):
             sx=x+w*(col+.5)/3
             s+=f'<ellipse cx="{sx}" cy="{y+110}" rx="30" ry="8" fill="#d9ecdb" opacity=".07"/><ellipse cx="{sx}" cy="{y+195}" rx="30" ry="8" fill="#d9ecdb" opacity=".07"/>'
         # Each room receives a handcrafted environmental vignette at its quiet edge.
-        px,py=x+w-42,y+22
-        if world==0:
-            s+=f'<rect x="{px}" y="{py}" width="23" height="47" rx="11" fill="{b}" stroke="{d}" stroke-width="2"/><circle cx="{px+11}" cy="{py+14}" r="6" fill="{a}"/><path d="M{px+11} {py+47}v13h-27" fill="none" stroke="{c}" stroke-width="5"/>'
-        elif world==1:
-            s+=f'<path d="M{px} {py+12}v41h24V{py+12}" fill="{mix(a,.8)}" stroke="{d}" stroke-width="2"/><path d="M{px-5} {py+12}h34" stroke="{c}" stroke-width="5"/><circle cx="{px+12}" cy="{py+35}" r="6" fill="{d}"/><path d="M{px+4} {py}h16v12" fill="none" stroke="{c}" stroke-width="3"/>'
-        elif world==2:
-            for j in range(5):s+=f'<rect x="{px-17+j*10}" y="{py+10+(j%3)*8}" width="8" height="{42-(j%3)*8}" fill="{mix(b,.25)}"/><path d="M{px-14+j*10} {py+24}v9" stroke="{c}" stroke-width="2"/>'
-            s+=f'<path d="M{px-20} {py+53}h65" stroke="{d}" stroke-width="2"/>'
-        elif world==3:
-            s+=f'<path d="M{px} {py+32}v28h23V{py+32}" fill="{c}"/><ellipse cx="{px+11}" cy="{py+30}" rx="19" ry="17" fill="{b}"/><path d="M{px+11} {py+13}v35" stroke="{d}" stroke-width="3"/><circle cx="{px+11}" cy="{py+30}" r="8" fill="none" stroke="{d}" stroke-width="3"/>'
-        elif world==4:
-            s+=f'<path d="M{px+10} {py+3}v14" stroke="{c}" stroke-width="3"/><path d="M{px-3} {py+20}l13-8 14 8-3 28H{px}z" fill="{c}"/><path d="M{px+5} {py+19}v26M{px+15} {py+19}v26" stroke="{d}" stroke-width="2"/>'
-            s+=leaf(px,py+65,14,a,-30)+leaf(px+15,py+69,12,c,40)
-        elif world==5:
-            s+=f'<path d="M{px} {py+39}h22l-3 23h-16z" fill="{c}"/><path d="M{px+5} {py+40}v-29M{px+12} {py+40}l15-33" stroke="{a}" stroke-width="4"/>'+leaf(px+6,py+27,12,a,-40)+leaf(px+20,py+29,12,a,40)
-        elif world==6:
-            s+=f'<path d="M{px-4} {py+64}l7-47 16-7 12 54z" fill="{b}" stroke="{d}" stroke-width="2"/><path d="M{px} {py+26}l30 5M{px} {py+39}l30 5M{px} {py+52}l30 5" stroke="{c}" stroke-width="6"/><path d="M{px+13} {py+13}l9-15" stroke="{c}" stroke-width="4"/>'
-        elif world==7:
-            s+=f'<path d="M{px-7} {py+47}l18-16 23 16-22 12z" fill="{a}"/><path d="M{px+11} {py+38}v-27l16-10v30z" fill="{c}" opacity=".6"/>'+star(px+19,py+16,9,d)
-        elif world==8:
-            s+=f'<path d="M{px-12} {py+31}l25-31 28 31z" fill="{c}"/><path d="M{px-7} {py+31}v31h40V{py+31}" fill="{b}"/><path d="M{px+8} {py+62}V{py+37}h11v25" fill="{mix(a,.3)}"/>'
-        elif world==9:
-            for j in range(3):
-                xx,yy=px+(j%2)*18,py+(j//2)*25
-                s+=f'<path d="M{xx} {yy+8}l16-8 16 8-16 8z" fill="{d}"/><path d="M{xx} {yy+8}v17l16 8V{yy+16}z" fill="{a}"/><path d="M{xx+16} {yy+16}l16-8v17l-16 8z" fill="{b}"/>'
-        elif world==10:
-            s+=f'<path d="M{px-13} {py+24}l27-20 27 20-27-5z" fill="{c}"/><path d="M{px-4} {py+24}v38h36V{py+24}" fill="{b}"/><path d="M{px+14} {py+28}v32M{px-4} {py+43}h36" stroke="{d}" stroke-width="2"/><path d="M{px-14} {py+69}q28-10 53 0" fill="none" stroke="{a}" stroke-width="4"/>'
-        elif world==11:
-            s+=f'<ellipse cx="{px+11}" cy="{py+20}" rx="21" ry="9" fill="{d}"/><path d="M{px-4} {py+20}v36h31V{py+20}" fill="{b}"/><ellipse cx="{px+11}" cy="{py+56}" rx="21" ry="9" fill="{d}"/><path d="M{px} {py+26}l23 6-23 7 23 7" fill="none" stroke="{c}" stroke-width="3"/>'
-        elif world==12:
-            s+=f'<circle cx="{px+9}" cy="{py+30}" r="26" fill="none" stroke="{c}" stroke-width="2"/><ellipse cx="{px+9}" cy="{py+30}" rx="32" ry="9" fill="none" stroke="{d}" stroke-width="2" transform="rotate(-30 {px+9} {py+30})"/><circle cx="{px+9}" cy="{py+30}" r="9" fill="{c}"/><path d="M{px+9} {py+56}v13h-19" stroke="{c}" stroke-width="3" fill="none"/>'
-        elif world==13:
-            for j in range(4):s+=f'<path d="M{px+j*5} {py+67}q-20-30 {j*6-12}-44" fill="none" stroke="{[a,c,b,d][j]}" stroke-width="6" stroke-linecap="round"/>'
-        elif world==14:
-            s+=f'<path d="M{px-8} {py+37}v29h42V{py+37}L{px+13} {py+20}z" fill="{c}"/><path d="M{px-14} {py+38}l27-24 28 24" fill="none" stroke="{b}" stroke-width="5"/><path d="M{px+6} {py+47}h15v19h-15z" fill="{d}"/>'
+        s+=vignette(world,x+w-42,y+22,entry['palette'])
         # Small instrument indicators are decorative; no numbers or fake progress.
         for j in range(3):s+=f'<circle cx="{x+22+j*9}" cy="{y+h-22}" r="2" fill="{d}" opacity=".55"/>'
     if world==12:

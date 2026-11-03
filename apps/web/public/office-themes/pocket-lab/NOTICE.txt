@@ -1,0 +1,3 @@
+Original Control-Rod vector artwork, authored in tools/build_office_worlds.py and tools/build_theme_art.py.
+Licensed under Apache-2.0. No franchise characters, reference images, fonts or audio are included.
+Draft artwork; human art and distribution review remains pending.

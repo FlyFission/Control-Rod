@@ -47,11 +47,18 @@ export function CommandForm({ spec, action, passkeys = browserPasskeys }: { spec
   const qc = useQueryClient();
   const id = useId();
   const [values, setValues] = useState<Values>(() => empty(spec));
-  // Lines are kept as typed; the payload reads them as lists.
-  const [text, setText] = useState<Record<string, string>>({});
+  // Lines are kept as typed, starting from any initial list; the payload reads them as lists.
+  const [text, setText] = useState<Record<string, string>>(() =>
+    Object.fromEntries(spec.fields.filter((f) => f.kind === "lines").map((f) => {
+      const start = spec.initial?.[f.key];
+      return [f.key, Array.isArray(start) ? start.join("\n") : ""];
+    })));
   const merged: Values = { ...values, ...Object.fromEntries(Object.entries(text).map(([k, t]) => [k, linesOf(t)])) };
   const missing = spec.fields.some((f) => f.required && (Array.isArray(merged[f.key]) ? (merged[f.key] as string[]).length === 0 : !String(merged[f.key] ?? "").trim()));
-  const description = missing ? null : spec.describe(merged);
+  // Every description ends with the reason the command records, since it is signed with the rest.
+  const said = missing ? null : spec.describe(merged);
+  const reason = spec.fields.some((f) => f.key === "reason") ? String(merged["reason"] ?? "").trim() : "";
+  const description = said && reason ? `${said} Recorded reason: ${reason}` : said;
   const signed = action?.signature === "direct";
   const run = useMutation({
     mutationFn: () => {

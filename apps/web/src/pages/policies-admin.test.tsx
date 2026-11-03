@@ -26,7 +26,7 @@ function view(over: Partial<AdminView> = {}): AdminView {
       { id: "mem_dora", org_id: "org_local", user_name: "dora", display_name: "Dora", status: "active" },
     ],
     projects: [{ id: "prj_1", org_id: "org_local", name: "Plant A", mode: "capital-projects", default_rigor: "standard", lanes: ["internal"], qa_overlays: [], autonomy_level: 0, status: "active" }],
-    policy: { settings: { autonomy_ceiling: "2" }, hardware_attestation_formats: [] } as never,
+    policy: { settings: { autonomy_ceiling: "2" }, hardware_attestation_formats: ["packed", "tpm"] } as never,
     themes: [],
     commands: [],
     actions: [
@@ -83,7 +83,7 @@ describe("administration forms", () => {
     expect(within(f).getByText("Fill in the required fields to see exactly what this changes.")).toBeTruthy();
     await user.selectOptions(within(f).getByRole("combobox", { name: "Member (required)" }), "mem_dora");
     await user.type(within(f).getByRole("textbox", { name: "Why (required)" }), "Left the project");
-    expect(within(f).getByText(/^Suspends Dora: their sessions end/)).toBeTruthy();
+    expect(within(f).getByText(/^Suspends Dora: their sessions end, any invitation they have not used is used up,.* Recorded reason: Left the project$/)).toBeTruthy();
     await user.click(sign);
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]).toEqual({ name: "member.suspend", body: { payload: { member_id: "mem_dora", reason: "Left the project" }, assertion: { signed: true } } });
@@ -100,6 +100,13 @@ describe("administration forms", () => {
     await user.click(within(f).getByRole("button", { name: "Sign with your passkey and enroll" }));
     expect(await within(f).findByText("Enrolled eve.")).toBeTruthy();
     expect(within(f).getByText(`${window.location.origin}/#invitation=tok_eve`)).toBeTruthy();
+  });
+
+  it("says a withheld passkey count is not available, never that there are none", async () => {
+    // Ben without administrator authority: the registry holds only his own passkeys.
+    await renderPage(<MembersSection view={view({ qualification: { authorities: [], revoked: false } as never })} passkeys={passkeys} />);
+    const row = screen.getByRole("row", { name: /Dora/ });
+    expect(within(row).getByText("Not available to you")).toBeTruthy();
   });
 
   it("gives an invitation link carrying the token in the fragment, shown once", async () => {
@@ -119,7 +126,7 @@ describe("administration forms", () => {
     expect(within(pick).getAllByRole("option").map((o) => o.textContent)).toContain(`Dora, registered ${new Date("2026-10-01T09:00:00Z").toLocaleString()}, hardware`);
     await user.selectOptions(pick, "cred-dora");
     await user.type(within(f).getByRole("textbox", { name: "Why (required)" }), "Lost laptop");
-    expect(within(f).getByText(/^Revokes Dora's passkey registered .*: it can no longer sign in or sign\. Seals and signatures it made before stay checkable\.$/)).toBeTruthy();
+    expect(within(f).getByText(/^Revokes Dora's passkey registered .*: it can no longer sign in or sign\. Seals and signatures it made before stay checkable\. Recorded reason: Lost laptop$/)).toBeTruthy();
   });
 
   it("shows a command the viewer may not run with the reason, and nothing to sign", async () => {
@@ -161,7 +168,8 @@ describe("administration forms", () => {
     await user.type(within(p).getByRole("textbox", { name: "Why (required)" }), "Alert budgets at 80");
     await user.click(within(p).getByRole("button", { name: "Propose" }));
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]).toEqual({ name: "policy.propose", body: { payload: { policy: { hardware_attestation_formats: [], settings: { autonomy_ceiling: "2", budget_near_percent: "80" } }, reason: "Alert budgets at 80" } } });
+    // Changing one setting keeps the rest of the policy in force, attestation formats included.
+    expect(sent[0]).toEqual({ name: "policy.propose", body: { payload: { policy: { hardware_attestation_formats: ["packed", "tpm"], settings: { autonomy_ceiling: "2", budget_near_percent: "80" } }, reason: "Alert budgets at 80" } } });
     const a = form("Approve a policy change");
     await user.selectOptions(within(a).getByRole("combobox", { name: "Proposal (required)" }), "cr_1");
     expect(within(a).getByText('Puts in force the proposed policy set: settings {"budget_near_percent":"80"}, hardware attestation formats []. Proposed because: Alert budgets at 80')).toBeTruthy();

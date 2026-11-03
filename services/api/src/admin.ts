@@ -76,17 +76,29 @@ async function member(c: Tx | Db, id: string, orgId: string): Promise<Member> {
   return r.rows[0].body;
 }
 
-/** Members holding administrator authority now, excluding any listed. */
-async function administrators(c: Tx, orgId: string, except: string[] = []): Promise<string[]> {
+/**
+ * Refuses a change to one Member that would leave the organization without an active administrator,
+ * or without an active Member holding both administrator and policy authority: only such a Member can
+ * issue qualifications, so without one nobody could ever restore authority. `next` is the Member's
+ * authorities after the change, or null when they lose them all (suspended, removed or revoked). A
+ * state the organization was already in is never made the reason to refuse.
+ */
+async function keepAdministration(c: Tx, orgId: string, memberId: string, next: readonly string[] | null): Promise<void> {
   const r = await c.query<{ body: SignerQualification }>(
     "select distinct on (id) body from signer_qualifications where org_id = $1 order by id, version desc", [orgId]);
-  const ids: string[] = [];
+  const held: { member: string; authorities: readonly string[] }[] = [];
   for (const { body: q } of r.rows) {
-    if (q.revoked || !q.authorities.includes("administrator") || except.includes(q.member_id)) continue;
-    const m = await member(c, q.member_id, orgId);
-    if (m.status === "active") ids.push(q.member_id);
+    if (q.revoked) continue;
+    if ((await member(c, q.member_id, orgId)).status !== "active") continue;
+    held.push({ member: q.member_id, authorities: q.authorities });
   }
-  return ids;
+  const after = held.filter((h) => h.member !== memberId).concat(next ? [{ member: memberId, authorities: next }] : []);
+  const admin = (xs: typeof held) => xs.some((h) => h.authorities.includes("administrator"));
+  const issuer = (xs: typeof held) => xs.some((h) => h.authorities.includes("administrator") && h.authorities.includes("policy"));
+  if (admin(held) && !admin(after)) throw new Refusal(409, "last-administrator", "This would leave no active administrator");
+  if (issuer(held) && !issuer(after))
+    throw new Refusal(409, "last-administrator",
+      "This would leave no active Member with both administrator and policy authority, and only such a Member can issue qualifications");
 }
 
 /** An object's current marking, or a refusal when it has no classified lane. */
@@ -251,8 +263,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       const id = str(p, "member_id")!;
       const m = await member(c, id, caller.orgId);
       if (m.status !== "active") throw new Refusal(409, "member-not-active", `This member is ${m.status}`);
-      if ((await administrators(c, caller.orgId, [id])).length === 0)
-        throw new Refusal(409, "last-administrator", "This would leave no active administrator");
+      await keepAdministration(c, caller.orgId, id, null);
       await setStatus(c, "member", id, "suspended", actorOf(caller), str(p, "reason")!);
       await endAccess(c, m);
       return { member_id: id, status: "suspended" };
@@ -277,8 +288,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     async run(c, caller, p) {
       const id = str(p, "member_id")!, reason = str(p, "reason")!;
       const m = await member(c, id, caller.orgId);
-      if ((await administrators(c, caller.orgId, [id])).length === 0)
-        throw new Refusal(409, "last-administrator", "This would leave no active administrator");
+      await keepAdministration(c, caller.orgId, id, null);
       // Departure rules: open delegations end, sessions end, and the membership is retired for good.
       const revoked = await revokeDelegationsOf(c, caller, id, `member removed: ${reason}`);
       await setStatus(c, "member", id, "retired", actorOf(caller), reason);
@@ -316,11 +326,8 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     async run(c, caller, p) {
       const memberId = str(p, "member_id")!;
       await member(c, memberId, caller.orgId);
-      const before = await currentQualification(c, memberId);
       const authorities = arr<SignerAuthority>(p, "authorities");
-      if (before?.authorities.includes("administrator") && !authorities.includes("administrator")
-          && (await administrators(c, caller.orgId, [memberId])).length === 0)
-        throw new Refusal(409, "last-administrator", "This would leave no active administrator");
+      await keepAdministration(c, caller.orgId, memberId, authorities);
       const q = await recordQualification(c, {
         id: qualificationIdFor(memberId), org_id: caller.orgId, member_id: memberId,
         licenses: arr<License>(p, "licenses"), disciplines: arr<string>(p, "disciplines"), grades: arr<SignerGrade>(p, "grades"),
@@ -338,8 +345,7 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       const target = await member(c, memberId, caller.orgId);
       const cur = await currentQualification(c, memberId);
       if (!cur || cur.org_id !== caller.orgId) throw new Refusal(404, "not-found", "This member holds no qualification");
-      if (cur.authorities.includes("administrator") && (await administrators(c, caller.orgId, [memberId])).length === 0)
-        throw new Refusal(409, "last-administrator", "This would leave no active administrator");
+      await keepAdministration(c, caller.orgId, memberId, null);
       const { version: _v, effective_at: _e, ...base } = cur;
       const q = await recordQualification(c, { ...base, revoked: true, reason: str(p, "reason")! }, actorOf(caller));
       // Challenges issued on the strength of the revoked qualification can no longer be redeemed.

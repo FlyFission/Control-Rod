@@ -508,6 +508,19 @@ describe("the administration registry", () => {
     expect(owners.has(BEN) && owners.has(memberIdFor("rita"))).toBe(true);
   });
 
+  it("refuses to leave no Member able to issue qualifications, even by ordinary replacement", async () => {
+    // Ben is, by now, the only active Member with both administrator and policy authority.
+    const issuers = (await h.db.query<{ member_id: string }>(
+      `select q.body->>'member_id' as member_id from (select distinct on (id) body from signer_qualifications order by id, version desc) q
+         join members m on m.id = q.body->>'member_id'
+        where m.body->>'status' = 'active' and not (q.body->>'revoked')::boolean is true
+          and q.body->'authorities' ? 'administrator' and q.body->'authorities' ? 'policy'`)).rows.map((r) => r.member_id);
+    expect(issuers).toEqual([BEN]);
+    const r = await signed(ben, benKey, "qualification.issue", { ...fullQualification(BEN), authorities: ["administrator"], reason: "drop policy" });
+    expect(r.statusCode, r.body).toBe(409);
+    expect(r.json()).toMatchObject({ code: "last-administrator", message: expect.stringMatching(/only such a Member can issue qualifications/) });
+  });
+
   it("is refused to anyone not signed in", async () => {
     expect((await h.app.inject({ method: "GET", url: "/admin" })).statusCode).toBe(401);
   });

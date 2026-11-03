@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../../test/server.js";
 import { renderPage } from "../../test/render.js";
-import { pkg, DIGEST } from "../../test/fixtures.js";
+import { pkg, view, DIGEST } from "../../test/fixtures.js";
+import { Preparation } from "../../pages/PackagePage.js";
 import { PreparationPanel } from "./PreparationPanel.js";
 import { preparationViewFixture as fixture } from "./test-fixtures.js";
 describe("manual preparation workbench", () => {
@@ -188,5 +190,43 @@ describe("manual preparation workbench", () => {
     await user.type(sources, "  DOC-2  {Enter}{Enter}");
     await user.click(screen.getByRole("button", { name: "Save preparation" }));
     await waitFor(() => expect(saved?.technical_plan.current_state_refs).toEqual(["DOC-1", "DOC-2"]));
+  });
+
+  it("never carries one package's unsaved draft to another package", async () => {
+    const forPkg = (id: string, problem: string) => {
+      const v = fixture();
+      v.snapshot.package_id = id;
+      v.snapshot.context.problem = problem;
+      return v;
+    };
+    server.use(
+      http.get("*/packages/:id/preparation", ({ params }) =>
+        HttpResponse.json(params["id"] === "WP-B" ? forPkg("WP-B", "Need of B") : forPkg("WP-A", "Need of A")),
+      ),
+    );
+    let show: (id: string) => void = () => undefined;
+    function Switcher() {
+      const [id, setId] = useState("WP-A");
+      show = setId;
+      return <Preparation pkg={pkg({ id })} view={view({ preparation_enabled: true, preparation_enrolled: true })} />;
+    }
+    await renderPage(<Switcher />);
+    const user = userEvent.setup();
+    const problem = (await screen.findByRole("textbox", { name: "Problem or need" })) as HTMLTextAreaElement;
+    await waitFor(() => expect(problem.value).toBe("Need of A"));
+    await user.type(problem, " unsaved");
+    act(() => show("WP-B"));
+    await waitFor(() => expect((screen.getByRole("textbox", { name: "Problem or need" }) as HTMLTextAreaElement).value).toBe("Need of B"));
+  });
+
+  it("keeps a new line in every one-per-line list", async () => {
+    server.use(http.get("*/packages/:id/preparation", () => HttpResponse.json(fixture())));
+    await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const user = userEvent.setup();
+    for (const name of ["Alternatives considered (one per line)", "Risks and holds (one per line)"]) {
+      const box = (await screen.findByRole("textbox", { name })) as HTMLTextAreaElement;
+      await user.type(box, "First{Enter}");
+      expect(box.value).toBe("First\n");
+    }
   });
 });

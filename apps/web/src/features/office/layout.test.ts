@@ -34,5 +34,7 @@ describe("layout graph", () => {
     const stranger = [...REGIONS, { ...REGION.bench, id: "lobby" as never, x: 0, y: 0 }];
     expect(() => validateLayout(stranger)).not.toThrow();
     expect(validateLayout(stranger)).toContain("lobby is not a region of the office");
+    const miskinded = REGIONS.map((r) => (r.id === "review" ? { ...r, kind: "cube-set" as const } : r));
+    expect(validateLayout(miskinded)).toContain("review has the wrong kind");
   });
 });

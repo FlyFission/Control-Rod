@@ -60,6 +60,13 @@
                             }
                           ]
                         },
+                        "hardware_formats_in_force": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlRod.Records.AttestationFormat"
+                          },
+                          "description": "The hardware attestation formats signing accepts now: the approved policy's, or Control Rod's\ndefaults while no policy has been approved, so a first proposal can start from what is in force."
+                        },
                         "themes": {
                           "type": "array",
                           "items": {
@@ -113,6 +120,7 @@
                         "members",
                         "projects",
                         "policy",
+                        "hardware_formats_in_force",
                         "themes",
                         "commands",
                         "actions",

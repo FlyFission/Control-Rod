@@ -27,6 +27,7 @@ function view(over: Partial<AdminView> = {}): AdminView {
     ],
     projects: [{ id: "prj_1", org_id: "org_local", name: "Plant A", mode: "capital-projects", default_rigor: "standard", lanes: ["internal"], qa_overlays: [], autonomy_level: 0, status: "active" }],
     policy: { settings: { autonomy_ceiling: "2" }, hardware_attestation_formats: ["packed", "tpm"] } as never,
+    hardware_formats_in_force: ["packed", "tpm"],
     themes: [],
     commands: [],
     actions: [
@@ -251,6 +252,18 @@ describe("administration forms", () => {
     await user.click(within(f).getByRole("button", { name: "Sign with your passkey and update" }));
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]!.body.payload).toEqual({ project_id: "prj_1", qa_overlays: ["nqa-1"] });
+  });
+
+  it("starts a first proposal from the formats signing accepts now, when no policy has been approved", async () => {
+    const user = userEvent.setup();
+    await renderPage(<PolicySection view={view({ policy: null, hardware_formats_in_force: ["packed", "fido-u2f", "tpm"] })} passkeys={passkeys} />);
+    const p = form("Propose a policy change");
+    expect((within(p).getByRole("textbox", { name: "Hardware attestation formats accepted" }) as HTMLTextAreaElement).value).toBe("packed\nfido-u2f\ntpm");
+    await user.type(within(p).getByRole("textbox", { name: "Budget near line, in whole percent" }), "80");
+    await user.type(within(p).getByRole("textbox", { name: "Why (required)" }), "Alert budgets at 80");
+    await user.click(within(p).getByRole("button", { name: "Propose" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]!.body.payload.policy.hardware_attestation_formats).toEqual(["packed", "fido-u2f", "tpm"]);
   });
 
   it("starts the policy proposal again when a new policy comes into force", async () => {

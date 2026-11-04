@@ -33,7 +33,11 @@ afterAll(async () => h?.stop());
 
 describe("bootstrap", () => {
   it("refuses a first qualification that could not issue the next one, and accepts one that can, once", async () => {
-    expect((await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } })).json().bootstrap).toBe(true);
+    const state = (await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } })).json();
+    expect(state.bootstrap).toBe(true);
+    // No policy approved yet: the formats signing accepts are Control Rod's defaults, and the view says so.
+    expect(state.policy).toBeNull();
+    expect(state.hardware_formats_in_force).toEqual(["packed", "fido-u2f", "tpm"]);
     const short = await issue(["administrator"]);
     expect(short.statusCode, short.body).toBe(409);
     expect(short.json()).toMatchObject({ code: "bootstrap-authorities", change: "Include both; only a member holding them can issue anyone else a qualification." });

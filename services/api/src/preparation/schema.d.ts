@@ -2760,6 +2760,11 @@ export interface operations {
                         members: components["schemas"]["ControlRod.Records.Member"][];
                         projects: components["schemas"]["ControlRod.Records.Project"][];
                         policy: components["schemas"]["ControlRod.Records.PolicySet"] | null;
+                        /**
+                         * @description The hardware attestation formats signing accepts now: the approved policy's, or Control Rod's
+                         *     defaults while no policy has been approved, so a first proposal can start from what is in force.
+                         */
+                        hardware_formats_in_force: components["schemas"]["ControlRod.Records.AttestationFormat"][];
                         themes: string[];
                         commands: components["schemas"]["AdminCommandInfo"][];
                         actions: components["schemas"]["ActionDescriptor"][];

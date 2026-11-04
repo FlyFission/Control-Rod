@@ -1,6 +1,6 @@
 import { type ReactNode, useId, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../api/client.js";
+import { api, explain } from "../../api/client.js";
 import type { ActionDescriptor } from "../../api/types.js";
 import { type Passkeys, browserPasskeys, signAdmin } from "../../lib/decide.js";
 
@@ -109,7 +109,8 @@ export function CommandForm({ spec, action, passkeys = browserPasskeys }: { spec
       </fieldset>
       {run.error && (
         <p className="error" role="alert">
-          {run.error.message}
+          {/* The refusal as the control plane gives it, with what would change it. */}
+          {explain(run.error, "The command could not be completed.")}
         </p>
       )}
       {run.data && (

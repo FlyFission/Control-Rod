@@ -11,3 +11,7 @@ Seven threads from the GitHub reviewers on the opened PR, all accepted.
 | Hard cap previewed for tokens or USD | Fixed: forms gain `invalid`, which names a combination the control plane refuses and keeps it from being signed; set and change budget forms use it. Test added. |
 | Registry hardware from the registration verdict | Fixed: `hardware` is `currentFloor` under the policy in force, as signing decides. Test asserts it per credential. |
 | Delegation reasons leaked to every Member | Fixed: explicit `RegistryDelegation` projection without `reason`. Test asserts the omission for a non-administrator. |
+
+## Codex round 5
+
+Confirmed all seven fixes; one finding, accepted: the form showed a refusal's message without the control plane's advice for lifting it. Fixed: the form renders `explain()` (message, then what would change it). Test: a `last-qualification-issuer` refusal shows its advice.

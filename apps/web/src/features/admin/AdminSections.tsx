@@ -252,6 +252,11 @@ export function parseLicenses(lines: string[]): { jurisdiction: string; number: 
 
 export function DelegationsSection({ view, passkeys = browserPasskeys }: Props) {
   const { action, memberName, members, projects, registry } = useSection(view);
+  // Everything that tells two delegations apart: who, what, where, when, and the record itself.
+  const delegationWords = (d: Json) =>
+    `${memberName(d.from_member_id)} to ${memberName(d.to_member_id)}, ${d.role}${d.discipline ? ` in ${d.discipline}` : ""}, ${
+      d.project_id ? `on ${projects.find((p) => p.value === d.project_id)?.label ?? d.project_id}` : "on every project"
+    }, ${d.starts_on} until ${d.ends_on} (${d.id})`;
   const specs: CommandSpec[] = [
     {
       name: "delegation.create", verb: "delegate", fields: [
@@ -273,13 +278,13 @@ export function DelegationsSection({ view, passkeys = browserPasskeys }: Props) 
     {
       name: "delegation.revoke", verb: "revoke", fields: [
         { key: "delegation_id", label: "Delegation", kind: "select", required: true, options: registry.delegations.filter((d: Json) => !d.revoked).map((d: Json) => ({
-          value: d.id, label: `${memberName(d.from_member_id)} to ${memberName(d.to_member_id)}, ${d.role} in ${d.discipline}, until ${d.ends_on}`,
+          value: d.id, label: delegationWords(d),
         })) },
         { key: "reason", label: "Why", kind: "textarea", required: true },
       ],
       describe: (v) => {
         const d = registry.delegations.find((x: Json) => x.id === str(v, "delegation_id"));
-        return d ? `Ends the delegation from ${memberName(d.from_member_id)} to ${memberName(d.to_member_id)} as ${d.role} in ${d.discipline} now.` : null;
+        return d ? `Ends this delegation now: ${delegationWords(d)}.` : null;
       },
       payload: (v) => ({ delegation_id: str(v, "delegation_id"), reason: str(v, "reason") }),
     },
@@ -293,7 +298,7 @@ export function DelegationsSection({ view, passkeys = browserPasskeys }: Props) 
         <ul className="small">
           {registry.delegations.map((d: Json) => (
             <li key={d.id}>
-              {memberName(d.from_member_id)} to {memberName(d.to_member_id)}, {d.role} in {d.discipline}, {d.starts_on} until {d.ends_on}
+              {delegationWords(d)}
               {d.revoked ? " (revoked)" : ""}
             </li>
           ))}

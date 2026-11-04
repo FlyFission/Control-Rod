@@ -6,7 +6,7 @@ import type { AdminView } from "../api/types.js";
 import type { Passkeys } from "../lib/decide.js";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
-import { BudgetsSection, MembersSection, PolicySection, ProjectsSection, QualificationsSection, parseLicenses } from "../features/admin/AdminSections.js";
+import { BudgetsSection, DelegationsSection, MembersSection, PolicySection, ProjectsSection, QualificationsSection, parseLicenses } from "../features/admin/AdminSections.js";
 import { Policies } from "./Policies.js";
 import { SignIn } from "./SignIn.js";
 
@@ -224,6 +224,20 @@ describe("administration forms", () => {
     const alert = await within(f).findByRole("alert");
     expect(alert.textContent).toMatch(/no active Member with both administrator and policy authority/);
     expect(alert.textContent).toMatch(/Issue another active member a qualification with both administrator and policy authority first\./);
+  });
+
+  it("tells apart delegations that differ only by project, in the choice and in what is signed", async () => {
+    const same = { org_id: "org_local", from_member_id: "mem_ben", to_member_id: "mem_dora", role: "checker", discipline: "mechanical", starts_on: "2026-11-01", ends_on: "2026-11-30", revoked: false };
+    const delegations = [{ ...same, id: "del_a", project_id: "prj_1" }, { ...same, id: "del_b" }];
+    const user = userEvent.setup();
+    await renderPage(<DelegationsSection view={view({ actions: [allow("delegation.revoke", "Revoke a delegation")] as never, registry: { ...(view().registry as object), delegations } as never })} passkeys={passkeys} />);
+    const f = form("Revoke a delegation");
+    const labels = within(within(f).getByRole("combobox", { name: "Delegation (required)" })).getAllByRole("option").map((o) => o.textContent);
+    expect(labels).toContain("Ben to Dora, checker in mechanical, on Plant A, 2026-11-01 until 2026-11-30 (del_a)");
+    expect(labels).toContain("Ben to Dora, checker in mechanical, on every project, 2026-11-01 until 2026-11-30 (del_b)");
+    await user.selectOptions(within(f).getByRole("combobox", { name: "Delegation (required)" }), "del_a");
+    await user.type(within(f).getByRole("textbox", { name: "Why (required)" }), "Project closed");
+    expect(within(f).getByText(/^Ends this delegation now: Ben to Dora, checker in mechanical, on Plant A, 2026-11-01 until 2026-11-30 \(del_a\)\./)).toBeTruthy();
   });
 
   it("refuses a hard cap on anything but minutes before anything is signed", async () => {

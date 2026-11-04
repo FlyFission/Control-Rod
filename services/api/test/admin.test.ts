@@ -469,6 +469,8 @@ describe("the administration registry", () => {
     const r = await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } });
     expect(r.statusCode, r.body).toBe(200);
     const reg = r.json().registry;
+    // The formats signing accepts now: the approved policy's.
+    expect(r.json().hardware_formats_in_force).toEqual(r.json().policy.hardware_attestation_formats);
     // Each Member's current qualification only, never an earlier version.
     const byMember = (id: string) => reg.qualifications.filter((q: Json) => q.member_id === id);
     expect(byMember(ALICE)).toHaveLength(1);

@@ -436,7 +436,8 @@ export function PolicySection({ view, passkeys = browserPasskeys }: Props) {
       initial: {
         autonomy_ceiling: current?.settings?.["autonomy_ceiling"] ?? "",
         budget_near_percent: current?.settings?.["budget_near_percent"] ?? "",
-        hardware_attestation_formats: [...(current?.hardware_attestation_formats ?? [])],
+        // What signing accepts now, the defaults included while no policy has been approved.
+        hardware_attestation_formats: [...(current?.hardware_attestation_formats ?? view.hardware_formats_in_force)],
       },
     },
     {

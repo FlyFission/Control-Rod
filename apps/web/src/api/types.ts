@@ -134,6 +134,8 @@ export interface AdminView {
   members: S["ControlRod.Records.Member"][];
   projects: S["ControlRod.Records.Project"][];
   policy: S["ControlRod.Records.PolicySet"] | null;
+  /** The hardware attestation formats signing accepts now, defaults included while no policy is approved. */
+  hardware_formats_in_force: string[];
   themes: string[];
   commands: AdminCommandInfo[];
   actions: ActionDescriptor[];

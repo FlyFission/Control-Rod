@@ -15,3 +15,7 @@ Seven threads from the GitHub reviewers on the opened PR, all accepted.
 ## Codex round 5
 
 Confirmed all seven fixes; one finding, accepted: the form showed a refusal's message without the control plane's advice for lifting it. Fixed: the form renders `explain()` (message, then what would change it). Test: a `last-qualification-issuer` refusal shows its advice.
+
+## Codex round 6 and a later thread
+
+Codex round 6: MERGE, no actionable defects. A later review thread, accepted: with no policy approved, the first proposal started with no attestation formats though signing accepts Control Rod's defaults, so approving a proposal about something else would have removed every hardware key's eligibility. Fixed: `GET /admin` adds `hardware_formats_in_force` (the approved policy's formats, or the defaults), and the proposal starts from it. Tests: the API reports the defaults with no policy and the policy's formats once approved; the web form's first proposal keeps them.

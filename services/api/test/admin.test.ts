@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { qualificationIdFor } from "../src/admin.js";
+import { currentFloor } from "../src/authority.js";
 import { memberIdFor } from "../src/tenancy.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, addOwnPasskey, logIn, registerWithInvitation, signIn, startHarness } from "./harness.js";
 
@@ -502,6 +503,11 @@ describe("the administration registry", () => {
       expect(Object.keys(c).sort()).toEqual(["credential_id", "hardware", "id", "member_id", "org_id", "registered_at", "revoked"]);
     }
     for (const q of reg.qualifications) expect(Object.keys(q).sort()).toEqual(["authorities", "disciplines", "grades", "member_id", "org_id", "revoked", "roles", "version"]);
+    // Delegations without their reasons; at least one exists by now.
+    expect(reg.delegations.length).toBeGreaterThan(0);
+    for (const d of reg.delegations) expect(d.reason).toBeUndefined();
+    // Hardware eligibility as signing decides it now, under the policy in force.
+    for (const c of reg.credentials) expect(c.hardware).toBe((await currentFloor(h.db, c.credential_id)).eligible);
     // An administrator sees everyone's.
     const all = (await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } })).json().registry;
     const owners = new Set(all.credentials.map((c: Json) => c.member_id));

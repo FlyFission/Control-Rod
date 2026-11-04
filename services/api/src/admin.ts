@@ -97,7 +97,7 @@ async function keepAdministration(c: Tx, orgId: string, memberId: string, next: 
   const issuer = (xs: typeof held) => xs.some((h) => h.authorities.includes("administrator") && h.authorities.includes("policy"));
   if (admin(held) && !admin(after)) throw new Refusal(409, "last-administrator", "This would leave no active administrator");
   if (issuer(held) && !issuer(after))
-    throw new Refusal(409, "last-administrator",
+    throw new Refusal(409, "last-qualification-issuer",
       "This would leave no active Member with both administrator and policy authority, and only such a Member can issue qualifications");
 }
 

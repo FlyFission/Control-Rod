@@ -134,10 +134,14 @@ export interface AdminView {
   members: S["ControlRod.Records.Member"][];
   projects: S["ControlRod.Records.Project"][];
   policy: S["ControlRod.Records.PolicySet"] | null;
+  /** The hardware attestation formats signing accepts now, defaults included while no policy is approved. */
+  hardware_formats_in_force: string[];
   themes: string[];
   commands: AdminCommandInfo[];
   actions: ActionDescriptor[];
   floors: { code: string; sentence: string; change: string }[];
+  /** The organization's administrative records, for the forms to choose from (plan task 5.4). */
+  registry: S["AdminRegistry"];
 }
 export type AttentionItem = S["AttentionItem"];
 export type DigestLine = S["DigestLine"];

@@ -79,6 +79,12 @@ export const api = {
   registerOptions: (name: string) =>
     call<{ options: Record<string, unknown> }>("POST", "/auth/register/options", { name }),
   registerVerify: (body: unknown) => call<Session>("POST", "/auth/register/verify", body),
+  /** Registration options for an invited Member, from the invitation an administrator gave them. */
+  registerInvitedOptions: (invitation: string) =>
+    call<{ options: Record<string, unknown> }>("POST", "/auth/register/options", { invitation }),
+  /** An administrative command that needs no signature (a proposal or a preference). */
+  adminUnsigned: <T = Record<string, unknown>>(name: string, payload: Record<string, unknown>) =>
+    call<T>("POST", `/admin/commands/${enc(name)}`, { payload }),
   loginOptions: () => call<{ options: Record<string, unknown> }>("POST", "/auth/login/options"),
   loginVerify: (body: unknown) => call<Session>("POST", "/auth/login/verify", body),
   logout: () => call<Session>("POST", "/auth/logout"),

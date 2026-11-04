@@ -60,6 +60,13 @@
                             }
                           ]
                         },
+                        "hardware_formats_in_force": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ControlRod.Records.AttestationFormat"
+                          },
+                          "description": "The hardware attestation formats signing accepts now: the approved policy's, or Control Rod's\ndefaults while no policy has been approved, so a first proposal can start from what is in force."
+                        },
                         "themes": {
                           "type": "array",
                           "items": {
@@ -100,6 +107,10 @@
                             ]
                           },
                           "description": "The floors in force: no person, decision or setting lifts them."
+                        },
+                        "registry": {
+                          "$ref": "#/components/schemas/AdminRegistry",
+                          "description": "The organization's administrative records as they stand, for the forms to choose from (plan task 5.4)."
                         }
                       },
                       "required": [
@@ -109,10 +120,12 @@
                         "members",
                         "projects",
                         "policy",
+                        "hardware_formats_in_force",
                         "themes",
                         "commands",
                         "actions",
-                        "floors"
+                        "floors",
+                        "registry"
                       ]
                     },
                     {
@@ -5799,6 +5812,60 @@
         },
         "description": "An administrative command and what it needs (specification 10.2)."
       },
+      "AdminRegistry": {
+        "type": "object",
+        "required": [
+          "qualifications",
+          "credentials",
+          "delegations",
+          "bindings",
+          "change_requests",
+          "budgets"
+        ],
+        "properties": {
+          "qualifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryQualification"
+            }
+          },
+          "credentials": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryCredential"
+            },
+            "description": "Each passkey's current state: every Member's for an administrator, otherwise the viewer's own."
+          },
+          "delegations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistryDelegation"
+            },
+            "description": "Every delegation, with whether it was revoked, and without its reason."
+          },
+          "bindings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "change_requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.ChangeRequest"
+            },
+            "description": "Change requests waiting on approval."
+          },
+          "budgets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.Budget"
+            }
+          }
+        },
+        "description": "Each Member's current qualification, passkeys, delegations, bindings, open change requests and budgets."
+      },
       "AgentFigure": {
         "type": "object",
         "required": [
@@ -7955,6 +8022,74 @@
           }
         },
         "description": "Something a person said they want done, before intake turns it into a package."
+      },
+      "ControlRod.Records.ChangeRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "kind",
+          "subject_digest",
+          "reason",
+          "impact",
+          "proposed_by",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "org_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ControlRod.Records.ChangeRequestKind"
+          },
+          "subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "impact": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Downstream objects the change affects, listed before approval."
+          },
+          "proposed_by": {
+            "$ref": "#/components/schemas/ControlRod.Records.Actor"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlRod.Records.ChangeRequestStatus"
+          },
+          "proposal": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "The proposed content (for a policy change, the policy set body); its digest is subject_digest."
+          }
+        },
+        "description": "A change only an authorized person may approve, over an exact subject version. (L)"
+      },
+      "ControlRod.Records.ChangeRequestKind": {
+        "type": "string",
+        "enum": [
+          "lane-lowering",
+          "declassification",
+          "policy-change",
+          "authenticator-policy"
+        ]
+      },
+      "ControlRod.Records.ChangeRequestStatus": {
+        "type": "string",
+        "enum": [
+          "proposed",
+          "approved",
+          "rejected",
+          "withdrawn"
+        ]
       },
       "ControlRod.Records.CodeOrStandard": {
         "type": "object",
@@ -10245,6 +10380,146 @@
           }
         },
         "description": "What a qualified checker verified in person (specification 11.5)."
+      },
+      "RegistryCredential": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "member_id",
+          "credential_id",
+          "revoked",
+          "hardware",
+          "registered_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "member_id": {
+            "type": "string"
+          },
+          "credential_id": {
+            "type": "string"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "hardware": {
+            "type": "boolean",
+            "description": "Whether it meets the hardware key floor under the policy in force now."
+          },
+          "registered_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "A passkey as the forms name it: its owner, when it was registered, and no attestation evidence."
+      },
+      "RegistryDelegation": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "from_member_id",
+          "to_member_id",
+          "role",
+          "starts_on",
+          "ends_on",
+          "revoked"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "from_member_id": {
+            "type": "string"
+          },
+          "to_member_id": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "discipline": {
+            "type": "string"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        },
+        "description": "A delegation as the forms show it: who, what, when, and whether revoked; never its reason."
+      },
+      "RegistryQualification": {
+        "type": "object",
+        "required": [
+          "org_id",
+          "member_id",
+          "version",
+          "roles",
+          "authorities",
+          "grades",
+          "disciplines",
+          "revoked"
+        ],
+        "properties": {
+          "org_id": {
+            "type": "string"
+          },
+          "member_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authorities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "grades": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "disciplines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        },
+        "description": "A Member's current qualification as the forms show it: no license numbers and no reasons."
       },
       "RosterRole": {
         "type": "object",

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { qualificationIdFor } from "../src/admin.js";
+import { currentFloor } from "../src/authority.js";
 import { memberIdFor } from "../src/tenancy.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, addOwnPasskey, logIn, registerWithInvitation, signIn, startHarness } from "./harness.js";
 
@@ -458,5 +459,79 @@ describe("review round 3", () => {
     const r = await unsigned(ben, "policy.propose", { policy: { settings: { toString: "1" } }, reason: "x" });
     expect(r.statusCode).toBe(400);
     expect(r.json().code).toBe("unknown-setting");
+  });
+});
+
+describe("the administration registry", () => {
+  it("lists each record as it stands now, for the Policies and Administration forms (plan task 5.4)", async () => {
+    const waiting = await unsigned(ben, "policy.propose", { policy: { hardware_attestation_formats: [], settings: { budget_near_percent: "80" } }, reason: "alert budgets at 80" });
+    expect(waiting.statusCode, waiting.body).toBe(200);
+    const r = await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } });
+    expect(r.statusCode, r.body).toBe(200);
+    const reg = r.json().registry;
+    // The formats signing accepts now: the approved policy's.
+    expect(r.json().hardware_formats_in_force).toEqual(r.json().policy.hardware_attestation_formats);
+    // Each Member's current qualification only, never an earlier version.
+    const byMember = (id: string) => reg.qualifications.filter((q: Json) => q.member_id === id);
+    expect(byMember(ALICE)).toHaveLength(1);
+    const latest = (await h.db.query<{ v: number }>("select max(version)::int as v from signer_qualifications where member_id = $1", [ALICE])).rows[0]!.v;
+    expect(byMember(ALICE)[0].version).toBe(latest);
+    // Each passkey once, its current record, with when it was registered.
+    const ids = reg.credentials.map((c: Json) => c.credential_id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const usable = reg.credentials.filter((c: Json) => c.member_id === BEN && !c.revoked);
+    expect(usable.length).toBeGreaterThan(0);
+    for (const c of reg.credentials) expect(Number.isNaN(Date.parse(c.registered_at))).toBe(false);
+    // Delegations say whether they were revoked; change requests list only those waiting on approval.
+    for (const d of reg.delegations) expect(typeof d.revoked).toBe("boolean");
+    expect(reg.change_requests.map((c: Json) => c.id)).toContain(waiting.json().id);
+    expect(reg.change_requests.every((c: Json) => c.status === "proposed")).toBe(true);
+    expect(reg.bindings.length).toBeGreaterThan(0);
+    expect(reg.budgets.every((b: Json) => b.status !== "retired")).toBe(true);
+    // Only this organization's records (Control Rod holds one active organization; see migration 009).
+    const org = (await h.db.query<{ id: string }>("select tenancy_sole_org() as id")).rows[0]!.id;
+    for (const rows of [reg.qualifications, reg.credentials, reg.delegations, reg.bindings, reg.change_requests, reg.budgets])
+      for (const x of rows) expect(x.org_id).toBe(org);
+  });
+
+  it("shows a Member without administrator authority only their own passkeys, and no one license numbers, reasons or attestation evidence", async () => {
+    const rita = await addPerson("rita", new VirtualAuthenticator());
+    const r = await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: rita } });
+    expect(r.statusCode, r.body).toBe(200);
+    const reg = r.json().registry;
+    expect(reg.credentials.length).toBeGreaterThan(0);
+    for (const c of reg.credentials) {
+      expect(c.member_id).toBe(memberIdFor("rita"));
+      expect(Object.keys(c).sort()).toEqual(["credential_id", "hardware", "id", "member_id", "org_id", "registered_at", "revoked"]);
+    }
+    for (const q of reg.qualifications) expect(Object.keys(q).sort()).toEqual(["authorities", "disciplines", "grades", "member_id", "org_id", "revoked", "roles", "version"]);
+    // Delegations without their reasons; at least one exists by now.
+    expect(reg.delegations.length).toBeGreaterThan(0);
+    for (const d of reg.delegations) expect(d.reason).toBeUndefined();
+    // Hardware eligibility as signing decides it now, under the policy in force.
+    for (const c of reg.credentials) expect(c.hardware).toBe((await currentFloor(h.db, c.credential_id)).eligible);
+    // An administrator sees everyone's.
+    const all = (await h.app.inject({ method: "GET", url: "/admin", headers: { cookie: ben } })).json().registry;
+    const owners = new Set(all.credentials.map((c: Json) => c.member_id));
+    expect(owners.has(BEN) && owners.has(memberIdFor("rita"))).toBe(true);
+  });
+
+  it("refuses to leave no Member able to issue qualifications, even by ordinary replacement", async () => {
+    // Ben is, by now, the only active Member with both administrator and policy authority.
+    const issuers = (await h.db.query<{ member_id: string }>(
+      `select q.body->>'member_id' as member_id from (select distinct on (id) body from signer_qualifications order by id, version desc) q
+         join members m on m.id = q.body->>'member_id'
+        where m.body->>'status' = 'active' and not (q.body->>'revoked')::boolean is true
+          and q.body->'authorities' ? 'administrator' and q.body->'authorities' ? 'policy'`)).rows.map((r) => r.member_id);
+    expect(issuers).toEqual([BEN]);
+    const r = await signed(ben, benKey, "qualification.issue", { ...fullQualification(BEN), authorities: ["administrator"], reason: "drop policy" });
+    expect(r.statusCode, r.body).toBe(409);
+    // Its own code, with advice that actually lifts it.
+    expect(r.json()).toMatchObject({ code: "last-qualification-issuer", message: expect.stringMatching(/only such a Member can issue qualifications/),
+      change: "Issue another active member a qualification with both administrator and policy authority first." });
+  });
+
+  it("is refused to anyone not signed in", async () => {
+    expect((await h.app.inject({ method: "GET", url: "/admin" })).statusCode).toBe(401);
   });
 });

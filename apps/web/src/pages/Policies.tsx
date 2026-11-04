@@ -4,14 +4,15 @@ import { useRouterState } from "@tanstack/react-router";
 import { api } from "../api/client.js";
 import type { AdminView } from "../api/types.js";
 import { time } from "../lib/format.js";
+import { type Passkeys, browserPasskeys } from "../lib/decide.js";
+import { BootstrapForm, BudgetsSection, DelegationsSection, MembersSection, PolicySection, ProjectsSection, QualificationsSection } from "../features/admin/AdminSections.js";
 
 /**
  * Policies and Administration (specification 12): the floors in force, the policy settings, the
  * members and projects, and every administrative command with whether the viewer may take it and
- * why not. The forms that carry out each command arrive with Roster, Usage, Records and Policies
- * (plan Phase 5); every command already runs through the signed administrative API.
+ * why not, as a form that states what it changes before it is signed (plan task 5.4).
  */
-export function Policies() {
+export function Policies({ passkeys = browserPasskeys }: { passkeys?: Passkeys } = {}) {
   const q = useQuery({ queryKey: ["admin"], queryFn: api.admin });
   const hash = useRouterState({ select: (st) => st.location.hash });
   useEffect(() => {
@@ -33,7 +34,7 @@ export function Policies() {
     <div className="place">
       <header className="place-head">
         <h1>Policies</h1>
-        <p className="muted">What is in force for this organization and who may change it.</p>
+        <p className="muted">What is in force for this organization, who may change it, and the signed commands that change it.</p>
       </header>
       <Floors view={a} />
       <section className="panel" aria-labelledby="policy-title">
@@ -63,11 +64,14 @@ export function Policies() {
       <section className="panel" aria-labelledby="you-title">
         <h2 id="you-title">Your qualification</h2>
         {a.qualification === null || a.qualification.revoked ? (
-          <p className="muted">
-            {a.bootstrap
-              ? "No administrator exists yet. As the first member you may issue your own qualification."
-              : "You hold no qualification, so you can capture and view work but not sign decisions or administer."}
-          </p>
+          <>
+            <p className="muted">
+              {a.bootstrap
+                ? "No administrator exists yet. As the first member you may issue your own qualification."
+                : "You hold no qualification, so you can capture and view work but not sign decisions or administer."}
+            </p>
+            {a.bootstrap && <BootstrapForm view={a} passkeys={passkeys} />}
+          </>
         ) : (
           <dl className="metrics">
             <div>
@@ -89,34 +93,13 @@ export function Policies() {
           </dl>
         )}
       </section>
+      <MembersSection view={a} passkeys={passkeys} />
+      <QualificationsSection view={a} passkeys={passkeys} />
+      <DelegationsSection view={a} passkeys={passkeys} />
+      <ProjectsSection view={a} passkeys={passkeys} />
+      <PolicySection view={a} passkeys={passkeys} />
+      <BudgetsSection view={a} passkeys={passkeys} />
       <Commands view={a} />
-      <section className="panel" aria-labelledby="members-title">
-        <h2 id="members-title">Members</h2>
-        <ul className="plain-list">
-          {a.members.map((m) => (
-            <li key={m.id}>
-              {m.display_name} <span className="mono small muted">{m.user_name}</span>
-              {m.status !== "active" && <span className="tag small-tag">{m.status}</span>}
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section className="panel" aria-labelledby="projects-title">
-        <h2 id="projects-title">Projects</h2>
-        {a.projects.length === 0 ? (
-          <p className="muted">No projects yet.</p>
-        ) : (
-          <ul className="plain-list">
-            {a.projects.map((p) => (
-              <li key={p.id}>
-                {p.name} <span className="small muted">
-                  {p.mode} · {p.default_rigor} · autonomy {p.autonomy_level} · lanes {p.lanes.join(", ")}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }

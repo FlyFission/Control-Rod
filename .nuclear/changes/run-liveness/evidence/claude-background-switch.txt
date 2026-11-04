@@ -1,0 +1,6 @@
+$ claude --version
+2.1.318 (Claude Code)
+$ grep -aoE "function r_e\(\)\{return i.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS[^}]*\}" /opt/claude-code/bin/claude | head -1
+function r_e(){return i.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS||Lr()}
+$ sha256sum /opt/claude-code/bin/claude
+708c77b204db30086ff6f1ed34577bda03e1be74ced80557cbf7b54249ebf0bd

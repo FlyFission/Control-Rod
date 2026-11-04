@@ -81,6 +81,33 @@ func digestOf(v any) string {
 
 func yes(b bool) *bool { return &b }
 
+// TurnEnd reports whether a stdout line is the runtime's own report that its one turn is over:
+// Claude Code's final "result" event, or Codex's "turn.completed" or "turn.failed". failed is set
+// when that report says the turn failed. Only the top-level type counts, so text that merely
+// mentions these words (a message, a tool result) never ends a run.
+func TurnEnd(line string) (ended, failed bool) {
+	if !strings.HasPrefix(line, "{") || !(strings.Contains(line, `"result"`) || strings.Contains(line, `"turn.`)) {
+		return false, false
+	}
+	var ev struct {
+		Type    string `json:"type"`
+		Subtype string `json:"subtype"`
+		IsError bool   `json:"is_error"`
+	}
+	if json.Unmarshal([]byte(line), &ev) != nil {
+		return false, false
+	}
+	switch ev.Type {
+	case "result":
+		return true, ev.IsError || strings.HasPrefix(ev.Subtype, "error")
+	case "turn.completed":
+		return true, false
+	case "turn.failed":
+		return true, true
+	}
+	return false, false
+}
+
 // Normalize turns one line of Claude Code stream-json or Codex --json output into events. Lines
 // that are not JSON events (stderr, plain text) give none; they remain in the raw log.
 func Normalize(line string, now time.Time) []Event {

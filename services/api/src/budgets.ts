@@ -160,7 +160,10 @@ export async function budgetUse(q: Db | Tx, b: Json, now = new Date()): Promise<
            where r.status <> 'queued' and r.body ? 'reserve_minutes'
              and not exists (select 1 from budget_reservations x where x.run_id = r.id)
              and not exists (select 1 from usage_records m where m.run_id = r.id and m.body->>'source' = 'measured')
-             and (r.status = 'running' or coalesce((r.body->>'finished_at')::timestamptz, now()) > $4))::text as unreserved`,
+             -- Until it is measured: running, or lost with its outcome unknown, it counts however old;
+             -- reconciled with nothing measured, it counts in full in the window it was reconciled in.
+             and (r.status = 'running' or (r.body ? 'outcome_unknown' and not r.body ? 'reconciliation')
+                  or coalesce((r.body->'reconciliation'->>'recorded_at')::timestamptz, (r.body->>'finished_at')::timestamptz, now()) > $4))::text as unreserved`,
       [b.org_id, b.scope, b.scope === "organization" ? null : b.scope_id, since])).rows[0]!;
     return { used: Number(r.measured) + Number(r.open) + Number(r.unmeasured) + Number(r.unreserved), in_flight: Number(r.open) + Number(r.unreserved),
       unreported_runs: 0, since: since.toISOString() };
@@ -182,11 +185,17 @@ export async function budgetUse(q: Db | Tx, b: Json, now = new Date()): Promise<
   return { used: null, in_flight: 0, unreported_runs: 0, since: since.toISOString() };
 }
 
-/** Whether a run in a budget's scope is running with no reservation and no recorded size, so no cap can account for it. */
+/**
+ * Whether a run in a budget's scope started with no reservation and no recorded size and is not yet
+ * accounted for: running, finished but not yet measured, or lost with its outcome unknown. No cap can
+ * know what is left until it is measured, or reconciled (when nothing will ever measure it).
+ */
 async function unsizedInFlight(q: Db | Tx, s: RunScope, b: Json): Promise<boolean> {
   const r = await q.query(
     `select 1 from runs r join object_owners o on o.object_kind = case when r.role = 'intake' then 'capture' else 'package' end and o.object_id = r.package_id
-      where r.status = 'running' and not r.body ? 'reserve_minutes' and not exists (select 1 from budget_reservations x where x.run_id = r.id)
+      where r.status <> 'queued' and r.body ? 'started_at' and not r.body ? 'reserve_minutes' and not r.body ? 'reconciliation'
+        and not exists (select 1 from budget_reservations x where x.run_id = r.id)
+        and not exists (select 1 from usage_records m where m.run_id = r.id and m.body->>'source' = 'measured')
         and o.org_id = $1 and case $2::text when 'organization' then true when 'project' then o.project_id = $3 else r.body->>'agent_baseline' = $3 end
       limit 1`, [s.orgId, b.scope, b.scope === "organization" ? null : b.scope_id]);
   return Boolean(r.rowCount);

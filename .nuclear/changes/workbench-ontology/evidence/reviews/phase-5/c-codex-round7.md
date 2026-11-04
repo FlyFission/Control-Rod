@@ -1,0 +1,7 @@
+- **P1 — Unsized hold ends before accounting is established.** [budgets.ts:189](/home/flyfission/worktrees/control-rod-p5budgets/services/api/src/budgets.ts:189): Once an unreserved, unsized run completes or becomes lost, `unsizedInFlight` stops finding it. Completion is measured only by the sweep; lost or unknown outcomes remain unmeasured. Meanwhile, `budgetUse` counts neither, allowing further dispatch against understated usage. **Fix:** retain the hold until measured usage or an explicit conservative charge accounts for the run, including unresolved outcomes.
+
+- **P1 — Unknown outcomes lose their fallback charge as the window advances.** [budgets.ts:163](/home/flyfission/worktrees/control-rod-p5budgets/services/api/src/budgets.ts:163): A sized run dispatched without reservations gets `finished_at` when marked lost. Once that timestamp leaves the budget window, its `reserve_minutes` disappears from usage despite remaining unreconciled. This contradicts specification §26 and the ledger’s full-charge rule. **Fix:** retain unresolved fallback charges regardless of age; apply the rolling window from settlement/reconciliation, matching actual reservations.
+
+Generated contract fields match. Static review only; database tests were not run in the read-only environment.
+
+REVISE

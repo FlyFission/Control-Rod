@@ -484,6 +484,38 @@ describe("presenting and racing", () => {
     await retire(cap.id);
   });
 
+  it("keeps unreserved work accounted for until it is measured or reconciled, however old", async () => {
+    // A sized run no budget reserved for, lost two days ago and never reconciled: still charged in a one day window.
+    const sized = await claimed("WP-BUD-OLDLOST");
+    await h.admin.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [sized]);
+    await sweep();
+    expect((await run(sized)).status).toBe("lost");
+    const old = (await run(sized)).body;
+    await h.admin.query("update runs set body = $2 where id = $1", [sized, { ...old, finished_at: new Date(Date.now() - 2 * 86400e3).toISOString() }]);
+    const probe = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    expect((await get("/usage")).json().budgets.find((b: Json) => b.budget.id === probe.id).in_flight).toBeGreaterThanOrEqual(Number(RESERVED));
+    await retire(probe.id);
+    // An unsized run that is lost keeps holding a cap until someone reconciles it.
+    const unsized = await queued("WP-BUD-UNKLOST");
+    const res = await claim(null);
+    expect(res.json().run.id).toBe(unsized);
+    await h.admin.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [unsized]);
+    await sweep();
+    expect((await run(unsized)).status).toBe("lost");
+    const cap = await budget({ scope: "organization", scope_id: await org(), mode: "hard-cap", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    const next = await queued("WP-BUD-BEHINDLOST", true);
+    expect((await claim()).statusCode).toBe(204);
+    expect((await run(next)).body.waiting_reason).toMatch(/reported no run time ceiling/);
+    for (const id of [sized, unsized]) {
+      const b = (await run(id)).body;
+      await h.admin.query("update runs set body = $2 where id = $1", [id, { ...b, reconciliation: { disposition: "process-gone", recorded_at: new Date().toISOString() } }]);
+    }
+    const after = await claim();
+    expect(after.statusCode, String((await run(next)).body.waiting_reason)).toBe(200);
+    claims.set(next, after.json().claim.token);
+    await retire(cap.id);
+  });
+
   it("admits a run whose reservation fills a hard cap exactly", async () => {
     await queued("WP-BUD-EXACTFILL-A");
     const probe = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });

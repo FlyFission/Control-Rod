@@ -29,10 +29,14 @@ type Event struct {
 	// Path is the changed file for file_change, relative to the workspace when it can be.
 	Path string `json:"path,omitempty"`
 	// Text is message or error text, clipped to MaxEventText bytes.
-	Text         string `json:"text,omitempty"`
-	InputTokens  int    `json:"input_tokens,omitempty"`
-	OutputTokens int    `json:"output_tokens,omitempty"`
-	CachedTokens int    `json:"cached_tokens,omitempty"`
+	Text string `json:"text,omitempty"`
+	// Token counts as the runtime reported them: nil when it reported none, so a reported zero is
+	// sent as zero and never mistaken for a missing count.
+	InputTokens  *int `json:"input_tokens,omitempty"`
+	OutputTokens *int `json:"output_tokens,omitempty"`
+	CachedTokens *int `json:"cached_tokens,omitempty"`
+	// Cumulative marks usage that is the whole run's so far (Claude's result), not one step's.
+	Cumulative bool `json:"cumulative,omitempty"`
 	// Dropped counts events admission refused since the last one sent (kind "dropped").
 	Dropped int `json:"dropped,omitempty"`
 
@@ -93,7 +97,14 @@ func Normalize(line string, now time.Time) []Event {
 	}
 	at := now.UTC().Format(time.RFC3339Nano)
 	str := func(m map[string]any, k string) string { v, _ := m[k].(string); return v }
-	num := func(m map[string]any, k string) int { v, _ := m[k].(float64); return int(v) }
+	num := func(m map[string]any, k string) *int {
+		v, ok := m[k].(float64)
+		if !ok {
+			return nil
+		}
+		n := int(v)
+		return &n
+	}
 	var out []Event
 	switch typ := str(ev, "type"); typ {
 	// Claude Code stream-json.
@@ -138,9 +149,11 @@ func Normalize(line string, now time.Time) []Event {
 		if failed {
 			out = append(out, Event{Kind: EvError, At: at, Text: clipText(str(ev, "result"))})
 		}
+		// The result's usage is the whole run's, not this step's (Claude's cost tracking documents it
+		// as cumulative), so it is marked to replace the steps' counts, never to add to them.
 		if usage, ok := ev["usage"].(map[string]any); ok {
 			out = append(out, Event{Kind: EvUsage, At: at, InputTokens: num(usage, "input_tokens"), OutputTokens: num(usage, "output_tokens"),
-				CachedTokens: num(usage, "cache_read_input_tokens")})
+				CachedTokens: num(usage, "cache_read_input_tokens"), Cumulative: true})
 		}
 	// Codex --json.
 	case "item.started", "item.completed":

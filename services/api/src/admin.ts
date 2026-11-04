@@ -17,6 +17,7 @@ import { teach } from "./refusals.js";
 import { pinRuntime, rollbackRuntime } from "./runtimes.js";
 import { pullScram, restartAfterScram, reviewQuarantine } from "./scram.js";
 import { sealChain } from "./seals.js";
+import { checkBudget } from "./budgets.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
 
@@ -163,7 +164,12 @@ async function hasPasskey(c: Tx, m: Member): Promise<boolean> {
 }
 
 /** Policy settings Control Rod understands, each with its allowed values. Anything else is refused. */
-const POLICY_SETTINGS: Record<string, RegExp> = { autonomy_ceiling: /^[0-3]$/ };
+/**
+ * The policy settings Control Rod understands. autonomy_ceiling caps a project's autonomy level;
+ * budget_near_percent is the share of a budget's limit, in whole percent, at which it reads as near
+ * and alerts (plan task 5.2). Unset, no budget is called near: the line is the organization's to draw.
+ */
+const POLICY_SETTINGS: Record<string, RegExp> = { autonomy_ceiling: /^[0-3]$/, budget_near_percent: /^[1-9][0-9]?$/ };
 
 function checkPolicy(proposal: unknown): { hardware_attestation_formats: string[]; settings: Record<string, string> } {
   if (!proposal || typeof proposal !== "object") throw new Refusal(400, "invalid", "policy is required");
@@ -557,12 +563,14 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
         const next = { ...existing };
         for (const k of ["mode", "limit", "period"]) if (p[k] !== undefined) next[k] = p[k];
         checkSchema("Budget.json", next);
+        checkBudget(next as never);
         await c.query("update budgets set body = $2 where id = $1", [existing.id, next]);
         await appendEvent(c, "budget.updated", String(existing.id), actorOf(caller), { mode: next.mode, limit: next.limit, period: next.period });
         return next;
       }
       const body = { id: idFor("bud"), org_id: caller.orgId, scope: str(p, "scope")!, scope_id: str(p, "scope_id")!, mode: str(p, "mode")!,
         limit: p.limit, period: str(p, "period")!, status: "active" };
+      checkBudget(body as never);
       await recordObject(c, "budget", body as never, actorOf(caller));
       return body;
     },

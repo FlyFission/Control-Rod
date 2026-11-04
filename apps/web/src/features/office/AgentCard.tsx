@@ -5,7 +5,7 @@ import { api } from "../../api/client.js";
 import type { ActionDescriptor, AgentFigure, PackageView } from "../../api/types.js";
 import { STATE_INFO, StateMark } from "../../components/StateMark.js";
 import { COLUMNS, boardColumn } from "../../lib/board.js";
-import { STATUS_LABEL, independenceText, time } from "../../lib/format.js";
+import { STATUS_LABEL, independenceText, shortDigest, time } from "../../lib/format.js";
 import { REGION } from "./layout.js";
 
 /**
@@ -159,9 +159,23 @@ function Glance({ f, view, actions, failed }: { f: AgentFigure; view: PackageVie
       <dt>Interfaces</dt>
       <dd>{interfaces === 0 ? "None recorded" : `${pkg.interfaces?.consumes?.length ?? 0} consumed, ${pkg.interfaces?.exports?.length ?? 0} exported`}</dd>
       <dt>Spend</dt>
-      <dd>Not recorded until usage metering arrives (plan task 5.2); never shown as zero.</dd>
+      <dd>{spendWords(f)}</dd>
     </dl>
   );
+}
+
+/** The agent's tightest budget in words (OV-08): use against the limit, or why it is not known. Never zero by default. */
+function spendWords(f: AgentFigure): string {
+  const s = f.spend;
+  if (!s) return "No budget applies to this agent's work.";
+  const unit = s.unit === "minute" ? "minutes of run time" : s.unit === "token" ? "tokens" : "USD";
+  const mode = s.mode === "hard-cap" ? "hard cap" : s.mode;
+  if (s.used === undefined) return `Budget ${s.budget_id} (${mode}, ${s.limit} ${unit} in ${s.period}): no runtime here reports ${unit}, so use is not known.`;
+  // Some runs reported nothing: the total is a floor, whether or not it already passes the limit.
+  if (s.unreported_runs)
+    return `At least ${s.used} of ${s.limit} ${unit} in ${s.period} on budget ${s.budget_id} (${mode})${s.state === "over" ? ", over its limit" : ""}: ${s.unreported_runs} runs reported none, so the total is not known.`;
+  const where = s.state === "over" ? "over its limit" : s.state === "near" ? "near its limit" : "within its limit";
+  return `${s.used} of ${s.limit} ${unit} in ${s.period} on budget ${s.budget_id} (${mode}), ${where}.`;
 }
 
 /** The actions on the agent (OV-06): each a governed command, or said plainly to be unavailable. */
@@ -243,11 +257,26 @@ function AgentActions({ f, view }: { f: AgentFigure; view: PackageView | undefin
 function Reach({ f, view }: { f: AgentFigure; view: PackageView | undefined }) {
   const run = view?.runs.find((r) => r.id === f.id);
   const inputs = view?.package.design_inputs ?? [];
+  // The provider and its version (OV-13): what the run launched, from its trace, and the pin for its role.
+  const runtimes = useQuery({ queryKey: ["runtimes"], queryFn: api.runtimes });
+  const provider = run?.runtime.provider;
+  const pin = runtimes.data?.pins.find((p) => p.runtime === provider && p.role === f.role);
+  const tool = (run as { trace?: { tool?: { version?: string; digest?: { algorithm: string; value: string } } } } | undefined)?.trace?.tool;
   return (
     <div className="office-reach">
       <p className="small">
         Lane: {f.data_lane}. {run ? `Runtime: ${run.runtime.provider}${run.runtime.model && run.runtime.model !== "any" ? ` ${run.runtime.model}` : ""}.` : ""}
       </p>
+      {provider && provider !== "any" && (
+        <p className="small">
+          {tool?.version ? `Launched ${provider} ${tool.version}${tool.digest ? ` (${shortDigest(tool.digest as never)})` : ""}. ` : ""}
+          {!runtimes.data
+            ? "The pin for this role is not known yet."
+            : pin
+              ? `Pinned for ${f.role}: ${shortDigest(pin.artifact_digest)}.`
+              : `Not pinned for ${f.role}: it launches the ${provider} file the daemon last checked.`}
+        </p>
+      )}
       {inputs.length === 0 ? (
         <p className="small muted">No design inputs are recorded.</p>
       ) : (

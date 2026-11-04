@@ -8,6 +8,7 @@ import { DEPENDENCIES_DOWN_SQL } from "../src/db/migrations/013-dependencies.js"
 import { RUN_EVENTS_DOWN_SQL } from "../src/db/migrations/014-run-events.js";
 import { SCRAM_DOWN_SQL } from "../src/db/migrations/015-scram.js";
 import { CHAIN_SEALS_DOWN_SQL } from "../src/db/migrations/016-chain-seals.js";
+import { USAGE_ONCE_DOWN_SQL } from "../src/db/migrations/017-usage-once.js";
 import { verifyChain } from "../src/events.js";
 import { TEST_ROLE_SECRETS } from "./harness.js";
 
@@ -29,7 +30,7 @@ async function snapshot(db: Db, tables: string[]) {
 }
 
 /**
- * Run with the owner (migrator) connection. Reverses migrations 016 through 009 over the history a test built, reapplies them, and checks that
+ * Run with the owner (migrator) connection. Reverses migrations 017 through 009 over the history a test built, reapplies them, and checks that
  * every legacy row and every event is unchanged and the chain verifies. `nonEmpty` names tables
  * that must hold rows, so the comparison can never pass on empty collections (review R14).
  */
@@ -38,6 +39,7 @@ export async function assertMigrationsPreserveHistory(db: Db, nonEmpty: string[]
   const before = await snapshot(db, tables);
   for (const t of [...nonEmpty, "events"]) expect(before[t]?.length ?? 0, `${t} must hold history`).toBeGreaterThan(0);
   expect((await verifyChain(db)).ok).toBe(true);
+  await db.query(USAGE_ONCE_DOWN_SQL);
   await db.query(CHAIN_SEALS_DOWN_SQL);
   await db.query(SCRAM_DOWN_SQL);
   await db.query(RUN_EVENTS_DOWN_SQL);

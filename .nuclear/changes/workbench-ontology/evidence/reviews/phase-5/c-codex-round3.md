@@ -1,0 +1,7 @@
+- **P2 — Suspended budgets still generate crossing alerts.** [budgets.ts:285](/home/flyfission/worktrees/control-rod-p5budgets/services/api/src/budgets.ts:285) processes every status returned by `budgetStatuses`, including suspended budgets. When the organization has another active budget, the sweep can emit `budget.crossed` for a suspended budget and surface it in the Inbox digest. An isolated source probe reproduced this. **Fix:** exclude budgets whose status is not `active` before checking crossings. Add a regression with an active budget and a suspended budget whose usage crosses its limit.
+
+The requested round 2 fixes otherwise look consistent by inspection: claim/sweep lock ordering, minute scope and deduplication, reservation clamping, migration 017 and its down path, ceiling `FOR UPDATE SKIP LOCKED`, coverage wording, presenting redaction, and revised completion wording.
+
+API and web TypeScript checks, whitespace checks, and all 29 targeted web tests passed. Migration 017’s checksum matches. PostgreSQL tests could not initialize because the read-only sandbox prevents creating their temporary database directory; database concurrency and migration execution remain unverified here.
+
+REVISE

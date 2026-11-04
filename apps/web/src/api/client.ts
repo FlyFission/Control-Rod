@@ -1,6 +1,6 @@
 // Typed calls to the control plane. Paths match spec/generated/openapi/openapi.json exactly;
 // the API serves this app at the same origin, so every path is relative to it.
-import type { ActionDescriptor, AdminView, RosterView, DataLane, InboxView, NormalizedEvent, RuntimePin,
+import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, InboxView, NormalizedEvent, RuntimePin,
   RequirementsConfirmation,
   PreparationView,
   PreparationContent,
@@ -157,6 +157,7 @@ export const api = {
   runtimes: () => call<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: RuntimePin[] }>("GET", "/runtimes"),
   admin: () => call<AdminView>("GET", "/admin"),
   roster: () => call<RosterView>("GET", "/roster"),
+  usage: () => call<UsageView>("GET", "/usage"),
   adminCommandOptions: (name: string, payload: Record<string, unknown>) =>
     call<{ subject_digest: Digest; options: Record<string, unknown> }>("POST", `/admin/commands/${enc(name)}/options`, { payload }),
   adminCommand: <T = Record<string, unknown>>(name: string, payload: Record<string, unknown>, assertion: Record<string, unknown>) =>

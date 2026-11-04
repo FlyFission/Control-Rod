@@ -154,8 +154,10 @@ describe("commands", () => {
   it("sets and updates a budget", async () => {
     const b = await signed(ben, benKey, "budget.set", { scope: "project", scope_id: project, mode: "alert", limit: { value: "100", unit: "USD" }, period: "P1M" });
     expect(b.statusCode, b.body).toBe(200);
-    const u = await signed(ben, benKey, "budget.set", { budget_id: b.json().id, mode: "hard-cap", limit: { value: "80", unit: "USD" } });
-    expect(u.json()).toMatchObject({ mode: "hard-cap", limit: { value: "80", unit: "USD" }, scope_id: project });
+    // Money cannot be reserved before work starts, so it cannot be hard capped; run time can.
+    expect((await signed(ben, benKey, "budget.set", { budget_id: b.json().id, mode: "hard-cap", limit: { value: "80", unit: "USD" } })).json().code).toBe("cap-unenforceable");
+    const u = await signed(ben, benKey, "budget.set", { budget_id: b.json().id, mode: "hard-cap", limit: { value: "80", unit: "minute" } });
+    expect(u.json()).toMatchObject({ mode: "hard-cap", limit: { value: "80", unit: "minute" }, scope_id: project });
   });
 
   it("issues and revokes a qualification, and revocation voids pending challenges of that Member", async () => {

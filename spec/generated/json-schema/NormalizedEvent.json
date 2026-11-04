@@ -93,6 +93,10 @@
             "minimum": 0,
             "maximum": 2147483647
         },
+        "cumulative": {
+            "type": "boolean",
+            "description": "Usage: true when the counts are the whole run's so far (a runtime's final result), not one\nstep's, so they replace the steps' counts rather than add to them."
+        },
         "dropped": {
             "type": "integer",
             "minimum": 1,

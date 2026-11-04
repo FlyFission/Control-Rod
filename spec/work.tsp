@@ -123,16 +123,31 @@ model Run {
    */
   scram_id?: string;
 
+  /**
+   * The run ceiling its budget reservation was sized from, in seconds (the daemon's timeout and
+   * graceful stop ladder). The control plane asks the run to stop once it has run this long.
+   */
+  @minValue(1)
+  budget_ceiling_seconds?: int32;
+
+  /**
+   * The minutes a reservation for this run takes (its ceiling and the control plane's margins,
+   * rounded up), recorded whenever the daemon reported a ceiling, budget or not, so a minute budget
+   * set while the run is in flight counts it at that size.
+   */
+  @pattern("^[0-9]+\\.[0-9]{2}$")
+  reserve_minutes?: string;
+
   /** Why a queued run is not being handed out, in plain words. */
   @maxLength(300)
   waiting_reason?: string;
 
   /** The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it). */
-  waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
+  waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget";
 
   /**
    * What the hold waits on, where one decision resolves it for every run that names it: a lane's
-   * admission, or a runtime pin for a role and the runtimes it was offered. Absent when the hold is
+   * admission, a runtime pin for a role and the runtimes it was offered, or a budget's hard cap. Absent when the hold is
    * the run's own (a preparation, an unclassified source, an independence conflict, a SCRAM).
    */
   @maxLength(300)
@@ -243,6 +258,12 @@ model NormalizedEvent {
   @minValue(0) input_tokens?: int32;
   @minValue(0) output_tokens?: int32;
   @minValue(0) cached_tokens?: int32;
+
+  /**
+   * Usage: true when the counts are the whole run's so far (a runtime's final result), not one
+   * step's, so they replace the steps' counts rather than add to them.
+   */
+  cumulative?: boolean;
 
   /** How many events admission refused before this one (kind dropped). */
   @minValue(1) dropped?: int32;

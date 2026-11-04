@@ -88,6 +88,17 @@
             "type": "string",
             "description": "The SCRAM that stopped this run (specification 22a). Whatever the run reports afterwards is\nquarantined: retained privately with its digests and never applied until a person reviews it."
         },
+        "budget_ceiling_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "The run ceiling its budget reservation was sized from, in seconds (the daemon's timeout and\ngraceful stop ladder). The control plane asks the run to stop once it has run this long."
+        },
+        "reserve_minutes": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]{2}$",
+            "description": "The minutes a reservation for this run takes (its ceiling and the control plane's margins,\nrounded up), recorded whenever the daemon reported a ceiling, budget or not, so a minute budget\nset while the run is in flight counts it at that size."
+        },
         "waiting_reason": {
             "type": "string",
             "maxLength": 300,
@@ -114,6 +125,10 @@
                 {
                     "type": "string",
                     "const": "preparation"
+                },
+                {
+                    "type": "string",
+                    "const": "budget"
                 }
             ],
             "description": "The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it)."
@@ -121,7 +136,7 @@
         "waiting_key": {
             "type": "string",
             "maxLength": 300,
-            "description": "What the hold waits on, where one decision resolves it for every run that names it: a lane's\nadmission, or a runtime pin for a role and the runtimes it was offered. Absent when the hold is\nthe run's own (a preparation, an unclassified source, an independence conflict, a SCRAM)."
+            "description": "What the hold waits on, where one decision resolves it for every run that names it: a lane's\nadmission, a runtime pin for a role and the runtimes it was offered, or a budget's hard cap. Absent when the hold is\nthe run's own (a preparation, an unclassified source, an independence conflict, a SCRAM)."
         },
         "independence_override": {
             "$ref": "OwnerOverride.json",

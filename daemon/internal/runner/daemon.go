@@ -56,6 +56,12 @@ type Config struct {
 	Breaker *BreakerPolicy
 }
 
+// RunCeiling is the longest a run lasts in this daemon: its timeout, then the graceful stop ladder
+// (hangup, then stop grace) that ends it.
+func (d *Daemon) RunCeiling() time.Duration {
+	return d.cfg.Timeout + d.cfg.StopAfterHangup + d.cfg.StopGrace
+}
+
 // Home returns CONTROLROD_HOME, or ~/.controlrod.
 func Home(getenv func(string) string) (string, error) {
 	if h := getenv("CONTROLROD_HOME"); h != "" {
@@ -217,7 +223,7 @@ claim:
 		}
 		status := d.runtimeStatus()
 		claimSent := time.Now()
-		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status)
+		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling())
 		if job != nil {
 			job.claimSent = claimSent
 		}

@@ -68,19 +68,23 @@ func statusError(path string, resp *http.Response) error {
 	return fmt.Errorf("POST %s: HTTP %d: %s", path, resp.StatusCode, strings.TrimSpace(string(msg)))
 }
 
-// ClaimRequest is the body of POST /runner/claim: the runtimes ready for work and the probe
-// result for every runtime found.
+// ClaimRequest is the body of POST /runner/claim: the runtimes ready for work, the probe result
+// for every runtime found, and the longest a run lasts in this daemon (its timeout plus the graceful
+// stop ladder), from which the control plane sizes budget reservations.
 type ClaimRequest struct {
-	Runtimes      []string        `json:"runtimes"`
-	RuntimeStatus []RuntimeStatus `json:"runtime_status,omitempty"`
+	Runtimes          []string        `json:"runtimes"`
+	RuntimeStatus     []RuntimeStatus `json:"runtime_status,omitempty"`
+	RunCeilingSeconds int             `json:"run_ceiling_seconds,omitempty"`
 }
 
-// Claim asks for one job, offering only ready runtimes. It returns ErrNoWork on HTTP 204.
-func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeStatus) (*Job, error) {
+// Claim asks for one job, offering only ready runtimes. It returns ErrNoWork on HTTP 204. The
+// ceiling is rounded up to a whole second, so a reservation sized from it is never short.
+func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeStatus, runCeiling time.Duration) (*Job, error) {
 	if runtimes == nil {
 		runtimes = []string{}
 	}
-	resp, err := c.post(ctx, "/runner/claim", ClaimRequest{Runtimes: runtimes, RuntimeStatus: status}, 30*time.Second)
+	req := ClaimRequest{Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second)}
+	resp, err := c.post(ctx, "/runner/claim", req, 30*time.Second)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,8 @@
 import type { Db } from "./db/index.js";
 import { isLane } from "./disclosure.js";
 import { inbox } from "./inbox.js";
+import { budgetOfHold, budgetStatuses } from "./budgets.js";
+import { callerFor } from "./admin.js";
 import { effectiveLane } from "./markings.js";
 import { scramHoldIndex } from "./scram.js";
 import type { WorkConfig } from "./work.js";
@@ -18,6 +20,8 @@ type State = "working" | "needs" | "waiting" | "stuck" | "changed";
 type Place =
   | "process" | "mechanical" | "electrical" | "civil" | "assurance" | "project-controls"
   | "review" | "interface" | "verification" | "your-office" | "document-control" | "bench" | "quarantine";
+
+const withSpend = <T>(spend: T | undefined) => (spend === undefined ? {} : { spend });
 
 /** Lanes shown in presenting mode; everything above internal is left out and only counted. */
 const PRESENTABLE = new Set(["public", "internal"]);
@@ -72,6 +76,27 @@ interface RunRow {
 
 export async function officeFigures(db: Db, cfg: WorkConfig, user: string, presenting = false) {
   const box = await inbox(db, cfg, user);
+  const shape = (t: Awaited<ReturnType<typeof budgetStatuses>>[number]) => ({
+    budget_id: t.budget.id, mode: t.budget.mode, unit: t.budget.limit.unit, limit: t.budget.limit.value, period: t.budget.period, state: t.state,
+    ...(t.used === null ? {} : { used: t.used.toFixed(2) }), ...(t.unreported_runs > 0 ? { unreported_runs: t.unreported_runs } : {}),
+  });
+  // Spend: each budget's use this window, read once; a figure carries its tightest applicable budget.
+  // Never while presenting (specification 13: presenting mode shows no spend).
+  // Suspended budgets stay on Usage but govern nothing, so they never drive a figure.
+  const statuses = presenting ? [] : (await budgetStatuses(db, (await callerFor(db, user)).orgId)).filter((t) => t.budget.status === "active");
+  const spendOf = (projectId: string | undefined, run: Json) => {
+    // A run a budget holds names that budget, whatever baseline it would have run as.
+    const holding = budgetOfHold(run).budget_id;
+    const mine = statuses.filter(({ budget: b }) => b.id === holding || b.scope === "organization" || (b.scope === "project" && b.scope_id === projectId) || (b.scope === "agent" && b.scope_id === run.agent_baseline));
+    if (!mine.length) return undefined;
+    if (holding) {
+      const h = mine.find((x) => x.budget.id === holding);
+      if (h) return shape(h);
+    }
+    // The tightest: the highest share of its limit used; a budget whose use is not reported counts last.
+    const share = (x: (typeof mine)[number]) => (x.used === null ? -1 : x.used / Number(x.budget.limit.value));
+    return shape([...mine].sort((a, b) => share(b) - share(a) || a.budget.id.localeCompare(b.budget.id))[0]!);
+  };
   // Items arrive in gate risk order; the first for a subject is the one that matters most.
   const firstBy = (items: Json[], key: "package_id" | "capture_id") => {
     const m = new Map<string, Json>();
@@ -189,6 +214,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       ...(run.body.permission_waits === "not-observable" ? { observability: "permission waits not observable in print mode" } : {}),
       data_lane: lane,
       ...(projects.has(`package:${p.id}`) ? { project_id: projects.get(`package:${p.id}`) } : {}),
+      ...withSpend(spendOf(projects.get(`package:${p.id}`), run.body)),
       run_status: run.status,
       ...(run.body.stop_requested_at ? { stop_requested: true } : {}),
       href: { to: "/packages/$id", id: p.id, hash },
@@ -241,6 +267,7 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
       gate_stage: "release",
       data_lane: lane,
       ...(projects.has(`capture:${run.package_id}`) ? { project_id: projects.get(`capture:${run.package_id}`) } : {}),
+      ...withSpend(spendOf(projects.get(`capture:${run.package_id}`), run.body)),
       run_status: run.status,
       ...(run.body.stop_requested_at ? { stop_requested: true } : {}),
       href: { to: "/packages" },
@@ -289,13 +316,18 @@ function project(a: {
   // The run's own record and the Inbox items both say when their words came from a SCRAM, so a
   // restart landing between the two reads cannot let the reason through either way.
   const scramWords = a.presenting && (r.waiting_cause === "scram" || Boolean(own?.scram_id) || Boolean(theirs?.scram_id));
+  // A budget hold's words state spend (use, ceiling, cap), which presenting never shows.
+  const budgetWords = a.presenting && (r.waiting_cause === "budget" || Boolean(own?.budget_id) || Boolean(theirs?.budget_id));
   const out = (state: State, place: Place, cause: string, since: string, extra: { waiting_on?: string; hash?: string; key?: string } = {}) =>
-    ({ state, place, cause: clip(scramWords && !held ? `${role} was held by a SCRAM; its reason is not shown while presenting` : cause), cause_key: extra.key ?? itself, since,
+    ({ state, place, cause: clip(scramWords && !held ? `${role} was held by a SCRAM; its reason is not shown while presenting`
+      : budgetWords ? `${role} is held by a budget; spend is not shown while presenting` : cause), cause_key: extra.key ?? itself, since,
       hash: extra.hash ?? "runs", ...(extra.waiting_on ? { waiting_on: extra.waiting_on } : {}) });
   // A hold is shared only where dispatch recorded what it waits on (waiting_key: a lane's admission, or
   // a runtime pin for a role and the runtimes offered), so one decision resolves it for every run that
   // names it. Any other hold is this run's own, however alike the messages read.
-  const holdKey = (who: string) => (typeof r.waiting_key === "string" && r.waiting_key ? `hold:${r.waiting_key}\u0000${who}` : itself);
+  // Presenting, a budget's identifier is spend detail too, so a budget hold groups under its cause alone.
+  const holdKey = (who: string) => (typeof r.waiting_key === "string" && r.waiting_key
+    ? `hold:${budgetWords && r.waiting_key.startsWith("budget:") ? "budget" : r.waiting_key}\u0000${who}` : itself);
 
   if (held)
     return out("stuck", "quarantine",

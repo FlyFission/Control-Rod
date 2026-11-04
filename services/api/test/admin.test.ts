@@ -518,7 +518,9 @@ describe("the administration registry", () => {
     expect(issuers).toEqual([BEN]);
     const r = await signed(ben, benKey, "qualification.issue", { ...fullQualification(BEN), authorities: ["administrator"], reason: "drop policy" });
     expect(r.statusCode, r.body).toBe(409);
-    expect(r.json()).toMatchObject({ code: "last-administrator", message: expect.stringMatching(/only such a Member can issue qualifications/) });
+    // Its own code, with advice that actually lifts it.
+    expect(r.json()).toMatchObject({ code: "last-qualification-issuer", message: expect.stringMatching(/only such a Member can issue qualifications/),
+      change: "Issue another active member a qualification with both administrator and policy authority first." });
   });
 
   it("is refused to anyone not signed in", async () => {

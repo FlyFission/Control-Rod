@@ -153,17 +153,20 @@ export async function budgetUse(q: Db | Tx, b: Json, now = new Date()): Promise<
              group by x.run_id) o)::text as open,
          (select coalesce(sum(amount), 0) from (
             select max((x.body->'amount'->>'value')::numeric) as amount from budget_reservations x join scoped s on s.id = x.run_id
-             where x.body->>'status' = 'settled' and x.recorded_at > $4
+              join runs r on r.id = x.run_id
+             -- Settled in full falls in the window it was settled in: the run's reconciliation, or its
+             -- finish (a reservation's own recorded time is its dispatch).
+             where x.body->>'status' = 'settled'
+               and coalesce((r.body->'reconciliation'->>'recorded_at')::timestamptz, (r.body->>'finished_at')::timestamptz, x.recorded_at) > $4
                and not exists (select 1 from usage_records m where m.run_id = x.run_id and m.body->>'source' = 'measured')
              group by x.run_id) u)::text as unmeasured,
          (select coalesce(sum((r.body->>'reserve_minutes')::numeric), 0) from runs r join scoped s on s.id = r.id
            where r.status <> 'queued' and r.body ? 'reserve_minutes'
              and not exists (select 1 from budget_reservations x where x.run_id = r.id)
              and not exists (select 1 from usage_records m where m.run_id = r.id and m.body->>'source' = 'measured')
-             -- Until it is measured: running, or lost with its outcome unknown, it counts however old;
-             -- reconciled with nothing measured, it counts in full in the window it was reconciled in.
-             and (r.status = 'running' or (r.body ? 'outcome_unknown' and not r.body ? 'reconciliation')
-                  or coalesce((r.body->'reconciliation'->>'recorded_at')::timestamptz, (r.body->>'finished_at')::timestamptz, now()) > $4))::text as unreserved`,
+             -- Until it is measured or reconciled it counts however old (running, finished and awaiting
+             -- the sweep, or lost); reconciled with nothing measured, in the window it was reconciled in.
+             and (not r.body ? 'reconciliation' or (r.body->'reconciliation'->>'recorded_at')::timestamptz > $4))::text as unreserved`,
       [b.org_id, b.scope, b.scope === "organization" ? null : b.scope_id, since])).rows[0]!;
     return { used: Number(r.measured) + Number(r.open) + Number(r.unmeasured) + Number(r.unreserved), in_flight: Number(r.open) + Number(r.unreserved),
       unreported_runs: 0, since: since.toISOString() };

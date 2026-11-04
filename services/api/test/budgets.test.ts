@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { settleEnded } from "../src/budgets.js";
+import { budgetUse, settleEnded } from "../src/budgets.js";
 import { MAX_RUN_EVENTS } from "../src/work.js";
 import { command } from "../src/commands/executor.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
@@ -514,6 +514,36 @@ describe("presenting and racing", () => {
     expect(after.statusCode, String((await run(next)).body.waiting_reason)).toBe(200);
     claims.set(next, after.json().claim.token);
     await retire(cap.id);
+  });
+
+  it("dates a full charge from its reconciliation, and counts old finished work until it is measured, once", async () => {
+    // A reserved run lost and reconciled now, dispatched two days ago: charged in today's window.
+    const t = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    const lost = await claimed("WP-BUD-OLDRECON");
+    await h.admin.query("update runs set lease_expires_at = now() - interval '1 second' where id = $1", [lost]);
+    await sweep();
+    await h.admin.query("update budget_reservations set recorded_at = now() - interval '2 days' where body->>'run_id' = $1", [lost]);
+    const b = (await run(lost)).body;
+    await h.admin.query("update runs set body = $2 where id = $1", [lost, { ...b, reconciliation: { disposition: "process-gone", recorded_at: new Date().toISOString() } }]);
+    // Read without sweeping (GET /usage sweeps): open, then settled in full, the charge is the same.
+    const before = (await budgetUse(h.db, t)).used!;
+    await sweep();
+    expect((await reservations(lost)).find((x) => x.budget_id === t.id)).toMatchObject({ status: "settled" });
+    expect((await budgetUse(h.db, t)).used!).toBeCloseTo(before, 2);
+    await retire(t.id);
+    // An unreserved run that finished two days ago and is not yet measured still counts; measured, it counts once.
+    const done = await claimed("WP-BUD-OLDDONE");
+    expect((await daemon(`/runner/runs/${done}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] })).statusCode).toBe(200);
+    const d = (await run(done)).body;
+    await h.admin.query("update runs set body = $2 where id = $1", [done, { ...d, finished_at: new Date(Date.now() - 2 * 86400e3).toISOString() }]);
+    const probe = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    const waiting = await budgetUse(h.db, probe);
+    await sweep();
+    expect((await h.db.query("select 1 from usage_records where run_id = $1 and body->>'source' = 'measured'", [done])).rowCount).toBe(1);
+    // Measured, its recorded size leaves what is in flight, and only its measured time counts.
+    const measured = await budgetUse(h.db, probe);
+    expect(waiting.in_flight - measured.in_flight).toBeCloseTo(Number(RESERVED), 2);
+    await retire(probe.id);
   });
 
   it("admits a run whose reservation fills a hard cap exactly", async () => {

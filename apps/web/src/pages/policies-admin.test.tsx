@@ -6,7 +6,7 @@ import type { AdminView } from "../api/types.js";
 import type { Passkeys } from "../lib/decide.js";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
-import { BudgetsSection, MembersSection, PolicySection, QualificationsSection, parseLicenses } from "../features/admin/AdminSections.js";
+import { BudgetsSection, MembersSection, PolicySection, ProjectsSection, QualificationsSection, parseLicenses } from "../features/admin/AdminSections.js";
 import { Policies } from "./Policies.js";
 import { SignIn } from "./SignIn.js";
 
@@ -35,7 +35,7 @@ function view(over: Partial<AdminView> = {}): AdminView {
       allow("qualification.issue", "Issue a qualification"), refuse("qualification.revoke", "Revoke a qualification"),
       allow("policy.propose", "Propose a policy change", "none"), allow("policy.approve", "Approve a policy change"),
       allow("marking.propose-declassification", "Propose a declassification", "none"), allow("marking.approve-declassification", "Approve a declassification"),
-      allow("budget.set", "Set a budget"),
+      allow("budget.set", "Set a budget"), allow("project.update", "Update a project"),
     ] as never,
     floors: [],
     registry: {
@@ -140,6 +140,8 @@ describe("administration forms", () => {
   it("issues a qualification with roles, authorities and parsed licenses, refusing a malformed license", async () => {
     expect(parseLicenses(["US-SC, 12345, 2027-06-30, mechanical"])).toEqual([{ jurisdiction: "US-SC", number: "12345", expires_on: "2027-06-30", discipline: "mechanical" }]);
     expect(parseLicenses(["US-SC, 12345"])).toBeNull();
+    // A fifth value would be left out of what is signed, so the line is refused.
+    expect(parseLicenses(["US-SC, 12345, 2027-06-30, mechanical, extra"])).toBeNull();
     const user = userEvent.setup();
     await renderPage(<QualificationsSection view={view()} passkeys={passkeys} />);
     const f = form("Issue a qualification");
@@ -206,6 +208,46 @@ describe("administration forms", () => {
     await user.click(within(f).getByRole("button", { name: "Sign with your passkey and change" }));
     await waitFor(() => expect(sent).toHaveLength(1));
     expect(sent[0]!.body.payload).toEqual({ budget_id: "bud_1", mode: "hard-cap", limit: { value: "480", unit: "minute" } });
+  });
+
+  it("refuses a hard cap on anything but minutes before anything is signed", async () => {
+    const user = userEvent.setup();
+    await renderPage(<BudgetsSection view={view()} passkeys={passkeys} />);
+    const f = form("Set a budget");
+    await user.selectOptions(within(f).getByRole("combobox", { name: "Applies to (required)" }), "organization");
+    await user.selectOptions(within(f).getByRole("combobox", { name: "Mode (required)" }), "hard-cap");
+    await user.selectOptions(within(f).getByRole("combobox", { name: "Unit (required)" }), "token");
+    await user.type(within(f).getByRole("textbox", { name: "Limit (required)" }), "1000");
+    await user.selectOptions(within(f).getByRole("combobox", { name: "Period (required)" }), "P1D");
+    expect(within(f).getByText(/^A hard cap can hold only minutes of run time/)).toBeTruthy();
+    expect((within(f).getByRole("button", { name: "Sign with your passkey and set" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("updates a project's overlays, or clears them, but never both at once", async () => {
+    const user = userEvent.setup();
+    await renderPage(<ProjectsSection view={view()} passkeys={passkeys} />);
+    const f = form("Update a project");
+    await user.selectOptions(within(f).getByRole("combobox", { name: "Project (required)" }), "prj_1");
+    await user.click(within(f).getByRole("checkbox", { name: "Remove every overlay" }));
+    expect(within(f).getByText("Changes Plant A's quality assurance overlays to none.")).toBeTruthy();
+    await user.type(within(f).getByRole("textbox", { name: "Quality assurance overlays (leave empty to keep)" }), "nqa-1");
+    expect(within(f).getByText("Either list the overlays to keep or remove every overlay, not both.")).toBeTruthy();
+    await user.click(within(f).getByRole("checkbox", { name: "Remove every overlay" }));
+    await user.click(within(f).getByRole("button", { name: "Sign with your passkey and update" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]!.body.payload).toEqual({ project_id: "prj_1", qa_overlays: ["nqa-1"] });
+  });
+
+  it("starts the policy proposal again when a new policy comes into force", async () => {
+    let current = view({ policy: { version: 1, settings: { autonomy_ceiling: "2" }, hardware_attestation_formats: ["packed"] } as never });
+    server.use(http.get("*/admin", () => HttpResponse.json(current)));
+    const { qc } = await renderPage(<Policies passkeys={passkeys} />);
+    const ceiling = async () => ((await screen.findByRole("combobox", { name: "Autonomy ceiling" })) as HTMLSelectElement).value;
+    expect(await ceiling()).toBe("2");
+    current = view({ policy: { version: 2, settings: { autonomy_ceiling: "1" }, hardware_attestation_formats: ["packed", "tpm"] } as never });
+    await qc.invalidateQueries({ queryKey: ["admin"] });
+    await waitFor(async () => expect(await ceiling()).toBe("1"));
+    expect((screen.getByRole("textbox", { name: "Hardware attestation formats accepted" }) as HTMLTextAreaElement).value).toBe("packed\ntpm");
   });
 
   it("offers the first Member their own first qualification while no administrator exists", async () => {

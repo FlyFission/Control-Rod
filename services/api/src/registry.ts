@@ -1,3 +1,4 @@
+import { currentFloor } from "./authority.js";
 import type { Db } from "./db/index.js";
 
 /**
@@ -29,14 +30,19 @@ export async function adminRegistry(db: Db, viewer: { orgId: string; memberId: s
                      where a.org_id = $1 order by a.credential_id, a.version desc) k
       where $2::text is null or k.body->>'member_id' = $2`, [orgId, viewer.administrator ? null : viewer.memberId])).rows
     .map(({ body: c, registered_at }) => ({ id: c.id, org_id: c.org_id, member_id: c.member_id, credential_id: c.credential_id,
-      revoked: c.revoked === true, hardware: c.hardware_floor?.eligible === true, registered_at: registered_at.toISOString() }));
+      revoked: c.revoked === true, registered_at: registered_at.toISOString() }));
+  // Whether each meets the hardware key floor under the policy in force now, as signing decides it.
+  const credentialsNow = [];
+  for (const c of credentials) credentialsNow.push({ ...c, hardware: (await currentFloor(db, c.credential_id)).eligible });
   const delegations = (await db.query<{ body: Json; revoked: boolean }>(
     `select d.body, exists (select 1 from delegation_revocations r where r.delegation_id = d.id) as revoked
        from delegations d where d.org_id = $1 order by d.recorded_at desc, d.id`, [orgId])).rows
-    .map((r) => ({ ...r.body, revoked: r.revoked }));
+    .map(({ body: d, revoked }) => ({ id: d.id, org_id: d.org_id, from_member_id: d.from_member_id, to_member_id: d.to_member_id, role: d.role,
+      ...(d.project_id ? { project_id: d.project_id } : {}), ...(d.discipline ? { discipline: d.discipline } : {}),
+      starts_on: d.starts_on, ends_on: d.ends_on, revoked }));
   const bindings = await rows("select body from repo_bindings where org_id = $1 order by created_at, id");
   const changeRequests = await rows(
     "select body from change_requests where org_id = $1 and body->>'status' = 'proposed' order by recorded_at, id");
   const budgets = await rows("select body from budgets where org_id = $1 and body->>'status' <> 'retired' order by id");
-  return { qualifications, credentials, delegations, bindings, change_requests: changeRequests, budgets };
+  return { qualifications, credentials: credentialsNow, delegations, bindings, change_requests: changeRequests, budgets };
 }

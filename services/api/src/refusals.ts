@@ -72,6 +72,7 @@ export const REASONS: Record<string, Reason> = {
   "invalid-dates": r("A delegation must run forward from its start, for at most a year.", "Choose an end date after the start and within a year of it."),
   "already-revoked": r("This is already revoked.", "Nothing to do; it no longer grants anything."),
   "last-administrator": r("This would leave the organization with no active administrator.", "Give another member administrator authority first."),
+  "bootstrap-authorities": r("The first qualification must carry both administrator and policy authority.", "Include both; only a member holding them can issue anyone else a qualification."),
   "last-qualification-issuer": r("This would leave no active member with both administrator and policy authority, and only such a member can issue qualifications.", "Issue another active member a qualification with both administrator and policy authority first."),
   "last-credential": r("This is the member's last usable passkey.", "Add another passkey before revoking this one."),
   "multi-organization-later": r("Control Rod runs one organization until the multi-organization phase.", "Nothing changes this before that phase."),

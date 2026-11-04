@@ -5831,10 +5831,9 @@
           "delegations": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": {}
+              "$ref": "#/components/schemas/RegistryDelegation"
             },
-            "description": "Every delegation, with whether it was revoked."
+            "description": "Every delegation, with whether it was revoked, and without its reason."
           },
           "bindings": {
             "type": "array",
@@ -10403,7 +10402,7 @@
           },
           "hardware": {
             "type": "boolean",
-            "description": "Whether it meets the hardware key floor."
+            "description": "Whether it meets the hardware key floor under the policy in force now."
           },
           "registered_at": {
             "type": "string",
@@ -10411,6 +10410,54 @@
           }
         },
         "description": "A passkey as the forms name it: its owner, when it was registered, and no attestation evidence."
+      },
+      "RegistryDelegation": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "from_member_id",
+          "to_member_id",
+          "role",
+          "starts_on",
+          "ends_on",
+          "revoked"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "from_member_id": {
+            "type": "string"
+          },
+          "to_member_id": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "discipline": {
+            "type": "string"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "ends_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        },
+        "description": "A delegation as the forms show it: who, what, when, and whether revoked; never its reason."
       },
       "RegistryQualification": {
         "type": "object",

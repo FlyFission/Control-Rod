@@ -28,6 +28,10 @@ export interface CommandSpec {
   fields: readonly Field[];
   /** What the command will change, in words, from the values as they stand; null until they are complete. */
   describe: (v: Values) => string | null;
+  /** Why these values cannot be sent as they stand (a combination the control plane refuses), or null. */
+  invalid?: (v: Values) => string | null;
+  /** Changes when what the form starts from changes (for example a new policy version), so it starts again. */
+  resetKey?: string;
   /** The exact payload sent and signed; it must say nothing the description does not. */
   payload: (v: Values) => Record<string, unknown>;
   /** Words for a successful result, from what the control plane returned. */
@@ -56,7 +60,8 @@ export function CommandForm({ spec, action, passkeys = browserPasskeys }: { spec
   const merged: Values = { ...values, ...Object.fromEntries(Object.entries(text).map(([k, t]) => [k, linesOf(t)])) };
   const missing = spec.fields.some((f) => f.required && (Array.isArray(merged[f.key]) ? (merged[f.key] as string[]).length === 0 : !String(merged[f.key] ?? "").trim()));
   // Every description ends with the reason the command records, since it is signed with the rest.
-  const said = missing ? null : spec.describe(merged);
+  const problem = missing ? null : (spec.invalid?.(merged) ?? null);
+  const said = missing || problem ? null : spec.describe(merged);
   const reason = spec.fields.some((f) => f.key === "reason") ? String(merged["reason"] ?? "").trim() : "";
   const description = said && reason ? `${said} Recorded reason: ${reason}` : said;
   const signed = action?.signature === "direct";
@@ -96,7 +101,7 @@ export function CommandForm({ spec, action, passkeys = browserPasskeys }: { spec
         ))}
         {/* What will change, in words, before anything is sent (N-3). */}
         <p className="small admin-describe" role="status">
-          {description ?? "Fill in the required fields to see exactly what this changes."}
+          {problem ?? description ?? "Fill in the required fields to see exactly what this changes."}
         </p>
         <button type="submit" className="btn small" disabled={!description}>
           {run.isPending ? "Working" : signed ? `Sign with your passkey and ${spec.verb}` : spec.verb[0]!.toUpperCase() + spec.verb.slice(1)}

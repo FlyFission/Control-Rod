@@ -136,7 +136,7 @@ export function MembersSection({ view, passkeys = browserPasskeys }: Props) {
       </div>
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={`${s.title ?? s.name}:${s.resetKey ?? ""}`} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
@@ -226,7 +226,7 @@ export function QualificationsSection({ view, passkeys = browserPasskeys }: Prop
       )}
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={`${s.title ?? s.name}:${s.resetKey ?? ""}`} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
@@ -240,7 +240,10 @@ const licenseWords = (l: { jurisdiction: string; number: string; expires_on: str
 export function parseLicenses(lines: string[]): { jurisdiction: string; number: string; expires_on: string; discipline?: string }[] | null {
   const out = [];
   for (const line of lines) {
-    const [jurisdiction, number, expires, discipline] = line.split(",").map((x) => x.trim());
+    const parts = line.split(",").map((x) => x.trim());
+    // Never more than four: a value the person typed is never silently left out of what is signed.
+    if (parts.length > 4) return null;
+    const [jurisdiction, number, expires, discipline] = parts;
     if (!jurisdiction || !number || !expires || !/^\d{4}-\d{2}-\d{2}$/.test(expires)) return null;
     out.push({ jurisdiction, number, expires_on: expires, ...(discipline ? { discipline } : {}) });
   }
@@ -298,7 +301,7 @@ export function DelegationsSection({ view, passkeys = browserPasskeys }: Props) 
       )}
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={`${s.title ?? s.name}:${s.resetKey ?? ""}`} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
@@ -326,18 +329,25 @@ export function ProjectsSection({ view, passkeys = browserPasskeys }: Props) {
         { key: "name", label: "New name (leave empty to keep)", kind: "text" },
         { key: "default_rigor", label: "New default rigor (leave empty to keep)", kind: "select", options: opts(RIGOR) },
         { key: "lanes", label: "Lanes (leave all clear to keep)", kind: "checks", options: opts(LANES) },
+        { key: "qa_overlays", label: "Quality assurance overlays (leave empty to keep)", kind: "lines", placeholder: "One per line; replaces the current list" },
+        { key: "clear_overlays", label: "Overlays", kind: "checks", options: [{ value: "clear", label: "Remove every overlay" }] },
       ],
+      invalid: (v) => (list(v, "qa_overlays").length && list(v, "clear_overlays").length
+        ? "Either list the overlays to keep or remove every overlay, not both." : null),
       describe: (v) => {
         const changes = [
           str(v, "name") && `name to ${str(v, "name")}`,
           str(v, "default_rigor") && `default rigor to ${str(v, "default_rigor")}`,
           list(v, "lanes").length > 0 && `lanes to ${and(list(v, "lanes"))}`,
+          list(v, "qa_overlays").length > 0 && `quality assurance overlays to ${and(list(v, "qa_overlays"))}`,
+          list(v, "clear_overlays").length > 0 && "quality assurance overlays to none",
         ].filter(Boolean) as string[];
         return changes.length ? `Changes ${projectName(str(v, "project_id"))}'s ${and(changes)}.` : null;
       },
       payload: (v) => ({
         project_id: str(v, "project_id"), ...(str(v, "name") ? { name: str(v, "name") } : {}), ...(str(v, "default_rigor") ? { default_rigor: str(v, "default_rigor") } : {}),
         ...(list(v, "lanes").length ? { lanes: list(v, "lanes") } : {}),
+        ...(list(v, "qa_overlays").length ? { qa_overlays: list(v, "qa_overlays") } : list(v, "clear_overlays").length ? { qa_overlays: [] } : {}),
       }),
     },
     {
@@ -385,7 +395,7 @@ export function ProjectsSection({ view, passkeys = browserPasskeys }: Props) {
       )}
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={`${s.title ?? s.name}:${s.resetKey ?? ""}`} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
@@ -420,7 +430,9 @@ export function PolicySection({ view, passkeys = browserPasskeys }: Props) {
         },
         reason: str(v, "reason"),
       }),
-      // The form starts from the policy in force, so changing one setting never drops another.
+      // The form starts from the policy in force, so changing one setting never drops another, and
+      // starts again whenever a new policy comes into force.
+      resetKey: String(current?.version ?? "none"),
       initial: {
         autonomy_ceiling: current?.settings?.["autonomy_ceiling"] ?? "",
         budget_near_percent: current?.settings?.["budget_near_percent"] ?? "",
@@ -470,7 +482,7 @@ export function PolicySection({ view, passkeys = browserPasskeys }: Props) {
       </p>
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={`${s.title ?? s.name}:${s.resetKey ?? ""}`} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>
@@ -494,6 +506,8 @@ export function BudgetsSection({ view, passkeys = browserPasskeys }: Props) {
         { key: "limit", label: "Limit", kind: "text", required: true },
         { key: "period", label: "Period", kind: "select", required: true, options: PERIODS },
       ],
+      invalid: (v) => (str(v, "mode") === "hard-cap" && str(v, "unit") !== "minute"
+        ? "A hard cap can hold only minutes of run time: nothing reports tokens or money before work starts. Choose minutes, or track or alert." : null),
       describe: (v) => {
         if (str(v, "scope") !== "organization" && !str(v, "scope_id")) return null;
         if (!LIMIT.test(str(v, "limit"))) return null;
@@ -511,6 +525,11 @@ export function BudgetsSection({ view, passkeys = browserPasskeys }: Props) {
         { key: "limit", label: "New limit, in its unit (leave empty to keep)", kind: "text" },
         { key: "period", label: "New period (leave empty to keep)", kind: "select", options: PERIODS },
       ],
+      invalid: (v) => {
+        const b = registry.budgets.find((x: Json) => x.id === str(v, "budget_id"));
+        return b && (str(v, "mode") || b.mode) === "hard-cap" && b.limit.unit !== "minute"
+          ? `A hard cap can hold only minutes of run time, and this budget counts ${unitWords(b.limit.unit)}. Choose track or alert.` : null;
+      },
       describe: (v) => {
         const b = registry.budgets.find((x: Json) => x.id === str(v, "budget_id"));
         if (!b) return null;
@@ -548,7 +567,7 @@ export function BudgetsSection({ view, passkeys = browserPasskeys }: Props) {
       )}
       <div className="admin-forms">
         {specs.map((s) => (
-          <CommandForm key={s.title ?? s.name} spec={s} action={action(s.name)} passkeys={passkeys} />
+          <CommandForm key={`${s.title ?? s.name}:${s.resetKey ?? ""}`} spec={s} action={action(s.name)} passkeys={passkeys} />
         ))}
       </div>
     </section>

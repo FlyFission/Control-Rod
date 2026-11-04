@@ -719,6 +719,13 @@ export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: 
     const bootstrap = name === "qualification.issue" && payload.member_id === caller.memberId
       && (await needsBootstrap(c, caller.orgId)) && (await firstMember(c, caller.orgId)) === caller.memberId;
     await authorize(c, caller, cmd.need, bootstrap);
+    // A bootstrap must create someone able to issue the next qualification, or nobody ever could.
+    if (bootstrap) {
+      const authorities = Array.isArray(payload.authorities) ? (payload.authorities as unknown[]) : [];
+      if (!authorities.includes("administrator") || !authorities.includes("policy"))
+        throw new Refusal(409, "bootstrap-authorities",
+          "The first qualification must carry both administrator and policy authority, since only they can issue the next one");
+    }
     const result = await cmd.run(c, caller, payload, ctx);
     await appendEvent(c, "admin.command", name, actorOf(caller), {
       signature: cmd.signature, ...(signedSubject ? { subject_digest: signedSubject, credential_id: signed!.credentialId } : {}), ...(bootstrap ? { bootstrap: true } : {}),

@@ -1054,10 +1054,8 @@ export interface components {
             qualifications: components["schemas"]["RegistryQualification"][];
             /** @description Each passkey's current state: every Member's for an administrator, otherwise the viewer's own. */
             credentials: components["schemas"]["RegistryCredential"][];
-            /** @description Every delegation, with whether it was revoked. */
-            delegations: {
-                [key: string]: unknown;
-            }[];
+            /** @description Every delegation, with whether it was revoked, and without its reason. */
+            delegations: components["schemas"]["RegistryDelegation"][];
             bindings: {
                 [key: string]: unknown;
             }[];
@@ -2514,10 +2512,25 @@ export interface components {
             member_id: string;
             credential_id: string;
             revoked: boolean;
-            /** @description Whether it meets the hardware key floor. */
+            /** @description Whether it meets the hardware key floor under the policy in force now. */
             hardware: boolean;
             /** Format: date-time */
             registered_at: string;
+        };
+        /** @description A delegation as the forms show it: who, what, when, and whether revoked; never its reason. */
+        RegistryDelegation: {
+            id: string;
+            org_id: string;
+            from_member_id: string;
+            to_member_id: string;
+            role: string;
+            project_id?: string;
+            discipline?: string;
+            /** Format: date */
+            starts_on: string;
+            /** Format: date */
+            ends_on: string;
+            revoked: boolean;
         };
         /** @description A Member's current qualification as the forms show it: no license numbers and no reasons. */
         RegistryQualification: {

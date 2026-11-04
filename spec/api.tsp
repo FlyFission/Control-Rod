@@ -759,8 +759,8 @@ model AdminRegistry {
   /** Each passkey's current state: every Member's for an administrator, otherwise the viewer's own. */
   credentials: RegistryCredential[];
 
-  /** Every delegation, with whether it was revoked. */
-  delegations: Record<unknown>[];
+  /** Every delegation, with whether it was revoked, and without its reason. */
+  delegations: RegistryDelegation[];
   bindings: Record<unknown>[];
 
   /** Change requests waiting on approval. */
@@ -780,6 +780,20 @@ model RegistryQualification {
   revoked: boolean;
 }
 
+/** A delegation as the forms show it: who, what, when, and whether revoked; never its reason. */
+model RegistryDelegation {
+  id: string;
+  org_id: string;
+  from_member_id: string;
+  to_member_id: string;
+  role: string;
+  project_id?: string;
+  discipline?: string;
+  starts_on: plainDate;
+  ends_on: plainDate;
+  revoked: boolean;
+}
+
 /** A passkey as the forms name it: its owner, when it was registered, and no attestation evidence. */
 model RegistryCredential {
   id: string;
@@ -788,7 +802,7 @@ model RegistryCredential {
   credential_id: string;
   revoked: boolean;
 
-  /** Whether it meets the hardware key floor. */
+  /** Whether it meets the hardware key floor under the policy in force now. */
   hardware: boolean;
 
   registered_at: utcDateTime;

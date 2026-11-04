@@ -83,6 +83,9 @@ async function holdResolver(db: Db, cfg: WorkConfig, user: string, run: Json, bo
       return authorities.has("lane") ? null : { who: "someone with lane authority", why: "Changing which runtimes a data lane admits needs lane authority" };
     case "budget":
       return standing.get("budget.set")?.allowed ? null : { who: "someone with policy authority", why: "Raising or lifting a budget needs policy authority" };
+    case "sandbox":
+      // A role's network needs live in its pack's tools file; changing a lane needs lane authority.
+      return authorities.has("administrator") ? null : { who: "an administrator", why: "A role's network needs are set in its pack's tools file, which an administrator maintains" };
     default:
       return null;
   }

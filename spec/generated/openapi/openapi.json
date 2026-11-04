@@ -9373,6 +9373,10 @@
             "minimum": 1,
             "description": "The run ceiling its budget reservation was sized from, in seconds (the daemon's timeout and\ngraceful stop ladder). The control plane asks the run to stop once it has run this long."
           },
+          "sandbox_policy": {
+            "$ref": "#/components/schemas/ControlRod.Records.SandboxPolicyRef",
+            "description": "The sandbox policy version its agent actions run under (workbench plan task 6.1), by digest.\nThe daemon refuses a job whose policy does not match it."
+          },
           "reserve_minutes": {
             "type": "string",
             "pattern": "^[0-9]+\\.[0-9]{2}$",
@@ -9391,7 +9395,8 @@
               "runtime-pin",
               "independent-runtime",
               "preparation",
-              "budget"
+              "budget",
+              "sandbox"
             ],
             "description": "The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it)."
           },
@@ -9519,6 +9524,101 @@
             "type": "string"
           }
         }
+      },
+      "ControlRod.Records.SandboxDriver": {
+        "type": "string",
+        "enum": [
+          "native-cli",
+          "oci"
+        ]
+      },
+      "ControlRod.Records.SandboxPolicy": {
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "org_id",
+          "driver",
+          "denied_read",
+          "writable_roots",
+          "allowed_hosts",
+          "enabled_tools",
+          "mandatory_claims"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "org_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "driver": {
+            "$ref": "#/components/schemas/ControlRod.Records.SandboxDriver"
+          },
+          "denied_read": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "description": "Paths agent actions can never read; always includes the CLI login folders."
+          },
+          "writable_roots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_hosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Hosts agent actions may reach; empty means no network."
+          },
+          "enabled_tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Agent tools enabled for the run; anything not listed is off."
+          },
+          "mandatory_claims": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Claims the in-run probe must observe before the verdict counts."
+          }
+        },
+        "description": "What a run's agent actions may touch. Decisions and traces cite its digest. (F per version)"
+      },
+      "ControlRod.Records.SandboxPolicyRef": {
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "digest"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        },
+        "description": "One version of a sandbox policy, as a run cites it."
       },
       "ControlRod.Records.ScramEvent": {
         "type": "object",
@@ -10752,6 +10852,13 @@
           "runtime_pin": {
             "$ref": "#/components/schemas/Runner.RuntimePinRef",
             "description": "The artifact this run must launch, when one is pinned for its runtime and role."
+          },
+          "sandbox_policy": {
+            "$ref": "#/components/schemas/ControlRod.Records.SandboxPolicy",
+            "description": "What the run's agent actions may touch (plan task 6.1). The daemon derives every CLI setting\nfrom it, checks it against `sandbox_policy_digest` and the run's recorded policy, and refuses\nto launch an agent CLI without it."
+          },
+          "sandbox_policy_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
           }
         }
       },

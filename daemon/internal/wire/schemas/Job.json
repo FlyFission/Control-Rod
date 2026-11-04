@@ -32,6 +32,13 @@
         "runtime_pin": {
             "$ref": "RuntimePinRef.json",
             "description": "The artifact this run must launch, when one is pinned for its runtime and role."
+        },
+        "sandbox_policy": {
+            "$ref": "SandboxPolicy.json",
+            "description": "What the run's agent actions may touch (plan task 6.1). The daemon derives every CLI setting\nfrom it, checks it against `sandbox_policy_digest` and the run's recorded policy, and refuses\nto launch an agent CLI without it."
+        },
+        "sandbox_policy_digest": {
+            "$ref": "Digest.json"
         }
     },
     "required": [

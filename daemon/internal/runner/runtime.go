@@ -2,7 +2,6 @@ package runner
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -114,49 +113,44 @@ func NeedsNetwork(ws *Workspace) bool {
 	return network
 }
 
-// CodexArgs is the argument list for a Codex run. Codex runs read-only by default and refuses to
-// run outside a Git repository, so the run gets an explicit workspace-write sandbox rooted at the
-// run workspace and skips the repository check. Network inside the sandbox is turned on only
-// when the job asks for it.
-func CodexArgs(ws *Workspace, model string, network bool) []string {
-	args := []string{"exec", "--json", "-s", "workspace-write", "--skip-git-repo-check", "-C", ws.Dir}
+// CodexArgs is the argument list for a Codex run under its sandbox policy (ADR 0021): the run's
+// permission profile and isolation (CodexPolicyArgs), rooted at the run workspace, outside any Git
+// repository check. There is no network and no sandbox_mode.
+func CodexArgs(ws *Workspace, model string, p *SandboxPolicy, at SandboxPaths) ([]string, error) {
+	policy, err := CodexPolicyArgs(p, at)
+	if err != nil {
+		return nil, err
+	}
+	args := append([]string{"exec", "--json", "--skip-git-repo-check", "-C", ws.Dir}, policy...)
 	if model != "" {
 		args = append(args, "-m", model)
 	}
-	if network {
-		args = append(args, "-c", "sandbox_workspace_write.network_access=true")
-	}
-	return append(args, Prompt)
+	return append(args, Prompt), nil
 }
 
-// ClaudeArgs is the argument list for a Claude Code run in headless print mode. With a hook file,
-// a PermissionRequest hook records each permission request there (spike S-3 showed the hook fires
-// in print mode and the tool is refused, so this observes a refusal; it is not an approval channel).
-func ClaudeArgs(ws *Workspace, model string) []string {
+// ClaudeArgs is the argument list for a Claude Code run in headless print mode under its sandbox
+// policy (ADR 0021): only the policy's built-in tools exist, the role's allowlist decides which run
+// without asking, nothing ambient is loaded, and the settings carry the command sandbox and the
+// read and write rules. With a hook file, a PermissionRequest hook records each permission request
+// there (spike S-3 showed the hook fires in print mode and the tool is refused, so this observes a
+// refusal; it is not an approval channel).
+func ClaudeArgs(ws *Workspace, model string, p *SandboxPolicy, at SandboxPaths) []string {
 	args := []string{"-p", Prompt, "--output-format", "stream-json", "--verbose",
-		"--permission-mode", ClaudePermissionMode, "--allowedTools", allowedTools(ws)}
+		"--permission-mode", ClaudePermissionMode, "--tools", ClaudeToolList(p), "--allowedTools", allowedTools(ws)}
+	args = append(args, ClaudeIsolationArgs()...)
 	if model != "" {
 		args = append(args, "--model", model)
 	}
-	if ws.HookFile != "" {
-		args = append(args, "--settings", PermissionHookSettings(ws.HookFile))
-	}
-	return args
+	return append(args, "--settings", ClaudeSettings(p, at, ws.HookFile))
 }
 
-// PermissionHookSettings is the --settings value that appends each PermissionRequest hook payload,
-// one JSON object per line, to file.
-func PermissionHookSettings(file string) string {
+// permissionHook appends each PermissionRequest hook payload, one JSON object per line, to file.
+func permissionHook(file string) map[string]any {
 	quoted := "'" + strings.ReplaceAll(file, "'", `'\''`) + "'"
-	settings := map[string]any{"hooks": map[string]any{"PermissionRequest": []any{map[string]any{
+	return map[string]any{"PermissionRequest": []any{map[string]any{
 		"matcher": "*",
 		"hooks":   []any{map[string]any{"type": "command", "command": "{ cat; echo; } >> " + quoted}},
-	}}}}
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	_ = enc.Encode(settings)
-	return strings.TrimSpace(buf.String())
+	}}}
 }
 
 // PermissionEvents reads hook payloads (one JSON object per line) into permission_request events.
@@ -202,7 +196,7 @@ type Launch struct {
 }
 
 // LaunchFor describes the launch Command builds for a runtime.
-func LaunchFor(runtime string, run Run, ws *Workspace) Launch {
+func LaunchFor(runtime string, run Run, ws *Workspace, p *SandboxPolicy) Launch {
 	l := Launch{Mode: "print", RequestedModel: RequestedModel(run)}
 	if l.RequestedModel == "" {
 		l.RequestedModel = "default"
@@ -211,12 +205,9 @@ func LaunchFor(runtime string, run Run, ws *Workspace) Launch {
 	case RuntimeClaude:
 		l.PermissionMode = ClaudePermissionMode
 		l.AllowedTools = strings.Split(allowedTools(ws), ",")
-		l.Sandbox = "none"
+		l.Sandbox = sandboxLabel(p)
 	case RuntimeCodex:
-		l.Sandbox = "workspace-write"
-		if NeedsNetwork(ws) {
-			l.Sandbox = "workspace-write+network"
-		}
+		l.Sandbox = sandboxLabel(p)
 	case RuntimeFake:
 		l.Mode = "fake"
 		l.Sandbox = "none"
@@ -224,8 +215,17 @@ func LaunchFor(runtime string, run Run, ws *Workspace) Launch {
 	return l
 }
 
-// Command builds the process for a runtime, or nil for the fake runtime's copy mode.
-func Command(runtime string, run Run, ws *Workspace) (*exec.Cmd, error) {
+// sandboxLabel names the policy a launch ran under, for the execution trace.
+func sandboxLabel(p *SandboxPolicy) string {
+	if p == nil {
+		return "none"
+	}
+	return fmt.Sprintf("%s:%s@v%d", p.Driver, p.ID, p.Version)
+}
+
+// Command builds the process for a runtime, or nil for the fake runtime's copy mode. An agent CLI
+// is built only under a verified sandbox policy, with the allowlisted environment.
+func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {
 	switch run.Role {
 	case "intake", "author", "pre-check":
 	default:
@@ -235,9 +235,19 @@ func Command(runtime string, run Run, ws *Workspace) (*exec.Cmd, error) {
 	var cmd *exec.Cmd
 	switch runtime {
 	case RuntimeClaude:
-		cmd = exec.Command("claude", ClaudeArgs(ws, model)...)
+		if p == nil {
+			return nil, ErrNoPolicy
+		}
+		cmd = exec.Command("claude", ClaudeArgs(ws, model, p, at)...)
 	case RuntimeCodex:
-		cmd = exec.Command("codex", CodexArgs(ws, model, NeedsNetwork(ws))...)
+		if p == nil {
+			return nil, ErrNoPolicy
+		}
+		args, err := CodexArgs(ws, model, p, at)
+		if err != nil {
+			return nil, err
+		}
+		cmd = exec.Command("codex", args...)
 	case RuntimeFake:
 		script := filepath.Join(ws.Inputs, "FAKE.sh")
 		if _, err := os.Stat(script); err != nil {
@@ -249,6 +259,9 @@ func Command(runtime string, run Run, ws *Workspace) (*exec.Cmd, error) {
 	}
 	cmd.Dir = ws.Dir
 	cmd.Env = ChildEnv(os.Environ())
+	if runtime != RuntimeFake {
+		cmd.Env = AgentEnv(os.Environ())
+	}
 	setProcessGroup(cmd)
 	return cmd, nil
 }

@@ -104,7 +104,14 @@ describe("launch inputs", () => {
     const id = await releasedPackage("NET", "site-constraints");
     const author = await claim();
     expect(author?.run.role).toBe("author");
-    expect(input(author as Job, "TOOLS.txt")).toMatch(/^network: on$/m);
+    // The hosts cr-example queries, named, and only the qualified tools (web tools are not).
+    const authorTools = input(author as Job, "TOOLS.txt") ?? "";
+    expect(authorTools).toMatch(/^network: arcgis\.netl\.doe\.gov, .*tigerweb\.geo\.census\.gov$/m);
+    expect(authorTools).not.toMatch(/WebSearch|WebFetch/);
+    // The run cites the policy it runs under, and the job carries that policy with its digest.
+    const a = author as unknown as Record<string, any>;
+    expect(a.sandbox_policy).toMatchObject({ id: a.run.sandbox_policy.id, version: a.run.sandbox_policy.version, allowed_hosts: expect.arrayContaining(["geo.dot.gov"]) });
+    expect(a.sandbox_policy_digest).toEqual(a.run.sandbox_policy.digest);
     await asDaemon(`/runner/runs/${author?.run.id}/complete`, {
       status: "succeeded",
       outputs: [{ name: "constraints.md", content_base64: b64("# Constraints") }],
@@ -789,6 +796,8 @@ describe("capture provenance", () => {
       // Controlled valid capture IDs make the collision deterministic.
       await h.admin.query("update captures set id = $2, body = jsonb_set(body, '{id}', to_jsonb($2::text)) where id = $1", [originalId, captureId]);
       await h.admin.query("update runs set package_id = $2, body = jsonb_set(body, '{package_id}', to_jsonb($2::text)) where package_id = $1", [originalId, captureId]);
+      // The renamed capture is owned like any other record (migration 009; ownership is append only).
+      await h.admin.query("insert into object_owners (object_kind, object_id, org_id) values ('capture', $1, tenancy_sole_org())", [captureId]);
       const intake = await claim();
       if (!intake) throw new Error("no intake job");
       expect(intake.run.package_id).toBe(captureId);

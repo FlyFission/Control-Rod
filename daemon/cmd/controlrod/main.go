@@ -2,6 +2,7 @@
 //
 //	controlrod version
 //	controlrod daemon [--parallel N] [--timeout 45m]
+//	controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR [--home DIR] [--daemon-home DIR]
 //
 // The daemon claims jobs from the control plane, runs an agent runtime in a per-job workspace
 // and reports outputs with an execution trace. It never makes a decision.
@@ -9,12 +10,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -22,7 +25,7 @@ import (
 	"github.com/flyfission/control-rod/daemon/internal/version"
 )
 
-const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m]"
+const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -34,6 +37,8 @@ func main() {
 		fmt.Println(version.Version)
 	case "daemon":
 		os.Exit(daemon(os.Args[2:]))
+	case "sandbox-args":
+		os.Exit(sandboxArgs(os.Args[2:]))
 	default:
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)
@@ -78,5 +83,44 @@ func daemon(args []string) int {
 		logger.Error(err.Error())
 		return 1
 	}
+	return 0
+}
+
+// sandboxArgs prints, as JSON, exactly how a run would be launched under a sandbox policy: the
+// argument list and the environment the agent CLI receives (plan task 6.2). It runs nothing.
+func sandboxArgs(args []string) int {
+	fs := flag.NewFlagSet("sandbox-args", flag.ContinueOnError)
+	rt := fs.String("runtime", "", "claude or codex")
+	policyFile := fs.String("policy", "", "the sandbox policy JSON, as the control plane sends it")
+	workspace := fs.String("workspace", "", "the run workspace")
+	home, _ := os.UserHomeDir()
+	homeDir := fs.String("home", home, "the home folder the policy's ~ means")
+	daemonHome := fs.String("daemon-home", "", "the daemon's home (default ~/.controlrod)")
+	model := fs.String("model", "", "the model the run names, if any")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	raw, err := os.ReadFile(*policyFile)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	var p runner.SandboxPolicy
+	if err := json.Unmarshal(raw, &p); err != nil {
+		fmt.Fprintln(os.Stderr, "read policy:", err)
+		return 1
+	}
+	if *daemonHome == "" {
+		*daemonHome = filepath.Join(*homeDir, ".controlrod")
+	}
+	ws := &runner.Workspace{Dir: *workspace, Inputs: filepath.Join(*workspace, "inputs"), Out: filepath.Join(*workspace, "out")}
+	run := runner.Run{ID: "sandbox-args", Role: "author", Runtime: runner.RuntimeRef{Provider: *rt, Model: *model}}
+	cmd, err := runner.Command(runner.RuntimeFor(*rt), run, ws, &p, runner.SandboxPaths{Home: *homeDir, DaemonHome: *daemonHome, Workspace: *workspace})
+	if err != nil || cmd == nil {
+		fmt.Fprintln(os.Stderr, "no launch:", err)
+		return 1
+	}
+	out, _ := json.MarshalIndent(map[string]any{"argv": cmd.Args, "env": cmd.Env, "dir": cmd.Dir}, "", "  ")
+	fmt.Println(string(out))
 	return 0
 }

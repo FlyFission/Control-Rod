@@ -45,6 +45,14 @@ type Config struct {
 	ProbeInterval time.Duration
 	// Probe runs the probe commands; nil means ExecRunner.
 	Probe CommandRunner
+	// LookPath finds a program the way an agent CLI would (ADR 0021 preflight); nil means
+	// LookPathAgent.
+	LookPath func(string) (string, error)
+	// CodexFeatures lists Codex's effective features for a run; nil means CodexEffectiveFeatures.
+	CodexFeatures func(context.Context) (string, error)
+	// ManagedCodexConfig are files where an administrator can set sandbox_mode; nil means
+	// ManagedCodexConfig.
+	ManagedCodexConfig []string
 	// StopAfterHangup and StopGrace are the waits of the graceful stop ladder (SIGHUP, then
 	// SIGTERM, then SIGKILL). Defaults 2 seconds and 10 seconds.
 	StopAfterHangup time.Duration
@@ -146,6 +154,15 @@ func New(cfg Config) *Daemon {
 	}
 	if cfg.Probe == nil {
 		cfg.Probe = ExecRunner
+	}
+	if cfg.LookPath == nil {
+		cfg.LookPath = LookPathAgent
+	}
+	if cfg.CodexFeatures == nil {
+		cfg.CodexFeatures = CodexEffectiveFeatures
+	}
+	if cfg.ManagedCodexConfig == nil {
+		cfg.ManagedCodexConfig = ManagedCodexConfig
 	}
 	if cfg.StopAfterHangup <= 0 {
 		cfg.StopAfterHangup = 2 * time.Second
@@ -265,12 +282,34 @@ claim:
 	return nil
 }
 
+// sandboxPaths are the paths a run's policy names on this host.
+func (d *Daemon) sandboxPaths(ws *Workspace) SandboxPaths {
+	home, _ := os.UserHomeDir()
+	dh, err := filepath.Abs(d.cfg.Home)
+	if err != nil {
+		dh = d.cfg.Home
+	}
+	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: ws.Dir}
+}
+
+// preflight checks that this host can run rt under its sandbox (plan task 6.3).
+func (d *Daemon) preflight(ctx context.Context, rt string) error {
+	return Preflight(ctx, rt, d.cfg.Probe, d.cfg.LookPath, d.cfg.CodexFeatures, d.cfg.ManagedCodexConfig)
+}
+
 // probe checks every runtime found on PATH and logs, in one plain sentence each, any that is
 // not ready or has become ready again. Only ready runtimes are offered for work.
 func (d *Daemon) probe(ctx context.Context) {
 	next := make([]RuntimeStatus, 0, len(d.cfg.Runtimes))
 	for _, rt := range d.cfg.Runtimes {
-		next = append(next, Probe(ctx, rt, d.cfg.Version, d.cfg.Probe))
+		st := Probe(ctx, rt, d.cfg.Version, d.cfg.Probe)
+		// A runtime whose sandbox this host cannot hold is not offered: the reason says what to fix.
+		if st.Ready {
+			if err := d.preflight(ctx, rt); err != nil {
+				st.Ready, st.Reason = false, err.Error()
+			}
+		}
+		next = append(next, st)
 	}
 	d.probeMu.Lock()
 	prev := map[string]bool{}
@@ -859,6 +898,22 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if runtime == "" || !slices.Contains(d.cfg.Runtimes, runtime) {
 		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
 	}
+	// The sandbox (ADR 0021; plan tasks 6.1 and 6.3): an agent CLI starts only under the run's
+	// verified policy, on a host that can hold it, checked again now without running the CLI (its
+	// login and features are checked by the scheduled probe). A failure ends the run with its
+	// fix and stops the runtime being offered until the next probe; nothing starts unsandboxed.
+	var sandbox *SandboxPolicy
+	if runtime != RuntimeFake {
+		p, perr := VerifyPolicy(*job)
+		if perr != nil {
+			return fail(perr.Error()), nil
+		}
+		if perr := PreflightHost(runtime, d.cfg.LookPath, d.cfg.ManagedCodexConfig); perr != nil {
+			d.markNotReady(runtime, perr.Error())
+			return fail(perr.Error()), nil
+		}
+		sandbox = p
+	}
 	// The lease runs from the claim, through preparation and launch: a watchdog stops the run when
 	// it ends without a renewal.
 	held, release := context.WithCancelCause(ctx)
@@ -912,7 +967,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	hooks := &hookTail{path: ws.HookFile}
 	go func() { d.flushLoop(flushCtx, job, buf, release, hooks, lease); close(flushed) }()
 
-	launch := LaunchFor(runtime, job.Run, ws)
+	launch := LaunchFor(runtime, job.Run, ws, sandbox)
 	var spawned *SpawnReceipt
 	// A stop freezes the run and reads out/ into the daemon's memory while it is frozen; that
 	// capture is then the run's only output, and nothing on disk is read again.
@@ -925,7 +980,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			frozen = &Captured{Raw: map[string][]byte{}}
 		}
 	}
-	cmd, err := Command(runtime, job.Run, ws)
+	cmd, err := Command(runtime, job.Run, ws, sandbox, d.sandboxPaths(ws))
 	// Nothing starts once the lease has ended (or anything else stopped the run) during preparation.
 	if err == nil && held.Err() != nil {
 		err = context.Cause(held)

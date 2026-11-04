@@ -85,8 +85,23 @@ describe("lenses", () => {
     expect(new Set([base, figure({ current_inputs: ["WP-3"] }), figure({ marks: { gate: false, safety: false, changed_input: "WP-5" } })].map(change.tint)).size).toBe(3);
   });
 
-  it("offers Spend only once usage is recorded, and says so", () => {
-    expect(lensById("spend").unavailable).toMatch(/5\.2/);
+  it("shows Spend from each agent's tightest budget, brighter nearer the limit, in words too, and dimmest with no budget or no report", () => {
+    const spend = lensById("spend");
+    expect(spend.unavailable).toBeUndefined();
+    const at = (state: string, used?: string) => figure({ spend: { budget_id: "bud_1", mode: "hard-cap", unit: "minute", limit: "60", period: "P1D", state, ...(used ? { used } : {}) } as never });
+    const order = [at("over", "75.00"), at("near", "50.00"), at("within", "10.00"), figure()].map((f) => spend.tint(f));
+    expect(order).toEqual(["#f3f4f6", "#c7ccd4", "#9aa2ae", "#7b8494"]);
+    expect(spend.value(at("over", "75.00"))).toBe("Over budget bud_1: 75.00 of 60 minutes of run time in P1D");
+    expect(spend.value(figure())).toBe("No budget applies");
+    // Some runs reported no tokens: at least, never a complete total, and the dimmest step.
+    const partial = figure({ spend: { budget_id: "bud_3", mode: "alert", unit: "token", limit: "1000000", period: "P1D", state: "partial", used: "1500.00", unreported_runs: 2 } as never });
+    expect(spend.value(partial)).toBe("Budget bud_3: at least 1500.00 of 1000000 tokens in P1D; 2 runs reported none");
+    expect(spend.tint(partial)).toBe("#7b8494");
+    // Already past its limit with runs unreported: still a floor, never an exact total.
+    const overPartial = figure({ spend: { budget_id: "bud_3", mode: "alert", unit: "token", limit: "1000", period: "P1D", state: "over", used: "1500.00", unreported_runs: 2 } as never });
+    expect(spend.value(overPartial)).toBe("Over budget bud_3: at least 1500.00 of 1000 tokens in P1D; 2 runs reported none");
+    expect(spend.value(figure({ spend: { budget_id: "bud_2", mode: "track", unit: "USD", limit: "50", period: "P1M", state: "not-reported" } as never }))).toBe("Budget bud_2: USD are not reported, so use is unknown");
+    expect(spend.tint(figure({ spend: { budget_id: "bud_2", mode: "track", unit: "USD", limit: "50", period: "P1M", state: "not-reported" } as never }))).toBe("#7b8494");
     expect(LENS_COLORS.length).toBeGreaterThan(5);
   });
 });
@@ -140,10 +155,15 @@ describe("office view", () => {
     expect(screen.getByRole("list", { name: "Gate lens" })).toBeTruthy();
     // The lens value is read with the figure, not only shown as a colour.
     expect(screen.getByRole("button", { name: /Gate lens: In work\.$/ })).toBeTruthy();
-    expect((screen.getByRole("radio", { name: "Spend" }) as HTMLButtonElement).disabled).toBe(true);
+    // Spend can be chosen; presenting shows no spend, so it gives way to Status and is unavailable.
+    await userEvent.click(screen.getByRole("radio", { name: "Spend" }));
+    expect(screen.getByRole("button", { name: /Spend lens: No budget applies\.$/ })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Presenting mode" }));
     expect(await screen.findByText(/2 agents on work above the internal lane are hidden/)).toBeTruthy();
     expect(asked).toContain("?presenting=true");
+    expect((screen.getByRole("radio", { name: "Spend" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("radio", { name: "Status" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByText("Spend lens: Spend is not shown while presenting.")).toBeTruthy();
   });
 
   it("never shows a failed load as an empty office", async () => {

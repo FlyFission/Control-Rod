@@ -9,6 +9,7 @@ import { DEPENDENCIES_DOWN_SQL } from "../src/db/migrations/013-dependencies.js"
 import { RUN_EVENTS_DOWN_SQL } from "../src/db/migrations/014-run-events.js";
 import { SCRAM_DOWN_SQL } from "../src/db/migrations/015-scram.js";
 import { CHAIN_SEALS_DOWN_SQL } from "../src/db/migrations/016-chain-seals.js";
+import { USAGE_ONCE_DOWN_SQL } from "../src/db/migrations/017-usage-once.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import {
@@ -56,6 +57,7 @@ describe("migration 009", () => {
     expect((await verifyChain(h.db)).ok).toBe(true);
 
     // Migrations reverse newest first: the workbench tables depend on tenancy.
+    await h.admin.query(USAGE_ONCE_DOWN_SQL);
     await h.admin.query(CHAIN_SEALS_DOWN_SQL);
     await h.admin.query(SCRAM_DOWN_SQL);
     await h.admin.query(RUN_EVENTS_DOWN_SQL);

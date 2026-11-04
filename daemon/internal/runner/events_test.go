@@ -45,7 +45,7 @@ func TestNormalizesClaudeStreamJSON(t *testing.T) {
 	if !*got[3].OK || *got[4].OK || got[4].Text != "Output redirection needs approval" {
 		t.Fatalf("tool_end %+v %+v", got[3], got[4])
 	}
-	if got[2].InputTokens != 10 || got[2].CachedTokens != 3 {
+	if *got[2].InputTokens != 10 || *got[2].CachedTokens != 3 {
 		t.Fatalf("usage %+v", got[2])
 	}
 }
@@ -71,7 +71,7 @@ func TestNormalizesCodexJSON(t *testing.T) {
 	if strings.Join(kinds, ",") != "tool_start,tool_end,file_change,message,usage,error" {
 		t.Fatalf("kinds %v", kinds)
 	}
-	if got[0].Summary != "Run: python3" || *got[1].OK || got[2].Path != "out/report.md" || got[4].CachedTokens != 40 || got[5].Text != "rate limited" {
+	if got[0].Summary != "Run: python3" || *got[1].OK || got[2].Path != "out/report.md" || *got[4].CachedTokens != 40 || got[5].Text != "rate limited" {
 		t.Fatalf("events %+v", got)
 	}
 }
@@ -225,5 +225,40 @@ func TestTheExitEventIsNeverRefusedByAdmission(t *testing.T) {
 	out := a.Admit([]Event{{Kind: EvMessage}, {Kind: EvMessage}, {Kind: EvMessage}, {Kind: EvExit, At: "t"}}, t0)
 	if n := len(out); n != 3 || out[1].Kind != EvDropped || out[1].Dropped != 2 || out[2].Kind != EvExit {
 		t.Fatalf("got %+v", out)
+	}
+}
+
+// A reported zero is sent as zero, and a count the runtime did not report is left out, so the
+// control plane can tell a known zero from a missing count.
+func TestUsageKeepsReportedZeroAndOmitsMissing(t *testing.T) {
+	got := Normalize(`{"type":"result","subtype":"success","result":"ok","usage":{"input_tokens":12,"output_tokens":0}}`, t0)
+	var usage *Event
+	for i := range got {
+		if got[i].Kind == EvUsage {
+			usage = &got[i]
+		}
+	}
+	if usage == nil {
+		t.Fatalf("no usage event in %+v", got)
+	}
+	b, err := json.Marshal(usage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	if !strings.Contains(s, `"input_tokens":12`) || !strings.Contains(s, `"output_tokens":0`) || strings.Contains(s, "cached_tokens") {
+		t.Fatalf("usage serialized as %s", s)
+	}
+}
+
+// Claude's result carries the whole run's usage, so it is marked cumulative; a step's usage is not.
+func TestClaudeResultUsageIsCumulative(t *testing.T) {
+	step := Normalize(`{"type":"assistant","message":{"content":[],"usage":{"input_tokens":10,"output_tokens":5}}}`, t0)
+	result := Normalize(`{"type":"result","subtype":"success","result":"ok","usage":{"input_tokens":30,"output_tokens":9}}`, t0)
+	if len(step) != 1 || step[0].Cumulative {
+		t.Fatalf("step usage %+v", step)
+	}
+	if len(result) != 1 || !result[0].Cumulative || *result[0].InputTokens != 30 {
+		t.Fatalf("result usage %+v", result)
 	}
 }

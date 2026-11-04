@@ -26,6 +26,16 @@ export type QuarantineReview = S["ControlRod.Records.QuarantineReview"];
 export type ScramRestart = S["ControlRod.Records.ScramRestart"];
 export type ScramQuarantineBatch = S["ScramQuarantineBatch"];
 export type SealCheck = S["SealCheck"];
+export type BudgetStatus = S["BudgetStatus"];
+/** Usage (plan task 5.2). */
+export interface UsageView {
+  budgets: BudgetStatus[];
+  records: { id: string; run_id: string; source: "measured" | "reported"; wall_time?: { value: string; unit: string }; input_tokens?: { value: string }; output_tokens?: { value: string };
+    recorded_at: string; package_id: string; role: string; runtime: string | null; baseline: string | null }[];
+  telemetry: { runtime: string; runs: number; reported: number }[];
+  /** From the approved policy's budget_near_percent; null when unset. */
+  near_share: number | null;
+}
 /** The record verified (plan task 5.3). */
 export interface RecordsVerification {
   chain: { ok: boolean; count: number; broken_at?: number };

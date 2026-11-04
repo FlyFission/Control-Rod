@@ -996,6 +996,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Usage (plan task 5.2; specification 26): every budget and its use this window, the latest usage
+         *     records, and per runtime how many finished runs reported tokens, so missing telemetry reads as missing.
+         */
+        get: operations["usage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1050,6 +1070,11 @@ export interface components {
             state: "working" | "needs" | "waiting" | "stuck" | "changed";
             /** @description Why, in words: what it is doing, what you must decide, who it waits on, what blocks it, which input changed. */
             cause: string;
+            /**
+             * @description The tightest budget that applies to this agent's work (organization, its project, or its
+             *     baseline) and how far along it is this window; absent with no budget, and never when presenting.
+             */
+            spend?: components["schemas"]["FigureSpend"];
             /**
              * @description The recorded thing behind the cause (a SCRAM, a hold, an input revision, the dependencies
              *     awaited, or the run itself), so agents are grouped by what holds them, never by matching words.
@@ -1156,6 +1181,29 @@ export interface components {
             registered: boolean;
             signed_in: boolean;
             user?: string;
+        };
+        /** @description One budget and what it has used in its current rolling window. */
+        BudgetStatus: {
+            budget: components["schemas"]["ControlRod.Records.Budget"];
+            /** @description Used this window (settled at measured value, open reservations at full size); null when the unit is not reported. */
+            used: number | null;
+            /**
+             * Format: double
+             * @description Of that, what open reservations hold for runs not yet settled.
+             */
+            in_flight: number;
+            /**
+             * Format: int32
+             * @description Tokens: measured runs in the window that reported no complete counts.
+             */
+            unreported_runs: number;
+            /**
+             * Format: date-time
+             * @description Where the rolling window starts.
+             */
+            since: string;
+            /** @enum {string} */
+            state: "within" | "near" | "over" | "partial" | "not-reported";
         };
         /** @description The viewing member, as the command layer knows them. */
         Caller: {
@@ -1584,6 +1632,23 @@ export interface components {
          * @enum {string}
          */
         "ControlRod.Records.AttestationFormat": "none" | "packed" | "tpm" | "fido-u2f" | "android-key" | "android-safetynet" | "apple";
+        /** @description A spending or usage limit. (L) */
+        "ControlRod.Records.Budget": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            scope: components["schemas"]["ControlRod.Records.BudgetScope"];
+            scope_id: string;
+            mode: components["schemas"]["ControlRod.Records.BudgetMode"];
+            /** @description The limit with its unit, for example "USD" or "tokens". */
+            limit: components["schemas"]["ControlRod.Records.Quantity"];
+            /** @description ISO 8601 duration, for example "P1M". */
+            period: string;
+            status: components["schemas"]["ControlRod.Records.LifecycleStatus"];
+        };
+        /** @enum {string} */
+        "ControlRod.Records.BudgetMode": "track" | "alert" | "hard-cap";
+        /** @enum {string} */
+        "ControlRod.Records.BudgetScope": "organization" | "project" | "agent";
         /** @description Something a person said they want done, before intake turns it into a package. */
         "ControlRod.Records.Capture": {
             /** @enum {string} */
@@ -1826,6 +1891,11 @@ export interface components {
             /** Format: int32 */
             cached_tokens?: number;
             /**
+             * @description Usage: true when the counts are the whole run's so far (a runtime's final result), not one
+             *     step's, so they replace the steps' counts rather than add to them.
+             */
+            cumulative?: boolean;
+            /**
              * Format: int32
              * @description How many events admission refused before this one (kind dropped).
              */
@@ -2057,16 +2127,28 @@ export interface components {
              *     quarantined: retained privately with its digests and never applied until a person reviews it.
              */
             scram_id?: string;
+            /**
+             * Format: int32
+             * @description The run ceiling its budget reservation was sized from, in seconds (the daemon's timeout and
+             *     graceful stop ladder). The control plane asks the run to stop once it has run this long.
+             */
+            budget_ceiling_seconds?: number;
+            /**
+             * @description The minutes a reservation for this run takes (its ceiling and the control plane's margins,
+             *     rounded up), recorded whenever the daemon reported a ceiling, budget or not, so a minute budget
+             *     set while the run is in flight counts it at that size.
+             */
+            reserve_minutes?: string;
             /** @description Why a queued run is not being handed out, in plain words. */
             waiting_reason?: string;
             /**
              * @description The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it).
              * @enum {string}
              */
-            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation";
+            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget";
             /**
              * @description What the hold waits on, where one decision resolves it for every run that names it: a lane's
-             *     admission, or a runtime pin for a role and the runtimes it was offered. Absent when the hold is
+             *     admission, a runtime pin for a role and the runtimes it was offered, or a budget's hard cap. Absent when the hold is
              *     the run's own (a preparation, an unclassified source, an independence conflict, a SCRAM).
              */
             waiting_key?: string;
@@ -2281,6 +2363,27 @@ export interface components {
          * @enum {string}
          */
         FigurePlace: "process" | "mechanical" | "electrical" | "civil" | "assurance" | "project-controls" | "review" | "interface" | "verification" | "your-office" | "document-control" | "bench" | "quarantine";
+        /** @description A budget as a figure carries it. `used` is absent when the budget's unit is not reported. */
+        FigureSpend: {
+            budget_id: string;
+            /** @enum {string} */
+            mode: "track" | "alert" | "hard-cap";
+            /** @enum {string} */
+            unit: "minute" | "token" | "USD";
+            limit: string;
+            period: string;
+            /**
+             * @description near only when the approved policy sets budget_near_percent; partial when some runs reported nothing.
+             * @enum {string}
+             */
+            state: "within" | "near" | "over" | "partial" | "not-reported";
+            used?: string;
+            /**
+             * Format: int32
+             * @description Tokens: runs that reported no complete counts, so use is at least `used`.
+             */
+            unreported_runs?: number;
+        };
         Health: {
             /** @enum {string} */
             status: "ok";
@@ -5857,6 +5960,11 @@ export interface operations {
                     /** @description Runtimes ready for work. The control plane picks only from these. */
                     runtimes: string[];
                     runtime_status?: components["schemas"]["Runner.RuntimeStatus"][];
+                    /**
+                     * Format: int32
+                     * @description The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations.
+                     */
+                    run_ceiling_seconds?: number;
                 };
             };
         };
@@ -6540,6 +6648,40 @@ export interface operations {
                             discipline?: string;
                             lifted: boolean;
                         }[];
+                    } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    usage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        budgets: components["schemas"]["BudgetStatus"][];
+                        records: {
+                            [key: string]: unknown;
+                        }[];
+                        telemetry: {
+                            runtime: string;
+                            /** Format: int32 */
+                            runs: number;
+                            /** Format: int32 */
+                            reported: number;
+                        }[];
+                        /** @description The share of a limit at which a budget reads as near it, from the approved policy (budget_near_percent); null when unset. */
+                        near_share: number | null;
                     } | components["schemas"]["ApiError"];
                 };
             };

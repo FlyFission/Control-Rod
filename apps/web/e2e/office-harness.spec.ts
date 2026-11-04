@@ -286,7 +286,7 @@ test.describe("office theme quality harness", () => {
       test("every lens recolours the state shapes legibly, and every other check holds under each lens (OV-07)", async ({ page }) => {
         await page.emulateMedia({ reducedMotion: "reduce" });
         const byLens: Record<string, unknown> = {};
-        for (const lens of ["status", "gate", "change"]) {
+        for (const lens of ["status", "gate", "change", "spend"]) {
           await open(page, `theme=${theme}&agents=40&zoom=0.8&lens=${lens}`);
           const result = await drawnOf(page);
           byLens[lens] = { worstTintRatio: result.summary.worstTintRatio, worstEdgeRatio: result.summary.worstEdgeRatio };

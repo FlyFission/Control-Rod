@@ -37,6 +37,7 @@ export function useLiveEvents(enabled: boolean): void {
         "admin",
         "runtimes",
         "roster",
+        "usage",
         "run-events",
         "office-figures",
         "scrams",

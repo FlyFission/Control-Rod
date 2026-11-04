@@ -741,13 +741,79 @@ op admin(): {
   members: Member[];
   projects: Project[];
   policy: PolicySet | null;
+
+  /**
+   * The hardware attestation formats signing accepts now: the approved policy's, or Control Rod's
+   * defaults while no policy has been approved, so a first proposal can start from what is in force.
+   */
+  hardware_formats_in_force: AttestationFormat[];
+
   themes: string[];
   commands: AdminCommandInfo[];
   actions: ActionDescriptor[];
 
   /** The floors in force: no person, decision or setting lifts them. */
   floors: { code: string; sentence: string; change: string }[];
+
+  /** The organization's administrative records as they stand, for the forms to choose from (plan task 5.4). */
+  registry: AdminRegistry;
 } | ApiError;
+
+/** Each Member's current qualification, passkeys, delegations, bindings, open change requests and budgets. */
+model AdminRegistry {
+  qualifications: RegistryQualification[];
+
+  /** Each passkey's current state: every Member's for an administrator, otherwise the viewer's own. */
+  credentials: RegistryCredential[];
+
+  /** Every delegation, with whether it was revoked, and without its reason. */
+  delegations: RegistryDelegation[];
+  bindings: Record<unknown>[];
+
+  /** Change requests waiting on approval. */
+  change_requests: ChangeRequest[];
+  budgets: Budget[];
+}
+
+/** A Member's current qualification as the forms show it: no license numbers and no reasons. */
+model RegistryQualification {
+  org_id: string;
+  member_id: string;
+  @minValue(1) version: int32;
+  roles: string[];
+  authorities: string[];
+  grades: string[];
+  disciplines: string[];
+  revoked: boolean;
+}
+
+/** A delegation as the forms show it: who, what, when, and whether revoked; never its reason. */
+model RegistryDelegation {
+  id: string;
+  org_id: string;
+  from_member_id: string;
+  to_member_id: string;
+  role: string;
+  project_id?: string;
+  discipline?: string;
+  starts_on: plainDate;
+  ends_on: plainDate;
+  revoked: boolean;
+}
+
+/** A passkey as the forms name it: its owner, when it was registered, and no attestation evidence. */
+model RegistryCredential {
+  id: string;
+  org_id: string;
+  member_id: string;
+  credential_id: string;
+  revoked: boolean;
+
+  /** Whether it meets the hardware key floor under the policy in force now. */
+  hardware: boolean;
+
+  registered_at: utcDateTime;
+}
 
 /** One quarantine batch: what a SCRAM-stopped run reported in one completion, as digests. */
 model ScramQuarantineBatch {

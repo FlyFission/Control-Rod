@@ -3,10 +3,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { browserPasskeys, type Passkeys } from "../lib/decide.js";
+import { captureInvitation, forgetInvitation, heldInvitation } from "../lib/invitation.js";
 
-/** First run registers a passkey for the one local user; later visits sign in with it. */
+/**
+ * First run registers a passkey for the first person; a person an administrator invited registers
+ * theirs from the invitation link; later visits sign in with a passkey.
+ */
 export function SignIn({ session, passkeys = browserPasskeys }: { session: Session; passkeys?: Passkeys }) {
   const qc = useQueryClient();
+  // Normally taken at startup (capture-invitation.ts); taking it again here is harmless.
+  const [invitation] = useState(() => (captureInvitation(), heldInvitation()));
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +39,16 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
       return api.registerVerify(credential);
     });
 
+  const acceptInvitation = () =>
+    run(async () => {
+      const { options } = await api.registerInvitedOptions(invitation!);
+      const credential = await passkeys.create(options);
+      const s = await api.registerVerify(credential);
+      // Used once: kept in memory only for a retry until now.
+      forgetInvitation();
+      return s;
+    });
+
   const signIn = () =>
     run(async () => {
       const { options } = await api.loginOptions();
@@ -47,7 +63,15 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
           <BrandMark />
           <span>Control Rod</span>
         </div>
-        {session.registered ? (
+        {invitation !== undefined ? (
+          <>
+            <h1>Accept your invitation</h1>
+            <p className="muted">An administrator invited you. Register a passkey on this device; it signs every decision you make.</p>
+            <button type="button" className="btn primary" onClick={acceptInvitation} disabled={busy}>
+              {busy ? "Waiting for your passkey" : "Register my passkey"}
+            </button>
+          </>
+        ) : session.registered ? (
           <>
             <h1>Sign in</h1>
             <p className="muted">Use the passkey on this machine. Touch ID works.</p>

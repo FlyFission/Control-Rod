@@ -28,10 +28,11 @@ import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
 import { activeScramsFor, scramPreview, scramView } from "./scram.js";
 import { roster } from "./roster.js";
+import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { chainHead, inclusionProof, verifyRecords } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
-import { currentPolicySet, currentQualification } from "./tenancy.js";
+import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
 import {
   Refusal,
   type WorkConfig,
@@ -266,11 +267,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       members: q.rows.map((r) => r.body),
       projects: projects.rows.map((r) => r.body),
       policy: (await currentPolicySet(db, caller.orgId))?.record ?? null,
+      hardware_formats_in_force: [...((await currentPolicySet(db, caller.orgId))?.record.hardware_attestation_formats ?? DEFAULT_HARDWARE_FORMATS)],
       themes: [...bundledThemes(cfg.root).keys()].sort(),
       commands: adminCatalog(),
       actions: await adminActions(db, caller),
       // The floors (specification 11.2): no person, decision or setting lifts them.
       floors: Object.entries(REASONS).filter(([, r]) => r.floor).map(([code, r]) => ({ code, sentence: r.sentence, change: r.change })),
+      // The records the administrative forms choose from (plan task 5.4).
+      registry: await adminRegistry(db, { ...caller, administrator: isAdministrator(await currentQualification(db, caller.memberId)) }),
     };
   });
   app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown> } }>("/admin/commands/:name/options", async (req) => {

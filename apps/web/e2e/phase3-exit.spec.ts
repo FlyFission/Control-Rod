@@ -13,9 +13,13 @@ const pkgs = [
   { schema_version: "0.1.0", id: "WP-0007", revision: 1, title: "Pump skid P-101 datasheet", project: "plant-a", mode: "capital-projects", status: "in-verification", rigor_mode: "standard", data_lane: "internal", objective: "x", deliverables: [{ id: "D1", type: "pump datasheet", format: ["pdf"] }], design_inputs: [], agent_assignment: [], acceptance_criteria: ["a"], discipline: "mechanical" },
   { schema_version: "0.1.0", id: "WP-0008", revision: 0, title: "Cable tray routing, Area 2", project: "plant-a", mode: "capital-projects", status: "draft", rigor_mode: "quick", data_lane: "internal", objective: "x", deliverables: [{ id: "D1", type: "routing plan" }], design_inputs: [], agent_assignment: [], acceptance_criteria: ["a"], discipline: "electrical" },
 ];
-const admin = { me: { userName: "ben", memberId: "m", orgId: "o" }, bootstrap: false, qualification: null, members: [{ id: "m", org_id: "o", user_name: "ben", display_name: "Ben Huffer", status: "active" }], projects: [], policy: null, themes: [], commands: [],
+const admin = { me: { userName: "ben", memberId: "m", orgId: "o" }, bootstrap: false, qualification: null, members: [{ id: "m", org_id: "o", user_name: "ben", display_name: "Ben Huffer", status: "active" }], projects: [], policy: null, hardware_formats_in_force: ["packed", "fido-u2f", "tpm"], themes: [], commands: [],
   floors: [{ code: "not-human", sentence: "Only a person may take this action; an agent or a daemon never decides.", change: "Nothing changes this." }],
-  actions: [{ command: "scram.pull", label: "Pull SCRAM", allowed: true, signature: "direct" }, { command: "runtime.pin", label: "Pin a runtime version", allowed: false, signature: "direct", reason: "This needs administrator authority, which your qualification does not include", change: "An administrator issues you a qualification with that authority.", missing: ["administrator authority"] }] };
+  actions: [{ command: "scram.pull", label: "Pull SCRAM", allowed: true, signature: "direct" }, { command: "runtime.pin", label: "Pin a runtime version", allowed: false, signature: "direct", reason: "This needs administrator authority, which your qualification does not include", change: "An administrator issues you a qualification with that authority.", missing: ["administrator authority"] },
+    { command: "member.invite", label: "Invite a member", allowed: true, signature: "direct" }, { command: "policy.propose", label: "Propose a policy change", allowed: true, signature: "none" },
+    { command: "budget.set", label: "Set a budget", allowed: false, signature: "direct", reason: "This needs policy authority, which your qualification does not include", change: "An administrator issues you a qualification with that authority." }],
+  registry: { qualifications: [], delegations: [], bindings: [], change_requests: [], budgets: [],
+    credentials: [{ id: "c", org_id: "o", member_id: "m", credential_id: "k", version: 1, registered_at: new Date(Date.now() - 86400e3).toISOString(), hardware: true }] } };
 test.beforeEach(async ({ page }) => {
   await page.route("**/*", (r) => {
     const u = new URL(r.request().url());
@@ -161,4 +165,14 @@ test("case view interactive with 1,000 events", async ({ page, browserName }) =>
   // Specification Q-10: first meaningful view under 1.5 s.
   expect(ms).toBeLessThan(1500);
   expect(all).toBeLessThan(1500);
+});
+
+test("an invitation link survives routing, and leaves the address before anything else happens", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium");
+  await page.route("**/auth/session", (r) => r.fulfill(json({ registered: true, signed_in: false })));
+  await page.goto("/#invitation=tok_e2e");
+  await expect(page.getByRole("heading", { name: "Accept your invitation" })).toBeVisible();
+  expect(new URL(page.url()).hash).toBe("");
+  // Nothing about it is kept in the history entry either.
+  expect(await page.evaluate(() => window.location.href.includes("tok_e2e"))).toBe(false);
 });

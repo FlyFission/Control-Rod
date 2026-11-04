@@ -1049,6 +1049,20 @@ export interface components {
             /** @description "member", or authorities joined by "+" (any member, or each listed authority). */
             need: string;
         };
+        /** @description Each Member's current qualification, passkeys, delegations, bindings, open change requests and budgets. */
+        AdminRegistry: {
+            qualifications: components["schemas"]["RegistryQualification"][];
+            /** @description Each passkey's current state: every Member's for an administrator, otherwise the viewer's own. */
+            credentials: components["schemas"]["RegistryCredential"][];
+            /** @description Every delegation, with whether it was revoked, and without its reason. */
+            delegations: components["schemas"]["RegistryDelegation"][];
+            bindings: {
+                [key: string]: unknown;
+            }[];
+            /** @description Change requests waiting on approval. */
+            change_requests: components["schemas"]["ControlRod.Records.ChangeRequest"][];
+            budgets: components["schemas"]["ControlRod.Records.Budget"][];
+        };
         /**
          * @description One agent on the office floor (AgentFigure, specification 13 and 18; plan task 4.6), projected only
          *     from recorded data: the package (or, for intake, the capture), its latest run at the current
@@ -1676,6 +1690,26 @@ export interface components {
             /** Format: date-time */
             classified_at?: string;
         };
+        /** @description A change only an authorized person may approve, over an exact subject version. (L) */
+        "ControlRod.Records.ChangeRequest": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            kind: components["schemas"]["ControlRod.Records.ChangeRequestKind"];
+            subject_digest: components["schemas"]["ControlRod.Records.Digest"];
+            reason: string;
+            /** @description Downstream objects the change affects, listed before approval. */
+            impact: string[];
+            proposed_by: components["schemas"]["ControlRod.Records.Actor"];
+            status: components["schemas"]["ControlRod.Records.ChangeRequestStatus"];
+            /** @description The proposed content (for a policy change, the policy set body); its digest is subject_digest. */
+            proposal?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @enum {string} */
+        "ControlRod.Records.ChangeRequestKind": "lane-lowering" | "declassification" | "policy-change" | "authenticator-policy";
+        /** @enum {string} */
+        "ControlRod.Records.ChangeRequestStatus": "proposed" | "approved" | "rejected" | "withdrawn";
         "ControlRod.Records.CodeOrStandard": {
             code: string;
             edition: string;
@@ -2471,6 +2505,45 @@ export interface components {
             /** @enum {string} */
             outcome: "pass" | "fail" | "inconclusive";
         };
+        /** @description A passkey as the forms name it: its owner, when it was registered, and no attestation evidence. */
+        RegistryCredential: {
+            id: string;
+            org_id: string;
+            member_id: string;
+            credential_id: string;
+            revoked: boolean;
+            /** @description Whether it meets the hardware key floor under the policy in force now. */
+            hardware: boolean;
+            /** Format: date-time */
+            registered_at: string;
+        };
+        /** @description A delegation as the forms show it: who, what, when, and whether revoked; never its reason. */
+        RegistryDelegation: {
+            id: string;
+            org_id: string;
+            from_member_id: string;
+            to_member_id: string;
+            role: string;
+            project_id?: string;
+            discipline?: string;
+            /** Format: date */
+            starts_on: string;
+            /** Format: date */
+            ends_on: string;
+            revoked: boolean;
+        };
+        /** @description A Member's current qualification as the forms show it: no license numbers and no reasons. */
+        RegistryQualification: {
+            org_id: string;
+            member_id: string;
+            /** Format: int32 */
+            version: number;
+            roles: string[];
+            authorities: string[];
+            grades: string[];
+            disciplines: string[];
+            revoked: boolean;
+        };
         /** @description One run role on the Roster: what it does, who has run it, and its pins. */
         RosterRole: {
             role: components["schemas"]["ControlRod.Records.RunRole"];
@@ -2687,6 +2760,11 @@ export interface operations {
                         members: components["schemas"]["ControlRod.Records.Member"][];
                         projects: components["schemas"]["ControlRod.Records.Project"][];
                         policy: components["schemas"]["ControlRod.Records.PolicySet"] | null;
+                        /**
+                         * @description The hardware attestation formats signing accepts now: the approved policy's, or Control Rod's
+                         *     defaults while no policy has been approved, so a first proposal can start from what is in force.
+                         */
+                        hardware_formats_in_force: components["schemas"]["ControlRod.Records.AttestationFormat"][];
                         themes: string[];
                         commands: components["schemas"]["AdminCommandInfo"][];
                         actions: components["schemas"]["ActionDescriptor"][];
@@ -2696,6 +2774,8 @@ export interface operations {
                             sentence: string;
                             change: string;
                         }[];
+                        /** @description The organization's administrative records as they stand, for the forms to choose from (plan task 5.4). */
+                        registry: components["schemas"]["AdminRegistry"];
                     } | components["schemas"]["ApiError"];
                 };
             };

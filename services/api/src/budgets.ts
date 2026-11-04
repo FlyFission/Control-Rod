@@ -280,7 +280,12 @@ export async function settleEnded(c: Tx, batch = 500): Promise<void> {
   const open = (await c.query<{ run_id: string; body: Json }>(
     `select distinct x.run_id, r.body from budget_reservations x join runs r on r.id = x.run_id
       where x.body->>'status' = 'reserved' and r.status not in ('queued', 'running')
-        and (not r.body ? 'outcome_unknown' or r.body ? 'reconciliation') order by x.run_id limit $1`, [batch])).rows;
+        -- Ready to settle: a run that never started (released); one whose unknown outcome was
+        -- reconciled (charged in full, nothing will measure it); or one already measured. A known
+        -- outcome waits for its measurement, so a backlog can never settle it unmeasured.
+        and (not r.body ? 'started_at' or (r.body ? 'outcome_unknown' and r.body ? 'reconciliation')
+             or exists (select 1 from usage_records m where m.run_id = x.run_id and m.body->>'source' = 'measured'))
+      order by x.run_id limit $1`, [batch])).rows;
   for (const r of open) {
     const reservations = (await c.query<{ id: string }>(
       "select id from budget_reservations where run_id = $1 and body->>'status' = 'reserved' order by id for update", [r.run_id])).rows;

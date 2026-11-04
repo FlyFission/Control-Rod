@@ -546,6 +546,31 @@ describe("presenting and racing", () => {
     await retire(probe.id);
   });
 
+  it("never settles a finished run's reservation before the run is measured, whatever the batch order", async () => {
+    const t = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });
+    // Measurement takes runs oldest first; settlement takes them by id. A newer run whose id sorts first
+    // ("R-aaaaaaa1") finished long ago, behind an older run ("R-zzzzzzz1") that takes the only place.
+    const older = await claimed("WP-BUD-ZZZZZZZ1");
+    const newer = await queued("WP-BUD-AAAAAAA1", true);
+    const res = await claim();
+    expect(res.json().run.id).toBe(newer);
+    claims.set(newer, res.json().claim.token);
+    // Both finish after the last claim (a claim sweeps), so neither is measured yet.
+    expect((await daemon(`/runner/runs/${older}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] })).statusCode).toBe(200);
+    expect((await daemon(`/runner/runs/${newer}/complete`, { status: "succeeded", outputs: [{ name: "a.md", content_base64: b64("a") }] })).statusCode).toBe(200);
+    const nb = (await run(newer)).body;
+    await h.admin.query("update runs set body = $2 where id = $1", [newer, { ...nb, finished_at: new Date(Date.now() - 2 * 86400e3).toISOString() }]);
+    const before = await budgetUse(h.db, t);
+    await command(h.db, "run.sweep-lost", (c) => settleEnded(c, 1));
+    // The older run was measured and settled; the newer, unmeasured one stays open and charged in full.
+    expect((await reservations(older)).map((x) => x.status)).toEqual(["settled"]);
+    expect((await reservations(newer)).map((x) => x.status)).toEqual(["reserved"]);
+    expect((await budgetUse(h.db, t)).in_flight).toBeCloseTo(before.in_flight - Number(RESERVED), 2);
+    await sweep();
+    expect((await reservations(newer)).map((x) => x.status)).toEqual(["settled"]);
+    await retire(t.id);
+  });
+
   it("admits a run whose reservation fills a hard cap exactly", async () => {
     await queued("WP-BUD-EXACTFILL-A");
     const probe = await budget({ scope: "organization", scope_id: await org(), mode: "track", limit: { value: "100000", unit: "minute" }, period: "P1D" });

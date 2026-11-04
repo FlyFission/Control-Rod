@@ -210,6 +210,21 @@ describe("administration forms", () => {
     expect(sent[0]!.body.payload).toEqual({ budget_id: "bud_1", mode: "hard-cap", limit: { value: "480", unit: "minute" } });
   });
 
+  it("shows a refusal with the control plane's advice for lifting it", async () => {
+    server.use(http.post("*/admin/commands/qualification.revoke", () => HttpResponse.json(
+      { code: "last-qualification-issuer", message: "This would leave no active Member with both administrator and policy authority",
+        change: "Issue another active member a qualification with both administrator and policy authority first." }, { status: 409 })));
+    const user = userEvent.setup();
+    await renderPage(<QualificationsSection view={view({ actions: [allow("qualification.revoke", "Revoke a qualification")] as never })} passkeys={passkeys} />);
+    const f = form("Revoke a qualification");
+    await user.selectOptions(within(f).getByRole("combobox", { name: "Member (required)" }), "mem_ben");
+    await user.type(within(f).getByRole("textbox", { name: "Why (required)" }), "Stepping back");
+    await user.click(within(f).getByRole("button", { name: "Sign with your passkey and revoke" }));
+    const alert = await within(f).findByRole("alert");
+    expect(alert.textContent).toMatch(/no active Member with both administrator and policy authority/);
+    expect(alert.textContent).toMatch(/Issue another active member a qualification with both administrator and policy authority first\./);
+  });
+
   it("refuses a hard cap on anything but minutes before anything is signed", async () => {
     const user = userEvent.setup();
     await renderPage(<BudgetsSection view={view()} passkeys={passkeys} />);

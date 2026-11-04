@@ -11,3 +11,11 @@
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).
+
+## Exit criteria
+
+RL-01 to RL-04 are implemented with failed-first regression evidence and a green race suite; the open storage item and real-runtime gap are stated for the owner. No fake-runtime result is presented as real-runtime proof.
+
+## Source-lineage note
+
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

@@ -40,10 +40,9 @@ Low. Presentation only, plus one client-side control that changes what the log s
 
 ## Selected mode
 
-- **Mode:** Quick
-- **Why this mode:** the change is presentation plus one client-side display control, fully reversible, and edits no trust surface, contract, kernel, policy or evidence behaviour.
+- **Mode:** Standard
+- **Why this mode:** every record in this repository uses the six-file packet, and the repository's change-records check requires `proof.md` only for Quick mode. The risk itself is low: presentation plus one client-side display control, fully reversible, no trust surface, contract, kernel, policy or evidence behaviour touched.
 - **Why heavier mode is not required:** no runtime decision, data, authorization or irreversible step is touched.
-
 
 ## Required links
 

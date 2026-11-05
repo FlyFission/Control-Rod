@@ -292,6 +292,9 @@ func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at Sandbo
 				return nil, ErrLoginInWorkspace
 			}
 		}
+		if _, err := p.DeniedChecked(at); err != nil {
+			return nil, err
+		}
 	}
 	switch runtime {
 	case RuntimeClaude:

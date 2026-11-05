@@ -57,23 +57,24 @@ def events(out):
             continue
 
 
-READERS = {"cat", "head", "tail", "less", "more", "sed", "awk", "xxd", "od", "strings", "base64"}
+SHELL_SYNTAX = re.compile(r"[#;|&<>$`()\n\\*?\[\]{}!]")
 
 
 def reads_exactly(command, decoy):
-    """Whether a shell command line is a file reading program given exactly the decoy's path as one of
-    its own arguments, looking through one `bash -lc` wrapper (how Codex runs commands). A path that
-    merely starts with the decoy's name does not count."""
-    try:
-        words = shlex.split(command)
-    except ValueError:
-        return False
-    if len(words) >= 3 and pathlib.Path(words[0]).name in ("bash", "sh", "zsh") and words[1] in ("-c", "-lc"):
+    """Whether a shell command line is exactly `cat <decoy>` or `cat -- <decoy>`, directly or through
+    one `bash -lc` (how Codex runs commands), with no other shell syntax at all: no comment,
+    operator, redirection, substitution, glob or extra option can change what it does."""
+    def plain(cmd):
+        if SHELL_SYNTAX.search(cmd):
+            return None
         try:
-            words = shlex.split(words[2])
+            return shlex.split(cmd)
         except ValueError:
-            return False
-    return bool(words) and pathlib.Path(words[0]).name in READERS and str(decoy) in words[1:]
+            return None
+    words = plain(command)
+    if words and len(words) == 3 and pathlib.Path(words[0]).name in ("bash", "sh", "zsh") and words[1] in ("-c", "-lc"):
+        words = plain(words[2])
+    return words in (["cat", str(decoy)], ["cat", "--", str(decoy)])
 
 
 def decoy_calls(runtime, out, canary, decoy):

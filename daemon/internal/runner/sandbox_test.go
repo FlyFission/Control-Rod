@@ -503,3 +503,60 @@ func TestCredentialStoreLinksAreDeniedAtTheirTargets(t *testing.T) {
 		}
 	}
 }
+
+func TestCredentialStoreDiscoveryFollowsLinkedFoldersAndFailsClosed(t *testing.T) {
+	home := t.TempDir()
+	linkedRoot := t.TempDir() // ~/.aws -> linkedRoot
+	tokens := t.TempDir()     // linkedRoot/sso/cache -> tokens
+	if err := os.MkdirAll(filepath.Join(linkedRoot, "sso"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(tokens, filepath.Join(linkedRoot, "sso", "cache")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(linkedRoot, filepath.Join(home, ".aws")); err != nil {
+		t.Fatal(err)
+	}
+	// A loop inside a store is followed once, never forever.
+	if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(home, ".ssh"), filepath.Join(home, ".ssh", "loop")); err != nil {
+		t.Fatal(err)
+	}
+	p := testPolicy()
+	p.DeniedRead = append(p.DeniedRead, "~/.aws")
+	at := SandboxPaths{Home: home, Workspace: filepath.Join(home, "w")}
+	d, err := p.DeniedChecked(at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{linkedRoot, tokens} {
+		real, _ := filepath.EvalSymlinks(want)
+		if !slices.Contains(d, real) {
+			t.Errorf("%s not denied: %q", real, d)
+		}
+	}
+	// Too many entries to check: the launch refuses rather than leave targets unfound.
+	old := maxStoreEntries
+	maxStoreEntries = 1
+	if _, err := p.DeniedChecked(at); err == nil || !strings.Contains(err.Error(), "could not be checked") {
+		t.Errorf("exhaustion: %v", err)
+	}
+	ws := workspaceWithTools(t, "Read\n")
+	if _, err := Command(RuntimeCodex, testRun("run-x", "author"), ws, p, SandboxPaths{Home: home, Workspace: ws.Dir}); err == nil {
+		t.Error("a launch went ahead with discovery incomplete")
+	}
+	maxStoreEntries = old
+	// An unreadable folder inside a store refuses too.
+	if os.Getuid() != 0 {
+		locked := filepath.Join(home, ".ssh", "locked")
+		if err := os.MkdirAll(locked, 0o000); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
+		if _, err := p.DeniedChecked(at); err == nil {
+			t.Error("an unreadable folder in a store passed")
+		}
+	}
+}

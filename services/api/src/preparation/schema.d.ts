@@ -1838,7 +1838,11 @@ export interface components {
             permission_mode?: string;
             /** @description Tool allowlist passed to the runtime, when it takes one. */
             allowed_tools?: string[];
-            /** @description Sandbox the daemon asked the runtime for: "none", "workspace-write" or "workspace-write+network". */
+            /**
+             * @description The sandbox the run was launched under: `native-cli:<policy id>@v<version>` for an agent CLI
+             *     under its recorded sandbox policy (plan task 6.2), or "none" for the test runtime. Runs recorded
+             *     before plan Phase 6 carry the request they made then ("workspace-write" and the like).
+             */
             sandbox?: string;
         };
         "ControlRod.Records.Finding": {

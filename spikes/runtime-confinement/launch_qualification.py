@@ -296,7 +296,8 @@ def main():
     results["positive_control"] = {"result": pos, "arrived": pos_net, "host": pos_host}
     pp = pos.get("probe") or {}
     checks["positive_control_sees_every_target"] = bool(pp) and all(v.get("canary") for v in pp["read"].values()) \
-        and all(pos_host.values()) and pos_net["tcp"] and pos_net["udp"] and bool(pp["env_leak"])
+        and all(pos_host.values()) and pos_net["tcp"] and pos_net["udp"] and bool(pp["env_leak"]) \
+        and pp["tcp_internet"].get("ok") is True and pp["dns"].get("ok") is True
 
     for name, fn in (("claude", run_claude), ("codex", run_codex)):
         res, got, host = leg(name, fn, False)

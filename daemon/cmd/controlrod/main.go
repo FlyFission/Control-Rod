@@ -115,17 +115,24 @@ func sandboxArgs(args []string) int {
 	}
 	ws := &runner.Workspace{Dir: *workspace, Inputs: filepath.Join(*workspace, "inputs"), Out: filepath.Join(*workspace, "out")}
 	run := runner.Run{ID: "sandbox-args", Role: "author", Runtime: runner.RuntimeRef{Provider: *rt, Model: *model}}
-	at := runner.SandboxPaths{Home: *homeDir, DaemonHome: *daemonHome, Workspace: *workspace}
-	if *rt == runner.RuntimeCodex {
-		// As the daemon does: the installed Codex's own folder stays reachable inside a denied home.
-		if a, err := runner.ResolveArtifact("codex"); err == nil {
-			at.Keep = runner.InstallKeep(&a)
-		}
-	}
+	at := runner.SandboxPaths{Home: *homeDir, DaemonHome: *daemonHome, Workspace: *workspace, Logins: runner.LoginLocations(os.Getenv)}
 	cmd, err := runner.Command(runner.RuntimeFor(*rt), run, ws, &p, at)
 	if err != nil || cmd == nil {
 		fmt.Fprintln(os.Stderr, "no launch:", err)
 		return 1
+	}
+	if *rt == runner.RuntimeCodex {
+		// As the daemon launches it: the verified install, staged outside the home folder.
+		a, err := runner.ResolveArtifact("codex")
+		if err == nil {
+			a, err = runner.StageArtifact(a, runner.StageRoot())
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "stage codex:", err)
+			return 1
+		}
+		cmd.Args[0] = a.Path
+		cmd.Env = append(cmd.Env, a.Env...)
 	}
 	out, _ := json.MarshalIndent(map[string]any{"argv": cmd.Args, "env": cmd.Env, "dir": cmd.Dir}, "", "  ")
 	fmt.Println(string(out))

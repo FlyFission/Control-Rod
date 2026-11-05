@@ -115,7 +115,14 @@ func sandboxArgs(args []string) int {
 	}
 	ws := &runner.Workspace{Dir: *workspace, Inputs: filepath.Join(*workspace, "inputs"), Out: filepath.Join(*workspace, "out")}
 	run := runner.Run{ID: "sandbox-args", Role: "author", Runtime: runner.RuntimeRef{Provider: *rt, Model: *model}}
-	cmd, err := runner.Command(runner.RuntimeFor(*rt), run, ws, &p, runner.SandboxPaths{Home: *homeDir, DaemonHome: *daemonHome, Workspace: *workspace})
+	at := runner.SandboxPaths{Home: *homeDir, DaemonHome: *daemonHome, Workspace: *workspace}
+	if *rt == runner.RuntimeCodex {
+		// As the daemon does: the installed Codex's own folder stays reachable inside a denied home.
+		if a, err := runner.ResolveArtifact("codex"); err == nil {
+			at.Keep = runner.InstallKeep(&a)
+		}
+	}
+	cmd, err := runner.Command(runner.RuntimeFor(*rt), run, ws, &p, at)
 	if err != nil || cmd == nil {
 		fmt.Fprintln(os.Stderr, "no launch:", err)
 		return 1

@@ -297,40 +297,40 @@
     "probe": {
      "read": {
       "claude_login": {
-       "errno": 2,
-       "kind": "FileNotFoundError"
+       "errno": 13,
+       "kind": "PermissionError"
       },
       "codex_login": {
-       "errno": 2,
-       "kind": "FileNotFoundError"
+       "errno": 13,
+       "kind": "PermissionError"
       },
       "ssh_key": {
-       "errno": 2,
-       "kind": "FileNotFoundError"
+       "errno": 13,
+       "kind": "PermissionError"
       },
       "gh_hosts": {
-       "errno": 2,
-       "kind": "FileNotFoundError"
+       "errno": 13,
+       "kind": "PermissionError"
       },
       "aws": {
-       "errno": 2,
-       "kind": "FileNotFoundError"
+       "errno": 13,
+       "kind": "PermissionError"
       },
       "unlisted_store": {
-       "errno": 2,
-       "kind": "FileNotFoundError"
+       "errno": 13,
+       "kind": "PermissionError"
       },
       "home_dotfile": {
-       "errno": 2,
-       "kind": "FileNotFoundError"
+       "errno": 13,
+       "kind": "PermissionError"
       },
       "daemon_token": {
-       "errno": 2,
-       "kind": "FileNotFoundError"
+       "errno": 13,
+       "kind": "PermissionError"
       },
       "other_run": {
-       "errno": 2,
-       "kind": "FileNotFoundError"
+       "errno": 13,
+       "kind": "PermissionError"
       }
      },
      "write": {
@@ -369,7 +369,7 @@
      "env_leak": []
     },
     "probe_raw": "ymlink\": {\"errno\": 30, \"kind\": \"OSError\"}, \"workspace\": {\"ok\": true}}, \"tcp_loopback\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"udp_loopback\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"tcp_internet\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"dns\": {\"errno\": -3, \"kind\": \"gaierror\"}, \"env_leak\": []}\n",
-    "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/p6-codex-a1wfk5qq/home/.codex\"))\n"
+    "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/p6-codex-birtmwov/home/.codex\"))\n"
    },
    "arrived": {
     "tcp": false,
@@ -480,7 +480,7 @@
      "env_leak": []
     },
     "probe_raw": "ymlink\": {\"errno\": 30, \"kind\": \"OSError\"}, \"workspace\": {\"ok\": true}}, \"tcp_loopback\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"udp_loopback\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"tcp_internet\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"dns\": {\"errno\": -3, \"kind\": \"gaierror\"}, \"env_leak\": []}\n",
-    "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/p6-codex-weak-3fp69opb/home/.codex\"))\n"
+    "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/p6-codex-weak-j72xrqjp/home/.codex\"))\n"
    },
    "arrived": {
     "tcp": false,

@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -15,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	"github.com/flyfission/control-rod/daemon/internal/digest"
 )
 
@@ -129,24 +129,42 @@ func (p *SandboxPolicy) Denied(at SandboxPaths) []string {
 	return out
 }
 
-// LoginLocations are the CLI login folders named by the environment, resolved through links, so a
-// login moved out of the home folder is denied too (ADR 0021's denied read set).
-func LoginLocations(getenv func(string) string) []string {
-	var out []string
+// LoginLocations are where the CLIs keep their logins, wherever they really are: the folders the
+// environment names (CODEX_HOME, CLAUDE_CONFIG_DIR) and the default folders and login files in the
+// home folder, each resolved through links (ADR 0021's denied read set). A login inside the home
+// folder is covered by the home denial; one a link points outside it is denied by its real path.
+func LoginLocations(getenv func(string) string, home string) []string {
+	cands := []string{
+		filepath.Join(home, ".claude"), filepath.Join(home, ".codex"), filepath.Join(home, ".claude.json"),
+		filepath.Join(home, ".claude", ".credentials.json"), filepath.Join(home, ".codex", "auth.json"),
+	}
 	for _, k := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR"} {
-		v := getenv(k)
-		if v == "" {
+		if v := getenv(k); v != "" {
+			cands = append(cands, v, filepath.Join(v, "auth.json"), filepath.Join(v, ".credentials.json"))
+		}
+	}
+	var out []string
+	for _, c := range cands {
+		abs, err := filepath.Abs(c)
+		if err != nil {
 			continue
 		}
-		if real, err := filepath.EvalSymlinks(v); err == nil {
-			v = real
+		real, err := filepath.EvalSymlinks(abs)
+		if err != nil {
+			continue // absent: nothing to read
 		}
-		if abs, err := filepath.Abs(v); err == nil {
-			out = append(out, abs)
+		for _, p := range []string{abs, real} {
+			if !slices.Contains(out, p) {
+				out = append(out, p)
+			}
 		}
 	}
 	return out
 }
+
+// ErrLoginInWorkspace refuses a layout where a CLI login lies inside the run's workspace, which no
+// sandbox here can keep from the agent.
+var ErrLoginInWorkspace = errors.New("a CLI login is inside the run's workspace; move the workspace (CONTROLROD_HOME) or the login")
 
 // outermost keeps only denials no other denial contains, and only those that exist: Codex's
 // bubblewrap cannot mount a denial inside a denied folder (measured in evidence/phase6), a nested
@@ -326,6 +344,8 @@ func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 		"-c", "permissions.control-rod.filesystem={" + strings.Join(inline, ",") + "}",
 		"-c", "permissions.control-rod.network.enabled=false",
 		"-c", `approval_policy="never"`,
+		// Hosted web search is a provider-side tool outside the command sandbox (ADR 0021: off).
+		"-c", `web_search="disabled"`,
 		"-c", `shell_environment_policy.inherit="core"`,
 	}
 	for _, f := range CodexDisabledFeatures {
@@ -448,12 +468,12 @@ func PreflightHost(rt string, lookPath func(string) (string, error), managedCode
 	}
 	if rt == RuntimeCodex {
 		for _, f := range managedCodexConfig {
-			line, n, err := sandboxModeLine(f)
+			key, err := managedWidening(f)
 			if err != nil {
-				return refuse("%s cannot be read (%v), so Control Rod cannot tell whether it sets sandbox_mode. Make it readable or remove it.", f, err)
+				return refuse("%s cannot be read as TOML (%v), so Control Rod cannot tell whether it loosens the sandbox. Fix or remove it.", f, err)
 			}
-			if n > 0 {
-				return refuse("%s mentions sandbox_mode on line %d (%q), and Codex ignores Control Rod's permission profile whenever it is set. Remove that line.", f, n, line)
+			if key != "" {
+				return refuse("%s sets %s, which can loosen the sandbox of every Codex run and which a run cannot override. Remove it.", f, key)
 			}
 		}
 	}
@@ -474,30 +494,58 @@ func ManagedCodexConfig() []string {
 	return append([]string{"/etc/codex/managed_config.toml", "/etc/codex/config.toml", "/etc/codex/requirements.toml"}, files...)
 }
 
-// sandboxModeLine reports where a managed Codex file mentions sandbox_mode: the line and its
-// number, 0 when it does not, or an error when the file exists but cannot be read. Any mention
-// outside a comment counts, quoted, dotted or inside a table, so no TOML spelling slips past.
-func sandboxModeLine(path string) (string, int, error) {
-	f, err := os.Open(path)
+// widening are the Codex configuration keys that can loosen what an agent action reaches when set in
+// a managed file, which a run cannot ignore: the sandbox mode (which makes Codex drop the permission
+// profile), permissions, approvals, web search, features, tools, MCP servers, the command
+// environment, and profiles that can carry any of them.
+var widening = map[string]bool{
+	"sandbox_mode": true, "sandbox_workspace_write": true, "default_permissions": true, "permissions": true,
+	"approval_policy": true, "web_search": true, "tools": true, "features": true, "mcp_servers": true,
+	"shell_environment_policy": true, "profiles": true, "profile": true,
+}
+
+// managedWidening parses a managed Codex file as TOML and returns the first key, at any depth, that
+// could loosen the run's sandbox (keys as TOML decodes them, so no quoting or escaping slips past),
+// "" when there is none, or an error when the file exists but cannot be read or parsed.
+func managedWidening(path string) (string, error) {
+	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return "", 0, nil
+		return "", nil
 	}
 	if err != nil {
-		return "", 0, err
+		return "", err
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
-	for n := 1; sc.Scan(); n++ {
-		line := strings.TrimSpace(sc.Text())
-		if strings.HasPrefix(line, "#") {
-			continue
-		}
-		if strings.Contains(strings.ToLower(line), "sandbox_mode") {
-			return line, n, nil
-		}
+	var doc map[string]any
+	if _, err := toml.Decode(string(b), &doc); err != nil {
+		return "", err
 	}
-	return "", 0, sc.Err()
+	var find func(m map[string]any, at string) string
+	find = func(m map[string]any, at string) string {
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if widening[k] {
+				return at + k
+			}
+			switch v := m[k].(type) {
+			case map[string]any:
+				if f := find(v, at+k+"."); f != "" {
+					return f
+				}
+			case []map[string]any:
+				for _, t := range v {
+					if f := find(t, at+k+"."); f != "" {
+						return f
+					}
+				}
+			}
+		}
+		return ""
+	}
+	return find(doc, ""), nil
 }
 
 // unqualifiedCodexFeatures reads `codex features list` output (name, stage, effective state) and

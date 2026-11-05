@@ -323,7 +323,7 @@ func (d *Daemon) sandboxPaths(ws *Workspace) SandboxPaths {
 	if err != nil {
 		dh = d.cfg.Home
 	}
-	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: ws.Dir, Logins: LoginLocations(os.Getenv)}
+	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: ws.Dir, Logins: LoginLocations(os.Getenv, home)}
 }
 
 // preflight checks that this host can run rt under its sandbox (plan task 6.3).

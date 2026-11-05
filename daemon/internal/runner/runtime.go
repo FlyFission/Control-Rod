@@ -283,15 +283,20 @@ func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at Sandbo
 	model := RequestedModel(run)
 	var cmd *exec.Cmd
 	switch runtime {
-	case RuntimeClaude:
+	case RuntimeClaude, RuntimeCodex:
 		if p == nil {
 			return nil, ErrNoPolicy
 		}
+		for _, l := range at.Logins {
+			if within(l, at.Workspace) || within(at.Workspace, l) {
+				return nil, ErrLoginInWorkspace
+			}
+		}
+	}
+	switch runtime {
+	case RuntimeClaude:
 		cmd = exec.Command("claude", ClaudeArgs(ws, model, p, at)...)
 	case RuntimeCodex:
-		if p == nil {
-			return nil, ErrNoPolicy
-		}
 		args, err := CodexArgs(ws, model, p, at)
 		if err != nil {
 			return nil, err

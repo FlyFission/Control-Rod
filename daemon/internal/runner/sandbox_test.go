@@ -231,16 +231,36 @@ func TestPreflightRefusesWithTheFixAndNeverFallsBack(t *testing.T) {
 		}
 	}
 	// A managed config that sets sandbox_mode, named by line.
-	// Any spelling TOML allows: bare, quoted either way, dotted, or under a table.
-	for _, line := range []string{`  sandbox_mode = "danger-full-access"`, `"sandbox_mode" = "danger-full-access"`, `'sandbox_mode' = 'x'`,
-		`profiles.p.sandbox_mode = "x"`, `[profiles.p]` + "\n" + `sandbox_mode = "x"`} {
+	// Keys as TOML decodes them, in any spelling (bare, quoted, escaped, dotted, in a table), and
+	// every other key that can loosen the sandbox.
+	for line, key := range map[string]string{
+		`  sandbox_mode = "danger-full-access"`: "sandbox_mode", `"sandbox_mode" = "x"`: "sandbox_mode", `'sandbox_mode' = 'x'`: "sandbox_mode",
+		`"sandbox\u005fmode" = "x"`: "sandbox_mode", `[profiles.p]` + "\n" + `model = "x"`: "profiles", `web_search = "live"`: "web_search",
+		`[features]` + "\n" + `apps = true`: "features", `[mcp_servers.x]` + "\n" + `command = "y"`: "mcp_servers",
+		`approval_policy = "on-request"`: "approval_policy", `[x.y]` + "\n" + `sandbox_mode = "z"`: "x.y.sandbox_mode",
+	} {
 		managed := filepath.Join(t.TempDir(), "managed_config.toml")
 		if err := os.WriteFile(managed, []byte("# sandbox_mode in a comment is fine\nmodel = \"x\"\n"+line+"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := Preflight(ctx, RuntimeCodex, signedIn, found, safe, []string{managed}); err == nil || !strings.Contains(err.Error(), "mentions sandbox_mode on line") {
+		if err := Preflight(ctx, RuntimeCodex, signedIn, found, safe, []string{managed}); err == nil || !strings.Contains(err.Error(), "sets "+key+",") {
 			t.Fatalf("managed %q: %v", line, err)
 		}
+	}
+	// A managed file with only harmless settings passes; one that is not valid TOML refuses.
+	harmless := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(harmless, []byte("model = \"x\"\n# sandbox_mode = \"y\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Preflight(ctx, RuntimeCodex, signedIn, found, safe, []string{harmless}); err != nil {
+		t.Fatalf("harmless managed file: %v", err)
+	}
+	invalid := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(invalid, []byte("sandbox_mode = \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Preflight(ctx, RuntimeCodex, signedIn, found, safe, []string{invalid}); err == nil || !strings.Contains(err.Error(), "cannot be read as TOML") {
+		t.Fatalf("broken managed file: %v", err)
 	}
 	// A managed file that exists but cannot be read is refused, not taken as absent.
 	if os.Getuid() != 0 {
@@ -248,7 +268,7 @@ func TestPreflightRefusesWithTheFixAndNeverFallsBack(t *testing.T) {
 		if err := os.WriteFile(locked, []byte("x"), 0o000); err != nil {
 			t.Fatal(err)
 		}
-		if err := Preflight(ctx, RuntimeCodex, signedIn, found, safe, []string{locked}); err == nil || !strings.Contains(err.Error(), "cannot be read") {
+		if err := Preflight(ctx, RuntimeCodex, signedIn, found, safe, []string{locked}); err == nil || !strings.Contains(err.Error(), "cannot be read as TOML") {
 			t.Fatalf("unreadable managed file: %v", err)
 		}
 	}
@@ -330,17 +350,39 @@ func TestStagedRuntimesAreCopiedOutsideHomeAndRechecked(t *testing.T) {
 	}
 }
 
-func TestLoginLocationsFollowTheEnvironmentAndAreDenied(t *testing.T) {
-	moved := t.TempDir()
-	env := map[string]string{"CODEX_HOME": moved}
-	got := LoginLocations(func(k string) string { return env[k] })
-	real, _ := filepath.EvalSymlinks(moved)
-	if !slices.Equal(got, []string{real}) {
-		t.Fatalf("logins %q", got)
+func TestLoginLocationsFollowTheEnvironmentAndLinksAndAreDenied(t *testing.T) {
+	home := t.TempDir()
+	moved := t.TempDir()  // CODEX_HOME points here
+	linked := t.TempDir() // ~/.claude is a link to here
+	if err := os.WriteFile(filepath.Join(linked, ".credentials.json"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	d := testPolicy().Denied(SandboxPaths{Home: "/home/u", Workspace: "/home/u/w", Logins: got})
+	if err := os.Symlink(linked, filepath.Join(home, ".claude")); err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{"CODEX_HOME": moved}
+	got := LoginLocations(func(k string) string { return env[k] }, home)
+	for _, want := range []string{moved, linked, filepath.Join(linked, ".credentials.json")} {
+		real, _ := filepath.EvalSymlinks(want)
+		if !slices.Contains(got, real) {
+			t.Errorf("login %s not found: %q", real, got)
+		}
+	}
+	d := testPolicy().Denied(SandboxPaths{Home: home, Workspace: filepath.Join(home, "w"), Logins: got})
+	real, _ := filepath.EvalSymlinks(linked)
 	if !slices.Contains(d, real) {
-		t.Fatalf("moved login not denied: %q", d)
+		t.Fatalf("linked login not denied by its real path: %q", d)
+	}
+	// A login inside the workspace (or a workspace inside a login) refuses the launch.
+	ws := workspaceWithTools(t, "Read\n")
+	run := testRun("run-li", "author")
+	for _, rt := range []string{RuntimeClaude, RuntimeCodex} {
+		if _, err := Command(rt, run, ws, testPolicy(), SandboxPaths{Home: home, Workspace: ws.Dir, Logins: []string{filepath.Join(ws.Dir, "inputs")}}); !errors.Is(err, ErrLoginInWorkspace) {
+			t.Errorf("%s: login inside the workspace: %v", rt, err)
+		}
+		if _, err := Command(rt, run, ws, testPolicy(), SandboxPaths{Home: home, Workspace: ws.Dir, Logins: []string{filepath.Dir(ws.Dir)}}); !errors.Is(err, ErrLoginInWorkspace) {
+			t.Errorf("%s: workspace inside a login: %v", rt, err)
+		}
 	}
 }
 
@@ -363,5 +405,40 @@ func TestPolicyShapesTheDaemonCannotEnforceAreRefused(t *testing.T) {
 	}
 	if ClaudeToolList(p) != "Read" {
 		t.Fatalf("claude tools %q", ClaudeToolList(p))
+	}
+}
+
+func TestStagingConcurrentlyPublishesOneCopy(t *testing.T) {
+	src := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(src, "bin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "bin", "codex"), []byte("\x7fELF codex"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sum, files, err := treeDigest(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := RuntimeArtifact{Path: filepath.Join(src, "bin", "codex"), Root: src, Digest: Digest{Algorithm: "sha256", Value: sum}, exeSum: files["bin/codex"]}
+	base := filepath.Join(t.TempDir(), "stage")
+	errs := make(chan error, 8)
+	for range 8 {
+		go func() { _, err := StageArtifact(a, base); errs <- err }()
+	}
+	for range 8 {
+		if err := <-errs; err != nil {
+			t.Fatalf("concurrent staging: %v", err)
+		}
+	}
+	if b, err := os.ReadFile(filepath.Join(base, sum, "bin", "codex")); err != nil || string(b) != "\x7fELF codex" {
+		t.Fatalf("published copy: %q %v", b, err)
+	}
+}
+
+func TestStageRootIgnoresTMPDIR(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	if r := StageRoot(); !strings.HasPrefix(r, "/tmp/") && !strings.HasPrefix(r, "/private/tmp/") {
+		t.Fatalf("stage root %s follows TMPDIR", r)
 	}
 }

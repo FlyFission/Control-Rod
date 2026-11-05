@@ -115,7 +115,7 @@ func sandboxArgs(args []string) int {
 	}
 	ws := &runner.Workspace{Dir: *workspace, Inputs: filepath.Join(*workspace, "inputs"), Out: filepath.Join(*workspace, "out")}
 	run := runner.Run{ID: "sandbox-args", Role: "author", Runtime: runner.RuntimeRef{Provider: *rt, Model: *model}}
-	at := runner.SandboxPaths{Home: *homeDir, DaemonHome: *daemonHome, Workspace: *workspace, Logins: runner.LoginLocations(os.Getenv)}
+	at := runner.SandboxPaths{Home: *homeDir, DaemonHome: *daemonHome, Workspace: *workspace, Logins: runner.LoginLocations(os.Getenv, *homeDir)}
 	cmd, err := runner.Command(runner.RuntimeFor(*rt), run, ws, &p, at)
 	if err != nil || cmd == nil {
 		fmt.Fprintln(os.Stderr, "no launch:", err)

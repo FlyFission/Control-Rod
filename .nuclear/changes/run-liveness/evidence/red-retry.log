@@ -1,0 +1,5 @@
+--- FAIL: TestACompletionTheControlPlaneKeepsFailingIsRetriedLessOftenAndKept (2.01s)
+    settle_test.go:287: 100 completion attempts in 2 s, want a few spaced by a doubling wait
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	2.021s
+FAIL

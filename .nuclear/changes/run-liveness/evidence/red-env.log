@@ -1,0 +1,9 @@
+--- FAIL: TestChildEnvDropsWhatThePackageManagerLauncherSet (0.00s)
+    settle_test.go:191: child env
+         got ["HOME=/h" "LANG=C.UTF-8" "NODE_EXTRA_CA_CERTS=/ca.pem" "NPM_CONFIG_REGISTRY=https://r.example/" "INIT_CWD=/repo" "PNPM_SCRIPT_SRC_DIR=/repo" "PNPM_HOME=/h/.pnpm" "npm_command=run-script" "npm_config_globalconfig=/h/.config/pnpm/rc" "npm_config_prefix=/tmp/x" "npm_config_user_agent=pnpm/10.28.0" "npm_execpath=/p/pnpm.cjs" "npm_lifecycle_event=cr" "npm_lifecycle_script=node scripts/cr.mjs" "npm_node_execpath=/n/node" "npm_package_json=/repo/package.json" "npm_package_name=control-rod" "pnpm_config_verify_deps_before_run=false" "PATH=/repo/node_modules/.bin:/p/pnpm/dist/node-gyp-bin:/repo/.bin:/usr/local/bin:/usr/bin"]
+        want ["HOME=/h" "LANG=C.UTF-8" "NODE_EXTRA_CA_CERTS=/ca.pem" "NPM_CONFIG_REGISTRY=https://r.example/" "PNPM_HOME=/h/.pnpm" "PATH=/repo/.bin:/usr/local/bin:/usr/bin"]
+--- FAIL: TestClaudeRunsCannotStartBackgroundTasks (0.00s)
+    settle_test.go:204: CLAUDE_CODE_DISABLE_BACKGROUND_TASKS="0" in a Claude run, want 1 (once)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.017s
+FAIL

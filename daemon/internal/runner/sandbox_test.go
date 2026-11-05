@@ -95,8 +95,8 @@ func TestClaudeSettingsConfineReadsAndKeepTheWorkspaceOpen(t *testing.T) {
 	var s struct {
 		Sandbox struct {
 			Enabled, FailIfUnavailable, AllowUnsandboxedCommands, AutoAllowBashIfSandboxed bool
-			Filesystem                                                                 struct{ DenyRead []string }
-			Network                                                                    struct{ AllowedDomains []string }
+			Filesystem                                                                     struct{ DenyRead []string }
+			Network                                                                        struct{ AllowedDomains []string }
 		}
 		Permissions struct {
 			DefaultMode                         string
@@ -253,7 +253,9 @@ func TestPreflightRefusesWithTheFixAndNeverFallsBack(t *testing.T) {
 		}
 	}
 	// A feature Control Rod has not qualified, left on by a new version.
-	unknown := func(context.Context) (string, error) { return "shell_tool stable true\nteleport experimental true\n", nil }
+	unknown := func(context.Context) (string, error) {
+		return "shell_tool stable true\nteleport experimental true\n", nil
+	}
 	if err := Preflight(ctx, RuntimeCodex, signedIn, found, unknown, nil); err == nil || !strings.Contains(err.Error(), "teleport") {
 		t.Fatalf("unqualified feature: %v", err)
 	}

@@ -5,11 +5,11 @@ package runner
 import (
 	"context"
 	"errors"
-	"strings"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 

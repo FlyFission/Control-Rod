@@ -17,6 +17,10 @@ import (
 	"github.com/flyfission/control-rod/daemon/internal/digest"
 )
 
+// Tests run on hosts that are not the qualified platform (CI runs native Linux): the platform gate
+// is exercised by its own test, and is otherwise out of the way.
+func init() { platformCheck = func() error { return nil } }
+
 // testPolicy is the control plane's no-network policy shape (services/api/src/sandbox.ts).
 func testPolicy() *SandboxPolicy {
 	return &SandboxPolicy{ID: "sbp_none-test", Version: 3, OrgID: "org_test", Driver: DriverNativeCLI,
@@ -475,6 +479,14 @@ func TestCredentialStoreLinksAreDeniedAtTheirTargets(t *testing.T) {
 	if err := os.Symlink(elsewhere, filepath.Join(home, ".aws")); err != nil {
 		t.Fatal(err)
 	}
+	// A link deeper inside a named store.
+	nested := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, ".config", "gh", "sub"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(nested, filepath.Join(home, ".config", "gh", "sub", "tokens")); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -482,9 +494,9 @@ func TestCredentialStoreLinksAreDeniedAtTheirTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := testPolicy()
-	p.DeniedRead = append(p.DeniedRead, "~/.aws")
+	p.DeniedRead = append(p.DeniedRead, "~/.aws", "~/.config/gh")
 	d := p.Denied(SandboxPaths{Home: home, Workspace: filepath.Join(home, "w")})
-	for _, want := range []string{elsewhere, keyElsewhere} {
+	for _, want := range []string{elsewhere, keyElsewhere, nested} {
 		real, _ := filepath.EvalSymlinks(want)
 		if !slices.Contains(d, real) {
 			t.Errorf("%s not denied: %q", real, d)

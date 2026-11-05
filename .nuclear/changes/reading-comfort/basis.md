@@ -44,3 +44,18 @@ People supervise agents in Control Rod for hours at a time: reading logs, run ou
 - **Scene label size.** Station and figure codes in the scenes stay small.
 - **Break reminders.** Supported at moderate grade, but a nudge is itself an interruption.
 - **Editor and terminal settings** from the report are personal and untouched.
+
+## Required links
+
+- `risk.md`, `plan.md`, `trace.md`, `verification.md`, `ship.md`
+- `docs/reading-comfort.md`, `apps/web/src/design/`
+
+## Exit criteria
+
+- Builder and reviewer can say what the research supports and at what grade.
+- Nothing is claimed beyond that grade.
+- Evidence needs flow into `verification.md`.
+
+## Source-lineage note
+
+Basis structure follows nuclear-grade context engineering; public source map at https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. No compliance claim is made.

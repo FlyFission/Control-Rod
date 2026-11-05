@@ -17,3 +17,16 @@
 | C-005 | Larger text does not break reflow or accessibility checks on any place. | `basis.md` row 1 | Browser suite | E-005 | Merge | pass |
 | C-006 | No trust surface is edited; no dependency, font file or network host is added. | `plan.md` | Diff scope | E-007 | Merge | pass |
 | N-001 | **Not claimed:** any effect on eye strain, fatigue or comfort outcomes. | `basis.md` Not claimed | none | none | n/a | n/a |
+
+## Required links
+
+- `basis.md`, `verification.md`, `ship.md`
+
+## Exit criteria
+
+- Every claim has a status.
+- The not-claimed item is carried, not dropped.
+
+## Source-lineage note
+
+Trace structure follows nuclear-grade context engineering; public source map at https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. No compliance claim is made.

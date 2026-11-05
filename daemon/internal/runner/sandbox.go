@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/flyfission/control-rod/daemon/internal/digest"
@@ -102,6 +102,14 @@ type SandboxPaths struct {
 // daemon's own home is always added (its token, outbox, receipts and other runs' workspaces). A
 // path that does not exist is kept: a denial must hold for a file created during the run.
 func (p *SandboxPolicy) Denied(at SandboxPaths) []string {
+	out, _ := p.DeniedChecked(at)
+	return out
+}
+
+// DeniedChecked is Denied, and says when the discovery of links inside a named credential store
+// could not finish (an unreadable folder, too many entries): a launch then refuses, since a target
+// it did not find stays readable.
+func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 	seen := map[string]bool{}
 	var out []string
 	add := func(x string) {
@@ -128,36 +136,69 @@ func (p *SandboxPolicy) Denied(at SandboxPaths) []string {
 		add(l)
 	}
 	// A named credential store that is a link, or that holds links, is denied at the real paths
-	// too: hiding the home folder hides the link, not what it points to.
+	// too: hiding the home folder hides the link, not what it points to. The walk follows linked
+	// folders (each real folder once), so a link inside a linked folder is found too.
+	visited := map[string]bool{}
+	entries := 0
+	deadline := time.Now().Add(maxStoreWalk)
+	var walk func(dir string) error
+	walk = func(dir string) error {
+		real, err := filepath.EvalSymlinks(dir)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil // a dangling link reaches nothing
+			}
+			return err
+		}
+		if visited[real] {
+			return nil
+		}
+		visited[real] = true
+		if real != dir {
+			add(real)
+		}
+		fi, err := os.Stat(real)
+		if err != nil {
+			return err
+		}
+		if !fi.IsDir() {
+			return nil
+		}
+		list, err := os.ReadDir(real)
+		if err != nil {
+			return err
+		}
+		for _, e := range list {
+			if entries++; entries > maxStoreEntries || time.Now().After(deadline) {
+				return fmt.Errorf("more entries than can be checked for links (%d after %s)", entries, maxStoreWalk)
+			}
+			child := filepath.Join(real, e.Name())
+			if e.Type()&os.ModeSymlink != 0 || e.IsDir() {
+				if err := walk(child); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	for _, d := range slices.Clone(out) {
 		if d == at.Home || at.Home == "" || !within(d, at.Home) {
 			continue
 		}
-		if real, err := filepath.EvalSymlinks(d); err == nil && real != d {
-			add(real)
+		if err := walk(d); err != nil {
+			return out, fmt.Errorf("the credential store %s could not be checked for links (%v), so what it links to could stay readable; fix its permissions or remove it", d, err)
 		}
-		// Links anywhere inside the store, not only at its top (~/.aws/sso/cache can be a link).
-		seenEntries := 0
-		_ = filepath.WalkDir(d, func(p string, e fs.DirEntry, err error) error {
-			if err != nil {
-				return nil
-			}
-			if seenEntries++; seenEntries > maxStoreEntries {
-				return filepath.SkipAll
-			}
-			if e.Type()&os.ModeSymlink != 0 {
-				if real, err := filepath.EvalSymlinks(p); err == nil {
-					add(real)
-				}
-			}
-			return nil
-		})
 	}
-	return out
+	return out, nil
 }
 
-// maxStoreEntries bounds the walk of one named credential store for links.
-const maxStoreEntries = 20000
+// maxStoreEntries and maxStoreWalk bound the walk of the named credential stores for links. Login
+// folders hold tens of thousands of session files (about 40,000 on the development machine, walked
+// in tens of milliseconds); the bounds stop a link into a huge tree, and the launch then refuses.
+var (
+	maxStoreEntries = 1_000_000
+	maxStoreWalk    = 5 * time.Second
+)
 
 // LoginLocations are where the CLIs keep their logins, wherever they really are: the folders the
 // environment names (CODEX_HOME, CLAUDE_CONFIG_DIR) and the default folders and login files in the

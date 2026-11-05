@@ -1,0 +1,491 @@
+{
+ "checks": {
+  "positive_control_sees_every_target": true,
+  "claude_holds_every_boundary": true,
+  "claude_weakened_control_leaks": true,
+  "codex_holds_every_boundary": true,
+  "codex_weakened_control_leaks": true,
+  "claude_file_tools_refuse_outside_and_allow_inside": true
+ },
+ "results": {
+  "positive_control": {
+   "result": {
+    "probe": {
+     "read": {
+      "claude_login": {
+       "ok": true,
+       "canary": true
+      },
+      "codex_login": {
+       "ok": true,
+       "canary": true
+      },
+      "ssh_key": {
+       "ok": true,
+       "canary": true
+      },
+      "gh_hosts": {
+       "ok": true,
+       "canary": true
+      },
+      "aws": {
+       "ok": true,
+       "canary": true
+      },
+      "unlisted_store": {
+       "ok": true,
+       "canary": true
+      },
+      "home_dotfile": {
+       "ok": true,
+       "canary": true
+      },
+      "daemon_token": {
+       "ok": true,
+       "canary": true
+      },
+      "other_run": {
+       "ok": true,
+       "canary": true
+      }
+     },
+     "write": {
+      "home": {
+       "ok": true
+      },
+      "tmp": {
+       "ok": true
+      },
+      "via_symlink": {
+       "ok": true
+      },
+      "workspace": {
+       "ok": true
+      }
+     },
+     "tcp_loopback": {
+      "ok": true
+     },
+     "udp_loopback": {
+      "ok": true
+     },
+     "tcp_internet": {
+      "ok": true
+     },
+     "dns": {
+      "ok": true
+     },
+     "env_leak": [
+      "CR_DECOY_SECRET"
+     ]
+    }
+   },
+   "arrived": {
+    "tcp": true,
+    "udp": true
+   },
+   "host": {
+    "home": true,
+    "tmp": true,
+    "via_symlink": true,
+    "workspace": true
+   }
+  },
+  "claude": {
+   "result": {
+    "exit": 0,
+    "probe": {
+     "read": {
+      "claude_login": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "codex_login": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "ssh_key": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "gh_hosts": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "aws": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "unlisted_store": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "home_dotfile": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "daemon_token": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "other_run": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      }
+     },
+     "write": {
+      "home": {
+       "ok": true
+      },
+      "tmp": {
+       "errno": 30,
+       "kind": "OSError"
+      },
+      "via_symlink": {
+       "ok": true
+      },
+      "workspace": {
+       "ok": true
+      }
+     },
+     "tcp_loopback": {
+      "errno": 111,
+      "kind": "ConnectionRefusedError"
+     },
+     "udp_loopback": {
+      "ok": true
+     },
+     "tcp_internet": {
+      "errno": 101,
+      "kind": "OSError"
+     },
+     "dns": {
+      "errno": -3,
+      "kind": "gaierror"
+     },
+     "env_leak": []
+    },
+    "probe_raw": "mp\": {\"errno\": 30, \"kind\": \"OSError\"}, \"via_symlink\": {\"ok\": true}, \"workspace\": {\"ok\": true}}, \"tcp_loopback\": {\"errno\": 111, \"kind\": \"ConnectionRefusedError\"}, \"udp_loopback\": {\"ok\": true}, \"tcp_internet\": {\"errno\": 101, \"kind\": \"OSError\"}, \"dns\": {\"errno\": -3, \"kind\": \"gaierror\"}, \"env_leak\": []}",
+    "read_unlisted_by_tool": false,
+    "read_token_by_tool": false,
+    "write_outside_by_tool": false,
+    "write_inside_by_tool": true,
+    "stderr_tail": "[claude-code:unrecognized_model] {\"model\":\"fixture-model\",\"query_source\":\"sdk\"}\n"
+   },
+   "arrived": {
+    "tcp": false,
+    "udp": false
+   },
+   "host": {
+    "home": false,
+    "tmp": false,
+    "via_symlink": false,
+    "workspace": true
+   },
+   "score": {
+    "probe_ran": true,
+    "read_claude_login_refused": true,
+    "read_codex_login_refused": true,
+    "read_ssh_key_refused": true,
+    "read_gh_hosts_refused": true,
+    "read_aws_refused": true,
+    "read_unlisted_store_refused": true,
+    "read_home_dotfile_refused": true,
+    "read_daemon_token_refused": true,
+    "read_other_run_refused": true,
+    "write_home_kept_off_host": true,
+    "write_tmp_kept_off_host": true,
+    "write_via_symlink_kept_off_host": true,
+    "write_workspace_on_host": true,
+    "tcp_internet_refused": true,
+    "dns_refused": true,
+    "loopback_nothing_arrived": true,
+    "no_env_leak": true
+   }
+  },
+  "claude_weakened": {
+   "result": {
+    "exit": 0,
+    "probe": {
+     "read": {
+      "claude_login": {
+       "ok": true,
+       "canary": true
+      },
+      "codex_login": {
+       "ok": true,
+       "canary": true
+      },
+      "ssh_key": {
+       "ok": true,
+       "canary": true
+      },
+      "gh_hosts": {
+       "ok": true,
+       "canary": true
+      },
+      "aws": {
+       "ok": true,
+       "canary": true
+      },
+      "unlisted_store": {
+       "ok": true,
+       "canary": true
+      },
+      "home_dotfile": {
+       "ok": true,
+       "canary": true
+      },
+      "daemon_token": {
+       "ok": true,
+       "canary": true
+      },
+      "other_run": {
+       "ok": true,
+       "canary": true
+      }
+     },
+     "write": {
+      "home": {
+       "errno": 30,
+       "kind": "OSError"
+      },
+      "tmp": {
+       "errno": 30,
+       "kind": "OSError"
+      },
+      "via_symlink": {
+       "errno": 30,
+       "kind": "OSError"
+      },
+      "workspace": {
+       "ok": true
+      }
+     },
+     "tcp_loopback": {
+      "errno": 111,
+      "kind": "ConnectionRefusedError"
+     },
+     "udp_loopback": {
+      "ok": true
+     },
+     "tcp_internet": {
+      "errno": 101,
+      "kind": "OSError"
+     },
+     "dns": {
+      "errno": -3,
+      "kind": "gaierror"
+     },
+     "env_leak": []
+    },
+    "probe_raw": "kind\": \"OSError\"}, \"via_symlink\": {\"errno\": 30, \"kind\": \"OSError\"}, \"workspace\": {\"ok\": true}}, \"tcp_loopback\": {\"errno\": 111, \"kind\": \"ConnectionRefusedError\"}, \"udp_loopback\": {\"ok\": true}, \"tcp_internet\": {\"errno\": 101, \"kind\": \"OSError\"}, \"dns\": {\"errno\": -3, \"kind\": \"gaierror\"}, \"env_leak\": []}",
+    "read_unlisted_by_tool": false,
+    "read_token_by_tool": false,
+    "write_outside_by_tool": false,
+    "write_inside_by_tool": true,
+    "stderr_tail": "[claude-code:unrecognized_model] {\"model\":\"fixture-model\",\"query_source\":\"sdk\"}\n"
+   },
+   "arrived": {
+    "tcp": false,
+    "udp": false
+   }
+  },
+  "codex": {
+   "result": {
+    "exit": 0,
+    "probe": {
+     "read": {
+      "claude_login": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "codex_login": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "ssh_key": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "gh_hosts": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "aws": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "unlisted_store": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "home_dotfile": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "daemon_token": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      },
+      "other_run": {
+       "errno": 2,
+       "kind": "FileNotFoundError"
+      }
+     },
+     "write": {
+      "home": {
+       "errno": 30,
+       "kind": "OSError"
+      },
+      "tmp": {
+       "errno": 30,
+       "kind": "OSError"
+      },
+      "via_symlink": {
+       "errno": 30,
+       "kind": "OSError"
+      },
+      "workspace": {
+       "ok": true
+      }
+     },
+     "tcp_loopback": {
+      "errno": 1,
+      "kind": "PermissionError"
+     },
+     "udp_loopback": {
+      "errno": 1,
+      "kind": "PermissionError"
+     },
+     "tcp_internet": {
+      "errno": 1,
+      "kind": "PermissionError"
+     },
+     "dns": {
+      "errno": -3,
+      "kind": "gaierror"
+     },
+     "env_leak": []
+    },
+    "probe_raw": "ymlink\": {\"errno\": 30, \"kind\": \"OSError\"}, \"workspace\": {\"ok\": true}}, \"tcp_loopback\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"udp_loopback\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"tcp_internet\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"dns\": {\"errno\": -3, \"kind\": \"gaierror\"}, \"env_leak\": []}\n",
+    "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/p6-codex-e69potnj/home/.codex\"))\n"
+   },
+   "arrived": {
+    "tcp": false,
+    "udp": false
+   },
+   "host": {
+    "home": false,
+    "tmp": false,
+    "via_symlink": false,
+    "workspace": true
+   },
+   "score": {
+    "probe_ran": true,
+    "read_claude_login_refused": true,
+    "read_codex_login_refused": true,
+    "read_ssh_key_refused": true,
+    "read_gh_hosts_refused": true,
+    "read_aws_refused": true,
+    "read_unlisted_store_refused": true,
+    "read_home_dotfile_refused": true,
+    "read_daemon_token_refused": true,
+    "read_other_run_refused": true,
+    "write_home_kept_off_host": true,
+    "write_tmp_kept_off_host": true,
+    "write_via_symlink_kept_off_host": true,
+    "write_workspace_on_host": true,
+    "tcp_internet_refused": true,
+    "dns_refused": true,
+    "loopback_nothing_arrived": true,
+    "no_env_leak": true
+   }
+  },
+  "codex_weakened": {
+   "result": {
+    "exit": 0,
+    "probe": {
+     "read": {
+      "claude_login": {
+       "ok": true,
+       "canary": true
+      },
+      "codex_login": {
+       "ok": true,
+       "canary": true
+      },
+      "ssh_key": {
+       "ok": true,
+       "canary": true
+      },
+      "gh_hosts": {
+       "ok": true,
+       "canary": true
+      },
+      "aws": {
+       "ok": true,
+       "canary": true
+      },
+      "unlisted_store": {
+       "ok": true,
+       "canary": true
+      },
+      "home_dotfile": {
+       "ok": true,
+       "canary": true
+      },
+      "daemon_token": {
+       "ok": true,
+       "canary": true
+      },
+      "other_run": {
+       "ok": true,
+       "canary": true
+      }
+     },
+     "write": {
+      "home": {
+       "errno": 30,
+       "kind": "OSError"
+      },
+      "tmp": {
+       "errno": 30,
+       "kind": "OSError"
+      },
+      "via_symlink": {
+       "errno": 30,
+       "kind": "OSError"
+      },
+      "workspace": {
+       "ok": true
+      }
+     },
+     "tcp_loopback": {
+      "errno": 1,
+      "kind": "PermissionError"
+     },
+     "udp_loopback": {
+      "errno": 1,
+      "kind": "PermissionError"
+     },
+     "tcp_internet": {
+      "errno": 1,
+      "kind": "PermissionError"
+     },
+     "dns": {
+      "errno": -3,
+      "kind": "gaierror"
+     },
+     "env_leak": []
+    },
+    "probe_raw": "ymlink\": {\"errno\": 30, \"kind\": \"OSError\"}, \"workspace\": {\"ok\": true}}, \"tcp_loopback\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"udp_loopback\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"tcp_internet\": {\"errno\": 1, \"kind\": \"PermissionError\"}, \"dns\": {\"errno\": -3, \"kind\": \"gaierror\"}, \"env_leak\": []}\n",
+    "stderr_tail": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"/tmp/p6-codex-weak-p54da_t5/home/.codex\"))\n"
+   },
+   "arrived": {
+    "tcp": false,
+    "udp": false
+   }
+  }
+ }
+}

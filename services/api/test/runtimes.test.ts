@@ -162,8 +162,9 @@ describe("roster (plan task 5.1)", () => {
     expect(r.versions.some((v: Json) => v.digest.value === C)).toBe(false);
     // A passing probe of a runtime no pin may name (the test runtime) is never offered.
     expect(r.versions.every((v: Json) => v.runtime === "claude" || v.runtime === "codex")).toBe(true);
-    // No sandbox policy is recorded; the launch is reported as the run gave it.
-    expect(r.sandbox.policies).toEqual([]);
+    // The policy earlier dispatches ran under (plan task 6.1), and each launch as the run reported it.
+    expect(r.sandbox.policies).toEqual([expect.objectContaining({ id: expect.stringMatching(/^sbp_none-/), version: 1, driver: "native-cli", allowed_hosts: [],
+      denied_read: expect.arrayContaining(["~", "~/.claude", "~/.codex", "~/.ssh", "~/.controlrod"]), digest: expect.stringMatching(/^[0-9a-f]{64}$/) })]);
     expect(r.sandbox.launched).toEqual([expect.objectContaining({ runtime: "claude", sandbox: "none", run_id: "R-roster01" })]);
     expect((await h.app.inject({ method: "GET", url: "/roster" })).statusCode).toBe(401);
   });
@@ -265,7 +266,8 @@ describe("roster (plan task 5.1)", () => {
     expect(r.versions.some((v: Json) => v.runtime === "claude")).toBe(true);
     expect(r.roles.find((x: Json) => x.role === "author").pins.length).toBeGreaterThan(0);
     expect(r.sandbox.launched.map((l: Json) => l.runtime)).toEqual(["claude"]);
-    expect(r.sandbox.policies).toEqual([]);
+    // Only this organization's policy; the other organization's is never shown.
+    expect(r.sandbox.policies.map((p: Json) => p.id)).toEqual([expect.stringMatching(/^sbp_none-/)]);
     for (const secret of ["author-secret", "R-roster-other", "pin_other", "sbp_other", "9.9.9", "d".repeat(64)]) expect(res.body, secret).not.toContain(secret);
   });
 });

@@ -961,6 +961,15 @@ namespace Runner {
 
     /** The artifact this run must launch, when one is pinned for its runtime and role. */
     runtime_pin?: RuntimePinRef;
+
+    /**
+     * What the run's agent actions may touch (plan task 6.1). The daemon derives every CLI setting
+     * from it, checks it against `sandbox_policy_digest` and the run's recorded policy, and refuses
+     * to launch an agent CLI without it.
+     */
+    sandbox_policy?: SandboxPolicy;
+
+    sandbox_policy_digest?: Digest;
   }
 
   /** A claim on one run. Log posts renew the lease; a lapsed lease marks the run lost. */

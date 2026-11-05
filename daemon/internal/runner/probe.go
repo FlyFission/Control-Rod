@@ -27,10 +27,17 @@ type RuntimeStatus struct {
 // only when the command could not be run at all.
 type CommandRunner func(ctx context.Context, name string, args ...string) (out string, code int, err error)
 
-// ExecRunner runs commands with the agent environment (no CONTROLROD_ variables).
+// ExecRunner runs a CLI the way a run would find and start it: from the agent PATH, with the
+// agent environment (AgentEnv).
 func ExecRunner(ctx context.Context, name string, args ...string) (string, int, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Env = ChildEnv(os.Environ())
+	// The same PATH and allowlisted environment as a launch, so a login the run could not see (an
+	// API key in the daemon's environment) never makes a runtime look ready.
+	path, err := LookPathAgent(name)
+	if err != nil {
+		return "", -1, err
+	}
+	cmd := exec.CommandContext(ctx, path, args...)
+	cmd.Env = AgentEnv(os.Environ())
 	out, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {

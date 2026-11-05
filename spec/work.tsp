@@ -70,6 +70,17 @@ enum RunStatus {
   lost: "lost",
 }
 
+/** One version of a sandbox policy, as a run cites it. */
+@extension("unevaluatedProperties", false)
+model SandboxPolicyRef {
+  id: string;
+
+  @minValue(1)
+  version: int32;
+
+  digest: Digest;
+}
+
 /** One agent session working on one package revision in one role. */
 @extension("unevaluatedProperties", false)
 model Run {
@@ -131,6 +142,12 @@ model Run {
   budget_ceiling_seconds?: int32;
 
   /**
+   * The sandbox policy version its agent actions run under (workbench plan task 6.1), by digest.
+   * The daemon refuses a job whose policy does not match it.
+   */
+  sandbox_policy?: SandboxPolicyRef;
+
+  /**
    * The minutes a reservation for this run takes (its ceiling and the control plane's margins,
    * rounded up), recorded whenever the daemon reported a ceiling, budget or not, so a minute budget
    * set while the run is in flight counts it at that size.
@@ -143,7 +160,7 @@ model Run {
   waiting_reason?: string;
 
   /** The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it). */
-  waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget";
+  waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
 
   /**
    * What the hold waits on, where one decision resolves it for every run that names it: a lane's

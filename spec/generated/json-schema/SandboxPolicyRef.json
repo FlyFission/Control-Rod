@@ -1,0 +1,25 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "SandboxPolicyRef.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string"
+        },
+        "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "digest": {
+            "$ref": "Digest.json"
+        }
+    },
+    "required": [
+        "id",
+        "version",
+        "digest"
+    ],
+    "description": "One version of a sandbox policy, as a run cites it.",
+    "unevaluatedProperties": false
+}

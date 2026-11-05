@@ -32,6 +32,8 @@ type Run struct {
 	Round           int        `json:"round"`
 	// Generation is which attempt this is at its package revision, role and round (from 1).
 	Generation int `json:"generation,omitempty"`
+	// SandboxPolicy is the policy version the control plane recorded on the run (plan task 6.1).
+	SandboxPolicy *PolicyRef `json:"sandbox_policy,omitempty"`
 }
 
 // RunClaim is the daemon's custody of one run: a token to present on every log and completion,
@@ -52,6 +54,10 @@ type Job struct {
 	Claim    RunClaim        `json:"claim"`
 	// RuntimePin is the artifact this run must launch, when the control plane has one pinned.
 	RuntimePin *RuntimePin `json:"runtime_pin,omitempty"`
+	// SandboxPolicyRaw is the run's sandbox policy exactly as sent, so its digest is checked over
+	// the received bytes (VerifyPolicy).
+	SandboxPolicyRaw    json.RawMessage `json:"sandbox_policy,omitempty"`
+	SandboxPolicyDigest *Digest         `json:"sandbox_policy_digest,omitempty"`
 
 	// claimSent is when the claim that handed out this job was sent; the lease runs from then.
 	claimSent time.Time

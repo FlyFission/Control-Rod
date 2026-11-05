@@ -648,18 +648,21 @@ func TestARuntimeRefusedAtLaunchIsNeverExecuted(t *testing.T) {
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	// The probe saw an artifact; the job's pin names another, so the launch must refuse.
 	stubArtifact(t)
-	run := testRun("run-refused", "author")
+	pj := policyJob(t, testPolicy())
+	run := pj.Run
+	run.ID = "run-refused"
 	run.Runtime.Provider = "claude"
 	job := &Job{Run: run, Inputs: []NamedFile{{Name: "BRIEF.md", ContentBase64: b64("x")}},
-		RuntimePin: &RuntimePin{Runtime: "claude", Digest: Digest{Algorithm: "sha256", Value: strings.Repeat("b", 64)}}}
+		RuntimePin:       &RuntimePin{Runtime: "claude", Digest: Digest{Algorithm: "sha256", Value: strings.Repeat("b", 64)}},
+		SandboxPolicyRaw: pj.SandboxPolicyRaw, SandboxPolicyDigest: pj.SandboxPolicyDigest}
 	api, srv := newFakeAPI(t, job)
 	var logs bytes.Buffer
 	// The probe answers from a table, so the only thing that could run the script is the launch.
-	probe := answers(map[string]ans{"claude --version": {"2.1.0 (Claude Code)", 0}})
+	probe := answers(map[string]ans{"claude --version": {"2.1.0 (Claude Code)", 0}, "claude auth status": {"", 0}})
 	d := New(Config{
 		API: srv.URL, Token: testToken, Home: t.TempDir(), Parallel: 1, Timeout: 5 * time.Second,
 		PollInterval: 50 * time.Millisecond, LogInterval: 50 * time.Millisecond, Grace: 2 * time.Second,
-		Runtimes: []string{RuntimeClaude, RuntimeFake}, Version: "test", Probe: probe.run,
+		Runtimes: []string{RuntimeClaude, RuntimeFake}, Version: "test", Probe: probe.run, LookPath: found,
 		Logger: slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -698,14 +701,17 @@ func TestAnUnpinnedRuntimeThatChangedIsWithdrawnWithoutRunningIt(t *testing.T) {
 		return RuntimeArtifact{Path: script, Digest: Digest{Algorithm: "sha256", Value: strings.Repeat("a", 64)}}, nil
 	}
 	t.Cleanup(func() { resolveArtifact = old })
-	run := testRun("run-changed", "author")
+	pj := policyJob(t, testPolicy())
+	run := pj.Run
+	run.ID = "run-changed"
 	run.Runtime.Provider = "claude"
-	api, srv := newFakeAPI(t, &Job{Run: run, Inputs: []NamedFile{{Name: "BRIEF.md", ContentBase64: b64("x")}}})
+	api, srv := newFakeAPI(t, &Job{Run: run, Inputs: []NamedFile{{Name: "BRIEF.md", ContentBase64: b64("x")}},
+		SandboxPolicyRaw: pj.SandboxPolicyRaw, SandboxPolicyDigest: pj.SandboxPolicyDigest})
 	var logs bytes.Buffer
 	d := New(Config{
 		API: srv.URL, Token: testToken, Home: t.TempDir(), Parallel: 1, Timeout: 5 * time.Second,
 		PollInterval: 50 * time.Millisecond, LogInterval: 50 * time.Millisecond, Grace: 2 * time.Second,
-		Runtimes: []string{RuntimeClaude, RuntimeFake}, Version: "test", ProbeInterval: time.Hour,
+		Runtimes: []string{RuntimeClaude, RuntimeFake}, Version: "test", ProbeInterval: time.Hour, LookPath: found,
 		Logger: slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 	})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -725,8 +731,9 @@ func TestAnUnpinnedRuntimeThatChangedIsWithdrawnWithoutRunningIt(t *testing.T) {
 		t.Fatalf("the launch is refused: %+v", comp)
 	}
 	runs, _ := os.ReadFile(count)
-	if n := strings.Count(string(runs), "run"); n != 1 {
-		t.Fatalf("only the scheduled probe may run it (once); it ran %d times", n)
+	// The scheduled probe runs it twice (its version, then its login); the launch never does.
+	if n := strings.Count(string(runs), "run"); n != 2 {
+		t.Fatalf("only the scheduled probe may run it (twice); it ran %d times", n)
 	}
 	for _, s := range d.runtimeStatus() {
 		if s.Runtime == RuntimeClaude && s.Ready {

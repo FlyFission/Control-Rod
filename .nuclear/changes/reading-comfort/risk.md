@@ -38,6 +38,23 @@ Low. Presentation only, plus one client-side control that changes what the log s
 | `index.html` preload | Asset hint | Requests a font the app already ships; no new host. |
 | Contrast and type-scale tests | Tests | Keep the above from regressing. |
 
-## Exit
+## Selected mode
 
-Merge after review. No trust-surface signature is needed because none is edited.
+- **Mode:** Quick
+- **Why this mode:** the change is presentation plus one client-side display control, fully reversible, and edits no trust surface, contract, kernel, policy or evidence behaviour.
+- **Why heavier mode is not required:** no runtime decision, data, authorization or irreversible step is touched.
+
+
+## Required links
+
+- `basis.md`, `plan.md`, `trace.md`, `verification.md`, `ship.md`
+- Packet: `.nuclear/changes/reading-comfort/`
+
+## Exit criteria
+
+- The mode is justified.
+- Risks, assumptions and evidence duties live in this packet rather than in chat.
+
+## Source-lineage note
+
+Packet structure follows nuclear-grade context engineering; public source map at https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. No compliance claim is made.

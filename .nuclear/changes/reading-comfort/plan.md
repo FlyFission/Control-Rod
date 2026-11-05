@@ -38,3 +38,18 @@
 ## Agent briefing
 
 The AI agent works on the branch above only, runs local builds and tests, pushes, and opens a draft pull request. It does not merge.
+
+## Required links
+
+- `risk.md`, `basis.md`, `trace.md`, `verification.md`, `ship.md`
+- `.github/workflows/ci.yml`
+
+## Exit criteria
+
+- A reviewer can repeat every result from the commands in `verification.md`.
+- Every claim has a status label.
+- The affected files are listed and no trust surface is among them.
+
+## Source-lineage note
+
+Plan structure follows nuclear-grade context engineering; public source map at https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md. No compliance claim is made.

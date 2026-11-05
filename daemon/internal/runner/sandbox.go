@@ -74,6 +74,16 @@ func VerifyPolicy(job Job) (*SandboxPolicy, error) {
 	if len(p.DeniedRead) == 0 {
 		return nil, errors.New("the sandbox policy denies no reads, which no policy may do")
 	}
+	// The launch enforces exactly the workspace as the only writable root; anything else is refused
+	// rather than carried out differently.
+	if !slices.Equal(p.WritableRoots, []string{"workspace"}) {
+		return nil, fmt.Errorf("sandbox policy writable roots %q are not supported by this daemon; only the workspace is", p.WritableRoots)
+	}
+	for _, t := range p.EnabledTools {
+		if _, ok := claudeTools[t]; !ok {
+			return nil, fmt.Errorf("sandbox policy tool %q is not one this daemon knows", t)
+		}
+	}
 	return &p, nil
 }
 
@@ -82,9 +92,9 @@ type SandboxPaths struct {
 	Home       string
 	DaemonHome string
 	Workspace  string
-	// Keep are paths the CLI itself must still reach inside a denied folder: its own installed
-	// executable's folder (Codex re-runs its binary inside the sandbox for file access).
-	Keep []string
+	// Logins are where the CLIs keep their logins when moved out of the home folder
+	// (CODEX_HOME, CLAUDE_CONFIG_DIR), resolved; each is denied like the home folder's own.
+	Logins []string
 }
 
 // Denied expands the policy's denied reads for this host: `~` is the home folder, and the
@@ -113,55 +123,37 @@ func (p *SandboxPolicy) Denied(at SandboxPaths) []string {
 	if at.DaemonHome != "" {
 		add(at.DaemonHome)
 	}
+	for _, l := range at.Logins {
+		add(l)
+	}
 	return out
 }
 
-// codexDenials turns the policy's denials into what Codex's bubblewrap can mount (measured in
-// evidence/phase6). A denied folder that holds a path the run must reach (the workspace, the CLI's
-// own install) cannot be denied whole, and Codex cannot reopen a path inside a denied one, so it is
-// denied entry by entry: every entry except the folders leading to what must be reached. A link is
-// denied at its target (bubblewrap cannot mount over a link); a target already denied, or one that
-// does not exist, adds nothing. What remains is kept to its outermost existing paths.
-func codexDenials(denied, keep []string) []string {
+// LoginLocations are the CLI login folders named by the environment, resolved through links, so a
+// login moved out of the home folder is denied too (ADR 0021's denied read set).
+func LoginLocations(getenv func(string) string) []string {
 	var out []string
-	var walk func(d string)
-	walk = func(d string) {
-		if !slices.ContainsFunc(keep, func(k string) bool { return within(k, d) }) {
-			out = append(out, resolveLink(d))
-			return
+	for _, k := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR"} {
+		v := getenv(k)
+		if v == "" {
+			continue
 		}
-		if slices.Contains(keep, d) {
-			return
+		if real, err := filepath.EvalSymlinks(v); err == nil {
+			v = real
 		}
-		entries, err := os.ReadDir(d)
-		if err != nil {
-			return
-		}
-		for _, e := range entries {
-			walk(filepath.Join(d, e.Name()))
+		if abs, err := filepath.Abs(v); err == nil {
+			out = append(out, abs)
 		}
 	}
-	for _, d := range denied {
-		walk(d)
-	}
-	return outermost(out)
-}
-
-// resolveLink is a link's target, or the path itself when it is not a link.
-func resolveLink(p string) string {
-	if fi, err := os.Lstat(p); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		if t, err := filepath.EvalSymlinks(p); err == nil {
-			return t
-		}
-		return "" // a dangling link reaches nothing
-	}
-	return p
+	return out
 }
 
 // outermost keeps only denials no other denial contains, and only those that exist: Codex's
 // bubblewrap cannot mount a denial inside a denied folder (measured in evidence/phase6), a nested
 // denial adds nothing to its parent's, and a path that does not exist can only appear by a write,
-// which the profile confines to the workspace.
+// which the profile confines to the workspace. A denied folder that holds the workspace (the home
+// folder, the daemon's home) is denied whole: Codex's :workspace keeps the workspace itself usable,
+// and anything created in that folder later is covered too.
 func outermost(paths []string) []string {
 	var out []string
 	for _, p := range paths {
@@ -278,7 +270,7 @@ func ClaudeIsolationArgs() []string {
 // every run; CodexSafeFeatures lists what may stay on, and a pinned version that enables anything
 // else is refused by the preflight until it is qualified.
 var CodexDisabledFeatures = []string{
-	"apps", "browser_use", "browser_use_external", "browser_use_full_cdp_access", "code_mode_host",
+	"apps", "browser_use", "browser_use_external", "browser_use_full_cdp_access",
 	"computer_use", "daemon_auto_start", "goals", "guardian_approval", "hooks", "image_generation",
 	"in_app_browser", "in_app_local_automation", "memories", "multi_agent", "plugin_discovery_prefetch",
 	"plugin_sharing", "plugins", "remote_plugin", "shell_snapshot", "skill_mcp_dependency_install",
@@ -289,7 +281,7 @@ var CodexDisabledFeatures = []string{
 // output, not what an agent action can reach.
 var CodexSafeFeatures = []string{
 	"api_key_cyber_access_programs", "api_key_model_discovery", "auth_elicitation", "bedrock_setup_wizard",
-	"browser_annotation_api", "cli_daybreak", "code_mode_interrupt", "compaction_image_budget",
+	"browser_annotation_api", "cli_daybreak", "code_mode_host", "code_mode_interrupt", "compaction_image_budget",
 	"content_item_kinds", "enable_request_compression", "fast_mode", "guardian_reuse_parent_compaction",
 	"in_app_chat", "in_app_dictation", "in_app_updates", "in_app_voice", "incremental_tools",
 	"instant_interrupt", "mcp_oauth_refresh_coordination", "mentions_v2", "prediction_preserve_parent_tools",
@@ -307,8 +299,15 @@ func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 	if len(p.AllowedHosts) > 0 {
 		return nil, errors.New("Codex cannot limit an agent's network to named hosts, so it cannot run under this policy")
 	}
+	// Codex's shell and patch tools cannot be switched off one by one, so it runs only under a
+	// policy that enables them all.
+	for _, t := range []string{"command", "read", "edit", "write", "search"} {
+		if !slices.Contains(p.EnabledTools, t) {
+			return nil, fmt.Errorf("Codex cannot run without its %s tool, so it cannot run under this policy", t)
+		}
+	}
 	fs := map[string]string{":slash_tmp": "read", ":tmpdir": "read"}
-	for _, d := range codexDenials(p.Denied(at), append([]string{at.Workspace}, at.Keep...)) {
+	for _, d := range outermost(p.Denied(at)) {
 		fs[d] = "deny"
 	}
 	keys := make([]string, 0, len(fs))
@@ -449,8 +448,12 @@ func PreflightHost(rt string, lookPath func(string) (string, error), managedCode
 	}
 	if rt == RuntimeCodex {
 		for _, f := range managedCodexConfig {
-			if line, n := sandboxModeLine(f); n > 0 {
-				return refuse("%s sets sandbox_mode on line %d (%q), and Codex then ignores Control Rod's permission profile. Remove that line.", f, n, line)
+			line, n, err := sandboxModeLine(f)
+			if err != nil {
+				return refuse("%s cannot be read (%v), so Control Rod cannot tell whether it sets sandbox_mode. Make it readable or remove it.", f, err)
+			}
+			if n > 0 {
+				return refuse("%s mentions sandbox_mode on line %d (%q), and Codex ignores Control Rod's permission profile whenever it is set. Remove that line.", f, n, line)
 			}
 		}
 	}
@@ -464,28 +467,37 @@ func cliName(rt string) string {
 	return "Codex"
 }
 
-// ManagedCodexConfig is where an administrator's Codex configuration can set sandbox_mode outside
-// the user's own config.toml, which every run ignores.
-var ManagedCodexConfig = []string{"/etc/codex/managed_config.toml", "/etc/codex/config.toml"}
+// ManagedCodexConfig lists where an administrator's Codex configuration can set sandbox_mode outside
+// the user's own config.toml, which every run ignores: every TOML file in /etc/codex.
+func ManagedCodexConfig() []string {
+	files, _ := filepath.Glob("/etc/codex/*.toml")
+	return append([]string{"/etc/codex/managed_config.toml", "/etc/codex/config.toml", "/etc/codex/requirements.toml"}, files...)
+}
 
-// sandboxModeLine finds a sandbox_mode setting in a TOML file: the line and its number, or 0.
-func sandboxModeLine(path string) (string, int) {
+// sandboxModeLine reports where a managed Codex file mentions sandbox_mode: the line and its
+// number, 0 when it does not, or an error when the file exists but cannot be read. Any mention
+// outside a comment counts, quoted, dotted or inside a table, so no TOML spelling slips past.
+func sandboxModeLine(path string) (string, int, error) {
 	f, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", 0, nil
+	}
 	if err != nil {
-		return "", 0
+		return "", 0, err
 	}
 	defer f.Close()
 	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 1<<20)
 	for n := 1; sc.Scan(); n++ {
 		line := strings.TrimSpace(sc.Text())
 		if strings.HasPrefix(line, "#") {
 			continue
 		}
-		if k, _, ok := strings.Cut(line, "="); ok && strings.TrimSpace(k) == "sandbox_mode" {
-			return line, n
+		if strings.Contains(strings.ToLower(line), "sandbox_mode") {
+			return line, n, nil
 		}
 	}
-	return "", 0
+	return "", 0, sc.Err()
 }
 
 // unqualifiedCodexFeatures reads `codex features list` output (name, stage, effective state) and

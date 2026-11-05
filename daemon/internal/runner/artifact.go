@@ -220,6 +220,122 @@ func treeDigest(root string) (string, map[string]string, error) {
 	return hex.EncodeToString(h.Sum(nil)), files, nil
 }
 
+// StageArtifact copies a verified runtime into a private, content-addressed folder outside the home
+// folder and returns it from there, re-hashed (plan task 6.2). Codex re-runs its own executable
+// inside its sandbox, and a sandbox that denies the home folder whole cannot reach an install inside
+// it; launching the staged copy keeps the home folder denied whole. A copy already staged is reused
+// only if its digest still matches; otherwise it is replaced. The tree carries no links (treeDigest).
+func StageArtifact(a RuntimeArtifact, base string) (RuntimeArtifact, error) {
+	if err := os.MkdirAll(base, 0o700); err != nil {
+		return a, err
+	}
+	if fi, err := os.Lstat(base); err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 {
+		return a, fmt.Errorf("%s must be a private folder (mode 0700) to stage runtimes in", base)
+	}
+	src := a.Root
+	if src == "" {
+		src = filepath.Dir(a.Path)
+	}
+	rel, err := filepath.Rel(src, a.Path)
+	if err != nil {
+		return a, err
+	}
+	dst := filepath.Join(base, a.Digest.Value)
+	staged := func() (RuntimeArtifact, error) {
+		out := a
+		out.Path = filepath.Join(dst, rel)
+		if a.Root == "" {
+			sum, err := fileDigest(out.Path)
+			if err != nil {
+				return a, err
+			}
+			out.Digest = Digest{Algorithm: "sha256", Value: sum}
+			return out, nil
+		}
+		out.Root = dst
+		sum, files, err := treeDigest(dst)
+		if err != nil {
+			return a, err
+		}
+		out.Digest, out.exeSum = Digest{Algorithm: "sha256", Value: sum}, files[filepath.ToSlash(rel)]
+		return out, nil
+	}
+	if s, err := staged(); err == nil && s.Digest.Value == a.Digest.Value {
+		return s, nil
+	}
+	_ = os.RemoveAll(dst)
+	tmp, err := os.MkdirTemp(base, ".stage-")
+	if err != nil {
+		return a, err
+	}
+	defer os.RemoveAll(tmp)
+	copyFile := func(from, to string, mode fs.FileMode) error {
+		in, err := os.Open(from)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+		out, err := os.OpenFile(to, os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode&0o755)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(out, in); err != nil {
+			out.Close()
+			return err
+		}
+		return out.Close()
+	}
+	if a.Root == "" {
+		fi, err := os.Stat(a.Path)
+		if err != nil {
+			return a, err
+		}
+		if err := copyFile(a.Path, filepath.Join(tmp, rel), fi.Mode()); err != nil {
+			return a, err
+		}
+	} else if err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		r, _ := filepath.Rel(src, p)
+		to := filepath.Join(tmp, r)
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		switch {
+		case d.IsDir():
+			return os.MkdirAll(to, 0o755)
+		case info.Mode().IsRegular():
+			return copyFile(p, to, info.Mode())
+		default:
+			return fmt.Errorf("%s is not a regular file or directory", r)
+		}
+	}); err != nil {
+		return a, err
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		return a, err
+	}
+	s, err := staged()
+	if err != nil {
+		return a, err
+	}
+	if s.Digest.Value != a.Digest.Value {
+		return a, fmt.Errorf("%w: the staged copy of %s does not match it", ErrArtifactMismatch, a.Path)
+	}
+	return s, nil
+}
+
+// StageRoot is where runtimes are staged: a private folder under the system temporary folder,
+// outside the home folder, readable from inside the sandbox and writable by nothing in it.
+func StageRoot() string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("controlrod-runtimes-%d", os.Getuid()))
+}
+
+// stagedRuntimes are the runtimes launched from a staged copy.
+var stagedRuntimes = map[string]bool{RuntimeCodex: true}
+
 // ErrArtifactMismatch means the executable on disk is not the one the run may launch.
 var ErrArtifactMismatch = errors.New("runtime artifact mismatch")
 
@@ -255,6 +371,12 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	got, err := resolveArtifact(runtimeName)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s cannot be found or read: %v", ErrArtifactMismatch, runtimeName, err)
+	}
+	if stagedRuntimes[runtimeName] {
+		// Launched from its staged copy, checked below exactly as the install would be.
+		if got, err = StageArtifact(got, StageRoot()); err != nil {
+			return nil, fmt.Errorf("%w: %s cannot be staged outside the home folder: %v", ErrArtifactMismatch, runtimeName, err)
+		}
 	}
 	f, err := os.Open(got.Path)
 	if err != nil {

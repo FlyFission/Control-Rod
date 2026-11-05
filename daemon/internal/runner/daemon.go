@@ -162,7 +162,7 @@ func New(cfg Config) *Daemon {
 		cfg.CodexFeatures = CodexEffectiveFeatures
 	}
 	if cfg.ManagedCodexConfig == nil {
-		cfg.ManagedCodexConfig = ManagedCodexConfig
+		cfg.ManagedCodexConfig = ManagedCodexConfig()
 	}
 	if cfg.StopAfterHangup <= 0 {
 		cfg.StopAfterHangup = 2 * time.Second
@@ -282,6 +282,21 @@ claim:
 	return nil
 }
 
+// preflightedArtifact refuses a launch of an artifact other than the one the last probe found
+// ready, preflight included: a pinned version installed after the probe is checked before it runs.
+func (d *Daemon) preflightedArtifact(runtime string, launched Digest) error {
+	for _, s := range d.runtimeStatus() {
+		if s.Runtime != runtime {
+			continue
+		}
+		if s.Ready && s.Artifact != nil && s.Artifact.Digest.Value == launched.Value {
+			return nil
+		}
+		return fmt.Errorf("%s %s has not passed the sandbox preflight on this host yet; it is checked at the next probe before it runs", runtime, short(launched.Value))
+	}
+	return fmt.Errorf("%s has not been probed on this host", runtime)
+}
+
 // sandboxPaths are the paths a run's policy names on this host.
 func (d *Daemon) sandboxPaths(ws *Workspace) SandboxPaths {
 	home, _ := os.UserHomeDir()
@@ -289,23 +304,7 @@ func (d *Daemon) sandboxPaths(ws *Workspace) SandboxPaths {
 	if err != nil {
 		dh = d.cfg.Home
 	}
-	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: ws.Dir, Keep: InstallKeep(d.probedArtifact(RuntimeCodex))}
-}
-
-// InstallKeep is the folder of a runtime's installed executable, which the CLI must still reach
-// inside a denied home folder.
-func InstallKeep(a *RuntimeArtifact) []string {
-	if a == nil || a.Path == "" {
-		return nil
-	}
-	dir := filepath.Dir(a.Path)
-	if a.Root != "" {
-		dir = a.Root
-	}
-	if real, err := filepath.EvalSymlinks(dir); err == nil {
-		dir = real
-	}
-	return []string{dir}
+	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: ws.Dir, Logins: LoginLocations(os.Getenv)}
 }
 
 // preflight checks that this host can run rt under its sandbox (plan task 6.3).
@@ -1013,6 +1012,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				// Not offered again until the next scheduled probe requalifies it; nothing runs now.
 				d.markNotReady(runtime, verr.Error())
 			}
+		} else if qerr := d.preflightedArtifact(runtime, v.Digest); qerr != nil {
+			// The sandbox preflight (login, Codex features) passed for a different artifact, or for
+			// none: the launched one has not been checked on this host.
+			v.Close()
+			err = qerr
 		} else {
 			// The child inherits the open descriptor; the daemon's copy closes once the run ends.
 			verified = v

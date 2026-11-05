@@ -146,16 +146,16 @@ func TestCodexProfileDeniesTheOutermostPathsAndSwitchesOffUnqualifiedFeatures(t 
 		t.Fatal(err)
 	}
 	joined := strings.Join(args, " ")
-	// The home folder holds the workspace, so it is denied entry by entry (codexDenials); a daemon
-	// home elsewhere is denied whole.
-	for _, d := range []string{`"` + filepath.Join(home, ".claude") + `"="deny"`, `"` + filepath.Join(home, ".ssh") + `"="deny"`,
-		`"` + other + `"="deny"`, `":slash_tmp"="read"`, `":tmpdir"="read"`} {
+	// The home folder is denied whole (Codex keeps the workspace inside it usable), and so is a
+	// daemon home elsewhere; a denial inside a denied folder is dropped, since bubblewrap cannot
+	// mount it and it adds nothing.
+	for _, d := range []string{`"` + home + `"="deny"`, `"` + other + `"="deny"`, `":slash_tmp"="read"`, `":tmpdir"="read"`} {
 		if !strings.Contains(joined, d) {
 			t.Errorf("profile lacks %s: %s", d, joined)
 		}
 	}
-	if strings.Contains(joined, `"`+home+`"="deny"`) || strings.Contains(joined, `"`+ws.Dir+`"`) {
-		t.Errorf("the workspace is closed: %s", joined)
+	if strings.Contains(joined, `.claude"="deny"`) || strings.Contains(joined, `.ssh"="deny"`) {
+		t.Errorf("nested denials passed: %s", joined)
 	}
 	for _, f := range CodexDisabledFeatures {
 		if !strings.Contains(joined, "--disable "+f) {
@@ -231,12 +231,26 @@ func TestPreflightRefusesWithTheFixAndNeverFallsBack(t *testing.T) {
 		}
 	}
 	// A managed config that sets sandbox_mode, named by line.
-	managed := filepath.Join(t.TempDir(), "managed_config.toml")
-	if err := os.WriteFile(managed, []byte("# managed\nmodel = \"x\"\n  sandbox_mode = \"danger-full-access\"\n"), 0o600); err != nil {
-		t.Fatal(err)
+	// Any spelling TOML allows: bare, quoted either way, dotted, or under a table.
+	for _, line := range []string{`  sandbox_mode = "danger-full-access"`, `"sandbox_mode" = "danger-full-access"`, `'sandbox_mode' = 'x'`,
+		`profiles.p.sandbox_mode = "x"`, `[profiles.p]` + "\n" + `sandbox_mode = "x"`} {
+		managed := filepath.Join(t.TempDir(), "managed_config.toml")
+		if err := os.WriteFile(managed, []byte("# sandbox_mode in a comment is fine\nmodel = \"x\"\n"+line+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := Preflight(ctx, RuntimeCodex, signedIn, found, safe, []string{managed}); err == nil || !strings.Contains(err.Error(), "mentions sandbox_mode on line") {
+			t.Fatalf("managed %q: %v", line, err)
+		}
 	}
-	if err := Preflight(ctx, RuntimeCodex, signedIn, found, safe, []string{managed}); err == nil || !strings.Contains(err.Error(), "line 3") {
-		t.Fatalf("managed sandbox_mode: %v", err)
+	// A managed file that exists but cannot be read is refused, not taken as absent.
+	if os.Getuid() != 0 {
+		locked := filepath.Join(t.TempDir(), "config.toml")
+		if err := os.WriteFile(locked, []byte("x"), 0o000); err != nil {
+			t.Fatal(err)
+		}
+		if err := Preflight(ctx, RuntimeCodex, signedIn, found, safe, []string{locked}); err == nil || !strings.Contains(err.Error(), "cannot be read") {
+			t.Fatalf("unreadable managed file: %v", err)
+		}
 	}
 	// A feature Control Rod has not qualified, left on by a new version.
 	unknown := func(context.Context) (string, error) { return "shell_tool stable true\nteleport experimental true\n", nil }
@@ -264,49 +278,88 @@ func TestInstalledCodexLeavesOnlyQualifiedFeatures(t *testing.T) {
 	}
 }
 
-func TestCodexDenialsKeepOnlyThePathsTheRunMustReach(t *testing.T) {
-	root := t.TempDir()
-	home := filepath.Join(root, "home")
-	elsewhere := filepath.Join(root, "windows", "aws")
-	for _, d := range []string{".ssh", ".config/gh", ".npm-global/lib/codex/bin", ".npm-global/lib/other", ".controlrod/outbox",
-		".controlrod/work/WP-1/r0/me", ".controlrod/work/WP-2/r0/other"} {
-		if err := os.MkdirAll(filepath.Join(home, d), 0o700); err != nil {
+func TestStagedRuntimesAreCopiedOutsideHomeAndRechecked(t *testing.T) {
+	src := filepath.Join(t.TempDir(), "vendor", "x86_64")
+	for _, d := range []string{"bin", "codex-path"} {
+		if err := os.MkdirAll(filepath.Join(src, d), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.MkdirAll(elsewhere, 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "bin", "codex"), []byte("\x7fELF codex"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for _, f := range []string{".bash_history", ".controlrod/daemon.token", ".npm-global/lib/codex/package.json"} {
-		if err := os.WriteFile(filepath.Join(home, f), []byte("x"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.Symlink(elsewhere, filepath.Join(home, ".aws")); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "codex-path", "rg"), []byte("rg"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(filepath.Join(root, "gone"), filepath.Join(home, ".dangling")); err != nil {
+	sum, files, err := treeDigest(src)
+	if err != nil {
 		t.Fatal(err)
 	}
-	ws := filepath.Join(home, ".controlrod/work/WP-1/r0/me")
-	install := filepath.Join(home, ".npm-global/lib/codex/bin")
-	got := codexDenials([]string{home, filepath.Join(home, ".ssh"), filepath.Join(home, ".controlrod")}, []string{ws, install})
-	j := func(p string) string { return filepath.Join(home, p) }
-	want := []string{j(".bash_history"), j(".config"), j(".controlrod/daemon.token"), j(".controlrod/outbox"), j(".controlrod/work/WP-2"),
-		j(".npm-global/lib/codex/package.json"), j(".npm-global/lib/other"), j(".ssh"), elsewhere}
-	slices.Sort(got)
-	slices.Sort(want)
-	if !slices.Equal(got, want) {
-		t.Fatalf("denials\n got %q\nwant %q", got, want)
+	a := RuntimeArtifact{Path: filepath.Join(src, "bin", "codex"), Root: src, Digest: Digest{Algorithm: "sha256", Value: sum}, exeSum: files["bin/codex"]}
+	base := filepath.Join(t.TempDir(), "stage")
+	got, err := StageArtifact(a, base)
+	if err != nil {
+		t.Fatal(err)
 	}
-	// Nothing the run must reach, or that leads to it, is denied.
-	for _, d := range got {
-		if within(ws, d) || within(install, d) {
-			t.Errorf("%s closes a kept path", d)
-		}
+	if got.Path != filepath.Join(base, sum, "bin", "codex") || got.Root != filepath.Join(base, sum) || got.Digest != a.Digest || got.exeSum != a.exeSum {
+		t.Fatalf("staged %+v", got)
 	}
-	// With nothing to keep inside it, a denied folder is denied whole.
-	if got := codexDenials([]string{home}, []string{filepath.Join(root, "work")}); !slices.Equal(got, []string{home}) {
-		t.Errorf("whole denial: %q", got)
+	if fi, _ := os.Stat(base); fi.Mode().Perm() != 0o700 {
+		t.Errorf("stage folder mode %v", fi.Mode().Perm())
+	}
+	// A staged copy that was changed is replaced, never launched.
+	if err := os.WriteFile(got.Path, []byte("tampered"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	again, err := StageArtifact(a, base)
+	if err != nil || again.Digest != a.Digest {
+		t.Fatalf("restage: %+v %v", again, err)
+	}
+	if b, _ := os.ReadFile(again.Path); string(b) != "\x7fELF codex" {
+		t.Fatalf("tampered copy kept: %q", b)
+	}
+	// A stage folder others can read is refused.
+	open := filepath.Join(t.TempDir(), "open")
+	if err := os.MkdirAll(open, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := StageArtifact(a, open); err == nil {
+		t.Fatal("staged into a folder others can read")
+	}
+}
+
+func TestLoginLocationsFollowTheEnvironmentAndAreDenied(t *testing.T) {
+	moved := t.TempDir()
+	env := map[string]string{"CODEX_HOME": moved}
+	got := LoginLocations(func(k string) string { return env[k] })
+	real, _ := filepath.EvalSymlinks(moved)
+	if !slices.Equal(got, []string{real}) {
+		t.Fatalf("logins %q", got)
+	}
+	d := testPolicy().Denied(SandboxPaths{Home: "/home/u", Workspace: "/home/u/w", Logins: got})
+	if !slices.Contains(d, real) {
+		t.Fatalf("moved login not denied: %q", d)
+	}
+}
+
+func TestPolicyShapesTheDaemonCannotEnforceAreRefused(t *testing.T) {
+	p := testPolicy()
+	p.WritableRoots = []string{"workspace", "/srv"}
+	if _, err := VerifyPolicy(policyJob(t, p)); err == nil || !strings.Contains(err.Error(), "writable roots") {
+		t.Fatalf("writable roots: %v", err)
+	}
+	p = testPolicy()
+	p.EnabledTools = []string{"read", "teleport"}
+	if _, err := VerifyPolicy(policyJob(t, p)); err == nil {
+		t.Fatal("unknown tool accepted")
+	}
+	// Codex cannot drop its shell; Claude Code can run with fewer tools.
+	p = testPolicy()
+	p.EnabledTools = []string{"read"}
+	if _, err := CodexPolicyArgs(p, SandboxPaths{Home: "/home/u", Workspace: "/home/u/w"}); err == nil {
+		t.Fatal("codex ran without its shell tool")
+	}
+	if ClaudeToolList(p) != "Read" {
+		t.Fatalf("claude tools %q", ClaudeToolList(p))
 	}
 }

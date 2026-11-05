@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 
@@ -81,6 +82,9 @@ type SandboxPaths struct {
 	Home       string
 	DaemonHome string
 	Workspace  string
+	// Keep are paths the CLI itself must still reach inside a denied folder: its own installed
+	// executable's folder (Codex re-runs its binary inside the sandbox for file access).
+	Keep []string
 }
 
 // Denied expands the policy's denied reads for this host: `~` is the home folder, and the
@@ -112,6 +116,48 @@ func (p *SandboxPolicy) Denied(at SandboxPaths) []string {
 	return out
 }
 
+// codexDenials turns the policy's denials into what Codex's bubblewrap can mount (measured in
+// evidence/phase6). A denied folder that holds a path the run must reach (the workspace, the CLI's
+// own install) cannot be denied whole, and Codex cannot reopen a path inside a denied one, so it is
+// denied entry by entry: every entry except the folders leading to what must be reached. A link is
+// denied at its target (bubblewrap cannot mount over a link); a target already denied, or one that
+// does not exist, adds nothing. What remains is kept to its outermost existing paths.
+func codexDenials(denied, keep []string) []string {
+	var out []string
+	var walk func(d string)
+	walk = func(d string) {
+		if !slices.ContainsFunc(keep, func(k string) bool { return within(k, d) }) {
+			out = append(out, resolveLink(d))
+			return
+		}
+		if slices.Contains(keep, d) {
+			return
+		}
+		entries, err := os.ReadDir(d)
+		if err != nil {
+			return
+		}
+		for _, e := range entries {
+			walk(filepath.Join(d, e.Name()))
+		}
+	}
+	for _, d := range denied {
+		walk(d)
+	}
+	return outermost(out)
+}
+
+// resolveLink is a link's target, or the path itself when it is not a link.
+func resolveLink(p string) string {
+	if fi, err := os.Lstat(p); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		if t, err := filepath.EvalSymlinks(p); err == nil {
+			return t
+		}
+		return "" // a dangling link reaches nothing
+	}
+	return p
+}
+
 // outermost keeps only denials no other denial contains, and only those that exist: Codex's
 // bubblewrap cannot mount a denial inside a denied folder (measured in evidence/phase6), a nested
 // denial adds nothing to its parent's, and a path that does not exist can only appear by a write,
@@ -119,6 +165,9 @@ func (p *SandboxPolicy) Denied(at SandboxPaths) []string {
 func outermost(paths []string) []string {
 	var out []string
 	for _, p := range paths {
+		if p == "" || slices.Contains(out, p) {
+			continue
+		}
 		if _, err := os.Lstat(p); err != nil {
 			continue
 		}
@@ -259,7 +308,7 @@ func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 		return nil, errors.New("Codex cannot limit an agent's network to named hosts, so it cannot run under this policy")
 	}
 	fs := map[string]string{":slash_tmp": "read", ":tmpdir": "read"}
-	for _, d := range outermost(p.Denied(at)) {
+	for _, d := range codexDenials(p.Denied(at), append([]string{at.Workspace}, at.Keep...)) {
 		fs[d] = "deny"
 	}
 	keys := make([]string, 0, len(fs))

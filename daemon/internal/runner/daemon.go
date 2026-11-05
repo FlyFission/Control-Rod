@@ -289,7 +289,23 @@ func (d *Daemon) sandboxPaths(ws *Workspace) SandboxPaths {
 	if err != nil {
 		dh = d.cfg.Home
 	}
-	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: ws.Dir}
+	return SandboxPaths{Home: home, DaemonHome: dh, Workspace: ws.Dir, Keep: InstallKeep(d.probedArtifact(RuntimeCodex))}
+}
+
+// InstallKeep is the folder of a runtime's installed executable, which the CLI must still reach
+// inside a denied home folder.
+func InstallKeep(a *RuntimeArtifact) []string {
+	if a == nil || a.Path == "" {
+		return nil
+	}
+	dir := filepath.Dir(a.Path)
+	if a.Root != "" {
+		dir = a.Root
+	}
+	if real, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = real
+	}
+	return []string{dir}
 }
 
 // preflight checks that this host can run rt under its sandbox (plan task 6.3).

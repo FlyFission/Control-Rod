@@ -1,0 +1,12 @@
+{
+ "claude": {
+  "exit": 0,
+  "answered_ok": true,
+  "stderr_tail": ""
+ },
+ "codex": {
+  "exit": 0,
+  "answered_ok": true,
+  "stderr_tail": ""
+ }
+}

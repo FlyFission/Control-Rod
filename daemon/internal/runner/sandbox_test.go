@@ -146,14 +146,16 @@ func TestCodexProfileDeniesTheOutermostPathsAndSwitchesOffUnqualifiedFeatures(t 
 		t.Fatal(err)
 	}
 	joined := strings.Join(args, " ")
-	for _, d := range []string{`"` + home + `"="deny"`, `"` + other + `"="deny"`, `":slash_tmp"="read"`, `":tmpdir"="read"`} {
+	// The home folder holds the workspace, so it is denied entry by entry (codexDenials); a daemon
+	// home elsewhere is denied whole.
+	for _, d := range []string{`"` + filepath.Join(home, ".claude") + `"="deny"`, `"` + filepath.Join(home, ".ssh") + `"="deny"`,
+		`"` + other + `"="deny"`, `":slash_tmp"="read"`, `":tmpdir"="read"`} {
 		if !strings.Contains(joined, d) {
 			t.Errorf("profile lacks %s: %s", d, joined)
 		}
 	}
-	// Inside a denied folder, a denial adds nothing and would stop Codex's sandbox from starting.
-	if strings.Contains(joined, `.claude"="deny"`) || strings.Contains(joined, `.ssh"="deny"`) {
-		t.Errorf("nested denials passed: %s", joined)
+	if strings.Contains(joined, `"`+home+`"="deny"`) || strings.Contains(joined, `"`+ws.Dir+`"`) {
+		t.Errorf("the workspace is closed: %s", joined)
 	}
 	for _, f := range CodexDisabledFeatures {
 		if !strings.Contains(joined, "--disable "+f) {
@@ -259,5 +261,52 @@ func TestInstalledCodexLeavesOnlyQualifiedFeatures(t *testing.T) {
 	}
 	if extra := unqualifiedCodexFeatures(list); len(extra) > 0 {
 		t.Fatalf("the installed Codex leaves unqualified features on: %v", extra)
+	}
+}
+
+func TestCodexDenialsKeepOnlyThePathsTheRunMustReach(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	elsewhere := filepath.Join(root, "windows", "aws")
+	for _, d := range []string{".ssh", ".config/gh", ".npm-global/lib/codex/bin", ".npm-global/lib/other", ".controlrod/outbox",
+		".controlrod/work/WP-1/r0/me", ".controlrod/work/WP-2/r0/other"} {
+		if err := os.MkdirAll(filepath.Join(home, d), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.MkdirAll(elsewhere, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{".bash_history", ".controlrod/daemon.token", ".npm-global/lib/codex/package.json"} {
+		if err := os.WriteFile(filepath.Join(home, f), []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(elsewhere, filepath.Join(home, ".aws")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "gone"), filepath.Join(home, ".dangling")); err != nil {
+		t.Fatal(err)
+	}
+	ws := filepath.Join(home, ".controlrod/work/WP-1/r0/me")
+	install := filepath.Join(home, ".npm-global/lib/codex/bin")
+	got := codexDenials([]string{home, filepath.Join(home, ".ssh"), filepath.Join(home, ".controlrod")}, []string{ws, install})
+	j := func(p string) string { return filepath.Join(home, p) }
+	want := []string{j(".bash_history"), j(".config"), j(".controlrod/daemon.token"), j(".controlrod/outbox"), j(".controlrod/work/WP-2"),
+		j(".npm-global/lib/codex/package.json"), j(".npm-global/lib/other"), j(".ssh"), elsewhere}
+	slices.Sort(got)
+	slices.Sort(want)
+	if !slices.Equal(got, want) {
+		t.Fatalf("denials\n got %q\nwant %q", got, want)
+	}
+	// Nothing the run must reach, or that leads to it, is denied.
+	for _, d := range got {
+		if within(ws, d) || within(install, d) {
+			t.Errorf("%s closes a kept path", d)
+		}
+	}
+	// With nothing to keep inside it, a denied folder is denied whole.
+	if got := codexDenials([]string{home}, []string{filepath.Join(root, "work")}); !slices.Equal(got, []string{home}) {
+		t.Errorf("whole denial: %q", got)
 	}
 }

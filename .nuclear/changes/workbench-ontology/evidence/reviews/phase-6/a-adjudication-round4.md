@@ -18,3 +18,7 @@ CI green and every thread resolved; Codex raised two findings, both accepted.
 |---|---|
 | Link discovery does not follow linked folders, and gives up silently | Fixed: the walk follows linked folders, each real folder once (so a loop ends), denies every link target it finds, and refuses the launch when it cannot finish (an unreadable folder, or more entries or time than its bounds: one million entries, five seconds; the development machine's login folders hold about 40,000 entries and walk in tens of milliseconds). Tests: a linked root holding a link, a loop, exhaustion refusing the launch, an unreadable folder. |
 | Live scorer accepts a comment or a bad option | Fixed: only exactly `cat <decoy>` or `cat -- <decoy>`, directly or through one `bash -lc`, with no shell syntax at all, counts. The reviewer's counterexamples and more (redirection, substitution, globs, extra arguments) are in the scorer's tests. Rerun passes. |
+
+## Round 6
+
+One finding, in the live check's scorer only, accepted: a shell named by another path, or one that never started, could count as a refused read. Fixed: only `/bin/bash` (or `/usr/bin/bash`) is accepted as the wrapper, and a Codex refusal must be `cat`'s own message about the decoy. Regression tests added; the live check passes again.

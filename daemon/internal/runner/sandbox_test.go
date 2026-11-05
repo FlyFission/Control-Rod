@@ -560,3 +560,19 @@ func TestCredentialStoreDiscoveryFollowsLinkedFoldersAndFailsClosed(t *testing.T
 		}
 	}
 }
+
+func TestLinksInsideALoginFolderOutsideHomeAreDenied(t *testing.T) {
+	home, login, target := t.TempDir(), t.TempDir(), t.TempDir()
+	if err := os.Symlink(target, filepath.Join(login, "sessions")); err != nil {
+		t.Fatal(err)
+	}
+	logins := LoginLocations(func(k string) string { return map[string]string{"CODEX_HOME": login}[k] }, home)
+	d, err := testPolicy().DeniedChecked(SandboxPaths{Home: home, Workspace: filepath.Join(home, "w"), Logins: logins})
+	if err != nil {
+		t.Fatal(err)
+	}
+	real, _ := filepath.EvalSymlinks(target)
+	if !slices.Contains(d, real) {
+		t.Fatalf("a link inside a login folder outside home is not denied: %q", d)
+	}
+}

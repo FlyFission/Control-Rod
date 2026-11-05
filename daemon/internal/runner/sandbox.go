@@ -182,7 +182,9 @@ func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 		return nil
 	}
 	for _, d := range slices.Clone(out) {
-		if d == at.Home || at.Home == "" || !within(d, at.Home) {
+		// Named stores in the home folder, and login folders wherever they are.
+		store := at.Home != "" && d != at.Home && within(d, at.Home)
+		if !store && !slices.Contains(at.Logins, d) {
 			continue
 		}
 		if err := walk(d); err != nil {

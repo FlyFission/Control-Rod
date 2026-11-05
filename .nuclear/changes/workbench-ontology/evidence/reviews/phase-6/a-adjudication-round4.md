@@ -22,3 +22,7 @@ CI green and every thread resolved; Codex raised two findings, both accepted.
 ## Round 6
 
 One finding, in the live check's scorer only, accepted: a shell named by another path, or one that never started, could count as a refused read. Fixed: only `/bin/bash` (or `/usr/bin/bash`) is accepted as the wrapper, and a Codex refusal must be `cat`'s own message about the decoy. Regression tests added; the live check passes again.
+
+## Round 7
+
+Codex confirmed the round 6 fix and found one gap, accepted: link discovery walked named stores in the home folder but not login folders outside it (`CODEX_HOME=/srv/codex`). Fixed: login folders are walked wherever they are. Regression test added.

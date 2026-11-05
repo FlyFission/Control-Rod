@@ -50,7 +50,7 @@ func TestCodexLaunchCarriesThePermissionProfileAndNeverASandboxMode(t *testing.T
 	args := strings.Join(cmd.Args, "\x00")
 	for _, want := range []string{"exec", "--json", "--skip-git-repo-check", "--ignore-user-config", "--ignore-rules", "--ephemeral",
 		`default_permissions="control-rod"`, `permissions.control-rod.extends=":workspace"`, "permissions.control-rod.network.enabled=false",
-		`approval_policy="never"`, `web_search="disabled"`, `shell_environment_policy.inherit="core"`, "-m\x00gpt-5-codex"} {
+		`approval_policy="never"`, `web_search="disabled"`, "notify=[]", `shell_environment_policy.inherit="core"`, "-m\x00gpt-5-codex"} {
 		if !strings.Contains(args, want) {
 			t.Errorf("codex args lack %q:\n%q", want, cmd.Args)
 		}

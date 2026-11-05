@@ -238,6 +238,7 @@ func TestPreflightRefusesWithTheFixAndNeverFallsBack(t *testing.T) {
 		`"sandbox\u005fmode" = "x"`: "sandbox_mode", `[profiles.p]` + "\n" + `model = "x"`: "profiles", `web_search = "live"`: "web_search",
 		`[features]` + "\n" + `apps = true`: "features", `[mcp_servers.x]` + "\n" + `command = "y"`: "mcp_servers",
 		`approval_policy = "on-request"`: "approval_policy", `[x.y]` + "\n" + `sandbox_mode = "z"`: "x.y.sandbox_mode",
+		`notify = ["python3", "out/notify.py"]`: "notify",
 	} {
 		managed := filepath.Join(t.TempDir(), "managed_config.toml")
 		if err := os.WriteFile(managed, []byte("# sandbox_mode in a comment is fine\nmodel = \"x\"\n"+line+"\n"), 0o600); err != nil {
@@ -440,5 +441,53 @@ func TestStageRootIgnoresTMPDIR(t *testing.T) {
 	t.Setenv("TMPDIR", t.TempDir())
 	if r := StageRoot(); !strings.HasPrefix(r, "/tmp/") && !strings.HasPrefix(r, "/private/tmp/") {
 		t.Fatalf("stage root %s follows TMPDIR", r)
+	}
+}
+
+func TestPreflightRefusesUnreadableFeatureListsAndUnqualifiedPlatforms(t *testing.T) {
+	ctx := context.Background()
+	signedIn := preflightRunner(map[string]int{"codex login status": 0})
+	for _, list := range []string{"", "\n\n", "shell_tool stable true\nsomething else entirely\n"} {
+		l := list
+		got := func(context.Context) (string, error) { return l, nil }
+		if err := Preflight(ctx, RuntimeCodex, signedIn, found, got, nil); err == nil {
+			t.Errorf("feature list %q passed", list)
+		}
+	}
+	old := platformCheck
+	platformCheck = func() error { return errors.New("not qualified on macOS") }
+	t.Cleanup(func() { platformCheck = old })
+	if err := PreflightHost(RuntimeClaude, found, nil); err == nil || !strings.Contains(err.Error(), "not qualified") {
+		t.Fatalf("unqualified platform: %v", err)
+	}
+	if err := PreflightHost(RuntimeFake, found, nil); err != nil {
+		t.Fatalf("fake needs no platform: %v", err)
+	}
+}
+
+func TestCredentialStoreLinksAreDeniedAtTheirTargets(t *testing.T) {
+	home := t.TempDir()
+	elsewhere := t.TempDir()
+	keyElsewhere := filepath.Join(t.TempDir(), "id_ed25519")
+	if err := os.WriteFile(keyElsewhere, []byte("k"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(elsewhere, filepath.Join(home, ".aws")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(keyElsewhere, filepath.Join(home, ".ssh", "id_ed25519")); err != nil {
+		t.Fatal(err)
+	}
+	p := testPolicy()
+	p.DeniedRead = append(p.DeniedRead, "~/.aws")
+	d := p.Denied(SandboxPaths{Home: home, Workspace: filepath.Join(home, "w")})
+	for _, want := range []string{elsewhere, keyElsewhere} {
+		real, _ := filepath.EvalSymlinks(want)
+		if !slices.Contains(d, real) {
+			t.Errorf("%s not denied: %q", real, d)
+		}
 	}
 }

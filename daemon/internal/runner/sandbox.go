@@ -126,6 +126,25 @@ func (p *SandboxPolicy) Denied(at SandboxPaths) []string {
 	for _, l := range at.Logins {
 		add(l)
 	}
+	// A named credential store that is a link, or that holds links, is denied at the real paths
+	// too: hiding the home folder hides the link, not what it points to.
+	for _, d := range slices.Clone(out) {
+		if d == at.Home || at.Home == "" || !within(d, at.Home) {
+			continue
+		}
+		if real, err := filepath.EvalSymlinks(d); err == nil && real != d {
+			add(real)
+		}
+		if entries, err := os.ReadDir(d); err == nil {
+			for _, e := range entries {
+				if e.Type()&os.ModeSymlink != 0 {
+					if real, err := filepath.EvalSymlinks(filepath.Join(d, e.Name())); err == nil {
+						add(real)
+					}
+				}
+			}
+		}
+	}
 	return out
 }
 
@@ -346,6 +365,8 @@ func CodexPolicyArgs(p *SandboxPolicy, at SandboxPaths) ([]string, error) {
 		"-c", `approval_policy="never"`,
 		// Hosted web search is a provider-side tool outside the command sandbox (ADR 0021: off).
 		"-c", `web_search="disabled"`,
+		// Notification commands run outside the sandbox when a turn ends: none.
+		"-c", "notify=[]",
 		"-c", `shell_environment_policy.inherit="core"`,
 	}
 	for _, f := range CodexDisabledFeatures {
@@ -397,6 +418,28 @@ func withoutWindowsDrives(path string) string {
 	return strings.Join(keep, string(os.PathListSeparator))
 }
 
+// QualifiedPlatform says whether the native sandbox launch has been qualified on this host's
+// platform. Only WSL2 has been (evidence/phase6); ADR 0021 claims macOS and native Linux only once
+// the qualification passes there, so a runtime is not offered on them until then.
+func QualifiedPlatform() error {
+	if runtime.GOOS == "linux" {
+		if b, err := os.ReadFile("/proc/sys/kernel/osrelease"); err == nil && strings.Contains(strings.ToLower(string(b)), "microsoft") {
+			return nil
+		}
+	}
+	return fmt.Errorf("the agent sandbox is qualified only on WSL2 so far, not on %s; run the qualification here (spikes/runtime-confinement) before it is offered", platformName())
+}
+
+func platformName() string {
+	if runtime.GOOS == "linux" {
+		return "native Linux"
+	}
+	if runtime.GOOS == "darwin" {
+		return "macOS"
+	}
+	return runtime.GOOS
+}
+
 // HostNeeds are the programs each CLI's sandbox needs on this platform (ADR 0021 preflight): on
 // Linux and WSL2, bubblewrap for both, and socat for Claude Code's network proxy. macOS uses each
 // CLI's built-in Seatbelt profile and needs nothing extra.
@@ -410,6 +453,9 @@ func HostNeeds(rt string) []HostNeed {
 	}
 	return needs
 }
+
+// platformCheck is QualifiedPlatform; tests replace it to exercise the rest of the preflight anywhere.
+var platformCheck = QualifiedPlatform
 
 // HostNeed is one program a sandbox needs, with the fix when it is missing.
 type HostNeed struct {
@@ -461,6 +507,9 @@ func PreflightHost(rt string, lookPath func(string) (string, error), managedCode
 	if rt == RuntimeFake {
 		return nil
 	}
+	if err := platformCheck(); err != nil {
+		return refuse("%s", err.Error())
+	}
 	for _, need := range HostNeeds(rt) {
 		if _, err := lookPath(need.Program); err != nil {
 			return refuse("%s's sandbox needs %s, which is not installed here. %s.", cliName(rt), need.Program, need.Fix)
@@ -502,6 +551,8 @@ var widening = map[string]bool{
 	"sandbox_mode": true, "sandbox_workspace_write": true, "default_permissions": true, "permissions": true,
 	"approval_policy": true, "web_search": true, "tools": true, "features": true, "mcp_servers": true,
 	"shell_environment_policy": true, "profiles": true, "profile": true,
+	// A notification command runs outside the sandbox when a turn ends, whatever the hooks feature.
+	"notify": true,
 }
 
 // managedWidening parses a managed Codex file as TOML and returns the first key, at any depth, that
@@ -556,8 +607,18 @@ func unqualifiedCodexFeatures(list string) []string {
 		safe[f] = true
 	}
 	var extra []string
+	rows := 0
 	for _, line := range strings.Split(list, "\n") {
 		f := strings.Fields(line)
+		if len(f) == 0 {
+			continue
+		}
+		if s := f[len(f)-1]; len(f) >= 3 && (s == "true" || s == "false") {
+			rows++
+		} else {
+			// A line that is not a feature row means the format changed: nothing can be concluded.
+			return []string{"(unreadable feature list: " + strings.Join(f, " ") + ")"}
+		}
 		// A removed feature no longer exists in this version, whatever state it reports.
 		if len(f) < 3 || f[len(f)-1] != "true" || f[1] == "removed" {
 			continue
@@ -565,6 +626,9 @@ func unqualifiedCodexFeatures(list string) []string {
 		if !safe[f[0]] {
 			extra = append(extra, f[0])
 		}
+	}
+	if rows == 0 {
+		return []string{"(an empty feature list)"}
 	}
 	sort.Strings(extra)
 	return extra

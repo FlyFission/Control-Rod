@@ -38,6 +38,7 @@ Each was run with a positive control (the same thing without the setting, which 
 
 - WSL2 only. macOS and native Linux are not qualified; ADR 0021 claims a platform only after it passes there.
 - The launch qualification's Codex leg runs `codex sandbox` with the daemon's profile; the live check adds one real `codex exec` session reading one decoy. Every tool path (`apply_patch` outside the workspace, every network route in a full session, adversarial configurations) and each new CLI version and platform are plan task 6.4, a protected red team suite that needs the owner's signature. Until it exists, a new version is gated only by the preflight's feature list and the per-run attestation of plan task 6.5.
-- Codex denies a link in the home folder by hiding the home folder; a link's target outside the home folder is not denied by name unless it is under `/mnt` or another denied path. Claude Code's read confinement covers it by rule.
+- Links: a named credential store that is a link, or holds links, is denied at the real paths too, as are the CLI login folders and files wherever they really are. A link to elsewhere from an arbitrary, unnamed entry of the home folder is denied only by Claude Code's read confinement, not by Codex's profile.
+- Platforms: only WSL2 is qualified, so the daemon does not offer an agent runtime on macOS or native Linux until the qualification passes there.
 - The scripted provider stands in for the real API, so a token refresh during a tool using run is not exercised.
 - This shows the launch holds on this host now. Plan task 6.5 makes each run prove its own sandbox from inside.

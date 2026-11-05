@@ -1,0 +1,58 @@
+styles.css | h3 | 13 | --fs-ui
+styles.css | .small | 12 | --fs-small
+styles.css | .btn.small | 13 | --fs-ui
+styles.css | .field span | 12 | --fs-small
+styles.css | .tag | 11 | --fs-label
+styles.css | .badge | 12 | --fs-small
+styles.css | .chip | 12 | --fs-small
+styles.css | .link | 13 | --fs-ui
+styles.css | .palette-trigger | 13 | --fs-ui
+styles.css | kbd | 11 | --fs-label
+styles.css | .palette-group | 11 | --fs-label
+styles.css | .palette-hint | 12 | --fs-small
+styles.css | .palette-badge | 11 | --fs-label
+styles.css | .palette-stale | 12 | --fs-small
+styles.css | .who | 13 | --fs-ui
+styles.css | .case-step-n | 12 | --fs-small
+styles.css | .fact dt | 11 | --fs-label
+styles.css | .fact dd | 13 | --fs-ui
+styles.css | .fact-flag | 12 | --fs-small
+styles.css | .story | 13 | --fs-ui
+styles.css | .story-step.changed .story-text | 12 | --fs-small
+styles.css | .capture-actions .count | 12 | --fs-small
+styles.css | .since | 13 | --fs-ui
+styles.css | .metrics div | 13 | --fs-ui
+styles.css | .rung | 12 | --fs-small
+styles.css | .log | 12 | --fs-small
+styles.css | .preview-text | 12 | --fs-small
+styles.css | .column-head | 13 | --fs-ui
+styles.css | .card-title | 13 | --fs-ui
+styles.css | .legend | 12 | --fs-small
+styles.css | .records | 13 | --fs-ui
+styles.css | .records th | 12 | --fs-small
+features/floor/floor.css | .floor-eyebrow | 11 | --fs-label
+features/floor/floor.css | .floor-controls label | 11 | --fs-label
+features/floor/floor.css | .floor-btn | 12 | --fs-small
+features/floor/floor.css | .floor-paging | 11 | --fs-label
+features/floor/floor.css | .floor-status-strip | 11 | --fs-label
+features/floor/floor.css | .floor-tooltip | 11 | --fs-label
+features/floor/floor.css | .floor-art-warning | 12 | --fs-small
+features/floor/floor.css | .floor-list-main strong | 13 | --fs-ui
+features/floor/floor.css | .floor-list-id | 11 | --fs-label
+features/floor/floor.css | .floor-footnote | 11 | --fs-label
+features/floor/floor.css | .floor-empty | 12 | --fs-small
+features/floor/floor.css | .floor-source-notes | 12 | --fs-small
+features/floor/floor.css | .floor-sample-notice | 11 | --fs-label
+features/floor/floor.css | .floor-gallery-head p:last-child | 13 | --fs-ui
+features/floor/floor.css | .floor-active-tag | 9 | --fs-chip
+features/floor/floor.css | .floor-theme-copy > p | 12 | --fs-small
+features/floor/floor.css | .floor-theme-tags span | 9 | --fs-chip
+features/office/office.css | .office-legend | 13 | --fs-ui
+features/office/office.css | .office-note | 13 | --fs-ui
+features/office/office.css | .office-marks | 13 | --fs-ui
+features/office/office.css | .office-folded | 13 | --fs-ui
+features/office/office.css | .office-portfolio | 13 | --fs-ui
+features/office/office.css | .office-glance | 13 | --fs-ui
+features/office/office.css | .office-actions h3 | 13 | --fs-ui
+features/office/office.css | .office-cause ul | 13 | --fs-ui
+features/office/office.css | .office-theme-choice | 13 | --fs-ui

@@ -633,3 +633,57 @@ describe("data lanes", () => {
     await waitFor(() => expect(body).toMatchObject({ text: "Client drawings", lane: "proprietary" }));
   });
 });
+
+describe("reading a live run log", () => {
+  const running: Run = {
+    schema_version: "0.1.0",
+    id: "R-live",
+    package_id: "WP-9",
+    package_revision: 0,
+    role: "author",
+    agent_baseline: "author-claude",
+    runtime: { kind: "subscription", provider: "claude", model: "default" },
+    round: 1,
+    status: "running",
+    queued_at: "2026-10-22T10:00:00Z",
+  };
+
+  /** A log the test can grow, as a running agent does. */
+  function growingLog(lines: string[]) {
+    server.use(http.get("*/packages/WP-9/runs/R-live/log", () => HttpResponse.json({ lines: [...lines] })));
+  }
+  const refresh = (qc: { invalidateQueries: (o: { queryKey: string[] }) => Promise<void> }) => qc.invalidateQueries({ queryKey: ["runlog", "WP-9", "R-live"] });
+  const logText = () => screen.getByLabelText("Author log").textContent;
+
+  it("lets the reader freeze a moving log, counts what arrives meanwhile, and catches up on resume", async () => {
+    const lines = ["one", "two"];
+    growingLog(lines);
+    const { qc } = await renderPage(<RunCard packageId="WP-9" run={running} />);
+    await waitFor(() => expect(logText()).toBe("one\ntwo"));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Pause updates" }));
+    lines.push("three", "four");
+    await refresh(qc);
+    await waitFor(() => expect(screen.getByText("Paused: 2 new lines since you paused.")).toBeTruthy());
+    expect(logText()).toBe("one\ntwo");
+
+    await user.click(screen.getByRole("button", { name: "Resume updates" }));
+    await waitFor(() => expect(logText()).toBe("one\ntwo\nthree\nfour"));
+    expect(screen.queryByText(/new lines since you paused/)).toBeNull();
+  });
+
+  it("says plainly when nothing has arrived while paused", async () => {
+    growingLog(["one"]);
+    await renderPage(<RunCard packageId="WP-9" run={running} />);
+    await waitFor(() => expect(logText()).toBe("one"));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Pause updates" }));
+    expect(screen.getByText("Paused: nothing new since you paused.")).toBeTruthy();
+  });
+
+  it("offers no pause on a run that has finished", async () => {
+    growingLog(["one"]);
+    await renderPage(<RunCard packageId="WP-9" run={{ ...running, status: "succeeded", finished_at: "2026-10-22T11:00:00Z" }} />);
+    expect(screen.queryByRole("button", { name: "Pause updates" })).toBeNull();
+  });
+});

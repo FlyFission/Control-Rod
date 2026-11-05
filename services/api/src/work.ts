@@ -14,6 +14,7 @@ import { type DataLane, admitted, hasLaneAuthority, isLane, laneHoldReason, rais
 import { CONFIGURED_KINDS, basisRef, configuredClosure, configuredLane, configuredStillCovered, covers, currentMarking, effectiveLane, endOverride, laneOf, markObject, mostSensitive, storedConfigured, storedSources, type Ref } from "./markings.js";
 import { type Actor, afterCommit, appendEvent } from "./events.js";
 import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScrammed, runSubject, scramHolding, scramOfHold, scramRunEnded } from "./scram.js";
+import { networkFor, readRoleTools, resolveSandboxPolicy, runtimesForHosts, toolsFile } from "./sandbox.js";
 import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
 import { Refusal } from "./refusal.js";
@@ -239,7 +240,7 @@ async function provenanceLane(c: Tx, cfg: WorkConfig, ref: Ref, seen = new Set<s
 
 /** Records once, on the run and in the log, why a run waits; repeated scans add nothing. */
 /** Why a queued run is held, as a code, so the Inbox can route it to whoever may resolve it. */
-type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget";
+type WaitingCause = "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
 
 /**
  * Clears a hold whose cause no longer applies, so a stale reason never masks the next one (or
@@ -690,7 +691,21 @@ const withoutNetwork = (tools: string) =>
     .filter((l) => !/^\s*network\s*:/i.test(l))
     .join("\n");
 
-async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
+const INTAKE_TOOLS = "Read\nWrite\nGlob\nGrep\nWebSearch\nWebFetch\nBash(cr-example:*)\n";
+const DEFAULT_TOOLS = "Read\nWrite\nEdit\nGlob\nGrep\nWebSearch\nWebFetch\nBash(cr-example:*)\nBash(python3:*)\n";
+
+/**
+ * What a run's role asks for in its tools file: intake's fixed list, or the package role's file
+ * (a pre-check never asks for network: it works from the deliverables alone).
+ */
+function roleToolText(cfg: WorkConfig, run: Json, pkgBody: Json | undefined): string {
+  if (run.role === "intake") return INTAKE_TOOLS;
+  const role: string = pkgBody?.agent_assignment?.[0]?.role ?? "general-author";
+  const tools = findRole(cfg, `${role}.tools`) ?? DEFAULT_TOOLS;
+  return run.role === "pre-check" ? withoutNetwork(tools) : tools;
+}
+
+async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, hosts: string[]) {
   const inputs: Input[] = fakeScript(run, runtime);
   const header = `# Control Rod brief\n\nRole: ${run.role} · Package ${run.package_id} revision ${run.package_revision} · Round ${run.round}\n`;
   if (run.role === "intake") {
@@ -703,7 +718,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
       `## The request\n\n${capture?.text ?? ""}\n`,
       RULES,
     ].join("\n");
-    inputs.push(file("BRIEF.md", brief), file("TOOLS.txt", "Read\nWrite\nGlob\nGrep\nWebSearch\nWebFetch\nBash(cr-example:*)\n"));
+    inputs.push(file("BRIEF.md", brief), file("TOOLS.txt", toolsFile(readRoleTools(INTAKE_TOOLS).tools, hosts)));
     inputs.push(...(await attachmentsFor(c, run.package_id)));
     return { run, capture, inputs };
   }
@@ -760,10 +775,9 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string) {
   }
   const brief = [header, roleText, `## The work package\n\nSee inputs/PACKAGE.json. Objective: ${pkg.body.objective}\n`, ...extra, RULES].join("\n");
   inputs.push(file("BRIEF.md", brief));
-  const tools = findRole(cfg, `${role}.tools`) ?? "Read\nWrite\nEdit\nGlob\nGrep\nWebSearch\nWebFetch\nBash(cr-example:*)\nBash(python3:*)\n";
-  // "network: on" asks the daemon for network inside a runtime sandbox. Only the role's own author
-  // runs get it; a pre-check works from the deliverables alone.
-  inputs.push(file("TOOLS.txt", run.role === "pre-check" ? withoutNetwork(tools) : tools));
+  // The role's qualified tools, and its network line only with the hosts the run's sandbox policy
+  // allows (plan task 6.1); the daemon derives each CLI's settings from the policy, not this file.
+  inputs.push(file("TOOLS.txt", toolsFile(readRoleTools(roleToolText(cfg, run, pkg.body)).tools, hosts)));
   return { run, package: run.preparation_manifest_digest?pkg.body:{ ...pkg.body, status: pkg.status }, inputs, ...(findings ? { findings } : {}) };
 }
 
@@ -862,7 +876,15 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             continue;
           }
           await releaseHold(c, cfg, row, "runtime-pin");
-          const offer = pinned.offer;
+          // The sandbox policy (plan task 6.1): network only to the hosts the role names, only where
+          // the lane and grade allow it, and only on a runtime that can limit it to those hosts.
+          const net = sandboxNetwork(cfg, row.body, pkg.body, lane, pinned.offer);
+          if (net.held) {
+            await holdRun(c, cfg, row, pkg.id, net.held.slice(0, 300), "sandbox", `sandbox:${row.role}:${lane}`);
+            continue;
+          }
+          await releaseHold(c, cfg, row, "sandbox");
+          const offer = net.offer;
           let runtime: string | null;
           if (row.role === "pre-check") {
             if (pkg.status !== "in-verification") continue;
@@ -894,7 +916,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
             await appendEvent(c, "package.claimed", pkg.id, { kind: "agent", id: baseline }, { revision: pkg.revision, status: next });
           }
-          return startRun(c, cfg, row, runtime, baseline, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
+          return startRun(c, cfg, row, runtime, baseline, net.hosts, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
         // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
@@ -911,7 +933,12 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           await holdRun(c, cfg, row, row.package_id, pinnedIntake.reason, "runtime-pin", `runtime-pin:intake:${[...admittedIntake].sort().join(",")}`);
           continue;
         }
-        const runtime = pickRuntime(pinnedIntake.offer);
+        const netIntake = sandboxNetwork(cfg, row.body, undefined, capLane ?? "restricted", pinnedIntake.offer);
+        if (netIntake.held) {
+          await holdRun(c, cfg, row, row.package_id, netIntake.held.slice(0, 300), "sandbox", `sandbox:intake:${capLane}`);
+          continue;
+        }
+        const runtime = pickRuntime(netIntake.offer);
         if (!runtime) continue;
         const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
         if(!locked.rows[0]) continue;row=locked.rows[0];
@@ -922,7 +949,8 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           continue;
         }
         await releaseHold(c, cfg, row, "budget");
-        return startRun(c, cfg, row, runtime, `intake-${runtime}`, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
+        await releaseHold(c, cfg, row, "sandbox");
+        return startRun(c, cfg, row, runtime, `intake-${runtime}`, netIntake.hosts, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
       }
     }
     return null;
@@ -1218,13 +1246,32 @@ function requireLegacyRun(row: { role: string; body: Json }): void {
   if (!legacyRun(row)) throw new Refusal(409,"unsupported-run-role","This run needs its own approved execution and custody path; legacy processing is refused");
 }
 
-async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, baseline: string, budgetCeilingSeconds: number | null = null,
+/**
+ * What a run's role asks of the network, decided against its lane and grade, and the runtimes left
+ * that can hold the answer. `held` says why the run cannot go now, in words.
+ */
+function sandboxNetwork(cfg: WorkConfig, run: Json, pkgBody: Json | undefined, lane: string, offer: string[]): { hosts: string[]; offer: string[]; held?: string } {
+  const decision = networkFor(readRoleTools(roleToolText(cfg, run, pkgBody)), lane, pkgBody?.grade);
+  if (decision.refused) return { hosts: [], offer: [], held: decision.refused };
+  const able = runtimesForHosts(offer, decision.hosts);
+  if (!able.length && offer.length)
+    return { hosts: [], offer: [], held: `This role needs network to ${decision.hosts.join(", ")}; only Claude Code can limit an agent's network to named hosts, and it is not available on the daemon here` };
+  return { hosts: decision.hosts, offer: able };
+}
+
+async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, baseline: string, hosts: string[], budgetCeilingSeconds: number | null = null,
   reserveMinutes: string | null = null) {
   requireLegacyRun(row as {role:string;body:Json});
   const token = randomBytes(32).toString("base64url");
   const lease = leaseFromNow(cfg);
+  // The policy its agent actions run under, recorded and bound to the run by digest (plan task 6.1).
+  const owner = (await c.query<{ org_id: string }>("select org_id from object_owners where object_kind = $1 and object_id = $2",
+    [row.role === "intake" ? "capture" : "package", row.package_id])).rows[0];
+  if (!owner) throw new Error(`run ${row.id} has no owning organization`);
+  const sandbox = await resolveSandboxPolicy(c, owner.org_id, hosts);
   const body = {
     ...row.body,
+    sandbox_policy: sandbox.ref,
     // The ceiling its budget reservation was sized from; the sweep stops it once it has run that long.
     ...(budgetCeilingSeconds !== null ? { budget_ceiling_seconds: budgetCeilingSeconds } : {}),
     // What a reservation for it takes, whether or not a budget took one, so a budget set later counts it.
@@ -1249,9 +1296,10 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
   ]);
   await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round, lease_expires_at: lease });
   issuedLease(c, cfg, row.id);
-  const job = await buildJob(c, cfg, body, runtime);
+  const job = await buildJob(c, cfg, body, runtime, hosts);
   const pin = await activePin(c, runtime, row.role);
-  return { ...job, claim: { token, lease_expires_at: lease, heartbeat_seconds: heartbeatSeconds(cfg) },
+  return { ...job, sandbox_policy: sandbox.body, sandbox_policy_digest: sandbox.ref.digest,
+    claim: { token, lease_expires_at: lease, heartbeat_seconds: heartbeatSeconds(cfg) },
     ...(pin ? { runtime_pin: { runtime, digest: pin.artifact_digest } } : {}) };
 }
 

@@ -1838,7 +1838,11 @@ export interface components {
             permission_mode?: string;
             /** @description Tool allowlist passed to the runtime, when it takes one. */
             allowed_tools?: string[];
-            /** @description Sandbox the daemon asked the runtime for: "none", "workspace-write" or "workspace-write+network". */
+            /**
+             * @description The sandbox the run was launched under: `native-cli:<policy id>@v<version>` for an agent CLI
+             *     under its recorded sandbox policy (plan task 6.2), or "none" for the test runtime. Runs recorded
+             *     before plan Phase 6 carry the request they made then ("workspace-write" and the like).
+             */
             sandbox?: string;
         };
         "ControlRod.Records.Finding": {
@@ -2168,6 +2172,11 @@ export interface components {
              */
             budget_ceiling_seconds?: number;
             /**
+             * @description The sandbox policy version its agent actions run under (workbench plan task 6.1), by digest.
+             *     The daemon refuses a job whose policy does not match it.
+             */
+            sandbox_policy?: components["schemas"]["ControlRod.Records.SandboxPolicyRef"];
+            /**
              * @description The minutes a reservation for this run takes (its ceiling and the control plane's margins,
              *     rounded up), recorded whenever the daemon reported a ceiling, budget or not, so a minute budget
              *     set while the run is in flight counts it at that size.
@@ -2179,7 +2188,7 @@ export interface components {
              * @description The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it).
              * @enum {string}
              */
-            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget";
+            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
             /**
              * @description What the hold waits on, where one decision resolves it for every run that names it: a lane's
              *     admission, a runtime pin for a role and the runtimes it was offered, or a budget's hard cap. Absent when the hold is
@@ -2237,6 +2246,32 @@ export interface components {
             kind: "subscription" | "account" | "local";
             provider: string;
             model: string;
+        };
+        /** @enum {string} */
+        "ControlRod.Records.SandboxDriver": "native-cli" | "oci";
+        /** @description What a run's agent actions may touch. Decisions and traces cite its digest. (F per version) */
+        "ControlRod.Records.SandboxPolicy": {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            /** Format: int32 */
+            version: number;
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            driver: components["schemas"]["ControlRod.Records.SandboxDriver"];
+            /** @description Paths agent actions can never read; always includes the CLI login folders. */
+            denied_read: string[];
+            writable_roots: string[];
+            /** @description Hosts agent actions may reach; empty means no network. */
+            allowed_hosts: string[];
+            /** @description Agent tools enabled for the run; anything not listed is off. */
+            enabled_tools: string[];
+            /** @description Claims the in-run probe must observe before the verdict counts. */
+            mandatory_claims: string[];
+        };
+        /** @description One version of a sandbox policy, as a run cites it. */
+        "ControlRod.Records.SandboxPolicyRef": {
+            id: string;
+            /** Format: int32 */
+            version: number;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
         };
         /** @description Who pulled SCRAM, where, why, and what was stopped. (A) */
         "ControlRod.Records.ScramEvent": {
@@ -2625,6 +2660,13 @@ export interface components {
             claim: components["schemas"]["Runner.RunClaim"];
             /** @description The artifact this run must launch, when one is pinned for its runtime and role. */
             runtime_pin?: components["schemas"]["Runner.RuntimePinRef"];
+            /**
+             * @description What the run's agent actions may touch (plan task 6.1). The daemon derives every CLI setting
+             *     from it, checks it against `sandbox_policy_digest` and the run's recorded policy, and refuses
+             *     to launch an agent CLI without it.
+             */
+            sandbox_policy?: components["schemas"]["ControlRod.Records.SandboxPolicy"];
+            sandbox_policy_digest?: components["schemas"]["ControlRod.Records.Digest"];
         };
         "Runner.LogReply": {
             /** @description End the agent process when the owner has requested a stop. */

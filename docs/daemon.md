@@ -24,26 +24,46 @@ SIGINT or SIGTERM stops claiming, gives running jobs 30 seconds, then kills them
 
 The daemon finds runtimes on `PATH` and offers those that pass the probe below:
 
-- `claude`: Claude Code, run as `claude -p <prompt> --output-format stream-json --verbose --permission-mode acceptEdits --allowedTools <list>`. The tool list comes from `inputs/TOOLS.txt`, one per line, or defaults to `Read,Write,Edit,Glob,Grep,Bash(cr-example:*),WebSearch,WebFetch`.
-- `codex`: `codex exec --json -s workspace-write --skip-git-repo-check -C <workspace> [-m <model>] <prompt>`. Codex runs read-only by default and refuses to start outside a Git repository; run workspaces are not repositories, so the daemon asks for a sandbox that may write only inside the run workspace and skips the repository check. Checked against `codex exec --help` on Codex 0.163.0.
-- `fake`: test runtime. Runs `inputs/FAKE.sh` with bash, or copies `inputs/FAKE_OUT/*` into `out/`.
+- `claude`: Claude Code, in headless print mode under the run's sandbox policy (see "Sandbox" below).
+- `codex`: `codex exec --json --skip-git-repo-check -C <workspace> [-m <model>] <prompt>`, with the run's permission profile (see "Sandbox" below). Run workspaces are not Git repositories, so the repository check is skipped.
+- `fake`: test runtime. Runs `inputs/FAKE.sh` with bash, or copies `inputs/FAKE_OUT/*` into `out/`. It runs no agent CLI and takes no sandbox.
+
+`controlrod sandbox-args --runtime claude|codex --policy <file> --workspace <dir>` prints exactly the argument list and environment a run would get under a policy, and runs nothing.
 
 ### Runtime probe
 
 Finding a binary on `PATH` is not enough. At start and every 5 minutes the daemon probes each runtime it found, without signing in and without any credential:
 
 - `<runtime> --version` must answer with exit 0;
-- for Codex, when `codex login --help` lists a `status` subcommand, `codex login status` must exit 0. If the CLI has no such subcommand the login is not checked, and the report says so (`login_checked: false`). The daemon never runs `codex login` or any other sign-in.
+- for Codex, when `codex login --help` lists a `status` subcommand, `codex login status` must exit 0;
+- the sandbox preflight below must pass.
 
-A runtime that fails is not offered for work, and the daemon logs why in one plain sentence. Every claim carries the probe result for each runtime, the control plane picks only runtimes reported ready, and the office lists any runtime that is not ready with its reason. Codex 0.163.0 was not installed where this was built, so whether it has `codex login status` was not checked against the real CLI; the probe reads the help text at run time instead of assuming.
+A runtime that fails is not offered for work, and the daemon logs why in one plain sentence with the fix. Every claim carries the probe result for each runtime, the control plane picks only runtimes reported ready, and the office lists any runtime that is not ready with its reason. The daemon never runs `claude login`, `codex login` or any other sign-in.
 
-### Network inside the Codex sandbox
+### Sandbox (ADR 0021; plan tasks 6.1 to 6.3)
 
-The Codex sandbox has no network unless the job asks for it. A job asks by putting the line `network: on` in `inputs/TOOLS.txt`; the daemon then adds `-c sandbox_workspace_write.network_access=true`. The line is a directive for the daemon and is never passed to a runtime as a tool name. Any other `network:` value means no network.
+Every job carries the sandbox policy its run is recorded under, with its digest. Before starting an agent CLI the daemon checks the policy's canonical digest against both the job and the run's record, and refuses the run if anything is missing or differs; it never starts an agent CLI unsandboxed. Each CLI keeps the owner's ordinary login: Control Rod never reads, copies or relays a token, and never writes the owner's own CLI settings.
 
-The control plane writes the line only for author runs of roles whose tools file asks for it. Today those are `site-parcel` and `site-constraints` (`packs/capital-projects/example-package/roles/<role>.tools.md`), because `cr-example parcel` and `cr-example constraints` query public GIS services. Pre-check runs never get it, and neither do intake or roles without a tools file. Claude Code runs have no sandbox from the daemon in the MVP, so the line changes nothing for them; their fence is the tool allowlist.
+From the policy alone the daemon builds:
 
-Codex loads the owner's own Codex configuration (the agent keeps `HOME`), which can change these defaults. Run one real Codex author and pre-check on the Mac before trusting Codex with real work.
+- **Claude Code**: `--tools` names only the policy's tools (Bash, Read, Edit, Write, Grep, Glob; web, task and notebook tools are not qualified and never enabled), and `--allowedTools` the role's own list from `inputs/TOOLS.txt`, less any unqualified tool. `--restricted` confines the file tools to the workspace; `--strict-mcp-config` with an empty `--mcp-config`, `--setting-sources ""`, `--disable-slash-commands` and `--no-session-persistence` keep out every MCP server, user or project setting, hook, plugin, memory file and skill the run did not declare. `--settings` turns the command sandbox on with `failIfUnavailable` and no unsandboxed retry, blocks reads outside the workspace for commands and file tools alike (`permissions.blockReadsOutsideWorkingDirectories`), names the denied paths again as rules, and allows network only to the policy's hosts.
+- **Codex**: launched from its verified install tree staged, content addressed and re-hashed, into a private folder in `/tmp` (`controlrod-runtimes-<uid>`, never `TMPDIR`; one stager per digest at a time), because Codex re-runs its own executable inside its sandbox and the home folder is denied whole; `--ignore-user-config`, `--ignore-rules` and `--ephemeral`; a permission profile passed as `-c` overrides that extends `:workspace` and denies the denied paths, the home folder and the daemon's home whole (the workspace inside them stays usable; a login folder or file moved elsewhere by `CODEX_HOME`, `CLAUDE_CONFIG_DIR` or a link is denied by its real path, and a login inside the workspace refuses the run), keeps `/tmp` read only and turns network off; `approval_policy="never"`; hosted web search off (`web_search="disabled"`); no notification command (`notify=[]`, which would run outside the sandbox); only the core environment for commands; and `--disable` for every Codex feature that could act outside the command sandbox (browser and computer use, apps, plugins, hooks, memories, multi agent and the rest). `sandbox_mode` is never set, because Codex ignores a permission profile whenever it is.
+- **Environment**: an agent CLI receives only `HOME`, `USER`, `LOGNAME`, `SHELL`, `PATH` (less entries on WSL's Windows drives), `LANG`, `LANGUAGE`, `LC_*`, `TZ`, `TERM`, `TMPDIR`, `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `NO_COLOR` and `COLORTERM`: no provider, cloud or proxy credentials, and no sockets.
+
+**Network.** A role that needs network names the hosts in its tools file, `network: host, host`. The control plane allows them only for public or internal work of general-service grade; otherwise the run waits with the reason. Only Claude Code can limit an agent's network to named hosts, so such a run is never given to Codex. Today `site-parcel` and `site-constraints` name the public GIS hosts `cr-example` queries; pre-check and intake runs never have network.
+
+**Preflight.** With every probe, the daemon checks that the sandbox can hold, and says how to fix it when it cannot:
+
+- the platform has been qualified: only WSL2 so far, so on macOS and native Linux a runtime is not offered until the qualification passes there;
+
+- on Linux and WSL2, bubblewrap (`sudo apt install bubblewrap`), and for Claude Code socat (`sudo apt install socat`), on the agent's `PATH`;
+- the CLI, found on the agent's `PATH` and run with the agent's environment, is signed in (`claude auth status`, `codex login status`); the fix is the CLI's own `claude login` or `codex login`;
+- no managed Codex configuration (any TOML file in `/etc/codex`), parsed as TOML, sets a key that could loosen a run (sandbox mode, permissions, approvals, web search, notification commands, features, tools, MCP servers, the command environment, profiles), naming the key to remove; a managed file that cannot be read or parsed refuses too;
+- every feature the installed Codex leaves on, with Control Rod's switches applied and no user configuration, is one Control Rod has qualified. A new Codex version that turns on anything else is refused until it is qualified.
+
+Before each launch the host checks run again without running the CLI, so nothing executes a CLI that has not yet been checked against its pin, and the launched artifact must be the one the last probe passed: a pinned version installed after the probe waits for the next probe.
+
+**Platforms.** On WSL2 with Claude Code 2.1.318 and Codex 0.166.0, the launch passed a qualification against a scripted provider with positive and weakened controls, and a live session with the owner's login in which each CLI was refused a decoy outside the workspace (`spikes/runtime-confinement/launch_qualification.py`, `live_login_check.py`; evidence in `.nuclear/changes/workbench-ontology/evidence/phase6/`). That is not yet the protected qualification suite of plan task 6.4. macOS and native Linux are not yet qualified; the in-run attestation of plan task 6.5 is what makes each run prove its own sandbox.
 
 ### Pre-check runtime
 
@@ -55,7 +75,7 @@ A run's provider picks the runtime (`anthropic` or `claude`, `openai` or `codex`
 
 Each job gets `~/.controlrod/work/<package>/r<revision>/<role>-<round>-<run>/` with `inputs/` written from the job and `out/` for deliverables. Input names that would land outside `inputs/` refuse the whole job before anything is written. The only prompt the agent receives is: "Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/."
 
-The agent's environment has every `CONTROLROD_` variable removed, so it never sees the token or the API address. What a package manager set for the script that started the daemon is removed too: under `pnpm cr` that is every `npm_*` and `pnpm_*` variable, `INIT_CWD`, `PNPM_SCRIPT_SRC_DIR`, and the `node_modules/.bin` and `node-gyp-bin` entries put in front of `PATH`. They describe Control Rod's launcher, and some break tools in the agent's own shells (nvm refuses to load while `npm_config_prefix` is set). A user's own `NPM_CONFIG_*` or `PNPM_HOME` stays. This is a deny list over the inherited environment until ADR 0021's allowlist lands. Claude Code runs also get `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, so the agent cannot start a background shell or background agent that outlives its turn.
+The agent's environment has every `CONTROLROD_` variable removed, so it never sees the token or the API address. What a package manager set for the script that started the daemon is removed too: under `pnpm cr` that is every `npm_*` and `pnpm_*` variable, `INIT_CWD`, `PNPM_SCRIPT_SRC_DIR`, and the `node_modules/.bin` and `node-gyp-bin` entries put in front of `PATH`. They describe Control Rod's launcher, and some break tools in the agent's own shells (nvm refuses to load while `npm_config_prefix` is set). A user's own `NPM_CONFIG_*` or `PNPM_HOME` stays. For the fake test runtime that is the whole rule. An agent CLI (Claude Code, Codex) instead receives only the allowlisted environment described under Sandbox above, so none of this reaches it either. Claude Code runs also get `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, so the agent cannot start a background shell or background agent that outlives its turn.
 
 ## What it reports
 

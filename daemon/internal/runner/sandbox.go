@@ -182,7 +182,11 @@ func (p *SandboxPolicy) DeniedChecked(at SandboxPaths) ([]string, error) {
 		return nil
 	}
 	for _, d := range slices.Clone(out) {
-		// Named stores in the home folder, and login folders wherever they are.
+		// Named stores in the home folder, and login folders wherever they are. Never the daemon's
+		// home: it holds run workspaces, whose links agents make, and is denied whole anyway.
+		if at.DaemonHome != "" && within(d, at.DaemonHome) {
+			continue
+		}
 		store := at.Home != "" && d != at.Home && within(d, at.Home)
 		if !store && !slices.Contains(at.Logins, d) {
 			continue

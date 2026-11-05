@@ -576,3 +576,22 @@ func TestLinksInsideALoginFolderOutsideHomeAreDenied(t *testing.T) {
 		t.Fatalf("a link inside a login folder outside home is not denied: %q", d)
 	}
 }
+
+func TestRunWorkspacesNeverFeedLinkDiscovery(t *testing.T) {
+	home := t.TempDir()
+	dh := filepath.Join(home, ".controlrod")
+	venv := filepath.Join(dh, "work", "WP-1", "r0", "author-1-a", ".venv", "bin")
+	if err := os.MkdirAll(venv, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/usr/bin", filepath.Join(venv, "python3")); err != nil {
+		t.Fatal(err)
+	}
+	d, err := testPolicy().DeniedChecked(SandboxPaths{Home: home, DaemonHome: dh, Workspace: filepath.Join(dh, "work", "x")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(d, "/usr/bin") {
+		t.Fatalf("a link an agent made in a workspace became a denial: %q", d)
+	}
+}

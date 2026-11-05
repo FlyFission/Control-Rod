@@ -6,6 +6,7 @@
 - `crosswalk.md`: how one control spine serves Software and Capital Projects modes
 - `sqa/`: the software quality assurance package for Control Rod itself
 - `patterns/`: ideas borrowed from other projects, written under the clean-room rule
+- `reading-comfort.md`: type, contrast and live-output rules for the web app, and where tests keep them
 
 ## Overlay theme planning
 

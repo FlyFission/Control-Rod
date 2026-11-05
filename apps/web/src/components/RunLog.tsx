@@ -159,7 +159,12 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packag
     queryFn: () => api.runLog(packageId, run.id),
     refetchInterval: () => (live && isVisible() ? 2000 : false),
   });
-  const lines = log.data?.lines ?? [];
+  const latest = log.data?.lines ?? [];
+  // A reader can freeze the log to read it top to bottom without it moving. Polling carries on, so
+  // the count of what arrived meanwhile stays true; only what is shown is held back.
+  const [frozen, setFrozen] = useState<string[] | null>(null);
+  const lines = frozen ?? latest;
+  const waiting = frozen === null ? 0 : Math.max(0, latest.length - frozen.length);
   return (
     <details className="run" open={live}>
       <summary>
@@ -189,6 +194,18 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packag
         )}
         <IndependenceOverride packageId={packageId} run={run} passkeys={passkeys} />
         <RunActions packageId={packageId} run={run} />
+        {(live || frozen !== null) && (
+          <div className="log-bar">
+            <button type="button" className="btn ghost small" onClick={() => setFrozen(frozen === null ? latest : null)}>
+              {frozen === null ? "Pause updates" : "Resume updates"}
+            </button>
+            {frozen !== null && (
+              <span className="muted small">
+                {waiting === 0 ? "Paused: nothing new since you paused." : `Paused: ${waiting} new ${waiting === 1 ? "line" : "lines"} since you paused.`}
+              </span>
+            )}
+          </div>
+        )}
         <pre className="log" aria-label={`${ROLE_LABEL[run.role]} log`}>
           {lines.length === 0 ? "No log lines yet." : lines.slice(-400).join("\n")}
         </pre>

@@ -318,7 +318,7 @@ func (d *Daemon) preflightedArtifact(runtime string, launched Digest) error {
 
 // sandboxPaths are the paths a run's policy names on this host.
 func (d *Daemon) sandboxPaths(ws *Workspace) SandboxPaths {
-	home, _ := os.UserHomeDir()
+	home, _ := os.UserHomeDir() // never empty here: the launch refuses first (homeKnown)
 	dh, err := filepath.Abs(d.cfg.Home)
 	if err != nil {
 		dh = d.cfg.Home
@@ -990,6 +990,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	// fix and stops the runtime being offered until the next probe; nothing starts unsandboxed.
 	var sandbox *SandboxPolicy
 	if runtime != RuntimeFake {
+		if home, herr := os.UserHomeDir(); herr != nil || home == "" || !filepath.IsAbs(home) {
+			return fail("the home folder cannot be resolved, so the sandbox cannot deny it; set HOME"), nil
+		}
 		p, perr := VerifyPolicy(*job)
 		if perr != nil {
 			return fail(perr.Error()), nil

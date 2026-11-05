@@ -54,7 +54,9 @@ var resolveArtifact = ResolveArtifact
 // followed, or, for Codex installed through npm, the platform binary its wrapper script would
 // execute. Any other script launcher is refused rather than pinned by the script's digest.
 func ResolveArtifact(name string) (RuntimeArtifact, error) {
-	p, err := exec.LookPath(name)
+	// Found on the PATH an agent CLI receives, so the daemon never runs something the run itself
+	// would not have found (a Windows mount on WSL, a daemon-only folder).
+	p, err := LookPathAgent(name)
 	if err != nil {
 		return RuntimeArtifact{}, err
 	}

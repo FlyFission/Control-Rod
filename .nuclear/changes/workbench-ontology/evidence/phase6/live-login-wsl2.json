@@ -12,7 +12,7 @@
    {
     "tool": "Read",
     "refused": true,
-    "result": "/home/flyfission/.cr-live-decoy-9e889aa0 is outside /home/flyfission/.controlrod/work/LIVE-CHECK/r0/author-1-live; --restricted confines the file tools to the working directory."
+    "result": "/home/flyfission/.cr-live-decoy-6628c964 is outside /home/flyfission/.controlrod/work/LIVE-CHECK-3c135ee1/r0/author-1-live; --restricted confines the file tools to the working directory."
    }
   ],
   "decoy_every_path_tried": true,
@@ -27,7 +27,7 @@
    {
     "tool": "shell",
     "refused": true,
-    "result": "cat: /home/flyfission/.cr-live-decoy-9e889aa0: No such file or directory\n"
+    "result": "cat: /home/flyfission/.cr-live-decoy-6628c964: No such file or directory\n"
    }
   ],
   "decoy_every_path_tried": true,

@@ -138,6 +138,9 @@ export interface ResolvedPolicy {
 export async function resolveSandboxPolicy(c: Tx, orgId: string, hosts: string[]): Promise<ResolvedPolicy> {
   const id = policyId(orgId, hosts);
   const want = content(orgId, hosts);
+  // The policy's own lock before reading its version, so two first claims (or two after a change)
+  // never both allocate the same version; recordSandboxPolicy takes the same lock again.
+  await c.query("select pg_advisory_xact_lock(hashtext($1))", [`sandbox_policies:${id}`]);
   const current = await currentSandboxPolicy(c, id);
   if (current) {
     const { id: _i, version: _v, ...had } = current.body;

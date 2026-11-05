@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -135,18 +136,28 @@ func (p *SandboxPolicy) Denied(at SandboxPaths) []string {
 		if real, err := filepath.EvalSymlinks(d); err == nil && real != d {
 			add(real)
 		}
-		if entries, err := os.ReadDir(d); err == nil {
-			for _, e := range entries {
-				if e.Type()&os.ModeSymlink != 0 {
-					if real, err := filepath.EvalSymlinks(filepath.Join(d, e.Name())); err == nil {
-						add(real)
-					}
+		// Links anywhere inside the store, not only at its top (~/.aws/sso/cache can be a link).
+		seenEntries := 0
+		_ = filepath.WalkDir(d, func(p string, e fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			if seenEntries++; seenEntries > maxStoreEntries {
+				return filepath.SkipAll
+			}
+			if e.Type()&os.ModeSymlink != 0 {
+				if real, err := filepath.EvalSymlinks(p); err == nil {
+					add(real)
 				}
 			}
-		}
+			return nil
+		})
 	}
 	return out
 }
+
+// maxStoreEntries bounds the walk of one named credential store for links.
+const maxStoreEntries = 20000
 
 // LoginLocations are where the CLIs keep their logins, wherever they really are: the folders the
 // environment names (CODEX_HOME, CLAUDE_CONFIG_DIR) and the default folders and login files in the
@@ -481,6 +492,10 @@ func Preflight(ctx context.Context, rt string, run CommandRunner, lookPath func(
 	if err := PreflightHost(rt, lookPath, managedCodexConfig); err != nil {
 		return err
 	}
+	// Bounded like the probe's own commands, so a hung CLI makes its runtime unavailable rather than
+	// holding the daemon's start.
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
 	switch rt {
 	case RuntimeClaude:
 		if _, code, err := run(ctx, "claude", "auth", "status"); err != nil || code != 0 {
@@ -646,10 +661,15 @@ func CodexEffectiveFeatures(ctx context.Context) (string, error) {
 	for _, f := range CodexDisabledFeatures {
 		args = append(args, "--disable", f)
 	}
+	// The very executable the probe identified and runs launch, found on the agent PATH.
+	a, err := resolveArtifact(RuntimeCodex)
+	if err != nil {
+		return "", err
+	}
 	c, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(c, "codex", args...)
-	cmd.Env = append(AgentEnv(os.Environ()), "CODEX_HOME="+tmp)
+	cmd := exec.CommandContext(c, a.Path, args...)
+	cmd.Env = append(append(AgentEnv(os.Environ()), a.Env...), "CODEX_HOME="+tmp)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

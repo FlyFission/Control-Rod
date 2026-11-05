@@ -1,0 +1,22 @@
+$ env -i HOME=$HOME PATH=$PATH pnpm run -s probe   # pnpm 10.28.0, node v22.23.4; probe.mjs prints npm_*/pnpm_*/PNPM*/INIT_CWD/NODE* and PATH
+INIT_CWD=<probe-dir>
+NODE=/opt/node22/bin/node
+PNPM_SCRIPT_SRC_DIR=<probe-dir>
+npm_command=run-script
+npm_config__jsr_registry=https://npm.jsr.io/
+npm_config_frozen_lockfile=
+npm_config_globalconfig=/root/.config/pnpm/rc
+npm_config_node_gyp=/opt/node-tools/node_modules/pnpm/dist/node_modules/node-gyp/bin/node-gyp.js
+npm_config_npm_globalconfig=/opt/node22/etc/npmrc
+npm_config_registry=https://registry.npmjs.org/
+npm_config_reporter=silent
+npm_config_user_agent=pnpm/10.28.0 npm/? node/v22.23.4 linux x64
+npm_config_verify_deps_before_run=false
+npm_execpath=/opt/node-tools/node_modules/pnpm/bin/pnpm.cjs
+npm_lifecycle_event=probe
+npm_lifecycle_script=node probe.mjs
+npm_node_execpath=/opt/node22/bin/node
+npm_package_json=<probe-dir>/package.json
+npm_package_name=envprobe
+pnpm_config_verify_deps_before_run=false
+PATH=<probe-dir>/node_modules/.bin:/opt/node-tools/node_modules/pnpm/dist/node-gyp-bin:/nix/var/nix/profiles/default/bin:/root/.local/bin:/root/.cargo/bin:/usr/local/go/bin:/opt/node22/bin:/opt/maven/bin:/opt/gradle/bin:/opt/rbenv/bin:/root/.bun/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

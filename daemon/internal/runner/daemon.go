@@ -39,8 +39,15 @@ type Config struct {
 	CompleteRetries int
 	// RetryBase is the first wait between completion attempts; it doubles up to 30 seconds.
 	RetryBase time.Duration
-	// OutboxInterval is how often completions waiting in the outbox are tried again.
+	// OutboxInterval is how often the outbox and the orphan sweep run. A completion or evidence
+	// report that keeps failing waits twice as long after each failure, up to RetryLimit.
 	OutboxInterval time.Duration
+	// RetryLimit caps that wait. Default 15 minutes.
+	RetryLimit time.Duration
+	// SettleAfter is how long a runtime may keep running after it reported the end of its turn
+	// (Claude Code's final result, Codex's turn.completed or turn.failed). After it, the daemon ends
+	// the run's processes and completes the run on what the runtime reported. Default 30 seconds.
+	SettleAfter time.Duration
 	// ProbeInterval is how often each runtime is probed again. Default 5 minutes.
 	ProbeInterval time.Duration
 	// Probe runs the probe commands; nil means ExecRunner.
@@ -118,6 +125,8 @@ type Daemon struct {
 	container   Container
 	// ns names this daemon's home in its scope names (Namespace).
 	ns string
+	// retry spaces out outbox deliveries and evidence reports that keep failing.
+	retry *retryGate
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -149,6 +158,12 @@ func New(cfg Config) *Daemon {
 	if cfg.OutboxInterval <= 0 {
 		cfg.OutboxInterval = 30 * time.Second
 	}
+	if cfg.RetryLimit <= 0 {
+		cfg.RetryLimit = 15 * time.Minute
+	}
+	if cfg.SettleAfter <= 0 {
+		cfg.SettleAfter = 30 * time.Second
+	}
 	if cfg.ProbeInterval <= 0 {
 		cfg.ProbeInterval = 5 * time.Minute
 	}
@@ -178,7 +193,8 @@ func New(cfg Config) *Daemon {
 	k := *cfg.Container
 	k.NS = ns
 	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger, outbox: NewOutbox(cfg.Home),
-		receipts: NewReceipts(cfg.Home), container: k, ns: ns, quit: context.Background()}
+		receipts: NewReceipts(cfg.Home), container: k, ns: ns, quit: context.Background(),
+		retry: newRetryGate(cfg.OutboxInterval, max(cfg.RetryLimit, cfg.OutboxInterval))}
 }
 
 // errBreaker is a run stopped by the breaker, with the reason.
@@ -193,6 +209,9 @@ var (
 	// (specification 22a): the control plane may have pulled SCRAM or given the run up.
 	errOutOfContact = errors.New("stopped: no contact with the control plane for a whole lease")
 	errStopped      = errors.New("stopped by the owner")
+	// errSettled ends a run whose runtime reported the end of its turn but did not exit within
+	// SettleAfter. It is not a failure in itself: the run completes on what the runtime reported.
+	errSettled = errors.New("the runtime reported the end of its turn but did not exit")
 )
 
 func sleepCtx(ctx context.Context, d time.Duration) {
@@ -419,7 +438,8 @@ func (d *Daemon) outboxLoop(ctx context.Context) {
 	}
 }
 
-// drainOutbox tries each waiting completion once.
+// drainOutbox tries each waiting completion that is due. One the control plane keeps failing
+// waits longer after each failure (retryGate); it stays in the outbox until recorded or refused.
 func (d *Daemon) drainOutbox(ctx context.Context) {
 	entries, err := d.outbox.List()
 	if err != nil {
@@ -429,15 +449,27 @@ func (d *Daemon) drainOutbox(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		d.deliver(e)
+		key := "outbox:" + e.RunID
+		if !d.retry.due(key, time.Now()) {
+			continue
+		}
+		done, err := d.deliver(e)
+		switch {
+		case done:
+			d.retry.forget(key)
+		case err != nil:
+			n, wait := d.retry.failed(key, time.Now())
+			d.log.Warn("completion upload failed; kept in the outbox", "run", e.RunID, "attempts", n, "next try in", wait, "err", err)
+		}
 	}
 }
 
 // deliver sends one completion. It returns true when the control plane recorded it or refused
-// it for good; either way the entry leaves the outbox.
-func (d *Daemon) deliver(e OutboxEntry) bool {
+// it for good; either way the entry leaves the outbox. A transient failure returns its error; an
+// entry another goroutine is sending returns false with no error.
+func (d *Daemon) deliver(e OutboxEntry) (bool, error) {
 	if !d.outbox.take(e.RunID) {
-		return false
+		return false, nil
 	}
 	defer d.outbox.release(e.RunID)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -452,14 +484,13 @@ func (d *Daemon) deliver(e OutboxEntry) bool {
 		} else {
 			d.log.Info("run finished", "run", e.RunID, "status", receipt.Status)
 		}
-		return true
+		return true, nil
 	case errors.As(err, &refused):
 		d.outbox.Refused(e.RunID)
 		d.log.Error("completion refused", "run", e.RunID, "err", err)
-		return true
+		return true, nil
 	default:
-		d.log.Warn("completion upload failed; will retry", "run", e.RunID, "err", err)
-		return false
+		return false, err
 	}
 }
 
@@ -499,6 +530,10 @@ func (d *Daemon) sweepOrphans(ctx context.Context) {
 				continue
 			}
 		}
+		key := "evidence:" + r.RunID
+		if !d.retry.due(key, time.Now()) {
+			continue
+		}
 		reply, err := d.client.Evidence(ctx, r)
 		var refused *RefusedError
 		switch {
@@ -507,9 +542,11 @@ func (d *Daemon) sweepOrphans(ctx context.Context) {
 		case errors.As(err, &refused):
 			d.log.Info("control plane no longer needs evidence for this run", "run", r.RunID, "err", err)
 		default:
-			d.log.Warn("could not report a run process gone; will retry", "run", r.RunID, "err", err)
+			n, wait := d.retry.failed(key, time.Now())
+			d.log.Warn("could not report a run process gone; receipt kept", "run", r.RunID, "attempts", n, "next try in", wait, "err", err)
 			continue
 		}
+		d.retry.forget(key)
 		d.receipts.Remove(r.RunID)
 	}
 	for _, u := range d.container.OrphanScopes() {
@@ -567,6 +604,27 @@ type logBuffer struct {
 	// onTrip stops the run when the breaker trips; called outside the lock.
 	onTrip func(reason string)
 	now    func() time.Time
+
+	// turnOver is set by the runtime's own end-of-turn report (TurnEnd), and endCh is closed then.
+	turnOver, turnFailed bool
+	endCh                chan struct{}
+}
+
+// ended returns a channel closed once the runtime has reported the end of its turn.
+func (b *logBuffer) ended() <-chan struct{} {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.endCh == nil {
+		b.endCh = make(chan struct{})
+	}
+	return b.endCh
+}
+
+// endedFailed reports whether the runtime's end-of-turn report said the turn failed.
+func (b *logBuffer) endedFailed() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.turnFailed
 }
 
 func (b *logBuffer) clock() time.Time {
@@ -602,6 +660,15 @@ func (b *logBuffer) add(line string) {
 	}
 	if b.model == "" {
 		b.model = ReportedModel(line)
+	}
+	if !b.turnOver {
+		if over, failed := TurnEnd(line); over {
+			b.turnOver, b.turnFailed = true, failed
+			if b.endCh == nil {
+				b.endCh = make(chan struct{})
+			}
+			close(b.endCh)
+		}
 	}
 	b.dirty = true
 	b.mu.Unlock()
@@ -842,6 +909,9 @@ func failText(err error) string {
 		return errStopped.Error()
 	case errors.Is(err, errOutOfContact):
 		return errOutOfContact.Error()
+	case errors.Is(err, errSettled):
+		// Only a failed report reaches here; a successful one completes the run normally.
+		return "the runtime reported a failed result and then did not exit; the daemon ended its processes"
 	case errors.As(err, new(errBreaker)):
 		return err.Error()
 	case errors.As(err, &exit):
@@ -878,11 +948,12 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	}
 	wait := d.cfg.RetryBase
 	for attempt := 1; ; attempt++ {
-		if d.deliver(e) {
+		done, err := d.deliver(e)
+		if done {
 			return
 		}
 		if attempt >= d.cfg.CompleteRetries || d.quit.Err() != nil {
-			d.log.Warn("completion kept in the outbox for a later retry", "run", job.Run.ID, "attempts", attempt)
+			d.log.Warn("completion kept in the outbox for a later retry", "run", job.Run.ID, "attempts", attempt, "err", err)
 			return
 		}
 		sleepCtx(d.quit, wait)
@@ -981,6 +1052,26 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	flushed := make(chan struct{})
 	hooks := &hookTail{path: ws.HookFile}
 	go func() { d.flushLoop(flushCtx, job, buf, release, hooks, lease); close(flushed) }()
+	// A runtime that has reported the end of its turn is done. If its process is still there after
+	// SettleAfter (background work, a hung hook or child), the run's processes are ended and the run
+	// completes on what the runtime reported, rather than showing as running until the timeout.
+	settleCtx, stopSettle := context.WithCancel(context.Background())
+	defer stopSettle()
+	go func() {
+		select {
+		case <-buf.ended():
+		case <-settleCtx.Done():
+			return
+		}
+		t := time.NewTimer(d.cfg.SettleAfter)
+		defer t.Stop()
+		select {
+		case <-t.C:
+		case <-settleCtx.Done():
+			return
+		}
+		release(errSettled)
+	}()
 
 	launch := LaunchFor(runtime, job.Run, ws, sandbox)
 	var spawned *SpawnReceipt
@@ -1077,11 +1168,26 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				}})
 		}
 	}
+	// The process is gone: nothing can settle it any more.
+	stopSettle()
+	// Said only when the settle is what ended the run, not when the process exited at the same moment.
+	settled := errors.Is(err, errSettled)
+	if settled {
+		d.log.Warn("runtime did not exit after reporting the end of its turn; its processes were ended", "run", job.Run.ID, "after", d.cfg.SettleAfter)
+		buf.addEvents([]Event{{Kind: EvNotice, At: time.Now().UTC().Format(time.RFC3339Nano),
+			Text: fmt.Sprintf("The runtime reported the end of its turn but did not exit within %s; the daemon ended its processes.", d.cfg.SettleAfter)}})
+		if !buf.endedFailed() {
+			err = nil
+		}
+	}
 	stopFlush()
 	<-flushed
 	// The flush loop has stopped; finish reading the hook file from where it left off.
 	buf.addEvents(hooks.next(time.Now()))
 	exit := Event{Kind: EvExit, At: time.Now().UTC().Format(time.RFC3339Nano), Text: "exited"}
+	if settled {
+		exit.Text = "ended by the daemon after the end of its turn"
+	}
 	if err != nil {
 		exit.Text = failText(err)
 	}

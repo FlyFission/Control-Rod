@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -59,16 +60,64 @@ func Detect(lookPath func(string) (string, error), getenv func(string) string) [
 }
 
 // ChildEnv is the parent environment with every CONTROLROD_ variable removed, so an agent never
-// sees the daemon token or the API address.
+// sees the daemon token or the API address, and with what a package manager set for the script
+// that started the daemon removed too (launcherVar, launcherPath). This is a deny list on top of
+// the inherited environment; the allowlist of ADR 0021 replaces it when confined runs land.
 func ChildEnv(environ []string) []string {
 	out := make([]string, 0, len(environ))
 	for _, kv := range environ {
-		if strings.HasPrefix(kv, "CONTROLROD_") {
+		key, val, _ := strings.Cut(kv, "=")
+		switch {
+		case strings.HasPrefix(key, "CONTROLROD_"), launcherVar(key):
 			continue
+		case key == "PATH":
+			kv = "PATH=" + launcherPath(val)
 		}
 		out = append(out, kv)
 	}
 	return out
+}
+
+// launcherVar reports a variable a package manager sets for the script it runs: `pnpm cr` gives
+// the daemon about a dozen (npm_config_*, npm_lifecycle_*, npm_package_*, pnpm_config_*, INIT_CWD,
+// PNPM_SCRIPT_SRC_DIR). They describe Control Rod's launcher, not the agent's work, and some break
+// tools in the agent's own shells: nvm refuses to load while npm_config_prefix is set. Only these
+// lower-case and launcher-only names go; a user's own NPM_CONFIG_* or PNPM_HOME stays.
+func launcherVar(key string) bool {
+	return strings.HasPrefix(key, "npm_") || strings.HasPrefix(key, "pnpm_") ||
+		key == "INIT_CWD" || key == "PNPM_SCRIPT_SRC_DIR"
+}
+
+// launcherPath removes from PATH what a package manager put in front of it for its script: each
+// node_modules/.bin directory and node-gyp's shim directory. Under `pnpm cr` these are Control
+// Rod's own development tools, which an agent has no business finding first.
+func launcherPath(path string) string {
+	parts := filepath.SplitList(path)
+	kept := parts[:0]
+	for _, p := range parts {
+		c := filepath.Clean(p)
+		if (filepath.Base(c) == ".bin" && filepath.Base(filepath.Dir(c)) == "node_modules") || filepath.Base(c) == "node-gyp-bin" {
+			continue
+		}
+		kept = append(kept, p)
+	}
+	return strings.Join(kept, string(filepath.ListSeparator))
+}
+
+// ClaudeEnv is set on every Claude Code run. Background tasks (a Bash command with
+// run_in_background, background agents) would outlive the turn that started them: in print mode
+// they keep the process, and so the run, open after the final result, and nothing in the run
+// waits for what they produce. Checked present in Claude Code 2.1.318.
+var ClaudeEnv = []string{"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1"}
+
+// withEnv sets each KEY=value in env, replacing any earlier value, so a child sees exactly one.
+func withEnv(env []string, set ...string) []string {
+	for _, kv := range set {
+		key, _, _ := strings.Cut(kv, "=")
+		env = slices.DeleteFunc(env, func(e string) bool { k, _, _ := strings.Cut(e, "="); return k == key })
+		env = append(env, kv)
+	}
+	return env
 }
 
 // NetworkDirective is the TOOLS.txt line that asks for network inside the runtime's sandbox.
@@ -261,6 +310,9 @@ func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at Sandbo
 	cmd.Env = ChildEnv(os.Environ())
 	if runtime != RuntimeFake {
 		cmd.Env = AgentEnv(os.Environ())
+	}
+	if runtime == RuntimeClaude {
+		cmd.Env = withEnv(cmd.Env, ClaudeEnv...)
 	}
 	setProcessGroup(cmd)
 	return cmd, nil

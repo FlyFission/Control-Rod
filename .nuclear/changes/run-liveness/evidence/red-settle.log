@@ -1,0 +1,9 @@
+--- FAIL: TestARunThatReportedItsResultButDidNotExitEndsOnItsResult (22.04s)
+    settle_test.go:69: timed out waiting for completion 1
+--- FAIL: TestACodexTurnThatCompletedButDidNotExitEndsOnItsResult (22.05s)
+    settle_test.go:97: timed out waiting for completion 1
+--- FAIL: TestBackgroundWorkLeftByAFinishedRunIsEnded (22.04s)
+    settle_test.go:108: timed out waiting for completion 1
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	66.156s
+FAIL

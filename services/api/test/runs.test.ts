@@ -100,6 +100,24 @@ async function releasedPackage(key: string, role = "general-author"): Promise<st
 }
 
 describe("launch inputs", () => {
+  it("holds a role that needs named hosts when only Codex is offered, saying why, and dispatches it once a runtime can limit them", async () => {
+    const id = await releasedPackage("HOSTS", "site-parcel");
+    expect(await claim(["codex"])).toBeNull();
+    const held = (await h.db.query<{ body: Record<string, any> }>("select body from runs where package_id = $1 and role = 'author'", [id])).rows[0]!.body;
+    expect(held).toMatchObject({ waiting_cause: "sandbox", waiting_key: "sandbox:author:internal" });
+    expect(held.waiting_reason).toMatch(/^This role needs network to arcgis\.netl\.doe\.gov, .*; only Claude Code can limit an agent's network to named hosts/);
+    const job = await claim(["fake"]);
+    expect(job?.run.package_id).toBe(id);
+    const started = (await h.db.query<{ body: Record<string, any> }>("select body from runs where id = $1", [job!.run.id])).rows[0]!.body;
+    expect(started.waiting_cause).toBeUndefined();
+    expect(started.sandbox_policy.id).toMatch(/^sbp_net-/);
+    await asDaemon(`/runner/runs/${job!.run.id}/complete`, { status: "succeeded", outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+    // Its pre-check asks for no network, so Codex may run it.
+    const check = await claim(["codex"]);
+    expect(check).toMatchObject({ run: { role: "pre-check", package_id: id } });
+    await asDaemon(`/runner/runs/${check!.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+  });
+
   it("gives network only to the author runs of roles whose tools ask for it", async () => {
     const id = await releasedPackage("NET", "site-constraints");
     const author = await claim();

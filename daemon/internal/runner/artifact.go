@@ -232,6 +232,13 @@ func StageArtifact(a RuntimeArtifact, base string) (RuntimeArtifact, error) {
 	if fi, err := os.Lstat(base); err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 {
 		return a, fmt.Errorf("%s must be a private folder (mode 0700) to stage runtimes in", base)
 	}
+	// One stager per digest at a time, across daemons: a copy another launch is using is never
+	// removed from under it, and two cold launches do not race to publish.
+	unlock, err := lockFile(filepath.Join(base, a.Digest.Value+".lock"))
+	if err != nil {
+		return a, err
+	}
+	defer unlock()
 	src := a.Root
 	if src == "" {
 		src = filepath.Dir(a.Path)
@@ -263,7 +270,17 @@ func StageArtifact(a RuntimeArtifact, base string) (RuntimeArtifact, error) {
 	if s, err := staged(); err == nil && s.Digest.Value == a.Digest.Value {
 		return s, nil
 	}
-	_ = os.RemoveAll(dst)
+	// A copy that no longer matches was changed after staging: set it aside (a launch already
+	// running from it keeps its files) and stage afresh.
+	if _, err := os.Lstat(dst); err == nil {
+		aside, err := os.MkdirTemp(base, ".stale-")
+		if err != nil {
+			return a, err
+		}
+		if err := os.Rename(dst, filepath.Join(aside, "copy")); err != nil {
+			return a, err
+		}
+	}
 	tmp, err := os.MkdirTemp(base, ".stage-")
 	if err != nil {
 		return a, err
@@ -327,10 +344,15 @@ func StageArtifact(a RuntimeArtifact, base string) (RuntimeArtifact, error) {
 	return s, nil
 }
 
-// StageRoot is where runtimes are staged: a private folder under the system temporary folder,
-// outside the home folder, readable from inside the sandbox and writable by nothing in it.
+// StageRoot is where runtimes are staged: a private folder in /tmp (never TMPDIR, which the
+// environment could point anywhere), outside the home folder, readable from inside the sandbox and
+// read only there (both sandboxes make /tmp read only).
 func StageRoot() string {
-	return filepath.Join(os.TempDir(), fmt.Sprintf("controlrod-runtimes-%d", os.Getuid()))
+	tmp := "/tmp"
+	if real, err := filepath.EvalSymlinks(tmp); err == nil {
+		tmp = real
+	}
+	return filepath.Join(tmp, fmt.Sprintf("controlrod-runtimes-%d", os.Getuid()))
 }
 
 // stagedRuntimes are the runtimes launched from a staged copy.

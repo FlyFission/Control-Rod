@@ -41,7 +41,7 @@ Low. Presentation only, plus one client-side control that changes what the log s
 ## Selected mode
 
 - **Mode:** Standard
-- **Why this mode:** every record in this repository uses the six-file packet, and the repository's change-records check requires `proof.md` only for Quick mode. The risk itself is low: presentation plus one client-side display control, fully reversible, no trust surface, contract, kernel, policy or evidence behaviour touched.
+- **Why this mode:** every other record in this repository selects Standard and uses the six-file packet; under Quick mode the change-records check reported a missing `proof.md`, which no other record has. The risk itself is low: presentation plus one client-side display control, fully reversible, no trust surface, contract, kernel, policy or evidence behaviour touched.
 - **Why heavier mode is not required:** no runtime decision, data, authorization or irreversible step is touched.
 
 ## Required links

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client.js";
+import { api, ApiError } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { browserPasskeys, type Passkeys } from "../lib/decide.js";
 import { captureInvitation, forgetInvitation, heldInvitation } from "../lib/invitation.js";
@@ -9,6 +9,13 @@ import { captureInvitation, forgetInvitation, heldInvitation } from "../lib/invi
  * First run registers a passkey for the first person; a person an administrator invited registers
  * theirs from the invitation link; later visits sign in with a passkey.
  */
+/**
+ * Refusals that mean this page was drawn from an out-of-date session (a second tab, or a page the
+ * browser restored with Back): the machine is already set up, or this browser is already signed in.
+ * The page reloads the session and redraws itself instead of showing a refusal meant for other cases.
+ */
+const STALE_SESSION = new Set(["own-account-only", "forbidden", "step-up-required", "not-registered"]);
+
 export function SignIn({ session, passkeys = browserPasskeys }: { session: Session; passkeys?: Passkeys }) {
   const qc = useQueryClient();
   // Normally taken at startup (capture-invitation.ts); taking it again here is harmless.
@@ -26,6 +33,15 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
       qc.clear();
       qc.setQueryData(["session"], s);
     } catch (e) {
+      if (e instanceof ApiError && STALE_SESSION.has(e.code)) {
+        const fresh = await api.session().catch(() => null);
+        if (fresh !== null) {
+          qc.setQueryData(["session"], fresh);
+          if (!fresh.signed_in)
+            setError(fresh.registered ? "This machine is already set up. Sign in with your passkey." : "Set up this machine to continue.");
+          return;
+        }
+      }
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setBusy(false);

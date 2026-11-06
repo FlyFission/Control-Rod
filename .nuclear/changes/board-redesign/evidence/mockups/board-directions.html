@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #16171a; color: #e8e8ea; font: 15px/1.5 Inter, system-ui, sans-serif; }
+  .page { max-width: 1280px; margin: 0 auto; padding: 40px 24px 80px; }
+  .page > h1 { font-size: 26px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .page > p.lede { color: #a4a6ad; margin: 0 0 36px; max-width: 760px; }
+  .dir { margin: 0 0 56px; }
+  .dir-head { display: flex; align-items: baseline; gap: 14px; margin: 0 0 12px; }
+  .dir-head .letter { font: 600 13px/1 JetBrains Mono, monospace; color: #16171a; background: #e8e8ea; border-radius: 4px; padding: 5px 7px; }
+  .dir-head h2 { margin: 0; font-size: 19px; font-weight: 600; }
+  .dir-head p { margin: 0; color: #a4a6ad; font-size: 14px; }
+  .pick { margin-top: 12px; display: flex; gap: 10px; align-items: center; }
+  .pick button { font: 500 13px Inter, sans-serif; color: #e8e8ea; background: transparent; border: 1px solid #3a3c42; border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+  .pick button.selected, .pick button:hover { border-color: #e8e8ea; }
+  .pick span { color: #8a8c93; font-size: 13px; }
+
+  /* ---------- shared board structure ---------- */
+  .app { border-radius: 12px; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); box-shadow: 0 30px 80px -30px rgba(0,0,0,.6); }
+  .top { display: flex; align-items: center; gap: 16px; padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--bar); }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; letter-spacing: -0.01em; }
+  .brand i { width: 18px; height: 18px; display: inline-block; background: var(--accent); border-radius: var(--mark-r); }
+  .crumb { color: var(--mute); font-size: 14px; }
+  .crumb b { color: var(--ink); font-weight: 500; }
+  .search { margin-left: auto; display: flex; align-items: center; gap: 8px; width: 300px; padding: 7px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--mute); font-size: 13px; background: var(--field); }
+  .search kbd { margin-left: auto; font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .needs { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; padding: 7px 11px; border-radius: var(--r-sm); background: var(--needs-bg); color: var(--needs-ink); }
+  .needs b { font-family: var(--mono); }
+  .agents { font: 12px var(--mono); color: var(--mute); }
+  .agents b { color: var(--ink); font-weight: 500; }
+  .sub { display: flex; align-items: center; gap: 6px; padding: 10px 18px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .sub .tab { padding: 5px 10px; border-radius: var(--r-sm); color: var(--mute); }
+  .sub .tab.on { color: var(--ink); background: var(--tab-on); font-weight: 500; }
+  .sub .spacer { flex: 1; }
+  .sub .chip { color: var(--mute); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--gap); padding: var(--gap); align-items: start; background: var(--board); }
+  .col { min-width: 0; background: var(--col); border-radius: var(--r); padding: var(--col-pad); }
+  .col-head { display: flex; align-items: center; gap: 8px; padding: 2px 4px 10px; font-size: 13px; font-weight: 600; }
+  .col-head .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+  .col-head .n { font: 12px var(--mono); color: var(--mute); font-weight: 400; }
+  .col-head .lim { margin-left: auto; font: 11px var(--mono); color: var(--mute); }
+  .add { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 0 0 8px; border: 1px dashed var(--line-strong); border-radius: var(--r-sm); color: var(--mute); font-size: 13px; }
+  .add kbd { margin-left: auto; font: 11px var(--mono); opacity: .8; }
+  .card { background: var(--card); border: 1px solid var(--card-line); border-radius: var(--r-card); padding: 11px 12px 10px; margin: 0 0 8px; box-shadow: var(--card-shadow); position: relative; }
+  .card .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .kind { font: 500 10.5px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--mute); }
+  .kind.doc::before { content: ""; display: inline-block; width: 7px; height: 9px; border: 1.3px solid currentColor; border-radius: 1.5px; margin-right: 5px; vertical-align: -1px; }
+  .kind.code::before { content: "</>"; margin-right: 5px; letter-spacing: -0.05em; }
+  .id { margin-left: auto; font: 11px var(--mono); color: var(--mute); }
+  .title { font-size: 14px; font-weight: 500; line-height: 1.35; margin: 6px 0 9px; color: var(--ink); }
+  .meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--mute); }
+  .av { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font: 600 10px var(--sans); color: #fff; }
+  .av.ben { background: #5b6cff; } .av.dora { background: #0f9d8a; }
+  .av.agent { background: var(--agent-bg); color: var(--agent-ink); font-family: var(--mono); border-radius: 5px; }
+  .pair { display: inline-flex; align-items: center; }
+  .pair .av + .av { margin-left: 3px; }
+  .meta > span[style] { white-space: nowrap; }
+  .badge { white-space: nowrap; }
+  .badge { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink-2); }
+  .badge.check { color: var(--check-ink); border-color: var(--check-line); background: var(--check-bg); }
+  .badge.check::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 5px; vertical-align: 1px; }
+  .live { margin: 0 0 9px; padding: 7px 9px; border-radius: var(--r-sm); background: var(--live-bg); font: 12px/1.4 var(--mono); color: var(--ink-2); display: flex; gap: 8px; align-items: flex-start; }
+  .live .pulse { width: 7px; height: 7px; margin-top: 4px; flex: none; border-radius: 50%; background: var(--working); box-shadow: 0 0 0 0 var(--working); animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--working) 60%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+  @media (prefers-reduced-motion: reduce) { .live .pulse { animation: none; } }
+  .ask { margin: 0 0 9px; padding: 9px 10px; border-radius: var(--r-sm); background: var(--needs-bg); color: var(--needs-ink); font-size: 12.5px; line-height: 1.4; }
+  .ask b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+  .ask .acts { display: flex; gap: 6px; margin-top: 8px; }
+  .btn { font: 500 12px var(--sans); padding: 5px 10px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .budget { display: flex; align-items: center; gap: 8px; font: 11px var(--mono); color: var(--mute); margin: 0 0 8px; }
+  .budget .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+  .budget .bar i { display: block; height: 100%; background: var(--working); border-radius: 2px; }
+  .stat { font: 11px var(--mono); color: var(--mute); }
+  .plus { color: var(--plus); } .minus { color: var(--minus); }
+  .checks { display: flex; gap: 3px; }
+  .checks i { width: 6px; height: 12px; border-radius: 1.5px; background: var(--ok); }
+  .gate { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
+  .gate .btn { margin-left: auto; }
+  .signed { font: 11px var(--mono); color: var(--ok); }
+  .state-needs { border-left: 3px solid var(--needs-edge); }
+  .aging { position: absolute; top: 10px; right: 10px; }
+
+  /* ---------- A: Control room ---------- */
+  .a { --bg:#0e0f11; --bar:#0e0f11; --board:#0e0f11; --col:transparent; --card:#17181b; --card-line:#24262a; --card-shadow:none; --field:#141518; --line:#222428; --line-strong:#2e3035;
+       --ink:#ececef; --ink-2:#c3c5cb; --mute:#7c7f87; --accent:#f2a33a; --accent-ink:#1a1206; --mark-r:3px;
+       --needs-bg:#2a1f10; --needs-ink:#f5c27a; --needs-edge:#f2a33a; --tab-on:#1c1d21; --working:#4fd1c5; --live-bg:#111214; --track:#25272b;
+       --agent-bg:#24262b; --agent-ink:#cfd2d8; --check-ink:#c9b7ff; --check-line:#3b3357; --check-bg:#1d1930; --ok:#5ad08a; --plus:#5ad08a; --minus:#f07a7a;
+       --sans:Inter, system-ui, sans-serif; --mono:"JetBrains Mono", monospace; --r:10px; --r-sm:6px; --r-card:8px; --gap:14px; --col-pad:0; }
+  .a .col + .col { border-left: 1px solid var(--line); padding-left: 14px; }
+  .a .board { gap: 14px; }
+
+  /* ---------- B: Drafting table ---------- */
+  .b { --bg:#f6f3ec; --bar:#fbf9f4; --board:#f3efe6; --col:#efeadf; --card:#fffdf8; --card-line:#ddd5c4; --card-shadow:0 1px 0 #e4dccb; --field:#fffdf8; --line:#ddd5c4; --line-strong:#cbbfa8;
+       --ink:#1d2433; --ink-2:#3c4558; --mute:#7a7365; --accent:#1f3a8a; --accent-ink:#fff; --mark-r:1px;
+       --needs-bg:#fbe9d0; --needs-ink:#7a3d00; --needs-edge:#c2410c; --tab-on:#ebe4d4; --working:#1f6f5c; --live-bg:#f4efe3; --track:#e6dfcf;
+       --agent-bg:#1d2433; --agent-ink:#f6f3ec; --check-ink:#6b21a8; --check-line:#d8c3ec; --check-bg:#f6eefc; --ok:#1f6f5c; --plus:#1f6f5c; --minus:#b42318;
+       --sans:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", monospace; --r:4px; --r-sm:3px; --r-card:3px; --gap:12px; --col-pad:10px; }
+  .b .board { background-image: linear-gradient(#e7e0d1 1px, transparent 1px), linear-gradient(90deg, #e7e0d1 1px, transparent 1px); background-size: 24px 24px; }
+  .b .col-head { font-family: Newsreader, serif; font-size: 16px; font-weight: 600; letter-spacing: 0; }
+  .b .title { font-family: Newsreader, serif; font-size: 15.5px; font-weight: 500; }
+  .b .brand { font-family: Newsreader, serif; font-size: 18px; }
+  .b .titleblock { display: flex; margin-left: 16px; border: 1px solid var(--line-strong); font: 10.5px var(--mono); color: var(--mute); }
+  .b .titleblock span { padding: 3px 8px; border-right: 1px solid var(--line-strong); }
+  .b .titleblock span:last-child { border-right: 0; }
+  .b .titleblock b { color: var(--ink); font-weight: 500; }
+
+  /* ---------- C: Instrument panel ---------- */
+  .c { --bg:#ffffff; --bar:#ffffff; --board:#f4f5f7; --col:#f4f5f7; --card:#ffffff; --card-line:#e6e8ec; --card-shadow:0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08); --field:#f4f5f7; --line:#e6e8ec; --line-strong:#d5d9e0;
+       --ink:#101828; --ink-2:#344054; --mute:#667085; --accent:#ff5a1f; --accent-ink:#fff; --mark-r:6px;
+       --needs-bg:#fff4ed; --needs-ink:#b93815; --needs-edge:#ff5a1f; --tab-on:#f2f4f7; --working:#2e90fa; --live-bg:#f5f8ff; --track:#eaecf0;
+       --agent-bg:#eef4ff; --agent-ink:#2e5bd8; --check-ink:#6941c6; --check-line:#e9d7fe; --check-bg:#f9f5ff; --ok:#12b76a; --plus:#12b76a; --minus:#f04438;
+       --sans:Geist, Inter, system-ui, sans-serif; --mono:"JetBrains Mono", monospace; --r:14px; --r-sm:8px; --r-card:12px; --gap:16px; --col-pad:10px; }
+  .c .col-head { padding: 4px 6px 12px; }
+  .c .col-head .dot { width: 10px; height: 10px; border-radius: 3px; }
+  .c .card { padding: 13px 14px 12px; }
+  .c .title { font-size: 14.5px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Your board, three ways</h1>
+  <p class="lede">Same board, same work, three visual directions. Each shows the evidence-backed pieces: quick add at the top of a column, live agent action and cost against the cap on running cards, a question waiting on you, an independent check that only someone other than the requester can sign, and pull request checks on code. Pick the direction that feels right, and tell me in the terminal what you would change.</p>
+
+  <section class="dir">
+    <div class="dir-head"><span class="letter">A</span><h2>Control room</h2><p>Dark, quiet, dense. One warm accent reserved for what needs you. Closest to Linear.</p></div>
+    <div class="app a" data-board></div>
+    <div class="pick"><button data-choice="a" onclick="pick(this)">Choose A</button><span>Best for long sessions and many cards.</span></div>
+  </section>
+
+  <section class="dir">
+    <div class="dir-head"><span class="letter">B</span><h2>Drafting table</h2><p>Warm paper, ink blue, drawing grid and a title block. Reads like engineering, not like a chat app.</p></div>
+    <div class="app b" data-board data-titleblock></div>
+    <div class="pick"><button data-choice="b" onclick="pick(this)">Choose B</button><span>Most distinctive; signals documents and sign-off.</span></div>
+  </section>
+
+  <section class="dir">
+    <div class="dir-head"><span class="letter">C</span><h2>Instrument panel</h2><p>Bright and friendly, roomier cards, color coded columns. Easiest for a new engineer on day one.</p></div>
+    <div class="app c" data-board></div>
+    <div class="pick"><button data-choice="c" onclick="pick(this)">Choose C</button><span>Most approachable; least dense.</span></div>
+  </section>
+</div>
+
+<template id="board">
+  <div class="top">
+    <div class="brand"><i></i>Control Rod</div>
+    <div class="crumb">FlyFission / <b>Plant support</b></div>
+    <div class="tb-slot"></div>
+    <div class="search">Search or run a command<kbd>Ctrl K</kbd></div>
+    <div class="needs">Needs you <b>2</b></div>
+    <div class="agents">agents <b>2</b>/3</div>
+  </div>
+  <div class="sub">
+    <span class="tab on">Board</span><span class="tab">List</span><span class="tab">Calendar</span><span class="tab">Evidence</span>
+    <span class="spacer"></span>
+    <span class="chip">Swimlanes: none</span><span class="chip">Mine</span><span class="chip">Documents and code</span>
+  </div>
+  <div class="board">
+    <div class="col" style="--c:#8a8f98">
+      <div class="col-head"><span class="dot"></span>Backlog <span class="n">3</span></div>
+      <div class="add">+ Add a card<kbd>C</kbd></div>
+      <div class="card">
+        <div class="row"><span class="kind doc">Document</span><span class="id">CR-41</span></div>
+        <div class="title">Draft SOW for the VJ LN2 section replacement and new branch</div>
+        <div class="meta"><span class="av ben">BH</span><span class="badge check">Independent check</span><span style="margin-left:auto">cap $8</span></div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="kind code">Code</span><span class="id">CR-44</span></div>
+        <div class="title">Add per-run cost to the usage export</div>
+        <div class="meta"><span class="av dora">DK</span><span class="badge">Light review</span><span style="margin-left:auto">cap $3</span></div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="kind doc">Document</span><span class="id">CR-45</span></div>
+        <div class="title">Summarize vendor comments on the bayonet submittal</div>
+        <div class="meta"><span class="av ben">BH</span><span class="badge">Light review</span><span style="margin-left:auto">cap $2</span></div>
+      </div>
+    </div>
+
+    <div class="col" style="--c:var(--working)">
+      <div class="col-head"><span class="dot"></span>Running <span class="n">2</span><span class="lim">2 of 3 agents</span></div>
+      <div class="card state-needs">
+        <div class="row"><span class="kind doc">Document</span><span class="id">CR-38</span></div>
+        <div class="title">Relief valve sizing calculation for the glovebox header</div>
+        <div class="ask"><b>Needs you</b>Which header design pressure should the sizing use? The P&amp;ID rev C and the data sheet disagree.
+          <div class="acts"><span class="btn primary">Answer</span><span class="btn">Open both</span></div></div>
+        <div class="meta"><span class="pair"><span class="av ben">BH</span><span class="av agent">CC</span></span><span class="badge check">Independent check</span><span style="margin-left:auto">waiting 4m</span></div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="kind code">Code</span><span class="id">CR-43</span></div>
+        <div class="title">Raise the store-walk bound for large login folders</div>
+        <div class="live"><span class="pulse"></span><span>go test ./internal/runner/ ... 41 passed</span></div>
+        <div class="budget"><span>$0.84</span><span class="bar"><i style="width:17%"></i></span><span>$5</span></div>
+        <div class="meta"><span class="pair"><span class="av ben">BH</span><span class="av agent">CX</span></span><span class="stat"><span class="plus">+42</span> <span class="minus">-9</span></span><span style="margin-left:auto" class="stat">6m 12s</span></div>
+      </div>
+    </div>
+
+    <div class="col" style="--c:#a78bfa">
+      <div class="col-head"><span class="dot"></span>Review <span class="n">2</span></div>
+      <div class="card state-needs">
+        <div class="row"><span class="kind doc">Document</span><span class="id">CR-36</span></div>
+        <div class="title">MCC bucket protection review memo</div>
+        <div class="meta"><span class="pair"><span class="av ben">BH</span><span class="av agent">CC</span></span><span class="badge check">Independent check</span><span style="margin-left:auto">3 notes</span></div>
+        <div class="gate">Checker: anyone but Ben<span class="btn primary">Review and sign</span></div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="kind code">Code</span><span class="id">PR #53</span></div>
+        <div class="title">Sign-in recovers from an out-of-date session</div>
+        <div class="meta"><span class="pair"><span class="av dora">DK</span><span class="av agent">CC</span></span><span class="checks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="stat"><span class="plus">+44</span> <span class="minus">-1</span></span><span style="margin-left:auto">Light review</span></div>
+        <div class="gate">7 of 7 checks pass<span class="btn">Review diff</span></div>
+      </div>
+    </div>
+
+    <div class="col" style="--c:var(--ok)">
+      <div class="col-head"><span class="dot"></span>Done <span class="n">12</span></div>
+      <div class="card">
+        <div class="row"><span class="kind code">Code</span><span class="id">PR #51</span></div>
+        <div class="title">Every run starts inside its sandbox</div>
+        <div class="meta"><span class="av ben">BH</span><span class="signed">signed by BH, evidence kept</span></div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="kind doc">Document</span><span class="id">CR-30</span></div>
+        <div class="title">Outage playbook for the LN2 tie-in</div>
+        <div class="meta"><span class="pair"><span class="av ben">BH</span><span class="av dora">DK</span></span><span class="signed">checked by DK, signed</span></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  const tpl = document.getElementById('board');
+  document.querySelectorAll('[data-board]').forEach(el => {
+    el.appendChild(tpl.content.cloneNode(true));
+    if (el.hasAttribute('data-titleblock')) {
+      el.querySelector('.tb-slot').outerHTML = '<div class="titleblock"><span>PROJECT <b>FF-PLANT</b></span><span>REV <b>B</b></span><span>CHECKED <b>DK</b></span></div>';
+    }
+  });
+  function pick(btn) {
+    document.querySelectorAll('.pick button').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    if (window.brainstorm && typeof window.brainstorm.send === 'function') {
+      window.brainstorm.send({ type: 'click', choice: btn.dataset.choice, text: btn.textContent });
+    } else if (typeof window.toggleSelect === 'function') {
+      window.toggleSelect(btn);
+    }
+  }
+</script>
+</body>
+</html>

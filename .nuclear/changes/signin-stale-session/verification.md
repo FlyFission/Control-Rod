@@ -14,6 +14,13 @@ Evidence status: **pass** for SS-01 on this host (Linux, jsdom).
 | E-01 | SS-01 | yes | evidence/red-signin.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 | E-02 | SS-01 | yes | evidence/green-web.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 
+| Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
+|---|---|---|---|---|---|---|---|
+| E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
+| E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
+
+No independent review was done.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

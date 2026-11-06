@@ -1,5 +1,5 @@
 import type { ActionDescriptor, AdminView, OfficeItem, PersonVerificationEntry, WorkPackage } from "../api/types.js";
-import { boardColumn, isVerified, needsIndependentCheck, preCheckState } from "./board.js";
+import { blockUnverifiedAccept, boardColumn, isVerified, preCheckState } from "./board.js";
 
 export type NextLine = { tone: "needs" | "wait" | "block" | "ok"; text: string; command?: string };
 
@@ -44,10 +44,8 @@ export function nextLine(i: NextInput): NextLine {
     return { tone: "block", text: `Needs a second qualified person${who}` };
   }
 
-  // Ruling 16: on Safety or Material work with no passing verification for this revision, the
-  // verification outranks an allowed accept, and the board offers no Accept. This is a screen-only
-  // block: the server still allows the accept until the kernel guard D-4 is signed.
-  const offered = needsIndependentCheck(pkg) && verified !== true ? i.actions.filter((a) => !ACCEPTS.has(a.command)) : i.actions;
+  // Ruling 16: the verification outranks an allowed accept (screen-only until D-4; see blockUnverifiedAccept).
+  const offered = blockUnverifiedAccept(pkg, i.actions, verified);
   const first = offered.find((a) => a.allowed);
   if (first) return { tone: "needs", text: first.label, command: first.command };
 
@@ -58,9 +56,6 @@ export function nextLine(i: NextInput): NextLine {
   const refused = offered.find((a) => !a.allowed);
   return { tone: "wait", text: refused ? refusalText(refused) : "Nothing to do yet" };
 }
-
-/** Decision commands that accept the work; they wait on a person verification for independent-check work. */
-const ACCEPTS = new Set(["accept", "accept-with-findings"]);
 
 /** The verify role set, as the server's ACTION_ROLES.verify (services/api/src/authority.ts). */
 const VERIFY_ROLES = ["checker", "approver", "engineer-in-responsible-charge"];

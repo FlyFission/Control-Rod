@@ -30,7 +30,7 @@ describe("nextLine", () => {
   it("uses the verified value it is given, not one recomputed from the list", () => {
     // The list holds a pass, but the caller says it could not tell: the column is Needs signature, not Person verifies.
     const base = input({ column: "person-verifies", originators: ["ben"], otherQualifiedVerifier: false });
-    const passed: PersonVerificationEntry = { id: "pv1", package_id: base.pkg.id, package_revision: base.pkg.revision, outcome: "pass", verifier_member_id: "m", criteria: [], recorded_at: "2026-10-22T10:00:00Z" } as unknown as PersonVerificationEntry;
+    const passed: PersonVerificationEntry = { id: "pv1", package_id: base.pkg.id, package_revision: base.pkg.revision, outcome: "pass", covers_current_subject: true, verifier_member_id: "m", criteria: [], recorded_at: "2026-10-22T10:00:00Z" } as unknown as PersonVerificationEntry;
     expect(nextLine({ ...base, verified: null, verifications: [passed] }).tone).not.toBe("block");
     expect(nextLine({ ...base, verified: false, verifications: [passed] }).tone).toBe("block");
   });
@@ -46,7 +46,7 @@ describe("nextLine", () => {
     expect(nextLine(input({ column: "person-verifies", actions: [...acts, allowed("return", "Return")] })).text).toBe("Return");
   });
   it("is not blocked once the work is verified", () => {
-    const v = [{ package_revision: 0, outcome: "pass" }] as PersonVerificationEntry[];
+    const v = [{ package_revision: 0, outcome: "pass", covers_current_subject: true }] as PersonVerificationEntry[];
     const out = nextLine(input({ column: "person-verifies", originators: ["ben"], otherQualifiedVerifier: false, verifications: v, actions: [allowed("accept", "Accept")] }));
     expect(out).toEqual({ tone: "needs", text: "Accept", command: "accept" });
   });

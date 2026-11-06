@@ -97,6 +97,18 @@ const refusedAll = ["release", "accept", "accept-with-findings", "return", "reje
 }));
 
 describe("case view", () => {
+  it("offers no Accept on Safety work no person has verified, in the bar or the strip (ruling 16)", async () => {
+    server.use(http.get("*/packages/WP-0001/person-verifications", () => HttpResponse.json([])));
+    const allowAccept = ["accept", "return"].map((k) => ({ command: k, label: k[0]!.toUpperCase() + k.slice(1), allowed: true, signature: "direct" }));
+    await renderCase(view({}, { status: "in-verification", grade: "safety", discipline: "mechanical" }), allowAccept);
+    const bar = (await screen.findByRole("heading", { name: "Your decision" })).closest("section")!;
+    await waitFor(() => expect(bar.textContent).toContain("A person verification of the current work must come before"));
+    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+    const strip = screen.getByRole("region", { name: "Decision" });
+    expect(strip.textContent).not.toMatch(/accept/i);
+    expect(strip.textContent).toMatch(/return/i);
+  });
+
   it("is one column in PROVE order, signed at the bottom, with the decision bar never absent", async () => {
     await renderCase(view({ binds: "Signing binds revision 0 of WP-0001: no outputs and no pre-check (sha256:ab12cd34ef56)." }, { status: "in-verification", rigor_mode: "standard" }), refusedAll);
     const steps = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent?.replace(/^\d/, ""));

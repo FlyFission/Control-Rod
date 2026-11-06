@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { ACCEPT_COMMANDS, ACCEPT_WAITS_FOR_VERIFICATION, blockUnverifiedAccept, isVerified, needsIndependentCheck } from "../lib/board.js";
 import { api } from "../api/client.js";
 import { type Command, buildCommands, filterCommands } from "../places/commands.js";
 import { PLACES } from "../places/places.js";
@@ -23,6 +24,19 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
     queryFn: () => api.packageActions(decodeURIComponent(packageId!)),
     enabled: open && packageId !== undefined,
   });
+  // The same acceptance rule as the decision bar (ruling 16): no Accept on unverified Safety or
+  // Material work. A package not yet known from the list is treated as unverified.
+  const viewed = packageId !== undefined ? packages.data?.find((p) => p.id === decodeURIComponent(packageId)) : undefined;
+  const verifications = useQuery({
+    queryKey: ["person-verifications", viewed?.id],
+    queryFn: () => api.personVerifications(viewed!.id),
+    enabled: open && viewed !== undefined && needsIndependentCheck(viewed),
+  });
+  const packageActions = useMemo(() => {
+    if (actions.data === undefined) return undefined;
+    if (viewed === undefined) return actions.data.map((a) => (a.allowed && ACCEPT_COMMANDS.includes(a.command) ? { ...a, allowed: false, reason: ACCEPT_WAITS_FOR_VERIFICATION } : a));
+    return blockUnverifiedAccept(viewed, actions.data, verifications.data ? isVerified(viewed, verifications.data) : false);
+  }, [actions.data, viewed, verifications.data]);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -36,10 +50,10 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         places: PLACES,
         ...(packages.data ? { packages: packages.data } : {}),
         ...(packageId !== undefined ? { packageId: decodeURIComponent(packageId) } : {}),
-        ...(actions.data ? { packageActions: actions.data } : {}),
+        ...(packageActions ? { packageActions } : {}),
         ...(admin.data ? { adminActions: admin.data.actions } : {}),
       }),
-    [packages.data, packageId, actions.data, admin.data],
+    [packages.data, packageId, packageActions, admin.data],
   );
   const shown = useMemo(() => filterCommands(commands, query), [commands, query]);
   const current: Command | undefined = shown[Math.min(active, shown.length - 1)];

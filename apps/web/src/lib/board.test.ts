@@ -38,7 +38,7 @@ describe("boardColumn with person verification", () => {
 describe("pre-check and verification reads", () => {
   const accept = (id: string, rev: number): OfficeItem => ({ kind: "accept", package_id: id, package_revision: rev, title: "t", detail: "d", since: "2026-10-22T10:00:00Z" });
   const dispute = (id: string, rev: number): OfficeItem => ({ ...accept(id, rev), kind: "dispute" });
-  const ver = (rev: number, outcome: PersonVerificationEntry["outcome"]) => ({ package_revision: rev, outcome }) as PersonVerificationEntry;
+  const ver = (rev: number, outcome: PersonVerificationEntry["outcome"], covers = true) => ({ package_revision: rev, outcome, covers_current_subject: covers }) as PersonVerificationEntry;
 
   it("uses the current revision's passing verification only", () => {
     const a = pkg({ id: "A", status: "in-verification", grade: "safety", revision: 2 });
@@ -46,6 +46,8 @@ describe("pre-check and verification reads", () => {
     expect(col([ver(2, "pass")])).toBe("needs-signature");
     expect(col([ver(1, "pass"), ver(2, "fail")])).toBe("person-verifies");
     expect(col([])).toBe("person-verifies");
+    // A pass on this revision that no longer covers its current work (ruling 18) is not verified.
+    expect(col([ver(2, "pass", false)])).toBe("person-verifies");
   });
   it("keeps a dispute plus an accept for the same package and revision in Agent check", () => {
     const a = pkg({ id: "A", status: "in-verification", revision: 1 });

@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { api } from "../../api/client.js";
 import type { ActionDescriptor, AgentFigure, PackageView } from "../../api/types.js";
 import { STATE_INFO, StateMark } from "../../components/StateMark.js";
-import { COLUMNS, boardColumn } from "../../lib/board.js";
+import { COLUMNS, blockUnverifiedAccept, boardColumn, isVerified, needsIndependentCheck } from "../../lib/board.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../../lib/format.js";
 import { REGION } from "./layout.js";
 
@@ -50,6 +50,12 @@ function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
   const isPackage = f.href.to === "/packages/$id";
   const view = useQuery({ queryKey: ["package", f.package_id], queryFn: () => api.packageView(f.package_id), enabled: isPackage });
   const actions = useQuery({ queryKey: ["actions", f.package_id], queryFn: () => api.packageActions(f.package_id), enabled: isPackage });
+  // Needed only to apply the acceptance rule (ruling 16) to what the card says the viewer may sign.
+  const independent = view.data !== undefined && needsIndependentCheck(view.data.package);
+  const verifications = useQuery({ queryKey: ["person-verifications", f.package_id], queryFn: () => api.personVerifications(f.package_id), enabled: isPackage && independent });
+  const offered = actions.data && view.data
+    ? blockUnverifiedAccept(view.data.package, actions.data, verifications.data ? isVerified(view.data.package, verifications.data) : false)
+    : actions.data;
   const marks = [
     f.marks.gate && "A gate decision waits on this package",
     f.marks.changed_input && `Input ${f.marks.changed_input} changed`,
@@ -81,7 +87,7 @@ function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
       )}
       {lens && <p className="small">{lens}</p>}
       {f.observability && <p className="muted small">This runtime cannot report permission waits: {f.observability}.</p>}
-      {isPackage && <Glance f={f} view={view.data} actions={actions.data} failed={view.isError || actions.isError} />}
+      {isPackage && <Glance f={f} view={view.data} actions={offered} failed={view.isError || actions.isError} />}
       <AgentActions f={f} view={view.data} />
       {isPackage ? (
         <Link to="/packages/$id" params={{ id: f.package_id }} {...(f.href.hash ? { hash: f.href.hash } : {})} className="btn small">

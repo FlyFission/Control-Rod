@@ -125,6 +125,17 @@ describe("agent card", () => {
     expect((within(actions).getByRole("button", { name: "Stop" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("does not say the viewer may accept unverified Material work, even when the server allows it (ruling 16)", async () => {
+    serve();
+    server.use(
+      http.get("*/packages/:id/actions", () => HttpResponse.json([{ command: "accept", label: "Accept", allowed: true, signature: "direct" }])),
+      http.get("*/packages/:id/person-verifications", () => HttpResponse.json([])),
+    );
+    await renderPage(<AgentCard figure={figure()} lens={undefined} />);
+    expect(await screen.findByText(/You may not accept it: A person verification of the current work must come before Accept/)).toBeTruthy();
+    expect(screen.queryByText("You may accept it.")).toBeNull();
+  });
+
   it("names the signature the rung opens, and never borrows another gate's", async () => {
     serve();
     server.use(

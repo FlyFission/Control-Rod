@@ -205,6 +205,20 @@ describe("shell and palette", () => {
     expect(router.state.location.pathname).toBe("/packages/WP-7");
   });
 
+  it("does not offer Accept from the palette on unverified Safety work (ruling 16)", async () => {
+    apiFor();
+    server.use(
+      http.get("*/packages", () => HttpResponse.json([pkg({ id: "WP-7", title: "Pump skid", grade: "safety", status: "in-verification" })])),
+      http.get("*/packages/WP-7/person-verifications", () => HttpResponse.json([])),
+    );
+    await renderShell("/packages/WP-7");
+    const user = userEvent.setup();
+    await user.keyboard("{Control>}k{/Control}");
+    await screen.findByText("This package");
+    await waitFor(() => expect(screen.getByRole("option", { name: /Accept/ }).getAttribute("aria-disabled")).toBe("true"));
+    expect(screen.getByText(/A person verification of the current work must come before Accept/)).toBeTruthy();
+  });
+
   it("keeps focus in the palette when a refused command is clicked, and Escape still closes it", async () => {
     apiFor();
     await renderShell();

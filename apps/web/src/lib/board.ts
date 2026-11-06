@@ -1,4 +1,4 @@
-import type { OfficeItem, PersonVerificationEntry, WorkPackage } from "../api/types.js";
+import type { ActionDescriptor, OfficeItem, PersonVerificationEntry, WorkPackage } from "../api/types.js";
 
 export type ColumnId = "ready" | "drafting" | "agent-check" | "person-verifies" | "needs-signature" | "reached";
 
@@ -50,7 +50,32 @@ export function preCheckState(pkg: WorkPackage, office: OfficeItem[]): PreCheck 
   return "none";
 }
 
-/** Whether a passing person verification is recorded for the package's current revision. */
+/**
+ * Whether a passing person verification covers the package's current work: the current revision and,
+ * within it, the current subject (the server's covers_current_subject, ruling 18). The author output
+ * or pre-check can change within a revision, so a pass on the revision alone is not enough.
+ */
 export function isVerified(pkg: WorkPackage, verifications: PersonVerificationEntry[]): boolean {
-  return verifications.some((v) => v.package_revision === pkg.revision && v.outcome === "pass");
+  return verifications.some((v) => v.package_revision === pkg.revision && v.outcome === "pass" && v.covers_current_subject === true);
+}
+
+/** Decision commands that accept the work. */
+export const ACCEPT_COMMANDS: readonly string[] = ["accept", "accept-with-findings"];
+
+/** Why Accept is not offered on independent-check work that no person verification covers. */
+export const ACCEPT_WAITS_FOR_VERIFICATION = "A person verification of the current work must come before Accept";
+
+/**
+ * Ruling 16, the one rule every entry point uses (board, decision bar, case view): on Safety or
+ * Material work that no passing person verification covers (`verified` false, or null when unknown),
+ * an allowed accept or accept-with-findings is shown as refused, so the screen offers no Accept.
+ * This block is screen-only: the server still allows the accept until the kernel guard D-4 is signed.
+ */
+export function blockUnverifiedAccept(pkg: WorkPackage, actions: ActionDescriptor[], verified: boolean | null): ActionDescriptor[] {
+  if (!needsIndependentCheck(pkg) || verified === true) return actions;
+  return actions.map((a) =>
+    a.allowed && ACCEPT_COMMANDS.includes(a.command)
+      ? { ...a, allowed: false, reason: ACCEPT_WAITS_FOR_VERIFICATION, change: "A qualified checker who did not originate the work records a passing person verification of it." }
+      : a,
+  );
 }

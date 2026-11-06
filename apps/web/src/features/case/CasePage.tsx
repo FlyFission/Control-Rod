@@ -5,6 +5,7 @@ import { api } from "../../api/client.js";
 import type { ActionDescriptor, DecisionKind, PackageView, Run, VerificationRecord, WorkPackage } from "../../api/types.js";
 import { decisionLabel } from "../../lib/decide.js";
 import { DecisionBar } from "../../components/DecisionBar.js";
+import { useOfferedActions } from "../../lib/offered.js";
 import { StateMark } from "../../components/StateMark.js";
 import { runState, runStatusText } from "../../components/RunLog.js";
 import { isVisible } from "../../lib/live.js";
@@ -77,7 +78,7 @@ export function CasePage({ id }: { id: string }) {
           <DecisionBar view={view} />
         </Step>
       </ol>
-      <SignStrip view={view} actions={actions.data} loading={actions.isLoading} failed={actions.isError} />
+      <SignStrip view={view} />
     </div>
   );
 }
@@ -476,10 +477,13 @@ function Open({ view, actions, actionsFailed }: { view: PackageView; actions: Ac
 }
 
 /** Always on screen: what a signature here would bind and whether one is open to you. */
-function SignStrip({ view, actions, loading, failed }: { view: PackageView; actions: ActionDescriptor[] | undefined; loading: boolean; failed: boolean }) {
-  // The same words as the decision bar's buttons.
+function SignStrip({ view }: { view: PackageView }) {
+  // The same actions and words as the decision bar's buttons, with the same acceptance rule (ruling 16).
+  const offered = useOfferedActions(view.package);
+  const loading = offered.isLoading;
+  const failed = offered.isError;
   const role = view.package.agent_assignment[0]?.role;
-  const decisions = (actions ?? []).filter((a) => ["release", "accept", "accept-with-findings", "return", "reject"].includes(a.command));
+  const decisions = (offered.data ?? []).filter((a) => ["release", "accept", "accept-with-findings", "return", "reject"].includes(a.command));
   const allowed = decisions.filter((a) => a.allowed);
   const first = decisions.find((a) => !a.allowed);
   return (

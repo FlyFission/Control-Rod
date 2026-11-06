@@ -158,6 +158,29 @@ describe("decision flow", () => {
     ]);
   });
 
+  it("offers no Accept on Safety work until a person verification covers the current work (ruling 16)", async () => {
+    const pass = (covers: boolean) => ({ id: "pv1", package_revision: 3, outcome: "pass", covers_current_subject: covers });
+    let verifs: unknown[] = [];
+    server.use(http.get("*/packages/WP-0001/person-verifications", () => HttpResponse.json(verifs)));
+    offer(["accept", "accept-with-findings", "return"]);
+    const v = view({}, { status: "in-verification", revision: 3, grade: "safety" });
+    const first = await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
+    expect(await screen.findByRole("button", { name: "Return with direction" })).toBeTruthy();
+    await waitFor(() => expect(screen.getAllByText(/A person verification of the current work must come before/).length).toBeGreaterThan(0));
+    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Accept with findings/ })).toBeNull();
+    first.unmount();
+    // A pass that no longer covers the current work (the output changed within the revision) is not enough.
+    verifs = [pass(false)];
+    const second = await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
+    expect(await screen.findByRole("button", { name: "Return with direction" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+    second.unmount();
+    verifs = [pass(true)];
+    await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
+    expect(await screen.findByRole("button", { name: "Accept" })).toBeTruthy();
+  });
+
   it("stops before signing when the package changed since the page loaded", async () => {
     const signed: unknown[] = [];
     let decided = false;

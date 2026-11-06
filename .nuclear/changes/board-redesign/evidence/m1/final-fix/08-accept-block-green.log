@@ -1,0 +1,9 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+
+ Test Files  5 passed (5)
+      Tests  66 passed (66)
+   Start at  15:18:20
+   Duration  2.19s (tests 38%, environment 35%, setup 13%, import 9%, transform 5%)
+

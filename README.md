@@ -6,7 +6,23 @@ Control Rod is an open-source platform for all things engineering: software, and
 
 It is built for the toughest industries, where a confident mistake costs more than a slow answer. The discipline underneath comes from [nuclear-grade context engineering](https://github.com/FlyFission/nuclear-grade-context-engineering).
 
-> **Status: pre-alpha, local MVP under review.** Main has the scaffold; this buildout branch includes the reviewed owner-local workbench, API, daemon and site-concept/drawing work. Organization controls, general sandbox confinement, independent witnessed evidence and hosted deployment remain planned. See the [buildout specification](docs/superpowers/specs/2026-10-23-platform-buildout-design.md), [execution plan](docs/superpowers/plans/2026-10-23-platform-buildout.md) and [evidence ledger](docs/superpowers/execution/2026-10-23-platform-buildout.md).
+> **Status: pre-alpha, owner-local.** `main` runs on one machine for one person: the Rust kernel, the API and database, the run daemon, the web app (with the office view and its themes), and the site-concept and drawing packs. Native CLI sandboxes (Phase 6 A) have landed; sandbox confinement is not yet qualified on every platform. Hosted deployment, independent witnessed evidence and the remaining organization controls are planned. Nothing here is a compliance claim. See [docs/status.md](docs/status.md) for what works, what is stubbed and what is next.
+
+## Quick start
+
+You need Node 22+, pnpm, Go and uv. [Claude Code](https://claude.com/claude-code) signed in is needed for real agent runs, and Codex is optional (see [docs/getting-started.md](docs/getting-started.md)).
+
+```sh
+pnpm install --frozen-lockfile
+pnpm cr doctor   # lists anything missing
+pnpm cr start    # control plane, database and daemon on http://localhost:7300
+```
+
+Open <http://localhost:7300>, register a passkey, and send a request. The full walkthrough, test commands and troubleshooting are in [docs/getting-started.md](docs/getting-started.md).
+
+## Working on it
+
+New here? Read, in this order: [AGENTS.md](AGENTS.md) (the rules), [docs/getting-started.md](docs/getting-started.md) (run it and test it), [docs/collaboration.md](docs/collaboration.md) (how work moves from issue to merge) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## The idea in one paragraph
 
@@ -36,7 +52,23 @@ Control Rod is not a quality assurance program, a certification, or a substitute
 
 ## Repository layout
 
-The repository contains executable MVP modules alongside planning stubs. See [AGENTS.md](AGENTS.md) for how work in this repository is done, and `docs/adr/` for decision records as they land.
+| Path | What lives there | State |
+| --- | --- | --- |
+| `kernel/` | Rust kernel: every state change is decided here. WASM binding for the API. | Built. **Trust surface** |
+| `services/api/` | Fastify API, Postgres migrations, auth with passkeys, evidence and records | Built |
+| `apps/web/` | React web app: inbox, packages, office view, roster, records, spend, policies | Built |
+| `daemon/` | Go run daemon: claims jobs, launches agent CLIs in their sandboxes, uploads evidence | Built |
+| `spec/` | TypeSpec contracts; every language generates from here | Built. **Trust surface** (major versions) |
+| `packs/` | Domain packs: `capital-projects` (site concept, drawings) and `general` (intake, author and pre-check roles) are built; `software` is a stub | Partly built |
+| `sdk/python/` | Python SDK (so far the digest helpers shared with the kernel) | Early |
+| `tools/`, `scripts/` | License gate, originality and claim checks, `pnpm cr` launcher | Built |
+| `tests/` | Conformance (CAD), end-to-end fixtures, and the red-team catalog | `tests/redteam/` is a **trust surface** |
+| `policies/` | Default Cedar floors and QA overlays | Stub. **Trust surface** |
+| `connectors/`, `runtimes/`, `deploy/` | Channel and forge connectors, agent runtime adapters, deployment bundles | Stubs, planned |
+| `docs/` | Decisions (`adr/`), threat model, SQA package, guides, specs and plans | See [docs/README.md](docs/README.md) |
+| `.nuclear/changes/` | One change record per change: risk, basis, plan, trace, verification, ship | Required |
+
+See [AGENTS.md](AGENTS.md) for how work in this repository is done, and `docs/adr/` for the decision records.
 
 ## License
 

@@ -6,6 +6,10 @@ Thank you for your interest in Control Rod. The project is pre-alpha, and the fo
 
 Outside code contributions open after Phase 1, once the kernel and its tests exist. Before then we will publish a contributor license agreement, so the project can keep its open-core licensing options. Issues and discussion are welcome now, especially reports of ways an agent could get around a control.
 
+## If you have been invited to build
+
+Core collaborators are invited by the owner. Start with [docs/getting-started.md](docs/getting-started.md) to run and test the project, and [docs/collaboration.md](docs/collaboration.md) for how issues, pull requests, reviews and merges work day to day. The rules below apply to everyone, including agents you drive.
+
 ## How changes are made here
 
 Control Rod is built under its own discipline from the first commit.

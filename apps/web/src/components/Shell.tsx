@@ -43,7 +43,7 @@ export function Shell({ session, children }: { session: Session; children: React
     try {
       const s = await api.logout();
       // Nothing one person's session loaded survives into the next one.
-      adoptSession(qc, s);
+      await adoptSession(qc, s);
     } catch {
       void qc.invalidateQueries({ queryKey: ["session"] });
     }

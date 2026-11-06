@@ -31,12 +31,12 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
     setBusy(true);
     setError(null);
     try {
-      adopt(await fn());
+      await adopt(await fn());
     } catch (e) {
       if (e instanceof ApiError && STALE_SESSION.has(e.code)) {
         const fresh = await api.session().catch(() => null);
         if (fresh !== null) {
-          adopt(fresh);
+          await adopt(fresh);
           if (!fresh.signed_in)
             setError(fresh.registered ? "This machine is already set up. Sign in with your passkey." : "Set up this machine to continue.");
           return;

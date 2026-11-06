@@ -1,6 +1,6 @@
 // Usage: node apps/web/scripts/check-contrast.mjs
 // Computes WCAG 2.x contrast for every text token on every surface in each look
-// of apps/web/src/design/tokens.css and writes the table to the board-redesign
+// of apps/web/src/design/tokens.css and writes the table to the board-m1
 // evidence folder. Exits 1 if any pair is under 4.5:1.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -12,7 +12,7 @@ const repo = resolve(here, "../../..");
 const css = readFileSync(resolve(here, "../src/design/tokens.css"), "utf8");
 const rows = contrastTable(parseLooks(css));
 
-const out = resolve(repo, ".nuclear/changes/board-redesign/evidence/tokens-contrast-looks.txt");
+const out = resolve(repo, ".nuclear/changes/board-m1/evidence/tokens-contrast-looks.txt");
 const lines = [
   "Command: node apps/web/scripts/check-contrast.mjs",
   `Date: ${new Date().toISOString().slice(0, 10)}`,

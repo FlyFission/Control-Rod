@@ -1,13 +1,12 @@
 # Verification: board redesign design spec
 
-Evidence status: **pass** for the spec's research, review and mockup accessibility claims (E-01 to E-03). **Open** for owner validation with real tasks after M7 (E-04). Nothing here verifies an implementation; none exists.
+Evidence status: **pass** for the spec's research, review and mockup accessibility claims (E-01 to E-03). **Open** for owner validation with real tasks after M7 (E-04). Nothing here verifies an implementation. Implementation status for slice M1 is in the [board-m1](../board-m1/verification.md) record.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | The decision ledger (revision 2) and seven research files support the choices; the ledger grades evidence strength and reviewers noted some items are owner hypotheses. | `evidence/00-decision-ledger.md`, `evidence/01-general-flow-kanban.md` to `evidence/07-building-blocks.md`, `evidence/GOAL.md` |
 | E-02 | pass | Three independent model reviews (Codex, Grok, Antigravity) of one brief, plus a synthesis that filters accepted from rejected findings. Reviewers share a brief and the same author, so coupling is partial; a model review is not proof. | `evidence/review/BRIEF.md`, `codex.md`, `grok.md`, `agy.md`, `SYNTHESIS.md`, `screens/` |
 | E-03 | pass | Mockups scanned with @axe-core/playwright 4.14.0 on 2026-11-06: zero WCAG A and AA violations in looks A, B and C on the board mockup. Static mockups only, not the product; axe finds a subset of issues and no screen-reader or keyboard walkthrough was done. | `evidence/mockups/*.html` |
-| E-05 | pass | M1: whole web suite 427 tests and typecheck pass; board axe scan (WCAG A and AA) clean in looks a, b and c on Chromium and Firefox with @axe-core/playwright 4.14.0; token contrast computed by script, 120 of 120 pairs at or above 4.5:1. WebKit not run (browser not installed). Each task was reviewed by a fresh model reviewer; reviews and rulings are in the implementation branch history. | `evidence/m1/web-suite.log`, `evidence/m1/board-looks-axe.log`, `evidence/tokens-contrast-looks.txt` |
 | E-04 | open | Owner validation after M7: the owner and one engineer each take one real code task and one real engineering-document task through the app. | Not executed |
 
 ## Evidence custody and coupling
@@ -17,7 +16,6 @@ Evidence status: **pass** for the spec's research, review and mockup accessibili
 | E-01 | G-1, G-2, G-3, G-4, G-5 | no | evidence/00-decision-ledger.md; evidence/01 to 07 | Authoring agent | Research agents and web sources | Authoring agent | Authoring agent | Authoring agent | Packet and export | Authoring agent | Self-check |
 | E-02 | G-5, A-1 | yes | evidence/review/ | Authoring agent | Codex, Grok, Antigravity | Authoring agent | Authoring agent (synthesis) | Local CLIs | Packet and export | Authoring agent | Independent model review (shared brief) |
 | E-03 | G-6, A-3 | yes | evidence/mockups/ | Authoring agent | axe-core 4.14.0 via Playwright | Authoring agent | Authoring agent | Local toolchain | Packet and export | Authoring agent | Self-check |
-| E-05 | G-1, G-4, G-5, G-6, A-1, A-2 | yes | evidence/m1/ | Implementing agents | Vitest, Playwright, axe-core 4.14.0, contrast script | Controller | Controller | Local toolchain | Packet and export | Controller | Self-check with per-task model review |
 | E-04 | G-3 | yes | Owner validation | Authoring agent | Not executed | Authoring agent | Not executed | Not executed | Packet and export | Authoring agent | Not supplied |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -25,7 +23,6 @@ Evidence status: **pass** for the spec's research, review and mockup accessibili
 | E-01 | coupled: authoring agent | coupled: authoring session | partially separated: web sources and repository facts | separated: owner retains approval | coupled: local machine | self-check | Some ledger items are hypotheses  [Ship limits](ship.md) |
 | E-02 | separated: three different model reviewers | coupled: same brief and materials | separated: different models and vendors | separated: owner retains approval | partially separated: different providers, same operator | diverse verification | Models share a brief and can share blind spots; findings were filtered by the authoring agent  [Ship limits](ship.md) |
 | E-03 | coupled: authoring agent | coupled: authoring session | separated: deterministic scanner | separated: owner retains approval | coupled: local machine | self-check | Mockups only, subset of accessibility  [Ship limits](ship.md) |
-| E-05 | coupled: implementing agents | partially separated: fresh agent per task and per review | separated: deterministic test tools | separated: owner retains merge decision | coupled: local machine | self-check | Chromium and Firefox only; axe is a subset of accessibility  [Ship limits](ship.md) |
 | E-04 | coupled: authoring agent | coupled: authoring session | partially separated: not executed | separated: owner retains approval | coupled: local machine | self-check | Hold usability and trust claims until the owner validation is run  [Ship limits](ship.md) |
 
 The reviews in E-02 are independent model reviewers, coupled by the same brief. No human independent review was done.

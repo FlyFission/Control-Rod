@@ -1,0 +1,5 @@
+
+> @control-rod/api@0.0.0 typecheck ~/worktrees/control-rod-m1/services/api
+> tsc -p tsconfig.json --noEmit
+
+exit 0

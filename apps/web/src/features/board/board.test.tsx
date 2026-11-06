@@ -270,6 +270,26 @@ describe("BoardView", () => {
     expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Person verifies");
   });
 
+  it("moves a card back to Person verifies and offers no Accept when a refresh of its covering pass fails", async () => {
+    let fail = false;
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], actions: { "WP-S": [accept] }, originators: { "WP-S": ["ana"] } });
+    server.use(
+      http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])),
+      http.get("*/packages/:id/person-verifications", () =>
+        fail ? HttpResponse.json({ code: "boom" }, { status: 500 }) : HttpResponse.json([{ id: "pv1", package_revision: 0, outcome: "pass", covers_current_subject: true }])),
+    );
+    const { qc } = await renderPage(<Page />);
+    // The card moves between columns as its reads arrive, so it is found afresh each time.
+    const next = () => screen.getByText("Relief valve sizing").closest("article")!.querySelector(".bd-next")!.textContent;
+    await screen.findByText("Relief valve sizing");
+    await waitFor(() => expect(next()).toContain("Accept"));
+    fail = true;
+    await act(async () => void (await qc.refetchQueries({ queryKey: ["person-verifications"] })));
+    await waitFor(() => expect(next()).toContain("Could not read person verifications"));
+    const region = screen.getByText("Relief valve sizing").closest("section")!;
+    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Person verifies");
+  });
+
   it("says it cannot tell who can verify when the session cannot be read", async () => {
     api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], originators: { "WP-S": ["ben"] } });
     server.use(

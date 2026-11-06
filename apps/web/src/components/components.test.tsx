@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
@@ -179,6 +179,20 @@ describe("decision flow", () => {
     verifs = [pass(true)];
     await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
     expect(await screen.findByRole("button", { name: "Accept" })).toBeTruthy();
+  });
+
+  it("withdraws Accept when a refresh of the person verifications fails after a covering pass", async () => {
+    let fail = false;
+    server.use(http.get("*/packages/WP-0001/person-verifications", () =>
+      fail ? HttpResponse.json({ code: "boom" }, { status: 500 }) : HttpResponse.json([{ id: "pv1", package_revision: 3, outcome: "pass", covers_current_subject: true }])));
+    offer(["accept", "return"]);
+    const v = view({}, { status: "in-verification", revision: 3, grade: "safety" });
+    const { qc } = await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
+    expect(await screen.findByRole("button", { name: "Accept" })).toBeTruthy();
+    fail = true;
+    await act(async () => void (await qc.refetchQueries({ queryKey: ["person-verifications"] })));
+    expect(await screen.findByText(/The person verifications could not be read, so Accept is not offered/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
   });
 
   it("stops before signing when the package changed since the page loaded", async () => {

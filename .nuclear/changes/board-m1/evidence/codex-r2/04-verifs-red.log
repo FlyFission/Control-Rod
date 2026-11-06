@@ -1,0 +1,748 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+ ❯ src/features/board/board.test.tsx (24 tests | 1 failed) 1449ms
+   ❯ BoardView (24)
+     × moves a card back to Person verifies and offers no Accept when a refresh of its covering pass fails 36ms
+ ❯ src/components/components.test.tsx (31 tests | 1 failed) 1424ms
+   ❯ decision flow (12)
+     × withdraws Accept when a refresh of the person verifications fails after a covering pass 30ms
+ ❯ src/features/office/agent-card.test.tsx (10 tests | 2 failed) 2505ms
+   ❯ agent card (10)
+     × puts unverified Material work at Person verifies, never Needs signature, and says when the step is unknown 1010ms
+     × does not say the viewer may accept after a failed refresh of a covering pass 1029ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/components.test.tsx > decision flow > withdraws Accept when a refresh of the person verifications fails after a covering pass
+AssertionError: expected <button type="button" …(1)></button> to be null
+
+- Expected:
+null
+
++ Received:
+<button
+  class="btn primary"
+  type="button"
+>
+  Accept
+</button>
+
+ ❯ src/components/components.test.tsx:195:62
+    193|     await act(async () => void (await qc.refetchQueries({ queryKey: ["…
+    194|     expect(await screen.findByText(/The person verifications could not…
+    195|     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull(…
+       |                                                              ^
+    196|   });
+    197|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > moves a card back to Person verifies and offers no Accept when a refresh of its covering pass fails
+AssertionError: expected 'Needs signature' to be 'Person verifies' // Object.is equality
+
+Expected: "Person verifies"
+Received: "Needs signature"
+
+ ❯ src/features/board/board.test.tsx:290:91
+    288|     await waitFor(() => expect(next()).toContain("Could not read perso…
+    289|     const region = screen.getByText("Relief valve sizing").closest("se…
+    290|     expect(document.getElementById(region.getAttribute("aria-labelledb…
+       |                                                                                           ^
+    291|   });
+    292|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  src/features/office/agent-card.test.tsx > agent card > puts unverified Material work at Person verifies, never Needs signature, and says when the step is unknown
+TestingLibraryElementError: Unable to find an element with the text: /step: Person verifies/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"Selected agent"[39m
+      [33mclass[39m=[32m"office-card"[39m
+    [36m>[39m
+      [36m<h2>[39m
+        [0mLine sizing[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"mono small"[39m
+      [36m>[39m
+        [0mWP-0001[0m
+        [0m · revision 0[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"office-state"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-label[39m=[32m"Working"[39m
+          [33mclass[39m=[32m"state-mark"[39m
+          [33mheight[39m=[32m"12"[39m
+          [33mrole[39m=[32m"img"[39m
+          [33mviewBox[39m=[32m"0 0 12 12"[39m
+          [33mwidth[39m=[32m"12"[39m
+        [36m>[39m
+          [36m<circle[39m
+            [33mcx[39m=[32m"6"[39m
+            [33mcy[39m=[32m"6"[39m
+            [33mr[39m=[32m"6"[39m
+            [33mstyle[39m=[32m"fill: var(--accent);"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m [0m
+        [0mWorking[0m
+        [0m for [0m
+        [0m3 h[0m
+      [36m</p>[39m
+      [36m<p>[39m
+        [0mDrafting the line sizing calculation[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"muted small"[39m
+      [36m>[39m
+        [0mMechanical[0m
+      [36m</p>[39m
+      [36m<ul[39m
+        [33maria-label[39m=[32m"Marks"[39m
+        [33mclass[39m=[32m"office-marks"[39m
+      [36m>[39m
+        [36m<li>[39m
+          [0mInput WP-0002 changed[0m
+        [36m</li>[39m
+        [36m<li>[39m
+          [0mRound 2[0m
+        [36m</li>[39m
+        [36m<li>[39m
+          [0mSafety grade[0m
+        [36m</li>[39m
+      [36m</ul>[39m
+      [36m<dl[39m
+        [33mclass[39m=[32m"office-glance"[39m
+      [36m>[39m
+        [36m<dt>[39m
+          [0mRung[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mIn verification[0m
+          [0m; step: Needs signature[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mDue[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mNo due date is recorded for this package.[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mInputs[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mInput WP-0002 changed since the preparation pinned it. Documents and other sources are not compared here.[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mLast run activity[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0m11/6/2026, 12:38:45 PM (author, running)[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mRigor[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mStandard[0m
+          [0m, Material grade[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mChecker[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mchecker-claude on claude, finished[0m
+          [0m; recorded pre-check outcome: fail[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mIndependence[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mShared runtime: the author and the pre-check both ran on claude, in separate sessions. Owner override by ben: Only one runtime is installed on the pilot laptop[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mSigner[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mYou may not accept it: This needs a Material grade qualification in mechanical (missing: mechanical discipline, material grade).[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mInterfaces[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mNone recorded[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mSpend[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mNo budget applies to this agent's work.[0m
+        [36m</dd>[39m
+      [36m</dl>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"Actions on this agent"[39m
+        [33mclass[39m=[32m"office-actions"[39m
+      [36m>[39m
+        [36m<h3>[39m
+          [0mActions[0m
+        [36m</h3>[39m
+        [36m<ul>[39m
+          [36m<li>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mhref[39m=[32m"/packages/WP-0001/case"[39m
+            [36m>[39m
+              [0mWatch live[0m
+            [36m</a>[39m
+          [36m</li>[39m
+          [36m<li>[39m
+            [36m<button[39m
+              [33maria-expanded[39m=[32m"false"[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mInputs and reach[0m
+            [36m</button>[39m
+          [36m</li>[39m
+          [36m<li>[39m
+            [36m<button[39m
+              [33maria-describedby[39m=[32m"why-stop-R-2"[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mStop[0m
+            [36m</button>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted small"[39m
+              [33mid[39m=[32m"why-stop-R-2"[39m
+            [36m>[39m
+              [0m [0m
+              [0mStops this run where it stands; the control plane records who stopped it.[0m
+            [36m</span>[39m
+          [36m</li>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"office-unavailable"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-describedby[39m=[32m"why-session-R-2"[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mCall to my office[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-describedby[39m=[32m"why-session-R-2"[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mGive direction[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-describedby[39m=[32m"why-session-R-2"[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mPark[0m
+            [36m</button>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"muted small"[39m
+              [33mid[39m=[32m"why-session-R-2"[39m
+            [36m>[39m
+              [0mCall to my office, give direction and park are not available yet: each needs a live session channel to the agent, which arrives with the session adapter (plan task 7.2).[0m
+            [36m</p>[39m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"btn small"[39m
+        [33mhref[39m=[32m"/packages/WP-0001#runs"[39m
+      [36m>[39m
+        [0mOpen the package[0m
+      [36m</a>[39m
+    [36m</aside>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<aside[39m
+      [33maria-label[39m=[32m"Selected agent"[39m
+      [33mclass[39m=[32m"office-card"[39m
+    [36m>[39m
+      [36m<h2>[39m
+        [0mLine sizing[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"mono small"[39m
+      [36m>[39m
+        [0mWP-0001[0m
+        [0m · revision 0[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"office-state"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-label[39m=[32m"Working"[39m
+          [33mclass[39m=[32m"state-mark"[39m
+          [33mheight[39m=[32m"12"[39m
+          [33mrole[39m=[32m"img"[39m
+          [33mviewBox[39m=[32m"0 0 12 12"[39m
+          [33mwidth[39m=[32m"12"[39m
+        [36m>[39m
+          [36m<circle[39m
+            [33mcx[39m=[32m"6"[39m
+            [33mcy[39m=[32m"6"[39m
+            [33mr[39m=[32m"6"[39m
+            [33mstyle[39m=[32m"fill: var(--accent);"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m [0m
+        [0mWorking[0m
+        [0m for [0m
+        [0m3 h[0m
+      [36m</p>[39m
+      [36m<p>[39m
+        [0mDrafting the line sizing calculation[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"muted small"[39m
+      [36m>[39m
+        [0mMechanical[0m
+      [36m</p>[39m
+      [36m<ul[39m
+        [33maria-label[39m=[32m"Marks"[39m
+        [33mclass[39m=[32m"office-marks"[39m
+      [36m>[39m
+        [36m<li>[39m
+          [0mInput WP-0002 changed[0m
+        [36m</li>[39m
+        [36m<li>[39m
+          [0mRound 2[0m
+        [36m</li>[39m
+        [36m<li>[39m
+          [0mSafety grade[0m
+        [36m</li>[39m
+      [36m</ul>[39m
+      [36m<dl[39m
+        [33mclass[39m=[32m"office-glance"[39m
+      [36m>[39m
+        [36m<dt>[39m
+          [0mRung[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mIn verification[0m
+          [0m; step: Needs signature[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mDue[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mNo due date is recorded for this package.[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mInputs[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mInput WP-0002 changed since the preparation pinned it. Documents and other sources are not compared here.[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mLast run activity[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0m11/6/2026, 12:38:45 PM (author, running)[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mRigor[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mStandard[0m
+          [0m, Material grade[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mChecker[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mchecker-claude on claude, finished[0m
+          [0m; recorded pre-check outcome: fail[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mIndependence[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mShared runtime: the author and the pre-check both ran on claude, in separate sessions. Owner override by ben: Only one runtime is installed on the pilot laptop[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mSigner[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mYou may not accept it: This needs a Material grade qualification in mechanical (missing: mechanical discipline, material grade).[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mInterfaces[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mNone recorded[0m
+        [36m</dd>[39m
+        [36m<dt>[39m
+          [0mSpend[0m
+        [36m</dt>[39m
+        [36m<dd>[39m
+          [0mNo budget applies to this agent's work.[0m
+        [36m</dd>[39m
+      [36m</dl>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"Actions on this agent"[39m
+        [33mclass[39m=[32m"office-actions"[39m
+      [36m>[39m
+        [36m<h3>[39m
+          [0mActions[0m
+        [36m</h3>[39m
+        [36m<ul>[39m
+          [36m<li>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mhref[39m=[32m"/packages/WP-0001/case"[39m
+            [36m>[39m
+              [0mWatch live[0m
+            [36m</a>[39m
+          [36m</li>[39m
+          [36m<li>[39m
+            [36m<button[39m
+              [33maria-expanded[39m=[32m"false"[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mInputs and reach[0m
+            [36m</button>[39m
+          [36m</li>[39m
+          [36m<li>[39m
+            [36m<button[39m
+              [33maria-describedby[39m=[32m"why-stop-R-2"[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mStop[0m
+            [36m</button>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted small"[39m
+              [33mid[39m=[32m"why-stop-R-2"[39m
+            [36m>[39m
+              [0m [0m
+              [0mStops this run where it stands; the control plane records who stopped it.[0m
+            [36m</span>[39m
+          [36m</li>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"office-unavailable"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-describedby[39m=[32m"why-session-R-2"[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mCall to my office[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-describedby[39m=[32m"why-session-R-2"[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mGive direction[0m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-describedby[39m=[32m"why-session-R-2"[39m
+              [33mclass[39m=[32m"btn small"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mPark[0m
+            [36m</button>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"muted small"[39m
+              [33mid[39m=[32m"why-session-R-2"[39m
+            [36m>[39m
+              [0mCall to my office, give direction and park are not available yet: each needs a live session channel to the agent, which arrives with the session adapter (plan task 7.2).[0m
+            [36m</p>[39m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</section>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"btn small"[39m
+        [33mhref[39m=[32m"/packages/WP-0001#runs"[39m
+      [36m>[39m
+        [0mOpen the package[0m
+      [36m</a>[39m
+    [36m</aside>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/office/agent-card.test.tsx:144:25
+    142|     server.use(http.get("*/packages/:id/person-verifications", () => (…
+    143|     const first = await renderPage(<AgentCard figure={figure()} lens={…
+    144|     expect(await screen.findByText(/step: Person verifies/)).toBeTruth…
+       |                         ^
+    145|     expect(screen.queryByText(/step: Needs signature/)).toBeNull();
+    146|     first.unmount();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  src/features/office/agent-card.test.tsx > agent card > does not say the viewer may accept after a failed refresh of a covering pass
+AssertionError: expected <dd></dd> to be null
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<aside[39m
+        [33maria-label[39m=[32m"Selected agent"[39m
+        [33mclass[39m=[32m"office-card"[39m
+      [36m>[39m
+        [36m<h2>[39m
+          [0mLine sizing[0m
+        [36m</h2>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mono small"[39m
+        [36m>[39m
+          [0mWP-0001[0m
+          [0m · revision 0[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"office-state"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-label[39m=[32m"Working"[39m
+            [33mclass[39m=[32m"state-mark"[39m
+            [33mheight[39m=[32m"12"[39m
+            [33mrole[39m=[32m"img"[39m
+            [33mviewBox[39m=[32m"0 0 12 12"[39m
+            [33mwidth[39m=[32m"12"[39m
+          [36m>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"6"[39m
+              [33mcy[39m=[32m"6"[39m
+              [33mr[39m=[32m"6"[39m
+              [33mstyle[39m=[32m"fill: var(--accent);"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m [0m
+          [0mWorking[0m
+          [0m for [0m
+          [0m3 h[0m
+        [36m</p>[39m
+        [36m<p>[39m
+          [0mDrafting the line sizing calculation[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"muted small"[39m
+        [36m>[39m
+          [0mMechanical[0m
+        [36m</p>[39m
+        [36m<ul[39m
+          [33maria-label[39m=[32m"Marks"[39m
+          [33mclass[39m=[32m"office-marks"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [0mInput WP-0002 changed[0m
+          [36m</li>[39m
+          [36m<li>[39m
+            [0mRound 2[0m
+          [36m</li>[39m
+          [36m<li>[39m
+            [0mSafety grade[0m
+          [36m</li>[39m
+        [36m</ul>[39m
+        [36m<dl[39m
+          [33mclass[39m=[32m"office-glance"[39m
+        [36m>[39m
+          [36m<dt>[39m
+            [0mRung[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mIn verification[0m
+            [0m; step: Needs signature[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mDue[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mNo due date is recorded for this package.[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mInputs[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mInput WP-0002 changed since the preparation pinned it. Documents and other sources are not compared here.[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mLast run activity[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0m11/6/2026, 12:38:46 PM (author, running)[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mRigor[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mStandard[0m
+            [0m, Material grade[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mChecker[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mchecker-claude on claude, finished[0m
+            [0m; recorded pre-check outcome: fail[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mIndependence[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mShared runtime: the author and the pre-check both ran on claude, in separate sessions. Owner override by ben: Only one runtime is installed on the pilot laptop[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mSigner[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mYou may accept it.[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mInterfaces[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mNone recorded[0m
+          [36m</dd>[39m
+          [36m<dt>[39m
+            [0mSpend[0m
+          [36m</dt>[39m
+          [36m<dd>[39m
+            [0mNo budget applies to this agent's work.[0m
+          [36m</dd>[39m
+        [36m</dl>[39m
+        [36m<section[39m
+          [33maria-label[39m=[32m"Actions on this agent"[39m
+          [33mclass[39m=[32m"office-actions"[39m
+        [36m>[39m
+          [36m<h3>[39m
+            [0mActions[0m
+          [36m</h3>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"btn small"[39m
+                [33mhref[39m=[32m"/packages/WP-0001/case"[39m
+              [36m>[39m
+                [0mWatch live[0m
+              [36m</a>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<button[39m
+                [33maria-expanded[39m=[32m"false"[39m
+                [33mclass[39m=[32m"btn small"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mInputs and reach[0m
+              [36m</button>[39m
+            [36m</li>[39m
+            [36m<li>[39m
+              [36m<button[39m
+                [33maria-describedby[39m=[32m"why-stop-R-2"[39m
+                [33mclass[39m=[32m"btn small"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mStop[0m
+              [36m</button>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"muted small"[39m
+                [33mid[39m=[32m"why-stop-R-2"[39m
+              [36m>[39m
+                [0m [0m
+                [0mStops this run where it stands; the control plane records who stopped it.[0m
+              [36m</span>[39m
+            [36m</li>[39m
+            [36m<li[39m
+              [33mclass[39m=[32m"office-unavailable"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33maria-describedby[39m=[32m"why-session-R-2"[39m
+                [33mclass[39m=[32m"btn small"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mCall to my office[0m
+              [36m</button>[39m
+              [36m<button[39m
+                [33maria-describedby[39m=[32m"why-session-R-2"[39m
+                [33mclass[39m=[32m"btn small"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mGive direction[0m
+              [36m</button>[39m
+              [36m<button[39m
+                [33maria-describedby[39m=[32m"why-session-R-2"[39m
+                [33mclass[39m=[32m"btn small"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mPark[0m
+              [36m</button>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+                [33mid[39m=[32m"why-session-R-2"[39m
+              [36m>[39m
+                [0mCall to my office, give direction and park are not available yet: each needs a live session channel to the agent, which arrives with the session adapter (plan task 7.2).[0m
+              [36m</p>[39m
+            [36m</li>[39m
+          [36m</ul>[39m
+        [36m</section>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"btn small"[39m
+          [33mhref[39m=[32m"/packages/WP-0001#runs"[39m
+        [36m>[39m
+          [0mOpen the package[0m
+        [36m</a>[39m
+      [36m</aside>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+- Expected:
+null
+
++ Received:
+<dd>
+  You may accept it.
+</dd>
+
+ ❯ src/features/office/agent-card.test.tsx:165:74
+    163|     fail = true;
+    164|     await act(async () => void (await qc.refetchQueries({ queryKey: ["…
+    165|     await waitFor(() => expect(screen.queryByText("You may accept it."…
+       |                                                                          ^
+    166|     expect(screen.getByText(/You may not accept it: A person verificat…
+    167|   });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  4 failed | 61 passed (65)
+   Start at  15:38:44
+   Duration  3.31s (tests 71%, environment 15%, import 6%, setup 6%, transform 2%)
+

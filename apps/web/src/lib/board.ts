@@ -59,6 +59,16 @@ export function isVerified(pkg: WorkPackage, verifications: PersonVerificationEn
   return verifications.some((v) => v.package_revision === pkg.revision && v.outcome === "pass" && v.covers_current_subject === true);
 }
 
+/**
+ * What a person verification read says about the current work: true or false, or "unknown" when the
+ * read has not arrived or its latest attempt failed. Cached data from an earlier success is not
+ * trusted after a failed refresh, so a covering pass that can no longer be read does not count.
+ */
+export function verificationRead(pkg: WorkPackage, q: { data?: PersonVerificationEntry[] | undefined; isError: boolean }): boolean | "unknown" {
+  if (q.isError || q.data === undefined) return "unknown";
+  return isVerified(pkg, q.data);
+}
+
 /** Decision commands that accept the work. */
 export const ACCEPT_COMMANDS: readonly string[] = ["accept", "accept-with-findings"];
 

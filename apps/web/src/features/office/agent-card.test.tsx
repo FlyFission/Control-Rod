@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import type { AgentFigure, Run } from "../../api/types.js";
@@ -134,6 +134,36 @@ describe("agent card", () => {
     await renderPage(<AgentCard figure={figure()} lens={undefined} />);
     expect(await screen.findByText(/You may not accept it: A person verification of the current work must come before Accept/)).toBeTruthy();
     expect(screen.queryByText("You may accept it.")).toBeNull();
+  });
+
+  it("puts unverified Material work at Person verifies, never Needs signature, and says when the step is unknown", async () => {
+    serve();
+    let verifs: "none" | "fail" = "none";
+    server.use(http.get("*/packages/:id/person-verifications", () => (verifs === "fail" ? HttpResponse.json({ code: "boom" }, { status: 500 }) : HttpResponse.json([]))));
+    const first = await renderPage(<AgentCard figure={figure()} lens={undefined} />);
+    expect(await screen.findByText(/step: Person verifies/)).toBeTruthy();
+    expect(screen.queryByText(/step: Needs signature/)).toBeNull();
+    first.unmount();
+    verifs = "fail";
+    await renderPage(<AgentCard figure={figure()} lens={undefined} />);
+    expect(await screen.findByText(/step unknown until the person verifications are read/)).toBeTruthy();
+    expect(screen.queryByText(/step: Needs signature/)).toBeNull();
+  });
+
+  it("does not say the viewer may accept after a failed refresh of a covering pass", async () => {
+    serve();
+    let fail = false;
+    server.use(
+      http.get("*/packages/:id/actions", () => HttpResponse.json([{ command: "accept", label: "Accept", allowed: true, signature: "direct" }])),
+      http.get("*/packages/:id/person-verifications", () =>
+        fail ? HttpResponse.json({ code: "boom" }, { status: 500 }) : HttpResponse.json([{ id: "pv1", package_revision: 0, outcome: "pass", covers_current_subject: true }])),
+    );
+    const { qc } = await renderPage(<AgentCard figure={figure()} lens={undefined} />);
+    expect(await screen.findByText("You may accept it.")).toBeTruthy();
+    fail = true;
+    await act(async () => void (await qc.refetchQueries({ queryKey: ["person-verifications"] })));
+    await waitFor(() => expect(screen.queryByText("You may accept it.")).toBeNull());
+    expect(screen.getByText(/You may not accept it: A person verification of the current work must come before Accept/)).toBeTruthy();
   });
 
   it("names the signature the rung opens, and never borrows another gate's", async () => {

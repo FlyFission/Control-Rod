@@ -1,7 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "../../api/client.js";
 import type { ActionDescriptor, PersonVerificationEntry, WorkPackage } from "../../api/types.js";
-import { type ColumnId, boardColumn, isVerified, needsIndependentCheck, preCheckState } from "../../lib/board.js";
+import { type ColumnId, boardColumn, needsIndependentCheck, preCheckState, verificationRead } from "../../lib/board.js";
 import { type Kind, kindsOf } from "../../lib/kind.js";
 import { useLiveStatus } from "../../lib/live.js";
 import { type NextLine, hasOtherQualified, nextLine } from "../../lib/next.js";
@@ -81,7 +81,8 @@ export function useBoardData(): BoardData {
     const pre = preCheckState(p, officeItems);
     // Ruling 11: verifications not yet read, or not readable, are not a pass. The card waits in
     // Person verifies rather than reading as cleared in Needs signature.
-    const verified = verifications ? isVerified(p, verifications) : false;
+    // A failed refresh of a cached pass is unknown too, never a pass.
+    const verified = verifQ ? verificationRead(p, verifQ) === true : false;
     const column = boardColumn(p, pre, verified);
     if (column === null) return;
     // The server lists only the caller's organization's work; a view that answers not-found means the

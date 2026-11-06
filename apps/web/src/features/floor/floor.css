@@ -518,7 +518,7 @@
   background: #10202bd9;
   border: 1px solid #81949e;
   color: #fff;
-  font: 10px monospace;
+  font: var(--fs-chip) monospace;
   padding: 5px 7px;
   border-radius: 5px;
 }

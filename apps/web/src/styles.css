@@ -1050,6 +1050,9 @@ select {
 .markdown > :is(p, ul, ol, blockquote, h1, h2, h3, h4) {
   max-width: var(--measure);
 }
+.markdown pre {
+  line-height: var(--lh-mono);
+}
 .markdown table {
   border-collapse: collapse;
 }

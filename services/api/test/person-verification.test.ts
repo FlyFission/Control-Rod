@@ -140,6 +140,30 @@ describe("the package view names who originated the work", () => {
     expect(r.json().originators).toEqual(["ben", "aaron", "zed"]);
   });
 
+  it("answers not-found for another organization's package, and never names its originators", async () => {
+    await h.admin.query(`insert into organizations (body) values ('{"id":"orgpvview_x","name":"Other view","status":"suspended"}') on conflict do nothing`);
+    const o = await h.admin.connect();
+    try {
+      // The ownership trigger gives new rows to the one active organization, so this fixture sets it
+      // aside inside its own transaction; foreign keys and every other trigger still hold.
+      await o.query("begin");
+      await o.query("alter table packages disable trigger packages_owned");
+      await o.query("insert into object_owners (object_kind, object_id, org_id) values ('package', 'WP-PV-VIEW-OTHER', 'orgpvview_x')");
+      await o.query("insert into packages (id, revision, status, body) values ('WP-PV-VIEW-OTHER', 0, 'draft', $1)", [{ ...example, id: "WP-PV-VIEW-OTHER", revision: 0, status: "draft" }]);
+      await o.query("alter table packages enable trigger packages_owned");
+      await o.query("commit");
+    } catch (e) {
+      await o.query("rollback");
+      throw e;
+    } finally {
+      o.release();
+    }
+    const r = await h.app.inject({ method: "GET", url: "/packages/WP-PV-VIEW-OTHER", headers: { cookie: carol } });
+    expect(r.statusCode).toBe(404);
+    expect(r.json().code).toBe("not-found");
+    expect(r.json().originators).toBeUndefined();
+  });
+
   it("lists nobody for a package with no human origin", async () => {
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PV-NOORIG', 0, 'draft', $1)", [{ ...example, id: "WP-PV-NOORIG", revision: 0, status: "draft" }]);
     const r = await h.app.inject({ method: "GET", url: "/packages/WP-PV-NOORIG", headers: { cookie: carol } });

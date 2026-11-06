@@ -23,7 +23,7 @@ import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
 import { REASONS, teach } from "./refusals.js";
-import { listPersonVerifications, originatorsInOrder, personVerificationSubject, recordPersonVerification } from "./person-verification.js";
+import { listPersonVerifications, originatorsInOrder, personVerificationSubject, recordPersonVerification, requireOwnPackage } from "./person-verification.js";
 import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
 import { activeScramsFor, scramPreview, scramView } from "./scram.js";
@@ -326,7 +326,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return listPackages(db);
   });
   app.get<{ Params: { id: string } }>("/packages/:id", async (req) => {
-    await person(req);
+    // Gated by the caller's organization, as the person verifications route is, since the view names
+    // originators (M1 ruling 14).
+    const caller = await callerFor(db, await person(req));
+    await requireOwnPackage(db, caller.orgId, req.params.id);
     const view = await packageView(db, req.params.id, cfg);
     const row = await currentPackage(db, req.params.id);
     const who = row ? await originatorsInOrder(db, row) : [];

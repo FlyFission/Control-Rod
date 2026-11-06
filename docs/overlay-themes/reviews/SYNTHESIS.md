@@ -27,7 +27,7 @@ The review swarm converged with near 100% consensus on three critical initial bl
 4. **Cleanroom IP Boundaries (Argon, Claude)**:
    - `corner-cafe`: Contained a "tufted plush velvet couch", in direct violation of `docs/overlay-themes/originality.md` line 47 (*"The café world avoids a fixed group size and signature furniture"*).
    - `confectionery-works`: Had identical chef hats and bowties applied to all 6 cast variants, risking resemblance to *"small workers in matching outfits"* (prohibited in `originality.md` line 46).
-   - `cloudspring-bathhouse`: An arched vermilion footbridge across hot spring pools came too close to the iconic entrance of *Spirited Away*.
+   - `cloudspring-bathhouse`: An arched vermilion footbridge across hot spring pools came too close to existing animated film sets.
 
 ---
 
@@ -40,7 +40,7 @@ Every issue identified by the adversarial panel was addressed in code and verifi
 | **Station Occlusion** | Claude, Codex, Argon | Station panels updated to `fill-opacity=".4"` with frosted glass depth. All major architectural landmarks (skylines, chalkboard schematics, pneumatic tubes, pagoda roofs, campfires, voxel conveyors) relocated into the unobstructed central promenade (`y=260..340`), bay seams, and ceiling margin. | Verified in `tools/build_theme_art.py` and `tools/theme_art_backdrops.py`. |
 | **Byte Budget Blowout** | Claude, Codex, Argon | Replaced hundreds of individual `<rect>` tags with consolidated geometric paths. `midnight-bureau` slashed from 48KB → **14KB**. `corner-cafe` slashed from 44KB → **11KB**. All 15 scenes now strictly between 9KB and 19KB. | Verified; 100% within `<30KB` budget. |
 | **Pixel Art Authenticity** | Codex, Claude, Argon | Quantized `lanternwood-guild`, `voxel-foundry`, and `wildlight-camp` backdrops and campfires to strict orthogonal stepped-pixel grids (`rect` and stepped polygons); eliminated smooth Bézier curves and antialiased mixels. | Verified in `theme_art_backdrops.py`. |
-| **Signature Sofa in Café** | Argon, Claude | Replaced Central Perk velvet couch with generic modern round bistro tables and stools. | Verified in `theme_art_backdrops.py`; 100% compliant with `originality.md` line 47. |
+| **Signature Sofa in Café** | Argon, Claude | Replaced sitcom lounge velvet couch with generic modern round bistro tables and stools. | Verified in `theme_art_backdrops.py`; 100% compliant with `originality.md` line 47. |
 | **Matching Outfits in Confectionery** | Argon | Replaced uniform chef hats with 6 distinct specialist attires (Victorian lapel coat, baker's toque, tasting monocle, waist apron, rolled sleeve garters, velvet lapel). | Verified in `tools/theme_art_casts.py` `extras()`. |
 | **Vermilion Bridge in Bathhouse** | Argon | Replaced arched vermilion bridge with natural cedar timber footbridge with lantern posts. | Verified in `theme_art_backdrops.py`. |
 

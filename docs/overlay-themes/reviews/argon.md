@@ -13,7 +13,7 @@
 The Control Rod 15-world overlay system represents an ambitious, syntactically conforming procedural vector art pipeline, but it currently falls well short of production readiness and the required 10/10 standard. While the procedural build gate passes technical validation and the casts display creative silhouette work, the visual architecture suffers from three fatal systemic defects:
 1. **Severe Occlusion & Broken Spatial Hierarchy:** The six semantic station backplates are rendered as 100% opaque rectangles covering **73.6% of the 1000×600 canvas**, directly burying between 70% and 94% of the procedural scenery (including `pocket-lab`'s central chalkboard, `corner-cafe`'s sunlit arched window, `confectionery-works`'s lollipop trees, and `midnight-bureau`'s skyscraper skyline).
 2. **Fraudulent "Pixel" Medium Execution:** All three designated pixel themes (`lanternwood-guild`, `wildlight-camp`, `voxel-foundry`) masquerade as 16-bit or voxel art while relying heavily on smooth cubic/quadratic Bézier curves, antialiased vector circles/ellipses, continuous diagonal vector lines, smooth rounded corners (`rx="26"`), and zero authentic pixel dithering, producing rampant mixels.
-3. **Severe Performance & Budget Blowouts Alongside IP Edge Violations:** Two themes (`midnight-bureau` at 48.0KB and `corner-cafe` at 44.0KB) blow through the `<30KB scene` budget by up to 60.2% due to hundreds of redundant inline `<rect>` elements that are largely invisible under opaque station cards. Crucially, `corner-cafe` commits an explicit cleanroom violation by rendering Central Perk's "iconic tufted plush velvet couch", in direct contravention of `docs/overlay-themes/originality.md`.
+3. **Severe Performance & Budget Blowouts Alongside IP Edge Violations:** Two themes (`midnight-bureau` at 48.0KB and `corner-cafe` at 44.0KB) blow through the `<30KB scene` budget by up to 60.2% due to hundreds of redundant inline `<rect>` elements that are largely invisible under opaque station cards. Crucially, `corner-cafe` commits an explicit cleanroom violation by rendering an "iconic tufted plush velvet couch", in direct contravention of `docs/overlay-themes/originality.md`.
 
 No theme earns a 10/10. Release must remain gated until these architectural and medium flaws are remediated.
 
@@ -129,7 +129,7 @@ No theme earns a 10/10. Release must remain gated until these architectural and 
 
 ---
 
-### Finding 4: MAJOR — Cleanroom Boundary Violation: Central Perk Couch in `corner-cafe`
+### Finding 4: MAJOR — Cleanroom Boundary Violation: sitcom coffee house Couch in `corner-cafe`
 - **Severity:** Major
 - **Affected Theme:** `corner-cafe` (`The Coffee House Crew`)
 - **Evidence:**
@@ -139,7 +139,7 @@ No theme earns a 10/10. Release must remain gated until these architectural and 
     > *"No emblems, insignia, logos, game interfaces, signature props or set layouts from existing works."*
   - `docs/superpowers/specs/2026-10-25-overlay-themes-catalog.md` line 91 specifies:
     > *"Original architecture and furniture, not a replica of any existing television set."*
-  - Despite this clear prohibition, `tools/theme_art_backdrops.py` lines 153-155 explicitly authors Central Perk's signature orange/amber tufted plush velvet couch:
+  - Despite this clear prohibition, `tools/theme_art_backdrops.py` lines 153-155 explicitly authors sitcom coffee house's signature orange/amber tufted plush velvet couch:
     ```python
     # Iconic tufted plush velvet couch silhouette in center promenade
     s += (f'<rect x="440" y="278" width="120" height="24" rx="8" fill="{c}"/>'
@@ -185,9 +185,9 @@ No theme earns a 10/10. Release must remain gated until these architectural and 
     for px in (440, 480, 520, 560):
         s += f'<rect x="{px}" y="{280}" width="5" height="18" fill="{c}"/>'
     ```
-  - Coupled with multi-tiered cedar pagoda rooflines with upturned eaves (lines 239-241) and porcelain hot-spring attendants, this cluster of visual elements strongly evokes the iconic entrance to Yubaba's bathhouse in Studio Ghibli's *Spirited Away*.
+  - Coupled with multi-tiered cedar pagoda rooflines with upturned eaves (lines 239-241) and porcelain hot-spring attendants, this cluster of visual elements strongly evokes the iconic entrance to bathhouse proprietor's bathhouse in animated film studio's *bathhouse film set*.
   - `docs/overlay-themes/originality.md` line 19 warns against: *"A cluster of borrowed clues that together decode to one franchise."*
-- **Impact:** While traditional Japanese bathhouse architecture is in the public cultural domain, the specific combination of an arched vermilion bridge spanning the entrance to a magical multi-tiered pagoda bathhouse staffed by silent porcelain/spirit attendants will be immediately identified by viewers as a *Spirited Away* clone.
+- **Impact:** While traditional Japanese bathhouse architecture is in the public cultural domain, the specific combination of an arched vermilion bridge spanning the entrance to a magical multi-tiered pagoda bathhouse staffed by silent porcelain/spirit attendants will be immediately identified by viewers as a *bathhouse film set* clone.
 - **Recommendation:** Replace the red arched vermilion bridge with stepped slate paving stones across a thermal stream, or an interior bamboo boardwalk. Recast the pagoda eaves into rustic onsen timber framing.
 
 ---
@@ -239,7 +239,7 @@ To achieve a unanimous 10/10 across all five criteria, the following concrete ch
 4. **Purge Cleanroom IP Infractions:**
    - Remove the "iconic tufted plush velvet couch" from `corner-cafe` (`tools/theme_art_backdrops.py` lines 153-156) and replace with generic wooden bistro tables.
    - In `confectionery-works`, remove the universal matching chef hat and bowtie extras (`tools/theme_art_casts.py` lines 218-224); give each variant unique, asymmetric headwear.
-   - In `cloudspring-bathhouse`, redesign the arched red vermilion bridge into a natural stone terrace or bamboo boardwalk to avoid *Spirited Away* set-piece overlap.
+   - In `cloudspring-bathhouse`, redesign the arched red vermilion bridge into a natural stone terrace or bamboo boardwalk to avoid *bathhouse film set* set-piece overlap.
 5. **Differentiate Station Interior Architecture:**
    - Replace the generic repeated "desk at bottom + 3 dots" template with world-specific functional furniture: curved laboratory benches in `pocket-lab`, control consoles in `orbital-shipyard`, sorting cubbies in `creature-dispatch`, and stone drafting tables in `lanternwood-guild`.
 

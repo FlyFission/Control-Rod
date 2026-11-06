@@ -30,7 +30,7 @@ Manual cross-model review runs on 2026-11-06 showed the CLI quirks the spec's re
 | Assumption | Basis | Invalidation trigger |
 |---|---|---|
 | Daemon print-mode runs (ADR 0020) and the OS sandbox (ADR 0021) can host a read-only reviewer seat without a kernel change. | Spec sections 6.2 and 7. | A slice finds it needs a kernel, policy, red-team or workflow change; it stops and raises an owner decision. |
-| Codex and Claude Code pass the ADR 0021 qualification suite today. | Spec section 6.2, taken from the repository's stated qualification status. | Qualification fails or the pinned CLI version changes. |
+| No reviewer seat is qualified yet. Existing evidence covers the author launch only, on WSL2 only (Claude Code 2.1.318, Codex 0.166.0); the full ADR 0021 suite and the red team fixtures await the owner's signature. Each reviewer invocation is gated by its own qualification (CLI version, platform, read-only grant). | Spec section 6.2 and `.nuclear/changes/workbench-ontology/evidence/phase6/`. | A seat is enabled without qualification of its exact invocation, or the evidence is found to cover more or less than stated. |
 | A deterministic anchor check (path, lines, quote) removes findings that cite nonexistent code. | One observed case on 2026-11-06; research D5. | A fabricated finding passes Stage 1 in a fixture or in use. |
 | Different-vendor seats give more independent review than same-vendor seats. | Research file; shared training and blind spots remain possible. | Evidence that vendors fail the same way on this work. |
 

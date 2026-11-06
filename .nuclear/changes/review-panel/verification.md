@@ -1,12 +1,12 @@
 # Verification: review panel design spec
 
-Evidence status: **pass** for the research file and the recorded owner decisions (E-01, E-02), both self-checks. **Partial** for review of the spec (E-03): one Codex model review ran on PR #66 and its six findings were verified against the code and ADRs and addressed. It is one model reviewer, coupled to the author through the brief the author wrote, so it is not independent assurance. Nothing here verifies an implementation; none exists.
+Evidence status: **pass** for the research file and the recorded owner decisions (E-01, E-02), both self-checks. **Partial** for review of the spec (E-03): two Codex review rounds ran on PR #66; round 1 raised six findings and round 2 five more, each verified against the code and ADRs and addressed. It is one model reviewer, coupled to the author through the brief the author wrote, so it is not independent assurance. Nothing here verifies an implementation; none exists.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | The research file supports the mechanism the spec adopts (sections D1 to D12). It was read through the `gh` API and web search with no code run from any clone; some items are the authoring agent's design proposals, not tool facts. | `evidence/08-cross-model-review.md` |
 | E-02 | pass | Owner decisions P1 and P2 were recorded 2026-11-06 in conversation with the owner. The record is the authoring agent's note of that conversation, not a signed artifact. | `basis.md` (Owner decisions) |
-| E-03 | partial | One Codex review of the spec (verdict REVISE, six findings: Codex `-s read-only`, qualification scope, secrets, location types, quorum, pre-check path). Each was checked against `docs/adr/0021-native-cli-sandboxes.md`, `daemon/internal/runner`, `services/api/src/work.ts` and the phase 6 evidence, and fixed in the spec. One reviewer, one model, coupled through the author's brief; no person review. | `evidence/09-codex-review-pr66.md` |
+| E-03 | partial | Two Codex review rounds of the spec (round 2 findings: base tree outside the content policy, confirmation not bound to content, basis.md qualification assumption, pre-check run binding, seat outcome versus verdict mapping; round 1, verdict REVISE, six findings: Codex `-s read-only`, qualification scope, secrets, location types, quorum, pre-check path). Each was checked against `docs/adr/0021-native-cli-sandboxes.md`, `daemon/internal/runner`, `services/api/src/work.ts` and the phase 6 evidence, and fixed in the spec. One reviewer, one model, two rounds, coupled through the author's brief; no person review. | `evidence/09-codex-review-pr66.md`, `evidence/10-codex-review-pr66-round2.md` |
 
 ## Evidence custody and coupling
 

@@ -88,6 +88,7 @@ export const REASONS: Record<string, Reason> = {
   "not-lower": r("A declassification only lowers a lane, and this one would not.", "Choose a lane less sensitive than the current one."),
   "marking-changed": r("The marking changed after the change request named its version.", "Propose the declassification again for the current version."),
   "impact-changed": r("What depends on this changed after the change request listed it.", "Propose the declassification again so the impact list is current."),
+  "provenance-cycle": r("Two packages would each draw on the other, so a change to either one's lane could never settle.", "Remove one of the two citations, so only one package draws on the other."),
   "unclassified-source": r("A source has no classified data lane, so nothing derived from it may use it yet.", "Have a person with lane authority classify the source first."),
   "mixed-lane-export": r("The export's lane does not cover every part it would carry.", "Export at a lane at least as sensitive as every part, or leave the more sensitive parts out."),
 

@@ -467,7 +467,7 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
       .catch((e) => { throw dependencyRefusal(e); });
     // Only a lane the person actually changed is a raise; an untouched lane keeps any declassification.
     const lane = changed ? next.data_lane : (effective ?? next.data_lane);
-    await markObject(c, "package", id, lane, `draft edited by ${user}`, await packageInputs(c, next));
+    await markObject(c, "package", id, lane, `draft edited by ${user}`, await packageInputs(c, next), { explicit: changed });
     await appendEvent(c, "package.edited", id, { kind: "human", id: user }, { revision: pkg.revision });
     return { body: next, etag: draftEtag(next) };
   });

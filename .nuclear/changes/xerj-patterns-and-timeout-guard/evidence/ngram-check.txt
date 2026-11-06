@@ -1,0 +1,4 @@
+Comparison of new text with the 8 XERJ files read (commit 34bf35b), lower-cased word 6-grams.
+docs/patterns/xerj.md: 0 shared 6-grams []
+tools/check_workflow_timeouts.py: 4 shared 6-grams ['if name main sys exit main', 'import re import sys from pathlib', 'import sys from pathlib import path', 're import sys from pathlib import']
+tools/test_check_workflow_timeouts.py: 0 shared 6-grams []

@@ -1,0 +1,16 @@
+Control Rod CI, per-job wall time from the check runs of run 42297737091
+(pull_request, head 37f1ab8, 2026-11-06). Time is started_at to completed_at
+of each check run, so it includes runner setup and tool installs. One run.
+
+job             seconds   proposed cap   cap / measured
+typescript      137       20 min         8.8x
+go              57        15 min         15.8x
+rust            39        30 min         46x
+licenses        23        15 min         39x
+change-records  21        10 min         29x
+python          19        15 min         47x
+sbom            10        10 min         60x
+
+Caveats: one run, with warm tool caches (rust at 39 s is likely faster than a
+cold-cache build). The caps are the owner's to set; the smallest margin is
+typescript at about 9x.

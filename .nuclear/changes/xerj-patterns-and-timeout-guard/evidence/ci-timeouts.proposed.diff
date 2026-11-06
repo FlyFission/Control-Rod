@@ -1,0 +1,58 @@
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -19,6 +19,7 @@
+ jobs:
+   typescript:
+     runs-on: ubuntu-latest
++    timeout-minutes: 20
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+@@ -32,6 +33,7 @@
+ 
+   rust:
+     runs-on: ubuntu-latest
++    timeout-minutes: 30
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+@@ -42,6 +44,7 @@
+ 
+   go:
+     runs-on: ubuntu-latest
++    timeout-minutes: 15
+     defaults:
+       run:
+         working-directory: daemon
+@@ -54,6 +57,7 @@
+ 
+   python:
+     runs-on: ubuntu-latest
++    timeout-minutes: 15
+     defaults:
+       run:
+         working-directory: sdk/python
+@@ -67,6 +71,7 @@
+ 
+   licenses:
+     runs-on: ubuntu-latest
++    timeout-minutes: 15
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+       - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+@@ -81,6 +86,7 @@
+ 
+   change-records:
+     runs-on: ubuntu-latest
++    timeout-minutes: 10
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+@@ -99,6 +105,7 @@
+ 
+   sbom:
+     runs-on: ubuntu-latest
++    timeout-minutes: 10
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+       - uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3

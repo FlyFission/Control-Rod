@@ -106,9 +106,10 @@ describe("live events", () => {
       expect(second.url).toContain("after=41");
       const before = reads;
       act(() => second.emit("open", {}));
-      expect(result.current.status).toBe("live");
-      // The outage may have hidden a change no replay names, so everything on screen is read again.
+      // The outage may have hidden a change no replay names, so everything on screen is read again,
+      // and only then does the stream read live.
       await waitFor(() => expect(reads).toBeGreaterThan(before));
+      await waitFor(() => expect(result.current.status).toBe("live"));
     } finally {
       vi.unstubAllGlobals();
     }
@@ -152,6 +153,71 @@ describe("live events", () => {
       const { result } = renderHook(() => { useLiveEvents(true); return useLiveStatus(); }, { wrapper });
       act(() => FakeSource.last!.emit("checkpoint", { head: 3 }, "3"));
       expect(result.current.status).toBe("live");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("stays unknown after a reconnect until the refreshed reads of the work have arrived", async () => {
+    vi.stubGlobal("EventSource", FakeSource);
+    try {
+      resetLiveStatus();
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+      let release: (() => void) | undefined;
+      let reads = 0;
+      const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+      const { result } = renderHook(
+        () => {
+          useLiveEvents(true);
+          useQuery({
+            queryKey: ["packages"],
+            queryFn: () => (++reads === 1 ? Promise.resolve(reads) : new Promise<number>((r) => (release = () => r(reads)))),
+          });
+          return useLiveStatus();
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(reads).toBe(1));
+      act(() => FakeSource.last!.emit("open", {}));
+      act(() => FakeSource.last!.emit("error", {}));
+      act(() => result.current.reconnect());
+      act(() => FakeSource.last!.emit("open", {}));
+      await waitFor(() => expect(reads).toBe(2));
+      // The refresh is still in flight: what is on screen is not yet current.
+      expect(result.current.status).toBe("unknown");
+      act(() => FakeSource.last!.emit("heartbeat", {}));
+      expect(result.current.status).toBe("unknown");
+      await act(async () => release!());
+      await waitFor(() => expect(result.current.status).toBe("live"));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("stays unknown after a reconnect when the refreshed read of the work fails", async () => {
+    vi.stubGlobal("EventSource", FakeSource);
+    try {
+      resetLiveStatus();
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+      let reads = 0;
+      const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+      const { result } = renderHook(
+        () => {
+          useLiveEvents(true);
+          useQuery({ queryKey: ["office"], queryFn: () => (++reads === 1 ? Promise.resolve([]) : Promise.reject(new Error("down"))) });
+          return useLiveStatus();
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(reads).toBe(1));
+      act(() => FakeSource.last!.emit("open", {}));
+      act(() => FakeSource.last!.emit("error", {}));
+      act(() => result.current.reconnect());
+      act(() => FakeSource.last!.emit("open", {}));
+      await waitFor(() => expect(reads).toBe(2));
+      await act(async () => {});
+      await new Promise((r) => setTimeout(r, 50));
+      expect(result.current.status).toBe("unknown");
     } finally {
       vi.unstubAllGlobals();
     }

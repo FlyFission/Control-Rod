@@ -21,6 +21,9 @@ const liveListeners = new Set<() => void>();
  */
 let lastEventId: string | undefined;
 
+/** The reads the board's work rests on; after a drop the stream reads live again only once these succeed. */
+const REQUIRED_READS: readonly string[] = ["packages", "office"];
+
 /** A stream that sends nothing for this long is treated as dropped. The server sends a heartbeat about every 15 s. */
 export const STALL_MS = 45_000;
 
@@ -67,6 +70,9 @@ export function useLiveEvents(enabled: boolean): void {
     const subjects = new Set<string>();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stall: ReturnType<typeof setTimeout> | undefined;
+    let recovering = false;
+    let closed = false;
+    let epoch = 0;
 
     // Any frame means the stream is alive. A frame that ends a drop also refreshes everything on
     // screen: replay covers missed events, but a reconnect that could not resume (or a native retry
@@ -76,18 +82,36 @@ export function useLiveEvents(enabled: boolean): void {
       if (stall !== undefined) clearTimeout(stall);
       stall = setTimeout(() => {
         stall = undefined;
+        epoch++;
         markUnknown();
         window.dispatchEvent(new Event(LIVE_GAP_EVENT));
         source.close();
       }, STALL_MS);
     };
     armStall();
+    // After a drop the stream stays unknown until everything on screen has been read again and the
+    // reads the work rests on (REQUIRED_READS) succeeded. A failed refresh leaves it unknown, with the
+    // Reconnect control still offered; a drop during the refresh starts over.
+    const recover = async () => {
+      recovering = true;
+      const mine = epoch;
+      try {
+        await qc.invalidateQueries();
+      } finally {
+        recovering = false;
+      }
+      if (closed || mine !== epoch) return;
+      const failed = qc
+        .getQueryCache()
+        .findAll({ type: "active" })
+        .some((q) => REQUIRED_READS.includes(String(q.queryKey[0])) && q.state.status === "error");
+      if (!failed) markLive();
+    };
     const alive = (msg?: { lastEventId?: string }) => {
       if (msg?.lastEventId) lastEventId = msg.lastEventId;
       armStall();
-      const wasUnknown = liveState.status === "unknown";
-      markLive();
-      if (wasUnknown) void qc.invalidateQueries();
+      if (liveState.status !== "unknown") return markLive();
+      if (!recovering) void recover();
     };
 
     const flush = () => {
@@ -150,6 +174,7 @@ export function useLiveEvents(enabled: boolean): void {
       void qc.invalidateQueries();
     };
     const onError = () => {
+      epoch++;
       if (stall !== undefined) clearTimeout(stall);
       stall = undefined;
       markUnknown();
@@ -164,6 +189,7 @@ export function useLiveEvents(enabled: boolean): void {
     source.addEventListener("message", onMessage);
     source.addEventListener("event", onMessage as EventListener);
     return () => {
+      closed = true;
       if (timer !== undefined) clearTimeout(timer);
       if (stall !== undefined) clearTimeout(stall);
       source.close();

@@ -521,9 +521,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return inbox(db, cfg, user, raw === undefined || raw === "" ? undefined : Number(raw));
   });
   app.get("/office", async (req) => {
-    await person(req);
+    // Scoped to the caller's organization, like the package list and views.
+    const caller = await callerFor(db, await person(req));
     await sweep();
-    return office(db);
+    return office(db, caller.orgId);
   });
   /** The office floor for the viewer: one AgentFigure per agent, from recorded data only (plan task 4.6). */
   app.get<{ Querystring: { presenting?: string } }>("/office/figures", async (req) => {

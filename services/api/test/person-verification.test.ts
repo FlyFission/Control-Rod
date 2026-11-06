@@ -173,6 +173,20 @@ describe("the package view names who originated the work", () => {
     expect(ids).not.toContain("WP-PV-VIEW-OTHER");
   });
 
+  it("keeps another organization's package out of the office, the inbox and the office figures", async () => {
+    // WP-PV-VIEW-OTHER is a draft owned by another organization (fixture above), so an unscoped office lists it for release.
+    const get = (url: string) => h.app.inject({ method: "GET", url, headers: { cookie: ben } });
+    const office = await get("/office");
+    expect(office.statusCode).toBe(200);
+    const officeIds = (office.json() as { package_id: string }[]).map((i) => i.package_id);
+    expect(officeIds).toContain("WP-PV-ORD");
+    expect(officeIds).not.toContain("WP-PV-VIEW-OTHER");
+    expect(JSON.stringify((await get("/inbox")).json())).not.toContain("WP-PV-VIEW-OTHER");
+    const figures = await get("/office/figures");
+    expect(figures.statusCode).toBe(200);
+    expect(JSON.stringify(figures.json())).not.toContain("WP-PV-VIEW-OTHER");
+  });
+
   it("lists nobody for a package with no human origin", async () => {
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PV-NOORIG', 0, 'draft', $1)", [{ ...example, id: "WP-PV-NOORIG", revision: 0, status: "draft" }]);
     const r = await h.app.inject({ method: "GET", url: "/packages/WP-PV-NOORIG", headers: { cookie: carol } });

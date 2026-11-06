@@ -2334,25 +2334,30 @@ export async function applyDecision(
 
 /* ---------- office and metrics ---------- */
 
-export async function office(db: Db) {
+/**
+ * What waits on a person in the organization's work. Only packages the organization owns are read:
+ * the items carry titles and pre-check results, so another organization's work must not appear.
+ */
+export async function office(db: Db, orgId: string) {
   const items: Json[] = [];
-  const pk = await db.query<PackageRow>("select distinct on (id) * from packages order by id, revision desc");
+  const owned = "join object_owners o on o.object_kind = 'package' and o.object_id = p.id and o.org_id = $1";
+  const pk = await db.query<PackageRow>(`select distinct on (p.id) p.* from packages p ${owned} order by p.id, p.revision desc`, [orgId]);
   // Everything the loop needs about runs and pre-checks at each current revision, read once for all
   // packages (the same rows the per-package queries returned), so the cost does not grow with them.
-  const current = "(select distinct on (id) id, revision from packages order by id, revision desc)";
+  const current = `(select distinct on (p.id) p.id, p.revision from packages p ${owned} order by p.id, p.revision desc)`;
   const byPackage = <T extends { package_id: string }>(rows: T[]) => new Map(rows.map((r) => [r.package_id, r]));
   const latestRuns = byPackage((await db.query<{ package_id: string; status: string; body: Json }>(
     `select distinct on (r.package_id) r.package_id, r.status, r.body from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
-      order by r.package_id, r.created_at desc`)).rows);
+      order by r.package_id, r.created_at desc`, [orgId])).rows);
   const latestFailed = byPackage((await db.query<{ package_id: string; body: Json }>(
     `select distinct on (r.package_id) r.package_id, r.body from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
-      where r.status = 'failed' order by r.package_id, r.created_at desc`)).rows);
+      where r.status = 'failed' order by r.package_id, r.created_at desc`, [orgId])).rows);
   const latestAuthors = byPackage((await db.query<{ package_id: string; round: number }>(
     `select distinct on (r.package_id) r.package_id, r.round from runs r join ${current} c on c.id = r.package_id and c.revision = r.package_revision
-      where r.role = 'author' order by r.package_id, r.round desc, r.created_at desc`)).rows);
+      where r.role = 'author' order by r.package_id, r.round desc, r.created_at desc`, [orgId])).rows);
   const verifications = new Map((await db.query<{ package_id: string; round: number; body: Json; created_at: Date }>(
     `select distinct on (v.package_id, v.round) v.package_id, v.round, v.body, v.created_at from verifications v join ${current} c on c.id = v.package_id and c.revision = v.package_revision
-      order by v.package_id, v.round, v.created_at desc`)).rows.map((v) => [`${v.package_id}#${v.round}`, v]));
+      order by v.package_id, v.round, v.created_at desc`, [orgId])).rows.map((v) => [`${v.package_id}#${v.round}`, v]));
   for (const p of pk.rows) {
     const title = String(p.body.title ?? p.id);
     const since = new Date(p.updated_at).toISOString();

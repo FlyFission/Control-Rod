@@ -98,7 +98,7 @@ export async function inbox(db: Db, cfg: WorkConfig, user: string, since?: numbe
   const authorities = new Set<string>(q && !q.revoked ? q.authorities : []);
   const mine: Json[] = [];
   const others: Json[] = [];
-  for (const it of await office(db)) {
+  for (const it of await office(db, caller.orgId)) {
     const pkg = await currentPackage(db, it.package_id);
     const body = pkg?.body;
     if (it.kind === "lost" || it.kind === "permission" || !pkg) {

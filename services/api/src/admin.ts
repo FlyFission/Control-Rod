@@ -315,7 +315,11 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
       }, actorOf(caller));
       await appendEvent(c, "authenticator-credential.revoked", record.id, actorOf(caller), { reason, version: record.version });
       // A registration authorized by signing with this passkey, not yet completed, is void too.
-      await voidChallenges(c, await member(c, cur.member_id, caller.orgId));
+      const holder = await member(c, cur.member_id, caller.orgId);
+      await voidChallenges(c, holder);
+      // Sessions it started end now. Sessions from before they named their passkey could be this
+      // one's, so the Member's unnamed sessions end too; they sign in again with a usable passkey.
+      await c.query("delete from sessions where credential_id = $1 or (credential_id is null and user_name = $2)", [credentialId, holder.user_name]);
       return { credential_id: credentialId, version: record.version, revoked: true };
     },
   },

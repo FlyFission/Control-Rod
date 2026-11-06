@@ -7,6 +7,7 @@ import { RUN_EVENTS_DOWN_SQL } from "../src/db/migrations/014-run-events.js";
 import { SCRAM_DOWN_SQL } from "../src/db/migrations/015-scram.js";
 import { CHAIN_SEALS_DOWN_SQL } from "../src/db/migrations/016-chain-seals.js";
 import { USAGE_ONCE_DOWN_SQL } from "../src/db/migrations/017-usage-once.js";
+import { SESSION_CREDENTIALS_DOWN_SQL } from "../src/db/migrations/018-session-credentials.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, daemonHeaders, signIn, startHarness } from "./harness.js";
 
 /** Explicit package dependencies (workbench plan task 1.8; specification 7 "depends on"). */
@@ -107,6 +108,7 @@ describe("editing a draft", () => {
 describe("migration 013", () => {
   it("classifies design inputs that named a package before it as dependencies, and later revisions inherit them", async () => {
     // Later migrations come off first, as a real rollback would take them.
+    await h.admin.query(SESSION_CREDENTIALS_DOWN_SQL);
     await h.admin.query(USAGE_ONCE_DOWN_SQL);
     await h.admin.query(CHAIN_SEALS_DOWN_SQL);
     await h.admin.query(SCRAM_DOWN_SQL);

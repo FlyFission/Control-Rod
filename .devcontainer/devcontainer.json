@@ -1,0 +1,33 @@
+{
+  "name": "Control Rod",
+  // Ubuntu 24.04 with a non-root user. That matters: the bundled PostgreSQL refuses to run as root.
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  // Versions match mise.toml. CI uses the same pins.
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22", "pnpmVersion": "10.28.0" },
+    "ghcr.io/devcontainers/features/go:1": { "version": "1.24.7" },
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.13" },
+    "ghcr.io/devcontainers/features/rust:1": { "version": "1.97.0", "profile": "default" }
+  },
+  "hostRequirements": { "cpus": 2, "memory": "8gb" },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  // The web app and API. In Codespaces the forwarded address is a different origin from localhost;
+  // `pnpm cr start` detects that and sets the passkey origin for you.
+  "forwardPorts": [7300],
+  "portsAttributes": {
+    "7300": { "label": "Control Rod", "onAutoForward": "openBrowser" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "golang.go",
+        "charliermarsh.ruff",
+        "ms-python.python"
+      ]
+    },
+    "codespaces": {
+      "openFiles": ["docs/getting-started.md"]
+    }
+  }
+}

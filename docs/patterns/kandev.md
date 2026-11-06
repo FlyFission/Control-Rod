@@ -313,13 +313,13 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 ### P45 Pack digest in the agent baseline and every trace
 - **What it does:** each package carries a checksum list that must cover every file; the installed manifest digest is carried on every privileged command, so a command written against one version is refused after a change. Reinstalling the same version with different bytes is refused.
 - **Why it matters:** the record shows exactly which package produced a result.
-- **Our version:** when the control plane builds a job, compute a tree digest of the pack folders it draws on (role brief, templates, typicals, tool source and lock files) and record it in the Run's baseline and the trace, as ADR 0018 already does for the CADCraft commit. A pack version whose digest changed under the same version number is refused at load.
+- **Our version:** when the control plane builds a job, compute a tree digest of the pack folders it draws on (role brief, templates, typicals, tool source and lock files) and record it in the Run's baseline and the trace, as ADR 0018 once did for a pinned tool commit. A pack version whose digest changed under the same version number is refused at load.
 - Fit: Adopt · Effort: S · Priority: Next · Notes: D
 
 ### P46 Declared permissions build the allowlist
 - **What it does:** an extension can call the host only through methods it declared, checked before the handler runs, with a named error for an undeclared call. Two calls are ungated, including reading its own secrets. Writes go through the same path as the UI and stamp the extension as author. The docs say this gating is no sandbox.
 - **Why it matters:** a short list tells a person the most a package can do.
-- **Our version:** the pack manifest lists egress hosts (for site-concept: the public data sources it queries), record kinds and tools. The daemon builds the sandbox network allowlist and the Claude Code allowed tools from it, intersected with what the project allows; `inputs/TOOLS.txt` stops being the source. Denials are logged with pack id and missing permission. No ungated calls.
+- **Our version:** the pack manifest lists egress hosts (the public data sources its tools query), record kinds and tools. The daemon builds the sandbox network allowlist and the Claude Code allowed tools from it, intersected with what the project allows; `inputs/TOOLS.txt` stops being the source. Denials are logged with pack id and missing permission. No ungated calls.
 - Fit: Adapt · Effort: M · Priority: Next · Notes: D
 
 ### P47 Packs are approved before they run, and changes wait in a pending lane
@@ -331,7 +331,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 ### P48 Pack tools with schemas, deadlines and host-supplied identity
 - **What it does:** the host names each extension tool. A tool must describe what it accepts, may describe what it returns, and can carry hints such as read-only or destructive. Each call has a 30-second limit and a 1 MiB cap on its result, and a failed call is not repeated. Which task, session and workspace a call belongs to comes from the host's own records; nothing in the arguments can change it. Every MCP call is checked against the live schema first, and missing-field errors name fields without echoing values. A surface that no provider has passed tests for is refused.
 - **Why it matters:** "agents never type a number" depends on tools being called correctly.
-- **Our version:** declare `cr-site` subcommands as pack tools with input and output schemas generated from `spec/`. The daemon injects package, revision and run id, enforces a per-call deadline and output size, and records each call and its digest in the trace; validation failures become findings. Refusals name the field without echoing the value (today a bad output name is echoed, `work.ts:492`).
+- **Our version:** declare a pack's command-line subcommands as pack tools with input and output schemas generated from `spec/`. The daemon injects package, revision and run id, enforces a per-call deadline and output size, and records each call and its digest in the trace; validation failures become findings. Refusals name the field without echoing the value (today a bad output name is echoed, `work.ts:492`).
 - Fit: Adopt · Effort: M · Priority: Next · Notes: B, D
 
 ### P49 Pack settings with readiness gating and keychain secrets
@@ -343,7 +343,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 ### P50 Viewers in isolated frames on their own origin
 - **What it does:** agent-built static apps run in a sandboxed frame with no remote scripts, forms that cannot post outward, only person-approved exact HTTPS origins, and a short-lived capability token checked on every request. A host-owned bootstrap must acknowledge the current attempt before the app shows; failure controls render outside the frame; any change of release or grant tears the frame down. The docs accept that the frame shares the host origin and so has the viewer's session.
 - **Why it matters:** domain teams can ship rich viewers without acting as the user.
-- **Our version:** extend output preview into a viewer registry. Built-in viewers stay first party. A pack may declare viewers (a drawing sheet viewer with the CADCraft renditions and their digests, a PDF page viewer with markups saved as records keyed to digest, page and position, a map layer viewer showing each layer's source, retrieval time and response digest). Pack viewers live on a separate origin or a sandbox without same-origin rights. The DecisionBar and the digest of what is shown always render outside the frame, and the sign button stays disabled until the frame acknowledges rendering the exact digest being decided. A first step is a host-owned digest display beside every preview.
+- **Our version:** extend output preview into a viewer registry. Built-in viewers stay first party. A pack may declare viewers (a drawing sheet viewer with its renditions and their digests, a PDF page viewer with markups saved as records keyed to digest, page and position, a map layer viewer showing each layer's source, retrieval time and response digest). Pack viewers live on a separate origin or a sandbox without same-origin rights. The DecisionBar and the digest of what is shown always render outside the frame, and the sign button stays disabled until the frame acknowledges rendering the exact digest being decided. A first step is a host-owned digest display beside every preview.
 - Fit: Adapt · Effort: L (first step S) · Priority: Next · Notes: B, D
 
 ### P51 Verify artifact bytes before serving them
@@ -361,7 +361,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 ### P53 Immutable identities for outside things
 - **What it does:** links to outside systems are keyed by provider, connection, an immutable id and a number; names, paths and URLs are display data. Candidates from a search are re-authorized at submission. Cursors are bound to their query and a repeated cursor stops the loop.
 - **Why it matters:** a renamed or recycled outside object cannot inherit authority.
-- **Our version:** records refer to parcels, drawing numbers, client document numbers and map features by an immutable source id plus source system, with display numbers as separate fields. Public-data facts keep source URL, query, time and response digest, and a reference a decision depends on is rechecked at decision time.
+- **Our version:** records refer to equipment tags, drawing numbers, client document numbers and map features by an immutable source id plus source system, with display numbers as separate fields. Public-data facts keep source URL, query, time and response digest, and a reference a decision depends on is rechecked at decision time.
 - Fit: Adapt · Effort: S · Priority: Next · Notes: D
 
 ### P54 Constrained structured summaries
@@ -492,7 +492,7 @@ Kandev is an open workbench for running coding agents on a board of tasks. Contr
 - An agent that finds a change touches an ADR-level decision with no accepted ADR stops and reports (D). Adding it to `AGENTS.md` goes through Ben.
 - A separate home and database for development, and a launcher check that refuses to run tests against the real database name (D).
 - Schema changes as ordered, re-runnable steps, with an upgrade test from a fixture taken at a tagged release (D).
-- Baseline revisions (runtime versions, pack digests, the CADCraft commit) are immutable; any change makes a new revision and reruns conformance checks; a label is never reused for different bits (D).
+- Baseline revisions (runtime versions, pack digests, pinned tool commits) are immutable; any change makes a new revision and reruns conformance checks; a label is never reused for different bits (D).
 - Generate reference tables (such as event kinds) from `spec/` (D).
 - Fit: Adopt · Effort: S each · Priority: Next (first three), Later (rest) · Notes: D
 
@@ -695,7 +695,7 @@ Not exercised: what real agents produce, GitHub or GitLab links, Docker or remot
 
 ### 11.1 Claims about our code, checked
 
-Every claim the notes make about Control Rod's current code was checked against `mvp/site-concept` at commit `87d0f79`. Line numbers refer to that commit.
+Every claim the notes make about Control Rod's current code was checked against the MVP branch at commit `87d0f79`. Line numbers refer to that commit.
 
 | # | Claim in the notes | Notes | Status | Evidence |
 |---|---|---|---|---|

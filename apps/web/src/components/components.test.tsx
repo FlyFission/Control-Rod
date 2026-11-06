@@ -36,13 +36,13 @@ describe("capture", () => {
     );
     await renderPage(<CaptureBox />);
     const user = userEvent.setup();
-    await user.type(screen.getByRole("textbox", { name: "What needs doing?" }), "Site a 50 MW data center on parcel 12");
+    await user.type(screen.getByRole("textbox", { name: "What needs doing?" }), "Review the relief valve sizing calculation");
     await user.click(screen.getByRole("button", { name: "Send" }));
-    await waitFor(() => expect(body).toEqual({ text: "Site a 50 MW data center on parcel 12", source: "web", lane: "internal" }));
+    await waitFor(() => expect(body).toEqual({ text: "Review the relief valve sizing calculation", source: "web", lane: "internal" }));
     await waitFor(() => expect((screen.getByRole("textbox", { name: "What needs doing?" }) as HTMLTextAreaElement).value).toBe(""));
   });
 
-  it("sends an attached parcel file as an attachment fence and shows its name, never the base64", async () => {
+  it("sends an attached file as an attachment fence and shows its name, never the base64", async () => {
     let body: { text?: string } = {};
     server.use(
       http.post("*/captures", async ({ request }) => {
@@ -55,15 +55,15 @@ describe("capture", () => {
     );
     const { container } = await renderPage(<CaptureBox />);
     const user = userEvent.setup();
-    await user.type(screen.getByRole("textbox", { name: "What needs doing?" }), "Site a 50 MW data center");
-    const file = new File(["<kml/>"], "parcel.kml", { type: "application/vnd.google-earth.kml+xml" });
+    await user.type(screen.getByRole("textbox", { name: "What needs doing?" }), "Draft a scope of work from these field notes");
+    const file = new File(["P-101"], "field-notes.txt", { type: "text/plain" });
     const input = container.querySelector("#capture-file") as HTMLInputElement;
     await user.upload(input, file);
-    expect(await screen.findByText("parcel.kml")).toBeTruthy();
-    expect(container.textContent).not.toContain("PGttbC8+");
+    expect(await screen.findByText("field-notes.txt")).toBeTruthy();
+    expect(container.textContent).not.toContain("UC0xMDE=");
     await user.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() =>
-      expect(body.text).toBe('Site a 50 MW data center\n\n```attachment name="parcel.kml" encoding="base64"\nPGttbC8+\n```'),
+      expect(body.text).toBe('Draft a scope of work from these field notes\n\n```attachment name="field-notes.txt" encoding="base64"\nUC0xMDE=\n```'),
     );
   });
 
@@ -268,14 +268,14 @@ describe("decision flow", () => {
     expect(signed).toEqual([]);
   });
 
-  it("labels acceptance of a parcel package Confirm boundary", async () => {
+  it("labels acceptance Accept whatever the package role", async () => {
     const v = view(
       {
         pre_check: {
           schema_version: "0.1.0",
           package_id: "WP-0001",
           package_revision: 0,
-          output: { path: "out/parcel.json", digest: DIGEST },
+          output: { path: "out/scope-of-work.md", digest: DIGEST },
           method: "agent-pre-check",
           verifier: "site-checker",
           evidence: [],
@@ -285,13 +285,12 @@ describe("decision flow", () => {
       },
       {
         status: "in-verification",
-        agent_assignment: [{ role: "site-parcel", agent_baseline: "site-parcel", baseline_revision: 1 }],
+        agent_assignment: [{ role: "scope-of-work", agent_baseline: "scope-of-work", baseline_revision: 1 }],
       },
     );
     offer(["accept", "return", "reject"]);
     await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
-    expect(await screen.findByRole("button", { name: "Confirm boundary" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Accept" })).toBeTruthy();
   });
 
   it("requires direction before returning a package", async () => {
@@ -536,7 +535,7 @@ describe("runs that need the owner", () => {
   });
 
   it("stops a running run and shows it as stopping until the daemon confirms", async () => {
-    const running: Run = { ...lostRun, id: "R-run", status: "running", label: "Run: cr-site" };
+    const running: Run = { ...lostRun, id: "R-run", status: "running", label: "Run: python3" };
     delete running.error;
     let posted = "";
     server.use(
@@ -677,7 +676,7 @@ describe("stranded intake", () => {
           {
             schema_version: "0.1.0",
             id: "C-1234abcd",
-            text: "Site a data center",
+            text: "Draft a scope of work",
             source: "web",
             created_at: "2026-10-22T10:00:00Z",
             disposition: "pending",

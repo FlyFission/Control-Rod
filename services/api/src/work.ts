@@ -668,7 +668,7 @@ function packFiles(packDir: string): Input[] {
   return out;
 }
 
-/** Pre-check brief: the role's own, then its family's (site-plan to site), then the general one. */
+/** Pre-check brief: the role's own, then its family's (pump-sizing to pump), then the general one. */
 function preCheckRole(cfg: WorkConfig, role: string): string {
   const family = role.split("-")[0] ?? role;
   return findRole(cfg, `${role}-pre-check`) ?? findRole(cfg, `${family}-pre-check`) ?? findRole(cfg, "pre-check") ?? "";
@@ -722,8 +722,8 @@ const withoutNetwork = (tools: string) =>
     .filter((l) => !/^\s*network\s*:/i.test(l))
     .join("\n");
 
-const INTAKE_TOOLS = "Read\nWrite\nGlob\nGrep\nWebSearch\nWebFetch\nBash(cr-site:*)\n";
-const DEFAULT_TOOLS = "Read\nWrite\nEdit\nGlob\nGrep\nWebSearch\nWebFetch\nBash(cr-site:*)\nBash(python3:*)\n";
+const INTAKE_TOOLS = "Read\nWrite\nGlob\nGrep\nWebSearch\nWebFetch\n";
+const DEFAULT_TOOLS = "Read\nWrite\nEdit\nGlob\nGrep\nWebSearch\nWebFetch\nBash(python3:*)\n";
 
 /**
  * What a run's role asks for in its tools file: intake's fixed list, or the package role's file

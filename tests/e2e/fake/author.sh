@@ -1,20 +1,14 @@
 #!/usr/bin/env bash
-# Scripted author: runs the same cr-site commands a real agent is told to run.
+# Scripted author: fills the job pack's templates and examples the way a real agent is told to,
+# and writes a short report when the job carries none.
 set -euo pipefail
 mkdir -p out
-role=$(python3 -c "import json;print(json.load(open('inputs/PACKAGE.json'))['agent_assignment'][0]['role'])")
-dep() { ls inputs/deps/*/"$1" 2>/dev/null | head -1; }
-case "$role" in
-  site-parcel) cr-site parcel resolve --input "inputs/attachments/$(ls inputs/attachments | head -1)" --out out/parcel.json ;;
-  site-constraints) cr-site constraints --parcel "$(dep parcel.json)" --out out/constraints.json ;;
-  site-charter)
-    cp "inputs/pack/templates/charter.md" out/charter.md
-    cp "inputs/pack/templates/basis-of-design.md" out/basis-of-design.md
-    cp "inputs/pack/examples/program.example.json" out/program.json ;;
-  site-plan)
-    cr-site layout --parcel "$(dep parcel.json)" --constraints "$(dep constraints.json)" --program "$(dep program.json)" --out out/layout.json
-    cp "inputs/pack/examples/plan-meta.example.json" out/plan-meta.json
-    cr-site plan --parcel "$(dep parcel.json)" --constraints "$(dep constraints.json)" --layout out/layout.json --program "$(dep program.json)" --record out/plan-meta.json --out-dir out/ ;;
-  site-next-stage) cp "inputs/pack/templates/next-stage-plan.md" out/next-stage-plan.md ;;
-  *) printf '# Report\n\nDone.\n' > out/report.md ;;
-esac
+shopt -s nullglob
+filled=0
+for t in inputs/pack/templates/*; do cp "$t" "out/$(basename "$t")"; filled=1; done
+for e in inputs/pack/examples/*.example.*; do
+  b=$(basename "$e")
+  cp "$e" "out/${b/.example/}"
+  filled=1
+done
+[ "$filled" = 1 ] || printf '# Report\n\nDone.\n' > out/report.md

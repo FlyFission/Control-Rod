@@ -31,7 +31,7 @@ describe("live events", () => {
       const spy = vi.spyOn(qc, "invalidateQueries");
       const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
       renderHook(() => useLiveEvents(true), { wrapper });
-      FakeSource.last?.emit("event", { seq: 9, type: "run.label", subject: "R-1234", data: { package: "WP-9", label: "Run: cr-site" } });
+      FakeSource.last?.emit("event", { seq: 9, type: "run.label", subject: "R-1234", data: { package: "WP-9", label: "Run: python3" } });
       await waitFor(() => expect(spy).toHaveBeenCalledWith({ queryKey: ["package", "WP-9"] }));
       expect(spy).toHaveBeenCalledWith({ queryKey: ["package", "R-1234"] });
       // Preparation lives on its own key, edited and confirmed elsewhere; it is refreshed too.

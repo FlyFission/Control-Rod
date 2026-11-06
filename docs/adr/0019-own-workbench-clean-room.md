@@ -48,5 +48,5 @@ Harder: we build everything ourselves; the clean-room split costs reader and bui
 - Pattern notes A to D (and E when it arrives) dated 2026-10-22, written from Kandev's public documentation; merged in `docs/patterns/kandev.md`.
 - ADR 0002 and AGENTS rule 4 for our license plan.
 - The license facts in Context item 1 as reported by the readers; not re-checked by the builder under condition 2.
-- The build plan in `docs/patterns/kandev.md#11-build-plan`, which checks every claim the notes make about our code against `mvp/site-concept`.
+- The build plan in `docs/patterns/kandev.md#11-build-plan`, which checks every claim the notes make about our code against the MVP branch at commit `87d0f79`.
 - Change record `.nuclear/changes/own-workbench-clean-room/`.

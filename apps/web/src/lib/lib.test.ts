@@ -56,16 +56,16 @@ describe("office sorting", () => {
 
 describe("attachments", () => {
   it("composes the fence the control plane extracts and splits it back for display", () => {
-    const text = composeCapture("Site a 50 MW data center on this parcel.", [
-      { name: "parcel.kml", base64: "PD94bWwg" },
+    const text = composeCapture("Draft a scope of work for the pump replacement.", [
+      { name: "field-notes.txt", base64: "PD94bWwg" },
       { name: 'odd"name.pdf', base64: "JVBERi0x" },
     ]);
     expect(text).toBe(
-      'Site a 50 MW data center on this parcel.\n\n```attachment name="parcel.kml" encoding="base64"\nPD94bWwg\n```\n\n```attachment name="odd_name.pdf" encoding="base64"\nJVBERi0x\n```',
+      'Draft a scope of work for the pump replacement.\n\n```attachment name="field-notes.txt" encoding="base64"\nPD94bWwg\n```\n\n```attachment name="odd_name.pdf" encoding="base64"\nJVBERi0x\n```',
     );
     expect(splitAttachments(text)).toEqual({
-      text: "Site a 50 MW data center on this parcel.",
-      files: ["parcel.kml", "odd_name.pdf"],
+      text: "Draft a scope of work for the pump replacement.",
+      files: ["field-notes.txt", "odd_name.pdf"],
     });
   });
 
@@ -77,10 +77,9 @@ describe("attachments", () => {
 });
 
 describe("decision labels", () => {
-  it("calls acceptance of a parcel package Confirm boundary", () => {
-    expect(decisionLabel("accept", "site-parcel")).toBe("Confirm boundary");
-    expect(decisionLabel("accept", "site-layout")).toBe("Accept");
-    expect(decisionLabel("return", "site-parcel")).toBe("Return with direction");
+  it("labels each decision in plain words", () => {
+    expect(decisionLabel("accept")).toBe("Accept");
+    expect(decisionLabel("return")).toBe("Return with direction");
   });
 });
 
@@ -95,7 +94,7 @@ describe("floor layout", () => {
             package_id: "WP-0001",
             package_revision: 0,
             role: "author",
-            agent_baseline: "site-parcel",
+            agent_baseline: "site-grading",
             runtime: { kind: "subscription", provider: "claude", model: "m" },
             round: 1,
             status: "running",
@@ -103,7 +102,7 @@ describe("floor layout", () => {
           },
         ],
       },
-      { mode: "general", agent_assignment: [{ role: "site-parcel", agent_baseline: "site-parcel", baseline_revision: 1 }] },
+      { mode: "general", agent_assignment: [{ role: "site-grading", agent_baseline: "site-grading", baseline_revision: 1 }] },
     );
     expect(layoutFloor([v], [])[0]?.room).toBe("site");
   });

@@ -1,6 +1,6 @@
 import { createHash, createPrivateKey, generateKeyPairSync, randomBytes, sign, type KeyObject } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -34,7 +34,26 @@ const openDbRaw = async (url: string) => {
 export const ORIGIN = "http://localhost:7300";
 export const RP_ID = "localhost";
 export const DAEMON_TOKEN = "test-daemon-token-0123456789";
-const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
+const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
+
+/**
+ * A repository root for tests that need job packs: every top-level entry of the real repository
+ * except packs/, and a packs/ folder holding the real general and software packs plus the test
+ * fixture packs under test/fixtures/packs. Removed when the process exits.
+ */
+export function rootWithFixturePacks(): string {
+  const dir = mkdtempSync(join(tmpdir(), "cr-root-"));
+  for (const entry of readdirSync(repoRoot)) if (entry !== "packs" && entry !== "node_modules") symlinkSync(join(repoRoot, entry), join(dir, entry));
+  mkdirSync(join(dir, "packs"));
+  for (const entry of readdirSync(join(repoRoot, "packs"))) symlinkSync(join(repoRoot, "packs", entry), join(dir, "packs", entry));
+  const fixtures = fileURLToPath(new URL("./fixtures/packs/", import.meta.url));
+  for (const mode of readdirSync(fixtures)) {
+    mkdirSync(join(dir, "packs", mode), { recursive: true });
+    for (const job of readdirSync(join(fixtures, mode))) symlinkSync(join(fixtures, mode, job), join(dir, "packs", mode, job));
+  }
+  process.once("exit", () => rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
 
 /** Host server meeting the controller-grant PG17 floor, or use pinned embedded PG17. */
 function systemPostgres(): string | null {
@@ -67,9 +86,10 @@ export interface Harness {
 
 /** A real Postgres per test file and the real app. Nothing is mocked but the authenticator and the daemon. */
 export async function startHarness(
-  given: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"|"preparationLanes"|"streamReplayMax"> & { trustAnchors?: string[] } = {},
+  given: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"|"preparationLanes"|"streamReplayMax"> & { root?: string; trustAnchors?: string[] } = {},
 ): Promise<Harness> {
-  const { trustAnchors, ...options } = given;
+  const { trustAnchors, ...rest } = given;
+  const options = { ...rest, root: rest.root ?? repoRoot };
   const external = process.env.TEST_DATABASE_URL;
   if (external) {
     // A fresh database per test file on a Postgres the caller provides (CI service or local server).
@@ -84,7 +104,6 @@ export async function startHarness(
     const app = buildApp({
       ...options,
       db,
-      root,
       auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
     });
     await app.ready();
@@ -127,7 +146,6 @@ export async function startHarness(
     const app = buildApp({
       ...options,
       db,
-      root,
       auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
     });
     await app.ready();
@@ -163,7 +181,6 @@ export async function startHarness(
   const app = buildApp({
       ...options,
     db,
-    root,
     auth: { rpID: RP_ID, rpName: "Control Rod", origins: [ORIGIN], daemonTokenHash: hashToken(DAEMON_TOKEN), ...(trustAnchors ? { trustAnchors } : {}) },
   });
   await app.ready();

@@ -17,7 +17,7 @@
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
 - **Current lifecycle phase:** Review
-- **Summary:** Adds ADR 0019 (build our own workbench; learn from Kandev only through a clean room), `docs/patterns/kandev.md` (merged clean-room pattern notes with a build plan whose code claims are checked against `mvp/site-concept`), `docs/patterns/README.md`, and one line in `docs/README.md`. No code, spec, policy or test changes.
+- **Summary:** Adds ADR 0019 (build our own workbench; learn from Kandev only through a clean room), `docs/patterns/kandev.md` (merged clean-room pattern notes with a build plan whose code claims are checked against the MVP branch at `87d0f79`), `docs/patterns/README.md`, and one line in `docs/README.md`. No code, spec, policy or test changes.
 
 ## Mission anchor
 

@@ -14,7 +14,7 @@
 - **Related records:** `risk.md`, `basis.md`
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
-- **Branch:** `docs/kandev-patterns`, cut from `mvp/site-concept` at `87d0f79`, in a separate worktree so the main checkout is untouched
+- **Branch:** `docs/kandev-patterns`, cut from the MVP branch at `87d0f79`, in a separate worktree so the main checkout is untouched
 
 ## Charter and anchor check
 
@@ -28,7 +28,7 @@
 
 1. Read the readers' brief, then note files A to D in full.
 2. Create the worktree and branch; create this packet with the tool in Standard mode.
-3. Read AGENTS.md, the ADR template, ADRs 0002, 0011, 0012 and 0018, and the CADCraft packet for style.
+3. Read AGENTS.md, the ADR template, ADRs 0002, 0011, 0012 and 0018, and an earlier change record for style. (That record and the drawing tool it covered were removed on 2026-11-06.)
 4. Check every note claim about our code at file and line on `87d0f79` (API, daemon, spec, kernel), and read OpenAI's non-interactive docs for Codex defaults.
 5. Write `docs/patterns/kandev.md`: 73 merged patterns by area, pitfalls, UX ideas, pending observed-behaviour section, claims table and build plan.
 6. Write ADR 0019 and `docs/patterns/README.md`; add one line to `docs/README.md`.
@@ -100,7 +100,7 @@ Revert the commit on the branch, or the merge commit on `main`. No data, service
 ## Proof commands
 
 ```bash
-git diff --name-only mvp/site-concept...docs/kandev-patterns
+git diff --name-only 87d0f79...docs/kandev-patterns
 grep -c '```' docs/patterns/kandev.md docs/adr/0019-own-workbench-clean-room.md
 LC_ALL=C grep -nP '\xE2\x80[\x93\x94]' docs/patterns/*.md docs/adr/0019-own-workbench-clean-room.md
 python3 -I /root/refs/nuclear-grade-context-engineering/tools/ng.py validate --strict-custody .nuclear/changes/own-workbench-clean-room

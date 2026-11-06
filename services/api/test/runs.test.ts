@@ -4,17 +4,18 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, rootWithFixturePacks, signIn, startHarness, withClaim } from "./harness.js";
 
 /** Run custody, launch inputs and serving: what the daemon and the owner see around a run. */
 const repo = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
-const sitePack = join(repo, "packs", "capital-projects", "site-concept");
+/** A job pack fixture (test/fixtures/packs), laid out under packs/ in a temporary root. */
+const jobPack = fileURLToPath(new URL("./fixtures/packs/capital-projects/pump-replacement/", import.meta.url));
 let h: Harness;
 let cookie: string;
 const passkey = new VirtualAuthenticator();
 
 beforeAll(async () => {
-  h = await startHarness();
+  h = await startHarness({ root: rootWithFixturePacks() });
   cookie = await signIn(h.app, passkey);
 }, 120_000);
 afterAll(async () => h?.stop());
@@ -55,7 +56,7 @@ function draft(id: string, role = "general-author") {
     id,
     revision: 0,
     title: `Package ${id}`,
-    project: "BM-TEST",
+    project: "PRJ-TEST",
     mode: "capital-projects",
     status: "draft",
     rigor_mode: "standard",
@@ -101,11 +102,11 @@ async function releasedPackage(key: string, role = "general-author"): Promise<st
 
 describe("launch inputs", () => {
   it("holds a role that needs named hosts when only Codex is offered, saying why, and dispatches it once a runtime can limit them", async () => {
-    const id = await releasedPackage("HOSTS", "site-parcel");
+    const id = await releasedPackage("HOSTS", "pump-survey");
     expect(await claim(["codex"])).toBeNull();
     const held = (await h.db.query<{ body: Record<string, any> }>("select body from runs where package_id = $1 and role = 'author'", [id])).rows[0]!.body;
     expect(held).toMatchObject({ waiting_cause: "sandbox", waiting_key: "sandbox:author:internal" });
-    expect(held.waiting_reason).toMatch(/^This role needs network to arcgis\.netl\.doe\.gov, .*; only Claude Code can limit an agent's network to named hosts/);
+    expect(held.waiting_reason).toMatch(/^This role needs network to docs\.example\.org, standards\.example\.org; only Claude Code can limit an agent's network to named hosts/);
     const job = await claim(["fake"]);
     expect(job?.run.package_id).toBe(id);
     const started = (await h.db.query<{ body: Record<string, any> }>("select body from runs where id = $1", [job!.run.id])).rows[0]!.body;
@@ -119,27 +120,27 @@ describe("launch inputs", () => {
   });
 
   it("gives network only to the author runs of roles whose tools ask for it", async () => {
-    const id = await releasedPackage("NET", "site-constraints");
+    const id = await releasedPackage("NET", "pump-survey");
     const author = await claim();
     expect(author?.run.role).toBe("author");
-    // The hosts cr-site queries, named, and only the qualified tools (web tools are not).
+    // The hosts the role names, and only the qualified tools (web tools are not).
     const authorTools = input(author as Job, "TOOLS.txt") ?? "";
-    expect(authorTools).toMatch(/^network: arcgis\.netl\.doe\.gov, .*tigerweb\.geo\.census\.gov$/m);
+    expect(authorTools).toMatch(/^network: docs\.example\.org, standards\.example\.org$/m);
     expect(authorTools).not.toMatch(/WebSearch|WebFetch/);
     // The run cites the policy it runs under, and the job carries that policy with its digest.
     const a = author as unknown as Record<string, any>;
-    expect(a.sandbox_policy).toMatchObject({ id: a.run.sandbox_policy.id, version: a.run.sandbox_policy.version, allowed_hosts: expect.arrayContaining(["geo.dot.gov"]) });
+    expect(a.sandbox_policy).toMatchObject({ id: a.run.sandbox_policy.id, version: a.run.sandbox_policy.version, allowed_hosts: expect.arrayContaining(["docs.example.org"]) });
     expect(a.sandbox_policy_digest).toEqual(a.run.sandbox_policy.digest);
     await asDaemon(`/runner/runs/${author?.run.id}/complete`, {
       status: "succeeded",
-      outputs: [{ name: "constraints.md", content_base64: b64("# Constraints") }],
+      outputs: [{ name: "survey.md", content_base64: b64("# Survey") }],
     });
     const check = await claim(["codex"]);
     expect(check?.run.role).toBe("pre-check");
     expect(check?.run.package_id).toBe(id);
     const tools = input(check as Job, "TOOLS.txt") ?? "";
     expect(tools).not.toMatch(/^\s*network\s*:/im);
-    expect(tools).toContain("Bash(cr-site:*)");
+    expect(tools).toContain("Bash(python3:*)");
     await asDaemon(`/runner/runs/${check?.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
 
     await releasedPackage("PLAIN");
@@ -211,16 +212,16 @@ describe("serving outputs", () => {
   it("re-hashes stored bytes and refuses, on the record, an output that changed", async () => {
     const pkgs = (await asOwner("GET", "/packages")).json() as { id: string }[];
     const id = pkgs.find((p) => p.id.endsWith("-NET"))?.id as string;
-    const ok = await asOwner("GET", `/packages/${id}/outputs/constraints.md`);
+    const ok = await asOwner("GET", `/packages/${id}/outputs/survey.md`);
     expect(ok.statusCode).toBe(200);
-    expect(ok.body).toBe("# Constraints");
-    await h.admin.query("update outputs set bytes = $1 where package_id = $2 and name = 'constraints.md'", [Buffer.from("# Edited"), id]);
-    const bad = await asOwner("GET", `/packages/${id}/outputs/constraints.md`);
+    expect(ok.body).toBe("# Survey");
+    await h.admin.query("update outputs set bytes = $1 where package_id = $2 and name = 'survey.md'", [Buffer.from("# Edited"), id]);
+    const bad = await asOwner("GET", `/packages/${id}/outputs/survey.md`);
     expect(bad.statusCode).toBe(409);
     expect(bad.json().code).toBe("output-changed");
     expect(bad.body).not.toContain("Edited");
     const ev = (await eventsOf(id)).find((e) => e.type === "output.mismatch");
-    expect(ev?.data).toMatchObject({ name: "constraints.md" });
+    expect(ev?.data).toMatchObject({ name: "survey.md" });
   });
 });
 
@@ -663,13 +664,13 @@ describe("review findings on #3", () => {
     const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
       status: "succeeded",
       outputs: [
-        { name: "site.svg", content_base64: b64(svg) },
+        { name: "sketch.svg", content_base64: b64(svg) },
         { name: "plan.pdf", content_base64: b64("%PDF-1.4") },
         { name: "model.step", content_base64: b64("ISO-10303-21;") },
       ],
     });
     expect(r.statusCode, r.body).toBeLessThan(300);
-    const s = await asOwner("GET", `/packages/${id}/outputs/site.svg`);
+    const s = await asOwner("GET", `/packages/${id}/outputs/sketch.svg`);
     expect(s.statusCode).toBe(200);
     expect(s.headers["content-security-policy"]).toMatch(/^sandbox;/);
     expect(s.headers["content-security-policy"]).toContain("default-src 'none'");
@@ -683,7 +684,7 @@ describe("review findings on #3", () => {
   });
 });
 
-describe("pack files and site briefs", () => {
+describe("pack files and role briefs", () => {
   const names = (job: Job) => job.inputs.map((i) => i.name);
   /** Claims until a job for this package comes up, failing any earlier test's leftovers on the way. */
   async function claimFor(id: string, runtimes = ["fake"]): Promise<Job> {
@@ -697,13 +698,13 @@ describe("pack files and site briefs", () => {
   }
 
   it("ships the role's pack templates, typicals and examples to the author, and the scripted author finds them", async () => {
-    const id = await releasedPackage("CHARTER", "site-charter");
+    const id = await releasedPackage("DATASHEET", "pump-datasheet");
     const job = await claimFor(id);
     expect(names(job)).toEqual(
-      expect.arrayContaining(["pack/templates/charter.md", "pack/templates/basis-of-design.md", "pack/typicals/data-center-50mw.json", "pack/examples/plan-meta.example.json"]),
+      expect.arrayContaining(["pack/templates/datasheet.md", "pack/templates/scope-of-work.md", "pack/typicals/centrifugal-pump.json", "pack/examples/datasheet.example.json"]),
     );
-    expect(input(job, "pack/templates/charter.md")).toBe(readFileSync(join(sitePack, "templates", "charter.md"), "utf8"));
-    expect(input(job, "BRIEF.md")).toContain("inputs/pack/templates/charter.md");
+    expect(input(job, "pack/templates/datasheet.md")).toBe(readFileSync(join(jobPack, "templates", "datasheet.md"), "utf8"));
+    expect(input(job, "BRIEF.md")).toContain("inputs/pack/templates/datasheet.md");
 
     // Lay the job out the way the daemon does and run the scripted author on it.
     const ws = mkdtempSync(join(tmpdir(), "cr-ws-"));
@@ -714,34 +715,34 @@ describe("pack files and site briefs", () => {
         writeFileSync(p, Buffer.from(i.content_base64, "base64"));
       }
       execFileSync("bash", [join(repo, "tests", "e2e", "fake", "author.sh")], { cwd: ws, env: { PATH: process.env.PATH ?? "" } });
-      expect(readFileSync(join(ws, "out", "charter.md"), "utf8")).toBe(input(job, "pack/templates/charter.md"));
-      expect(existsSync(join(ws, "out", "program.json"))).toBe(true);
+      expect(readFileSync(join(ws, "out", "datasheet.md"), "utf8")).toBe(input(job, "pack/templates/datasheet.md"));
+      expect(existsSync(join(ws, "out", "datasheet.json"))).toBe(true);
     } finally {
       rmSync(ws, { recursive: true, force: true });
     }
     await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
   });
 
-  it("gives an early site stage the stage pre-check and the site plan the full cr-site check", async () => {
-    const parcel = await releasedPackage("PARCEL2", "site-parcel");
-    const author = await claimFor(parcel);
-    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "parcel.json", content_base64: b64("{}") }] });
-    const check = await claimFor(parcel, ["codex"]);
+  it("gives an early stage its family's pre-check and a role with its own pre-check that one", async () => {
+    const survey = await releasedPackage("SURVEY2", "pump-survey");
+    const author = await claimFor(survey);
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "survey.md", content_base64: b64("# Survey") }] });
+    const check = await claimFor(survey, ["codex"]);
     expect(check.run.role).toBe("pre-check");
     const brief = input(check, "BRIEF.md") ?? "";
-    expect(brief).toContain("Role: pre-check, site concept stages");
-    expect(brief).not.toContain("Role: pre-check, site plan");
-    expect(names(check)).toContain("pack/typicals/data-center-50mw.json");
+    expect(brief).toContain("Role: pre-check, pump replacement stages");
+    expect(brief).not.toContain("Role: pre-check, pump sizing");
+    expect(names(check)).toContain("pack/typicals/centrifugal-pump.json");
     await asDaemon(`/runner/runs/${check.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
 
-    const plan = await releasedPackage("PLAN2", "site-plan");
-    const planAuthor = await claimFor(plan);
-    await asDaemon(`/runner/runs/${planAuthor.run.id}/complete`, { status: "succeeded", outputs: [{ name: "layout.json", content_base64: b64("{}") }] });
-    const planCheck = await claimFor(plan, ["codex"]);
-    const planBrief = input(planCheck, "BRIEF.md") ?? "";
-    expect(planBrief).toContain("Role: pre-check, site plan");
-    expect(planBrief).toContain("inputs/deliverables/layout.json");
-    await asDaemon(`/runner/runs/${planCheck.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
+    const sizing = await releasedPackage("SIZING2", "pump-sizing");
+    const sizingAuthor = await claimFor(sizing);
+    await asDaemon(`/runner/runs/${sizingAuthor.run.id}/complete`, { status: "succeeded", outputs: [{ name: "sizing.json", content_base64: b64("{}") }] });
+    const sizingCheck = await claimFor(sizing, ["codex"]);
+    const sizingBrief = input(sizingCheck, "BRIEF.md") ?? "";
+    expect(sizingBrief).toContain("Role: pre-check, pump sizing");
+    expect(sizingBrief).toContain("inputs/deliverables/sizing.json");
+    await asDaemon(`/runner/runs/${sizingCheck.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
   });
 });
 
@@ -788,13 +789,13 @@ describe("package run inputs", () => {
 
 describe("capture provenance", () => {
   it("carries the original request to author and pre-check without the author log", async () => {
-    const id = await releasedPackage("PROVENANCE1", "site-charter");
+    const id = await releasedPackage("PROVENANCE1", "pump-datasheet");
     const author = await claim();
     if (!author) throw new Error("no author job");
     expect(input(author, "CAPTURE.md")).toBe("Make PROVENANCE1");
     expect((await asDaemon(`/runner/runs/${author.run.id}/log`, { lines: ["private author reasoning"] })).statusCode).toBe(200);
     await asDaemon(`/runner/runs/${author.run.id}/complete`, {
-      status: "succeeded", outputs: [{ name: "charter.md", content_base64: b64("# Charter") }],
+      status: "succeeded", outputs: [{ name: "datasheet.md", content_base64: b64("# Datasheet") }],
     });
     const checker = await claim(["codex"]);
     if (!checker) throw new Error("no pre-check job");
@@ -874,10 +875,10 @@ describe("pre-check evidence custody", () => {
     const checker = await claim(["codex"]);
     if (!checker) throw new Error("no checker job");
     const evidence = [{
-      claim: "Program dimensions and geometry checked by cr-site",
+      claim: "Relief valve sizing recomputed by the sizing script",
       status: "pass",
       custody: {
-        generated_by: "cr-site/0.1.0", selected_by: "cr-site/0.1.0", presented_by: "pre-check agent",
+        generated_by: "relief-sizing/0.1.0", selected_by: "relief-sizing/0.1.0", presented_by: "pre-check agent",
         coupling: { actor: "independent", context: "independent", mechanism: "shared", authority: "independent", resource: "shared" },
       },
     }];

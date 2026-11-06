@@ -12,7 +12,7 @@
 
 - **Change slug:** `own-workbench-clean-room`
 - **Version / release / baseline:** ADR 0019 (Proposed); `docs/patterns/kandev.md` as of 2026-10-22
-- **PR / commit / artifact:** branch `docs/kandev-patterns` from `mvp/site-concept` at `87d0f79`; pushed, pull request #4
+- **PR / commit / artifact:** branch `docs/kandev-patterns` from the MVP branch at `87d0f79`; pushed, pull request #4
 - **Owner:** Ben Huffer
 - **Date:** 2026-10-22
 - **Intended release window:** merge after the owner's review.

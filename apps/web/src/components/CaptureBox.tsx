@@ -84,7 +84,7 @@ export function CaptureBox() {
           id="capture-text"
           rows={4}
           value={text}
-          placeholder="Site a 50 MW data center on this parcel. Or ask a quick question."
+          placeholder="Draft a scope of work for the pump replacement. Or ask a quick question."
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
@@ -99,16 +99,16 @@ export function CaptureBox() {
           className="sr-only"
           id="capture-file"
           // The visible button opens it; it is labelled for assistive technology and not a second tab stop.
-          aria-label="Attach parcel file"
+          aria-label="Attach a file"
           tabIndex={-1}
-          accept=".kml,.kmz,.geojson,.json,.pdf,.png,.jpg,.jpeg,.txt,.csv,.zip"
+          accept=".geojson,.json,.pdf,.png,.jpg,.jpeg,.txt,.csv,.zip"
           onChange={(e) => {
             void attach(e.target.files);
             e.target.value = "";
           }}
         />
         <button type="button" className="btn ghost" onClick={() => input.current?.click()}>
-          Attach parcel file
+          Attach a file
         </button>
         {files.map((f) => (
           <span key={f.name} className="chip">

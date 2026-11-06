@@ -482,7 +482,6 @@ function SignStrip({ view }: { view: PackageView }) {
   const offered = useOfferedActions(view.package);
   const loading = offered.isLoading;
   const failed = offered.isError;
-  const role = view.package.agent_assignment[0]?.role;
   const decisions = (offered.data ?? []).filter((a) => ["release", "accept", "accept-with-findings", "return", "reject"].includes(a.command));
   const allowed = decisions.filter((a) => a.allowed);
   const first = decisions.find((a) => !a.allowed);
@@ -495,7 +494,7 @@ function SignStrip({ view }: { view: PackageView }) {
           : failed
             ? "What you may sign could not be checked"
             : allowed.length > 0
-              ? `You may ${allowed.map((a) => decisionLabel(a.command as DecisionKind, role).toLowerCase()).join(", ")}`
+              ? `You may ${allowed.map((a) => decisionLabel(a.command as DecisionKind).toLowerCase()).join(", ")}`
               : (first?.reason ?? "No decision is open on this revision")}
       </span>
       <a href="#sign" className="btn primary small">

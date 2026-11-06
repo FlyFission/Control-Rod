@@ -80,15 +80,8 @@ export async function decide(
   return { decision, signed: opts.subject_digest };
 }
 
-/** Package roles whose acceptance means something more specific than "accept". */
-const ACCEPT_LABEL_BY_ROLE: Record<string, string> = { "site-parcel": "Confirm boundary" };
-
-/** The button label for a decision on this package. */
-export function decisionLabel(kind: DecisionKind, firstRole: string | undefined): string {
-  if (kind === "accept" && firstRole !== undefined) {
-    const special = ACCEPT_LABEL_BY_ROLE[firstRole];
-    if (special !== undefined) return special;
-  }
+/** The button label for a decision. */
+export function decisionLabel(kind: DecisionKind): string {
   return DECISION_LABEL[kind];
 }
 

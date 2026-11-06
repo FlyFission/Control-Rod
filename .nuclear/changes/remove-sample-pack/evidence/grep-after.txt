@@ -1,0 +1,14 @@
+# Search after the change, merged tree f5ecc39
+$ git grep -n -i -I "sample|facility|facility|example package|example-package|the stated capacity|drawing tool|cr-example|cr_example" -- . ":(exclude,glob).nuclear/changes/*/evidence/**"
+docs/adr/0018-drawing-engine-drawing tool.md:1:# ADR 0018: drawing tool as the drawing engine
+docs/adr/0018-drawing-engine-drawing tool.md:3:- Status: Superseded. Withdrawn 2026-11-06 by the owner: drawing tool and the drawings pack were removed with the example-package pack
+docs/adr/0018-drawing-engine-drawing tool.md:7:This record had proposed drawing tool, driven headless inside the sandbox, as the engine that renders every drawing sheet from a template and a record, so agents never draw borders or type title blocks. Nothing in Control Rod depends on it now; the record stays so ADR numbering is unchanged.
+
+# Evidence logs (frozen, left as they are) that mention the removed subject:
+.nuclear/changes/board-m1/evidence/final-fix/08-accept-block-red-entrypoints.log
+.nuclear/changes/board-m1/evidence/final-fix/08-accept-block-red.log
+.nuclear/changes/platform-buildout/evidence/controller-grants/remote-source-pins.txt
+.nuclear/changes/platform-buildout/evidence/final-checks/review-web-red.log
+
+# Evidence files that contain sample:
+none

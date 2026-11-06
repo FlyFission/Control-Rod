@@ -1,0 +1,16 @@
+# tree: remove-example-package at f5ecc39 (merged with origin/main 8a9679e), 2026-11-06T21:19:29Z
+$ pnpm -C apps/web exec vitest run
+
+ RUN  v5.1.0 /home/flyfission/worktrees/control-rod-sanitize/apps/web
+
+
+ Test Files  39 passed (39)
+      Tests  581 passed (581)
+   Start at  16:19:30
+   Duration  7.42s (tests 47%, environment 28%, setup 11%, transform 7%, import 7%)
+
+Environment  jsdom was created 39 times · 19.88s total, 28% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+exit 0

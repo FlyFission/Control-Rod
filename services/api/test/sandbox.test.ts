@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { command } from "../src/commands/executor.js";
 import { CLAIMS, DENIED_READ, networkFor, policyId, readRoleTools, resolveSandboxPolicy, runtimesForHosts, toolsFile } from "../src/sandbox.js";
@@ -8,8 +7,8 @@ import { type Harness, startHarness } from "./harness.js";
 
 describe("what a role asks for", () => {
   it("passes only qualified tools, and reads the network line as named hosts", () => {
-    const got = readRoleTools("# tools\nnetwork: Geo.dot.gov, hazards.fema.gov geo.dot.gov\nRead\nWebSearch\nWebFetch\nTask\nBash(cr-example:*)\n");
-    expect(got).toEqual({ tools: ["Read", "Bash(cr-example:*)"], hosts: ["geo.dot.gov", "hazards.fema.gov"], malformed: [] });
+    const got = readRoleTools("# tools\nnetwork: Docs.example.org, standards.example.org docs.example.org\nRead\nWebSearch\nWebFetch\nTask\nBash(python3:*)\n");
+    expect(got).toEqual({ tools: ["Read", "Bash(python3:*)"], hosts: ["docs.example.org", "standards.example.org"], malformed: [] });
     // Anything that is not a plain host name is refused, never widened: no scheme, port, path, wildcard or "on".
     expect(readRoleTools("network: on, https://x.gov, x.gov:443, *.gov, x.gov/path\n").malformed).toEqual(["on", "https://x.gov", "x.gov:443", "*.gov", "x.gov/path"]);
     expect(toolsFile(["Read"], ["a.gov", "b.gov"])).toBe("network: a.gov, b.gov\nRead\n");
@@ -17,26 +16,18 @@ describe("what a role asks for", () => {
   });
 
   it("allows named hosts only for public or internal work of general-service grade", () => {
-    const asked = { hosts: ["geo.dot.gov"], malformed: [] };
-    expect(networkFor(asked, "internal", undefined)).toEqual({ hosts: ["geo.dot.gov"] });
-    expect(networkFor(asked, "public", "general-service")).toEqual({ hosts: ["geo.dot.gov"] });
+    const asked = { hosts: ["docs.example.org"], malformed: [] };
+    expect(networkFor(asked, "internal", undefined)).toEqual({ hosts: ["docs.example.org"] });
+    expect(networkFor(asked, "public", "general-service")).toEqual({ hosts: ["docs.example.org"] });
     for (const [lane, grade] of [["proprietary", undefined], ["client-confidential", undefined], ["restricted", undefined], ["internal", "safety"], ["public", "material"]] as const)
       expect(networkFor(asked, lane, grade).refused).toMatch(/allows only for public or internal work of general-service grade/);
     expect(networkFor({ hosts: [], malformed: ["on"] }, "internal", undefined).refused).toMatch(/not plain host names \(on\)/);
     expect(networkFor({ hosts: [], malformed: [] }, "restricted", "safety")).toEqual({ hosts: [] });
     // Codex can switch network on or off, not limit it to hosts.
-    expect(runtimesForHosts(["claude", "codex", "fake"], ["geo.dot.gov"])).toEqual(["claude", "fake"]);
+    expect(runtimesForHosts(["claude", "codex", "fake"], ["docs.example.org"])).toEqual(["claude", "fake"]);
     expect(runtimesForHosts(["claude", "codex"], [])).toEqual(["claude", "codex"]);
   });
 
-  it("names exactly the hosts cr-example queries in the site roles' tools files", () => {
-    const pack = new URL("../../../packs/capital-projects/example-package/", import.meta.url);
-    const sources = readFileSync(new URL("src/cr_example/sources.py", pack), "utf8");
-    const hosts = [...new Set([...sources.matchAll(/"url": "https:\/\/([^/"]+)/g)].map((m) => m[1]!))].sort();
-    expect(hosts.length).toBeGreaterThan(0);
-    for (const role of ["site-parcel", "site-constraints"])
-      expect(readRoleTools(readFileSync(new URL(`roles/${role}.tools.md`, pack), "utf8")).hosts).toEqual(hosts);
-  });
 });
 
 describe("recording a policy", () => {
@@ -52,7 +43,7 @@ describe("recording a policy", () => {
     expect(a.body).toMatchObject({ driver: "native-cli", denied_read: [...DENIED_READ], allowed_hosts: [], writable_roots: ["workspace"],
       mandatory_claims: [CLAIMS.homeConfined, CLAIMS.noNetwork, CLAIMS.writesConfined] });
     expect(await resolve([])).toEqual(a);
-    const net = await resolve(["geo.dot.gov"]);
+    const net = await resolve(["docs.example.org"]);
     expect(net.ref.id).toMatch(/^sbp_net-/);
     expect(net.ref.id).not.toBe(a.ref.id);
     expect(net.body.mandatory_claims).toContain(CLAIMS.hostsOnly);

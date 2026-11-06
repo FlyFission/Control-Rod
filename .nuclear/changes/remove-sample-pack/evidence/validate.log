@@ -1,0 +1,22 @@
+# 2026-11-06T21:21:52Z ng.py validate --strict-custody, records touched by this change
+$ python3 -I ng.py validate --strict-custody .nuclear/changes/remove-example-package/
+OK: .nuclear/changes/remove-example-package
+exit 0
+$ python3 -I ng.py validate --strict-custody .nuclear/changes/own-workbench-clean-room/
+OK: .nuclear/changes/own-workbench-clean-room
+exit 0
+
+# every record, as CI runs it
+0 .nuclear/changes/board-m1/
+0 .nuclear/changes/board-redesign/
+0 .nuclear/changes/guided-preparation/
+0 .nuclear/changes/overlay-themes/
+0 .nuclear/changes/own-workbench-clean-room/
+0 .nuclear/changes/phase-0-scaffold/
+0 .nuclear/changes/platform-buildout/
+0 .nuclear/changes/reading-comfort/
+0 .nuclear/changes/remove-example-package/
+0 .nuclear/changes/review-panel/
+0 .nuclear/changes/run-liveness/
+0 .nuclear/changes/signin-stale-session/
+0 .nuclear/changes/workbench-ontology/

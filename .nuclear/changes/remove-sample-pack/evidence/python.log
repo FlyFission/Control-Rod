@@ -1,0 +1,18 @@
+# tree: remove-example-package at f5ecc39 (merged with origin/main 8a9679e), 2026-11-06T21:21:07Z
+$ uv sync --locked
+Resolved 8 packages in 1ms
+Checked 7 packages in 0.16ms
+exit 0
+$ uv run ruff check .
+All checks passed!
+exit 0
+$ uv run ruff format --check .
+4 files already formatted
+exit 0
+$ uv run pytest -q
+.................................                                        [100%]
+33 passed in 0.02s
+exit 0
+$ uv run --with pyyaml python tools/check_redteam.py
+25 red-team cases (2 active, 23 pending)
+exit 0

@@ -12,9 +12,9 @@ The toolchain is pinned in [`mise.toml`](../mise.toml). The easiest route is [mi
 | pnpm | 10.28.0 | workspace and scripts |
 | Rust | 1.97.0 | kernel (and its WASM binding) |
 | Go | 1.24.7 | run daemon |
-| Python and uv | 3.13, uv 0.11.32 | Python SDK, tools, example-package pack |
+| Python and uv | 3.13, uv 0.11.32 | Python SDK and tools |
 
-Optional, for real agent runs: [Claude Code](https://claude.com/claude-code) signed in (agents run on your own subscription) and Codex (so pre-checks have an independent runtime). Without Codex, a pre-check waits until you sign a written override with your passkey; `pnpm cr doctor` explains this. For drawings you need drawing tool: `pnpm cr setup-drawing tool` builds the pinned version and needs Rust.
+Optional, for real agent runs: [Claude Code](https://claude.com/claude-code) signed in (agents run on your own subscription) and Codex (so pre-checks have an independent runtime). Without Codex, a pre-check waits until you sign a written override with your passkey; `pnpm cr doctor` explains this.
 
 The embedded database refuses to run as root, so use an ordinary user account.
 

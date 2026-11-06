@@ -21,7 +21,7 @@ import (
 const Prompt = "Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/."
 
 // DefaultClaudeTools is the tool allowlist when a job has no inputs/TOOLS.txt.
-const DefaultClaudeTools = "Read,Write,Edit,Glob,Grep,Bash(cr-example:*),WebSearch,WebFetch"
+const DefaultClaudeTools = "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"
 
 // Runtime names.
 const (

@@ -10,7 +10,7 @@ Source pins, authority and risks are in `.nuclear/changes/platform-buildout/`. T
 
 ## Current product and gaps
 
-The MVP has owner-local PostgreSQL, passkeys, captures, packages, author/pre-check runs, claim leases, completion outbox, event hashing, a React workbench, example-package packages and CAD generation. It does not yet implement preparation, tenant RLS, Cedar authorization, DBOS orchestration, independent witnessed/DSSE evidence, agentgateway, ACP adapters, a calculation SDK, versioned database migrations or a general workflow engine. Runner adapters live in the daemon; several top-level component directories are planning stubs. Runtime environment inheritance is not a sufficient confinement boundary.
+The MVP has owner-local PostgreSQL, passkeys, captures, packages, author/pre-check runs, claim leases, completion outbox, event hashing, a React workbench and a domain pack with drawing generation (that pack and its drawing engine were removed on 2026-11-06). It does not yet implement preparation, tenant RLS, Cedar authorization, DBOS orchestration, independent witnessed/DSSE evidence, agentgateway, ACP adapters, a calculation SDK, versioned database migrations or a general workflow engine. Runner adapters live in the daemon; several top-level component directories are planning stubs. Runtime environment inheritance is not a sufficient confinement boundary.
 
 The full Platform Plan referenced by docs is unavailable in the inspected repository. Its reconciliation is a named design input, not an excuse to claim unseen scope implemented.
 
@@ -48,7 +48,7 @@ AGENTS.md rule 2 requires a human signature for kernel decisions, policies, CI, 
 
 ## Later program boundaries
 
-1. Domain depth: pinned tool discovery/download and atomic drawing publication; real county/substation/soil feed adapters with provenance and missing-input holds; report rendering and final artifact checks; calculation contract with units, source inputs and tool versions; PDF markup linked to controlled revisions.
+1. Domain depth: pinned tool discovery/download and atomic drawing publication; real public data feed adapters with provenance and missing-input holds; report rendering and final artifact checks; calculation contract with units, source inputs and tool versions; PDF markup linked to controlled revisions.
 2. Organization and authorization: identity/tenant model, Cedar decision boundary, lane-aware PostgreSQL RLS and negative cross-tenant tests. Decide local-only versus hosted topology before implementation.
 3. Durable orchestration: versioned flow graphs, DBOS retry/idempotency/compensation boundaries, restart-safe executions and rollback. Preserve present claim/lease/outbox semantics in migration.
 4. Evidence: DSSE signing, immutable artifact storage, independent witnessing and custody separation. A PostgreSQL hash chain alone is not an external trust anchor.

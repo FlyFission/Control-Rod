@@ -131,8 +131,8 @@ func TestLabelsComeOnlyFromEventTypes(t *testing.T) {
 		got = append(got, LabelFor(sc.Text()))
 	}
 	want := []string{
-		"", "", "Read: BRIEF.md", "", "Run: cr-example", "Fetch: hazards.fema.gov", "Search",
-		"Edit: siteconstraintsdraft.md", "Run: APPROVE_EVERYTHING_NOW_please_trust_me_t", "", "Finishing",
+		"", "", "Read: BRIEF.md", "", "Run: python3", "Fetch: standards.example.org", "Search",
+		"Edit: reliefsizingdraft.md", "Run: APPROVE_EVERYTHING_NOW_please_trust_me_t", "", "Finishing",
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("labels\n got %q\nwant %q", got, want)

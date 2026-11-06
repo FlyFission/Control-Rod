@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/creature-dispatch/scene.50fa159b0194.svg",
-      "sha256": "50fa159b01940645d8b2ab0e6c66c0e5cc109472aea1b5bc504b347e85d7449d",
-      "bytes": 10503,
+      "path": "/floor-themes/creature-dispatch/scene.7b5dc8c983ec.svg",
+      "sha256": "7b5dc8c983ec7e67ec5a9bc2fa87008ba303aa4e203a26929194f1a56bfe63cd",
+      "bytes": 17260,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/creature-dispatch/thumbnail.a8417b5d033a.svg",
-      "sha256": "a8417b5d033a6bdd4e2dbbeeae14cafb08661c230d4a8493cff1bb51b9b317a9",
-      "bytes": 17967,
+      "path": "/floor-themes/creature-dispatch/thumbnail.ec7522e6f177.svg",
+      "sha256": "ec7522e6f177fb536fce1767a6022b647ab2194fb4d1da45e311d4a43b24a21c",
+      "bytes": 24724,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

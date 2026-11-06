@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/meadow-post/scene.44562eac409a.svg",
-      "sha256": "44562eac409a5d25abb4437be7bdda390d9f1ffcc0a127c3bef2023cb3368e7f",
-      "bytes": 11023,
+      "path": "/floor-themes/meadow-post/scene.8be08c5201fa.svg",
+      "sha256": "8be08c5201fa0876e3470a011fcddb92d0e9d4154f82891547bd2815726d69d0",
+      "bytes": 9865,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/meadow-post/thumbnail.ce1096ac6f3a.svg",
-      "sha256": "ce1096ac6f3a2aeb1d7873eed04877d46d24b8fe3488efa7e06d3f2edf1e4dcc",
-      "bytes": 18262,
+      "path": "/floor-themes/meadow-post/thumbnail.2e1ae8bdc12f.svg",
+      "sha256": "2e1ae8bdc12f91c6c50f94fd64ad79a6486c27a6d610cca826ae29a7f5a3d130",
+      "bytes": 17104,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

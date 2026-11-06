@@ -1,0 +1,1 @@
+I'll start by reading the review brief and the theme materials it points at, then score each overlay against the 10/10 rubric.The brief is a read-only audit against a 10/10 bar. I'll load the spec, originality rules, generators, and all 15 theme packs before scoring anything.

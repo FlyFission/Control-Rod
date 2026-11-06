@@ -6,9 +6,9 @@
   "assets": [
     {
       "key": "scene",
-      "path": "scene.dbabd89a3f3e.svg",
-      "sha256": "dbabd89a3f3e9d0647496e00ce47ba8dd7f1a0a3ada1ed551793787775ac4c7a",
-      "bytes": 10689,
+      "path": "scene.bbdee5d682d6.svg",
+      "sha256": "bbdee5d682d68b36802e0c4047198fda77731e2d36168ac1a4bf9a90041449b8",
+      "bytes": 12940,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -17,9 +17,9 @@
     },
     {
       "key": "thumbnail",
-      "path": "thumbnail.365f97b8d467.svg",
-      "sha256": "365f97b8d467bd2b7719a6d97caa38ca30ca00a2e20cf6228f4723bb54969146",
-      "bytes": 18149,
+      "path": "thumbnail.01d0dd75fca5.svg",
+      "sha256": "01d0dd75fca500b91ba6877f2f41ce3c65ba3b98c3fc0529252cb98410c4fb8e",
+      "bytes": 20400,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/corner-cafe/scene.5ef38dcdfe42.svg",
-      "sha256": "5ef38dcdfe422711c2a83b401fe79be6027a084415220cb0fa8968a04ba67bb0",
-      "bytes": 28997,
+      "path": "/floor-themes/corner-cafe/scene.f6f2982ed896.svg",
+      "sha256": "f6f2982ed896f6a35522f1c73a58e9acf16bb2e651d0ddfe5e710d0f19603ea7",
+      "bytes": 11239,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/corner-cafe/thumbnail.91b364850523.svg",
-      "sha256": "91b364850523b01d088001de31c08640c726cf8f26ce0255c902957e13d55a4b",
-      "bytes": 35312,
+      "path": "/floor-themes/corner-cafe/thumbnail.e77caf59f6b6.svg",
+      "sha256": "e77caf59f6b6d0283a5423b9203d5275d92a621b240c837f6416ad75c090ba9e",
+      "bytes": 17554,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

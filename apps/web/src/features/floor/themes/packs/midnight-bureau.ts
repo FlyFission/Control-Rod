@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/midnight-bureau/scene.d3bcb1782db1.svg",
-      "sha256": "d3bcb1782db134802a90ce8a2179d0cdd8c7456dcbffeb7764cd2cb42836f611",
-      "bytes": 30839,
+      "path": "/floor-themes/midnight-bureau/scene.06ef1ba988cf.svg",
+      "sha256": "06ef1ba988cfcdd39b175541be966bf9626e4abe10208db4fd7333c8dfa6816e",
+      "bytes": 13516,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/midnight-bureau/thumbnail.0904cf601d03.svg",
-      "sha256": "0904cf601d031f267d7ff94baca992f659e3c38b8a71782b616819bcde2754f1",
-      "bytes": 37155,
+      "path": "/floor-themes/midnight-bureau/thumbnail.0d570e5817a0.svg",
+      "sha256": "0d570e5817a041b8a1fa70b026d8e1d14296137773e947f23ff9926d1a5a4dfa",
+      "bytes": 19832,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

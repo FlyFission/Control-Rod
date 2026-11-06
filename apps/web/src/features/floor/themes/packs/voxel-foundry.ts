@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/voxel-foundry/scene.fb22a8a2ab3f.svg",
-      "sha256": "fb22a8a2ab3ffc9acd835f66240a9f4e6ef9c4ef7fd0ea03ae811c6d4dffd1da",
-      "bytes": 10551,
+      "path": "/floor-themes/voxel-foundry/scene.22152302ae00.svg",
+      "sha256": "22152302ae001cc641b4ad5448c5dc5f31d71903e2d74168c7905871befaba18",
+      "bytes": 16600,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/voxel-foundry/thumbnail.c6db61d82da5.svg",
-      "sha256": "c6db61d82da5c5a204342e8ea55c147d8e2cd7d03b8e054a892d2564c75de9f8",
-      "bytes": 17546,
+      "path": "/floor-themes/voxel-foundry/thumbnail.0d238d116548.svg",
+      "sha256": "0d238d116548cc33025804f2832ce5ed1ca33131dd3e1cf1d7520c21feb1382d",
+      "bytes": 23595,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

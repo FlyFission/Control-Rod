@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/confectionery-works/scene.9b7b9b395014.svg",
-      "sha256": "9b7b9b395014747ebe50c02b1fdbf39b21166f5d2a59a8c7d968fee69610c0ff",
-      "bytes": 10593,
+      "path": "/floor-themes/confectionery-works/scene.7cf74496233c.svg",
+      "sha256": "7cf74496233c5d55f11945e925b4d7e739f28c335740a93840c6ba46bfaf0a9a",
+      "bytes": 12661,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/confectionery-works/thumbnail.4ed97baae3f3.svg",
-      "sha256": "4ed97baae3f320143715414f6cfc6e79beb516c4934a80f8a9e8dfa0ad6e9d03",
-      "bytes": 18727,
+      "path": "/floor-themes/confectionery-works/thumbnail.d1cb670c1c7b.svg",
+      "sha256": "d1cb670c1c7b476cb0bf1802ebb40ee042c9c0335a470c08551952cfdafa38d2",
+      "bytes": 20277,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/confectionery-works/character-0.96326aa4a341.svg",
-        "sha256": "96326aa4a34176f79edcd4d75a4d8b8870eb8cbd0a6d643b1cb49ae14085c23b",
-        "bytes": 1307,
+        "path": "/floor-themes/confectionery-works/character-0.ae802949953f.svg",
+        "sha256": "ae802949953f6328714e1904727848cfa0ca1af6df61024606f4e75245e47fc9",
+        "bytes": 1247,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/confectionery-works/character-1.00f27ddc23c5.svg",
-        "sha256": "00f27ddc23c5cd3f452a0da6bf3be6a01e7b5b02b706243056ce03a1fb504ba7",
-        "bytes": 1292,
+        "path": "/floor-themes/confectionery-works/character-1.c6eb41590861.svg",
+        "sha256": "c6eb41590861dfdb394db896c233fca3caba17050a37ee37fe68467dd36102be",
+        "bytes": 1215,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/confectionery-works/character-2.91671acfe1db.svg",
-        "sha256": "91671acfe1db16d9314ba0de4200b9134c0455b6ce3c8dc71249be27c6ad17d7",
-        "bytes": 1295,
+        "path": "/floor-themes/confectionery-works/character-2.99fafcff3c4e.svg",
+        "sha256": "99fafcff3c4e35ebdf838544e77395160dbdd2cd4036d1725de0dc5db631ec2d",
+        "bytes": 1223,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/confectionery-works/character-3.966c88453a47.svg",
-        "sha256": "966c88453a47cee57d56bcb3bc4467b5e9997d44d3fc13a4cf7cc0cc2d664533",
-        "bytes": 1392,
+        "path": "/floor-themes/confectionery-works/character-3.d0a2d436f72f.svg",
+        "sha256": "d0a2d436f72fa66d47c06e36ecf0c06a016cd073dfbb2f78a06a7ff26c2b052d",
+        "bytes": 1286,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/confectionery-works/character-4.eb731c1bef4d.svg",
-        "sha256": "eb731c1bef4d86c02ec3c4d1165b4fe9864430487ff19e226d91e394397cb3d3",
-        "bytes": 1394,
+        "path": "/floor-themes/confectionery-works/character-4.1233ae72c646.svg",
+        "sha256": "1233ae72c646e76c2c2249068dc675558b9e9879a64071e56c60a631cc58ecaf",
+        "bytes": 1317,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/confectionery-works/character-5.9ff43f63d94c.svg",
-        "sha256": "9ff43f63d94c59e806a2463a947f0daedae14d4cb15d13fbec67f9e048e3b6b6",
-        "bytes": 1350,
+        "path": "/floor-themes/confectionery-works/character-5.d5a16cc0d074.svg",
+        "sha256": "d5a16cc0d074372f772a1594409e4cf7bbdca853b094ad6fb5bce43bf425cd79",
+        "bytes": 1224,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

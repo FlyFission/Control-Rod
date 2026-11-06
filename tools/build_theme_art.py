@@ -13,6 +13,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import theme_art_casts  # noqa: E402
+import theme_art_backdrops  # noqa: E402
 from theme_art_props import prop_shape  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -220,23 +221,8 @@ def scene(world,entry):
        f'</defs>'
        f'<rect width="1000" height="600" fill="url(#sky)"/>'
        f'<rect width="1000" height="600" fill="url(#ambient)"/>')
-    # Quiet material detail around the functional clear zones.
-    if world in (7,12):
-        for _ in range(95):
-            x,y=rng.randrange(1000),rng.randrange(600);s+=f'<circle cx="{x}" cy="{y}" r="{rng.choice([1,1,2])}" fill="{d}" opacity=".5"/>'
-        s+=f'<circle cx="840" cy="300" r="90" fill="{mix(b,.7)}" opacity=".5"/><path d="M708 313q155-63 258-12" fill="none" stroke="{c}" stroke-width="7" opacity=".5"/>'
-    elif world in (4,8,14):
-        for x in range(0,1050,65):s+=leaf(x,22,50,mix(a,.55),rng.randrange(-45,45))
-        for x in (8,325,668,989):s+=f'<path d="M{x} 0q-25 150 0 280t0 320" fill="none" stroke="{mix(b,.5)}" stroke-width="15"/>'
-    elif world==13:
-        for x in range(0,1001,29):
-            s+=f'<path d="M{x} 600q-35-37 0-85 37-39 4-78" fill="none" stroke="{mix(a,.8)}" stroke-width="7" opacity=".5"/>'
-        for _ in range(35):s+=f'<circle cx="{rng.randrange(1000)}" cy="{rng.randrange(600)}" r="{rng.randrange(2,7)}" fill="none" stroke="{d}" opacity=".15"/>'
-    elif world==6:
-        for x in range(0,1000,23):s+=f'<path d="M{x} 0l-7 600" stroke="{d}" stroke-width="1" opacity=".035"/>'
-    elif world in (2,5):
-        for y in range(0,600,30):
-            for x in range(-30,1000,85):s+=f'<path d="M{x+(y%60)} {y}h80v26h-80z" fill="none" stroke="{c}" opacity=".08"/>'
+    # World-specific architectural backdrop
+    s+=theme_art_backdrops.backdrop(world,a,b,c,d,dark,light,accent,rng)
     # Central shared promenade, with a world-specific routing language.
     s+=f'<path d="M0 286h1000v30H0z" fill="{mix(b,.28)}"/><path d="M20 300h960" stroke="{accent}" stroke-width="2" stroke-dasharray="4 12" opacity=".45"/>'
     if world in (0,1,3,7):
@@ -245,7 +231,7 @@ def scene(world,entry):
     if world in (10,13):s+=f'<path d="M0 298q125-25 250 0t250 0 250 0 250 0" fill="none" stroke="{mix(d,.7)}" stroke-width="10" opacity=".3"/>'
     for index,(key,r) in enumerate(STATIONS.items()):
         x,y,w,h=r['x'],r['y'],r['w'],r['h'];rounding=26 if world in (4,8,10,13,14) else 9 if world in (2,7,9,12) else 17
-        s+=f'<rect x="{x+3}" y="{y+7}" width="{w}" height="{h}" rx="{rounding}" fill="#071422" opacity=".35"/><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rounding}" fill="{mix(a,.32)}" stroke="{mix(d,.45)}" stroke-width="1.5"/>'
+        s+=f'<rect x="{x+3}" y="{y+7}" width="{w}" height="{h}" rx="{rounding}" fill="#071422" opacity=".35"/><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rounding}" fill="{mix(a,.16)}" fill-opacity=".4" stroke="{mix(d,.45)}" stroke-width="1.5"/>'
         # Quiet station header plate beneath title
         s+=f'<rect x="{x+1}" y="{y+1}" width="{w-2}" height="32" rx="{rounding-1}" fill="{mix(a,.22)}" opacity=".75"/><rect x="{x+1}" y="{y+18}" width="{w-2}" height="14" fill="{mix(a,.22)}" opacity=".75"/><line x1="{x+12}" y1="{y+32}" x2="{x+w-12}" y2="{y+32}" stroke="{mix(d,.35)}" stroke-width="1"/>'
         s+=f'<path d="M{x+14} {y+h-30}h{w-28}l-8 15H{x+22}z" fill="url(#desk)"/><path d="M{x+22} {y+h-15}v7h{w-44}v-7" fill="{mix(b,.35)}"/>'

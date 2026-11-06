@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/wildlight-camp/scene.e17ef31b52d0.svg",
-      "sha256": "e17ef31b52d06e9b9cc94173243a66899454ad8ae62ba0061305c02232fda387",
-      "bytes": 10780,
+      "path": "/floor-themes/wildlight-camp/scene.7c5880655811.svg",
+      "sha256": "7c588065581150ae306e8b7b76c1c014263307ad62fda70b032b51e7de66fbe2",
+      "bytes": 9730,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/wildlight-camp/thumbnail.9930e6f1f034.svg",
-      "sha256": "9930e6f1f03412bfbde72e990dc848a2c05f54eb258c3572fac6742268563f8d",
-      "bytes": 17972,
+      "path": "/floor-themes/wildlight-camp/thumbnail.f8926585544a.svg",
+      "sha256": "f8926585544a5163579f3f9dc866af3ec0d66637e6d2addeb1a17decfad46c44",
+      "bytes": 16922,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

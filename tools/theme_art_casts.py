@@ -11,6 +11,11 @@ World index follows the catalog order in apps/web/src/features/floor/themes/cata
 
 from __future__ import annotations
 
+
+def mix(hexcolor: str, ratio: float, base=(15, 25, 35)) -> str:
+    rgb = tuple(int(hexcolor[i:i+2], 16) for i in (1, 3, 5))
+    return '#' + ''.join(f'{round(c * ratio + b * (1 - ratio)):02x}' for c, b in zip(rgb, base))
+
 CREATURE, POCKET_LAB, BUREAU = 0, 1, 2
 CONFECTIONERY, LANTERNWOOD, CAFE, TUMBLETOWN, ORBITAL = 3, 4, 5, 6, 7
 WILDLIGHT, VOXEL, CLOUDSPRING = 8, 9, 10
@@ -216,12 +221,16 @@ def extras(world, v, palette):
     """Replacement accessory markup for worlds whose shared robot antenna no longer fits, or None."""
     a, b, c, d = palette
     if world == CONFECTIONERY:
-        seat = [10, 2, 14, 4, 8, 0][v]
-        return (
-            f'<g transform="translate(0 {seat})"><path d="M42 31q-10-13 4-17 3-13 17-5 16-8 18 7 12 5 3 16z" fill="#fbf6ec"/>'
-            f'<path d="M44 32h39" stroke="{c}" stroke-width="4"/></g>'
-            f'<path d="M56 84l8 9 8-9z" fill="{c}"/>'
-        )
+        # Distinct individual attire per confectioner - avoids matching uniform trap
+        attires = [
+            f'<rect x="48" y="16" width="32" height="30" fill="{mix(b, .3)}" stroke="{c}" stroke-width="2"/><path d="M40 46h48" stroke="{c}" stroke-width="3"/>',
+            f'<path d="M44 32q-8-14 6-18 8-10 18-4 12-8 18 6 10 4 2 16z" fill="#fbf6ec"/><path d="M44 32h39" stroke="{c}" stroke-width="2"/>',
+            f'<circle cx="70" cy="42" r="7" fill="none" stroke="{c}" stroke-width="2.5"/><path d="M77 42v18" stroke="{c}" stroke-width="1.5"/>',
+            f'<path d="M42 76h44l-4 28H46z" fill="{d}"/><path d="M42 76h44" stroke="{c}" stroke-width="2"/>',
+            f'<rect x="34" y="66" width="8" height="12" rx="2" fill="{c}"/><rect x="86" y="66" width="8" height="12" rx="2" fill="{c}"/>',
+            f'<path d="M52 64l12 18 12-18" fill="{c}" stroke="{d}" stroke-width="1.5"/>',
+        ]
+        return attires[v]
     if world in (CREATURE, POCKET_LAB, BUREAU, LANTERNWOOD, CAFE, TUMBLETOWN, WILDLIGHT, VOXEL, CLOUDSPRING, BUTTON, CORAL, MEADOW):
         return ''
     if world == ORBITAL:

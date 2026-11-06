@@ -28,7 +28,7 @@ The deciding logic is a small Rust program (the *kernel*) that agents never touc
 
 ## How it feels
 
-1. **Say what you want.** "Fix the login redirect." "Site a 50 MW data center on this parcel," with a file attached.
+1. **Say what you want.** "Fix the login redirect." "Draft a scope of work from these field notes," with a file attached.
 2. **It becomes a task with a definition of done.** An intake agent either answers you or drafts one or more work packages, each with clear acceptance criteria. You read them, edit them, and release them with your passkey.
 3. **Agents do the work.** You can watch from the board or the office view. Each run starts inside the sandbox policy recorded for it, and is stopped with one click if it goes sideways.
 4. **A different agent checks it.** It doesn't get the author's chain of thought, only the result and the evidence.

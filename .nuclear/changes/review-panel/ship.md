@@ -3,11 +3,11 @@
 Release decision: **design spec for owner review; no implementation authorized by this record.**
 
 - **Proposed:** merge the spec and this packet as documentation only, so a second developer can start from it.
-- **Not claimed:** any implemented behavior; any compliance, certification or safety claim; that a panel report is proof, approval or person verification; that the spec has had an independent review (E-03 is open); that Grok, Antigravity or Gemini are qualified for seats.
+- **Not claimed:** any implemented behavior; any compliance, certification or safety claim; that a panel report is proof, approval or person verification; that the spec has had an independent review (E-03 is one Codex review coupled through the author's brief, not independent assurance); that Grok, Antigravity or Gemini are qualified for seats.
 - **Owner decisions requested:**
   1. Approve the spec, or return it with changes.
   2. Decide the three open items in spec section 10: default seats and quorum when none are named (proposal: two seats on two vendors, quorum two); whether review subjects from outside repositories may use the public lane or default to internal; whether Gemini is worth qualifying while Antigravity covers the same vendor.
-  3. Say whether to run an independent model review of the spec before approval (E-03).
+  3. Say whether to run a further, independently briefed review of the spec before approval (E-03 is one coupled Codex review).
 
 Rollback: revert the commit. Documentation only; no code, schema or wire change.
 

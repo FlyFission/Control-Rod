@@ -1,12 +1,12 @@
 # Verification: review panel design spec
 
-Evidence status: **pass** for the research file and the recorded owner decisions (E-01, E-02), both self-checks. **Open** for independent review of the spec (E-03). No model review of this spec has run yet; the spec has been read only by its authoring agent. Nothing here verifies an implementation; none exists.
+Evidence status: **pass** for the research file and the recorded owner decisions (E-01, E-02), both self-checks. **Partial** for review of the spec (E-03): one Codex model review ran on PR #66 and its six findings were verified against the code and ADRs and addressed. It is one model reviewer, coupled to the author through the brief the author wrote, so it is not independent assurance. Nothing here verifies an implementation; none exists.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | The research file supports the mechanism the spec adopts (sections D1 to D12). It was read through the `gh` API and web search with no code run from any clone; some items are the authoring agent's design proposals, not tool facts. | `evidence/08-cross-model-review.md` |
 | E-02 | pass | Owner decisions P1 and P2 were recorded 2026-11-06 in conversation with the owner. The record is the authoring agent's note of that conversation, not a signed artifact. | `basis.md` (Owner decisions) |
-| E-03 | open | Independent review of the spec, by a different model or a person. Not executed. No model review of this spec has run yet. | Not executed |
+| E-03 | partial | One Codex review of the spec (verdict REVISE, six findings: Codex `-s read-only`, qualification scope, secrets, location types, quorum, pre-check path). Each was checked against `docs/adr/0021-native-cli-sandboxes.md`, `daemon/internal/runner`, `services/api/src/work.ts` and the phase 6 evidence, and fixed in the spec. One reviewer, one model, coupled through the author's brief; no person review. | `evidence/09-codex-review-pr66.md` |
 
 ## Evidence custody and coupling
 
@@ -14,15 +14,15 @@ Evidence status: **pass** for the research file and the recorded owner decisions
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | E-01 | G-1, G-2, G-3, G-4 | no | evidence/08-cross-model-review.md | Authoring agent | Research agent and web sources | Authoring agent | Authoring agent | Authoring agent | Packet and export | Authoring agent | Self-check |
 | E-02 | G-1 | no | basis.md (decisions P1, P2) | Authoring agent | Owner in conversation | Authoring agent | Authoring agent | Authoring agent | Packet and export | Authoring agent | Self-check |
-| E-03 | G-3, A-1, A-2 | yes | Independent review | Authoring agent | Not executed | Authoring agent | Not executed | Not executed | Packet and export | Authoring agent | Not supplied |
+| E-03 | G-2, G-3, G-4, G-6, A-3 | yes | evidence/09-codex-review-pr66.md | Authoring agent | Codex (one model reviewer) | Authoring agent | Authoring agent | Codex run dispatched by the authoring agent | Packet and export | Authoring agent | Not supplied |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: authoring agent | coupled: authoring session | partially separated: web sources and repository facts | separated: owner retains approval | coupled: local machine | self-check | Some items are design proposals, not tool facts  [Ship limits](ship.md) |
 | E-02 | coupled: authoring agent | coupled: authoring session | coupled: note of a conversation | separated: owner retains approval | coupled: local machine | self-check | Not a signed record  [Ship limits](ship.md) |
-| E-03 | coupled: authoring agent | coupled: authoring session | partially separated: not executed | separated: owner retains approval | coupled: local machine | self-check | Hold design-soundness claims until an independent review is run  [Ship limits](ship.md) |
+| E-03 | partially separated: a different model reviewed, dispatched by the authoring agent | coupled: the reviewer read the brief the author wrote | partially separated: different vendor model, same machine | separated: owner retains approval | coupled: local machine | self-check | One model review, coupled through the author brief, not independent assurance. Hold design-soundness claims until a person or an independently briefed review is run  [Ship limits](ship.md) |
 
-No independent review of any kind, model or human, has been done on this spec.
+No person review and no independently briefed review has been done on this spec; the one Codex review is coupled through the author's brief.
 
 ## Required links
 

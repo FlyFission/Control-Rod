@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-06
 - **Owner:** Ben Huffer
-- **Status:** Draft for owner review
+- **Status:** Draft for owner review (revised 2026-11-06 after one Codex review, see the change record)
 - **Change record:** `.nuclear/changes/review-panel/`
 - **Research:** `.nuclear/changes/review-panel/evidence/08-cross-model-review.md` (sections D1 to D12 hold the detailed mechanism this spec adopts)
 
@@ -52,12 +52,23 @@ Control Rod should do this as a first-class feature: point a **review panel** at
 
 A **ReviewRequest** names a target, the seats, a quorum, an optional pre-check seat, a time budget per seat, and the data lane. Target kinds, in build order (P1):
 
-1. **folder**: tracked files of a local repository folder (untracked files only when listed, so a stray `.env` is never sent).
+1. **folder**: tracked files of a local repository folder (untracked files only when listed). Selection alone is not a secret control; every target passes the content policy in 6.1a.
 2. **branch**: `head` versus `base` of a local repository, as a detached snapshot plus `changes.diff`.
 3. **pr**: resolved with `gh pr view --json baseRefOid,headRefOid` and fetched by commit, never by branch name, then treated as a branch target.
 4. **card_revision**: a Control Rod package revision's retained outputs.
 
 The terminal entry point is `controlrod review <path | branch | pr-number> [--base main] --seats codex,claude,grok,agy [--lane internal] [--pre-check codex]`. It builds the snapshot on the owner's machine, computes its digest, uploads it as a review subject, and prints the report link. The board entry point is a Request review action on a card (later slice).
+
+### 6.1a Content policy (before any provider sees anything)
+
+Tracking is not safety: a `.env` or a key can be committed, and a reviewer reads the snapshot itself, not only the brief. So the content policy runs on the snapshot and on `changes.diff` on the owner's machine, before the upload and before any seat starts, for tracked and untracked files alike:
+
+1. **Denylist exclusion.** Files whose names match a secret denylist are removed from the snapshot and from the diff: `.env*`, `*.pem`, `*.key`, `*.p12`, `*.pfx`, `id_*` private keys (for example `id_rsa`, `id_ed25519`), `credentials*`, `.netrc`, `.git-credentials`, `*.kdbx`, and the credential stores ADR 0021 already denies. The list is data in the repository, not code, and a change to it goes through the same owner gate as profiles. An excluded file in a diff is replaced by a stub line that names the path and says it was withheld, so a reviewer cannot be misled into thinking it was empty. Excluded paths are listed to the person.
+2. **Scanner pass.** A secret scanner runs over all remaining text in the snapshot and the diff (private key blocks, provider tokens, high entropy assignments). Findings are not auto-redacted into something that looks real; they are listed with path and line, and the matching file is excluded unless the person marks the finding as a false positive.
+3. **Person confirms.** The terminal and the board show the person the exact list before anything is sent: files excluded and why, scanner findings, the seats and providers that will receive the content, and the lane. Nothing is uploaded or started until the person confirms. A non-interactive run refuses unless `--confirm-content <digest>` names the digest of the reviewed list.
+4. **Record.** The excluded paths, the scanner version, the findings and the confirmation are stored with the review subject. The snapshot digest is computed after the policy, so it describes exactly what the seats saw.
+
+The brief is built only from the post-policy snapshot.
 
 A **review subject** is a new record: target kind and reference, snapshot digest, lane, and who requested it. It is not a work package; it has no rung, release or acceptance. Its runs use a new run role **`review`**. Before any seat starts, the lane must be classified and must admit each seat's runtime and provider; a seat whose runtime the lane does not admit is refused with the reason.
 
@@ -65,29 +76,42 @@ A **review subject** is a new record: target kind and reference, snapshot digest
 
 Each seat is a one-shot print-mode run (ADR 0020) launched by the daemon in the OS sandbox (ADR 0021) with a fresh workspace holding a read-only copy of the snapshot, a private home, no secrets in its environment, and no network beyond its model endpoint.
 
-How each CLI is invoked lives in a **reviewer profile** table with exactly one row per supported runtime (a test fails if a runtime lacks a row): invocation and flags, how the brief is passed (stdin or file, never argv), how the answer is read, timeout, known quirks, the last CLI version verified. Initial rows come from research D3: Codex (`exec --ephemeral -s read-only`), Claude Code (restricted read tools), Grok (no `--add-dir`, read-only command allowlist), Antigravity (snapshot or empty working directory, file tools only, empty output is a failure). Changing a profile changes what an agent may do, so profiles change only through the same owner gate as other agent-authority changes.
+How each CLI is invoked lives in a **reviewer profile** table with exactly one row per supported runtime (a test fails if a runtime lacks a row): invocation and flags, how the brief is passed (stdin or file, never argv), how the answer is read, timeout, known quirks, the last CLI version verified. Initial rows come from research D3 as adapted here: Codex (launched as Control Rod launches Codex today, see below), Claude Code (restricted read tools), Grok (no `--add-dir`, read-only command allowlist), Antigravity (snapshot or empty working directory, file tools only, empty output is a failure). Changing a profile changes what an agent may do, so profiles change only through the same owner gate as other agent-authority changes.
 
-**Qualification:** a runtime gets a seat only after its pinned CLI version passes the ADR 0021 qualification suite. Codex and Claude Code are qualified today; Grok, Antigravity and Gemini each need their own qualification before their seats are enabled.
+**Codex reviewer launch.** The reviewer profile for Codex reuses the daemon's own Codex launch (`CodexArgs` and `CodexPolicyArgs` in `daemon/internal/runner`): `exec --json --skip-git-repo-check -C <workspace>` with `--ignore-user-config --ignore-rules --ephemeral`, `-c default_permissions="control-rod"`, a `permissions.control-rod` filesystem table that denies the login folders and the credential set, network off, `approval_policy="never"`, web search disabled, and the disabled feature list. It never sets `sandbox_mode` and never passes `-s` or `--sandbox` (including `-s read-only`): ADR 0021 records that Codex ignores permission profiles whenever `sandbox_mode` is set, so `-s read-only` would drop the profile that denies the login files, and the preflight already refuses a config that sets it. The research invocation (`codex exec --ephemeral -s read-only`) is therefore not used. What differs for a reviewer is the filesystem grant: the writable workspace grant that the author profile extends is replaced by a read-only grant on the snapshot, with the answer written to a separate output location the daemon owns. The exact filesystem keys are chosen in R1 and are part of what is qualified, not assumed.
+
+**Qualification, stated exactly.** Each reviewer profile is gated by the qualification of that exact invocation: the pinned CLI version, the platform, and the read-only filesystem grant as launched, not the author launch it is derived from. Today's evidence (`.nuclear/changes/workbench-ontology/evidence/phase6/`, `launch-qualification-wsl2.json` and `live-login-wsl2.json`) covers the author launch only, on WSL2 only, with Claude Code 2.1.318 and Codex 0.166.0. Its Codex leg runs `codex sandbox` with the daemon profile, and the live check adds one real `codex exec` session reading one decoy; neither exercised a read-only reviewer grant. Open gaps: the full ADR 0021 suite and the red team fixtures (plan task 6.4) await the owner's signature; every tool path, each new CLI version and each other platform are unqualified (macOS and native Linux are not); ADR 0021 is still Proposed and conditional. So no reviewer seat is enabled until R1 qualifies its reviewer invocation. The qualification tests for each reviewer profile show credential reads denied and writes denied (to the snapshot, the workspace and elsewhere), with a positive control and a deliberately weakened profile that leaks. Grok, Antigravity and Gemini each need their own qualification before their seats are enabled.
 
 **Seat outcomes:** `ok`, `empty`, `timeout`, `quota`, `auth`, `error`, `malformed`, `wrote_files`. After each run the snapshot digest is checked again (write canary); a changed digest voids that seat and records a policy event.
 
 ### 6.3 Brief, findings and verification
 
-The control plane builds one brief per request (research D4), stored with its digest: target, intent, the repository rule that no engineering number may be typed by a model, what each seat may read, the evidence rule (every finding quotes its lines and names how to falsify it), adjudicated false-positive precedents, the JSON output contract, and the prohibitions. Secrets and `.env` content are never in a brief.
+The control plane builds one brief per request (research D4), stored with its digest: target, intent, the repository rule that no engineering number may be typed by a model, what each seat may read, the evidence rule (every finding quotes its lines and names how to falsify it), adjudicated false-positive precedents, the JSON output contract, and the prohibitions. The brief is built only from content that passed the content policy (6.1a); no secret material is in it.
 
 Each seat must return JSON matching the **Finding** schema (research D5): severity, confidence, category, claim, location (path and lines, or section), quote, how to falsify, optional fix, and whether it read the file. Output that does not validate makes the seat `malformed`.
 
-**Stage 1, deterministic and mandatory:** the path exists in the snapshot, the lines are in range, the quote appears at those lines after whitespace normalization, and for a diff target whether the location is inside the change. A finding that fails is never shown as a finding; it goes to a collapsed "Unverifiable claims" list with its seat. **Stage 2, optional:** a fresh run on a different runtime tries to refute the top anchored findings and answers upheld, refuted or inconclusive with a cited line (later slice).
+**Stage 1, deterministic and mandatory.** A finding's location has a declared type, and each type has its own check. A finding that fails is never shown as a finding; it goes to a collapsed "Unverifiable claims" list with its seat and the failed check.
+
+| Location type | Fields | Deterministic check |
+|---|---|---|
+| `head_lines` | path, start, end | The path exists in the head snapshot, the range is within the file, and the quote appears at those lines after whitespace normalization. On a diff target it also records whether the range touches a changed hunk (a finding outside the change is shown as "outside the change", not dropped). |
+| `base_lines` | path, start, end | Diff targets only. The path exists in the base tree, the range is within the base file, the quote appears at those base lines, and the range overlaps a removed or changed hunk in `changes.diff`. The base tree is retained with the subject so this can be checked. |
+| `deleted_file` | path | Diff targets only. `changes.diff` marks the path as deleted, the path exists in base and not in head, and any quote appears in the base file. |
+| `section` | path, heading path, optional quote | The document at that path is parsed for headings; the heading path resolves to exactly one section in the head snapshot (or, for a deleted section, in base with the diff showing the removal); a quote, when given, appears inside that section. A section that matches zero or several headings fails as ambiguous. |
+
+A finding names its side (head or base) explicitly; a missing or mismatched side fails the check. **Stage 2, optional:** a fresh run on a different runtime tries to refute the top anchored findings and answers upheld, refuted or inconclusive with a cited line (later slice).
 
 ### 6.4 The report
 
 The control plane merges anchored findings by a key it computes (path, enclosing symbol or hunk, concern bucket), keeps the most specific claim, and badges agreement as "N of M seats, K vendors"; same-vendor seats count once, Antigravity and Gemini count as one vendor, empty seats are listed separately. A single-seat critical stays critical. Disagreements show both quotes with no automatic winner.
 
-The report header states the target digest, seats requested versus answered, vendors, a quorum line ("single consultant review: no cross-vendor check happened" when fewer than the quorum answered), time, and usage ("not reported" when a CLI gives none). Each finding has three person actions: Accept (creates a card or a card note), Reject with reason (may become a precedent), Defer. The report never says "passed".
+The control plane computes two independent facts and reports the actual counts of both. **Quorum:** seats that returned outcome `ok` versus the requested quorum, shown as "N of Q required seats answered" (met or not met). **Vendor count:** distinct vendors among the answered seats (same-vendor seats count once; Antigravity and Gemini are one vendor), shown as "K vendors answered". Neither is derived from the other. The line "single consultant review: no cross-vendor check happened" appears only when exactly one vendor answered, whatever the seat count or quorum; two seats on one vendor that meet a seat quorum still carry that line, and three seats requested with two different vendors answering says "quorum not met (2 of 3), 2 vendors answered" and does not claim a single consultant.
+
+The report header states the target digest, seats requested versus answered, vendors, a quorum line, time, and usage ("not reported" when a CLI gives none). Each finding has three person actions: Accept (creates a card or a card note), Reject with reason (may become a precedent), Defer. The report never says "passed".
 
 ### 6.5 On a card
 
-A Request review action on a card creates a request whose target is the card revision. One seat on a different provider from the author can be marked as the pre-check and is submitted through the existing pre-check path; the other seats are advisory evidence on the package. Verified critical findings change the sign-off text the way the board spec's sign panel already requires. The panel never substitutes for person verification on Safety or Material work, and the card says so.
+A Request review action on a card creates a request whose target is the card revision. One seat on a different provider from the author can be designated as the pre-check. That seat is created as an ordinary pre-check run: role `pre-check`, queued on the card's current revision and round through the existing `queueRun` path, so it is claimed, launched and completed like any agent pre-check. It is not a `review` run converted afterwards. The completion path accepts only `pre-check` runs for this (any other role is refused as an unsupported completion role), and `finishPreCheck` in `services/api/src/work.ts` binds the result to the card's package and revision, requires an outcome of `pass`, `fail` or `inconclusive`, runs the prepared-execution guard, and the kernel decision for `submit-pre-check` applies the baseline and runtime independence checks, so none of that is bypassed or reimplemented. To produce its outcome, the designated seat runs its reviewer profile in a pre-check mode that also returns the `verification.json` the existing path expects. The panel links that run by id as one of its seats and counts it in the quorum and vendor counts when its outcome is `ok`. The other seats are `review` runs, advisory evidence on the package. Verified critical findings change the sign-off text the way the board spec's sign panel already requires. The panel never substitutes for person verification on Safety or Material work, and the card says so.
 
 ### 6.6 Evidence
 
@@ -101,7 +125,7 @@ Each seat records runtime, CLI version, model as reported, profile flags used, b
 | API | review subject and panel tables (migration), routes, brief builder, Stage 1 gate, merge | Standard change record |
 | Daemon | reviewer run mode, profile table, snapshot mount, outcomes, write canary | profile table is an agent-authority surface: owner gate |
 | CLI | `controlrod review` | Standard |
-| Qualification | Grok, Antigravity, Gemini rows qualified per ADR 0021 before enabling | ADR 0021 suite |
+| Qualification | Each reviewer invocation, Codex and Claude Code included, qualified per ADR 0021 before enabling; Grok, Antigravity, Gemini later | ADR 0021 suite; red team fixtures need the owner's signature |
 | Web | report view, dispositions, Request review on a card | after board M5 |
 | Kernel, policies, red team, workflows | none | n/a |
 
@@ -109,8 +133,8 @@ Each seat records runtime, CLI version, model as reported, profile flags used, b
 
 | Slice | Delivers | Depends on |
 |---|---|---|
-| R1 Reviewer run | Daemon review run mode with Codex and Claude Code profiles, read-only snapshot, outcomes, write canary, fixture tests with fake CLIs | none |
-| R2 Review subject and brief | Review subject record and migration, folder and branch targets, lane gate, brief builder, `controlrod review` for folder and branch | R1 |
+| R1 Reviewer run | Daemon review run mode with Codex (permission profile launch, no `-s`) and Claude Code profiles, read-only snapshot, outcomes, write canary, fixture tests with fake CLIs, qualification of each reviewer invocation | none |
+| R2 Review subject and brief | Review subject record and migration, folder and branch targets, content policy (6.1a), lane gate, brief builder, `controlrod review` for folder and branch | R1 |
 | R3 Findings and Stage 1 | Finding schema and validator, Stage 1 anchoring, unverifiable list | R2 |
 | R4 Report | Merge and agreement badges, quorum and empty seats, report record, terminal output of the report | R3 |
 | R5 Report on the board | Report view with dispositions; Accept creates a card | R4, board M1 |
@@ -121,7 +145,7 @@ Each seat records runtime, CLI version, model as reported, profile flags used, b
 
 ## 9. Testing
 
-Fixture CLIs (fake `codex`, `claude`, `grok`, `agy` binaries) exercise every seat outcome, including exit 0 with empty output, malformed JSON, a timeout, and a seat that writes the snapshot. Stage 1 is tested with findings whose path is missing, whose quote is off by a line, and whose lines are out of range. Merge is tested for same-vendor double counting, empty seats, and a lone critical. The lane gate is tested with a seat whose provider the lane does not admit. Live qualification of each runtime follows ADR 0021.
+Fixture CLIs (fake `codex`, `claude`, `grok`, `agy` binaries) exercise every seat outcome, including exit 0 with empty output, malformed JSON, a timeout, and a seat that writes the snapshot. The Codex reviewer profile is tested to contain `default_permissions` and none of `-s`, `--sandbox` or `sandbox_mode`, and its live qualification shows a credential read denied and a write denied. The content policy is tested with a tracked `.env`, a tracked private key, an untracked `.env`, a secret inside an ordinary source file (scanner), a secret inside a diff hunk, and a non-interactive run without the confirmation digest. Stage 1 is tested with findings whose path is missing, whose quote is off by a line, and whose lines are out of range, plus base line ranges, a deleted file, deleted lines, a section that resolves, a section that is missing, and an ambiguous section. Quorum is tested with 3 requested and 2 answered from 2 vendors (quorum not met, not single consultant) and 2 answered from 1 vendor (quorum met, single consultant). The card pre-check seat is tested to be created with role `pre-check` and to complete through `finishPreCheck`, including a refused same-runtime case. Merge is tested for same-vendor double counting, empty seats, and a lone critical. The lane gate is tested with a seat whose provider the lane does not admit. Live qualification of each runtime follows ADR 0021.
 
 ## 10. Open owner decisions
 

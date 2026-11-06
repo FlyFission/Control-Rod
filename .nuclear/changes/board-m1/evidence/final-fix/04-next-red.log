@@ -1,0 +1,156 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+ ❯ src/lib/next.test.ts (17 tests | 7 failed) 23ms
+   ❯ nextLine (11)
+     × says nobody else can verify, naming who is excluded, to every viewer 7ms
+     × uses the verified value it is given, not one recomputed from the list 2ms
+     × puts the verification before an allowed Accept on unverified independent-check work 1ms
+   ❯ hasOtherQualified (6)
+     × counts an active member with a verify role who covers the grade and is not an originator 1ms
+     × excludes every originator, not only the viewer 1ms
+     × needs a checker, approver or engineer in responsible charge role 1ms
+     × needs the package discipline for Safety and Material work, not for General service 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/next.test.ts > nextLine > says nobody else can verify, naming who is excluded, to every viewer
+AssertionError: expected { tone: 'wait', …(1) } to deeply equal { tone: 'block', …(1) }
+
+- Expected
++ Received
+
+  {
+-   "text": "Needs a second qualified person. Originators cannot verify their own work: ben, ana",
+-   "tone": "block",
++   "text": "Waiting on a person verification",
++   "tone": "wait",
+  }
+
+ ❯ src/lib/next.test.ts:27:8
+     25|   it("says nobody else can verify, naming who is excluded, to every vi…
+     26|     expect(nextLine(input({ grade: "safety", column: "person-verifies"…
+     27|       .toEqual({ tone: "block", text: "Needs a second qualified person…
+       |        ^
+     28|     expect(nextLine(input({ column: "person-verifies", originators: []…
+     29|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  src/lib/next.test.ts > nextLine > uses the verified value it is given, not one recomputed from the list
+AssertionError: expected 'wait' to be 'block' // Object.is equality
+
+Expected: "block"
+Received: "wait"
+
+ ❯ src/lib/next.test.ts:35:82
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  src/lib/next.test.ts > nextLine > puts the verification before an allowed Accept on unverified independent-check work
+AssertionError: expected { tone: 'needs', text: 'Accept', …(1) } to deeply equal { tone: 'wait', …(1) }
+
+- Expected
++ Received
+
+  {
+-   "text": "Waiting on a person verification",
+-   "tone": "wait",
++   "command": "accept",
++   "text": "Accept",
++   "tone": "needs",
+  }
+
+ ❯ src/lib/next.test.ts:42:75
+     40|   it("puts the verification before an allowed Accept on unverified ind…
+     41|     const acts = [allowed("accept", "Accept"), allowed("accept-with-fi…
+     42|     expect(nextLine(input({ column: "person-verifies", actions: acts }…
+       |                                                                           ^
+     43|     // Unknown verification state is not a pass either.
+     44|     expect(nextLine(input({ column: "person-verifies", actions: acts, …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  src/lib/next.test.ts > hasOtherQualified > counts an active member with a verify role who covers the grade and is not an originator
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/lib/next.test.ts:82:121
+     80|
+     81|   it("counts an active member with a verify role who covers the grade …
+     82|     expect(hasOtherQualified(admin([member("me"), member("you")], [qua…
+       |                                                                                                                         ^
+     83|   });
+     84|   it("ignores originators, other grades, revoked records and inactive …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  src/lib/next.test.ts > hasOtherQualified > excludes every originator, not only the viewer
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/lib/next.test.ts:91:60
+     89|     const a = admin([member("me"), member("ana"), member("you")], [qua…
+     90|     expect(hasOtherQualified(a, safety, new Set(["ana", "you"]))).toBe…
+     91|     expect(hasOtherQualified(a, safety, new Set(["ana"]))).toBe(true);
+       |                                                            ^
+     92|   });
+     93|   it("needs a checker, approver or engineer in responsible charge role…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  src/lib/next.test.ts > hasOtherQualified > needs a checker, approver or engineer in responsible charge role
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/lib/next.test.ts:96:98
+     94|     const only = (roles: string[]) => hasOtherQualified(admin([member(…
+     95|     expect(only(["originator", "discipline-lead"])).toBe(false);
+     96|     for (const r of ["checker", "approver", "engineer-in-responsible-c…
+       |                                                                                                  ^
+     97|   });
+     98|   it("needs the package discipline for Safety and Material work, not f…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  src/lib/next.test.ts > hasOtherQualified > needs the package discipline for Safety and Material work, not for General service
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/lib/next.test.ts:101:87
+     99|     const a = admin([member("you")], [qual("you", ["safety", "general-…
+    100|     expect(hasOtherQualified(a, { grade: "safety", discipline: "mechan…
+    101|     expect(hasOtherQualified(a, { grade: "safety", discipline: "civil"…
+       |                                                                                       ^
+    102|     expect(hasOtherQualified(a, { grade: "general-service", discipline…
+    103|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  7 failed | 30 passed (37)
+   Start at  15:08:35
+   Duration  726ms (environment 59%, setup 25%, transform 8%, tests 6%, import 2%, worker 1%)
+

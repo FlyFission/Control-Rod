@@ -12,6 +12,7 @@ const files = {
   "styles.css": read("../styles.css"),
   "floor.css": read("../features/floor/floor.css"),
   "office.css": read("../features/office/office.css"),
+  "board.css": read("../features/board/board.css"),
 };
 
 /**

@@ -76,6 +76,8 @@ interface RunRow {
 
 export async function officeFigures(db: Db, cfg: WorkConfig, user: string, presenting = false) {
   const box = await inbox(db, cfg, user);
+  // Only the caller's organization's packages and captures become figures.
+  const orgId = (await callerFor(db, user)).orgId;
   const shape = (t: Awaited<ReturnType<typeof budgetStatuses>>[number]) => ({
     budget_id: t.budget.id, mode: t.budget.mode, unit: t.budget.limit.unit, limit: t.budget.limit.value, period: t.budget.period, state: t.state,
     ...(t.used === null ? {} : { used: t.used.toFixed(2) }), ...(t.unreported_runs > 0 ? { unreported_runs: t.unreported_runs } : {}),
@@ -112,7 +114,10 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
 
   const packages = (
     await db.query<{ id: string; revision: number; status: string; body: Json }>(
-      "select distinct on (id) id, revision, status, body from packages order by id, revision desc",
+      `select distinct on (p.id) p.id, p.revision, p.status, p.body from packages p
+         join object_owners o on o.object_kind = 'package' and o.object_id = p.id and o.org_id = $1
+        order by p.id, p.revision desc`,
+      [orgId],
     )
   ).rows;
   // The latest run at each package's current revision, in one read.
@@ -226,7 +231,9 @@ export async function officeFigures(db: Db, cfg: WorkConfig, user: string, prese
     await db.query<RunRow & { text: string | null }>(
       `select distinct on (r.package_id) r.id, r.package_id, r.role, r.round, r.status, r.body, r.created_at, c.body->>'text' as text
          from runs r left join captures c on c.id = r.package_id
+         join object_owners o on o.object_kind = 'capture' and o.object_id = r.package_id and o.org_id = $1
         where r.role = 'intake' order by r.package_id, r.created_at desc`,
+      [orgId],
     )
   ).rows;
   const captureLanes = new Map(

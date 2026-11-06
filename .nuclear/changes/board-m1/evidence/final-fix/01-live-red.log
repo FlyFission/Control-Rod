@@ -1,0 +1,65 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+ ❯ src/lib/live.test.tsx (6 tests | 3 failed) 349ms
+   ❯ live events (6)
+     × resumes after the last event it saw and refreshes what it shows on the first open after a drop 11ms
+     × stays live on heartbeats and reads unknown, closing the stream, after 45 seconds of silence 4ms
+     × marks the stream live on its checkpoint frame 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/live.test.tsx > live events > resumes after the last event it saw and refreshes what it shows on the first open after a drop
+AssertionError: expected 'connecting' to be 'live' // Object.is equality
+
+Expected: "live"
+Received: "connecting"
+
+ ❯ src/lib/live.test.tsx:99:37
+     97|       expect(first.url).not.toContain("after=");
+     98|       act(() => first.emit("checkpoint", { head: 40 }, "40"));
+     99|       expect(result.current.status).toBe("live");
+       |                                     ^
+    100|       act(() => first.emit("event", { seq: 41, type: "package.edited",…
+    101|       act(() => first.emit("error", {}));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/lib/live.test.tsx > live events > stays live on heartbeats and reads unknown, closing the stream, after 45 seconds of silence
+AssertionError: expected 'live' to be 'unknown' // Object.is equality
+
+Expected: "unknown"
+Received: "live"
+
+ ❯ src/lib/live.test.tsx:137:37
+    135|       expect(result.current.status).toBe("live");
+    136|       act(() => vi.advanceTimersByTime(1_000));
+    137|       expect(result.current.status).toBe("unknown");
+       |                                     ^
+    138|       expect(result.current.unknownSince).toBeTruthy();
+    139|       expect(source.closed).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/lib/live.test.tsx > live events > marks the stream live on its checkpoint frame
+AssertionError: expected 'connecting' to be 'live' // Object.is equality
+
+Expected: "live"
+Received: "connecting"
+
+ ❯ src/lib/live.test.tsx:154:37
+    152|       const { result } = renderHook(() => { useLiveEvents(true); retur…
+    153|       act(() => FakeSource.last!.emit("checkpoint", { head: 3 }, "3"));
+    154|       expect(result.current.status).toBe("live");
+       |                                     ^
+    155|     } finally {
+    156|       vi.unstubAllGlobals();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 3 passed (6)
+   Start at  15:05:07
+   Duration  971ms (tests 40%, environment 38%, setup 14%, transform 5%, import 3%)
+

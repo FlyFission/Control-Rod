@@ -1,0 +1,97 @@
+import { useNavigate } from "@tanstack/react-router";
+import { COLUMNS } from "../../lib/board.js";
+import { useLook } from "../../lib/kind.js";
+import { Card, sinceText } from "./Card.js";
+import { useBoardData } from "./useBoardData.js";
+import "./board.css";
+
+/** The board: the home page (spec 6.2). Status is derived from the record, never dragged. */
+export function BoardView() {
+  const data = useBoardData();
+  const navigate = useNavigate();
+  const look = useLook();
+  const unknown = data.status === "unknown";
+  // An empty board is only claimed from a successful, empty read.
+  const empty = !data.loading && data.problems.length === 0 && data.cards.length === 0;
+  // Counts are facts only after a successful read; after a failed refresh, a drop not yet recovered
+  // from, or while the stream is unknown they are what was last read, and before any read they are
+  // not shown. Each count also needs every read it is made from (Codex round 3).
+  const countsKnown = data.counts !== "unknown";
+  const count = (c: "current" | "last-known" | "unknown", n: number, words: string, label: string) =>
+    c === "unknown" ? `${label}: unknown` : `${c === "last-known" ? "Last known: " : ""}${n} ${words}`;
+  return (
+    <div className="bd" data-look={look}>
+      <header className="bd-head">
+        <h1 id="board-title">Board</h1>
+        {countsKnown ? (
+          <p className="bd-counts">
+            <span>{count(data.needsYouCounts, data.needsYou, "needs you", "Needs you")}</span>
+            <span>
+              {count(data.agentsRunningCounts, data.agentsRunning, `${data.agentsRunning === 1 ? "agent" : "agents"} running or queued`, "Agents running or queued")}
+            </span>
+          </p>
+        ) : (
+          <p className="bd-counts">Counts unknown until the work is read</p>
+        )}
+        {unknown && (
+          <p className="bd-unknown" role="status">
+            <span>Status unknown since {sinceText(data.unknownSince)}. What you see may be out of date.</span>
+            <button type="button" className="btn small" onClick={data.reconnect}>
+              Reconnect
+            </button>
+          </p>
+        )}
+        {data.problems.length > 0 && (
+          <div className="bd-unknown" role="alert">
+            <span>{data.problems.join(" ")}</span>
+            <button type="button" className="btn small" onClick={data.retry}>
+              Retry
+            </button>
+          </div>
+        )}
+      </header>
+      {data.loading && <p className="muted">Loading</p>}
+      {empty && (
+        <p className="bd-empty">
+          Add your first card. Capture a request on the Packages page. When its intake drafts a package, the package appears here in Ready.
+        </p>
+      )}
+      <div className="bd-board">
+        {COLUMNS.map((c) => {
+          const here = data.cards.filter((x) => x.column === c.id);
+          const headingId = `bd-col-${c.id}`;
+          return (
+            <section key={c.id} className="bd-col" aria-labelledby={headingId}>
+              <div className="bd-col-head">
+                <h2 id={headingId}>{c.title}</h2>
+                {countsKnown ? (
+                  <span className="mono muted">{here.length}</span>
+                ) : (
+                  <span className="mono muted">
+                    <span aria-hidden="true">?</span>
+                    <span className="sr-only">count unknown</span>
+                  </span>
+                )}
+              </div>
+              {here.map((x) => (
+                <Card
+                  key={x.pkg.id}
+                  pkg={x.pkg}
+                  kinds={x.kinds}
+                  next={x.next}
+                  column={x.column}
+                  stream={data.status}
+                  lastKnown={x.lastKnown}
+                  {...(data.unknownSince ? { unknownSince: data.unknownSince } : {})}
+                  {...(x.owner ? { owner: x.owner } : {})}
+                  {...(x.retry ? { onRetry: x.retry } : {})}
+                  onOpen={() => void navigate({ to: "/packages/$id", params: { id: x.pkg.id } })}
+                />
+              ))}
+            </section>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

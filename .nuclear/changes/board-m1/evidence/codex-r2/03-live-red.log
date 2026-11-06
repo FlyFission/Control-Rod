@@ -1,0 +1,48 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+ ❯ src/lib/live.test.tsx (8 tests | 2 failed) 414ms
+   ❯ live events (8)
+     × stays unknown after a reconnect until the refreshed reads of the work have arrived 11ms
+     × stays unknown after a reconnect when the refreshed read of the work fails 58ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/live.test.tsx > live events > stays unknown after a reconnect until the refreshed reads of the work have arrived
+AssertionError: expected 'live' to be 'unknown' // Object.is equality
+
+Expected: "unknown"
+Received: "live"
+
+ ❯ src/lib/live.test.tsx:186:37
+    184|       await waitFor(() => expect(reads).toBe(2));
+    185|       // The refresh is still in flight: what is on screen is not yet …
+    186|       expect(result.current.status).toBe("unknown");
+       |                                     ^
+    187|       act(() => FakeSource.last!.emit("heartbeat", {}));
+    188|       expect(result.current.status).toBe("unknown");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/lib/live.test.tsx > live events > stays unknown after a reconnect when the refreshed read of the work fails
+AssertionError: expected 'live' to be 'unknown' // Object.is equality
+
+Expected: "unknown"
+Received: "live"
+
+ ❯ src/lib/live.test.tsx:219:37
+    217|       await act(async () => {});
+    218|       await new Promise((r) => setTimeout(r, 50));
+    219|       expect(result.current.status).toBe("unknown");
+       |                                     ^
+    220|     } finally {
+    221|       vi.unstubAllGlobals();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+   Start at  15:36:24
+   Duration  1.09s (tests 42%, environment 36%, setup 13%, transform 5%, import 3%)
+

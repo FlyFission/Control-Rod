@@ -1,0 +1,28 @@
+[test-api] PostgreSQL fixture binaries: ~/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/services/api
+
+ ❯ test/person-verification.test.ts (15 tests | 1 failed) 2143ms
+   ❯ the package view names who originated the work (5)
+     × lists only the caller's organization's packages 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/person-verification.test.ts > the package view names who originated the work > lists only the caller's organization's packages
+AssertionError: expected [ 'WP-PV', 'WP-PV-ORD', …(1) ] to not include 'WP-PV-VIEW-OTHER'
+ ❯ test/person-verification.test.ts:173:21
+    171|     const ids = (r.json() as { id: string }[]).map((p) => p.id);
+    172|     expect(ids).toContain(pkgId);
+    173|     expect(ids).not.toContain("WP-PV-VIEW-OTHER");
+       |                     ^
+    174|   });
+    175|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 14 passed (15)
+   Start at  15:34:22
+   Duration  3.07s (tests 72%, transform 16%, import 12%)
+

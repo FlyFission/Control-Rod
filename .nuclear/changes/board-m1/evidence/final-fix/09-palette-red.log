@@ -1,0 +1,700 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+stderr | src/places/places.test.tsx > shell and palette > does not offer Accept from the palette on unverified Safety work (ruling 16)
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /inbox
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ❯ src/places/places.test.tsx (19 tests | 1 failed) 1934ms
+   ❯ shell and palette (11)
+     × does not offer Accept from the palette on unverified Safety work (ruling 16) 1043ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/places/places.test.tsx > shell and palette > does not offer Accept from the palette on unverified Safety work (ruling 16)
+AssertionError: expected 'false' to be 'true' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"shell"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"skip"[39m
+          [33mhref[39m=[32m"#main"[39m
+        [36m>[39m
+          [0mSkip to content[0m
+        [36m</a>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"topbar"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"brand"[39m
+            [33mhref[39m=[32m"/"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 28 28"[39m
+              [33mwidth[39m=[32m"24"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"12"[39m
+                [33my[39m=[32m"2"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"12"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"4"[39m
+                [33my[39m=[32m"8"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"12"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"20"[39m
+                [33my[39m=[32m"8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span>[39m
+              [0mControl Rod[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<button[39m
+            [33maria-keyshortcuts[39m=[32m"Control+K"[39m
+            [33mclass[39m=[32m"palette-trigger"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mSearch or run a command[0m
+            [36m</span>[39m
+            [36m<kbd>[39m
+              [0mCtrl K[0m
+            [36m</kbd>[39m
+          [36m</button>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Board look"[39m
+            [33mclass[39m=[32m"look-switch"[39m
+            [33mrole[39m=[32m"group"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"true"[39m
+              [33mclass[39m=[32m"look-btn"[39m
+              [33mtitle[39m=[32m"A Control room"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0mA[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"sr-only"[39m
+              [36m>[39m
+                [0mLook [0m
+                [0mA Control room[0m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mclass[39m=[32m"look-btn"[39m
+              [33mtitle[39m=[32m"B Drafting table"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0mB[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"sr-only"[39m
+              [36m>[39m
+                [0mLook [0m
+                [0mB Drafting table[0m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mclass[39m=[32m"look-btn"[39m
+              [33mtitle[39m=[32m"C Instrument panel"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0mC[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"sr-only"[39m
+              [36m>[39m
+                [0mLook [0m
+                [0mC Instrument panel[0m
+              [36m</span>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"who"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0mben[0m
+            [36m</span>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"btn ghost small"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mSign out[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"frame"[39m
+        [36m>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"Places"[39m
+            [33mclass[39m=[32m"places"[39m
+          [36m>[39m
+            [36m<ul>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mBoard[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/inbox"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mInbox[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/office"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mOffice[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33maria-current[39m=[32m"page"[39m
+                  [33mclass[39m=[32m"place-link place-link active"[39m
+                  [33mdata-status[39m=[32m"active"[39m
+                  [33mhref[39m=[32m"/packages"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mPackages[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/registers"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mRegisters[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/explore"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mExplore[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/roster"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mRoster[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/usage"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mUsage[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/records"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mRecords[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/policies"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mPolicies[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+            [36m</ul>[39m
+          [36m</nav>[39m
+          [36m<main[39m
+            [33mclass[39m=[32m"content"[39m
+            [33mid[39m=[32m"main"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+          [36m>[39m
+            [36m<p>[39m
+              [0mat [0m
+              [0m/packages/$id[0m
+            [36m</p>[39m
+          [36m</main>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"palette-backdrop"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Command palette"[39m
+            [33maria-modal[39m=[32m"true"[39m
+            [33mclass[39m=[32m"palette"[39m
+            [33mrole[39m=[32m"dialog"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33maria-activedescendant[39m=[32m"_r_6_-This_package_accept"[39m
+              [33maria-autocomplete[39m=[32m"list"[39m
+              [33maria-controls[39m=[32m"_r_6_"[39m
+              [33maria-expanded[39m=[32m"true"[39m
+              [33maria-label[39m=[32m"Search places, packages and commands"[39m
+              [33mclass[39m=[32m"palette-input"[39m
+              [33mplaceholder[39m=[32m"Search places, packages and commands"[39m
+              [33mrole[39m=[32m"combobox"[39m
+              [33mvalue[39m=[32m""[39m
+            [36m/>[39m
+            [36m<ul[39m
+              [33maria-label[39m=[32m"Results"[39m
+              [33mclass[39m=[32m"palette-list"[39m
+              [33mid[39m=[32m"_r_6_"[39m
+              [33mrole[39m=[32m"listbox"[39m
+            [36m>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"palette-group"[39m
+                  [33mrole[39m=[32m"presentation"[39m
+                [36m>[39m
+                  [0mThis package[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"palette-option active"[39m
+                  [33mid[39m=[32m"_r_6_-This_package_accept"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mAccept[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-badge"[39m
+                  [36m>[39m
+                    [0mpasskey[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"palette-group"[39m
+                  [33mrole[39m=[32m"presentation"[39m
+                [36m>[39m
+                  [0mPlaces[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-place__"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mBoard[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mEvery card by step: what needs you and what is waiting[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-place__inbox"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mInbox[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mDecisions waiting on you, riskiest first[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-place__office"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mOffice[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mThe floor: who is working on what[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-place__packages"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mPackages[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mCapture work and find every package[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-place__registers"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mRegisters[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mDeliverables across every package[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-place__explore"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mExplore[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mLive exploration before work is packaged[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-place__roster"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mRoster[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mRuntimes, their versions and pins[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-place__usage"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mUsage[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mWhether the work is earning its place[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-place__records"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mRecords[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mThe event chain and its verification[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-place__policies"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mPolicies[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mFloors in force, members and administration[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"palette-group"[39m
+                  [33mrole[39m=[32m"presentation"[39m
+                [36m>[39m
+                  [0mAdministration[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option refused"[39m
+                  [33mid[39m=[32m"_r_6_-Administration_runtime_pin"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mPin a runtime version[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-badge refused"[39m
+                  [36m>[39m
+                    [0mnot available[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-Administration_scram_pull"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mPull SCRAM[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-badge"[39m
+                  [36m>[39m
+                    [0mpasskey[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mrole[39m=[32m"presentation"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"palette-group"[39m
+                  [33mrole[39m=[32m"presentation"[39m
+                [36m>[39m
+                  [0mPackages[0m
+                [36m</div>[39m
+                [36m<div[39m
+                  [33maria-disabled[39m=[32m"false"[39m
+                  [33maria-selected[39m=[32m"false"[39m
+                  [33mclass[39m=[32m"palette-option"[39m
+                  [33mid[39m=[32m"_r_6_-package_WP-7"[39m
+                  [33mrole[39m=[32m"option"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-label"[39m
+                  [36m>[39m
+                    [0mPump skid[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"palette-hint"[39m
+                  [36m>[39m
+                    [0mWP-7 · in-verification[0m
+                  [36m</span>[39m
+                [36m</div>[39m
+              [36m</li>[39m
+            [36m</ul>[39m
+            [36m<div[39m
+              [33maria-live[39m=[32m"polite"[39m
+              [33mclass[39m=[32m"palette-detail"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+              [36m>[39m
+                [36m<kbd>[39m
+                  [0m↑[0m
+                [36m</kbd>[39m
+                [0m [0m
+                [36m<kbd>[39m
+                  [0m↓[0m
+                [36m</kbd>[39m
+                [0m to move, [0m
+                [36m<kbd>[39m
+                  [0mEnter[0m
+                [36m</kbd>[39m
+                [0m to open, [0m
+                [36m<kbd>[39m
+                  [0mEsc[0m
+                [36m</kbd>[39m
+                [0m to close[0m
+              [36m</p>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+Expected: "true"
+Received: "false"
+
+ ❯ src/places/places.test.tsx:218:110
+    216|     await user.keyboard("{Control>}k{/Control}");
+    217|     await screen.findByText("This package");
+    218|     await waitFor(() => expect(screen.getByRole("option", { name: /Acc…
+       |                                                                                                              ^
+    219|     expect(screen.getByText(/A person verification of the current work…
+    220|   });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 passed (19)
+   Start at  15:18:56
+   Duration  2.97s (tests 67%, environment 13%, import 9%, transform 6%, setup 5%)
+

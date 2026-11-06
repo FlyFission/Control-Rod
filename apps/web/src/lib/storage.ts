@@ -40,3 +40,20 @@ export function writeSession(key: string, value: string): void {
     // Ignored: private windows and blocked storage.
   }
 }
+
+/** A remembered string that outlasts the session (a per-viewer preference), or undefined. */
+export function readString(key: string): string | undefined {
+  try {
+    return window.localStorage.getItem(key) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function writeString(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignored: private windows and blocked storage.
+  }
+}

@@ -1,0 +1,287 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+ ❯ src/features/board/board.test.tsx (29 tests | 1 failed) 2598ms
+   ❯ BoardView (29)
+     × shows a cached next step as last known while its actions are being read again 1047ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > shows a cached next step as last known while its actions are being read again
+AssertionError: expected '▲ Needs you: Accept' to be 'Last known: Accept' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bd"[39m
+        [33mdata-look[39m=[32m"a"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"bd-head"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mid[39m=[32m"board-title"[39m
+          [36m>[39m
+            [0mBoard[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"bd-counts"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0m1 needs you[0m
+            [36m</span>[39m
+            [36m<span>[39m
+              [0m0 agents running or queued[0m
+            [36m</span>[39m
+          [36m</p>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"bd-board"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"bd-col-ready"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"bd-col-ready"[39m
+              [36m>[39m
+                [0mReady[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"bd-col-drafting"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"bd-col-drafting"[39m
+              [36m>[39m
+                [0mDrafting[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"bd-col-agent-check"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"bd-col-agent-check"[39m
+              [36m>[39m
+                [0mAgent check[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<article[39m
+              [33maria-labelledby[39m=[32m"bd-card-WP-1"[39m
+              [33mclass[39m=[32m"bd-card"[39m
+              [33mdata-column[39m=[32m"agent-check"[39m
+              [33mdata-kind[39m=[32m"doc"[39m
+              [33mdata-tone[39m=[32m"needs"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"bd-kinds"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-kind"[39m
+                  [33mdata-kind[39m=[32m"doc"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"bd-kind-icon"[39m
+                  [36m>[39m
+                    [0m☰[0m
+                  [36m</span>[39m
+                  [0mDocument[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"bd-title"[39m
+                [33mid[39m=[32m"bd-card-WP-1"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mOne[0m
+              [36m</button>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-id mono small muted"[39m
+              [36m>[39m
+                [0mWP-1[0m
+                [0m rev [0m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"bd-meta"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-avatar"[39m
+                  [33mtitle[39m=[32m"Owner: ben"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                  [36m>[39m
+                    [0mBE[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"sr-only"[39m
+                  [36m>[39m
+                    [0mOwner [0m
+                    [0mben[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-avatar bd-agent"[39m
+                  [33mtitle[39m=[32m"Agent: site-author"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                  [36m>[39m
+                    [0mSA[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"sr-only"[39m
+                  [36m>[39m
+                    [0mAgent [0m
+                    [0msite-author[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-chip"[39m
+                [36m>[39m
+                  [0mgeneral-service[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"bd-next"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-sym"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                  [36m>[39m
+                    [0m▲[0m
+                    [0m [0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"bd-word"[39m
+                  [36m>[39m
+                    [0mNeeds you[0m
+                    [0m: [0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0mAccept[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</article>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"bd-col-person-verifies"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"bd-col-person-verifies"[39m
+              [36m>[39m
+                [0mPerson verifies[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"bd-col-needs-signature"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"bd-col-needs-signature"[39m
+              [36m>[39m
+                [0mNeeds signature[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"bd-col-reached"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"bd-col-reached"[39m
+              [36m>[39m
+                [0mAccepted[0m
+              [36m</h2>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+Expected: "Last known: Accept"
+Received: "▲ Needs you: Accept"
+
+ ❯ src/features/board/board.test.tsx:246:40
+    244|     }));
+    245|     act(() => void qc.invalidateQueries({ queryKey: ["actions"] }));
+    246|     await waitFor(() => expect(next()).toBe("Last known: Accept"));
+       |                                        ^
+    247|     expect(screen.getByText("Last known: 1 needs you")).toBeTruthy();
+    248|     await act(async () => release());
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 39 passed (40)
+   Start at  15:54:31
+   Duration  3.35s (tests 71%, environment 15%, setup 6%, import 5%, transform 3%)
+

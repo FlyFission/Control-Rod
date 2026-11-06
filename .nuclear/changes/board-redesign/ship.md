@@ -12,6 +12,10 @@ Rollback: revert the commit. Documentation only; no code, schema or wire change.
 
 Monitoring after merge: each slice pull request opens its own change record; watch for any slice that touches a protected surface or a parked item.
 
+## Implementation records
+
+Each slice has its own change record. Slice M1 (board home): `.nuclear/changes/board-m1/`.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

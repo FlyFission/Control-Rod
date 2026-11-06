@@ -1,0 +1,1189 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+ ❯ src/pages/package-accept.test.tsx (1 test | 1 failed) 1162ms
+   ❯ package page acceptance (1)
+     × offers no Accept on unverified Safety work when navigated to directly 1156ms
+ ❯ src/features/case/case.test.tsx (12 tests | 1 failed) 1596ms
+   ❯ case view (9)
+     × offers no Accept on Safety work no person has verified, in the bar or the strip (ruling 16) 1208ms
+ ❯ src/components/components.test.tsx (26 tests | 1 failed) 2231ms
+   ❯ decision flow (11)
+     × offers no Accept on Safety work until a person verification covers the current work (ruling 16) 1022ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/components.test.tsx > decision flow > offers no Accept on Safety work until a person verification covers the current work (ruling 16)
+TestingLibraryElementError: Unable to find an element with the text: /A person verification of the current work must come before/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"decide-title"[39m
+      [33mclass[39m=[32m"panel decide"[39m
+      [33mid[39m=[32m"decide"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mid[39m=[32m"decide-title"[39m
+      [36m>[39m
+        [0mYour decision[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"muted small"[39m
+      [36m>[39m
+        [0mA decision here signs [0m
+        [36m<span[39m
+          [33mclass[39m=[32m"mono"[39m
+        [36m>[39m
+          [0msha256:ab12cd34ef56[0m
+        [36m</span>[39m
+        [0m, the digest of this revision, its output and its pre-check.[0m
+      [36m</p>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"small muted"[39m
+      [36m>[39m
+        [0mFull digest [0m
+        [36m<span[39m
+          [33mclass[39m=[32m"mono wrap"[39m
+        [36m>[39m
+          [0msha256[0m
+          [0m:[0m
+          [0mab12cd34ef560000000000000000000000000000000000000000000000000000[0m
+        [36m</span>[39m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"decide-buttons"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn primary"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mAccept[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn ghost"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mAccept with findings[0m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn ghost"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mReturn with direction[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<details[39m
+        [33mclass[39m=[32m"refused-decisions"[39m
+      [36m>[39m
+        [36m<summary[39m
+          [33mclass[39m=[32m"small muted"[39m
+        [36m>[39m
+          [0mWhy the other decisions are not open to you[0m
+        [36m</summary>[39m
+        [36m<ul[39m
+          [33mclass[39m=[32m"blocked"[39m
+        [36m>[39m
+          [36m<li>[39m
+            [36m<p>[39m
+              [36m<strong>[39m
+                [0mRelease, Reject[0m
+              [36m</strong>[39m
+              [0m: [0m
+              [0mThe package is not in a state where this decision applies.[0m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"muted small"[39m
+            [36m>[39m
+              [0mWhat would change it: [0m
+              [0mWait for the package to reach that step.[0m
+            [36m</p>[39m
+          [36m</li>[39m
+        [36m</ul>[39m
+      [36m</details>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<section[39m
+        [33maria-labelledby[39m=[32m"decide-title"[39m
+        [33mclass[39m=[32m"panel decide"[39m
+        [33mid[39m=[32m"decide"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mid[39m=[32m"decide-title"[39m
+        [36m>[39m
+          [0mYour decision[0m
+        [36m</h2>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"muted small"[39m
+        [36m>[39m
+          [0mA decision here signs [0m
+          [36m<span[39m
+            [33mclass[39m=[32m"mono"[39m
+          [36m>[39m
+            [0msha256:ab12cd34ef56[0m
+          [36m</span>[39m
+          [0m, the digest of this revision, its output and its pre-check.[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"small muted"[39m
+        [36m>[39m
+          [0mFull digest [0m
+          [36m<span[39m
+            [33mclass[39m=[32m"mono wrap"[39m
+          [36m>[39m
+            [0msha256[0m
+            [0m:[0m
+            [0mab12cd34ef560000000000000000000000000000000000000000000000000000[0m
+          [36m</span>[39m
+        [36m</p>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"decide-buttons"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAccept[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAccept with findings[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn ghost"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mReturn with direction[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<details[39m
+          [33mclass[39m=[32m"refused-decisions"[39m
+        [36m>[39m
+          [36m<summary[39m
+            [33mclass[39m=[32m"small muted"[39m
+          [36m>[39m
+            [0mWhy the other decisions are not open to you[0m
+          [36m</summary>[39m
+          [36m<ul[39m
+            [33mclass[39m=[32m"blocked"[39m
+          [36m>[39m
+            [36m<li>[39m
+              [36m<p>[39m
+                [36m<strong>[39m
+                  [0mRelease, Reject[0m
+                [36m</strong>[39m
+                [0m: [0m
+                [0mThe package is not in a state where this decision applies.[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+              [36m>[39m
+                [0mWhat would change it: [0m
+                [0mWait for the package to reach that step.[0m
+              [36m</p>[39m
+            [36m</li>[39m
+          [36m</ul>[39m
+        [36m</details>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ src/components/components.test.tsx:169:11
+    167|     const first = await renderPage(<DecisionBar view={v} passkeys={pas…
+    168|     expect(await screen.findByRole("button", { name: "Return with dire…
+    169|     await waitFor(() => expect(screen.getAllByText(/A person verificat…
+       |           ^
+    170|     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull(…
+    171|     expect(screen.queryByRole("button", { name: /Accept with findings/…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/pages/package-accept.test.tsx > package page acceptance > offers no Accept on unverified Safety work when navigated to directly
+TestingLibraryElementError: Unable to find an element with the text: /A person verification of the current work must come before/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"package"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"panel pkg-head"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mono small muted"[39m
+        [36m>[39m
+          [0mWP-0001[0m
+          [0m · rev [0m
+          [0m0[0m
+          [0m · [0m
+          [0mgeneral[0m
+        [36m</p>[39m
+        [36m<h1>[39m
+          [0mexample package package, Unit 12[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"small"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mhref[39m=[32m"/packages/WP-0001/case"[39m
+          [36m>[39m
+            [0mOpen the case view (preview)[0m
+          [36m</a>[39m
+        [36m</p>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"pkg-tags"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"tag"[39m
+          [36m>[39m
+            [0mcapital-projects[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"tag"[39m
+          [36m>[39m
+            [0mquick[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"tag"[39m
+            [33mtitle[39m=[32m"Data lane: the package's own lane, raised by anything it was derived from"[39m
+          [36m>[39m
+            [0minternal[0m
+            [0m lane[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<ol[39m
+          [33maria-label[39m=[32m"Status"[39m
+          [33mclass[39m=[32m"rungs"[39m
+        [36m>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"rung past"[39m
+          [36m>[39m
+            [0mDraft[0m
+          [36m</li>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"rung past"[39m
+          [36m>[39m
+            [0mReleased[0m
+          [36m</li>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"rung past"[39m
+          [36m>[39m
+            [0mIn work[0m
+          [36m</li>[39m
+          [36m<li[39m
+            [33maria-current[39m=[32m"step"[39m
+            [33mclass[39m=[32m"rung current"[39m
+          [36m>[39m
+            [0mIn verification[0m
+          [36m</li>[39m
+          [36m<li[39m
+            [33mclass[39m=[32m"rung"[39m
+          [36m>[39m
+            [0mAccepted[0m
+          [36m</li>[39m
+        [36m</ol>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"pkg-grid"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"pkg-col"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"obj-title"[39m
+            [33mclass[39m=[32m"panel"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mid[39m=[32m"obj-title"[39m
+            [36m>[39m
+              [0mObjective[0m
+            [36m</h2>[39m
+            [36m<p>[39m
+              [0mSite a facility for this project.[0m
+            [36m</p>[39m
+            [36m<h3>[39m
+              [0mDeliverables[0m
+            [36m</h3>[39m
+            [36m<ul>[39m
+              [36m<li>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"mono small"[39m
+                [36m>[39m
+                  [0mD1[0m
+                [36m</span>[39m
+                [0m [0m
+                [0mconcept site plan[0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"muted small"[39m
+                [36m>[39m
+                  [0m ([0m
+                  [0mpdf[0m
+                  [0m)[0m
+                [36m</span>[39m
+              [36m</li>[39m
+            [36m</ul>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"crit-title"[39m
+            [33mclass[39m=[32m"panel"[39m
+            [33mid[39m=[32m"criteria"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"panel-head"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"crit-title"[39m
+              [36m>[39m
+                [0mAcceptance criteria[0m
+              [36m</h2>[39m
+            [36m</div>[39m
+            [36m<ol[39m
+              [33mclass[39m=[32m"criteria"[39m
+            [36m>[39m
+              [36m<li>[39m
+                [0mEvery facility block sits inside the buildable area.[0m
+              [36m</li>[39m
+            [36m</ol>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"muted small"[39m
+            [36m>[39m
+              [0mFixed at release. Return the package to change them.[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"runs-title"[39m
+            [33mclass[39m=[32m"panel"[39m
+            [33mid[39m=[32m"runs"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mid[39m=[32m"runs-title"[39m
+            [36m>[39m
+              [0mRuns[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0mNo runs yet.[0m
+            [36m</p>[39m
+          [36m</section>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"pkg-col"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"decide-title"[39m
+            [33mclass[39m=[32m"panel decide"[39m
+            [33mid[39m=[32m"decide"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mid[39m=[32m"decide-title"[39m
+            [36m>[39m
+              [0mYour decision[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"muted small"[39m
+            [36m>[39m
+              [0mA decision here signs [0m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono"[39m
+              [36m>[39m
+                [0msha256:ab12cd34ef56[0m
+              [36m</span>[39m
+              [0m, the digest of this revision, its output and its pre-check.[0m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"small muted"[39m
+            [36m>[39m
+              [0mFull digest [0m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono wrap"[39m
+              [36m>[39m
+                [0msha256[0m
+                [0m:[0m
+                [0mab12cd34ef560000000000000000000000000000000000000000000000000000[0m
+              [36m</span>[39m
+            [36m</p>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"decide-buttons"[39m
+            [36m>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"btn primary"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mAccept[0m
+              [36m</button>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"btn danger"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mReject[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"out-title"[39m
+            [33mclass[39m=[32m"panel"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mid[39m=[32m"out-title"[39m
+            [36m>[39m
+              [0mOutputs[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0mNo outputs yet.[0m
+            [36m</p>[39m
+            [36m<ul[39m
+              [33mclass[39m=[32m"outputs"[39m
+            [36m/>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"pc-title"[39m
+            [33mclass[39m=[32m"panel"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mid[39m=[32m"pc-title"[39m
+            [36m>[39m
+              [0mPre-check[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0mNot done yet. An agent with a fresh context checks the output against the criteria.[0m
+            [36m</p>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"dec-title"[39m
+            [33mclass[39m=[32m"panel"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mid[39m=[32m"dec-title"[39m
+            [36m>[39m
+              [0mDecisions[0m
+            [36m</h2>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0mNone yet.[0m
+            [36m</p>[39m
+          [36m</section>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"package"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"panel pkg-head"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mono small muted"[39m
+          [36m>[39m
+            [0mWP-0001[0m
+            [0m · rev [0m
+            [0m0[0m
+            [0m · [0m
+            [0mgeneral[0m
+          [36m</p>[39m
+          [36m<h1>[39m
+            [0mexample package package, Unit 12[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"small"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mhref[39m=[32m"/packages/WP-0001/case"[39m
+            [36m>[39m
+              [0mOpen the case view (preview)[0m
+            [36m</a>[39m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pkg-tags"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"tag"[39m
+            [36m>[39m
+              [0mcapital-projects[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"tag"[39m
+            [36m>[39m
+              [0mquick[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"tag"[39m
+              [33mtitle[39m=[32m"Data lane: the package's own lane, raised by anything it was derived from"[39m
+            [36m>[39m
+              [0minternal[0m
+              [0m lane[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<ol[39m
+            [33maria-label[39m=[32m"Status"[39m
+            [33mclass[39m=[32m"rungs"[39m
+          [36m>[39m
+            [36m<li[39m
+              [33mclass[39m=[32m"rung past"[39m
+            [36m>[39m
+              [0mDraft[0m
+            [36m</li>[39m
+            [36m<li[39m
+              [33mclass[39m=[32m"rung past"[39m
+            [36m>[39m
+              [0mReleased[0m
+            [36m</li>[39m
+            [36m<li[39m
+              [33mclass[39m=[32m"rung past"[39m
+            [36m>[39m
+              [0mIn work[0m
+            [36m</li>[39m
+            [36m<li[39m
+              [33maria-current[39m=[32m"step"[39m
+              [33mclass[39m=[32m"rung current"[39m
+            [36m>[39m
+              [0mIn verification[0m
+            [36m</li>[39m
+            [36m<li[39m
+              [33mclass[39m=[32m"rung"[39m
+            [36m>[39m
+              [0mAccepted[0m
+            [36m</li>[39m
+          [36m</ol>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"pkg-grid"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pkg-col"[39m
+          [36m>[39m
+            [36m<section[39m
+              [33maria-labelledby[39m=[32m"obj-title"[39m
+              [33mclass[39m=[32m"panel"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"obj-title"[39m
+              [36m>[39m
+                [0mObjective[0m
+              [36m</h2>[39m
+              [36m<p>[39m
+                [0mSite a facility for this project.[0m
+              [36m</p>[39m
+              [36m<h3>[39m
+                [0mDeliverables[0m
+              [36m</h3>[39m
+              [36m<ul>[39m
+                [36m<li>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"mono small"[39m
+                  [36m>[39m
+                    [0mD1[0m
+                  [36m</span>[39m
+                  [0m [0m
+                  [0mconcept site plan[0m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"muted small"[39m
+                  [36m>[39m
+                    [0m ([0m
+                    [0mpdf[0m
+                    [0m)[0m
+                  [36m</span>[39m
+                [36m</li>[39m
+              [36m</ul>[39m
+            [36m</section>[39m
+            [36m<section[39m
+              [33maria-labelledby[39m=[32m"crit-title"[39m
+              [33mclass[39m=[32m"panel"[39m
+              [33mid[39m=[32m"criteria"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"panel-head"[39m
+              [36m>[39m
+                [36m<h2[39m
+                  [33mid[39m=[32m"crit-title"[39m
+                [36m>[39m
+                  [0mAcceptance criteria[0m
+                [36m</h2>[39m
+              [36m</div>[39m
+              [36m<ol[39m
+                [33mclass[39m=[32m"criteria"[39m
+              [36m>[39m
+                [36m<li>[39m
+                  [0mEvery facility block sits inside the buildable area.[0m
+                [36m</li>[39m
+              [36m</ol>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+              [36m>[39m
+                [0mFixed at release. Return the package to change them.[0m
+              [36m</p>[39m
+            [36m</section>[39m
+            [36m<section[39m
+              [33maria-labelledby[39m=[32m"runs-title"[39m
+              [33mclass[39m=[32m"panel"[39m
+              [33mid[39m=[32m"runs"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"runs-title"[39m
+              [36m>[39m
+                [0mRuns[0m
+              [36m</h2>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted"[39m
+              [36m>[39m
+                [0mNo runs yet.[0m
+              [36m</p>[39m
+            [36m</section>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pkg-col"[39m
+          [36m>[39m
+            [36m<section[39m
+              [33maria-labelledby[39m=[32m"decide-title"[39m
+              [33mclass[39m=[32m"panel decide"[39m
+              [33mid[39m=[32m"decide"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"decide-title"[39m
+              [36m>[39m
+                [0mYour decision[0m
+              [36m</h2>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+              [36m>[39m
+                [0mA decision here signs [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"mono"[39m
+                [36m>[39m
+                  [0msha256:ab12cd34ef56[0m
+                [36m</span>[39m
+                [0m, the digest of this revision, its output and its pre-check.[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"small muted"[39m
+              [36m>[39m
+                [0mFull digest [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"mono wrap"[39m
+                [36m>[39m
+                  [0msha256[0m
+                  [0m:[0m
+                  [0mab12cd34ef560000000000000000000000000000000000000000000000000000[0m
+                [36m</span>[39m
+              [36m</p>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"decide-buttons"[39m
+              [36m>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"btn primary"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mAccept[0m
+                [36m</button>[39m
+                [36m<button[39m
+                  [33mclass[39m=[32m"btn danger"[39m
+                  [33mtype[39m=[32m"button"[39m
+                [36m>[39m
+                  [0mReject[0m
+                [36m</button>[39m
+              [36m</div>[39m
+            [36m</section>[39m
+            [36m<section[39m
+              [33maria-labelledby[39m=[32m"out-title"[39m
+              [33mclass[39m=[32m"panel"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"out-title"[39m
+              [36m>[39m
+                [0mOutputs[0m
+              [36m</h2>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted"[39m
+              [36m>[39m
+                [0mNo outputs yet.[0m
+              [36m</p>[39m
+              [36m<ul[39m
+                [33mclass[39m=[32m"outputs"[39m
+              [36m/>[39m
+            [36m</section>[39m
+            [36m<section[39m
+              [33maria-labelledby[39m=[32m"pc-title"[39m
+              [33mclass[39m=[32m"panel"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"pc-title"[39m
+              [36m>[39m
+                [0mPre-check[0m
+              [36m</h2>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted"[39m
+              [36m>[39m
+                [0mNot done yet. An agent with a fresh context checks the output against the criteria.[0m
+              [36m</p>[39m
+            [36m</section>[39m
+            [36m<section[39m
+              [33maria-labelledby[39m=[32m"dec-title"[39m
+              [33mclass[39m=[32m"panel"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mid[39m=[32m"dec-title"[39m
+              [36m>[39m
+                [0mDecisions[0m
+              [36m</h2>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted"[39m
+              [36m>[39m
+                [0mNone yet.[0m
+              [36m</p>[39m
+            [36m</section>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ src/pages/package-accept.test.tsx:37:11
+     35|     );
+     36|     expect(await screen.findByRole("button", { name: "Reject" })).toBe…
+     37|     await waitFor(() => expect(screen.getAllByText(/A person verificat…
+       |           ^
+     38|     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull(…
+     39|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/features/case/case.test.tsx > case view > offers no Accept on Safety work no person has verified, in the bar or the strip (ruling 16)
+AssertionError: expected 'Your decisionA decision here signs sh…' to contain 'A person verification of the current …'
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"case"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"panel case-head"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"mono small muted"[39m
+          [36m>[39m
+            [0mWP-0001[0m
+            [0m · rev [0m
+            [0m0[0m
+            [0m · [0m
+            [0mgeneral[0m
+          [36m</p>[39m
+          [36m<h1>[39m
+            [0mexample package package, Unit 12[0m
+          [36m</h1>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"pkg-tags"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"tag"[39m
+              [33mtitle[39m=[32m"Rigor: presentation scales with it; floors do not"[39m
+            [36m>[39m
+              [0mHigh consequence[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"tag"[39m
+            [36m>[39m
+              [0msafety[0m
+              [0m grade[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"tag"[39m
+            [36m>[39m
+              [0mmechanical[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"tag"[39m
+            [36m>[39m
+              [0minternal[0m
+              [0m lane[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"muted small"[39m
+          [36m>[39m
+            [0mPreview. The case view grows here beside the [0m
+            [36m<a[39m
+              [33maria-current[39m=[32m"page"[39m
+              [33mclass[39m=[32m"active"[39m
+              [33mdata-status[39m=[32m"active"[39m
+              [33mhref[39m=[32m"/packages/WP-0001"[39m
+            [36m>[39m
+              [0mpackage page[0m
+            [36m</a>[39m
+            [0m until comments and the separate verdict and clearance decisions join it.[0m
+          [36m</p>[39m
+          [36m<button[39m
+            [33maria-pressed[39m=[32m"false"[39m
+            [33mclass[39m=[32m"btn ghost small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mShow everything[0m
+          [36m</button>[39m
+        [36m</header>[39m
+        [36m<ol[39m
+          [33mclass[39m=[32m"case-steps"[39m
+        [36m>[39m
+          [36m<li[39m
+            [33maria-labelledby[39m=[32m"asked-title"[39m
+            [33mclass[39m=[32m"case-step"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"case-step-title"[39m
+              [33mid[39m=[32m"asked-title"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"case-step-n"[39m
+              [36m>[39m
+                [0m1[0m
+              [36m</span>[39m
+              [0mAsked[0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"panel"[39m
+              [33mid[39m=[32m"asked"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"case-objective"[39m
+              [36m>[39m
+                [0mSite a facility for this project.[0m
+              [36m</p>[39m
+              [36m<h3>[39m
+                [0mAcceptance criteria[0m
+              [36m</h3>[39m
+              [36m<ol[39m
+                [33mclass[39m=[32m"criteria"[39m
+              [36m>[39m
+                [36m<li>[39m
+                  [0mEvery facility block sits inside the buildable area.[0m
+                [36m</li>[39m
+              [36m</ol>[39m
+              [36m<h3>[39m
+                [0mDeliverables[0m
+              [36m</h3>[39m
+              [36m<ul[39m
+                [33mclass[39m=[32m"plain-list"[39m
+              [36m>[39m
+                [36m<li>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"mono small"[39m
+                  [36m>[39m
+                    [0mD1[0m
+                  [36m</span>[39m
+                  [0m [0m
+                  [0mconcept site plan[0m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"muted small"[39m
+                  [36m>[39m
+                    [0m ([0m
+                    [0mpdf[0m
+                    [0m)[0m
+                  [36m</span>[39m
+                [36m</li>[39m
+              [36m</ul>[39m
+              [36m<h3>[39m
+                [0mRequirements[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+              [36m>[39m
+                [0mWritten on the package itself; this package does not use guided preparation, so there is no separate confirmation.[0m
+              [36m</p>[39m
+              [36m<h3>[39m
+                [0mDesign inputs[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+              [36m>[39m
+                [0mNone listed.[0m
+              [36m</p>[39m
+              [36m<h3>[39m
+                [0mMethodology[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+              [36m>[39m
+                [0mNone stated.[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+              [36m>[39m
+                [0mA signed methodology decision arrives with the separate decision kinds; none is recorded here yet.[0m
+              [36m</p>[39m
+            [36m</div>[39m
+          [36m</li>[39m
+          [36m<li[39m
+            [33maria-labelledby[39m=[32m"ran-title"[39m
+            [33mclass[39m=[32m"case-step"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"case-step-title"[39m
+              [33mid[39m=[32m"ran-title"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"case-step-n"[39m
+              [36m>[39m
+                [0m2[0m
+              [36m</span>[39m
+              [0mRan[0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"panel"[39m
+              [33mid[39m=[32m"ran"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted"[39m
+              [36m>[39m
+                [0mNo runs yet.[0m
+              [36m</p>[39m
+            [36m</div>[39m
+          [36m</li>[39m
+          [36m<li[39m
+            [33maria-labelledby[39m=[32m"checked-title"[39m
+            [33mclass[39m=[32m"case-step"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"case-step-title"[39m
+              [33mid[39m=[32m"checked-title"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"case-step-n"[39m
+              [36m>[39m
+                [0m3[0m
+              [36m</span>[39m
+              [0mChecked[0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"panel"[39m
+              [33mid[39m=[32m"checked"[39m
+            [36m>[39m
+              [36m<p>[39m
+                [36m<strong>[39m
+                  [0mPre-check: not done yet.[0m
+                [36m</strong>[39m
+                [0m [0m
+                [36m<span[39m
+                  [33mclass[39m=[32m"muted small"[39m
+                [36m>[39m
+                  [0mRequired before acceptance in every tier.[0m
+                [36m</span>[39m
+              [36m</p>[39m
+              [36m<h3>[39m
+                [0mPer criterion[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+              [36m>[39m
+                [0mThis package has no per criterion results; the pre-check covers its criteria as a whole.[0m
+              [36m</p>[39m
+              [36m<h3>[39m
+                [0mEvidence custody[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted small"[39m
+              [36m>[39m
+                [0mNo evidence until the pre-check runs.[0m
+              [36m</p>[39m
+              [36m<h3>[39m
+                [0mCustody required[0m
+              [36m</h3>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"small"[39m
+              [36m>[39m
+                [0mDecisive evidence must come from the [0m
+                [0mverifier[0m
+                [0m;[0m
+                [0m [0m
+                [0mthe preparer may not present it.[0m
+              [36m</p>[39m
+            [36m</div>[39m
+          [36m</li>[39m
+          [36m<li[39m
+            [33maria-labelledby[39m=[32m"open-title"[39m
+            [33mclass[39m=[32m"case-step"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"case-step-title"[39m
+              [33mid[39m=[32m"open-title"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"case-step-n"[39m
+              [36m>[39m
+                [0m4[0m
+              [36m</span>[39m
+              [0mOpen[0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"panel"[39m
+              [33mid[39m=[32m"open"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"muted"[39m
+              [36m>[39m
+                [0mNothing open.[0m
+              [36m</p>[39m
+            [36m</div>[39m
+          [36m</li>[39m
+          [36m<li[39m
+            [33maria-labelledby[39m=[32m"sign-title"[39m
+            [33mclass[39m=[32m"case-step"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"case-step-title"[39m
+              [33mid[39m=[32m"sign-title"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"case-step-n"[39m
+              [36m>[39m
+                [0m5[0m
+              [36m</span>[39m
+              [0mSign[0m
+            [36m</h2>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"panel"[39m
+              [33mid[39m=[32m"sign"[39m
+            [36m>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"small"[39m
+              [36m>[39m
+                [0mThis grade treats agent checks as pre-checks: a person must verify before the work is accepted.[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"small"[39m
+              [36m>[39m
+                [0mThis grade needs a credentialed signer with an attested hardware key.[0m
+              [36m</p>[39m
+              [36m<section[39m
+                [33maria-labelledby[39m=[32m"decide-title"[39m
+                [33mclass[39m=[32m"panel decide"[39m
+                [33mid[39m=[32m"decide"[39m
+              [36m>[39m
+                [36m<h2[39m
+                  [33mid[39m=[32m"decide-title"[39m
+                [36m>[39m
+                  [0mYour decision[0m
+                [36m</h2>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"muted small"[39m
+                [36m>[39m
+                  [0mA decision here signs [0m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"mono"[39m
+                  [36m>[39m
+                    [0msha256:ab12cd34ef56[0m
+                  [36m</span>[39m
+                  [0m, the digest of this revision, its output and its pre-check.[0m
+                [36m</p>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"small muted"[39m
+                [36m>[39m
+                  [0mFull digest [0m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"mono wrap"[39m
+                  [36m>[39m
+                    [0msha256[0m
+                    [0m:[0m
+                    [0mab12cd34ef560000000000000000000000000000000000000000000000000000[0m
+                  [36m</span>[39m
+                [36m</p>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"decide-buttons"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"btn primary"[39m
+                    [33mtype[39m=[32m"button"[39m
+                  [36m>[39m
+                    [0mAccept[0m
+                  [36m</button>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"btn ghost"[39m
+                    [33mtype[39m=[32m"button"[39m
+                  [36m>[39m
+                    [0mReturn with direction[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</section>[39m
+            [36m</div>[39m
+          [36m</li>[39m
+        [36m</ol>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Decision"[39m
+          [33mclass[39m=[32m"sign-strip"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"mono small"[39m
+          [36m>[39m
+            [0msha256:ab12cd34ef56[0m
+          [36m</span>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"small"[39m
+          [36m>[39m
+            [0mYou may accept, return with direction[0m
+          [36m</span>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"btn primary small"[39m
+            [33mhref[39m=[32m"#sign"[39m
+          [36m>[39m
+            [0mGo to Sign[0m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+Expected: "A person verification of the current work must come before"
+Received: "Your decisionA decision here signs sha256:ab12cd34ef56, the digest of this revision, its output and its pre-check.Full digest sha256:ab12cd34ef560000000000000000000000000000000000000000000000000000AcceptReturn with direction"
+
+ ❯ src/features/case/case.test.tsx:105:49
+    103|     await renderCase(view({}, { status: "in-verification", grade: "saf…
+    104|     const bar = (await screen.findByRole("heading", { name: "Your deci…
+    105|     await waitFor(() => expect(bar.textContent).toContain("A person ve…
+       |                                                 ^
+    106|     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull(…
+    107|     const strip = screen.getByRole("region", { name: "Decision" });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  3 failed | 36 passed (39)
+   Start at  15:18:31
+   Duration  3.03s (tests 71%, environment 15%, import 7%, setup 5%, transform 2%)
+

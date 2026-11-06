@@ -251,11 +251,11 @@ textarea {
   font-size: 14px;
 }
 .place-link:hover {
-  background: #121a24;
+  background: var(--panel);
   color: var(--text);
 }
 .place-link.active {
-  background: #16212d;
+  background: var(--line);
   color: var(--text);
   box-shadow: inset 2px 0 0 var(--accent);
 }
@@ -1357,4 +1357,26 @@ select {
 .admin-describe {
   margin: 0;
   color: var(--text-2);
+}
+
+/* Look switch in the top bar */
+.look-switch {
+  display: inline-flex;
+  gap: 2px;
+}
+.look-btn {
+  min-width: 26px;
+  padding: 3px 6px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  font: inherit;
+  font-size: var(--fs-label);
+  cursor: pointer;
+}
+.look-btn[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }

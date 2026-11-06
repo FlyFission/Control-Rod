@@ -32,7 +32,7 @@ Claim: `tools/check_workflow_timeouts.py` reports every job in the current `ci.y
   - Unit tests: 7 pass. With the unreadable-declaration branch disabled, 3 fail (quoted, anchored and inline job headers), so the new tests detect that defect.
   - `python3 tools/check_workflow_timeouts.py` exits 1 and names all 7 jobs of the current `ci.yml` (`evidence/guard-on-current-ci.txt`). The proposed diff applies cleanly to a scratch copy and the checker then reports nothing (`evidence/ci-timeouts.proposed.diff`).
   - 6-gram comparison (`evidence/ngram-check.txt`): no shared run of prose in the pattern note or the test file. The checker shares four 6-grams that are Python import and `__main__` boilerplate (`import sys from pathlib import Path`, `if __name__ == "__main__": sys.exit(main())`), which is not expressive content.
-  - Caps: the proposed values (10 to 30 minutes) are 5 to 15 times the roughly two-minute length of whole CI runs on 2026-11-06 (run 42292993271 took 2 min 7 s from created to updated time; the reviewer measured 128 s with `gh`). Per-job times for Control Rod were not read individually. The values are the owner's to set.
+  - Caps: per-job times from this PR's own CI run (`evidence/job-times.txt`) are 10 to 137 s, slowest `typescript` at 137 s. The proposed caps (10 to 30 minutes) are 8.8 to 60 times the measured times, the smallest margin being `typescript`. One run with warm caches, so a cold `rust` build could be slower than its 39 s. Whole runs on 2026-11-06 took about two minutes (run 42292993271: 2 min 7 s; the reviewer measured 128 s with `gh`). The values are the owner's to set.
   - No file under `.github/` was changed.
 - Evidence link or artifact path: this file; `evidence/`.
 - If failed/gap: see below.
@@ -68,7 +68,7 @@ Claim: `tools/check_workflow_timeouts.py` reports every job in the current `ci.y
 
 - Related PR/issue: the draft PR on `claude/funny-fermi-hls5sp`
 - Relevant changed files: `docs/patterns/xerj.md`, `docs/patterns/README.md`, `tools/check_workflow_timeouts.py`, `tools/test_check_workflow_timeouts.py`
-- CI run / test output / eval report / screenshot / log: `evidence/guard-on-current-ci.txt`, `evidence/ngram-check.txt`, `evidence/ci-timeouts.proposed.diff`
+- CI run / test output / eval report / screenshot / log: `evidence/guard-on-current-ci.txt`, `evidence/ngram-check.txt`, `evidence/ci-timeouts.proposed.diff`, `evidence/job-times.txt`
 - If AI-assisted: an AI agent wrote everything here under the owner's instruction; one separate agent instance reviewed it; no human has reviewed it yet.
 
 ## Exit criteria

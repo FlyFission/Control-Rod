@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "../../api/client.js";
 import type { ActionDescriptor, PersonVerificationEntry, WorkPackage } from "../../api/types.js";
@@ -48,6 +49,13 @@ export type BoardData = {
   agentsRunningCounts: Confidence;
 };
 
+/**
+ * A view or actions refetch over cached data turns a card to "Last known" only after this long, so a
+ * routine refetch after each stream event does not flicker the board. A failed read shows at once.
+ * The acceptance gate has no such grace: a verification refetch in flight never offers Accept.
+ */
+export const REFETCH_GRACE_MS = 1000;
+
 const CHECKING: NextLine = { tone: "wait", text: "Checking what is next" };
 const NO_NEXT: NextLine = { tone: "wait", text: "Could not read what is next" };
 
@@ -75,6 +83,26 @@ export function useBoardData(): BoardData {
   });
 
   const officeItems = office.data ?? [];
+  // When each in-flight view or actions refetch began, keyed by query; a refetch past the grace is slow.
+  const refetchStarted = useRef(new Map<string, number>());
+  const [, setTick] = useState(0);
+  const now = Date.now();
+  let nextGraceEnd: number | undefined;
+  const slowRefetch = (key: string, q: { isFetching: boolean; data?: unknown } | undefined) => {
+    const inFlight = q?.isFetching === true && q.data !== undefined;
+    if (!inFlight) {
+      refetchStarted.current.delete(key);
+      return false;
+    }
+    const started = refetchStarted.current.get(key) ?? now;
+    refetchStarted.current.set(key, started);
+    const end = started + REFETCH_GRACE_MS;
+    if (now < end) {
+      nextGraceEnd = nextGraceEnd === undefined ? end : Math.min(nextGraceEnd, end);
+      return false;
+    }
+    return true;
+  };
   // A read is fresh when it has succeeded since the latest stream drop (or there was none). Reads that
   // were inactive at the drop, for example while the viewer was on another page, are refreshed only
   // when they become active again; until then their data is last known.
@@ -116,9 +144,8 @@ export function useBoardData(): BoardData {
     if (viewQ?.data === undefined || viewQ.isError) runsUnread = true;
     // A view or actions read being refetched with cached data is not current either: its next step may
     // already have changed, so the card shows it as last known until the read lands.
-    const refetching = (q: { isFetching: boolean; data?: unknown } | undefined) => q?.isFetching === true && q.data !== undefined;
-    const viewCurrent = !refetching(viewQ) && fresh(viewQ);
-    const cardFresh = boardFresh && viewCurrent && !refetching(actsQ) && fresh(actsQ) && (verifQ?.fetchStatus === "idle" && verifQ.isPending ? true : fresh(verifQ));
+    const viewCurrent = !slowRefetch(`view:${p.id}`, viewQ) && fresh(viewQ);
+    const cardFresh = boardFresh && viewCurrent && !slowRefetch(`actions:${p.id}`, actsQ) && fresh(actsQ) && (verifQ?.fetchStatus === "idle" && verifQ.isPending ? true : fresh(verifQ));
     if (!cardFresh) anyStale = true;
     if (!viewCurrent) viewStale = true;
     if (viewQ?.isError || actsQ?.isError) {
@@ -156,6 +183,13 @@ export function useBoardData(): BoardData {
     if (next === CHECKING || next === NO_NEXT || retry !== undefined) undetermined = true;
     cards.push({ pkg: p, kinds: kindsOf(p), column, next, ...(owner ? { owner } : {}), runActive, ...(retry ? { retry } : {}), lastKnown: !cardFresh });
   });
+
+  // Redraw when the earliest grace ends, so a refetch still in flight then turns its card last known.
+  useEffect(() => {
+    if (nextGraceEnd === undefined) return;
+    const t = setTimeout(() => setTick((n) => n + 1), Math.max(0, nextGraceEnd - Date.now()) + 1);
+    return () => clearTimeout(t);
+  }, [nextGraceEnd]);
 
   const problems: string[] = [];
   if (packages.isError) problems.push("Could not load the work on this board.");

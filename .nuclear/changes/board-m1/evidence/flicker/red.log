@@ -1,0 +1,31 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+ ❯ src/features/board/board.test.tsx (30 tests | 1 failed) 1541ms
+   ❯ BoardView (30)
+     × keeps the current display through a short refetch and shows last known only after one second 105ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > keeps the current display through a short refetch and shows last known only after one second
+AssertionError: expected 'Last known: Accept' to contain '▲ Needs you: Accept'
+
+Expected: "▲ Needs you: Accept"
+Received: "Last known: Accept"
+
+ ❯ src/features/board/board.test.tsx:252:22
+    250|       await waitFor(() => expect(release).toBeDefined());
+    251|       await act(async () => void vi.advanceTimersByTime(300));
+    252|       expect(next()).toContain("▲ Needs you: Accept");
+       |                      ^
+    253|       expect(screen.getByText("1 needs you")).toBeTruthy();
+    254|       await act(async () => release());
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 29 passed (30)
+   Start at  15:58:13
+   Duration  2.25s (tests 72%, environment 15%, setup 5%, import 5%, transform 4%)
+

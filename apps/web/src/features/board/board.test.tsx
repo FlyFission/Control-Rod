@@ -232,21 +232,52 @@ describe("BoardView", () => {
     expect(screen.queryByText(/1 agent running/)).toBeNull();
   });
 
-  it("shows a cached next step as last known while its actions are being read again", async () => {
+  it("keeps the current display through a short refetch and shows last known only after one second", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      api({ packages: [pkg({ id: "WP-1", title: "One", status: "in-verification" })], actions: { "WP-1": [accept] } });
+      const { qc } = await renderPage(<Page />);
+      const next = () => screen.getByText("One").closest("article")!.querySelector(".bd-next")!.textContent;
+      await waitFor(() => expect(next()).toContain("▲ Needs you: Accept"));
+      let release!: () => void;
+      server.use(http.get("*/packages/WP-1/actions", async () => {
+        await new Promise<void>((r) => (release = r));
+        return HttpResponse.json([accept]);
+      }));
+
+      // A 300 ms refetch: the card never leaves its current display.
+      act(() => void qc.invalidateQueries({ queryKey: ["actions"] }));
+      await waitFor(() => expect(release).toBeDefined());
+      await act(async () => void vi.advanceTimersByTime(300));
+      expect(next()).toContain("▲ Needs you: Accept");
+      expect(screen.getByText("1 needs you")).toBeTruthy();
+      await act(async () => release());
+      await act(async () => void vi.advanceTimersByTime(1500));
+      expect(next()).toContain("▲ Needs you: Accept");
+
+      // A 1.5 s refetch: after one second the card and the count read last known.
+      release = undefined as unknown as () => void;
+      act(() => void qc.invalidateQueries({ queryKey: ["actions"] }));
+      await waitFor(() => expect(release).toBeDefined());
+      await act(async () => void vi.advanceTimersByTime(1500));
+      await waitFor(() => expect(next()).toBe("Last known: Accept"));
+      expect(screen.getByText("Last known: 1 needs you")).toBeTruthy();
+      await act(async () => release());
+      await waitFor(() => expect(next()).toContain("▲ Needs you: Accept"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows last known at once when a refetch fails", async () => {
     api({ packages: [pkg({ id: "WP-1", title: "One", status: "in-verification" })], actions: { "WP-1": [accept] } });
     const { qc } = await renderPage(<Page />);
     const next = () => screen.getByText("One").closest("article")!.querySelector(".bd-next")!.textContent;
     await waitFor(() => expect(next()).toContain("▲ Needs you: Accept"));
-    let release!: () => void;
-    server.use(http.get("*/packages/WP-1/actions", async () => {
-      await new Promise<void>((r) => (release = r));
-      return HttpResponse.json([accept]);
-    }));
-    act(() => void qc.invalidateQueries({ queryKey: ["actions"] }));
-    await waitFor(() => expect(next()).toBe("Last known: Accept"));
-    expect(screen.getByText("Last known: 1 needs you")).toBeTruthy();
-    await act(async () => release());
-    await waitFor(() => expect(next()).toContain("▲ Needs you: Accept"));
+    server.use(http.get("*/packages/WP-1/actions", () => HttpResponse.json({ code: "boom" }, { status: 500 })));
+    await act(async () => void (await qc.refetchQueries({ queryKey: ["actions"] })));
+    await waitFor(() => expect(next()).toContain("Could not read what is next"));
+    expect(next()).not.toContain("▲");
   });
 
   it("keeps both counts unknown on a cold load until every package view and actions read has completed", async () => {

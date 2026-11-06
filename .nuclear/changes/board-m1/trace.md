@@ -25,6 +25,7 @@
 | T-21 | Review bots B: recovery after a drop waits for the required reads to settle, even when a second invalidation replaces a refetch. | `lib/live.test.tsx` second refresh during recovery | implemented and tested |
 | T-22 | Review bots C: a card whose view or actions read is refetching shows its next step as last known. | `features/board/board.test.tsx` refetching actions | implemented and tested |
 | T-23 | Review bots D: cold-load counts stay unknown until every view and actions read completes; a verification refetch in flight offers no Accept (board, office card). | `features/board/board.test.tsx`, `features/office/agent-card.test.tsx` | tested (behavior already present) |
+| T-24 | Ruling on flicker: a card and the needs-you count read last known only after a view or actions refetch has been in flight over 1 s; a failed refetch shows at once; no grace for the acceptance gate. | `features/board/board.test.tsx` 300 ms and 1.5 s refetch with fake timers, failed refetch | implemented and tested |
 
 ## Required links
 

@@ -1,6 +1,6 @@
 # Verification: board redesign slice M1
 
-Evidence status: **pass** for the M1 build and its final fix wave on the local toolchain (E-01 to E-03, E-05 to E-08). **Open** for WebKit and for the owner's merge review (E-04). Nothing here verifies that the kernel enforces person verification; D-4 is unsigned and the acceptance rule is screen-only.
+Evidence status: **pass** for the M1 build and its final fix wave on the local toolchain (E-01 to E-03, E-05 to E-09). **Open** for WebKit and for the owner's merge review (E-04). Nothing here verifies that the kernel enforces person verification; D-4 is unsigned and the acceptance rule is screen-only.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
@@ -11,6 +11,7 @@ Evidence status: **pass** for the M1 build and its final fix wave on the local t
 | E-06 | pass | Codex round 2 fixes, test first, after merging main (#53): RED and GREEN logs per finding; full API suite 620 passed after scoping GET /packages; after the merge, web suite 571 tests in 39 files pass, web and API typecheck exit 0, `person-verification.test.ts` 15 passed, contrast 159 of 159, board axe 6 passed on Chromium and Firefox. Local machine only. | `evidence/codex-r2/` |
 | E-07 | pass | Codex round 3 fixes, test first: RED and GREEN logs; web suite 575 tests in 39 files pass; web typecheck exit 0; contrast 159 of 159; board axe 6 passed on Chromium and Firefox. No API code changed in this round. Local machine only. | `evidence/codex-r3/` |
 | E-08 | pass | Review bot threads A to D, test first: API RED and GREEN for office scoping, full API suite 621 passed after it; web RED for C (B and D tests passed on the code before, kept as regression guards); web suite 580 tests in 39 files pass; web and API typecheck exit 0; contrast 159 of 159; board axe 6 passed on Chromium and Firefox. Local machine only. | `evidence/review-bots/` |
+| E-09 | pass | Refetch grace (controller ruling on flicker), test first: RED then GREEN with fake timers; web suite 581 tests in 39 files pass; web typecheck exit 0; board axe 6 passed on Chromium and Firefox. No API or token change. Local machine only. | `evidence/flicker/` |
 | E-04 | open | WebKit board run (browser not installed) and the owner's review of PR #65. | Not executed |
 
 ## Evidence custody and coupling
@@ -24,6 +25,7 @@ Evidence status: **pass** for the M1 build and its final fix wave on the local t
 | E-06 | T-12, T-13, T-14, T-15, T-16 | yes | evidence/codex-r2/ | Fix agent | Vitest, tsc, API test runner, Playwright, axe-core 4.14.0, contrast script | Fix agent | Fix agent | Local toolchain | Packet and export | Fix agent | Self-check; findings from a Codex model review |
 | E-07 | T-17, T-18, T-19 | yes | evidence/codex-r3/ | Fix agent | Vitest, tsc, Playwright, axe-core 4.14.0, contrast script | Fix agent | Fix agent | Local toolchain | Packet and export | Fix agent | Self-check; findings from a Codex model review |
 | E-08 | T-20, T-21, T-22, T-23 | yes | evidence/review-bots/ | Fix agent | Vitest, tsc, API test runner, Playwright, axe-core 4.14.0, contrast script | Fix agent | Fix agent | Local toolchain | Packet and export | Fix agent | Self-check; findings from review bots on PR #65 |
+| E-09 | T-24 | yes | evidence/flicker/ | Fix agent | Vitest, tsc, Playwright, axe-core 4.14.0 | Fix agent | Fix agent | Local toolchain | Packet and export | Fix agent | Self-check |
 | E-04 | T-01 | yes | Owner review | Fix agent | Not executed | Owner | Not executed | Not executed | Packet and export | Controller | Not supplied |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
@@ -35,6 +37,7 @@ Evidence status: **pass** for the M1 build and its final fix wave on the local t
 | E-06 | coupled: fix agent | coupled: one session | separated: deterministic test tools | separated: owner retains merge decision | coupled: local machine | self-check | Same agent wrote tests and fixes; Chromium and Firefox only  [Ship limits](ship.md) |
 | E-07 | coupled: fix agent | coupled: one session | separated: deterministic test tools | separated: owner retains merge decision | coupled: local machine | self-check | Same agent wrote tests and fixes; Chromium and Firefox only; Accept recheck is screen-only  [Ship limits](ship.md) |
 | E-08 | coupled: fix agent | coupled: one session | separated: deterministic test tools | separated: owner retains merge decision | coupled: local machine | self-check | Same agent wrote tests and fixes; two tests are regression guards that passed before the change; Chromium and Firefox only  [Ship limits](ship.md) |
+| E-09 | coupled: fix agent | coupled: one session | separated: deterministic test tools | separated: owner retains merge decision | coupled: local machine | self-check | Same agent wrote the test and the change; Chromium and Firefox only  [Ship limits](ship.md) |
 | E-04 | separated: owner | separated: owner's own review | partially separated: not executed | separated: owner decides | coupled: local machine | self-check | Not executed yet; hold the merge until the owner reviews  [Ship limits](ship.md) |
 
 No human independent review has been done yet.

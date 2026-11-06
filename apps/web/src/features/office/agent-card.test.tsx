@@ -166,6 +166,26 @@ describe("agent card", () => {
     expect(screen.getByText(/You may not accept it: A person verification of the current work must come before Accept/)).toBeTruthy();
   });
 
+  it("does not say the viewer may accept while a refresh of a cached covering pass is in flight", async () => {
+    serve();
+    let hold: Promise<void> | undefined;
+    server.use(
+      http.get("*/packages/:id/actions", () => HttpResponse.json([{ command: "accept", label: "Accept", allowed: true, signature: "direct" }])),
+      http.get("*/packages/:id/person-verifications", async () => {
+        if (hold) await hold;
+        return HttpResponse.json([{ id: "pv1", package_revision: 0, outcome: "pass", covers_current_subject: true }]);
+      }),
+    );
+    const { qc } = await renderPage(<AgentCard figure={figure()} lens={undefined} />);
+    expect(await screen.findByText("You may accept it.")).toBeTruthy();
+    let release!: () => void;
+    hold = new Promise<void>((r) => (release = r));
+    act(() => void qc.invalidateQueries({ queryKey: ["person-verifications"] }));
+    await waitFor(() => expect(screen.queryByText("You may accept it.")).toBeNull());
+    await act(async () => release());
+    expect(await screen.findByText("You may accept it.")).toBeTruthy();
+  });
+
   it("names the signature the rung opens, and never borrows another gate's", async () => {
     serve();
     server.use(

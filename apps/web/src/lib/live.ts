@@ -95,20 +95,35 @@ export function useLiveEvents(enabled: boolean): void {
     // After a drop the stream stays unknown until everything on screen has been read again and the
     // reads the work rests on (REQUIRED_READS) succeeded. A failed refresh leaves it unknown, with the
     // Reconnect control still offered; a drop during the refresh starts over.
+    // Another invalidation during recovery (a loss frame, or the event flush) can replace a refetch,
+    // so recovery does not trust the first promise alone: it waits until every required read is
+    // idle, and counts as recovered only reads that succeeded with data newer than the recovery.
+    const required = () =>
+      qc.getQueryCache().findAll({ type: "active" }).filter((q) => REQUIRED_READS.includes(String(q.queryKey[0])));
+    const settled = () =>
+      new Promise<void>((resolve) => {
+        const check = () => {
+          if (closed || required().every((q) => q.state.fetchStatus === "idle")) {
+            unsubscribe();
+            resolve();
+          }
+        };
+        const unsubscribe = qc.getQueryCache().subscribe(check);
+        check();
+      });
     const recover = async () => {
       recovering = true;
       const mine = epoch;
+      const started = Date.now();
       try {
         await qc.invalidateQueries();
+        await settled();
       } finally {
         recovering = false;
       }
       if (closed || mine !== epoch) return;
-      const failed = qc
-        .getQueryCache()
-        .findAll({ type: "active" })
-        .some((q) => REQUIRED_READS.includes(String(q.queryKey[0])) && q.state.status === "error");
-      if (!failed) markLive();
+      const recovered = required().every((q) => q.state.status === "success" && q.state.dataUpdatedAt >= started);
+      if (recovered) markLive();
     };
     const alive = (msg?: { lastEventId?: string }) => {
       if (msg?.lastEventId) lastEventId = msg.lastEventId;

@@ -85,6 +85,8 @@ export function useBoardData(): BoardData {
   let undetermined = false;
   let runsUnread = false;
   let anyStale = false;
+  // The agent count rests only on the package views (their runs), so it has its own staleness.
+  let viewStale = false;
   // Originators are user names; the registry is keyed by member id.
   const memberIdOf = new Map((admin.data?.members ?? []).map((m) => [m.user_name, m.id]));
 
@@ -112,8 +114,13 @@ export function useBoardData(): BoardData {
     let next: NextLine;
     let retry: (() => void) | undefined;
     if (viewQ?.data === undefined || viewQ.isError) runsUnread = true;
-    const cardFresh = boardFresh && fresh(viewQ) && fresh(actsQ) && (verifQ?.fetchStatus === "idle" && verifQ.isPending ? true : fresh(verifQ));
+    // A view or actions read being refetched with cached data is not current either: its next step may
+    // already have changed, so the card shows it as last known until the read lands.
+    const refetching = (q: { isFetching: boolean; data?: unknown } | undefined) => q?.isFetching === true && q.data !== undefined;
+    const viewCurrent = !refetching(viewQ) && fresh(viewQ);
+    const cardFresh = boardFresh && viewCurrent && !refetching(actsQ) && fresh(actsQ) && (verifQ?.fetchStatus === "idle" && verifQ.isPending ? true : fresh(verifQ));
     if (!cardFresh) anyStale = true;
+    if (!viewCurrent) viewStale = true;
     if (viewQ?.isError || actsQ?.isError) {
       next = NO_NEXT;
       retry = () => {
@@ -167,7 +174,7 @@ export function useBoardData(): BoardData {
     reconnect: live.reconnect,
     counts: packages.data === undefined ? "unknown" : packages.isError || live.status === "unknown" || !boardFresh ? "last-known" : "current",
     needsYouCounts: packages.data === undefined || undetermined ? "unknown" : live.status === "unknown" || anyStale || packages.isError ? "last-known" : "current",
-    agentsRunningCounts: packages.data === undefined || runsUnread ? "unknown" : live.status === "unknown" || anyStale || packages.isError ? "last-known" : "current",
+    agentsRunningCounts: packages.data === undefined || runsUnread ? "unknown" : live.status === "unknown" || viewStale || !fresh(packages) ? "last-known" : "current",
     needsYou: cards.filter((c) => c.next.tone === "needs" || c.next.tone === "block").length,
     agentsRunning: cards.filter((c) => c.runActive).length,
   };

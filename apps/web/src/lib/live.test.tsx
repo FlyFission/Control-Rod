@@ -222,4 +222,49 @@ describe("live events", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("stays unknown when a second refresh during recovery replaces the first, until the replacement arrives", async () => {
+    vi.stubGlobal("EventSource", FakeSource);
+    try {
+      resetLiveStatus();
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+      const releases: (() => void)[] = [];
+      let reads = 0;
+      const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+      const { result } = renderHook(
+        () => {
+          useLiveEvents(true);
+          useQuery({
+            queryKey: ["packages"],
+            queryFn: ({ signal }) =>
+              ++reads === 1
+                ? Promise.resolve(reads)
+                : new Promise<number>((resolve, reject) => {
+                    const n = reads;
+                    releases.push(() => resolve(n));
+                    signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+                  }),
+          });
+          return useLiveStatus();
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(reads).toBe(1));
+      act(() => FakeSource.last!.emit("open", {}));
+      act(() => FakeSource.last!.emit("error", {}));
+      act(() => result.current.reconnect());
+      act(() => FakeSource.last!.emit("open", {}));
+      await waitFor(() => expect(reads).toBe(2));
+      // A loss frame refreshes everything again, replacing the recovery's read.
+      act(() => FakeSource.last!.emit("loss", { resume_from: 9 }, "9"));
+      await waitFor(() => expect(reads).toBe(3));
+      await act(async () => {});
+      await new Promise((r) => setTimeout(r, 30));
+      expect(result.current.status).toBe("unknown");
+      await act(async () => releases[releases.length - 1]!());
+      await waitFor(() => expect(result.current.status).toBe("live"));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

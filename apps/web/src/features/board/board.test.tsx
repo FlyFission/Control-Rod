@@ -232,6 +232,71 @@ describe("BoardView", () => {
     expect(screen.queryByText(/1 agent running/)).toBeNull();
   });
 
+  it("shows a cached next step as last known while its actions are being read again", async () => {
+    api({ packages: [pkg({ id: "WP-1", title: "One", status: "in-verification" })], actions: { "WP-1": [accept] } });
+    const { qc } = await renderPage(<Page />);
+    const next = () => screen.getByText("One").closest("article")!.querySelector(".bd-next")!.textContent;
+    await waitFor(() => expect(next()).toContain("▲ Needs you: Accept"));
+    let release!: () => void;
+    server.use(http.get("*/packages/WP-1/actions", async () => {
+      await new Promise<void>((r) => (release = r));
+      return HttpResponse.json([accept]);
+    }));
+    act(() => void qc.invalidateQueries({ queryKey: ["actions"] }));
+    await waitFor(() => expect(next()).toBe("Last known: Accept"));
+    expect(screen.getByText("Last known: 1 needs you")).toBeTruthy();
+    await act(async () => release());
+    await waitFor(() => expect(next()).toContain("▲ Needs you: Accept"));
+  });
+
+  it("keeps both counts unknown on a cold load until every package view and actions read has completed", async () => {
+    api({ packages: [pkg({ id: "WP-1", title: "One", status: "in-work" }), pkg({ id: "WP-2", title: "Two", status: "in-verification" })], actions: { "WP-2": [accept] }, runs: { "WP-1": "running" } });
+    let releaseView!: () => void;
+    let releaseActions!: () => void;
+    const viewGate = new Promise<void>((r) => (releaseView = r));
+    const actionsGate = new Promise<void>((r) => (releaseActions = r));
+    server.use(
+      http.get("*/packages/WP-1", async () => {
+        await viewGate;
+        return HttpResponse.json({ ...view({}, pkg({ id: "WP-1", title: "One", status: "in-work" })), originators: ["ben"], runs: [{ id: "R-1", package_id: "WP-1", package_revision: 0, role: "author", status: "running" }] });
+      }),
+      http.get("*/packages/WP-2/actions", async () => {
+        await actionsGate;
+        return HttpResponse.json([accept]);
+      }),
+    );
+    await renderPage(<Page />);
+    await screen.findByText("Two");
+    await waitFor(() => expect(screen.getByText("Agents running or queued: unknown")).toBeTruthy());
+    expect(screen.getByText("Needs you: unknown")).toBeTruthy();
+    await act(async () => releaseView());
+    await waitFor(() => expect(screen.getByText("1 agent running or queued")).toBeTruthy());
+    expect(screen.getByText("Needs you: unknown")).toBeTruthy();
+    await act(async () => releaseActions());
+    await waitFor(() => expect(screen.getByText("1 needs you")).toBeTruthy());
+  });
+
+  it("never offers Accept on a card while a refresh of its cached covering pass is in flight", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], actions: { "WP-S": [accept] }, originators: { "WP-S": ["ana"] } });
+    let hold: Promise<void> | undefined;
+    server.use(
+      http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])),
+      http.get("*/packages/:id/person-verifications", async () => {
+        if (hold) await hold;
+        return HttpResponse.json([{ id: "pv1", package_revision: 0, outcome: "pass", covers_current_subject: true }]);
+      }),
+    );
+    const { qc } = await renderPage(<Page />);
+    const next = () => screen.getByText("Relief valve sizing").closest("article")!.querySelector(".bd-next")!.textContent;
+    await waitFor(() => expect(next()).toContain("Needs you: Accept"));
+    let release!: () => void;
+    hold = new Promise<void>((r) => (release = r));
+    act(() => void qc.invalidateQueries({ queryKey: ["person-verifications"] }));
+    await waitFor(() => expect(next()).not.toContain("Needs you: Accept"));
+    await act(async () => release());
+    await waitFor(() => expect(next()).toContain("Needs you: Accept"));
+  });
+
   it("says it could not read what is next when the package view or actions fail, with a retry", async () => {
     api({ packages: [pkg({ id: "WP-1", title: "One", status: "in-verification" }), pkg({ id: "WP-2", title: "Two", status: "in-verification" })], actions: { "WP-1": [accept], "WP-2": [accept] } });
     let actionCalls = 0;

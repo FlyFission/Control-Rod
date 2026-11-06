@@ -6,3 +6,16 @@ packages:
 
 overrides:
   '@scalar/json-magic@0.13.5>undici': 7.30.1
+
+# pnpm 10 skips dependency install scripts unless they are listed here. The bundled PostgreSQL's
+# platform packages need theirs: it creates the shared-library symlinks the database binaries load.
+# Without this a fresh `pnpm install` leaves the database unable to start. Only these packages.
+onlyBuiltDependencies:
+  - "@embedded-postgres/darwin-arm64"
+  - "@embedded-postgres/darwin-x64"
+  - "@embedded-postgres/linux-arm"
+  - "@embedded-postgres/linux-arm64"
+  - "@embedded-postgres/linux-ia32"
+  - "@embedded-postgres/linux-ppc64"
+  - "@embedded-postgres/linux-x64"
+  - "@embedded-postgres/windows-x64"

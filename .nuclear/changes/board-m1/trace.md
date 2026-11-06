@@ -13,6 +13,11 @@
 | T-09 | Failed reads are said, not shown as empty or pending (finding B, must-fix minors). | `features/board/board.test.tsx` | implemented and tested |
 | T-10 | `GET /packages/:id` gated by organization (ruling 14). | API `person-verification.test.ts` | implemented and tested |
 | T-11 | Interfaces as built and rulings committed (finding 7, rulings 15, 17). | Review of `docs/superpowers/plans/2026-11-06-board-redesign.md` and `m1-rulings.md` | done |
+| T-12 | Codex r2 1: the package list and the board show only the caller's organization's work. | API `person-verification.test.ts` "lists only the caller's organization's packages"; `features/board/board.test.tsx` not-found view | implemented and tested |
+| T-13 | Codex r2 2: after a drop the stream reads live only once the packages and office reads have succeeded again. | `lib/live.test.tsx` delayed and failed refresh | implemented and tested |
+| T-14 | Codex r2 3: a failed verification refresh is unknown at every entry point, so no Accept. | `components/components.test.tsx`, `features/board/board.test.tsx`, `features/office/agent-card.test.tsx` | implemented and tested |
+| T-15 | Codex r2 4: the office card's step uses the verification read; never Needs signature for unverified work. | `features/office/agent-card.test.tsx` | implemented and tested |
+| T-16 | Codex r2 5: no counts shown as facts before a successful read of the work. | `features/board/board.test.tsx` | implemented and tested |
 
 ## Required links
 

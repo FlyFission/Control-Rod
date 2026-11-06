@@ -5,7 +5,7 @@ Evidence status: **pass** for SS-01 on this host (Linux, jsdom).
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | With the fix removed, the signed-in and set-up tests fail; the unrelated-refusal test passes. | `evidence/red-signin.log` |
-| E-02 | pass | With both fixes, the whole web suite passes (265 tests). Not a real browser. | `evidence/green-web.log` |
+| E-02 | pass | With the fixes, the whole web suite passes (269 tests, as the linked log shows). Not a real browser. | `evidence/green-web.log` |
 | E-03 | pass | With `adoptSession` reverted to `clear()`, the three gate and session tests fail: the app does not redraw. | `evidence/red-adopt.log` |
 
 ## Evidence custody and coupling

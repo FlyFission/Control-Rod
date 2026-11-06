@@ -12,6 +12,7 @@ import { Text, Select, Line, itemId } from "./fields.js";
 import { RequirementsEditor } from "./RequirementsEditor.js";
 import { TechnicalPlanEditor } from "./TechnicalPlanEditor.js";
 import { QuestionList } from "./QuestionList.js";
+import { sessionGeneration, setIfSameSession } from "../../lib/session.js";
 function content(s: PreparationView["snapshot"]): PreparationContent {
   const {
     request_kind,
@@ -81,6 +82,7 @@ export function PreparationPanel({
     setError(null);
   }
   async function perform(action: () => Promise<PreparationView>) {
+    const startedUnder = sessionGeneration();
     setBusy(true);
     setError(null);
     try {
@@ -88,7 +90,7 @@ export function PreparationPanel({
       setDirty(false);
       setDraft(content(v.snapshot));
       setEtag(`"${v.content_digest.value}"`);
-      qc.setQueryData(key, v);
+      setIfSameSession(qc, startedUnder, key, v);
       setComparison(null);
       setHistory(null);
       void qc.invalidateQueries({ queryKey: ["package", pkg.id] });
@@ -106,13 +108,14 @@ export function PreparationPanel({
     }
   }
   async function reload() {
+    const startedUnder = sessionGeneration();
     setBusy(true);
     try {
       const v = await api.preparation(pkg.id);
       setDirty(false);
       setDraft(content(v.snapshot));
       setEtag(`"${v.content_digest.value}"`);
-      qc.setQueryData(key, v);
+      setIfSameSession(qc, startedUnder, key, v);
       setComparison(null);
       setError(null);
     } catch (e) {

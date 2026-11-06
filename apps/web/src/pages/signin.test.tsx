@@ -16,7 +16,7 @@ import { SignIn } from "./SignIn.js";
 const passkeys: Passkeys = { get: async () => ({ signed: true }), create: async () => ({ created: true }) };
 const firstRun = { registered: false, signed_in: false } as never;
 
-/** Mirrors Root in router.tsx: the session query decides between the sign-in page and the app. */
+/** A stand-in for Root in router.tsx (not Root itself): the session query decides between the sign-in page and the app. */
 function Gate() {
   const s = useQuery({ queryKey: ["session"], queryFn: api.session });
   if (s.data === undefined) return null;
@@ -106,7 +106,7 @@ describe("a sign-in page drawn from an out-of-date session", () => {
     expect(qc.getQueryData(["session"])).toMatchObject({ registered: false });
   });
 
-  it("redraws the app after a first registration (the root cause of the pilot report)", async () => {
+  it("redraws the app after a first registration ", async () => {
     let done = false;
     server.use(
       http.get("*/auth/session", () => HttpResponse.json(done ? { registered: true, signed_in: true, user: "ben" } : { registered: false, signed_in: false })),

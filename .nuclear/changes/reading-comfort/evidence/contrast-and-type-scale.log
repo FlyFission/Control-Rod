@@ -18,6 +18,6 @@ stdout | src/design/contrast.test.ts > text contrast > keeps every plain text co
 
  Test Files  2 passed (2)
       Tests  15 passed (15)
-   Start at  18:57:58
-   Duration  689ms (environment 65%, setup 27%, tests 4%, transform 2%, import 1%, worker 1%)
+   Start at  19:01:04
+   Duration  771ms (environment 62%, setup 29%, transform 4%, tests 3%, import 2%, worker 1%)
 

@@ -9,6 +9,7 @@ import { RUN_EVENTS_DOWN_SQL } from "../src/db/migrations/014-run-events.js";
 import { SCRAM_DOWN_SQL } from "../src/db/migrations/015-scram.js";
 import { CHAIN_SEALS_DOWN_SQL } from "../src/db/migrations/016-chain-seals.js";
 import { USAGE_ONCE_DOWN_SQL } from "../src/db/migrations/017-usage-once.js";
+import { SESSION_CREDENTIALS_DOWN_SQL } from "../src/db/migrations/018-session-credentials.js";
 import { verifyChain } from "../src/events.js";
 import { TEST_ROLE_SECRETS } from "./harness.js";
 
@@ -21,16 +22,25 @@ async function legacyTables(db: Db): Promise<string[]> {
   return r.rows.map((x) => x.t).filter((t) => !added.has(t));
 }
 
+/**
+ * Columns later migrations add to legacy tables. They are not legacy history: reversing their
+ * migration drops them, so the comparison leaves them out (018 adds the passkey a session names).
+ */
+const ADDED_COLUMNS: Record<string, string[]> = { sessions: ["credential_id"] };
+
 /** Every row of every legacy table, byte for byte, plus the event log. */
 async function snapshot(db: Db, tables: string[]) {
   const out: Record<string, string[]> = {};
-  for (const t of tables) out[t] = (await db.query<{ r: string }>(`select to_jsonb(x)::text as r from ${t} x order by 1`)).rows.map((x) => x.r);
+  for (const t of tables) {
+    const added = (ADDED_COLUMNS[t] ?? []).map((c) => ` - '${c}'`).join("");
+    out[t] = (await db.query<{ r: string }>(`select (to_jsonb(x)${added})::text as r from ${t} x order by 1`)).rows.map((x) => x.r);
+  }
   out.events = (await db.query<{ r: string }>("select to_jsonb(x)::text as r from events x order by seq")).rows.map((x) => x.r);
   return out;
 }
 
 /**
- * Run with the owner (migrator) connection. Reverses migrations 017 through 009 over the history a test built, reapplies them, and checks that
+ * Run with the owner (migrator) connection. Reverses migrations 018 through 009 over the history a test built, reapplies them, and checks that
  * every legacy row and every event is unchanged and the chain verifies. `nonEmpty` names tables
  * that must hold rows, so the comparison can never pass on empty collections (review R14).
  */
@@ -39,6 +49,7 @@ export async function assertMigrationsPreserveHistory(db: Db, nonEmpty: string[]
   const before = await snapshot(db, tables);
   for (const t of [...nonEmpty, "events"]) expect(before[t]?.length ?? 0, `${t} must hold history`).toBeGreaterThan(0);
   expect((await verifyChain(db)).ok).toBe(true);
+  await db.query(SESSION_CREDENTIALS_DOWN_SQL);
   await db.query(USAGE_ONCE_DOWN_SQL);
   await db.query(CHAIN_SEALS_DOWN_SQL);
   await db.query(SCRAM_DOWN_SQL);

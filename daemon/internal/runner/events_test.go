@@ -102,23 +102,19 @@ func TestAdmissionCountsWhatItRefuses(t *testing.T) {
 }
 
 func TestPermissionHookSettingsAndPayloads(t *testing.T) {
+	ws := &Workspace{Dir: "/w", Inputs: "/w/inputs", Out: "/w/out", HookFile: "/home/x/it's/hooks.jsonl"}
 	var settings struct {
 		Hooks map[string][]struct {
 			Matcher string `json:"matcher"`
 			Hooks   []struct{ Type, Command string }
 		} `json:"hooks"`
 	}
-	if err := json.Unmarshal([]byte(PermissionHookSettings("/home/x/it's/hooks.jsonl")), &settings); err != nil {
+	if err := json.Unmarshal([]byte(ClaudeSettings(testPolicy(), testPaths(ws), ws.HookFile)), &settings); err != nil {
 		t.Fatal(err)
 	}
 	hook := settings.Hooks["PermissionRequest"][0]
 	if hook.Matcher != "*" || hook.Hooks[0].Type != "command" || hook.Hooks[0].Command != `{ cat; echo; } >> '/home/x/it'\''s/hooks.jsonl'` {
 		t.Fatalf("settings %+v", settings)
-	}
-	ws := &Workspace{Dir: "/w", Inputs: "/w/inputs", Out: "/w/out", HookFile: "/h/r.jsonl"}
-	args := strings.Join(ClaudeArgs(ws, ""), " ")
-	if !strings.Contains(args, "--settings") {
-		t.Fatal("a hook file must be passed to Claude Code as settings")
 	}
 	payload := `{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"}}` + "\n" + `not json` + "\n"
 	got := PermissionEvents([]byte(payload), t0)

@@ -196,19 +196,20 @@ func TestClaudeRunsCannotStartBackgroundTasks(t *testing.T) {
 	ws := &Workspace{Dir: t.TempDir(), Inputs: t.TempDir()}
 	t.Setenv("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", "0")
 	run := testRun("run-env", "author")
-	cmd, err := Command(RuntimeClaude, run, ws)
+	cmd, err := Command(RuntimeClaude, run, ws, testPolicy(), testPaths(ws))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if v := envValue(cmd.Env, "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"); v != "1" {
 		t.Fatalf("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=%q in a Claude run, want 1 (once)", v)
 	}
-	cmd, err = Command(RuntimeCodex, run, ws)
+	cmd, err = Command(RuntimeCodex, run, ws, testPolicy(), testPaths(ws))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v := envValue(cmd.Env, "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"); v != "0" {
-		t.Fatalf("a Codex run's environment was changed: %q", v)
+	// A Codex run gets only the agent allowlist (plan task 6.2), so a Claude setting never reaches it.
+	if v := envValue(cmd.Env, "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"); v != "" {
+		t.Fatalf("a Codex run carries a Claude setting: %q", v)
 	}
 }
 

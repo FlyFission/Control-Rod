@@ -153,7 +153,9 @@ func TestTreeLaunchRefusesAnExecutableTheTreeDigestDidNotCount(t *testing.T) {
 	}
 	defer func() { resolveArtifact = old }()
 	pin := &RuntimePin{Runtime: "codex", Digest: tree}
-	if _, err := VerifyLaunch("codex", pin, nil); !errors.Is(err, ErrArtifactMismatch) || !strings.Contains(err.Error(), "changed while") {
+	// Codex is staged first, and staging re-hashes the tree, so the swap is refused there.
+	if _, err := VerifyLaunch("codex", pin, nil); !errors.Is(err, ErrArtifactMismatch) ||
+		!(strings.Contains(err.Error(), "changed while") || strings.Contains(err.Error(), "does not match")) {
 		t.Fatalf("an executable replaced between hashing and opening must refuse: %v", err)
 	}
 }

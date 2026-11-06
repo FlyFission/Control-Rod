@@ -15,8 +15,18 @@ export type LiveStatus = { status: "connecting" | "live" | "unknown"; unknownSin
 let liveState: LiveStatus = { status: "connecting", generation: 0 };
 const liveListeners = new Set<() => void>();
 
-/** Back to the state before any stream has opened (tests, and signing out). */
+/**
+ * The id of the last frame the stream gave (an event, the opening checkpoint or a loss frame), so a
+ * reconnect resumes after it with ?after= instead of starting at the head and skipping the outage.
+ */
+let lastEventId: string | undefined;
+
+/** A stream that sends nothing for this long is treated as dropped. The server sends a heartbeat about every 15 s. */
+export const STALL_MS = 45_000;
+
+/** Back to the state before any stream has opened. Called by tests and on signing out (Shell). */
 export function resetLiveStatus() {
+  lastEventId = undefined;
   setLive({ status: "connecting", generation: 0 });
 }
 function setLive(next: LiveStatus) {
@@ -53,9 +63,32 @@ export function useLiveEvents(enabled: boolean): void {
   const generation = useSyncExternalStore(subscribeLive, readLive, readLive).generation;
   useEffect(() => {
     if (!enabled || typeof EventSource === "undefined") return;
-    const source = new EventSource(api.streamUrl());
+    const source = new EventSource(api.streamUrl(lastEventId));
     const subjects = new Set<string>();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let stall: ReturnType<typeof setTimeout> | undefined;
+
+    // Any frame means the stream is alive. A frame that ends a drop also refreshes everything on
+    // screen: replay covers missed events, but a reconnect that could not resume (or a native retry
+    // that started at the head) must not leave the outage's changes unseen.
+    // A stream that never opens, or goes quiet, is closed and read as unknown; Reconnect opens another.
+    const armStall = () => {
+      if (stall !== undefined) clearTimeout(stall);
+      stall = setTimeout(() => {
+        stall = undefined;
+        markUnknown();
+        window.dispatchEvent(new Event(LIVE_GAP_EVENT));
+        source.close();
+      }, STALL_MS);
+    };
+    armStall();
+    const alive = (msg?: { lastEventId?: string }) => {
+      if (msg?.lastEventId) lastEventId = msg.lastEventId;
+      armStall();
+      const wasUnknown = liveState.status === "unknown";
+      markLive();
+      if (wasUnknown) void qc.invalidateQueries();
+    };
 
     const flush = () => {
       timer = undefined;
@@ -92,7 +125,7 @@ export function useLiveEvents(enabled: boolean): void {
     };
 
     const onMessage = (msg: MessageEvent<string>) => {
-      markLive();
+      alive(msg);
       try {
         const ev = JSON.parse(msg.data) as CrEvent;
         if (typeof ev.subject === "string")
@@ -106,26 +139,33 @@ export function useLiveEvents(enabled: boolean): void {
       if (timer === undefined) timer = setTimeout(flush, 300);
     };
 
-    // The browser reconnects with the last event id and the stream replays what was missed. The
-    // stream opens with a checkpoint frame carrying the head id, so a reconnect before any event
-    // still resumes from a known place. Only when replay is impossible (a loss frame) is everything
-    // refreshed.
-    const onLoss = () => {
-      markLive();
+    // The browser's own retry sends the last event id, and a Reconnect opens a new stream with
+    // ?after= the last id seen; either way the stream replays what was missed. The stream opens with
+    // a checkpoint frame carrying the head id, so a reconnect before any event still resumes from a
+    // known place. A loss frame (replay impossible) refreshes everything, as does the first frame
+    // after a drop.
+    const onLoss = (msg: MessageEvent<string>) => {
+      alive(msg);
       window.dispatchEvent(new Event(LIVE_GAP_EVENT));
       void qc.invalidateQueries();
     };
     const onError = () => {
+      if (stall !== undefined) clearTimeout(stall);
+      stall = undefined;
       markUnknown();
       window.dispatchEvent(new Event(LIVE_GAP_EVENT));
     };
-    source.addEventListener("open", markLive);
-    source.addEventListener("loss", onLoss);
+    const onFrame = (msg: MessageEvent<string>) => alive(msg);
+    source.addEventListener("open", () => alive());
+    source.addEventListener("checkpoint", onFrame as EventListener);
+    source.addEventListener("heartbeat", onFrame as EventListener);
+    source.addEventListener("loss", onLoss as EventListener);
     source.addEventListener("error", onError);
     source.addEventListener("message", onMessage);
     source.addEventListener("event", onMessage as EventListener);
     return () => {
       if (timer !== undefined) clearTimeout(timer);
+      if (stall !== undefined) clearTimeout(stall);
       source.close();
     };
   }, [enabled, qc, generation]);

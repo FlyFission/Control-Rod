@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { resetLiveStatus, useLiveEvents, useLiveStatus } from "./live.js";
 
 /** A stand-in event stream the test can push messages through. */
 class FakeSource {
   static last: FakeSource | undefined;
+  closed = false;
   private listeners = new Map<string, ((m: MessageEvent<string>) => void)[]>();
   constructor(readonly url: string) {
     FakeSource.last = this;
@@ -14,10 +15,12 @@ class FakeSource {
   addEventListener(type: string, fn: (m: MessageEvent<string>) => void) {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]);
   }
-  emit(type: string, data: unknown) {
-    for (const fn of this.listeners.get(type) ?? []) fn({ data: JSON.stringify(data) } as MessageEvent<string>);
+  emit(type: string, data: unknown, lastEventId = "") {
+    for (const fn of this.listeners.get(type) ?? []) fn({ data: JSON.stringify(data), lastEventId } as MessageEvent<string>);
   }
-  close() {}
+  close() {
+    this.closed = true;
+  }
 }
 
 describe("live events", () => {
@@ -69,6 +72,86 @@ describe("live events", () => {
       act(() => FakeSource.last?.emit("error", {}));
       expect(result.current.status).toBe("unknown");
       expect(result.current.unknownSince).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("resumes after the last event it saw and refreshes what it shows on the first open after a drop", async () => {
+    vi.stubGlobal("EventSource", FakeSource);
+    try {
+      resetLiveStatus();
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+      let reads = 0;
+      const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+      const { result } = renderHook(
+        () => {
+          useLiveEvents(true);
+          useQuery({ queryKey: ["packages"], queryFn: () => ++reads });
+          return useLiveStatus();
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(reads).toBe(1));
+      const first = FakeSource.last!;
+      expect(first.url).not.toContain("after=");
+      act(() => first.emit("checkpoint", { head: 40 }, "40"));
+      expect(result.current.status).toBe("live");
+      act(() => first.emit("event", { seq: 41, type: "package.edited", subject: "WP-1" }, "41"));
+      act(() => first.emit("error", {}));
+      expect(result.current.status).toBe("unknown");
+      act(() => result.current.reconnect());
+      const second = FakeSource.last!;
+      expect(second).not.toBe(first);
+      expect(second.url).toContain("after=41");
+      const before = reads;
+      act(() => second.emit("open", {}));
+      expect(result.current.status).toBe("live");
+      // The outage may have hidden a change no replay names, so everything on screen is read again.
+      await waitFor(() => expect(reads).toBeGreaterThan(before));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("stays live on heartbeats and reads unknown, closing the stream, after 45 seconds of silence", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeSource);
+    try {
+      resetLiveStatus();
+      const qc = new QueryClient();
+      const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+      const { result } = renderHook(() => { useLiveEvents(true); return useLiveStatus(); }, { wrapper });
+      const source = FakeSource.last!;
+      act(() => source.emit("open", {}));
+      expect(result.current.status).toBe("live");
+      for (let i = 0; i < 4; i++) {
+        act(() => vi.advanceTimersByTime(15_000));
+        act(() => source.emit("heartbeat", { at: "2026-11-06T10:00:00Z" }));
+      }
+      expect(result.current.status).toBe("live");
+      expect(source.closed).toBe(false);
+      act(() => vi.advanceTimersByTime(44_000));
+      expect(result.current.status).toBe("live");
+      act(() => vi.advanceTimersByTime(1_000));
+      expect(result.current.status).toBe("unknown");
+      expect(result.current.unknownSince).toBeTruthy();
+      expect(source.closed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("marks the stream live on its checkpoint frame", () => {
+    vi.stubGlobal("EventSource", FakeSource);
+    try {
+      resetLiveStatus();
+      const qc = new QueryClient();
+      const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+      const { result } = renderHook(() => { useLiveEvents(true); return useLiveStatus(); }, { wrapper });
+      act(() => FakeSource.last!.emit("checkpoint", { head: 3 }, "3"));
+      expect(result.current.status).toBe("live");
     } finally {
       vi.unstubAllGlobals();
     }

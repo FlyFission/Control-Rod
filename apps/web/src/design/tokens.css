@@ -56,7 +56,65 @@
   --changed: #ffb347;
   --done: #00ff9d;
   --idle: #7d8a9a;
+  --check: #e58bd8;
+  --kind-code: #6ea8ff;
+  --kind-doc: #4fc3d0;
   --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: dark;
+}
+
+/*
+ * Looks. Look a is the :root palette above (dark). Look b is warm paper with an
+ * ink blue accent; look c is bright white with an orange-red accent. Both are
+ * light. Every text token must reach 4.5:1 on every surface in every look;
+ * apps/web/scripts/check-contrast.mjs computes it and src/design/contrast.test.ts
+ * enforces it. Meaning hues: needs amber, check magenta, stuck red, done green;
+ * kind hues: code blue, doc teal.
+ */
+[data-look="b"] {
+  --ground: #f1ece2;
+  --surface: #f6f3ec;
+  --panel: #fffdf8;
+  --line: #ddd5c4;
+  --line-2: #bfb39b;
+  --text: #1b2231;
+  --text-2: #343c4e;
+  --muted: #5f584b;
+  --accent: #1f3a8a;
+  --accent-ink: #ffffff;
+  --accent-dim: #8fa0d0;
+  --needs: #8f4506;
+  --waiting: #5b3fa8;
+  --stuck: #b42318;
+  --changed: #9a5200;
+  --done: #1a6e4c;
+  --idle: #5f584b;
+  --check: #a21caf;
+  --kind-code: #2f5bd3;
+  --kind-doc: #0e6f78;
+  color-scheme: light;
+}
+[data-look="c"] {
+  --ground: #f4f5f7;
+  --surface: #ffffff;
+  --panel: #eceef2;
+  --line: #e3e6eb;
+  --line-2: #c9ced7;
+  --text: #101828;
+  --text-2: #2f3a4d;
+  --muted: #556072;
+  --accent: #b83a08;
+  --accent-ink: #ffffff;
+  --accent-dim: #e9a98d;
+  --needs: #a8470a;
+  --waiting: #5b3fa8;
+  --stuck: #c4251a;
+  --changed: #9a4a00;
+  --done: #0b7a47;
+  --idle: #556072;
+  --check: #a21caf;
+  --kind-code: #2459c4;
+  --kind-doc: #086a74;
+  color-scheme: light;
 }

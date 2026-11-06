@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { tx } from "../src/db/index.js";
+import { migrate } from "../src/db/migrate.js";
 import { WORKBENCH_MUTABLE, WORKBENCH_TABLES, WORKBENCH_TRANSITIONS } from "../src/db/migrations/010-workbench.js";
+import { WORKBENCH_LINKS_DOWN_SQL } from "../src/db/migrations/019-workbench-links.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import { loadValidator } from "../src/schemas.js";
@@ -272,5 +274,31 @@ describe("classes", () => {
       expect(values, `${table} ${from}`).toContain(from);
       expect(values, `${table} ${to}`).toContain(to);
     }
+  });
+});
+
+// Last in the file: it takes 019 off and puts it back over the rows the tests above stored.
+describe("migration 019", () => {
+  it("refuses startup naming rows 010 allowed to cross links, changes nothing, and runs once they are removed", async () => {
+    await h.admin.query(WORKBENCH_LINKS_DOWN_SQL);
+    const chk = { git_tree: "c".repeat(40), content_digest: D, actor: owner, captured_at: "2026-10-30T12:00:00.000Z" };
+    await put("checkpoint", { id: "chk_crossed", exploration_id: "exp_1", workspace_id: "ws_2", ...chk });
+    await put("controlled_record", { id: "rec_crossed", project_id: "prj_wb", kind: "merged-change", package_id: "pkg_wb", package_revision: 0,
+      candidate_id: "cand_other", input_digests: [D], clearance_decision_id: "dec_1", applied_ref: "f".repeat(40) });
+
+    await expect(migrate(h.admin)).rejects.toThrow(/workspace outside their exploration: chk_crossed\. Controlled records naming a candidate outside their package revision: rec_crossed\..*docs\/commands\/workbench-links\.md/);
+    const state = async () => ({
+      applied: (await h.admin.query("select 1 from schema_migrations where version = '019-workbench-links'")).rowCount,
+      constraints: (await h.admin.query("select conname from pg_constraint where conname in ('workspaces_exploration_key', 'checkpoints_workspace_of_exploration', 'candidate_assignments_revision_key', 'controlled_records_candidate_of_revision')")).rowCount,
+    });
+    expect(await state()).toEqual({ applied: 0, constraints: 0 });
+
+    // The remedy docs/commands/workbench-links.md gives, as the database owner.
+    for (const [table, id] of [["checkpoints", "chk_crossed"], ["controlled_records", "rec_crossed"]])
+      await h.admin.query(`begin; alter table ${table} disable trigger ${table}_guard; delete from ${table} where id = '${id}'; alter table ${table} enable trigger ${table}_guard; commit;`);
+    await migrate(h.admin);
+    expect(await state()).toEqual({ applied: 1, constraints: 4 });
+    expect((await h.admin.query("select bool_and(convalidated) as ok from pg_constraint where conname in ('checkpoints_workspace_of_exploration', 'controlled_records_candidate_of_revision')")).rows[0].ok).toBe(true);
+    await expect(put("checkpoint", { id: "chk_crossed2", exploration_id: "exp_1", workspace_id: "ws_2", ...chk })).rejects.toThrow(/checkpoints_workspace_of_exploration/);
   });
 });

@@ -12,8 +12,8 @@ Owner instruction, 2026-11-06: Control Rod is a general multi-agent workbench fo
 
 ## What changes
 
-- Removed: `packs/capital-projects/` (the example-package pack, the drawings pack and the pack README), `tests/conformance/cad/`, and the change records `.nuclear/changes/mvp-example-package/` and `.nuclear/changes/drawing-engine-drawing tool/` (git history keeps them). The capital-projects mode in `spec/` stays.
-- ADR 0018 is kept as a withdrawn record, stripped to its status and a one-line summary, so ADR numbering holds.
+- Removed: the sample pack folders, the CAD conformance tests and their two change records. The capital-projects mode in `spec/` stays.
+- ADR 0018 is a withdrawn stub, so ADR numbering holds.
 - Code that used the pack: `scripts/cr.mjs` no longer syncs the pack's Python environment or builds drawing tool (`setup-drawing tool` is gone); the intake and default tool lists in `services/api/src/work.ts` and the daemon's `DefaultClaudeTools` drop `Bash(cr-example:*)`, a tool that no longer exists; the web app's role-specific "Confirm boundary" accept label, whose only entry was a removed role, is gone.
 - Tests that exercised job packs through the site pack (role tools with a network line, family and role pre-checks, pack templates shipped to agents) now use a neutral pump replacement fixture in `services/api/test/fixtures/packs/`, laid out under `packs/` in a temporary repository root by `rootWithFixturePacks()` in the test harness.
 - Every sample request, fixture, scripted agent (`tests/e2e/fake/`) and doc example now uses neutral engineering work, such as "Draft a scope of work for the pump replacement".

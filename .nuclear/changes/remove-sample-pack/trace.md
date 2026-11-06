@@ -2,9 +2,9 @@
 
 | Requirement | Change | Tests and checks | Disposition |
 |---|---|---|---|
-| RS-01 The example-package pack, the drawings pack, the CAD conformance tests and their two change records are gone; ADR 0018 is withdrawn, not deleted. | `packs/capital-projects/`, `tests/conformance/cad/`, `.nuclear/changes/mvp-example-package/`, `.nuclear/changes/drawing-engine-drawing tool/` removed; `docs/adr/0018-drawing-engine-drawing tool.md` stripped to status and summary | `evidence/removed-files.txt` (60 files) | implemented |
+| RS-01 The example-package pack, the drawings pack, the CAD conformance tests and their two change records are gone; ADR 0018 is withdrawn, not deleted. | The sample pack folders, the CAD conformance tests and their two change records removed; ADR 0018 replaced by a withdrawn stub (`docs/adr/0018-withdrawn.md`) | `evidence/removed-files.txt` (60 files) | implemented |
 | RS-02 Nothing that used them breaks. | `scripts/cr.mjs`; `services/api/src/work.ts` tool lists; `daemon/internal/runner/runtime.go` `DefaultClaudeTools`; `apps/web/src/lib/decide.ts` and its two callers; API tests on a fixture pack (`services/api/test/fixtures/packs/`, `rootWithFixturePacks` in `harness.ts`); `tests/e2e/fake/*.sh` | web, API, Go and Python suites (verification E-01 to E-05) | implemented and tested |
-| RS-03 No tracked file outside evidence logs names the removed subject or its business; examples are neutral engineering work. | App placeholder and attach button, web and API tests and fixtures, daemon test data, general role briefs, README, docs, ADR 0019, specs, plans and historical records | `evidence/grep-after.txt` | implemented; only the withdrawn ADR 0018 and this record's own slug remain |
+| RS-03 No tracked file outside evidence logs names the removed subject or its business; examples are neutral engineering work. | App placeholder and attach button, web and API tests and fixtures, daemon test data, general role briefs, README, docs, ADR 0019, specs, plans and historical records | `evidence/grep-after.txt` | implemented |
 
 ## Required links
 

@@ -10,7 +10,7 @@ Evidence status: **pass** for RS-01 to RS-03 on this host (WSL2), on the branch 
 | E-04 | pass (not caused here) | `TestInstalledCodexLeavesOnlyQualifiedFeatures` fails because the Codex installed on this host (0.167.0) reports a feature (`deferred_tool_world_state`) the daemon has not qualified. It fails identically on an unchanged checkout of origin/main `36eeb73`. This change does not touch Codex handling. | `evidence/daemon-go-main-baseline.log` |
 | E-05 | pass | Python jobs from CI: SDK `uv sync --locked`, ruff check, ruff format check and 33 pytest tests; red-team catalog check. | `evidence/python.log` |
 | E-06 | pass | 60 files removed, listed. | `evidence/removed-files.txt` |
-| E-07 | pass | Search after the change: outside evidence logs, the removed subject appears only in the withdrawn ADR 0018 (and this record's slug). No evidence file contains sample. Four frozen evidence logs still show the old sample text and are left as they are. | `evidence/grep-after.txt` |
+| E-07 | pass | Search after the change: outside evidence logs, the removed subject does not appear. Four frozen evidence logs still show the old sample text and are left as they are. | `evidence/grep-after.txt` |
 | E-08 | pass | Every change record this change touched validates with `ng.py validate --strict-custody`. | `evidence/validate.log` |
 
 ## Evidence custody and coupling

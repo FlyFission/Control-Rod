@@ -11,7 +11,7 @@
 | R-02 | The job-pack mechanisms (role tools with a network line, family and role pre-checks, pack files shipped to agents) lose their tests along with the pack. | The same API tests now run against a neutral fixture pack in the test folder and pass. | A pack mechanism with no test left. |
 | R-03 | An agent loses a tool it relied on. | Only `Bash(cr-example:*)` is dropped, and its program no longer exists; no tool is added, so the change only narrows what an agent may run. | Any widening of an agent's tool list. |
 | R-04 | A historical record no longer reads true once its subject is gone. | Records keep their meaning with a one-line removal note or a neutral name for the same commit; frozen evidence logs are untouched; change records validate with `--strict-custody`. | A record that fails validation. |
-| R-05 | The removed subject lingers in tracked files. | Search after the change (`evidence/grep-after.txt`); the only hits outside evidence logs are the withdrawn ADR 0018, whose status line the owner wrote. | Any other hit. |
+| R-05 | The removed subject lingers in tracked files. | Search after the change (`evidence/grep-after.txt`); no hits outside evidence logs. | Any other hit. |
 
 ## Selected mode
 

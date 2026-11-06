@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board lenses</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #16171a; color: #e8e8ea; font: 15px/1.5 Inter, system-ui, sans-serif; }
+  .page { max-width: 1320px; margin: 0 auto; padding: 32px 24px 64px; }
+  .page > h1 { font-size: 24px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .page > p.lede { color: #a4a6ad; margin: 0 0 18px; max-width: 900px; }
+  .demo { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; font-size: 13px; color: #a4a6ad; }
+  .demo .seg { display: inline-flex; border: 1px solid #34363c; border-radius: 7px; overflow: hidden; }
+  .demo .seg button { font: 500 12.5px Inter, sans-serif; color: #c9cbd1; background: transparent; border: 0; padding: 6px 11px; cursor: pointer; }
+  .demo .seg button.on { background: #e8e8ea; color: #16171a; }
+  .demo label { margin-right: 2px; }
+
+  /* themes */
+  .app { border-radius: 12px; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); box-shadow: 0 30px 80px -30px rgba(0,0,0,.6); }
+  .t-a { --bg:#0e0f11; --bar:#0e0f11; --board:#0e0f11; --col:transparent; --card:#16171a; --card-line:#25272b; --shadow:none; --field:#141518; --line:#222428; --line-strong:#2e3035;
+    --ink:#ececef; --ink-2:#c3c5cb; --mute:#7c7f87; --accent:#f2a33a; --accent-ink:#1a1206; --needs-bg:#2a1f10; --needs-ink:#f5c27a; --tab-on:#1c1d21; --live-bg:#111214; --track:#25272b;
+    --code:#7aa2ff; --doc:#7cc49a; --wash:7%; --check-ink:#c9b7ff; --check-line:#3b3357; --check-bg:#1d1930; --ok:#5ad08a; --minus:#f07a7a; --lane:#121316;
+    --sans:Inter, system-ui, sans-serif; --mono:"JetBrains Mono", monospace; --r:10px; --r-sm:6px; --r-card:8px; }
+  .t-b { --bg:#f6f3ec; --bar:#fbf9f4; --board:#f3efe6; --col:#efeadf; --card:#fffdf8; --card-line:#ddd5c4; --shadow:0 1px 0 #e4dccb; --field:#fffdf8; --line:#ddd5c4; --line-strong:#cbbfa8;
+    --ink:#1d2433; --ink-2:#3c4558; --mute:#7a7365; --accent:#1f3a8a; --accent-ink:#fff; --needs-bg:#fbe9d0; --needs-ink:#7a3d00; --tab-on:#ebe4d4; --live-bg:#f4efe3; --track:#e6dfcf;
+    --code:#2f5bd3; --doc:#2f7d5b; --wash:6%; --check-ink:#6b21a8; --check-line:#d8c3ec; --check-bg:#f6eefc; --ok:#1f6f5c; --minus:#b42318; --lane:#ece6d9;
+    --sans:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", monospace; --r:4px; --r-sm:3px; --r-card:3px; }
+  .t-c { --bg:#ffffff; --bar:#ffffff; --board:#f4f5f7; --col:#eef0f3; --card:#ffffff; --card-line:#e6e8ec; --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08); --field:#f4f5f7; --line:#e6e8ec; --line-strong:#d5d9e0;
+    --ink:#101828; --ink-2:#344054; --mute:#667085; --accent:#ff5a1f; --accent-ink:#fff; --needs-bg:#fff4ed; --needs-ink:#b93815; --tab-on:#f2f4f7; --live-bg:#f5f8ff; --track:#eaecf0;
+    --code:#3b6ff5; --doc:#16a36b; --wash:6%; --check-ink:#6941c6; --check-line:#e9d7fe; --check-bg:#f9f5ff; --ok:#12b76a; --minus:#f04438; --lane:#e9ecf0;
+    --sans:Geist, Inter, system-ui, sans-serif; --mono:"JetBrains Mono", monospace; --r:14px; --r-sm:8px; --r-card:12px; }
+  .t-b .col-head, .t-b .title, .t-b .lane-head { font-family: Newsreader, serif; }
+  .t-b .title { font-size: 15.5px; }
+  .t-b .board-wrap { background-image: linear-gradient(#e7e0d1 1px, transparent 1px), linear-gradient(90deg, #e7e0d1 1px, transparent 1px); background-size: 24px 24px; }
+
+  .top { display: flex; align-items: center; gap: 16px; padding: 12px 18px; border-bottom: 1px solid var(--line); background: var(--bar); }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; }
+  .brand i { width: 18px; height: 18px; display: inline-block; border-radius: 4px; background: linear-gradient(135deg, var(--code) 0 50%, var(--doc) 50% 100%); }
+  .crumb { color: var(--mute); font-size: 14px; } .crumb b { color: var(--ink); font-weight: 500; }
+  .search { margin-left: auto; display: flex; align-items: center; gap: 8px; width: 280px; padding: 7px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--mute); font-size: 13px; background: var(--field); }
+  .search kbd { margin-left: auto; font: 11px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .needs-top { font-size: 13px; font-weight: 500; padding: 7px 11px; border-radius: var(--r-sm); background: var(--needs-bg); color: var(--needs-ink); cursor: pointer; border: 1px solid transparent; }
+  .needs-top.on { border-color: var(--needs-ink); }
+  .agents { font: 12px var(--mono); color: var(--mute); } .agents b { color: var(--ink); font-weight: 500; }
+
+  .bar2 { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--line); font-size: 13px; flex-wrap: wrap; background: var(--bar); }
+  .kinds { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; background: var(--field); }
+  .kinds button { font: 500 12.5px var(--sans); border: 0; background: transparent; color: var(--mute); padding: 5px 12px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
+  .kinds button .sw { width: 8px; height: 8px; border-radius: 2px; }
+  .kinds button .n { font: 11px var(--mono); opacity: .8; }
+  .kinds button.on { background: var(--card); color: var(--ink); box-shadow: var(--shadow), 0 0 0 1px var(--line); }
+  .tog { font: 500 12.5px var(--sans); border: 1px solid var(--line); background: transparent; color: var(--mute); padding: 5px 11px; border-radius: 999px; cursor: pointer; }
+  .tog.on { color: var(--ink); border-color: var(--ink-2); background: var(--tab-on); }
+  .tog.needs.on { color: var(--needs-ink); border-color: var(--needs-ink); background: var(--needs-bg); }
+  .tog.check.on { color: var(--check-ink); border-color: var(--check-line); background: var(--check-bg); }
+  .spacer { flex: 1; }
+  .ctl { display: inline-flex; align-items: center; gap: 6px; color: var(--mute); }
+  .ctl select { font: 500 12.5px var(--sans); color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 4px 6px; }
+
+  .board-wrap { background: var(--board); padding: 14px; min-height: 520px; }
+  .lane { margin: 0 0 14px; }
+  .lane-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); padding: 4px 4px 8px; }
+  .lane-head .sw { width: 9px; height: 9px; border-radius: 2px; }
+  .lane-head .n { font: 11px var(--mono); color: var(--mute); font-weight: 400; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-items: start; }
+  .lanes-on .grid { background: var(--lane); border-radius: var(--r); padding: 10px; }
+  .col { min-width: 0; background: var(--col); border-radius: var(--r); padding: 8px; }
+  .t-a .col { padding: 0 2px; }
+  .col-head { display: flex; align-items: center; gap: 8px; padding: 2px 4px 10px; font-size: 13px; font-weight: 600; }
+  .col-head .n { font: 12px var(--mono); color: var(--mute); font-weight: 400; }
+  .col-head .lim { margin-left: auto; font: 11px var(--mono); color: var(--mute); font-weight: 400; }
+  .lanes-on .col-head { display: none; }
+  .lanes-on .lane:first-child .col-head { display: flex; }
+  .add { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin: 0 0 8px; border: 1px dashed var(--line-strong); border-radius: var(--r-sm); color: var(--mute); font-size: 13px; }
+  .add kbd { margin-left: auto; font: 11px var(--mono); }
+  .empty { font-size: 12px; color: var(--mute); padding: 10px 6px; text-align: center; border: 1px dashed var(--line); border-radius: var(--r-sm); }
+
+  .card { --k: var(--mute); position: relative; background: color-mix(in srgb, var(--k) var(--wash), var(--card)); border: 1px solid var(--card-line); border-radius: var(--r-card); padding: 11px 12px 10px 14px; margin: 0 0 8px; box-shadow: var(--shadow); overflow: hidden; transition: opacity .2s, transform .2s; }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--k); opacity: .9; }
+  .card.needs::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--needs-edge); }
+  .t-a { --needs-edge:#f2a33a; } .t-b { --needs-edge:#c2620c; } .t-c { --needs-edge:#f08a24; }
+  .compact .card { padding: 7px 10px 7px 12px; }
+  .compact .card .title { margin: 3px 0 5px; font-size: 13px; }
+  .compact .card .live, .compact .card .budget, .compact .card .gate .why { display: none; }
+  .row { display: flex; align-items: center; gap: 6px; }
+  .kind { font: 500 10.5px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--k); display: inline-flex; align-items: center; gap: 5px; }
+  .kind svg { width: 12px; height: 12px; }
+  .id { margin-left: auto; font: 11px var(--mono); color: var(--mute); }
+  .title { font-size: 14px; font-weight: 500; line-height: 1.35; margin: 6px 0 9px; }
+  .meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--mute); }
+  .meta .r { margin-left: auto; white-space: nowrap; }
+  .av { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font: 600 9.5px var(--sans); color: #fff; flex: none; }
+  .av.ag { border-radius: 5px; font-family: var(--mono); }
+  .badge { font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink-2); white-space: nowrap; }
+  .badge.check { color: var(--check-ink); border-color: var(--check-line); background: var(--check-bg); }
+  .live { margin: 0 0 8px; padding: 6px 9px; border-radius: var(--r-sm); background: var(--live-bg); font: 12px/1.4 var(--mono); color: var(--ink-2); display: flex; gap: 8px; }
+  .pulse { width: 7px; height: 7px; margin-top: 4px; flex: none; border-radius: 50%; background: var(--k); animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--k) 60%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } .card { transition: none; } }
+  .ask { margin: 0 0 8px; padding: 8px 10px; border-radius: var(--r-sm); background: var(--needs-bg); color: var(--needs-ink); font-size: 12.5px; line-height: 1.4; }
+  .ask b { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+  .btn { font: 500 12px var(--sans); padding: 4px 9px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); white-space: nowrap; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .budget { display: flex; align-items: center; gap: 8px; font: 11px var(--mono); color: var(--mute); margin: 0 0 8px; }
+  .budget .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+  .budget .bar i { display: block; height: 100%; background: var(--k); }
+  .stat { font: 11px var(--mono); color: var(--mute); white-space: nowrap; }
+  .plus { color: var(--ok); } .minus { color: var(--minus); }
+  .gate { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
+  .gate .btn { margin-left: auto; }
+  .signed { font: 11px var(--mono); color: var(--ok); }
+  .legend { display: flex; gap: 14px; align-items: center; padding: 8px 18px; font-size: 12px; color: var(--mute); border-top: 1px solid var(--line); background: var(--bar); flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .notes { margin-top: 22px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .notes div { border: 1px solid #2a2c31; border-radius: 10px; padding: 14px 16px; color: #b9bbc1; font-size: 13.5px; }
+  .notes h3 { margin: 0 0 6px; font-size: 14px; color: #e8e8ea; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Color, filters and lenses</h1>
+  <p class="lede">Everything on this board is live: click the kind filter, the toggles, "Color by" and "Group by". Code and documents each carry one gentle hue on the card edge, label and a faint tint. Amber stays reserved for what needs you and violet for independent checks, so meaning never collides.</p>
+  <div class="demo"><label>Look:</label>
+    <span class="seg" id="themes"><button data-t="a" class="on">A Control room</button><button data-t="b">B Drafting table</button><button data-t="c">C Instrument panel</button></span>
+    <label style="margin-left:12px">Density:</label>
+    <span class="seg" id="dens"><button data-d="comfy" class="on">Comfortable</button><button data-d="compact">Compact</button></span>
+  </div>
+
+  <div class="app t-a" id="app">
+    <div class="top">
+      <div class="brand"><i></i>Control Rod</div>
+      <div class="crumb">FlyFission / <b>Plant support</b></div>
+      <div class="search">Search or run a command<kbd>Ctrl K</kbd></div>
+      <button class="needs-top" id="needsTop">Needs you <b id="needsN"></b></button>
+      <div class="agents">agents <b>2</b>/3</div>
+    </div>
+    <div class="bar2">
+      <span class="kinds" id="kinds"></span>
+      <button class="tog needs" data-f="needs">Needs you</button>
+      <button class="tog check" data-f="check">Independent check</button>
+      <button class="tog" data-f="mine">Mine</button>
+      <span class="spacer"></span>
+      <span class="ctl">Color by <select id="colorBy"><option value="kind">Kind</option><option value="state">State</option><option value="agent">Agent</option><option value="person">Person</option><option value="none">None</option></select></span>
+      <span class="ctl">Group by <select id="groupBy"><option value="none">None</option><option value="kind">Kind</option><option value="person">Person</option></select></span>
+    </div>
+    <div class="board-wrap" id="board"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="notes">
+    <div><h3>Why a thin edge, not a colored card</h3>Full color cards turn a board into a quilt. A 3 px edge plus a few percent tint is readable at a glance across a room, and leaves strong color free for the two things that must shout: needs you and independent check.</div>
+    <div><h3>One board, four questions</h3>Color by kind asks "what is the mix?". By state, "where is it stuck?". By agent, "is Codex or Claude doing better here?". By person, "who is overloaded?". Filters and color are separate, so you can filter to documents and still color by person.</div>
+    <div><h3>What a saved view would add</h3>Any mix of filters, color and grouping can be saved as a named view, like "My checks" or "Code in flight", and pinned for the team. That is how Linear and Notion keep one board useful for many people.</div>
+  </div>
+</div>
+
+<script>
+const ICON = {
+  code: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5"/></svg>',
+  doc: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.8h5.2L12.5 5v9.2H4z"/><path d="M9 1.8V5.2h3.4M6 8.5h4.5M6 11h4.5"/></svg>'
+};
+const PEOPLE = { BH: { name: "Ben", color: "#5b6cff" }, DK: { name: "Dora", color: "#0f9d8a" }, MR: { name: "Marco", color: "#c2410c" } };
+const AGENTS = { CC: { name: "Claude Code", color: "#d4a27f" }, CX: { name: "Codex", color: "#8b9bb4" } };
+const STATE = { backlog: "#8a8f98", running: "#4fb8d1", review: "#a78bfa", done: "#5ad08a" };
+const COLS = [["backlog","Backlog"],["running","Running"],["review","Review"],["done","Done"]];
+const CARDS = [
+  { id:"CR-41", kind:"doc", col:"backlog", owner:"BH", title:"Draft SOW for the VJ LN2 section replacement and new branch", check:true, cap:"$8" },
+  { id:"CR-44", kind:"code", col:"backlog", owner:"DK", title:"Add per-run cost to the usage export", cap:"$3" },
+  { id:"CR-45", kind:"doc", col:"backlog", owner:"MR", title:"Summarize vendor comments on the bayonet submittal", cap:"$2" },
+  { id:"CR-47", kind:"code", col:"backlog", owner:"BH", title:"Import cards from a Linear project", cap:"$6" },
+  { id:"CR-38", kind:"doc", col:"running", owner:"BH", agent:"CC", check:true, needs:true, title:"Relief valve sizing calculation for the glovebox header",
+    ask:"Which header design pressure should the sizing use? The P&amp;ID rev C and the data sheet disagree.", r:"waiting 4m" },
+  { id:"CR-43", kind:"code", col:"running", owner:"BH", agent:"CX", title:"Raise the store-walk bound for large login folders",
+    live:"go test ./internal/runner/ ... 41 passed", spent:"$0.84", cap:"$5", pct:17, diff:["+42","-9"], r:"6m 12s" },
+  { id:"CR-46", kind:"doc", col:"running", owner:"MR", agent:"CC", title:"Datasheet table for the replacement VFDs",
+    live:"Reading vendor catalog, page 14 of 60", spent:"$0.31", cap:"$4", pct:8, r:"2m 40s" },
+  { id:"CR-36", kind:"doc", col:"review", owner:"BH", agent:"CC", check:true, needs:true, title:"MCC bucket protection review memo", gate:"Checker: anyone but Ben", gateBtn:"Review and sign", r:"3 notes" },
+  { id:"PR 53", kind:"code", col:"review", owner:"DK", agent:"CC", title:"Sign-in recovers from an out-of-date session", diff:["+44","-1"], gate:"7 of 7 checks pass", gateBtn:"Review diff" },
+  { id:"CR-40", kind:"doc", col:"review", owner:"DK", agent:"CX", title:"Outage sequence narrative, LN2 tie-in", gate:"Light review", gateBtn:"Open draft", r:"1 note" },
+  { id:"PR 51", kind:"code", col:"done", owner:"BH", title:"Every run starts inside its sandbox", signed:"signed by BH, evidence kept" },
+  { id:"CR-30", kind:"doc", col:"done", owner:"DK", title:"Outage playbook for the LN2 tie-in", signed:"checked by MR, signed" },
+  { id:"CR-29", kind:"doc", col:"done", owner:"MR", check:true, title:"Instrument index, glovebox train 2", signed:"checked by BH, signed" },
+];
+const st = { theme:"a", dens:"comfy", kind:"all", needs:false, check:false, mine:false, colorBy:"kind", groupBy:"none" };
+
+function hue(c) {
+  if (st.colorBy === "kind") return `var(--${c.kind})`;
+  if (st.colorBy === "state") return STATE[c.col];
+  if (st.colorBy === "agent") return c.agent ? AGENTS[c.agent].color : "var(--mute)";
+  if (st.colorBy === "person") return PEOPLE[c.owner].color;
+  return "var(--line-strong)";
+}
+function visible(c) {
+  if (st.kind !== "all" && c.kind !== st.kind) return false;
+  if (st.needs && !c.needs) return false;
+  if (st.check && !c.check) return false;
+  if (st.mine && c.owner !== "BH") return false;
+  return true;
+}
+function av(code) { const p = PEOPLE[code]; return `<span class="av" style="background:${p.color}" title="${p.name}">${code}</span>`; }
+function ag(code) { const a = AGENTS[code]; return `<span class="av ag" style="background:${a.color};color:#14161a" title="${a.name}">${code}</span>`; }
+function card(c) {
+  const k = hue(c);
+  let h = `<div class="card${c.needs ? " needs" : ""}" style="--k:${k}">`;
+  h += `<div class="row"><span class="kind" style="color:var(--${c.kind})">${ICON[c.kind]}${c.kind === "doc" ? "Document" : "Code"}</span><span class="id">${c.id}</span></div>`;
+  h += `<div class="title">${c.title}</div>`;
+  if (c.ask) h += `<div class="ask"><b>Needs you</b>${c.ask}<div style="display:flex;gap:6px;margin-top:7px"><span class="btn primary">Answer</span><span class="btn">Open both</span></div></div>`;
+  if (c.live) h += `<div class="live"><span class="pulse"></span><span>${c.live}</span></div>`;
+  if (c.spent) h += `<div class="budget"><span>${c.spent}</span><span class="bar"><i style="width:${c.pct}%"></i></span><span>${c.cap}</span></div>`;
+  h += `<div class="meta">${av(c.owner)}${c.agent ? ag(c.agent) : ""}`;
+  if (c.check) h += `<span class="badge check">Independent check</span>`;
+  if (c.diff) h += `<span class="stat"><span class="plus">${c.diff[0]}</span> <span class="minus">${c.diff[1]}</span></span>`;
+  if (c.signed) h += `<span class="signed">${c.signed}</span>`;
+  else if (c.r) h += `<span class="r">${c.r}</span>`;
+  else if (c.cap && !c.spent) h += `<span class="r">cap ${c.cap}</span>`;
+  h += `</div>`;
+  if (c.gate) h += `<div class="gate"><span class="why">${c.gate}</span><span class="btn${c.check ? " primary" : ""}">${c.gateBtn}</span></div>`;
+  return h + `</div>`;
+}
+function grid(cards, first) {
+  return `<div class="grid">` + COLS.map(([id, label]) => {
+    const cs = cards.filter(c => c.col === id);
+    let h = `<div class="col"><div class="col-head"><span style="width:8px;height:8px;border-radius:50%;background:${STATE[id]}"></span>${label} <span class="n">${cs.length}</span>${id === "running" ? '<span class="lim">2 of 3 agents</span>' : ""}</div>`;
+    if (id === "backlog" && first) h += `<div class="add">+ Add a card<kbd>C</kbd></div>`;
+    h += cs.length ? cs.map(card).join("") : `<div class="empty">Nothing here</div>`;
+    return h + `</div>`;
+  }).join("") + `</div>`;
+}
+function render() {
+  const app = document.getElementById("app");
+  app.className = `app t-${st.theme}${st.dens === "compact" ? " compact" : ""}${st.groupBy !== "none" ? " lanes-on" : ""}`;
+  const vis = CARDS.filter(visible);
+  const count = k => CARDS.filter(c => (k === "all" || c.kind === k)).length;
+  document.getElementById("kinds").innerHTML = [["all","All"],["code","Code"],["doc","Documents"]].map(([k, l]) =>
+    `<button data-k="${k}" class="${st.kind === k ? "on" : ""}">${k !== "all" ? `<span class="sw" style="background:var(--${k})"></span>` : ""}${l}<span class="n">${count(k)}</span></button>`).join("");
+  document.getElementById("needsN").textContent = CARDS.filter(c => c.needs).length;
+  document.getElementById("needsTop").classList.toggle("on", st.needs);
+  document.querySelectorAll(".tog").forEach(b => b.classList.toggle("on", st[b.dataset.f]));
+  let html = "";
+  if (st.groupBy === "none") html = grid(vis, true);
+  else {
+    const keys = st.groupBy === "kind" ? [["code","Code"],["doc","Documents"]] : Object.entries(PEOPLE).map(([k, p]) => [k, p.name]);
+    keys.forEach(([k, label], i) => {
+      const cs = vis.filter(c => st.groupBy === "kind" ? c.kind === k : c.owner === k);
+      if (!cs.length) return;
+      const sw = st.groupBy === "kind" ? `var(--${k})` : PEOPLE[k].color;
+      html += `<div class="lane"><div class="lane-head"><span class="sw" style="background:${sw}"></span>${label}<span class="n">${cs.length}</span></div>${grid(cs, i === 0)}</div>`;
+    });
+    if (!html) html = `<div class="empty">No cards match these filters</div>`;
+  }
+  document.getElementById("board").innerHTML = html;
+  const L = { kind: [["Code","var(--code)"],["Documents","var(--doc)"]],
+    state: COLS.map(([id, l]) => [l, STATE[id]]),
+    agent: Object.values(AGENTS).map(a => [a.name, a.color]).concat([["No agent", "var(--mute)"]]),
+    person: Object.values(PEOPLE).map(p => [p.name, p.color]), none: [] }[st.colorBy];
+  document.getElementById("legend").innerHTML = `<span style="color:var(--ink-2)">Edge color: ${st.colorBy}</span>` + L.map(([l, c]) => `<span><i style="background:${c}"></i>${l}</span>`).join("") +
+    `<span style="margin-left:auto"><i style="background:var(--needs-edge)"></i>needs you</span><span><i style="background:var(--check-ink)"></i>independent check</span><span>${vis.length} of ${CARDS.length} cards shown</span>`;
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.t) { st.theme = t.dataset.t; document.querySelectorAll("#themes button").forEach(b => b.classList.toggle("on", b === t)); }
+  else if (t.dataset.d) { st.dens = t.dataset.d; document.querySelectorAll("#dens button").forEach(b => b.classList.toggle("on", b === t)); }
+  else if (t.dataset.k) st.kind = t.dataset.k;
+  else if (t.dataset.f) st[t.dataset.f] = !st[t.dataset.f];
+  else if (t.id === "needsTop") st.needs = !st.needs;
+  else return;
+  if (window.brainstorm) window.brainstorm.send({ type: "click", choice: JSON.stringify(st) });
+  render();
+});
+document.getElementById("colorBy").onchange = e => { st.colorBy = e.target.value; render(); };
+document.getElementById("groupBy").onchange = e => { st.groupBy = e.target.value; render(); };
+render();
+</script>
+</body>
+</html>

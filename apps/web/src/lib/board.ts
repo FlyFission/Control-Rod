@@ -1,4 +1,4 @@
-import type { OfficeItem, WorkPackage } from "../api/types.js";
+import type { OfficeItem, PersonVerificationEntry, WorkPackage } from "../api/types.js";
 
 export type ColumnId = "ready" | "drafting" | "agent-check" | "person-verifies" | "needs-signature" | "reached";
 
@@ -8,14 +8,23 @@ export const COLUMNS: { id: ColumnId; title: string }[] = [
   { id: "agent-check", title: "Agent check" },
   { id: "person-verifies", title: "Person verifies" },
   { id: "needs-signature", title: "Needs signature" },
-  { id: "reached", title: "Reached next rung" },
+  { id: "reached", title: "Accepted" },
 ];
+
+export type PreCheck = "none" | "passed" | "disputed";
+
+/** Safety and Material work needs a person verification by someone other than its originator (spec 6.2). */
+export function needsIndependentCheck(pkg: WorkPackage): boolean {
+  return pkg.grade === "safety" || pkg.grade === "material";
+}
 
 /**
  * Board columns are work steps toward a package's next rung. A card's status is still its rung.
- * Closed packages leave the board.
+ * Closed packages leave the board. `verified` is whether a passing person verification is recorded for
+ * the current revision; null means the caller cannot see person verifications, so a passed pre-check
+ * goes straight to Needs signature as it did before Person verifies existed.
  */
-export function boardColumn(pkg: WorkPackage, hasPreCheck: boolean): ColumnId | null {
+export function boardColumn(pkg: WorkPackage, preCheck: PreCheck, verified: boolean | null): ColumnId | null {
   switch (pkg.status) {
     case "draft":
       return "ready";
@@ -23,7 +32,9 @@ export function boardColumn(pkg: WorkPackage, hasPreCheck: boolean): ColumnId | 
     case "in-work":
       return "drafting";
     case "in-verification":
-      return hasPreCheck ? "needs-signature" : "agent-check";
+      if (preCheck !== "passed") return "agent-check";
+      if (verified === false && needsIndependentCheck(pkg)) return "person-verifies";
+      return "needs-signature";
     case "accepted":
       return "reached";
     case "closed":
@@ -31,14 +42,33 @@ export function boardColumn(pkg: WorkPackage, hasPreCheck: boolean): ColumnId | 
   }
 }
 
-/** A package whose acceptance is waiting in the office has finished its pre-check. */
-export function preCheckDone(pkg: WorkPackage, office: OfficeItem[]): boolean {
-  return office.some(
-    (o) => o.package_id === pkg.id && o.package_revision === pkg.revision && (o.kind === "accept" || o.kind === "dispute"),
-  );
+/** The pre-check state from the office: a dispute for this revision wins over an accept. */
+export function preCheckState(pkg: WorkPackage, office: OfficeItem[]): PreCheck {
+  const mine = office.filter((o) => o.package_id === pkg.id && o.package_revision === pkg.revision);
+  if (mine.some((o) => o.kind === "dispute")) return "disputed";
+  if (mine.some((o) => o.kind === "accept")) return "passed";
+  return "none";
 }
 
-export function groupBoard(packages: WorkPackage[], office: OfficeItem[]): Record<ColumnId, WorkPackage[]> {
+/** A package whose acceptance is waiting in the office has finished its pre-check. */
+export function preCheckDone(pkg: WorkPackage, office: OfficeItem[]): boolean {
+  return preCheckState(pkg, office) !== "none";
+}
+
+/** Whether a passing person verification is recorded for the package's current revision. */
+export function isVerified(pkg: WorkPackage, verifications: PersonVerificationEntry[]): boolean {
+  return verifications.some((v) => v.package_revision === pkg.revision && v.outcome === "pass");
+}
+
+/**
+ * Groups packages into columns. `verifications` maps a package id to its person verifications; leave it
+ * out (or omit an id) when they are not known, and a passed pre-check goes to Needs signature.
+ */
+export function groupBoard(
+  packages: WorkPackage[],
+  office: OfficeItem[],
+  verifications?: Record<string, PersonVerificationEntry[]>,
+): Record<ColumnId, WorkPackage[]> {
   const out: Record<ColumnId, WorkPackage[]> = {
     ready: [],
     drafting: [],
@@ -48,7 +78,8 @@ export function groupBoard(packages: WorkPackage[], office: OfficeItem[]): Recor
     reached: [],
   };
   for (const p of packages) {
-    const col = boardColumn(p, preCheckDone(p, office));
+    const known = verifications?.[p.id];
+    const col = boardColumn(p, preCheckState(p, office), known ? isVerified(p, known) : null);
     if (col !== null) out[col].push(p);
   }
   return out;

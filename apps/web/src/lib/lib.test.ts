@@ -11,13 +11,13 @@ import { api } from "../api/client.js";
 
 describe("board mapping", () => {
   it("maps each status to its work step", () => {
-    expect(boardColumn(pkg({ status: "draft" }), false)).toBe("ready");
-    expect(boardColumn(pkg({ status: "released" }), false)).toBe("drafting");
-    expect(boardColumn(pkg({ status: "in-work" }), false)).toBe("drafting");
-    expect(boardColumn(pkg({ status: "in-verification" }), false)).toBe("agent-check");
-    expect(boardColumn(pkg({ status: "in-verification" }), true)).toBe("needs-signature");
-    expect(boardColumn(pkg({ status: "accepted" }), false)).toBe("reached");
-    expect(boardColumn(pkg({ status: "closed" }), false)).toBeNull();
+    expect(boardColumn(pkg({ status: "draft" }), "none", null)).toBe("ready");
+    expect(boardColumn(pkg({ status: "released" }), "none", null)).toBe("drafting");
+    expect(boardColumn(pkg({ status: "in-work" }), "none", null)).toBe("drafting");
+    expect(boardColumn(pkg({ status: "in-verification" }), "none", null)).toBe("agent-check");
+    expect(boardColumn(pkg({ status: "in-verification" }), "passed", null)).toBe("needs-signature");
+    expect(boardColumn(pkg({ status: "accepted" }), "none", null)).toBe("reached");
+    expect(boardColumn(pkg({ status: "closed" }), "none", null)).toBeNull();
   });
 
   it("uses the office to tell a finished pre-check apart", () => {

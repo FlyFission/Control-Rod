@@ -101,7 +101,7 @@ function Glance({ f, view, actions, failed }: { f: AgentFigure; view: PackageVie
   if (failed) return <p className="office-note">The package details could not be loaded, so they are not shown.</p>;
   if (!view || !actions) return <p className="office-note">Loading the package details…</p>;
   const pkg = view.package;
-  const step = boardColumn(pkg, Boolean(view.pre_check));
+  const step = boardColumn(pkg, view.pre_check ? "passed" : "none", null);
   const lastRun = [...view.runs].sort((a, b) => Date.parse(b.finished_at ?? b.started_at ?? b.queued_at) - Date.parse(a.finished_at ?? a.started_at ?? a.queued_at))[0];
   const checker = [...view.runs].reverse().find((r) => r.role === "pre-check");
   const CHECKER_STATUS: Record<string, string> = { queued: "queued, not started", running: "checking now", succeeded: "finished", failed: "failed", stopped: "stopped", lost: "lost" };

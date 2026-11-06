@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process tent",
       "art": {
-        "path": "/office-themes/wildlight-camp/process.ef7862edb68d.svg",
-        "sha256": "ef7862edb68d71fc92cc43d0d87591a62fba442882fd5f107898e50c74bbd7d2",
-        "bytes": 2008,
+        "path": "/office-themes/wildlight-camp/process.79653c399c09.svg",
+        "sha256": "79653c399c09c4b2ac9a63ff16bcd7c94f86df466d4ce4b82e2186f2ec575c69",
+        "bytes": 2094,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical tent",
       "art": {
-        "path": "/office-themes/wildlight-camp/mechanical.b01819d58aac.svg",
-        "sha256": "b01819d58aac85a431214cc5446e3018250ecc6015cef688a6c2124a1739245a",
-        "bytes": 2009,
+        "path": "/office-themes/wildlight-camp/mechanical.83655b194c93.svg",
+        "sha256": "83655b194c93b49ee00145bf3aa9078efc6aa373e5ef0000a1145b2256b1fba3",
+        "bytes": 2095,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical tent",
       "art": {
-        "path": "/office-themes/wildlight-camp/electrical.58d058167739.svg",
-        "sha256": "58d05816773961398f387db20f86c7ecf05677d19b8a25e5671dcbf6edf2d780",
-        "bytes": 2005,
+        "path": "/office-themes/wildlight-camp/electrical.6781db720abd.svg",
+        "sha256": "6781db720abd6517cb33f480a2cfa7a16a818d43a52655490bc4801c227c4776",
+        "bytes": 2091,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil tent",
       "art": {
-        "path": "/office-themes/wildlight-camp/civil.5e2441e00064.svg",
-        "sha256": "5e2441e0006410676ac891bc4d57a01d08f81c4612a7939354af440d784a7b55",
-        "bytes": 2009,
+        "path": "/office-themes/wildlight-camp/civil.e6992f5a1a22.svg",
+        "sha256": "e6992f5a1a228dff86369580f8f72005fb9cf5248e0bdef48cc110da21857fcd",
+        "bytes": 2095,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance tent",
       "art": {
-        "path": "/office-themes/wildlight-camp/assurance.dd04c7af3809.svg",
-        "sha256": "dd04c7af3809aa3cf19cc7ee6f1d7c4fc9f1a2378218829a4eab11dc5f2f7563",
-        "bytes": 2007,
+        "path": "/office-themes/wildlight-camp/assurance.a94eefad7652.svg",
+        "sha256": "a94eefad76521e37fc67e408f3d588a81181a384b750f2bd726690e3525f3c9e",
+        "bytes": 2093,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls tent",
       "art": {
-        "path": "/office-themes/wildlight-camp/project-controls.38fef009aca3.svg",
-        "sha256": "38fef009aca39c03ea8cd1ab40e172082d9e322cdcbf9421da1889cfaef3e0fd",
-        "bytes": 2007,
+        "path": "/office-themes/wildlight-camp/project-controls.cf1e8decd424.svg",
+        "sha256": "cf1e8decd42410d8a3c662291dfeae34b164602bcd701c7f1649cb269822e24a",
+        "bytes": 2093,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Campfire circle",
       "art": {
-        "path": "/office-themes/wildlight-camp/review.a736285c1567.svg",
-        "sha256": "a736285c1567f6573a98096fea1d317ff76d1e11e2c5a1e89ddbe2cad1b5d44f",
-        "bytes": 1636,
+        "path": "/office-themes/wildlight-camp/review.ce6a980af168.svg",
+        "sha256": "ce6a980af168cb41dec3036b7a729a6ff554365b30c982192360e0f10d02e683",
+        "bytes": 1722,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Field journal",
       "art": {
-        "path": "/office-themes/wildlight-camp/interface.ac0441e286ba.svg",
-        "sha256": "ac0441e286ba5d52f11062d1075f1fe78e5a1266df6202b551c67c19d7779be1",
-        "bytes": 1646,
+        "path": "/office-themes/wildlight-camp/interface.211965b6d0a1.svg",
+        "sha256": "211965b6d0a14d49598a474c681721c9655be18d6f6ab7b2cf35f588826bc949",
+        "bytes": 1732,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Observation bench",
       "art": {
-        "path": "/office-themes/wildlight-camp/verification.a7429bc199a7.svg",
-        "sha256": "a7429bc199a7927fbc558d6991550b597f529531f76e273793b96e5d14e3f9f2",
-        "bytes": 1644,
+        "path": "/office-themes/wildlight-camp/verification.6d273ff06af3.svg",
+        "sha256": "6d273ff06af3b878fd334ddced5f166023e31f22dd5cff19849c7cb2202df201",
+        "bytes": 1730,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Expedition desk",
       "art": {
-        "path": "/office-themes/wildlight-camp/your-office.23e1bac3f807.svg",
-        "sha256": "23e1bac3f8079d05309834732254bcf45e02efe7f8cbe482ff60d7ce6acfbc12",
-        "bytes": 1598,
+        "path": "/office-themes/wildlight-camp/your-office.1c631384c1c7.svg",
+        "sha256": "1c631384c1c79b3b6050f3b2f94d26d197f558d29ad21aff4c56b2f2fa370325",
+        "bytes": 1684,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Specimen archive",
       "art": {
-        "path": "/office-themes/wildlight-camp/document-control.91bffed7a613.svg",
-        "sha256": "91bffed7a61334e02a38a5c5a49ad038fd73a0ef0f75cf972fe47596730adf90",
-        "bytes": 1886,
+        "path": "/office-themes/wildlight-camp/document-control.07639c6752f8.svg",
+        "sha256": "07639c6752f852cf5ce917256e971f46722434d78a20e3422441d0ecd24c0787",
+        "bytes": 1972,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Camp rest",
       "art": {
-        "path": "/office-themes/wildlight-camp/bench.f3be2d0d48fe.svg",
-        "sha256": "f3be2d0d48febbcc3dca5a47ac724c0e8b420b94fb06ef1e9950047bd702eb23",
-        "bytes": 1648,
+        "path": "/office-themes/wildlight-camp/bench.77c2a33a5e71.svg",
+        "sha256": "77c2a33a5e71be510ba4ff39bb7b0fb520439d7269b1f490b2751d37b7cc6768",
+        "bytes": 1734,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Sealed box",
       "art": {
-        "path": "/office-themes/wildlight-camp/quarantine.143d57aede2d.svg",
-        "sha256": "143d57aede2d3e2694eb1c02724f31f96a64ca2b22549eac4b479883e9ccf35d",
-        "bytes": 3353,
+        "path": "/office-themes/wildlight-camp/quarantine.5067385145b2.svg",
+        "sha256": "5067385145b250f5a3c94a4d2c3d23b7f6eb0c0d89894723a3acbb89fff5cf48",
+        "bytes": 3439,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

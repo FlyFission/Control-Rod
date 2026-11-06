@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process hall",
       "art": {
-        "path": "/office-themes/lanternwood-guild/process.78dd9cb9d738.svg",
-        "sha256": "78dd9cb9d7380e5d43e938999552d21ab820846f96ab4e3b4826468ee6329800",
-        "bytes": 2243,
+        "path": "/office-themes/lanternwood-guild/process.f0b01ec4c6b3.svg",
+        "sha256": "f0b01ec4c6b3b70f36b20fdae274928602967b8293cfc4d83930d3c44b5de684",
+        "bytes": 2329,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical hall",
       "art": {
-        "path": "/office-themes/lanternwood-guild/mechanical.58fcfcdd1588.svg",
-        "sha256": "58fcfcdd1588b55f93890d77d37e8d1e189a1521f8d9edefa485bfad42cad60c",
-        "bytes": 2243,
+        "path": "/office-themes/lanternwood-guild/mechanical.9e14f754a708.svg",
+        "sha256": "9e14f754a70836f27bebf881da39559ed57770e808d257283149bbdd37b25152",
+        "bytes": 2329,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical hall",
       "art": {
-        "path": "/office-themes/lanternwood-guild/electrical.7cfa94e66ee9.svg",
-        "sha256": "7cfa94e66ee9ef8ae04958fbd05eb542a0ac0dd4530cc9e2b718e1690a030de1",
-        "bytes": 2244,
+        "path": "/office-themes/lanternwood-guild/electrical.956f5268da20.svg",
+        "sha256": "956f5268da2066fd2d64cb54249db3ec02dcff456bb54ed0c9b46970eb144892",
+        "bytes": 2330,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil hall",
       "art": {
-        "path": "/office-themes/lanternwood-guild/civil.550c6db6c59a.svg",
-        "sha256": "550c6db6c59aec3d46867d9ac01365ac53952ae47d2133cb7b8495e9ac0589b0",
-        "bytes": 2244,
+        "path": "/office-themes/lanternwood-guild/civil.8c6f999345cc.svg",
+        "sha256": "8c6f999345cc283c1651b3dbb234574066e77cf6ba604baf8c2ed9becd397a6f",
+        "bytes": 2330,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance hall",
       "art": {
-        "path": "/office-themes/lanternwood-guild/assurance.58ca08764296.svg",
-        "sha256": "58ca08764296114e3e10bdf82647cfb206ab263cf18357a4e83133d11cad1cd1",
-        "bytes": 2245,
+        "path": "/office-themes/lanternwood-guild/assurance.debdabc2fbc5.svg",
+        "sha256": "debdabc2fbc5f780ba951e44b10eedf894d686ee5ff045274fe2bdff848aff04",
+        "bytes": 2331,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls hall",
       "art": {
-        "path": "/office-themes/lanternwood-guild/project-controls.3487197cda80.svg",
-        "sha256": "3487197cda8024fc7e33d9dbe3a398358db48baf7cc28b41c70dd782059706c5",
-        "bytes": 2246,
+        "path": "/office-themes/lanternwood-guild/project-controls.43bb140338f3.svg",
+        "sha256": "43bb140338f38d473f27e7d45188e9222fa2aa774f9099841f94fe03ddefebfc",
+        "bytes": 2332,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Council fire",
       "art": {
-        "path": "/office-themes/lanternwood-guild/review.6d71a56d5569.svg",
-        "sha256": "6d71a56d5569fca4595ff5d503b3cdf4e9ef079377729d34b32a54b57ed5fc51",
-        "bytes": 1871,
+        "path": "/office-themes/lanternwood-guild/review.b67ed73bd53a.svg",
+        "sha256": "b67ed73bd53a31cc4dd85b46081f49a25ca508827ce6137402fdc4aab825540a",
+        "bytes": 1957,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Quest desk",
       "art": {
-        "path": "/office-themes/lanternwood-guild/interface.6a1f4f192d32.svg",
-        "sha256": "6a1f4f192d3226ee8bf77fd357804a5abe3f6ac040db2897038a2c6954246f66",
-        "bytes": 1880,
+        "path": "/office-themes/lanternwood-guild/interface.6a5093248418.svg",
+        "sha256": "6a50932484187dc2ef37d045642549d304253336ef736ad7f72697f3b5e7b6bf",
+        "bytes": 1966,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Appraisal table",
       "art": {
-        "path": "/office-themes/lanternwood-guild/verification.310a9b378c86.svg",
-        "sha256": "310a9b378c86448c3c8540ca7d73c3f87dfbb35cf580840470f76748ddcca971",
-        "bytes": 1881,
+        "path": "/office-themes/lanternwood-guild/verification.0d81ef92e5af.svg",
+        "sha256": "0d81ef92e5affe21ed3770eec13d9f062a19466ac4e578993fda584fd3ebc998",
+        "bytes": 1967,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Guild steward",
       "art": {
-        "path": "/office-themes/lanternwood-guild/your-office.55219a93c759.svg",
-        "sha256": "55219a93c75904b9a059d30e852d3387f373ee1e651531baa8061903fe550840",
-        "bytes": 1835,
+        "path": "/office-themes/lanternwood-guild/your-office.c2864f4edaf8.svg",
+        "sha256": "c2864f4edaf816a941f2568a0a3bea17f9ead70095a6ce5c19a648b5192b3fc4",
+        "bytes": 1921,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Scroll archive",
       "art": {
-        "path": "/office-themes/lanternwood-guild/document-control.20015eeac14a.svg",
-        "sha256": "20015eeac14a624254b30aa52d78c440e0596161cd3c1f0a40aa531ad4e97a2f",
-        "bytes": 2120,
+        "path": "/office-themes/lanternwood-guild/document-control.30bea64a5122.svg",
+        "sha256": "30bea64a5122a01d28ae1dbcfe59c6eb941b9ece7a844cf747eca12cd13ec540",
+        "bytes": 2206,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Travelers' rest",
       "art": {
-        "path": "/office-themes/lanternwood-guild/bench.80141ab3750b.svg",
-        "sha256": "80141ab3750b48f993469d814271ef16eeb295414d6f9855b3a6cf5e716edcda",
-        "bytes": 1883,
+        "path": "/office-themes/lanternwood-guild/bench.c1644c7f4028.svg",
+        "sha256": "c1644c7f4028bddc2507311923ad078c0d0548e3b58d3e367df645448767e39d",
+        "bytes": 1969,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Warded chest",
       "art": {
-        "path": "/office-themes/lanternwood-guild/quarantine.8647527b3b39.svg",
-        "sha256": "8647527b3b39584d3a2542e090645c213f90d16f218af810915ed36eada6e47f",
-        "bytes": 3590,
+        "path": "/office-themes/lanternwood-guild/quarantine.dbb7af410ccb.svg",
+        "sha256": "dbb7af410ccbb4b166c8a6a20f869fd8108af153404260dbf4d8a9cb47553d94",
+        "bytes": 3676,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

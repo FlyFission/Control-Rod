@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process yard",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/process.d46d0afbf645.svg",
-        "sha256": "d46d0afbf645541b8e390496e8156d28d22577b8ee082c277cb6a9bf6561f4b7",
-        "bytes": 2443,
+        "path": "/office-themes/tumbletown-workshop/process.9da64dc9d2d9.svg",
+        "sha256": "9da64dc9d2d9d3c0900cb2c5742791eb163e2ea103fb96a09b289e21f1f03cac",
+        "bytes": 2529,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical yard",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/mechanical.a733f73d4612.svg",
-        "sha256": "a733f73d4612c93ba0a532b53ec5bafb67f1495eac1770b01214a3330bed9b32",
-        "bytes": 2443,
+        "path": "/office-themes/tumbletown-workshop/mechanical.2776eeb53a43.svg",
+        "sha256": "2776eeb53a43b18c0ff857822a8b35442dd3bb50a954ff5071dfe5124c389ba1",
+        "bytes": 2529,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical yard",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/electrical.5c109e1b2d88.svg",
-        "sha256": "5c109e1b2d88e75a9799d95aaee9e32cbb9915ffadfa41866afeb3d190bcfc35",
-        "bytes": 2443,
+        "path": "/office-themes/tumbletown-workshop/electrical.ff0e61972238.svg",
+        "sha256": "ff0e619722384d6433fd3a699a291a7e033c5bc9ecfed75868ec39a6224e8b27",
+        "bytes": 2529,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil yard",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/civil.cb358b071549.svg",
-        "sha256": "cb358b0715490580fcfd43dc19bc9b49369e113bc59bd9720440d7f638eb8b6b",
-        "bytes": 2443,
+        "path": "/office-themes/tumbletown-workshop/civil.4f0db4446921.svg",
+        "sha256": "4f0db4446921c9a37ff5dc2ff468f74cec9bd3875a6ce59a4fc412bc9ad15098",
+        "bytes": 2529,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance yard",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/assurance.d0765ba268ea.svg",
-        "sha256": "d0765ba268ea0be43c3ceb618b72d3fa22d03552a0beac95c690320dea8badeb",
-        "bytes": 2443,
+        "path": "/office-themes/tumbletown-workshop/assurance.c7b4b4ec6990.svg",
+        "sha256": "c7b4b4ec69901d211a6bdc3f8793106645e4d4dd657829e6e227cb670d4cb1a0",
+        "bytes": 2529,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls yard",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/project-controls.764e854fe4c2.svg",
-        "sha256": "764e854fe4c2b25578dbad23a7230ea8bf54cfdbe7516ab89a93a7d83890e731",
-        "bytes": 2443,
+        "path": "/office-themes/tumbletown-workshop/project-controls.113e93af2c19.svg",
+        "sha256": "113e93af2c19127d08b3d4e85a9d99f0f2ecef162e209d7f92517593d48de33c",
+        "bytes": 2529,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Huddle rug",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/review.37ad50216707.svg",
-        "sha256": "37ad502167070b19c43beeaecaeccb857101ebd091a5d77ab34afa32fe3e3cf3",
-        "bytes": 1998,
+        "path": "/office-themes/tumbletown-workshop/review.73c6b7782596.svg",
+        "sha256": "73c6b77825969b0d119db891ea2c98a5c13fe9dffd275ee2b83fd033bab7e3aa",
+        "bytes": 2084,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Notion desk",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/interface.3c367aa10d18.svg",
-        "sha256": "3c367aa10d181a7856ae14eb1d62e9cf1c3a1cf0bf1a9506a41e9183279a76ff",
-        "bytes": 1932,
+        "path": "/office-themes/tumbletown-workshop/interface.7326f11b31b4.svg",
+        "sha256": "7326f11b31b43cc4e2ff57879a54256dd18bc479c67b4857050d912b4988012c",
+        "bytes": 2018,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Measuring table",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/verification.ca0693250f2b.svg",
-        "sha256": "ca0693250f2bbeb74a1f7c23252cf5734b41d71996eff168d01e92e724fa7846",
-        "bytes": 2006,
+        "path": "/office-themes/tumbletown-workshop/verification.762dcdef3f3f.svg",
+        "sha256": "762dcdef3f3f1b23ba9923ee62a817037b02148e3653e36eda74e3c693b1c0c8",
+        "bytes": 2092,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Mayor's window",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/your-office.9513b48ac49b.svg",
-        "sha256": "9513b48ac49b76ea42c5c17b4c88b77b91f2740d620195edba950572490ffaf2",
-        "bytes": 2066,
+        "path": "/office-themes/tumbletown-workshop/your-office.b055da338205.svg",
+        "sha256": "b055da338205211ccfc6f8244e604713e0a4889ecbeb93d7981817f7f051d508",
+        "bytes": 2152,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Cubby tower",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/document-control.c73d5c5ef536.svg",
-        "sha256": "c73d5c5ef5368000bc7d2228bb54d215cc74e7dd43aefea43a23d2d65b3f4069",
-        "bytes": 2246,
+        "path": "/office-themes/tumbletown-workshop/document-control.93787d351880.svg",
+        "sha256": "93787d35188088817ce0d8e2eb6ea6fbf3567493e01e711396550d8dde18b6a3",
+        "bytes": 2332,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Spring seats",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/bench.45c8075abdc9.svg",
-        "sha256": "45c8075abdc9c7d50134b321ef422a55ce2337e8c006797709d7f1b1aab79ccb",
-        "bytes": 1934,
+        "path": "/office-themes/tumbletown-workshop/bench.77679eca0b9a.svg",
+        "sha256": "77679eca0b9a38947fe57609ad795f3f1c8c3dfa9fb80081c211ac8bb0cc3fa4",
+        "bytes": 2020,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Locked cubby",
       "art": {
-        "path": "/office-themes/tumbletown-workshop/quarantine.1bc724c2b519.svg",
-        "sha256": "1bc724c2b5192fef0d787484443eeeb94997b9b37f960d5fd5a9b4b8b1a0947b",
-        "bytes": 3682,
+        "path": "/office-themes/tumbletown-workshop/quarantine.f6e30566adb4.svg",
+        "sha256": "f6e30566adb45acde73b5461dc8f5244d2f1f0fff42f80b188882a7374d3fb77",
+        "bytes": 3768,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

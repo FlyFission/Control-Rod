@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process workshop",
       "art": {
-        "path": "/office-themes/clockwork-observatory/process.35ec1afa85b2.svg",
-        "sha256": "35ec1afa85b2d5adba492c3b992774652ec1968c45cc281c5f08745722acc5a3",
-        "bytes": 2563,
+        "path": "/office-themes/clockwork-observatory/process.883642c0013c.svg",
+        "sha256": "883642c0013c2d8cab3bd25fdcdaf43dbb44814f56b83923a3aef6e7fb983d1c",
+        "bytes": 2649,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical workshop",
       "art": {
-        "path": "/office-themes/clockwork-observatory/mechanical.19480e79d74a.svg",
-        "sha256": "19480e79d74afc1037586a4e61df54b6123522b4bbcdcf107f5f9eb11fb7d02f",
-        "bytes": 2565,
+        "path": "/office-themes/clockwork-observatory/mechanical.76b318b7eaab.svg",
+        "sha256": "76b318b7eaab0956b8dcfea48974d494b9acbcebcec61ead118959aa1a883498",
+        "bytes": 2651,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical workshop",
       "art": {
-        "path": "/office-themes/clockwork-observatory/electrical.9e9ef1a5df36.svg",
-        "sha256": "9e9ef1a5df36e997856b6058ec73c40995f228c695692a62baca300ed321eae9",
-        "bytes": 2563,
+        "path": "/office-themes/clockwork-observatory/electrical.80e34a08700b.svg",
+        "sha256": "80e34a08700b647e4a609a3b73405ac27848887e8cca6d4ede2c44252ebb7c87",
+        "bytes": 2649,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil workshop",
       "art": {
-        "path": "/office-themes/clockwork-observatory/civil.e8222f92e34e.svg",
-        "sha256": "e8222f92e34e834dbc749572fe1844f5c4319815cdfc7c965d1844656a213467",
-        "bytes": 2568,
+        "path": "/office-themes/clockwork-observatory/civil.ba5b3194cd6a.svg",
+        "sha256": "ba5b3194cd6a0da137c9380f1981911c74d7c4cea6d850192b39715bca7534f4",
+        "bytes": 2654,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance workshop",
       "art": {
-        "path": "/office-themes/clockwork-observatory/assurance.e433742f3f4f.svg",
-        "sha256": "e433742f3f4f0dd124ea6306bb3a0c7a072f9edf41d4e5b79abadbc0358216b0",
-        "bytes": 2562,
+        "path": "/office-themes/clockwork-observatory/assurance.729130770d3d.svg",
+        "sha256": "729130770d3dee3e8f0be6d61929112e22ae0c9a2a8eac7e389c176672f57191",
+        "bytes": 2648,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls workshop",
       "art": {
-        "path": "/office-themes/clockwork-observatory/project-controls.6a87057897f1.svg",
-        "sha256": "6a87057897f1a0c70557b703bea25ecad02b4ec9b7953495dbd4ec8263796190",
-        "bytes": 2566,
+        "path": "/office-themes/clockwork-observatory/project-controls.bb37db3125dc.svg",
+        "sha256": "bb37db3125dc649672b6ff3cfe5290a4e66a6f8f7e486b86f245996ce530df47",
+        "bytes": 2652,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Orrery table",
       "art": {
-        "path": "/office-themes/clockwork-observatory/review.a9ff73ca6df8.svg",
-        "sha256": "a9ff73ca6df81be643946bbadf6ab8a205bdb9315603a2b0c6dd6076afd22ec5",
-        "bytes": 2192,
+        "path": "/office-themes/clockwork-observatory/review.50a13aedd66d.svg",
+        "sha256": "50a13aedd66dc7539c9044a4c70c6582dbd2c3e43b40f187e862be25ebcd762d",
+        "bytes": 2278,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Chart desk",
       "art": {
-        "path": "/office-themes/clockwork-observatory/interface.f333be584b81.svg",
-        "sha256": "f333be584b81498a9f9eaaf092a95674414dea7a8fb3c59a7eb3edda6a1e7676",
-        "bytes": 2196,
+        "path": "/office-themes/clockwork-observatory/interface.14b3e8e93ba6.svg",
+        "sha256": "14b3e8e93ba65c87a5dd44c013659c8ca92d96e54e588bcd48c1611e57bf7ac6",
+        "bytes": 2282,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Calibration table",
       "art": {
-        "path": "/office-themes/clockwork-observatory/verification.29d9ceaf147f.svg",
-        "sha256": "29d9ceaf147f3b0ea7b04728282d96af9a93b64b5ee9c8d5221231c6631b0e7d",
-        "bytes": 2203,
+        "path": "/office-themes/clockwork-observatory/verification.fe84e9dfcd45.svg",
+        "sha256": "fe84e9dfcd45be17c1ee7beabde3132d61557ee1c18df7ed9827fc765df64280",
+        "bytes": 2289,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Chief observer",
       "art": {
-        "path": "/office-themes/clockwork-observatory/your-office.4ecef343470b.svg",
-        "sha256": "4ecef343470bbb93ef7221d13a16c139a34e2157c68998c8fc93a282752487f2",
-        "bytes": 2044,
+        "path": "/office-themes/clockwork-observatory/your-office.939354fd9874.svg",
+        "sha256": "939354fd9874706c0edf1854b7393b920689789ee52e31c0c9b528531fa13c9b",
+        "bytes": 2130,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Celestial archive",
       "art": {
-        "path": "/office-themes/clockwork-observatory/document-control.aabc17b51e02.svg",
-        "sha256": "aabc17b51e02377b68ea714ba23bc3f540244fb83f0a551c38802cb4226f41b4",
-        "bytes": 2442,
+        "path": "/office-themes/clockwork-observatory/document-control.b870c650a73a.svg",
+        "sha256": "b870c650a73a8e1d3078709de3360505a3448b02dad70bc0fa8b0300a3b3bdd7",
+        "bytes": 2528,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Winding alcove",
       "art": {
-        "path": "/office-themes/clockwork-observatory/bench.4a27ec4c92fd.svg",
-        "sha256": "4a27ec4c92fd8e99bcfa1447055037b10ead2f81f826e8b6e2abc172e3f28e4f",
-        "bytes": 2202,
+        "path": "/office-themes/clockwork-observatory/bench.95833a360c9d.svg",
+        "sha256": "95833a360c9d81c5ade262f2cf54c919434a7eebf65d63a3de0125ee3d62babd",
+        "bytes": 2288,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Stopped vault",
       "art": {
-        "path": "/office-themes/clockwork-observatory/quarantine.4a72f54d7a27.svg",
-        "sha256": "4a72f54d7a273f34a562b40a92f79d68c8ba9b3030f1ddfa61f6f52f9ac03d48",
-        "bytes": 4022,
+        "path": "/office-themes/clockwork-observatory/quarantine.b647c5b5a35c.svg",
+        "sha256": "b647c5b5a35c5192e9f7e841b381e3c6f9841c965895827e26fa761493c5c4f2",
+        "bytes": 4108,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

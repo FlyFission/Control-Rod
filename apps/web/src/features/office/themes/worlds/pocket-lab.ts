@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process lab",
       "art": {
-        "path": "/office-themes/pocket-lab/process.858dcc0e3a25.svg",
-        "sha256": "858dcc0e3a25b419e7ebdf22039f5d7d682ece63beb2e4e74f3acf80b0ee4da8",
-        "bytes": 4313,
+        "path": "/office-themes/pocket-lab/process.72343961fc3e.svg",
+        "sha256": "72343961fc3e21b437a2936e4fb19b52a1c2ef90d3a8acdabce538054a71fa4e",
+        "bytes": 4399,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical lab",
       "art": {
-        "path": "/office-themes/pocket-lab/mechanical.8f65f3a0b1fe.svg",
-        "sha256": "8f65f3a0b1fe3e65d9a2e22a73b8ac8b127ea5b5829cca8b9c3d973c0edff03a",
-        "bytes": 4313,
+        "path": "/office-themes/pocket-lab/mechanical.b090085b898a.svg",
+        "sha256": "b090085b898afd677c0afccf6491339a1b7d0bfb1352eaa8059261a92074fbda",
+        "bytes": 4399,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical lab",
       "art": {
-        "path": "/office-themes/pocket-lab/electrical.3fb4b6eda84f.svg",
-        "sha256": "3fb4b6eda84f0c9aceb99aa8e6f3d0988dc7bac2cf819659a6bacca67f78086b",
-        "bytes": 4313,
+        "path": "/office-themes/pocket-lab/electrical.58193ac90177.svg",
+        "sha256": "58193ac90177436f6c6437178582cb30b3e5aeaaa82e40a0266e4b10e015fee9",
+        "bytes": 4399,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil lab",
       "art": {
-        "path": "/office-themes/pocket-lab/civil.8b73cec78cd2.svg",
-        "sha256": "8b73cec78cd26ac7c7b07d616e8ba38c9defac2b4dd0b9a62635d6dcc300dca2",
-        "bytes": 4313,
+        "path": "/office-themes/pocket-lab/civil.5bd087bb6a07.svg",
+        "sha256": "5bd087bb6a076de46b043fd7764a8f8f862284804ad237f14adb8c630b91989e",
+        "bytes": 4399,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance lab",
       "art": {
-        "path": "/office-themes/pocket-lab/assurance.9bc4627c08ac.svg",
-        "sha256": "9bc4627c08ac798f62cb1f89e2ade916b683470a62bdf8585b0843f25d2d2375",
-        "bytes": 4313,
+        "path": "/office-themes/pocket-lab/assurance.aed1fcc38aa8.svg",
+        "sha256": "aed1fcc38aa81a9c11fb779d3542d886e946178ecd7f8006fc1624b3ecf60b36",
+        "bytes": 4399,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls lab",
       "art": {
-        "path": "/office-themes/pocket-lab/project-controls.a4a322e04ee8.svg",
-        "sha256": "a4a322e04ee899cc095d3e936c3f5cce05356ab612cf8dbc7c41699517595dd0",
-        "bytes": 4313,
+        "path": "/office-themes/pocket-lab/project-controls.d3af385b7c80.svg",
+        "sha256": "d3af385b7c80285267f4b3891da34afb2dd5a708f779db9106eef104d941fcac",
+        "bytes": 4399,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Results huddle",
       "art": {
-        "path": "/office-themes/pocket-lab/review.3c843a7e6de7.svg",
-        "sha256": "3c843a7e6de750274494b1c4d3d582b5e3327dfeffabe01f5fd9700554808493",
-        "bytes": 4700,
+        "path": "/office-themes/pocket-lab/review.7d23dc952024.svg",
+        "sha256": "7d23dc9520249d2a3e475a1ce0c0711a8ab5e017298fe017e45881aa85a561b3",
+        "bytes": 4786,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Experiment desk",
       "art": {
-        "path": "/office-themes/pocket-lab/interface.da7404c96e57.svg",
-        "sha256": "da7404c96e578d51e331a8da2b2aca5f69be1f2051ff9df60d00b7adc1f0db9d",
-        "bytes": 4134,
+        "path": "/office-themes/pocket-lab/interface.b39cff15ba6f.svg",
+        "sha256": "b39cff15ba6ff670aa9e7536aef6749b4ca84a4bc4cba2dcffc5634ca064c15b",
+        "bytes": 4220,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Calibration bay",
       "art": {
-        "path": "/office-themes/pocket-lab/verification.232bbcd4bf7c.svg",
-        "sha256": "232bbcd4bf7c40753bd3d0dd83a93ed4acb1c669ffad301cf4b2f069d23633e4",
-        "bytes": 4708,
+        "path": "/office-themes/pocket-lab/verification.e5d2ee0d8161.svg",
+        "sha256": "e5d2ee0d8161262c717dc551824f24cf3c4c3d8dbea931206f45c536f9262ef9",
+        "bytes": 4794,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Lead scientist desk",
       "art": {
-        "path": "/office-themes/pocket-lab/your-office.fd8e60489c18.svg",
-        "sha256": "fd8e60489c182a3425de6524169ccb685271294129c8391909751b3eb3b7310f",
-        "bytes": 5120,
+        "path": "/office-themes/pocket-lab/your-office.8ce51cd3a5f8.svg",
+        "sha256": "8ce51cd3a5f8aa1843b72825c0d1d0381758e45ed6a6d51cf31a4740dd27ad74",
+        "bytes": 5206,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Specimen cabinet",
       "art": {
-        "path": "/office-themes/pocket-lab/document-control.e0a1b54ec9cc.svg",
-        "sha256": "e0a1b54ec9cc4c03e98b60a253fb32ff899b19a9bffa01d2286e7e98b0113ca6",
-        "bytes": 4948,
+        "path": "/office-themes/pocket-lab/document-control.03e0242e3cc2.svg",
+        "sha256": "03e0242e3cc202b8a11406758bc2e3b2ea5959543fa9d7f5bfbd671ab88ab273",
+        "bytes": 5034,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Charging nook",
       "art": {
-        "path": "/office-themes/pocket-lab/bench.87aaeb4813e7.svg",
-        "sha256": "87aaeb4813e7a816be9018da1a55ba581e06c2767b6fb1b2e7153a5392175dff",
-        "bytes": 4136,
+        "path": "/office-themes/pocket-lab/bench.9bbdea60304d.svg",
+        "sha256": "9bbdea60304d8183ea31cfc13b2d5585b2d8ac9a291fadef3f2879cc6b2a7a58",
+        "bytes": 4222,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Sealed cabinet",
       "art": {
-        "path": "/office-themes/pocket-lab/quarantine.972abb39f11f.svg",
-        "sha256": "972abb39f11fa8fc45098f4abea44d0b82739b47dd09a7dcd7dad1452ab6faca",
-        "bytes": 5958,
+        "path": "/office-themes/pocket-lab/quarantine.a1c10697c8c1.svg",
+        "sha256": "a1c10697c8c11d5c76a6a598ffadb0bb9041949cd67b58fcfad18335336fe715",
+        "bytes": 6044,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process grotto",
       "art": {
-        "path": "/office-themes/coral-commons/process.d95dc1687ede.svg",
-        "sha256": "d95dc1687edec64d7ab4fb66a5cee5f3c5933c5be12a7a0228f464ba55e01aef",
-        "bytes": 2532,
+        "path": "/office-themes/coral-commons/process.aa1a7e6579bd.svg",
+        "sha256": "aa1a7e6579bd4727be59a456642fa00ddde271077b959e3bcb0a028df3e2dab9",
+        "bytes": 2618,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical grotto",
       "art": {
-        "path": "/office-themes/coral-commons/mechanical.d96c9f0c60c0.svg",
-        "sha256": "d96c9f0c60c0b5a7a860da56964ddb45d2351dff441b259d496f1825bd2af989",
-        "bytes": 2532,
+        "path": "/office-themes/coral-commons/mechanical.c63c258237fa.svg",
+        "sha256": "c63c258237fa62fedb2841bac1b2e6f5ee2bc6cd9b78fc8e523805be11345cde",
+        "bytes": 2618,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical grotto",
       "art": {
-        "path": "/office-themes/coral-commons/electrical.1b246bd952ce.svg",
-        "sha256": "1b246bd952ce37e937b72d7f491fdaf649523dd2f96f27c67db3b4607ab30ed9",
-        "bytes": 2532,
+        "path": "/office-themes/coral-commons/electrical.e044453f1a4d.svg",
+        "sha256": "e044453f1a4d0b01c3634e729bd399f68cb7b09e443e20fd76dc8307831df18f",
+        "bytes": 2618,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil grotto",
       "art": {
-        "path": "/office-themes/coral-commons/civil.7fd7d1ae8198.svg",
-        "sha256": "7fd7d1ae8198ddfa39fbcd85948b980cdd63edd708a35d12ab47775395a6c2e6",
-        "bytes": 2532,
+        "path": "/office-themes/coral-commons/civil.cd9d467c0345.svg",
+        "sha256": "cd9d467c0345fd21b91054eca7d9d755c15ced6317f8058509176df4b8370b7f",
+        "bytes": 2618,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance grotto",
       "art": {
-        "path": "/office-themes/coral-commons/assurance.f6a7f25c6deb.svg",
-        "sha256": "f6a7f25c6deb31bc31c9867b8e1022cc74a02f99f457d17ee419bd1454704eca",
-        "bytes": 2532,
+        "path": "/office-themes/coral-commons/assurance.6e76ffbfea17.svg",
+        "sha256": "6e76ffbfea174cdfc2e8a6ec2cb9c9f033224b6e880925c8656660ee0b44a8d6",
+        "bytes": 2618,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls grotto",
       "art": {
-        "path": "/office-themes/coral-commons/project-controls.d9b0cf263c99.svg",
-        "sha256": "d9b0cf263c99506e776bc5ff59b64c1cbb34675eb6818de3299d49ddb57068c6",
-        "bytes": 2532,
+        "path": "/office-themes/coral-commons/project-controls.d595aa7fbc3b.svg",
+        "sha256": "d595aa7fbc3b81f2f1a77f95c5302bb1c30c57db600ba55d96d7be9dd64efd23",
+        "bytes": 2618,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Council pool",
       "art": {
-        "path": "/office-themes/coral-commons/review.79c3916a15e3.svg",
-        "sha256": "79c3916a15e3921ee59edc122eeae9f3770617b269bbb16db0a707cee97ca09f",
-        "bytes": 2058,
+        "path": "/office-themes/coral-commons/review.69f7385630f2.svg",
+        "sha256": "69f7385630f29dc1cc0ae6598fcc6a5d6689c1bce84b87fe676ffbc7c1e190b7",
+        "bytes": 2144,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Survey desk",
       "art": {
-        "path": "/office-themes/coral-commons/interface.e0a324f61dc7.svg",
-        "sha256": "e0a324f61dc77ec8fa2e3b0c49369adb094d073872de477713533253b83afa5c",
-        "bytes": 2066,
+        "path": "/office-themes/coral-commons/interface.952a1e3aeb01.svg",
+        "sha256": "952a1e3aeb01d2e3b94e5f8ef7dd7a65bfe7735523d7edb3197cfb6448d9fdb8",
+        "bytes": 2152,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Inspection pool",
       "art": {
-        "path": "/office-themes/coral-commons/verification.d493d0da3ebd.svg",
-        "sha256": "d493d0da3ebdedf724a802c83d1a0ef3b8631ec4061f550a85436b2f9cd8a253",
-        "bytes": 2169,
+        "path": "/office-themes/coral-commons/verification.20f1e172037c.svg",
+        "sha256": "20f1e172037c25423160d26d9179f86c2d32abf9eff44cf0d49aa38f9a40beb0",
+        "bytes": 2255,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Council alcove",
       "art": {
-        "path": "/office-themes/coral-commons/your-office.45550c3f2e5a.svg",
-        "sha256": "45550c3f2e5a7aee694f254156db7b260c513a4ba0e9b1dcf6963857be987520",
-        "bytes": 2110,
+        "path": "/office-themes/coral-commons/your-office.4eb6c2876438.svg",
+        "sha256": "4eb6c2876438d4818401ac0850a345dd4ee5fa854b841f6c60019ce0c85c6f32",
+        "bytes": 2196,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Shell archive",
       "art": {
-        "path": "/office-themes/coral-commons/document-control.785f8f42ee60.svg",
-        "sha256": "785f8f42ee60383f7212f8bc5bb10c3cbdd531c6cf4475a7e73ddeaf8703ead3",
-        "bytes": 2306,
+        "path": "/office-themes/coral-commons/document-control.8a896bd9ff59.svg",
+        "sha256": "8a896bd9ff59f5bb4bccb89c8bfb166f701b77c392670fb6fb6a1043c3ac1000",
+        "bytes": 2392,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Anemone rest",
       "art": {
-        "path": "/office-themes/coral-commons/bench.ea09ab985be4.svg",
-        "sha256": "ea09ab985be4f4f59cf236b53fd1839a76a1a7e583c087a4059e4f74ece2da39",
-        "bytes": 2068,
+        "path": "/office-themes/coral-commons/bench.969307bcf872.svg",
+        "sha256": "969307bcf8725adc0ebc11fc3b1d60fabc46fd73f8118face904a5daa38d8450",
+        "bytes": 2154,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Closed lagoon",
       "art": {
-        "path": "/office-themes/coral-commons/quarantine.d38666690dbe.svg",
-        "sha256": "d38666690dbef188e70cbcbeeed90c7cd39188c0eb179d1aa5f84296f738dc60",
-        "bytes": 3890,
+        "path": "/office-themes/coral-commons/quarantine.bd02601c0d7d.svg",
+        "sha256": "bd02601c0d7d0ea76540694e5bdfe3e0af7fa678482ceef92800ef94b4af2a77",
+        "bytes": 3976,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

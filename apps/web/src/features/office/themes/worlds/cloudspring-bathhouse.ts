@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process room",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/process.d3b7e98b4949.svg",
-        "sha256": "d3b7e98b4949d2accc6b6af8f8f30671763a3fa6bfa06726cc2eeae0dc3739b1",
-        "bytes": 1752,
+        "path": "/office-themes/cloudspring-bathhouse/process.c2b9d522cd79.svg",
+        "sha256": "c2b9d522cd796e17f8b0f34f5ff013ce22d83424248e9e8cdf8176cff3f071ca",
+        "bytes": 1838,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical room",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/mechanical.6fb11659a5c1.svg",
-        "sha256": "6fb11659a5c11b940b385965a10347517c59266ddc13f7bbc486e063c2ba8471",
-        "bytes": 1752,
+        "path": "/office-themes/cloudspring-bathhouse/mechanical.f6548821b67e.svg",
+        "sha256": "f6548821b67e0f8a774488417daf242a457536df2f9990f140ceb7a9ff54b553",
+        "bytes": 1838,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical room",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/electrical.667c16e522b7.svg",
-        "sha256": "667c16e522b7736714e4a189a9dd3ef50ba44fcbb09c6560d64eb5fe255dafe5",
-        "bytes": 1752,
+        "path": "/office-themes/cloudspring-bathhouse/electrical.46aa70282b77.svg",
+        "sha256": "46aa70282b777d8b7c301f08cf6af1cf01d81b84edca3266eb07357372eb9599",
+        "bytes": 1838,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil room",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/civil.8de9198f76e4.svg",
-        "sha256": "8de9198f76e41a554bbdce3c773cf30cd8d3dd9bb06f4db4e7b252727f591095",
-        "bytes": 1752,
+        "path": "/office-themes/cloudspring-bathhouse/civil.02eecfbe680b.svg",
+        "sha256": "02eecfbe680b38e396d0b58a5452e78e27a7ac4e136ce3ebf7e87221339fb35f",
+        "bytes": 1838,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance room",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/assurance.16dccd9d0a07.svg",
-        "sha256": "16dccd9d0a079c55825d5982a0bdb1e84ffb1ac4ffdc4bda9afae0d0ee3ee44f",
-        "bytes": 1752,
+        "path": "/office-themes/cloudspring-bathhouse/assurance.b524c655bdc7.svg",
+        "sha256": "b524c655bdc79083d6e83c109c2237845d63819a757666efb53210e86af2f861",
+        "bytes": 1838,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls room",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/project-controls.9f250f79e348.svg",
-        "sha256": "9f250f79e348f9d70a8fe48b078ada9d6ff2a3043dfaf97cf9a05bdc77edf461",
-        "bytes": 1752,
+        "path": "/office-themes/cloudspring-bathhouse/project-controls.7109aa3ecff2.svg",
+        "sha256": "7109aa3ecff23d6e574b715a921804776833cca8cfb7dc597f3277cf3eff80b8",
+        "bytes": 1838,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Tea table",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/review.c70104b86433.svg",
-        "sha256": "c70104b86433c9ad65914f6507328cfa9a40908c8b5b4ee3ba1cff78d7750b12",
-        "bytes": 1375,
+        "path": "/office-themes/cloudspring-bathhouse/review.f1cf0f2cae83.svg",
+        "sha256": "f1cf0f2cae838b035438e815c99670e1c90ddf485405a558e4f40483f7ab4c52",
+        "bytes": 1461,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Reception ledger",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/interface.1ce0949ff4fc.svg",
-        "sha256": "1ce0949ff4fc0a133260cef596de20b41f0198ed67e3fc09e80f684526a384bd",
-        "bytes": 1385,
+        "path": "/office-themes/cloudspring-bathhouse/interface.8cd4c22cb28c.svg",
+        "sha256": "8cd4c22cb28ccfc76d1dcdc2aef9e31a8fce9ff286f1a3f79d90cfd4979de46d",
+        "bytes": 1471,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Quality table",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/verification.e533540b9fdc.svg",
-        "sha256": "e533540b9fdcbd1b584d0e7f9d6ed8cb7d8ef231fb1a38750b5ca08007462114",
-        "bytes": 1385,
+        "path": "/office-themes/cloudspring-bathhouse/verification.7d096bf5cf8a.svg",
+        "sha256": "7d096bf5cf8ad2569b1def96d4f39a0efe1a609cb1df4e0570647d1f4a1d13e2",
+        "bytes": 1471,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Caretaker desk",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/your-office.32e163602624.svg",
-        "sha256": "32e16360262499f14d8f28df184cac8b624eaa1035f448cc5358c6e666faa4f5",
-        "bytes": 1225,
+        "path": "/office-themes/cloudspring-bathhouse/your-office.0131f17ba43f.svg",
+        "sha256": "0131f17ba43fcdd77daa92e573eb6cade3a8c021cdc49603ad3b4f11d447c784",
+        "bytes": 1311,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Linen archive",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/document-control.1e70aec1ee9b.svg",
-        "sha256": "1e70aec1ee9bf7593367f86547dff5d374e4b9e775552217338892ff2a67a606",
-        "bytes": 1623,
+        "path": "/office-themes/cloudspring-bathhouse/document-control.bffa1a14c071.svg",
+        "sha256": "bffa1a14c0714c1cb3b927841b360c165ec4c90fe4075b2a34fe38a479b48df5",
+        "bytes": 1709,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Tea alcove",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/bench.730727073adb.svg",
-        "sha256": "730727073adbaa82d8c7da8b36b50262efafad3f22e6f4dedee79f238cbc316d",
-        "bytes": 1387,
+        "path": "/office-themes/cloudspring-bathhouse/bench.38e5acc374e8.svg",
+        "sha256": "38e5acc374e8889debf93a81427a899456c7fa542f4a8f8fe6a43c27cc92b60a",
+        "bytes": 1473,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Closed bath",
       "art": {
-        "path": "/office-themes/cloudspring-bathhouse/quarantine.a7d15c1bc7b0.svg",
-        "sha256": "a7d15c1bc7b0f883b3318559cdd5d8339bad9c82a766fc125077994d3342f1a6",
-        "bytes": 3207,
+        "path": "/office-themes/cloudspring-bathhouse/quarantine.1bb1635a0751.svg",
+        "sha256": "1bb1635a075160c1ce4f85677ef6a635b4fee019633bc841aaa46a93f519bce7",
+        "bytes": 3293,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

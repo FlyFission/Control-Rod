@@ -743,6 +743,12 @@
 .signature-capsule .floor-signature {
   border-radius: 10px;
 }
+.signature-parcel .floor-signature {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1.5px var(--world-accent);
+}
 .signature-spark .floor-signature {
   clip-path: polygon(
     50% 0,

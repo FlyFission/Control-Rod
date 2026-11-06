@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-06
 - **Owner:** Ben Huffer
-- **Status:** Draft for owner review
+- **Status:** Approved by the owner 2026-11-06
 - **Change record:** `.nuclear/changes/board-redesign/`
 - **Research and reviews:** `.nuclear/changes/board-redesign/evidence/` (decision ledger revision 2, seven research files, three adversarial reviews and their synthesis, interactive mockups)
 
@@ -45,7 +45,7 @@ The aim for this spec is a **minimum viable product** that a second developer ca
 | O7 | Kind color stays as a gentle third signal beside the kind icon and word. |
 | O8 | Strictness is fixed once work starts. |
 
-**How O3 and O8 map onto what exists (no schema change).** The package already carries `grade` (`safety`, `material`, `general-service`). The workbench design (section on person verification) already requires, for Safety and Material work, a person verification by a qualified checker who is neither an originator nor the pre-check runtime. So "independent check" is the grade: Safety or Material means independent check; General service is light review. The grade is set on the draft and becomes fixed at release, which satisfies O8 without a new field. A Return reopens revision N+1 as an editable draft, so the UI also locks grade on any revision after the first; that lock is in the UI only until the parked kernel rule exists, and the spec says so where it shows. Caveat, stated on screen where it matters: the kernel guard that refuses acceptance without a person verification is protected change D-4 and is not yet signed. Until it is, the board shows the step and relies on what `/packages/:id/actions` allows; it never claims the kernel enforces D-4.
+**How O3 and O8 map onto what exists (no schema change).** The package already carries `grade` (`safety`, `material`, `general-service`). The workbench design (section on person verification) already requires, for Safety and Material work, a person verification by a qualified checker who is neither an originator nor the pre-check runtime. So "independent check" is the grade: Safety or Material means independent check; General service is light review. The grade is set on the draft and becomes fixed at release, which satisfies O8 without a new field. A Return reopens revision N+1 as an editable draft, so the UI also locks grade on any revision after the first; that lock is in the UI only until the parked kernel rule exists, and the spec says so where it shows. Caveat, stated on screen where it matters: the kernel guard that refuses acceptance without a person verification is protected change D-4 and is not yet signed. Until it is, the board shows the step and never claims the kernel enforces D-4. Because the actions endpoint does not require a person verification before it offers acceptance, the board adds a **UI acceptance block**: on Safety or Material work without a passing person verification for the current revision, the board and the card view offer no Accept and no Accept with findings, and the next line names the verification requirement. The block is screen only. Other API clients can still accept such work until the kernel guard D-4 is signed, and the spec says so where it shows.
 
 ## 5. Approaches considered
 
@@ -63,7 +63,7 @@ The board is `/` (today `/` redirects to `/inbox`). Inbox becomes the board's "N
 
 ### 6.2 The board
 
-**Columns** are the existing `boardColumn` projection (`apps/web/src/lib/board.ts`), reworked (M1 is a rework of `pages/Board.tsx`, not a new page) and renamed for plain reading: Ready, Drafting, Agent check, Person verifies, Needs signature, Accepted. Closed packages leave the board. Today `in-verification` maps to Agent check or Needs signature only, driven by office items (`preCheckDone`). The MVP adds Person verifies for Safety and Material work whose agent pre-check is recorded and whose person verification is not. Person verifications are recorded objects (`person-verification.recorded`) with no per-package read today, so M1 adds one additive read route (section 7). A failed pre-check (office `dispute`) stays in Agent check with the dispute as its next line.
+**Columns** are the existing `boardColumn` projection (`apps/web/src/lib/board.ts`), reworked (M1 is a rework of `pages/Board.tsx`, not a new page) and renamed for plain reading: Ready, Drafting, Agent check, Person verifies, Needs signature, Accepted. Closed packages leave the board. Today `in-verification` maps to Agent check or Needs signature only, driven by office items (`preCheckDone`). The MVP adds Person verifies for Safety and Material work whose agent pre-check is recorded and whose person verification is not. Person verifications are recorded objects (`person-verification.recorded`) with no per-package read today, so M1 adds one additive read route (section 7) that returns each verification with the package revision it was recorded against, so the board can tell whether a pass covers the current revision. In M1 a pass counts for the current revision only; matching it to the signed subject digest is done in the verify panel (M7). A failed pre-check (office `dispute`) stays in Agent check with the dispute as its next line.
 
 **Captures** (quick adds not yet drafted into a package) appear at the top of Ready with their own face: "Classify the data lane" until classified, then "Intake drafting" (from the capture's `intake` status) until `GET /captures` lists its `package_ids`, then they become those packages' cards. One capture can yield several packages.
 
@@ -115,7 +115,7 @@ The Review tab for code deliverables shows the agent's changes from the retained
 
 The Review tab for document deliverables shows the retained file with its name, digest and a Download original button. Markdown renders in place with comments anchored by source position. PDF renders with the browser's or pdf.js's viewer; comments are a side list keyed to the file digest and page. DOCX shows the original for download and, where the server conversion spike succeeds (section 10), a PDF rendition labeled as a rendition. Comments are sent together as a Return reason, as for code.
 
-**Verification and signing.** For Safety and Material work, Verify (`/packages/:id/person-verifications/options` then `/person-verifications`) is offered only to a qualified member who did not originate the work, as the server already enforces. The panel states what the verification binds, lists the criteria, and shows hardware-key eligibility where the grade requires an attested key. Verify and Accept are disabled while a required check, basis currency or deliverable integrity fails, with the reason in place. Accept with findings appears only when the actions endpoint offers it, collects the reason, and is labeled as accepted with findings.
+**Verification and signing.** For Safety and Material work, Verify (`/packages/:id/person-verifications/options` then `/person-verifications`) is offered only to a qualified member who did not originate the work, as the server already enforces. The panel states what the verification binds, lists the criteria, and shows hardware-key eligibility where the grade requires an attested key. Verify and Accept are disabled while a required check, basis currency or deliverable integrity fails, with the reason in place. For Safety and Material work, Accept and Accept with findings are also withheld until a passing person verification exists for the current revision (the UI acceptance block of section 4; screen only until D-4 is signed), and every acceptance entry point honors it: the board next line, the Move to menu, the card header buttons and the Review tab. Accept with findings appears only when the actions endpoint offers it, collects the reason, and is labeled as accepted with findings.
 
 ### 6.7 Visual system
 
@@ -130,7 +130,7 @@ Tokens stay in `apps/web/src/design/tokens.css`; the three looks are token theme
 | Quick add | `POST /captures`, `/classify` | Inline add, capture card face |
 | Run feed and stop | run events, log, stream, stop | Activity tab layout |
 | Decisions and signing | `/decisions/options`, `/decisions`, passkey | Return with batched comments, sign panel wording |
-| Person verification | `/person-verifications/options`, `/person-verifications` | Verify panel in Review; read route for a package's verifications |
+| Person verification | `/person-verifications/options`, `/person-verifications` | Verify panel in Review; read route returning each verification with its package revision (joined through its candidate assignment) |
 | Outputs by revision | current revision only | read route for a previous revision's outputs |
 | Outputs | `/outputs/*`, proof | Diff view, document viewer |
 | Usage | `/usage`, run usage events | Honest usage lines |
@@ -156,9 +156,9 @@ Each slice ships behind no flag, keeps the current pages working, and adds tests
 | M2 Lenses | Kind filter, Needs you, Mine, color by, group by, density, URL state, saved views in browser storage, default-view guard | M1 |
 | M3 Move to and actions | Card action button and Move to menu from ActionDescriptor; refusal shown in place; keyboard path | M1 |
 | M4 Quick add | Inline add, chained Enter, paste many, capture card face, inline lane classification | M1 |
-| M5 Card view: Activity | Run feed with attestation per claim, honest usage, Stop with recorded outcome, note-to-next-run box | M1 |
+| M5 Card view: Activity | Run feed with attestation per claim, honest usage, Stop with recorded outcome, note-to-next-run box | M1, M3 |
 | M6 Code review | Patch diff or file list from retained outputs, line comments batched into Return, Release of the returned draft in place, since-last-review (with the read route for a previous revision's outputs), sign panel wording | M5 |
-| M7 Document review | Markdown with source-position comments; PDF viewer with page-keyed side comments; Download original; Verify and Accept panels with disabled-while-failing rules | M5 |
+| M7 Document review | Markdown with source-position comments; PDF viewer with page-keyed side comments; Download original; Verify and Accept panels with disabled-while-failing rules | M5, M6 |
 | M8 Visual pass | Impeccable refinement pass and critique across M1 to M7; density and motion polish | M1 to M7 |
 
 Spikes that gate parts of M6 and M7, each a throwaway branch with a written result: diff viewer (@pierre/diffs versus react-diff-view, does a comment survive a follow-up revision), PDF page-keyed comments with pdf.js, DOCX to PDF server conversion fidelity on a real SOW and a real calculation.

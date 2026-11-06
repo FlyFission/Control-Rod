@@ -1,12 +1,12 @@
 # Ship: board redesign design spec
 
-Release decision: **design spec for owner review; no implementation authorized by this record.**
+Release decision: **design spec approved by the owner on 2026-11-06; no implementation authorized by this record.**
 
 - **Proposed:** merge the spec and this packet as documentation only, so a second developer can start from it.
 - **Not claimed:** any implemented behavior; any compliance, certification or safety claim; that the kernel enforces person verification (D-4 is unsigned); usability and trust with real users (E-04 is open); mockup accessibility beyond the axe scan in E-03.
-- **Owner decisions requested:**
-  1. Approve the spec, or return it with changes.
-  2. Confirm the parked list in spec section 11 stays parked: live steering and in-run questions; per-card money cap; requester, grade-change and downgrade rules in the kernel; D-4 kernel guard; non-waivable check categories; solo path for independent checks; verifiable evidence export; in-file DOCX and PDF anchors; multi-repository cards; a paused run state; calendar view; tracker import.
+- **Owner decision recorded 2026-11-06:** the owner approved the spec ("approved, write the implementation plan") and chose subagent-driven execution of the plan ("subagent-driven, go ahead"); evidence E-05 in [verification](verification.md). Implementation is authorized per slice by the owner's instruction, and each slice opens its own change record; this record itself authorizes none.
+- **Owner decisions still requested:**
+  1. Confirm the parked list in spec section 11 stays parked: live steering and in-run questions; per-card money cap; requester, grade-change and downgrade rules in the kernel; D-4 kernel guard; non-waivable check categories; solo path for independent checks; verifiable evidence export; in-file DOCX and PDF anchors; multi-repository cards; a paused run state; calendar view; tracker import.
 
 Rollback: revert the commit. Documentation only; no code, schema or wire change.
 

@@ -1,17 +1,38 @@
 version: 2
 updates:
+  # Each workflow action bump is reviewed on its own: .github/workflows is a trust surface.
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly }
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # The runtime is Node 22 (mise.toml); types for a newer Node hide real errors.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: cargo
     directory: /
     schedule: { interval: weekly }
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Pinned with `=` in kernel/bindings/wasm/Cargo.toml and tied to the wasm-bindgen CLI in
+      # scripts/build-kernel-wasm.sh. Move the crate, the CLI and the generated artifacts together, by hand.
+      - dependency-name: wasm-bindgen
   - package-ecosystem: gomod
     directory: /daemon
     schedule: { interval: weekly }
+    groups:
+      go-minor-patch:
+        update-types: [minor, patch]
   - package-ecosystem: uv
     directory: /sdk/python
     schedule: { interval: weekly }
+    groups:
+      python-minor-patch:
+        update-types: [minor, patch]

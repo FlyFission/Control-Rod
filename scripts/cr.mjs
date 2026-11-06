@@ -32,6 +32,49 @@ const run = (cmd, args, opts = {}) => {
 };
 const cadcraft = () => process.env.CADCRAFT_CLI ?? (existsSync(join(bin, "cadcraft-cli")) ? join(bin, "cadcraft-cli") : which("cadcraft-cli"));
 
+/**
+ * The bundled PostgreSQL is a prebuilt binary. On Linux it links against system libraries (ICU in
+ * particular) whose version differs between distributions; when one is missing it dies with a stack
+ * trace deep inside the database package. Look first and say so plainly. Returns text, or null if fine.
+ */
+function embeddedDatabaseProblem() {
+  if (platform() !== "linux" || !which("ldd")) return null;
+  const store = join(root, "node_modules", ".pnpm");
+  if (!existsSync(store)) return null;
+  const pkg = readdirSync(store).find((d) => d.startsWith("@embedded-postgres+linux-"));
+  if (!pkg) return null;
+  const initdb = join(store, pkg, "node_modules", "@embedded-postgres", pkg.slice("@embedded-postgres+".length).replace(/@.*$/, ""), "native", "bin", "initdb");
+  if (!existsSync(initdb)) return null;
+  const r = spawnSync("ldd", [initdb], { encoding: "utf8" });
+  const missing = (r.stdout ?? "").split("\n").filter((l) => l.includes("not found")).map((l) => l.trim().split(" ")[0]);
+  return missing.length ? `It needs shared libraries this system does not have: ${missing.join(", ")}.` : null;
+}
+
+/** Prints the database row for `doctor`; false when the bundled database cannot run and no other is set. */
+function databaseOk() {
+  if (process.env.CONTROLROD_DATABASE_URL) {
+    console.log("ok    database: using CONTROLROD_DATABASE_URL");
+    return true;
+  }
+  const problem = embeddedDatabaseProblem();
+  if (!problem) {
+    console.log("ok    database: bundled PostgreSQL");
+    return true;
+  }
+  console.log("MISSING  database: the bundled PostgreSQL cannot start on this machine");
+  console.log(`\n${problem}\n`);
+  console.log(
+    "First try a clean install, which creates library links an older install can skip:\n" +
+      "  rm -rf node_modules && pnpm install\n" +
+      "If that does not fix it, use your own PostgreSQL 17 instead. For example, with Docker:\n" +
+      "  docker run -d --name controlrod-pg -e POSTGRES_PASSWORD=controlrod -p 127.0.0.1:5432:5432 postgres:17\n" +
+      "  export CONTROLROD_DATABASE_URL=postgres://postgres:controlrod@127.0.0.1:5432/postgres\n" +
+      "Postgres.app or Homebrew (`brew install postgresql@17`) work the same way: point CONTROLROD_DATABASE_URL at a\n" +
+      "superuser connection, then run this command again.\n",
+  );
+  return false;
+}
+
 function doctor() {
   const rows = [
     ["node 22+", version("node"), true],
@@ -47,6 +90,7 @@ function doctor() {
     console.log(`${found ? "ok  " : required ? "MISSING" : "--  "}  ${name}${found ? `: ${found}` : ""}`);
     if (!found && required) ok = false;
   }
+  if (!databaseOk()) ok = false;
   if (!which("claude")) console.log("\nInstall Claude Code and sign in so agents can run on your subscription.");
   if (!cadcraft()) console.log("\nDrawings need CADCraft: run `pnpm cr setup-cadcraft` (needs Rust; builds the pinned version).");
   if (!which("codex")) {
@@ -112,6 +156,8 @@ async function waitForHealth() {
 async function start() {
   if (!doctor()) process.exit(1);
   setup();
+  // On a first run the database package was not installed yet when `doctor` looked; look again now.
+  if (!databaseOk()) process.exit(1);
   const env = { ...process.env, CONTROLROD_HOME: home };
   const cc = cadcraft();
   if (cc) env.CADCRAFT_CLI = cc;

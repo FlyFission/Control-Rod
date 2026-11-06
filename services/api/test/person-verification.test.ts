@@ -123,6 +123,21 @@ describe("recording", () => {
   });
 });
 
+describe("the package view names who originated the work", () => {
+  it("lists the capturer in originators", async () => {
+    // Ben made the capture. Carol authored preparation in an earlier test.
+    const r = await h.app.inject({ method: "GET", url: `/packages/${pkgId}`, headers: { cookie: carol } });
+    expect(r.statusCode).toBe(200);
+    expect(r.json().originators).toContain("ben");
+  });
+
+  it("lists nobody for a package with no human origin", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PV-NOORIG', 0, 'draft', $1)", [{ ...example, id: "WP-PV-NOORIG", revision: 0, status: "draft" }]);
+    const r = await h.app.inject({ method: "GET", url: "/packages/WP-PV-NOORIG", headers: { cookie: carol } });
+    expect(r.json().originators).toEqual([]);
+  });
+});
+
 describe("reading a package's person verifications", () => {
   const get = (cookie: string, id: string) => h.app.inject({ method: "GET", url: `/packages/${id}/person-verifications`, headers: { cookie } });
 

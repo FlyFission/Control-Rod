@@ -10431,6 +10431,13 @@
             "$ref": "#/components/schemas/ControlRod.Records.DataLane",
             "description": "The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1)."
           },
+          "originators": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ids of the people who originated the work (captured it, edited its drafts, authored its preparation), oldest source first."
+          },
           "preparation_enabled": {
             "type": "boolean"
           },

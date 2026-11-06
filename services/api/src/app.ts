@@ -23,7 +23,7 @@ import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
 import { REASONS, teach } from "./refusals.js";
-import { listPersonVerifications, personVerificationSubject, recordPersonVerification } from "./person-verification.js";
+import { listPersonVerifications, originators, personVerificationSubject, recordPersonVerification } from "./person-verification.js";
 import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
 import { activeScramsFor, scramPreview, scramView } from "./scram.js";
@@ -54,6 +54,7 @@ import {
   packageActions,
   packageLane,
   packageOutput,
+  currentPackage,
   packageView,
   recordRuntimeStatus,
   requeueRun,
@@ -326,7 +327,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   app.get<{ Params: { id: string } }>("/packages/:id", async (req) => {
     await person(req);
-    return { ...await packageView(db, req.params.id, cfg), preparation_enabled: cfg.guidedPreparation };
+    const view = await packageView(db, req.params.id, cfg);
+    const row = await currentPackage(db, req.params.id);
+    const who = row ? [...await originators(db, row)] : [];
+    return { ...view, originators: who, preparation_enabled: cfg.guidedPreparation };
   });
   app.put<{ Params: { id: string } }>("/packages/:id", async (req, reply) => {
     const user = await person(req);

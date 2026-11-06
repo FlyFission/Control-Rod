@@ -19,6 +19,7 @@ import { SCRAM_SQL } from "./migrations/015-scram.js";
 import { CHAIN_SEALS_SQL } from "./migrations/016-chain-seals.js";
 import { USAGE_ONCE_SQL } from "./migrations/017-usage-once.js";
 import { SESSION_CREDENTIALS_SQL } from "./migrations/018-session-credentials.js";
+import { WORKBENCH_LINKS_SQL } from "./migrations/019-workbench-links.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
@@ -39,6 +40,7 @@ export const MIGRATIONS = [
   { version: "016-chain-seals", sql: CHAIN_SEALS_SQL },
   { version: "017-usage-once", sql: USAGE_ONCE_SQL },
   { version: "018-session-credentials", sql: SESSION_CREDENTIALS_SQL },
+  { version: "019-workbench-links", sql: WORKBENCH_LINKS_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -16,6 +17,7 @@ import { renderPage } from "../test/render.js";
 import { server } from "../test/server.js";
 import { buildCommands, filterCommands } from "./commands.js";
 import { PLACES } from "./places.js";
+import { resetLiveStatus, useLiveEvents, useLiveStatus } from "../lib/live.js";
 
 /** Shell, places and command palette (plan tasks 3.1 and 3.2; specification 12, WB-03). */
 
@@ -113,15 +115,51 @@ describe("shell and palette", () => {
     expect(screen.getByRole("link", { name: "Registers" }).getAttribute("aria-current")).toBe("page");
   });
 
-  it("switches the look on the document and keeps it", async () => {
+  it("switches the board look and keeps it, leaving the rest of the app in look A", async () => {
     apiFor();
+    delete document.documentElement.dataset["look"];
     await renderShell();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Look B Drafting table/ }));
-    expect(document.documentElement.dataset["look"]).toBe("b");
+    expect(screen.getByRole("button", { name: /Look B Drafting table/ }).getAttribute("aria-pressed")).toBe("true");
     expect(window.localStorage.getItem("cr.look")).toBe("b");
+    // Only the board container carries the look (M1 ruling 10); other pages still use look A colours.
+    expect(document.documentElement.dataset["look"]).toBeUndefined();
     await user.click(screen.getByRole("button", { name: /Look A Control room/ }));
-    expect(document.documentElement.dataset["look"]).toBe("a");
+    expect(window.localStorage.getItem("cr.look")).toBe("a");
+  });
+
+  it("forgets the event stream state on sign out", async () => {
+    apiFor();
+    server.use(http.post("*/auth/logout", () => HttpResponse.json({ registered: true, signed_in: false })));
+    let source: { emit(type: string): void } | undefined;
+    class Source {
+      private fns = new Map<string, (() => void)[]>();
+      constructor() {
+        source = this;
+      }
+      addEventListener(type: string, fn: () => void) {
+        this.fns.set(type, [...(this.fns.get(type) ?? []), fn]);
+      }
+      emit(type: string) {
+        for (const fn of this.fns.get(type) ?? []) fn();
+      }
+      close() {}
+    }
+    vi.stubGlobal("EventSource", Source);
+    try {
+      resetLiveStatus();
+      const probe = renderHook(() => { useLiveEvents(true); return useLiveStatus(); }, {
+        wrapper: ({ children }: { children: ReactNode }) => <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>,
+      });
+      act(() => source!.emit("error"));
+      expect(probe.result.current.status).toBe("unknown");
+      await renderShell();
+      await userEvent.setup().click(screen.getByRole("button", { name: "Sign out" }));
+      await waitFor(() => expect(probe.result.current.status).toBe("connecting"));
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("opens on Ctrl+K, finds a place by typing, and goes there on Enter", async () => {

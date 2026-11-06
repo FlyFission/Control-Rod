@@ -116,6 +116,19 @@ describe("BoardView", () => {
     await waitFor(() => expect(screen.queryByText(/status unknown since/i)).toBeNull());
   });
 
+  it("carries the chosen look on the board container only", async () => {
+    window.localStorage.setItem("cr.look", "c");
+    try {
+      api({ packages: [pkg({ id: "WP-1", title: "One" })] });
+      await renderPage(<Page />);
+      await screen.findByText("One");
+      expect(document.querySelector(".bd")!.getAttribute("data-look")).toBe("c");
+      expect(document.documentElement.dataset["look"]).toBeUndefined();
+    } finally {
+      window.localStorage.removeItem("cr.look");
+    }
+  });
+
   it("guides the first card on an empty board", async () => {
     api({ packages: [] });
     await renderPage(<Page />);

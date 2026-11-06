@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { COLUMNS } from "../../lib/board.js";
+import { useLook } from "../../lib/kind.js";
 import { Card } from "./Card.js";
 import { useBoardData } from "./useBoardData.js";
 import "./board.css";
@@ -14,10 +15,11 @@ function sinceText(iso: string | undefined): string {
 export function BoardView() {
   const data = useBoardData();
   const navigate = useNavigate();
+  const look = useLook();
   const unknown = data.status === "unknown";
   const empty = !data.loading && data.cards.length === 0;
   return (
-    <div className="bd">
+    <div className="bd" data-look={look}>
       <header className="bd-head">
         <h1 id="board-title">Board</h1>
         <p className="bd-counts" aria-live="polite">

@@ -1,4 +1,11 @@
 /* The board (redesign task 4). Tokens only; a later slice does the visual polish. */
+/* The board root carries the look (data-look), so it paints its own ground and text. */
+.bd {
+  padding: 12px;
+  background: var(--ground);
+  color: var(--text);
+  border-radius: 12px;
+}
 .bd-head {
   display: flex;
   flex-wrap: wrap;

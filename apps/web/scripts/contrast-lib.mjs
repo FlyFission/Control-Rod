@@ -3,7 +3,7 @@
 // number comes from the hex values in tokens.css.
 
 export const LOOKS = ["a", "b", "c"];
-export const SURFACE_TOKENS = ["--ground", "--surface", "--panel"];
+export const SURFACE_TOKENS = ["--ground", "--surface", "--panel", "--line"];
 export const TEXT_TOKENS = [
   "--text",
   "--text-2",

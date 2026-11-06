@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import type { WorkPackage } from "../api/types.js";
 import { readString, writeString } from "./storage.js";
 
@@ -27,6 +28,25 @@ export function loadLook(): Look {
   return LOOKS.find((l) => l === v) ?? "a";
 }
 
+const lookListeners = new Set<() => void>();
+
+/** Keeps the viewer's look and tells every screen that shows it. */
 export function saveLook(look: Look): void {
   writeString(LOOK_KEY, look);
+  for (const fn of lookListeners) fn();
+}
+
+/**
+ * The viewer's look, kept in browser storage. In M1 only the board container carries it (data-look on
+ * the board root); the rest of the app stays look A until its styles use the tokens throughout.
+ */
+export function useLook(): Look {
+  return useSyncExternalStore(
+    (fn) => {
+      lookListeners.add(fn);
+      return () => void lookListeners.delete(fn);
+    },
+    loadLook,
+    () => "a" as Look,
+  );
 }

@@ -67,7 +67,8 @@
 /*
  * Looks. Look a is the :root palette above (dark). Look b is warm paper with an
  * ink blue accent; look c is bright white with an orange-red accent. Both are
- * light. Every text token must reach 4.5:1 on every surface in every look;
+ * light. Every text token must reach 4.5:1 on every surface (--line included,
+ * since it fills active and hovered rows) in every look;
  * apps/web/scripts/check-contrast.mjs computes it and src/design/contrast.test.ts
  * enforces it. Meaning hues: needs amber, check magenta, stuck red, done green;
  * kind hues: code blue, doc teal.
@@ -76,7 +77,7 @@
   --ground: #f1ece2;
   --surface: #f6f3ec;
   --panel: #fffdf8;
-  --line: #ddd5c4;
+  --line: #e8e2d5;
   --line-2: #bfb39b;
   --text: #1b2231;
   --text-2: #343c4e;
@@ -111,7 +112,7 @@
   --waiting: #5b3fa8;
   --stuck: #c4251a;
   --changed: #9a4a00;
-  --done: #0b7a47;
+  --done: #09703f;
   --idle: #556072;
   --check: #a21caf;
   --kind-code: #2459c4;

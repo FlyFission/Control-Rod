@@ -1,0 +1,8 @@
+Command: node apps/web/scripts/check-contrast.mjs (after adding --line to SURFACE_TOKENS, before token changes)
+b     --check        #a21caf  --line        #ddd5c4   4.33   FAIL
+b     --changed      #9a5200  --line        #ddd5c4   4.02   FAIL
+b     --done         #1a6e4c  --line        #ddd5c4   4.26   FAIL
+b     --kind-code    #2f5bd3  --line        #ddd5c4   4.04   FAIL
+b     --kind-doc     #0e6f78  --line        #ddd5c4   4.04   FAIL
+c     --done         #0b7a47  --line        #e3e6eb   4.32   FAIL
+Failures: 6 of 159

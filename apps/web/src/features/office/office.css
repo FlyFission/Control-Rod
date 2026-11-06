@@ -243,7 +243,7 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   color: var(--text-2);
 }
 .office-legend li {
@@ -260,7 +260,7 @@
 .office-note {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .office-banner {
   margin: 0;
@@ -313,7 +313,7 @@
 .office-marks {
   margin: 0;
   padding-left: 18px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .office-overflow h2 {
   font-size: 14px;
@@ -329,11 +329,11 @@
   margin: 0 0 8px;
   padding: 0;
   list-style: none;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .office-portfolio {
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .office-portfolio caption {
   text-align: left;
@@ -350,7 +350,7 @@
   grid-template-columns: max-content 1fr;
   gap: 4px 10px;
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .office-glance dt {
   color: var(--muted);
@@ -359,7 +359,7 @@
   margin: 0;
 }
 .office-actions h3 {
-  font-size: 13px;
+  font-size: var(--fs-ui);
   margin: 4px 0;
 }
 .office-actions ul {
@@ -460,7 +460,7 @@
 .office-cause ul {
   margin: 4px 0 0;
   padding-left: 18px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 /* A radio or checkbox and its words, on one line. */
 .office-choice {
@@ -489,7 +489,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .office-theme-choice select {
   width: auto;

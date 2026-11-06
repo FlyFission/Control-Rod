@@ -33,7 +33,7 @@ h2 {
   font-weight: 600;
 }
 h3 {
-  font-size: 13px;
+  font-size: var(--fs-ui);
   margin: 14px 0 6px;
   color: var(--text-2);
 }
@@ -44,7 +44,7 @@ p {
   font-family: var(--mono);
 }
 .small {
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 .muted {
   color: var(--muted);
@@ -96,7 +96,7 @@ p {
 }
 .btn.small {
   min-height: 34px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .btn.primary {
   background: var(--accent);
@@ -119,7 +119,7 @@ p {
   margin-bottom: 10px;
 }
 .field span {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 input,
@@ -137,7 +137,7 @@ textarea {
 }
 .tag {
   display: inline-block;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-family: var(--mono);
   padding: 2px 7px;
   border-radius: 6px;
@@ -176,7 +176,7 @@ textarea {
   color: #1a1305;
   border-radius: 9px;
   padding: 0 7px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 600;
 }
 .chip {
@@ -184,7 +184,7 @@ textarea {
   align-items: center;
   gap: 6px;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-small);
   border: 1px solid var(--line-2);
   border-radius: 14px;
   padding: 2px 4px 2px 10px;
@@ -198,7 +198,7 @@ textarea {
   min-height: 24px;
 }
 .link {
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 
 /* Shell */
@@ -261,7 +261,7 @@ textarea {
 }
 .palette-trigger {
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   flex: 1 1 260px;
   max-width: 460px;
   min-height: 36px;
@@ -282,7 +282,7 @@ textarea {
 }
 kbd {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-label);
   padding: 1px 6px;
   border-radius: 5px;
   border: 1px solid var(--line-2);
@@ -332,7 +332,7 @@ kbd {
   flex: 1 1 auto;
 }
 .palette-group {
-  font-size: 11px;
+  font-size: var(--fs-label);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
@@ -359,7 +359,7 @@ kbd {
 }
 .palette-hint {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-small);
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -368,7 +368,7 @@ kbd {
 .palette-badge {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-label);
   color: var(--accent);
 }
 .palette-badge.refused {
@@ -377,7 +377,7 @@ kbd {
 .palette-stale {
   margin: 0;
   padding: 8px 16px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--needs);
   border-bottom: 1px solid var(--line);
 }
@@ -397,7 +397,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .content {
   max-width: 1320px;
@@ -429,7 +429,7 @@ kbd {
   margin-bottom: 4px;
 }
 .place-head p {
-  max-width: 72ch;
+  max-width: var(--measure);
 }
 .inbox {
   display: grid;
@@ -510,7 +510,7 @@ select {
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 .empty-state {
-  max-width: 72ch;
+  max-width: var(--measure);
 }
 .state-cell {
   display: inline-flex;
@@ -638,7 +638,7 @@ select {
   border-radius: 50%;
   border: 1px solid var(--line-2);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--text-2);
 }
 .case-objective {
@@ -672,12 +672,12 @@ select {
   margin: 10px 0;
 }
 .fact dt {
-  font-size: 11px;
+  font-size: var(--fs-label);
   color: var(--muted);
 }
 .fact dd {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   overflow-wrap: anywhere;
 }
 .fact.flagged dd .mono {
@@ -685,7 +685,7 @@ select {
 }
 .fact-flag {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--text-2);
   border-left: 2px solid var(--needs);
   padding-left: 6px;
@@ -695,7 +695,7 @@ select {
   list-style: none;
   margin: 8px 0 0;
   padding: 0;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   border-left: 1px solid var(--line-2);
 }
 .story-step {
@@ -708,7 +708,7 @@ select {
 .story-step.tool .story-text,
 .story-step.changed .story-text {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--text-2);
 }
 .story-step.asked,
@@ -806,7 +806,7 @@ select {
 .capture-actions .count {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 .captures {
   list-style: none;
@@ -854,7 +854,7 @@ select {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .metrics {
   margin: 0;
@@ -866,7 +866,7 @@ select {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .metrics dt {
   color: var(--muted);
@@ -920,7 +920,7 @@ select {
   gap: 4px;
 }
 .rung {
-  font-size: 12px;
+  font-size: var(--fs-small);
   padding: 4px 10px;
   border-radius: 12px;
   border: 1px solid var(--line-2);
@@ -969,13 +969,21 @@ select {
 .run-body {
   margin-top: 8px;
 }
+.log-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
 .log {
   background: #070a0d;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-small);
+  line-height: var(--lh-mono);
   max-height: 320px;
   overflow: auto;
   white-space: pre-wrap;
@@ -1011,7 +1019,8 @@ select {
 }
 .preview-text {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--fs-small);
+  line-height: var(--lh-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -1036,6 +1045,13 @@ select {
 .markdown h2,
 .markdown h3 {
   margin: 12px 0 6px;
+}
+/* Agent prose reads in a column; code blocks and tables are left to run wider. */
+.markdown > :is(p, ul, ol, blockquote, h1, h2, h3, h4) {
+  max-width: var(--measure);
+}
+.markdown pre {
+  line-height: var(--lh-mono);
 }
 .markdown table {
   border-collapse: collapse;
@@ -1066,7 +1082,7 @@ select {
 .column-head {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   font-weight: 600;
 }
 .card {
@@ -1084,7 +1100,7 @@ select {
   border-color: var(--accent-dim);
 }
 .card-title {
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 
 /* Floor */
@@ -1183,7 +1199,7 @@ select {
   flex-wrap: wrap;
   gap: 8px 16px;
   padding: 10px 4px 2px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 .legend span {
@@ -1208,7 +1224,7 @@ select {
 .records {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-ui);
 }
 .records th,
 .records td {
@@ -1220,7 +1236,7 @@ select {
 .records th {
   color: var(--muted);
   font-weight: 500;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 /* Narrow screens */

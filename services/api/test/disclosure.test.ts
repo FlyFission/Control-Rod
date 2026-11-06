@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -64,6 +65,19 @@ describe("captures", () => {
       // No lane, so no admission to share: nothing groups these two holds.
       expect(held!.body.waiting_key).toBeUndefined();
     }
+  });
+
+  it("classifies a legacy capture that already went through intake without queueing intake again", async () => {
+    await h.admin.query("update runs set status = 'stopped' where status = 'queued'");
+    // A capture with no lane whose intake already ran, as one from before lanes existed.
+    const id = (await post("/captures", { text: "Answered before lanes existed" })).json().id as string;
+    await h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'intake', 1, 'succeeded', $3)",
+      ["R-legacy-done", id, { schema_version: "0.1.0", id: "R-legacy-done", package_id: id, package_revision: 0, role: "intake", agent_baseline: "intake-claude",
+        runtime: { kind: "local", provider: "claude", model: "any" }, round: 1, status: "succeeded", queued_at: new Date().toISOString(), generation: 1 }]);
+    const r = await post(`/captures/${id}/classify`, { lane: "internal" });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(await queuedFor(id)).toEqual([]);
+    expect((await h.db.query("select count(*)::int as n from runs where package_id = $1 and role = 'intake'", [id])).rows[0].n).toBe(1);
   });
 
   it("releases the capture to intake once a person with lane authority classifies it, and never lowers it", async () => {
@@ -200,6 +214,27 @@ describe("every source a job carries", () => {
     const runId = await queueAuthor("WP-CONF-A");
     expect((await claim(["claude", "codex"])).statusCode).toBe(204);
     expect(await waiting(runId)).toMatch(/restricted lane admits none/);
+  });
+
+  it("labels a package's view and downloads with a configured source's lane, though its marking records none", async () => {
+    const base = { ...example(), revision: 0, design_inputs: [], data_lane: "internal" };
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-LABEL', 0, 'released', $1)", [{ ...base, id: "WP-LABEL", status: "released" }]);
+    const release = { schema_version: "0.1.0", id: "D-label001", package_id: "WP-LABEL", package_revision: 0, kind: "release", actor: { kind: "human", id: "ben" },
+      subject_digest: { algorithm: "sha256", value: "e".repeat(64) }, assertion: { credential_id: "x", authenticator_data: "x", client_data_json: "x", signature: "x" }, decided_at: new Date().toISOString() };
+    await h.admin.query("insert into decisions (id, package_id, package_revision, kind, body) values ($1, 'WP-LABEL', 0, 'release', $2)", [release.id, release]);
+    await h.admin.query("insert into preparation_release_manifests (package_id, package_revision, digest, body, decision_id) values ('WP-LABEL', 0, $1, $2, $3)",
+      ["9".repeat(64), { basis_refs: [{ kind: "document", reference: "document:secret-spec", revision: "A", digest: { algorithm: "sha256", value: "1".repeat(64) } }] }, release.id]);
+    await tx(h.admin, async (c) => { await takeMarkingWrite(c); await markObject(c, "package", "WP-LABEL", "internal", "test"); });
+    const runId = await queueAuthor("WP-LABEL");
+    await h.admin.query("update runs set status = 'succeeded', body = body || '{\"status\":\"succeeded\"}' where id = $1", [runId]);
+    await h.admin.query("insert into outputs (run_id, package_id, package_revision, name, sha256, bytes) values ($1, 'WP-LABEL', 0, 'report.md', $2, $3)",
+      [runId, createHash("sha256").update("# Loads").digest("hex"), Buffer.from("# Loads")]);
+    const view = await h.app.inject({ method: "GET", url: "/packages/WP-LABEL", headers: { cookie } });
+    expect(view.statusCode, view.body).toBe(200);
+    expect(view.json().effective_lane).toBe("restricted");
+    const file = await h.app.inject({ method: "GET", url: "/packages/WP-LABEL/outputs/report.md", headers: { cookie } });
+    expect(file.statusCode, file.body).toBe(200);
+    expect(file.headers["x-controlrod-lane"]).toBe("restricted");
   });
 
   it("lets a declassification stand only while the configured lanes it saw have not risen", async () => {

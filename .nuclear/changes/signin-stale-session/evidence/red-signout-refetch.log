@@ -1,0 +1,6 @@
+     × a late answer makes the tab ask the server who is signed in, and shows sign-in when nobody is 1059ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/components/shell.test.tsx > signing out > a late answer makes the tab ask the server who is signed in, and shows sign-in when nobody is
+TestingLibraryElementError: Unable to find role="button" and name "Sign in with passkey"
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)

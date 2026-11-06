@@ -1,0 +1,387 @@
+
+ RUN  v5.0.5 
+
+ ❯ src/lib/session.test.tsx (1 test | 1 failed) 1040ms
+   ❯ adopting a new session (1)
+     × redraws whatever is watching the session and drops everything else 1034ms
+ ❯ src/pages/signin.test.tsx (7 tests | 2 failed) 2427ms
+   ❯ a sign-in page drawn from an out-of-date session (7)
+     × switches the real gate from a stale setup page to the app, dropping what the stale page loaded 1057ms
+     × redraws the app after a first registration (the root cause of the pilot report) 1043ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/session.test.tsx > adopting a new session > redraws whatever is watching the session and drops everything else
+TestingLibraryElementError: Unable to find an element with the text: signed in. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<p>[39m
+      [0msigned out[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<p>[39m
+      [0msigned out[0m
+    [36m</p>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/lib/session.test.tsx:19:18
+     17|     qc.setQueryData(["packages"], ["from the earlier session"]);
+     18|     act(() => adoptSession(qc, { registered: true, signed_in: true, us…
+     19|     await screen.findByText("signed in");
+       |                  ^
+     20|     expect(qc.getQueryData(["packages"])).toBeUndefined();
+     21|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/pages/signin.test.tsx > a sign-in page drawn from an out-of-date session > switches the real gate from a stale setup page to the app, dropping what the stale page loaded
+TestingLibraryElementError: Unable to find an element with the text: The app. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"signin"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"signin-card"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mviewBox[39m=[32m"0 0 28 28"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"12"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"12"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"4"[39m
+              [33my[39m=[32m"8"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"12"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"20"[39m
+              [33my[39m=[32m"8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span>[39m
+            [0mControl Rod[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<h1>[39m
+          [0mSet up this machine[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"muted"[39m
+        [36m>[39m
+          [0mControl Rod runs here for one person. Register a passkey; it signs every decision you make.[0m
+        [36m</p>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"field"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mYour name[0m
+          [36m</span>[39m
+          [36m<input[39m
+            [33mautocomplete[39m=[32m"name"[39m
+            [33mvalue[39m=[32m"Ben"[39m
+          [36m/>[39m
+        [36m</label>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn primary"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mRegister passkey[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"signin"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"signin-card"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mviewBox[39m=[32m"0 0 28 28"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"12"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"12"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"4"[39m
+              [33my[39m=[32m"8"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"12"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"20"[39m
+              [33my[39m=[32m"8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span>[39m
+            [0mControl Rod[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<h1>[39m
+          [0mSet up this machine[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"muted"[39m
+        [36m>[39m
+          [0mControl Rod runs here for one person. Register a passkey; it signs every decision you make.[0m
+        [36m</p>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"field"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mYour name[0m
+          [36m</span>[39m
+          [36m<input[39m
+            [33mautocomplete[39m=[32m"name"[39m
+            [33mvalue[39m=[32m"Ben"[39m
+          [36m/>[39m
+        [36m</label>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn primary"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mRegister passkey[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/pages/signin.test.tsx:80:18
+     78|     await user.type(screen.getByRole("textbox", { name: "Your name" })…
+     79|     await user.click(screen.getByRole("button", { name: "Register pass…
+     80|     await screen.findByText("The app");
+       |                  ^
+     81|     expect(qc.getQueryData(["stale"])).toBeUndefined();
+     82|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/pages/signin.test.tsx > a sign-in page drawn from an out-of-date session > redraws the app after a first registration (the root cause of the pilot report)
+TestingLibraryElementError: Unable to find an element with the text: The app. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"signin"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"signin-card"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mviewBox[39m=[32m"0 0 28 28"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"12"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"12"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"4"[39m
+              [33my[39m=[32m"8"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"12"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"20"[39m
+              [33my[39m=[32m"8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span>[39m
+            [0mControl Rod[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<h1>[39m
+          [0mSet up this machine[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"muted"[39m
+        [36m>[39m
+          [0mControl Rod runs here for one person. Register a passkey; it signs every decision you make.[0m
+        [36m</p>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"field"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mYour name[0m
+          [36m</span>[39m
+          [36m<input[39m
+            [33mautocomplete[39m=[32m"name"[39m
+            [33mvalue[39m=[32m"Ben"[39m
+          [36m/>[39m
+        [36m</label>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn primary"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mRegister passkey[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<main[39m
+      [33mclass[39m=[32m"signin"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"signin-card"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"brand"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mviewBox[39m=[32m"0 0 28 28"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"12"[39m
+              [33my[39m=[32m"2"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"12"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"4"[39m
+              [33my[39m=[32m"8"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"12"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+              [33mwidth[39m=[32m"4"[39m
+              [33mx[39m=[32m"20"[39m
+              [33my[39m=[32m"8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span>[39m
+            [0mControl Rod[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<h1>[39m
+          [0mSet up this machine[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"muted"[39m
+        [36m>[39m
+          [0mControl Rod runs here for one person. Register a passkey; it signs every decision you make.[0m
+        [36m</p>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"field"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mYour name[0m
+          [36m</span>[39m
+          [36m<input[39m
+            [33mautocomplete[39m=[32m"name"[39m
+            [33mvalue[39m=[32m"Ben"[39m
+          [36m/>[39m
+        [36m</label>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"btn primary"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [0mRegister passkey[0m
+        [36m</button>[39m
+      [36m</div>[39m
+    [36m</main>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/pages/signin.test.tsx:121:18
+    119|     await user.type(screen.getByRole("textbox", { name: "Your name" })…
+    120|     await user.click(screen.getByRole("button", { name: "Register pass…
+    121|     await screen.findByText("The app");
+       |                  ^
+    122|   });
+    123| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 5 passed (8)
+   Start at  11:38:57
+   Duration  3.08s (tests 77%, environment 14%, setup 5%, import 3%, transform 1%)
+

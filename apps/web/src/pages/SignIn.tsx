@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client.js";
+import { api, ApiError } from "../api/client.js";
+import { adoptSession, sessionGeneration } from "../lib/session.js";
 import type { Session } from "../api/types.js";
 import { browserPasskeys, type Passkeys } from "../lib/decide.js";
 import { captureInvitation, forgetInvitation, heldInvitation } from "../lib/invitation.js";
@@ -9,6 +10,13 @@ import { captureInvitation, forgetInvitation, heldInvitation } from "../lib/invi
  * First run registers a passkey for the first person; a person an administrator invited registers
  * theirs from the invitation link; later visits sign in with a passkey.
  */
+/**
+ * Refusals that mean this page was drawn from an out-of-date session (a second tab, or a page the
+ * browser restored with Back): the machine is already set up, or this browser is already signed in.
+ * The page reloads the session and redraws itself instead of showing a refusal meant for other cases.
+ */
+const STALE_SESSION = new Set(["own-account-only", "forbidden", "step-up-required", "not-registered"]);
+
 export function SignIn({ session, passkeys = browserPasskeys }: { session: Session; passkeys?: Passkeys }) {
   const qc = useQueryClient();
   // Normally taken at startup (capture-invitation.ts); taking it again here is harmless.
@@ -17,15 +25,27 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const adopt = (s: Session) => adoptSession(qc, s);
+
   async function run(fn: () => Promise<Session>) {
     setBusy(true);
     setError(null);
     try {
-      const s = await fn();
-      // A new session never sees what an earlier person's session loaded.
-      qc.clear();
-      qc.setQueryData(["session"], s);
+      await adopt(await fn());
     } catch (e) {
+      if (e instanceof ApiError && STALE_SESSION.has(e.code)) {
+        // This read is outside the query cache, so the cache's cancellation cannot stop it. If a newer
+        // session was adopted while it was in flight, its answer is about the earlier one: drop it.
+        const startedUnder = sessionGeneration();
+        const fresh = await api.session().catch(() => null);
+        if (startedUnder !== sessionGeneration()) return;
+        if (fresh !== null) {
+          await adopt(fresh);
+          if (!fresh.signed_in)
+            setError(fresh.registered ? "This machine is already set up. Sign in with your passkey." : "Set up this machine to continue.");
+          return;
+        }
+      }
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setBusy(false);

@@ -8,6 +8,8 @@ import { renderPage } from "../../test/render.js";
 import { pkg, view, DIGEST } from "../../test/fixtures.js";
 import { Preparation } from "../../pages/PackagePage.js";
 import { PreparationPanel } from "./PreparationPanel.js";
+import { adoptSession } from "../../lib/session.js";
+import type { Session } from "../../api/types.js";
 import { preparationViewFixture as fixture } from "./test-fixtures.js";
 describe("manual preparation workbench", () => {
   it("shows stored context, requirement status and blocker ownership; saves with the loaded ETag", async () => {
@@ -258,5 +260,249 @@ describe("manual preparation workbench", () => {
     const retire = (await screen.findByRole("button", { name: "Retire criterion 1" })) as HTMLButtonElement;
     expect(retire.disabled).toBe(true);
     expect(screen.getByText(/A resolved escalation rests on this criterion/)).toBeTruthy();
+  });
+  /** A later session: the answer to a request begun under the earlier one must not reach its cache. */
+  const nextSession = { registered: true, signed_in: true, user: "dora" } as Session;
+
+  it("a save that finishes after a new session began leaves that session's cache without it", async () => {
+    const current = fixture();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let started!: () => void;
+    const putStarted = new Promise<void>((r) => { started = r; });
+    let hangLoads = false;
+    server.use(
+      http.get("*/packages/:id/preparation", async () => {
+        // After the new session begins, its own load never answers, so only a late write could fill the cache.
+        if (hangLoads) await new Promise(() => undefined);
+        return HttpResponse.json(current);
+      }),
+      http.put("*/packages/:id/preparation", async () => {
+        started();
+        await gate;
+        return HttpResponse.json({ ...current, snapshot: { ...current.snapshot, revision: 9 } });
+      }),
+    );
+    const { qc } = await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const user = userEvent.setup();
+    const problem = await screen.findByRole("textbox", { name: "Problem or need" });
+    await user.clear(problem);
+    await user.type(problem, "Earlier person's text");
+    await user.click(screen.getByRole("button", { name: "Save preparation" }));
+    await putStarted;
+    hangLoads = true;
+    await act(() => adoptSession(qc, nextSession));
+    release();
+    await act(async () => { await new Promise((r) => setTimeout(r, 100)); });
+    expect(qc.getQueryData(["preparation", pkg().id])).toBeUndefined();
+  });
+
+  it("a reload that finishes after a new session began leaves that session's cache without it", async () => {
+    const current = fixture();
+    let hold = false;
+    let afterReload = false;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let started!: () => void;
+    const getStarted = new Promise<void>((r) => { started = r; });
+    server.use(
+      http.get("*/packages/:id/preparation", async () => {
+        if (hold) {
+          hold = false;
+          started();
+          await gate;
+          return HttpResponse.json({ ...current, snapshot: { ...current.snapshot, revision: 7 } });
+        }
+        // After the held reload, the new session's own load never answers, so only a late write could fill the cache.
+        if (afterReload) await new Promise(() => undefined);
+        return HttpResponse.json(current);
+      }),
+    );
+    const { qc } = await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const user = userEvent.setup();
+    await screen.findByRole("textbox", { name: "Problem or need" });
+    hold = true;
+    await user.click(screen.getByRole("button", { name: "Reload saved preparation" }));
+    await getStarted;
+    afterReload = true;
+    await act(() => adoptSession(qc, nextSession));
+    release();
+    await act(async () => { await new Promise((r) => setTimeout(r, 100)); });
+    expect(qc.getQueryData(["preparation", pkg().id])).toBeUndefined();
+  });
+
+  /**
+   * The editor itself, not only the cache: a panel that stays mounted across a change of who is
+   * signed in must not show, or take an ETag from, an answer about the earlier person. In the app
+   * the session gate remounts the panel; these tests keep it mounted to check the panel's own guard.
+   */
+  function heldOnce() {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let started!: () => void;
+    const begun = new Promise<void>((r) => { started = r; });
+    return { release, gate, started, begun };
+  }
+  const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 100)); });
+  const earlier = (problem: string, revision: number) => {
+    const c = fixture();
+    return { ...c, snapshot: { ...c.snapshot, revision, context: { ...c.snapshot.context, problem } } };
+  };
+
+  /**
+   * Renders the panel, runs `start` (which sends the held request), then begins a new session while
+   * that request is held. Clearing the cache would otherwise park the panel on "Loading", hiding the
+   * editor whatever its state holds; putting the same view back, with later loads never answering,
+   * keeps the editor on screen so only the late answer could change it.
+   */
+  async function acrossNewSession(held: ReturnType<typeof heldOnce>, start: (user: ReturnType<typeof userEvent.setup>) => Promise<void>, gate: { loads: boolean }) {
+    const { qc } = await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const user = userEvent.setup();
+    await screen.findByRole("textbox", { name: "Problem or need" });
+    await start(user);
+    await held.begun;
+    const shown = qc.getQueryData(["preparation", pkg().id]);
+    gate.loads = false;
+    await act(() => adoptSession(qc, nextSession));
+    qc.setQueryData(["preparation", pkg().id], shown);
+    held.release();
+    await settle();
+    return qc;
+  }
+
+  it("a basis refresh answered after a new session began does not appear in the editor", async () => {
+    const held = heldOnce();
+    const gate = { loads: true };
+    server.use(
+      http.get("*/packages/:id/preparation", async () => (gate.loads ? HttpResponse.json(fixture()) : new Promise<never>(() => undefined))),
+      http.post("*/packages/:id/preparation/basis/refresh", async () => {
+        held.started();
+        await held.gate;
+        return HttpResponse.json(earlier("Refreshed for the earlier person", 9));
+      }),
+    );
+    await acrossNewSession(held, (user) => user.click(screen.getByRole("button", { name: "Refresh declared input pins" })), gate);
+    expect(screen.getByRole("textbox", { name: "Problem or need" })).toBeTruthy();
+    expect(screen.queryByDisplayValue("Refreshed for the earlier person")).toBeNull();
+  });
+
+  it("a refusal answered after a new session began is not shown", async () => {
+    const held = heldOnce();
+    const gate = { loads: true };
+    server.use(
+      http.get("*/packages/:id/preparation", async () => (gate.loads ? HttpResponse.json(fixture()) : new Promise<never>(() => undefined))),
+      http.put("*/packages/:id/preparation", async () => {
+        held.started();
+        await held.gate;
+        return HttpResponse.json({ code: "stale", message: "Preparation changed. Reload and compare." }, { status: 409 });
+      }),
+    );
+    await acrossNewSession(held, async (user) => {
+      await user.type(screen.getByRole("textbox", { name: "Problem or need" }), " edited");
+      await user.click(screen.getByRole("button", { name: "Save preparation" }));
+    }, gate);
+    expect(screen.getByRole("textbox", { name: "Problem or need" })).toBeTruthy();
+    expect(screen.queryByText("Preparation changed. Reload and compare.")).toBeNull();
+  });
+
+  it("a comparison read answered after a new session began is not shown", async () => {
+    const held = heldOnce();
+    const gate = { loads: true, hold: false };
+    server.use(
+      http.get("*/packages/:id/preparation", async () => {
+        if (gate.hold) {
+          gate.hold = false;
+          held.started();
+          await held.gate;
+          return HttpResponse.json(earlier("Compared for the earlier person", 4));
+        }
+        return gate.loads ? HttpResponse.json(fixture()) : new Promise<never>(() => undefined);
+      }),
+      http.put("*/packages/:id/preparation", () =>
+        HttpResponse.json({ code: "stale", message: "Preparation changed. Reload and compare." }, { status: 409 })),
+    );
+    await acrossNewSession(held, async (user) => {
+      await user.type(screen.getByRole("textbox", { name: "Problem or need" }), " edited");
+      gate.hold = true;
+      await user.click(screen.getByRole("button", { name: "Save preparation" }));
+    }, gate);
+    expect(screen.getByRole("textbox", { name: "Problem or need" })).toBeTruthy();
+    expect(screen.queryByText(/Compared for the earlier person/)).toBeNull();
+  });
+
+  it("a reload answered after a new session began does not appear in the editor", async () => {
+    const held = heldOnce();
+    const gate = { loads: true, hold: false };
+    server.use(
+      http.get("*/packages/:id/preparation", async () => {
+        if (gate.hold) {
+          gate.hold = false;
+          held.started();
+          await held.gate;
+          return HttpResponse.json(earlier("Reloaded for the earlier person", 7));
+        }
+        return gate.loads ? HttpResponse.json(fixture()) : new Promise<never>(() => undefined);
+      }),
+    );
+    await acrossNewSession(held, async (user) => {
+      gate.hold = true;
+      await user.click(screen.getByRole("button", { name: "Reload saved preparation" }));
+    }, gate);
+    expect(screen.getByRole("textbox", { name: "Problem or need" })).toBeTruthy();
+    expect(screen.queryByDisplayValue("Reloaded for the earlier person")).toBeNull();
+  });
+
+  it("history answered after a new session began is not shown", async () => {
+    const held = heldOnce();
+    const gate = { loads: true };
+    server.use(
+      http.get("*/packages/:id/preparation", async () => (gate.loads ? HttpResponse.json(fixture()) : new Promise<never>(() => undefined))),
+      http.get("*/packages/:id/preparation/history", async () => {
+        held.started();
+        await held.gate;
+        return HttpResponse.json({ revisions: [earlier("History of the earlier person", 3)] });
+      }),
+    );
+    await acrossNewSession(held, (user) => user.click(screen.getByRole("button", { name: "Show preparation history" })), gate);
+    expect(screen.getByRole("textbox", { name: "Problem or need" })).toBeTruthy();
+    expect(screen.queryByText("History of the earlier person")).toBeNull();
+  });
+
+  it("a reload refused after a new session began shows no refusal", async () => {
+    const held = heldOnce();
+    const gate = { loads: true, hold: false };
+    server.use(
+      http.get("*/packages/:id/preparation", async () => {
+        if (gate.hold) {
+          gate.hold = false;
+          held.started();
+          await held.gate;
+          return HttpResponse.json({ code: "unavailable", message: "Reload refused for the earlier person" }, { status: 503 });
+        }
+        return gate.loads ? HttpResponse.json(fixture()) : new Promise<never>(() => undefined);
+      }),
+    );
+    await acrossNewSession(held, async (user) => {
+      gate.hold = true;
+      await user.click(screen.getByRole("button", { name: "Reload saved preparation" }));
+    }, gate);
+    expect(screen.getByRole("textbox", { name: "Problem or need" })).toBeTruthy();
+    expect(screen.queryByText("Reload refused for the earlier person")).toBeNull();
+  });
+
+  it("history refused after a new session began shows no refusal", async () => {
+    const held = heldOnce();
+    const gate = { loads: true };
+    server.use(
+      http.get("*/packages/:id/preparation", async () => (gate.loads ? HttpResponse.json(fixture()) : new Promise<never>(() => undefined))),
+      http.get("*/packages/:id/preparation/history", async () => {
+        held.started();
+        await held.gate;
+        return HttpResponse.json({ code: "unavailable", message: "History refused for the earlier person" }, { status: 503 });
+      }),
+    );
+    await acrossNewSession(held, (user) => user.click(screen.getByRole("button", { name: "Show preparation history" })), gate);
+    expect(screen.getByRole("textbox", { name: "Problem or need" })).toBeTruthy();
+    expect(screen.queryByText("History refused for the earlier person")).toBeNull();
   });
 });

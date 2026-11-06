@@ -1,0 +1,232 @@
+
+ RUN  v5.0.5 
+
+ ❯ src/pages/signin.test.tsx (3 tests | 2 failed) 2263ms
+   ❯ a sign-in page drawn from an out-of-date session (3)
+     × takes a browser that is already signed in to its session instead of refusing 1164ms
+     × asks a browser that is not signed in to sign in once the machine is already set up 1050ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/signin.test.tsx > a sign-in page drawn from an out-of-date session > takes a browser that is already signed in to its session instead of refusing
+AssertionError: expected undefined to match object { signed_in: true, user: 'ben' }
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<main[39m
+        [33mclass[39m=[32m"signin"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"signin-card"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"brand"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 28 28"[39m
+              [33mwidth[39m=[32m"24"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"12"[39m
+                [33my[39m=[32m"2"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"12"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"4"[39m
+                [33my[39m=[32m"8"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"12"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"20"[39m
+                [33my[39m=[32m"8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span>[39m
+              [0mControl Rod[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<h1>[39m
+            [0mSet up this machine[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"muted"[39m
+          [36m>[39m
+            [0mControl Rod runs here for one person. Register a passkey; it signs every decision you make.[0m
+          [36m</p>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mYour name[0m
+            [36m</span>[39m
+            [36m<input[39m
+              [33mautocomplete[39m=[32m"name"[39m
+              [33mvalue[39m=[32m"Ben"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mRegister passkey[0m
+          [36m</button>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"error"[39m
+            [33mrole[39m=[32m"alert"[39m
+          [36m>[39m
+            [0mYou can add a passkey only to your own account; an administrator invites new people[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</main>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+- Expected:
+{
+  "signed_in": true,
+  "user": "ben",
+}
+
++ Received:
+undefined
+
+ ❯ src/pages/signin.test.tsx:28:62
+     26|     await user.type(screen.getByRole("textbox", { name: "Your name" })…
+     27|     await user.click(screen.getByRole("button", { name: "Register pass…
+     28|     await waitFor(() => expect(qc.getQueryData(["session"])).toMatchOb…
+       |                                                              ^
+     29|     expect(screen.queryByRole("alert")).toBeNull();
+     30|   });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/pages/signin.test.tsx > a sign-in page drawn from an out-of-date session > asks a browser that is not signed in to sign in once the machine is already set up
+AssertionError: expected 'A passkey exists; sign in to add anot…' to be 'This machine is already set up. Sign …' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<main[39m
+        [33mclass[39m=[32m"signin"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"signin-card"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"brand"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 28 28"[39m
+              [33mwidth[39m=[32m"24"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"12"[39m
+                [33my[39m=[32m"2"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"12"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"4"[39m
+                [33my[39m=[32m"8"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"12"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"20"[39m
+                [33my[39m=[32m"8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span>[39m
+              [0mControl Rod[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<h1>[39m
+            [0mSet up this machine[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"muted"[39m
+          [36m>[39m
+            [0mControl Rod runs here for one person. Register a passkey; it signs every decision you make.[0m
+          [36m</p>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"field"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mYour name[0m
+            [36m</span>[39m
+            [36m<input[39m
+              [33mautocomplete[39m=[32m"name"[39m
+              [33mvalue[39m=[32m"Ben"[39m
+            [36m/>[39m
+          [36m</label>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn primary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mRegister passkey[0m
+          [36m</button>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"error"[39m
+            [33mrole[39m=[32m"alert"[39m
+          [36m>[39m
+            [0mA passkey exists; sign in to add another, or use an invitation[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</main>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+Expected: "This machine is already set up. Sign in with your passkey."
+Received: "A passkey exists; sign in to add another, or use an invitation"
+
+ ❯ src/pages/signin.test.tsx:42:71
+     40|     await user.type(screen.getByRole("textbox", { name: "Your name" })…
+     41|     await user.click(screen.getByRole("button", { name: "Register pass…
+     42|     await waitFor(() => expect(screen.getByRole("alert").textContent).…
+       |                                                                       ^
+     43|     expect(qc.getQueryData(["session"])).toMatchObject({ registered: t…
+     44|   });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  19:28:39
+   Duration  2.93s (tests 80%, environment 12%, setup 4%, import 4%, transform 1%)
+

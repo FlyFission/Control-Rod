@@ -5,10 +5,12 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { type ReactNode, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api/client.js";
 import { Shell } from "./components/Shell.js";
 import { useLiveEvents } from "./lib/live.js";
+import { sessionIdentity, watchSessionIdentity } from "./lib/session.js";
 import { CasePage } from "./features/case/CasePage.js";
 import { Explore } from "./pages/Explore.js";
 import { Inbox } from "./pages/Inbox.js";
@@ -22,7 +24,18 @@ import { Roster } from "./pages/Roster.js";
 import { SignIn } from "./pages/SignIn.js";
 import { Usage } from "./pages/Usage.js";
 
-function Root() {
+/**
+ * Decides between the sign-in page and the app from the session query. Exported so tests can drive
+ * the real gate without the whole route tree.
+ *
+ * Any change of the signed-in identity, however it arrives (this tab signing in or out, or a refetch
+ * that finds another tab signed someone else in), runs one transition (lib/session.ts), and the
+ * subtree is keyed by identity, so a change remounts it and drops component state such as editor
+ * drafts and the ETags they carry.
+ */
+export function SessionGate({ children }: { children: ReactNode }) {
+  const qc = useQueryClient();
+  useEffect(() => watchSessionIdentity(qc), [qc]);
   const session = useQuery({ queryKey: ["session"], queryFn: api.session });
   const signedIn = session.data?.signed_in === true;
   useLiveEvents(signedIn);
@@ -36,11 +49,20 @@ function Root() {
       </main>
     );
   }
-  if (!signedIn) return <SignIn session={session.data} />;
+  const identity = sessionIdentity(session.data);
+  if (!signedIn) return <SignIn key={identity} session={session.data} />;
   return (
-    <Shell session={session.data}>
-      <Outlet />
+    <Shell key={identity} session={session.data}>
+      {children}
     </Shell>
+  );
+}
+
+function Root() {
+  return (
+    <SessionGate>
+      <Outlet />
+    </SessionGate>
   );
 }
 

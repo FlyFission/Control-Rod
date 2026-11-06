@@ -32,7 +32,11 @@ export async function openDb(connectionString: string, roles: DbRoles = {}): Pro
     const secrets = roles.secrets ?? { reader: randomBytes(24).toString("hex"), writer: randomBytes(24).toString("hex") };
     if (!roles.urls) await provisionRoles(owner, secrets, { ownsCluster: roles.ownsCluster ?? false });
     await migrate(owner);
-    const { WRITER_READ_ONLY_TABLES } = await import("./migrations/011-roles.js");
+    const { ROLES_SQL, WRITER_READ_ONLY_TABLES } = await import("./migrations/011-roles.js");
+    // Grants again on every start, not only when migration 011 first runs: a restore made with
+    // --no-privileges (docs/owner-pilot.md) keeps 011's record but none of its grants, and the
+    // reader and writer would otherwise be refused on every table. Every statement is idempotent.
+    await owner.query(ROLES_SQL);
     await verifyRoles(owner, WRITER_READ_ONLY_TABLES);
     const urls = roles.urls ?? { readerUrl: roleUrl(connectionString, READER, secrets.reader), writerUrl: roleUrl(connectionString, WRITER, secrets.writer) };
     reader = survivesIdleDrops(new pg.Pool({ connectionString: urls.readerUrl, max: 10 }), "reader");

@@ -490,7 +490,7 @@ async function appendEdit(
     const effective = await laneOf(c, "package", p.id, p.body.data_lane);
     if (effective && !covers(pkg.data_lane, effective))
       throw new Refusal(409, "lowering-needs-change-request", `This package is ${effective}; lowering its lane needs a signed change request`);
-    await markObject(c, "package", p.id, pkg.data_lane, `preparation contract raised by ${user}`);
+    await markObject(c, "package", p.id, pkg.data_lane, `preparation contract raised by ${user}`, [], { explicit: true });
   }
   for (const b of content.basis)
     if (b.kind === "package" && b.reference === `package:${p.id}`) {

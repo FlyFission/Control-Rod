@@ -41,15 +41,22 @@ export function Shell({ session, children }: { session: Session; children: React
 
   // One sign-out at a time: the button is disabled while one is pending. An answer that arrives
   // after a newer session began (another sign-in here, or one this tab learned of by refetching) is
-  // about the earlier session and is dropped, so it cannot replace the newer session with a
-  // signed-out one.
+  // about the earlier session, so it is not adopted; the tab reads the session from the server
+  // instead.
   const [pendingSignOut, setPendingSignOut] = useState(false);
   async function logout() {
     setPendingSignOut(true);
     const startedUnder = sessionGeneration();
     try {
       const s = await api.logout();
-      if (!stillCurrent(startedUnder)) return;
+      if (!stillCurrent(startedUnder)) {
+        // The answer is about an earlier session, but the browser applied its cookie change before
+        // this script saw it, so the newer session may be gone too. Ask the server who is signed in;
+        // if that differs, the identity watcher runs the transition. Other tabs converge on their
+        // own next session read.
+        void qc.invalidateQueries({ queryKey: ["session"] });
+        return;
+      }
       // Nothing one person's session loaded survives into the next one.
       await adoptSession(qc, s);
     } catch {

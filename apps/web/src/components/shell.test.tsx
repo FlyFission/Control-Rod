@@ -8,6 +8,7 @@ import { renderPage } from "../test/render.js";
 import { adoptSession } from "../lib/session.js";
 import type { Session } from "../api/types.js";
 import { Shell } from "./Shell.js";
+import { SessionGate } from "../router.js";
 
 const ben = { registered: true, signed_in: true, user: "ben" } as Session;
 const dora = { registered: true, signed_in: true, user: "dora" } as Session;
@@ -48,6 +49,8 @@ describe("signing out", () => {
 
   it("an answer that arrives after a newer sign-in does not replace the newer session", async () => {
     const held = heldLogout();
+    // The server still holds Dora's session, so the check this answer triggers confirms her.
+    server.use(http.get("*/auth/session", () => HttpResponse.json(dora)));
     const { qc } = await renderPage(<Shell session={ben}><p>app</p></Shell>);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Sign out" }));
@@ -57,5 +60,27 @@ describe("signing out", () => {
     held.release();
     await act(async () => { await new Promise((r) => setTimeout(r, 100)); });
     expect(qc.getQueryData(["session"])).toEqual(dora);
+  });
+
+  it("a late answer makes the tab ask the server who is signed in, and shows sign-in when nobody is", async () => {
+    // The late sign-out cleared the shared cookie in the browser before this script saw the answer,
+    // so the server no longer holds the newer session either: only a fresh read can tell.
+    const held = heldLogout();
+    let serverState: Session = ben;
+    let reads = 0;
+    server.use(http.get("*/auth/session", () => { reads += 1; return HttpResponse.json(serverState); }));
+    const { qc } = await renderPage(<SessionGate><p>app</p></SessionGate>);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    await held.begun;
+    serverState = dora;
+    await act(() => adoptSession(qc, dora));
+    await screen.findByText("dora");
+    const readsBefore = reads;
+    serverState = { registered: true, signed_in: false } as Session;
+    held.release();
+    await screen.findByRole("button", { name: "Sign in with passkey" });
+    expect(reads).toBeGreaterThan(readsBefore);
+    expect(qc.getQueryData(["session"])).toMatchObject({ signed_in: false });
   });
 });

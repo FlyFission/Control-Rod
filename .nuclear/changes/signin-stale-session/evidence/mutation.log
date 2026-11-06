@@ -1,47 +1,51 @@
 Mutation check: each guard removed in turn, then restored. Command: vitest run on src/session-gate.test.tsx, src/components/shell.test.tsx, src/components/preparation/preparation.test.tsx, src/lib/session.test.tsx, src/pages/signin.test.tsx, src/pages/criteria.test.tsx.
 == baseline (all guards present)
-      Tests  43 passed (43)
+      Tests  44 passed (44)
 == mutation: identity watcher removed from the session gate
-     × treats a refetched session for someone else as a new session: clears the earlier data and remounts the app 259ms
-     × treats a refetched sign-out as a new session too 57ms
-      Tests  2 failed | 41 passed (43)
+     × treats a refetched session for someone else as a new session: clears the earlier data and remounts the app 369ms
+     × treats a refetched sign-out as a new session too 81ms
+      Tests  2 failed | 42 passed (44)
 == mutation: identity key removed from the app subtree
-     × treats a refetched session for someone else as a new session: clears the earlier data and remounts the app 258ms
-      Tests  1 failed | 42 passed (43)
+     × treats a refetched session for someone else as a new session: clears the earlier data and remounts the app 291ms
+      Tests  1 failed | 43 passed (44)
 == mutation: preparation perform: guard after the action removed
-     × a save that finishes after a new session began leaves that session's cache without it 260ms
-     × a basis refresh answered after a new session began does not appear in the editor 181ms
-      Tests  2 failed | 41 passed (43)
+     × a save that finishes after a new session began leaves that session's cache without it 276ms
+     × a basis refresh answered after a new session began does not appear in the editor 174ms
+      Tests  2 failed | 42 passed (44)
 == mutation: preparation perform: guard before the refusal removed
-     × a refusal answered after a new session began is not shown 219ms
-      Tests  1 failed | 42 passed (43)
+     × a refusal answered after a new session began is not shown 230ms
+      Tests  1 failed | 43 passed (44)
 == mutation: preparation perform: guard after the comparison read removed
-     × a comparison read answered after a new session began is not shown 227ms
-      Tests  1 failed | 42 passed (43)
+     × a comparison read answered after a new session began is not shown 232ms
+      Tests  1 failed | 43 passed (44)
 == mutation: preparation reload: guard after the read removed
      × a reload that finishes after a new session began leaves that session's cache without it 163ms
-     × a reload answered after a new session began does not appear in the editor 172ms
-      Tests  2 failed | 41 passed (43)
+     × a reload answered after a new session began does not appear in the editor 177ms
+      Tests  2 failed | 42 passed (44)
 == mutation: preparation reload: guard before the refusal removed
-     × a reload refused after a new session began shows no refusal 173ms
-      Tests  1 failed | 42 passed (43)
+     × a reload refused after a new session began shows no refusal 171ms
+      Tests  1 failed | 43 passed (44)
 == mutation: preparation history: guard after the read removed
-     × history answered after a new session began is not shown 179ms
-      Tests  1 failed | 42 passed (43)
+     × history answered after a new session began is not shown 172ms
+      Tests  1 failed | 43 passed (44)
 == mutation: preparation history: guard before the refusal removed
-     × history refused after a new session began shows no refusal 168ms
-      Tests  1 failed | 42 passed (43)
+     × history refused after a new session began shows no refusal 176ms
+      Tests  1 failed | 43 passed (44)
 == mutation: sign-out: obsolete answer guard removed
-     × an answer that arrives after a newer sign-in does not replace the newer session 145ms
-      Tests  1 failed | 42 passed (43)
+     × an answer that arrives after a newer sign-in does not replace the newer session 160ms
+     × a late answer makes the tab ask the server who is signed in, and shows sign-in when nobody is 88ms
+      Tests  2 failed | 42 passed (44)
+== mutation: sign-out: session read on an obsolete answer removed
+     × a late answer makes the tab ask the server who is signed in, and shows sign-in when nobody is 1068ms
+      Tests  1 failed | 43 passed (44)
 == mutation: sign-out: button no longer disabled while pending
-     × cannot be sent twice while a sign-out is pending 189ms
-      Tests  1 failed | 42 passed (43)
+     × cannot be sent twice while a sign-out is pending 187ms
+      Tests  1 failed | 43 passed (44)
 == mutation: SignIn recovery read guard removed (carried from round 3)
-     × discards a recovery read that finishes after a newer session was adopted 65ms
-      Tests  1 failed | 42 passed (43)
+     × discards a recovery read that finishes after a newer session was adopted 61ms
+      Tests  1 failed | 43 passed (44)
 == mutation: criteria save guard removed (carried from round 3)
-     × a save that finishes after a new session began leaves that session's cache without it 155ms
-      Tests  1 failed | 42 passed (43)
+     × a save that finishes after a new session began leaves that session's cache without it 159ms
+      Tests  1 failed | 43 passed (44)
 == restored
-      Tests  43 passed (43)
+      Tests  44 passed (44)

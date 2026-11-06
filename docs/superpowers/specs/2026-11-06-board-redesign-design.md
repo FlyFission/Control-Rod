@@ -88,7 +88,7 @@ Run detail, usage, diff size and pre-check advice live in the card view, not on 
 - Group by: none, kind, person, project (swimlanes).
 - Density: comfortable, compact.
 - Look: A Control room, B Drafting table, C Instrument panel.
-- **Saved views**: a named lens state, kept per member (browser storage in the MVP; server persistence later). The **default view may not hide** cards waiting on a person verification or a signature; a filter that would hide them shows a count of what is hidden.
+- **Saved views**: a named lens state, kept per member (browser storage in the MVP; server persistence later). The **default view may not hide** cards waiting on a person verification or a signature; a filter that would hide them shows a count of what is hidden, and a Show control that clears every filter hiding them (kind, Needs you, Mine, and a saved view's filters).
 
 **Header:** project switcher, command palette trigger, "Needs you" count (same as the toggle), a count of running agents (information only; the API does not report the daemon's parallel limit, so none is shown).
 

@@ -101,7 +101,13 @@ shasum -a 256 "$CONTROLROD_HOME/pilot.dump"
 "$PG17/pg_restore" -h 127.0.0.1 -p 7301 -U controlrod --exit-on-error --no-owner --no-privileges --dbname pilot_restore "$CONTROLROD_HOME/pilot.dump"
 ```
 
-Start a second API on the restored copy, with both flags off and no daemon:
+The restored copy shares this cluster's two database logins, so give the second API the same login passwords, or it refuses to start because the logins already exist with other passwords:
+
+```sh
+mkdir -m 700 "$HOME/.controlrod-pilot-restore" && cp -p "$CONTROLROD_HOME/db-roles.json" "$HOME/.controlrod-pilot-restore/"
+```
+
+Start a second API on the restored copy, with both flags off and no daemon. It grants those logins their access again on start, since the restore left out privileges:
 
 ```sh
 CONTROLROD_HOME="$HOME/.controlrod-pilot-restore" CONTROLROD_PORT=7310 CONTROLROD_DATABASE_URL=postgres://controlrod@127.0.0.1:7301/pilot_restore node services/api/dist/server.js

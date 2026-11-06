@@ -200,7 +200,7 @@ export async function ensureMarking(c: Tx, kind: string, id: string, seen = new 
   if (!p || !isLane(p.lane)) return null;
   // A package marked late gets its provenance edges too: every stored source, each marked the same
   // way first, so a later raise of any of them reaches it.
-  if (seen.has(id)) throw new Error(`package ${id} depends on itself through its sources`);
+  if (seen.has(id)) throw new Refusal(409, "provenance-cycle", `package ${id} draws on itself through its sources; remove the citation that closes the loop`);
   seen.add(id);
   const sources = await storedSources(c, id);
   const inputs: MarkingInput[] = [];
@@ -243,14 +243,35 @@ async function resolve(c: Tx, inputs: Ref[]): Promise<MarkingInput[]> {
 }
 
 /**
+ * Refuses a provenance edge that would close a loop: an input that is this object, or that is
+ * already derived from it. A loop would leave propagation with no order to recompute in, so a later
+ * raise of anything feeding it could not land.
+ */
+async function refuseCycle(c: Tx, kind: string, id: string, resolved: MarkingInput[], existing: Marking | null): Promise<void> {
+  const known = new Set((existing?.inputs ?? []).map((x) => `${x.object_kind}/${x.object_id}`));
+  const added = resolved.filter((r) => !known.has(`${r.object_kind}/${r.object_id}`));
+  if (!added.length) return;
+  const self = `${kind}/${id}`;
+  const below = new Set((await downstreamOf(c, kind, id)).map((r) => `${r.kind}/${r.id}`));
+  for (const a of added) {
+    const k = `${a.object_kind}/${a.object_id}`;
+    if (k === self || below.has(k))
+      throw new Refusal(409, "provenance-cycle",
+        `${kind} ${id} cannot draw on ${a.object_kind} ${a.object_id}, which already draws on it; remove one of the citations so the two do not depend on each other`);
+  }
+}
+
+/**
  * Marks an object at creation with its lane and the objects it was derived from. Marking an object
  * that already has a marking adds inputs or raises; it never lowers (that is a declassification).
  */
-export async function markObject(c: Tx, kind: string, id: string, lane: DataLane, reason: string, inputs: Ref[] = []): Promise<Marking> {
+export async function markObject(c: Tx, kind: string, id: string, lane: DataLane, reason: string, inputs: Ref[] = [],
+  options: { explicit?: boolean } = {}): Promise<Marking> {
   await lock(c);
   // A stored package's first marking always carries its own sources (ensureMarking), whoever marks it.
   const existing = kind === "package" ? await ensureMarking(c, kind, id) : await currentMarking(c, kind, id);
   const resolved = await resolve(c, inputs);
+  await refuseCycle(c, kind, id, resolved, existing);
   if (!existing) {
     const m: Omit<Marking, "effective_lane"> = { object_kind: kind, object_id: id, version: 1, lane, reason };
     if (resolved.length) m.inputs = resolved;
@@ -263,9 +284,12 @@ export async function markObject(c: Tx, kind: string, id: string, lane: DataLane
     else merged.push(r);
   }
   // A raise is measured against the effective lane, so it also works after a declassification,
-  // which it then ends. Adding inputs alone keeps any override.
+  // which it then ends. Adding inputs alone keeps any override. A person who explicitly raises the
+  // object's own lane is recorded even when an input already makes it that sensitive, so a later
+  // declassification of that input cannot lower the object below its own classification.
   const current = effectiveLane(existing);
-  const raising = lane !== current && covers(lane, current);
+  const own = existing.assigned ?? existing.lane;
+  const raising = (lane !== current && covers(lane, current)) || (options.explicit === true && lane !== own && covers(lane, own));
   const known = new Set((existing.inputs ?? []).map((x) => `${x.object_kind}/${x.object_id}/${x.version}`));
   const newInputs = merged.length !== known.size || merged.some((x) => !known.has(`${x.object_kind}/${x.object_id}/${x.version}`));
   if (!raising && !newInputs) return existing;
@@ -330,16 +354,26 @@ async function recomputeDerived(c: Tx, kind: string, id: string, cause: string, 
       pending.delete(k);
       progressed = true;
     }
-    if (!progressed) throw new Error(`marking provenance has a cycle among ${[...pending.keys()].join(", ")}`);
+    if (!progressed) break;
   }
-  for (const d of ordered) {
+  const rewrite = async (d: Ref) => {
     const m = await currentMarking(c, d.kind, d.id);
-    if (!m) continue;
+    if (!m) return;
     const inputs = await resolve(c, (m.inputs ?? []).map((i) => ({ kind: i.object_kind, id: i.object_id })));
     const { effective_lane: _e, change_request_id: _cr, ...rest } = m;
     const next: Omit<Marking, "effective_lane"> = { ...rest, version: m.version + 1, inputs, reason: cause };
     if (changeRequestId) next.change_request_id = changeRequestId;
     await write(c, next);
+  };
+  for (const d of ordered) await rewrite(d);
+  // A loop recorded before loops were refused has no order. Its members are rewritten in turn, once
+  // per member, so a raise travels all the way round; anything derived from the loop comes after.
+  // A loop only holds its members up, so a lowering inside one can stay higher than asked: it fails
+  // closed and never lets a raise be lost.
+  if (pending.size) {
+    const rest = [...pending.values()].sort((a, b) => key(a).localeCompare(key(b)));
+    for (let pass = 0; pass < rest.length; pass++) for (const d of rest) await rewrite(d);
+    for (const d of rest) await rewrite(d);
   }
 }
 

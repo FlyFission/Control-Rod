@@ -338,6 +338,23 @@ export const qualificationIdFor = (memberId: string) => `qual_${memberId.slice(4
 const FOUNDING_ACTOR: Actor = { kind: "system", id: "founding-member" };
 
 /**
+ * The organization's first Member: whoever enrolled earliest. A Member's enrollment is the earlier
+ * of their record and their first passkey, because the Members that migration 009 backfilled were
+ * all created in one transaction and share one timestamp, while their passkeys keep the order
+ * people really registered in. Ties fall back to the id only when both times match.
+ */
+export async function firstMemberOf(c: Tx | Db, orgId: string, options: { activeOnly?: boolean } = {}): Promise<string | undefined> {
+  const r = await c.query<{ id: string }>(
+    `select m.id from members m
+       left join lateral (
+         select min(cr.created_at) as at from authenticator_credentials a join credentials cr on cr.id = a.credential_id
+          where a.member_id = m.id) e on true
+      where m.org_id = $1 ${options.activeOnly ? "and m.body->>'status' = 'active'" : ""}
+      order by least(m.created_at, coalesce(e.at, m.created_at)), m.id limit 1`, [orgId]);
+  return r.rows[0]?.id;
+}
+
+/**
  * Makes an organization's first Member able to run it: administrator, lane and policy authority,
  * recorded as their qualification version 1. Only while no administrator qualification has ever
  * existed in the organization, so it happens once. Licenses, disciplines and signing roles are not
@@ -346,8 +363,9 @@ const FOUNDING_ACTOR: Actor = { kind: "system", id: "founding-member" };
 export async function grantFoundingAuthorities(c: Tx, orgId: string): Promise<boolean> {
   const ever = await c.query("select 1 from signer_qualifications where org_id = $1 and body->'authorities' ? 'administrator' limit 1", [orgId]);
   if (ever.rowCount) return false;
-  const first = (await c.query<{ id: string }>("select id from members where org_id = $1 and body->>'status' = 'active' order by created_at, id limit 1", [orgId])).rows[0];
-  if (!first) return false;
+  const firstId = await firstMemberOf(c, orgId, { activeOnly: true });
+  if (!firstId) return false;
+  const first = { id: firstId };
   await recordQualification(c, {
     // Enough to run a General service package end to end on a fresh install: originate, check and
     // approve. Safety and Material grades, disciplines and licenses are facts only the person can

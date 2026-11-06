@@ -157,7 +157,7 @@ export async function registrationVerify(db: Db, cfg: AuthConfig, body: Registra
     // The very first person becomes the organization's founding member, able to run it at once.
     if (data.kind === "first") await grantFoundingAuthorities(c, LOCAL_ORG);
   });
-  return String(data.name);
+  return { user: String(data.name), credentialId: credential.id };
 }
 
 async function allowCredentials(db: Db) {
@@ -237,17 +237,23 @@ export async function assertionVerify(
   return { user: row.user_name, credentialId: row.id, data };
 }
 
-export async function startSession(db: Db, reply: FastifyReply, user: string) {
+/** The passkey is the person's own and its latest version is not revoked. */
+const USABLE_CREDENTIAL = `exists (select 1 from credentials cr where cr.id = $3 and cr.user_name = $2)
+  and not exists (select 1 from authenticator_credentials a where a.credential_id = $3 and (a.body->>'revoked')::boolean is true
+    and a.version = (select max(version) from authenticator_credentials b where b.credential_id = $3))`;
+
+export async function startSession(db: Db, reply: FastifyReply, user: string, credentialId: string) {
   const token = b64url(randomBytes(32));
-  // Under the organization lock, and only for an active member: a suspension that is committing
-  // cannot be outrun by a session created in the gap.
+  // Under the organization lock, and only for an active member whose passkey is still usable: a
+  // suspension or a passkey revocation that is committing cannot be outrun by a session created in
+  // the gap after the assertion was checked. The session names its passkey, so revoking it ends it.
   const started = await command(db, "auth.session-start", async (c) => {
     await c.query("select pg_advisory_xact_lock(hashtext('controlrod-admin:' || coalesce((select org_id from members where user_name = $1), 'org_local')))", [user]);
     return c.query(
-      `insert into sessions (token_hash, user_name, expires_at)
-       select $1, $2, now() + interval '${SESSION_DAYS} days'
-        where exists (select 1 from members where user_name = $2 and body->>'status' = 'active')`,
-      [sha256(token), user],
+      `insert into sessions (token_hash, user_name, expires_at, credential_id)
+       select $1, $2, now() + interval '${SESSION_DAYS} days', $3
+        where exists (select 1 from members where user_name = $2 and body->>'status' = 'active') and ${USABLE_CREDENTIAL}`,
+      [sha256(token), user, credentialId],
     );
   });
   if (!started.rowCount) throw new Error("membership is not active");
@@ -266,13 +272,15 @@ export async function endSession(db: Db, request: FastifyRequest, reply: Fastify
   reply.clearCookie(SESSION_COOKIE, { path: "/" });
 }
 
-/** The person a session belongs to, only while their membership is active. */
+/** The person a session belongs to, only while their membership is active and its passkey is not revoked. */
 export async function sessionUser(db: Db, request: FastifyRequest): Promise<string | null> {
   const token = request.cookies[SESSION_COOKIE];
   if (!token) return null;
   const r = await db.query<{ user_name: string }>(
     `select s.user_name from sessions s join members m on m.user_name = s.user_name
-      where s.token_hash = $1 and s.expires_at > now() and m.body->>'status' = 'active'`,
+      where s.token_hash = $1 and s.expires_at > now() and m.body->>'status' = 'active'
+        and not exists (select 1 from authenticator_credentials a where a.credential_id = s.credential_id and (a.body->>'revoked')::boolean is true
+          and a.version = (select max(version) from authenticator_credentials b where b.credential_id = s.credential_id))`,
     [sha256(token)],
   );
   return r.rows[0]?.user_name ?? null;

@@ -241,3 +241,64 @@ describe("provenance", () => {
     expect(r.json().code).toBe("not-lower");
   });
 });
+
+describe("explicit raises and provenance loops (review threads on PR #23)", () => {
+  it("keeps a draft's own raise when it matches the lane it already inherits, so declassifying the input cannot lower it", async () => {
+    const c = (await post("/captures", { text: "Pump loads", lane: "internal" })).json();
+    const pkgId = await intake(c.id, "internal");
+    expect((await post(`/captures/${c.id}/classify`, { lane: "restricted" })).statusCode).toBe(200);
+    const v = (await get(`/packages/${pkgId}`)).json();
+    expect(v.package.data_lane).toBe("internal");
+    expect(v.effective_lane).toBe("restricted");
+    const raised = await h.app.inject({ method: "PUT", url: `/packages/${pkgId}`, headers: { cookie, origin: ORIGIN, "if-match": v.draft_etag },
+      payload: { ...v.package, data_lane: "restricted" } });
+    expect(raised.statusCode, raised.body).toBe(200);
+    expect(await marking("package", pkgId)).toMatchObject({ assigned: "restricted", effective_lane: "restricted" });
+
+    const p = await post("/admin/commands/marking.propose-declassification",
+      { payload: { object_kind: "capture", object_id: c.id, lane: "internal", reason: "classified in error" } });
+    expect(p.statusCode, p.body).toBe(200);
+    expect((await signed("marking.approve-declassification", { change_request_id: p.json().id })).statusCode).toBe(200);
+    expect((await marking("capture", c.id))?.effective_lane).toBe("internal");
+    expect((await marking("package", pkgId))?.effective_lane).toBe("restricted");
+    expect((await get(`/packages/${pkgId}`)).json().effective_lane).toBe("restricted");
+  });
+
+  it("does not record an assignment when an edit leaves the lane untouched", async () => {
+    const c = (await post("/captures", { text: "Valve loads", lane: "internal" })).json();
+    const pkgId = await intake(c.id, "internal");
+    expect((await post(`/captures/${c.id}/classify`, { lane: "restricted" })).statusCode).toBe(200);
+    await write((t) => markObject(t, "package", pkgId, "restricted", "unrelated edit"));
+    expect((await marking("package", pkgId))?.assigned).toBeUndefined();
+  });
+
+  it("refuses a citation that would make two objects draw on each other", async () => {
+    await write(async (c) => {
+      await markObject(c, "package", "C-A", "internal", "test");
+      await markObject(c, "package", "C-B", "internal", "test", [{ kind: "package", id: "C-A" }]);
+    });
+    await expect(write((c) => markObject(c, "package", "C-A", "internal", "test", [{ kind: "package", id: "C-B" }])))
+      .rejects.toMatchObject({ code: "provenance-cycle" });
+    await expect(write((c) => markObject(c, "package", "C-A", "internal", "test", [{ kind: "package", id: "C-A" }])))
+      .rejects.toMatchObject({ code: "provenance-cycle" });
+    expect((await marking("package", "C-A"))?.inputs).toBeUndefined();
+  });
+
+  it("still lands a raise through a loop recorded before loops were refused", async () => {
+    await write(async (c) => {
+      await markObject(c, "package", "L-SRC", "internal", "test");
+      await markObject(c, "package", "L-A", "internal", "test", [{ kind: "package", id: "L-SRC" }]);
+      await markObject(c, "package", "L-B", "internal", "test", [{ kind: "package", id: "L-A" }]);
+      await markObject(c, "package", "L-OUT", "public", "test", [{ kind: "package", id: "L-B" }]);
+    });
+    // An older loop: L-A also draws on L-B, written directly as earlier code allowed.
+    const a = (await marking("package", "L-A"))!;
+    const b = (await marking("package", "L-B"))!;
+    await h.admin.query("insert into object_markings (body) values ($1)",
+      [{ ...a, version: a.version + 1, inputs: [...a.inputs!, { object_kind: "package", object_id: "L-B", version: b.version }], reason: "legacy loop" }]);
+    await write((c) => markObject(c, "package", "L-SRC", "restricted", "raised"));
+    expect((await marking("package", "L-A"))?.effective_lane).toBe("restricted");
+    expect((await marking("package", "L-B"))?.effective_lane).toBe("restricted");
+    expect((await marking("package", "L-OUT"))?.effective_lane).toBe("restricted");
+  });
+});

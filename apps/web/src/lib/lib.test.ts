@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OfficeItem } from "../api/types.js";
 import { pkg } from "../test/fixtures.js";
-import { boardColumn, groupBoard } from "./board.js";
+import { boardColumn, preCheckState } from "./board.js";
 import { decisionLabel } from "./decide.js";
 import { composeCapture, splitAttachments } from "./attachments.js";
 import { sortOffice } from "./office.js";
@@ -28,9 +28,8 @@ describe("board mapping", () => {
       // An accept item for an older revision does not count.
       { kind: "accept", package_id: "B", package_revision: 5, title: "t", detail: "d", since: "2026-10-22T10:00:00Z" },
     ];
-    const g = groupBoard([a, b], office);
-    expect(g["needs-signature"].map((p) => p.id)).toEqual(["A"]);
-    expect(g["agent-check"].map((p) => p.id)).toEqual(["B"]);
+    expect(boardColumn(a, preCheckState(a, office), null)).toBe("needs-signature");
+    expect(boardColumn(b, preCheckState(b, office), null)).toBe("agent-check");
   });
 });
 

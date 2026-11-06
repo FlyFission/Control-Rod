@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OfficeItem, PersonVerificationEntry } from "../api/types.js";
 import { pkg } from "../test/fixtures.js";
-import { COLUMNS, boardColumn, groupBoard, needsIndependentCheck } from "./board.js";
+import { COLUMNS, boardColumn, isVerified, needsIndependentCheck, preCheckState } from "./board.js";
 
 describe("boardColumn with person verification", () => {
   it("puts Safety work with a passed pre-check and no verification in Person verifies", () => {
@@ -35,25 +35,23 @@ describe("boardColumn with person verification", () => {
   });
 });
 
-describe("groupBoard with person verifications", () => {
+describe("pre-check and verification reads", () => {
   const accept = (id: string, rev: number): OfficeItem => ({ kind: "accept", package_id: id, package_revision: rev, title: "t", detail: "d", since: "2026-10-22T10:00:00Z" });
   const dispute = (id: string, rev: number): OfficeItem => ({ ...accept(id, rev), kind: "dispute" });
   const ver = (rev: number, outcome: PersonVerificationEntry["outcome"]) => ({ package_revision: rev, outcome }) as PersonVerificationEntry;
 
   it("uses the current revision's passing verification only", () => {
     const a = pkg({ id: "A", status: "in-verification", grade: "safety", revision: 2 });
-    const b = pkg({ id: "B", status: "in-verification", grade: "safety", revision: 2 });
-    const c = pkg({ id: "C", status: "in-verification", grade: "safety", revision: 2 });
-    const g = groupBoard([a, b, c], [accept("A", 2), accept("B", 2), accept("C", 2)], {
-      A: [ver(2, "pass")],
-      B: [ver(1, "pass"), ver(2, "fail")],
-      C: [],
-    });
-    expect(g["needs-signature"].map((p) => p.id)).toEqual(["A"]);
-    expect(g["person-verifies"].map((p) => p.id)).toEqual(["B", "C"]);
+    const col = (vs: PersonVerificationEntry[]) => boardColumn(a, preCheckState(a, [accept("A", 2)]), isVerified(a, vs));
+    expect(col([ver(2, "pass")])).toBe("needs-signature");
+    expect(col([ver(1, "pass"), ver(2, "fail")])).toBe("person-verifies");
+    expect(col([])).toBe("person-verifies");
   });
-  it("reads a dispute as Agent check", () => {
+  it("keeps a dispute plus an accept for the same package and revision in Agent check", () => {
     const a = pkg({ id: "A", status: "in-verification", revision: 1 });
-    expect(groupBoard([a], [dispute("A", 1)])["agent-check"].map((p) => p.id)).toEqual(["A"]);
+    const office = [accept("A", 1), dispute("A", 1)];
+    expect(preCheckState(a, office)).toBe("disputed");
+    expect(boardColumn(a, preCheckState(a, office), null)).toBe("agent-check");
+    expect(boardColumn(a, preCheckState(a, [dispute("A", 1), accept("A", 1)]), true)).toBe("agent-check");
   });
 });

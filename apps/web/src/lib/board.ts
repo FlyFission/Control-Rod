@@ -50,37 +50,7 @@ export function preCheckState(pkg: WorkPackage, office: OfficeItem[]): PreCheck 
   return "none";
 }
 
-/** A package whose acceptance is waiting in the office has finished its pre-check. */
-export function preCheckDone(pkg: WorkPackage, office: OfficeItem[]): boolean {
-  return preCheckState(pkg, office) !== "none";
-}
-
 /** Whether a passing person verification is recorded for the package's current revision. */
 export function isVerified(pkg: WorkPackage, verifications: PersonVerificationEntry[]): boolean {
   return verifications.some((v) => v.package_revision === pkg.revision && v.outcome === "pass");
-}
-
-/**
- * Groups packages into columns. `verifications` maps a package id to its person verifications; leave it
- * out (or omit an id) when they are not known, and a passed pre-check goes to Needs signature.
- */
-export function groupBoard(
-  packages: WorkPackage[],
-  office: OfficeItem[],
-  verifications?: Record<string, PersonVerificationEntry[]>,
-): Record<ColumnId, WorkPackage[]> {
-  const out: Record<ColumnId, WorkPackage[]> = {
-    ready: [],
-    drafting: [],
-    "agent-check": [],
-    "person-verifies": [],
-    "needs-signature": [],
-    reached: [],
-  };
-  for (const p of packages) {
-    const known = verifications?.[p.id];
-    const col = boardColumn(p, preCheckState(p, office), known ? isVerified(p, known) : null);
-    if (col !== null) out[col].push(p);
-  }
-  return out;
 }

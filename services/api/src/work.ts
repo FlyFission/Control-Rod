@@ -145,10 +145,20 @@ export async function classifyCapture(db: Db, cfg: WorkConfig, user: string, id:
     validate(cfg, "Capture.json", next);
     await c.query("update captures set body = $2 where id = $1", [id, next]);
     await markObject(c, "capture", id, lane, `classified by ${user}`);
-    if (cap.lane === undefined) await queueRun(c, cfg, id, 0, "intake", 1);
+    // Only a capture still waiting for its first classification goes on to intake. A capture from
+    // before lanes existed has no lane but may already have been through intake: answered, or made
+    // into packages. Classifying it records its lane and leaves that work alone.
+    if (cap.lane === undefined && !(await intakeStarted(c, id))) await queueRun(c, cfg, id, 0, "intake", 1);
     await appendEvent(c, "capture.classified", id, { kind: "human", id: user }, { lane, ...(cap.lane ? { from: cap.lane } : {}) });
     return next;
   });
+}
+
+/** Whether a capture has ever had an intake run or produced a package. */
+async function intakeStarted(c: Tx, captureId: string): Promise<boolean> {
+  const r = await c.query(
+    "select 1 from runs where package_id = $1 and role = 'intake' union all select 1 from packages where capture_id = $1 limit 1", [captureId]);
+  return Boolean(r.rowCount);
 }
 
 /**
@@ -356,7 +366,7 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     "select body from decisions where package_id = $1 order by created_at",
     [id],
   );
-  const lane = await laneOf(db, "package", id, pkg.body.data_lane);
+  const lane = await liveLane(db, id, pkg.body.data_lane, cfg);
   return {
     ...(pkg.status === "draft" ? { draft_etag: draftEtag(pkg.body) } : {}),
     ...(lane ? { effective_lane: lane } : {}),
@@ -380,9 +390,22 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
 }
 
 /** A package's effective lane, which every view and download shows (specification 11.3 M-3). */
-export async function packageLane(db: Db, id: string): Promise<DataLane | undefined> {
+export async function packageLane(db: Db, id: string, cfg?: WorkConfig): Promise<DataLane | undefined> {
   const pkg = await currentPackage(db, id);
-  return pkg ? laneOf(db, "package", id, pkg.body.data_lane) : undefined;
+  return pkg ? liveLane(db, id, pkg.body.data_lane, cfg) : undefined;
+}
+
+/**
+ * The lane a view or download shows, judged as runtime admission judges it: configured sources are
+ * classified in the owner's config, which markings never record, so a raise there shows at once. A
+ * source with no classified lane leaves the recorded lane, since admission holds that work anyway.
+ */
+async function liveLane(db: Db, id: string, stored: unknown, cfg?: WorkConfig): Promise<DataLane | undefined> {
+  const recorded = await laneOf(db, "package", id, stored);
+  if (!cfg) return recorded;
+  const live = await readTx(db, (c) => provenanceLane(c, cfg, { kind: "package", id }));
+  if (!live.lane) return recorded;
+  return recorded ? mostSensitive([recorded, live.lane]) : live.lane;
 }
 
 export async function packageOutput(db: Db, id: string, name: string) {
@@ -434,14 +457,17 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
     await checkDependsOn(c, id, next);
     // A draft's lane may be raised by editing it; lowering below the effective lane is a declassification.
     const effective = await laneOf(c, "package", id, pkg.body.data_lane);
-    if (effective && !covers(next.data_lane, effective))
+    // Only a lane the person changed can lower anything. A lane its inputs raised above the draft's
+    // own stays effective through the marking, so an edit that leaves the lane alone is not a lowering,
+    // and neither is a raise of the draft's own lane that stays below what it inherits.
+    const changed = next.data_lane !== pkg.body.data_lane;
+    if (effective && changed && !covers(next.data_lane, effective) && !covers(next.data_lane, pkg.body.data_lane))
       throw new Refusal(409, "lowering-needs-change-request", `This package is ${effective}; lowering its lane needs a signed change request`);
     await c.query("update packages set body = $3, updated_at = now() where id = $1 and revision = $2", [id, pkg.revision, next])
       .catch((e) => { throw dependencyRefusal(e); });
     // Only a lane the person actually changed is a raise; an untouched lane keeps any declassification.
-    const lane = next.data_lane !== pkg.body.data_lane ? next.data_lane : (effective ?? next.data_lane);
-    await markObject(c, "package", id, lane, `draft edited by ${user}`, await packageInputs(c, next),
-      { explicit: next.data_lane !== pkg.body.data_lane });
+    const lane = changed ? next.data_lane : (effective ?? next.data_lane);
+    await markObject(c, "package", id, lane, `draft edited by ${user}`, await packageInputs(c, next), { explicit: changed });
     await appendEvent(c, "package.edited", id, { kind: "human", id: user }, { revision: pkg.revision });
     return { body: next, etag: draftEtag(next) };
   });

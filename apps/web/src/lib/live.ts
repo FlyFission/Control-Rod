@@ -1,8 +1,43 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { CrEvent } from "../api/types.js";
 export const LIVE_GAP_EVENT = "cr:live-gap";
+
+/**
+ * What the page knows about the event stream. "unknown" means the stream dropped and has not come
+ * back, so nothing on screen can be called current; `unknownSince` is when it dropped. `generation`
+ * changes when someone asks to reconnect, which opens a fresh stream.
+ */
+export type LiveStatus = { status: "live" | "unknown"; unknownSince?: string; generation: number };
+
+let liveState: LiveStatus = { status: "live", generation: 0 };
+const liveListeners = new Set<() => void>();
+
+function setLive(next: LiveStatus) {
+  liveState = next;
+  for (const fn of liveListeners) fn();
+}
+function markUnknown() {
+  if (liveState.status === "unknown") return;
+  setLive({ ...liveState, status: "unknown", unknownSince: new Date().toISOString() });
+}
+function markLive() {
+  if (liveState.status === "live") return;
+  setLive({ status: "live", generation: liveState.generation });
+}
+function subscribeLive(fn: () => void) {
+  liveListeners.add(fn);
+  return () => void liveListeners.delete(fn);
+}
+const readLive = () => liveState;
+
+/** The stream state for screens that must not present stale state as current, and a way to reconnect. */
+export function useLiveStatus(): { status: "live" | "unknown"; unknownSince?: string; reconnect: () => void } {
+  const st = useSyncExternalStore(subscribeLive, readLive, readLive);
+  const reconnect = useCallback(() => setLive({ ...liveState, generation: liveState.generation + 1 }), []);
+  return { status: st.status, ...(st.unknownSince ? { unknownSince: st.unknownSince } : {}), reconnect };
+}
 
 /**
  * Subscribes to the event stream and refreshes whatever the new event touches. Batches bursts
@@ -10,6 +45,7 @@ export const LIVE_GAP_EVENT = "cr:live-gap";
  */
 export function useLiveEvents(enabled: boolean): void {
   const qc = useQueryClient();
+  const generation = useSyncExternalStore(subscribeLive, readLive, readLive).generation;
   useEffect(() => {
     if (!enabled || typeof EventSource === "undefined") return;
     const source = new EventSource(api.streamUrl());
@@ -42,6 +78,7 @@ export function useLiveEvents(enabled: boolean): void {
         "office-figures",
         "scrams",
         "scram",
+        "person-verifications",
         "records-head",
         "scram-preview",
       ]) {
@@ -50,6 +87,7 @@ export function useLiveEvents(enabled: boolean): void {
     };
 
     const onMessage = (msg: MessageEvent<string>) => {
+      markLive();
       try {
         const ev = JSON.parse(msg.data) as CrEvent;
         if (typeof ev.subject === "string")
@@ -68,10 +106,15 @@ export function useLiveEvents(enabled: boolean): void {
     // still resumes from a known place. Only when replay is impossible (a loss frame) is everything
     // refreshed.
     const onLoss = () => {
+      markLive();
       window.dispatchEvent(new Event(LIVE_GAP_EVENT));
       void qc.invalidateQueries();
     };
-    const onError = () => window.dispatchEvent(new Event(LIVE_GAP_EVENT));
+    const onError = () => {
+      markUnknown();
+      window.dispatchEvent(new Event(LIVE_GAP_EVENT));
+    };
+    source.addEventListener("open", markLive);
     source.addEventListener("loss", onLoss);
     source.addEventListener("error", onError);
     source.addEventListener("message", onMessage);
@@ -80,7 +123,7 @@ export function useLiveEvents(enabled: boolean): void {
       if (timer !== undefined) clearTimeout(timer);
       source.close();
     };
-  }, [enabled, qc]);
+  }, [enabled, qc, generation]);
 }
 
 /** True while the tab is visible, so animations and polling can rest when it is not. */

@@ -69,6 +69,15 @@ export function verificationRead(pkg: WorkPackage, q: { data?: PersonVerificatio
   return isVerified(pkg, q.data);
 }
 
+/**
+ * Whether Accept may be offered on the strength of a verification read: only a settled read that
+ * shows a covering pass. A refresh in flight (after an invalidation, when the work may have changed)
+ * is unknown, so a cached pass does not keep Accept offered while it is being rechecked.
+ */
+export function acceptVerified(pkg: WorkPackage, q: { data?: PersonVerificationEntry[] | undefined; isError: boolean; isFetching: boolean }): boolean {
+  return !q.isFetching && verificationRead(pkg, q) === true;
+}
+
 /** Decision commands that accept the work. */
 export const ACCEPT_COMMANDS: readonly string[] = ["accept", "accept-with-findings"];
 

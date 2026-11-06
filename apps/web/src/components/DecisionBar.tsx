@@ -5,6 +5,7 @@ import type { ActionDescriptor, DecisionKind, PackageView } from "../api/types.j
 import { decisionLabel, NEEDS_REASON, browserPasskeys, decide, type Passkeys } from "../lib/decide.js";
 import { shortDigest } from "../lib/format.js";
 import { useOfferedActions } from "../lib/offered.js";
+import { needsIndependentCheck } from "../lib/board.js";
 
 const KINDS: DecisionKind[] = ["release", "accept", "accept-with-findings", "return", "reject"];
 const isKind = (c: string): c is DecisionKind => (KINDS as string[]).includes(c);
@@ -45,7 +46,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
     setDone(null);
     try {
       const { decision } = await decide(
-        { packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, ...(reason.trim().length > 0 ? { reason } : {}) },
+        { packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, independentCheck: needsIndependentCheck(pkg), ...(reason.trim().length > 0 ? { reason } : {}) },
         passkeys,
       );
       setDone(`${label(decision.kind)} recorded.`);
@@ -54,6 +55,8 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
       for (const key of ["package", "office", "inbox", "packages", "actions"]) void qc.invalidateQueries({ queryKey: key === "package" ? [key, pkg.id] : [key] });
     } catch (e) {
       setError(explain(e, "The decision was not recorded."));
+      // A refusal may come from a verification read that no longer matches what the bar offers.
+      void qc.invalidateQueries({ queryKey: ["person-verifications", pkg.id] });
     } finally {
       setBusy(false);
     }

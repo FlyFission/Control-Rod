@@ -195,6 +195,49 @@ describe("decision flow", () => {
     expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
   });
 
+  it("does not offer Accept while a refresh of a cached covering pass is in flight", async () => {
+    let hold: Promise<void> | undefined;
+    server.use(http.get("*/packages/WP-0001/person-verifications", async () => {
+      if (hold) await hold;
+      return HttpResponse.json([{ id: "pv1", package_revision: 3, outcome: "pass", covers_current_subject: true }]);
+    }));
+    offer(["accept", "return"]);
+    const v = view({}, { status: "in-verification", revision: 3, grade: "safety" });
+    const { qc } = await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
+    expect(await screen.findByRole("button", { name: "Accept" })).toBeTruthy();
+    let release!: () => void;
+    hold = new Promise<void>((r) => (release = r));
+    act(() => void qc.invalidateQueries({ queryKey: ["person-verifications"] }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Accept" })).toBeNull());
+    await act(async () => release());
+    expect(await screen.findByRole("button", { name: "Accept" })).toBeTruthy();
+  });
+
+  it("reads the person verifications again on Accept and sends no decision when no pass covers the work", async () => {
+    let covering = true;
+    let asked = false;
+    server.use(
+      http.get("*/packages/WP-0001/person-verifications", () =>
+        HttpResponse.json(covering ? [{ id: "pv1", package_revision: 3, outcome: "pass", covers_current_subject: true }] : [{ id: "pv1", package_revision: 3, outcome: "pass", covers_current_subject: false }])),
+      http.post("*/packages/WP-0001/decisions/options", () => {
+        asked = true;
+        return HttpResponse.json({ subject_digest: DIGEST, options: { challenge: "abc" } });
+      }),
+    );
+    offer(["accept", "return"]);
+    const signed: unknown[] = [];
+    const v = view({}, { status: "in-verification", revision: 3, grade: "safety" });
+    await renderPage(<DecisionBar view={v} passkeys={passkeys(signed)} />);
+    const button = await screen.findByRole("button", { name: "Accept" });
+    // The work changed since the page read its verifications; the cached pass no longer covers it.
+    covering = false;
+    await userEvent.setup().click(button);
+    expect(await screen.findByText(/A person verification of the current work must come before Accept/, { selector: "[role=alert]" })).toBeTruthy();
+    expect(asked).toBe(false);
+    expect(signed).toEqual([]);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Accept" })).toBeNull());
+  });
+
   it("stops before signing when the package changed since the page loaded", async () => {
     const signed: unknown[] = [];
     let decided = false;

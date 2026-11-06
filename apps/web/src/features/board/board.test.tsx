@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -7,7 +7,7 @@ import { server } from "../../test/server.js";
 import { renderPage } from "../../test/render.js";
 import { pkg, view } from "../../test/fixtures.js";
 import type { ActionDescriptor, WorkPackage } from "../../api/types.js";
-import { resetLiveStatus, useLiveEvents } from "../../lib/live.js";
+import { resetLiveStatus, useLiveEvents, useLiveStatus } from "../../lib/live.js";
 import { BoardView } from "./BoardView.js";
 
 /** The board as home (redesign task 4; spec 6.2). */
@@ -181,6 +181,55 @@ describe("BoardView", () => {
     expect(screen.queryByText(/0 needs you/)).toBeNull();
     expect(screen.queryByText(/0 agents running/)).toBeNull();
     for (const region of screen.getAllByRole("region")) expect(region.querySelector(".bd-col-head .mono")!.textContent).not.toBe("0");
+  });
+
+  it("reads cards and counts as last known after a drop until each read has succeeded again, even reads made inactive by leaving the board", async () => {
+    api({ packages: [pkg({ id: "WP-1", title: "One", status: "in-verification" })], actions: { "WP-1": [accept] } });
+    function Away() {
+      useLiveEvents(true);
+      const live = useLiveStatus();
+      const [show, setShow] = useState(true);
+      return (
+        <>
+          <button type="button" onClick={() => setShow((v) => !v)}>Toggle board</button>
+          <button type="button" onClick={live.reconnect}>Reconnect stream</button>
+          {show && <BoardView />}
+        </>
+      );
+    }
+    await renderPage(<Away />);
+    const user = userEvent.setup();
+    act(() => FakeSource.last!.emit("open"));
+    await waitFor(() => expect(screen.getByText("1 needs you")).toBeTruthy());
+    // Leave the board: its reads become inactive and are not refreshed when the stream recovers.
+    await user.click(screen.getByRole("button", { name: "Toggle board" }));
+    act(() => FakeSource.last!.emit("error"));
+    await user.click(screen.getByRole("button", { name: "Reconnect stream" }));
+    act(() => FakeSource.last!.emit("open"));
+    let release: (() => void) | undefined;
+    server.use(http.get("*/packages", async () => {
+      await new Promise<void>((r) => (release = r));
+      return HttpResponse.json([pkg({ id: "WP-1", title: "One", status: "in-verification" })]);
+    }));
+    // Return: the cached work shows, but as last known until its reads succeed after the drop.
+    await user.click(screen.getByRole("button", { name: "Toggle board" }));
+    expect(await screen.findByText("Last known: 1 needs you")).toBeTruthy();
+    const next = () => screen.getByText("One").closest("article")!.querySelector(".bd-next")!.textContent;
+    expect(next()).toMatch(/^Last known: /);
+    await waitFor(() => expect(release).toBeDefined());
+    await act(async () => release!());
+    await waitFor(() => expect(screen.getByText("1 needs you")).toBeTruthy());
+    await waitFor(() => expect(next()).not.toMatch(/^Last known: /));
+  });
+
+  it("says the agent count is unknown when a package view cannot be read", async () => {
+    api({ packages: [pkg({ id: "WP-1", title: "One", status: "in-work" }), pkg({ id: "WP-2", title: "Two", status: "in-work" })], runs: { "WP-1": "running" } });
+    server.use(http.get("*/packages/WP-2", () => HttpResponse.json({ code: "boom" }, { status: 500 })));
+    await renderPage(<Page />);
+    await waitFor(() => expect(screen.getByText("Two").closest("article")!.textContent).toContain("Could not read what is next"));
+    expect(screen.getByText("Agents running or queued: unknown")).toBeTruthy();
+    expect(screen.getByText("Needs you: unknown")).toBeTruthy();
+    expect(screen.queryByText(/1 agent running/)).toBeNull();
   });
 
   it("says it could not read what is next when the package view or actions fail, with a retry", async () => {

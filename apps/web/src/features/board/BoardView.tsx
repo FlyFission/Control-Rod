@@ -13,23 +13,21 @@ export function BoardView() {
   const unknown = data.status === "unknown";
   // An empty board is only claimed from a successful, empty read.
   const empty = !data.loading && data.problems.length === 0 && data.cards.length === 0;
-  // Counts are facts only after a successful read; after a failed refresh or while the stream is
-  // unknown they are what was last read, and before any read they are not shown.
-  const lastKnown = data.counts === "last-known" ? "Last known: " : "";
+  // Counts are facts only after a successful read; after a failed refresh, a drop not yet recovered
+  // from, or while the stream is unknown they are what was last read, and before any read they are
+  // not shown. Each count also needs every read it is made from (Codex round 3).
   const countsKnown = data.counts !== "unknown";
+  const count = (c: "current" | "last-known" | "unknown", n: number, words: string, label: string) =>
+    c === "unknown" ? `${label}: unknown` : `${c === "last-known" ? "Last known: " : ""}${n} ${words}`;
   return (
     <div className="bd" data-look={look}>
       <header className="bd-head">
         <h1 id="board-title">Board</h1>
         {countsKnown ? (
           <p className="bd-counts">
+            <span>{count(data.needsYouCounts, data.needsYou, "needs you", "Needs you")}</span>
             <span>
-              {lastKnown}
-              {data.needsYou} needs you
-            </span>
-            <span>
-              {lastKnown}
-              {data.agentsRunning} {data.agentsRunning === 1 ? "agent" : "agents"} running or queued
+              {count(data.agentsRunningCounts, data.agentsRunning, `${data.agentsRunning === 1 ? "agent" : "agents"} running or queued`, "Agents running or queued")}
             </span>
           </p>
         ) : (
@@ -83,6 +81,7 @@ export function BoardView() {
                   next={x.next}
                   column={x.column}
                   stream={data.status}
+                  lastKnown={x.lastKnown}
                   {...(data.unknownSince ? { unknownSince: data.unknownSince } : {})}
                   {...(x.owner ? { owner: x.owner } : {})}
                   {...(x.retry ? { onRetry: x.retry } : {})}

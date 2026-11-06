@@ -1,7 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "../../api/client.js";
 import type { ActionDescriptor, PersonVerificationEntry, WorkPackage } from "../../api/types.js";
-import { type ColumnId, boardColumn, needsIndependentCheck, preCheckState, verificationRead } from "../../lib/board.js";
+import { type ColumnId, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, preCheckState, verificationRead } from "../../lib/board.js";
 import { type Kind, kindsOf } from "../../lib/kind.js";
 import { useLiveStatus } from "../../lib/live.js";
 import { type NextLine, hasOtherQualified, nextLine } from "../../lib/next.js";
@@ -17,7 +17,12 @@ export type BoardCard = {
   runActive: boolean;
   /** Set when a read behind the next line failed: reads it again. */
   retry?: () => void;
+  /** A read behind this card has not succeeded since the latest stream drop: what it shows is last known. */
+  lastKnown: boolean;
 };
+
+/** How far a count can be trusted: from current reads, from reads not refreshed since a drop or failed to refresh, or not at all. */
+export type Confidence = "current" | "last-known" | "unknown";
 
 export type BoardData = {
   cards: BoardCard[];
@@ -37,7 +42,10 @@ export type BoardData = {
    * What the counts rest on: "unknown" before any successful read of the work (no count is shown),
    * "last-known" after a failed refresh or while the stream is unknown, "current" otherwise.
    */
-  counts: "current" | "last-known" | "unknown";
+  counts: Confidence;
+  /** Confidence of each header count, from every read that count needs. */
+  needsYouCounts: Confidence;
+  agentsRunningCounts: Confidence;
 };
 
 const CHECKING: NextLine = { tone: "wait", text: "Checking what is next" };
@@ -67,6 +75,16 @@ export function useBoardData(): BoardData {
   });
 
   const officeItems = office.data ?? [];
+  // A read is fresh when it has succeeded since the latest stream drop (or there was none). Reads that
+  // were inactive at the drop, for example while the viewer was on another page, are refreshed only
+  // when they become active again; until then their data is last known.
+  const dropped = live.droppedAt;
+  const fresh = (q: { dataUpdatedAt: number; isError: boolean } | undefined) =>
+    q !== undefined && !q.isError && (dropped === undefined || q.dataUpdatedAt > dropped);
+  const boardFresh = fresh(packages) && fresh(office);
+  let undetermined = false;
+  let runsUnread = false;
+  let anyStale = false;
   // Originators are user names; the registry is keyed by member id.
   const memberIdOf = new Map((admin.data?.members ?? []).map((m) => [m.user_name, m.id]));
 
@@ -93,6 +111,9 @@ export function useBoardData(): BoardData {
     const waitingOnVerifs = verifQ?.isPending === true && verifQ.fetchStatus !== "idle";
     let next: NextLine;
     let retry: (() => void) | undefined;
+    if (viewQ?.data === undefined || viewQ.isError) runsUnread = true;
+    const cardFresh = boardFresh && fresh(viewQ) && fresh(actsQ) && (verifQ?.fetchStatus === "idle" && verifQ.isPending ? true : fresh(verifQ));
+    if (!cardFresh) anyStale = true;
     if (viewQ?.isError || actsQ?.isError) {
       next = NO_NEXT;
       retry = () => {
@@ -115,7 +136,8 @@ export function useBoardData(): BoardData {
       const excluded = new Set(originators.flatMap((u) => memberIdOf.get(u) ?? []));
       next = nextLine({
         pkg: p,
-        actions: acts,
+        // Ruling 16 with a refresh in flight counted as unknown: a cached pass does not offer Accept.
+        actions: blockUnverifiedAccept(p, acts, acceptVerified(p, verifQ ?? { isError: false, isFetching: false })),
         office: officeItems,
         verifications: verifications ?? [],
         verified,
@@ -124,7 +146,8 @@ export function useBoardData(): BoardData {
         runActive,
       });
     }
-    cards.push({ pkg: p, kinds: kindsOf(p), column, next, ...(owner ? { owner } : {}), runActive, ...(retry ? { retry } : {}) });
+    if (next === CHECKING || next === NO_NEXT || retry !== undefined) undetermined = true;
+    cards.push({ pkg: p, kinds: kindsOf(p), column, next, ...(owner ? { owner } : {}), runActive, ...(retry ? { retry } : {}), lastKnown: !cardFresh });
   });
 
   const problems: string[] = [];
@@ -142,7 +165,9 @@ export function useBoardData(): BoardData {
     status: live.status,
     ...(live.unknownSince ? { unknownSince: live.unknownSince } : {}),
     reconnect: live.reconnect,
-    counts: packages.data === undefined ? "unknown" : packages.isError || live.status === "unknown" ? "last-known" : "current",
+    counts: packages.data === undefined ? "unknown" : packages.isError || live.status === "unknown" || !boardFresh ? "last-known" : "current",
+    needsYouCounts: packages.data === undefined || undetermined ? "unknown" : live.status === "unknown" || anyStale || packages.isError ? "last-known" : "current",
+    agentsRunningCounts: packages.data === undefined || runsUnread ? "unknown" : live.status === "unknown" || anyStale || packages.isError ? "last-known" : "current",
     needsYou: cards.filter((c) => c.next.tone === "needs" || c.next.tone === "block").length,
     agentsRunning: cards.filter((c) => c.runActive).length,
   };

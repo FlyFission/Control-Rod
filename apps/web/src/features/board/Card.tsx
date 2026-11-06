@@ -45,15 +45,17 @@ export type CardProps = {
   unknownSince?: string;
   /** Reads again what the next line could not read. */
   onRetry?: () => void;
+  /** A read behind the card has not succeeded since the latest stream drop: its line is last known. */
+  lastKnown?: boolean;
 };
 
 /** A board card: the small fixed core of spec 6.2. No drag; the title opens the package. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
   return (
-    <article aria-labelledby={titleId} className="bd-card" data-kind={kinds[0]} data-column={column} data-tone={stream === "live" ? next.tone : "unknown"}>
+    <article aria-labelledby={titleId} className="bd-card" data-kind={kinds[0]} data-column={column} data-tone={stream === "live" && !lastKnown ? next.tone : "unknown"}>
       <div className="bd-kinds">
         {kinds.map((k) => (
           <span key={k} className="bd-kind" data-kind={k}>
@@ -92,7 +94,9 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
         )}
       </div>
       <p className="bd-next">
-        {stream === "live" ? (
+        {stream === "live" && lastKnown ? (
+          <span className="muted">Last known: {next.text}</span>
+        ) : stream === "live" ? (
           <>
             <span className="bd-sym">
               <span aria-hidden="true">{tone.symbol} </span>

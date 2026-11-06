@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { ActionDescriptor, WorkPackage } from "../api/types.js";
-import { blockUnverifiedAccept, needsIndependentCheck, verificationRead } from "./board.js";
+import { acceptVerified, blockUnverifiedAccept, needsIndependentCheck } from "./board.js";
 
 export type OfferedActions = {
   /** The server's actions with the acceptance block applied; undefined until they are read. */
@@ -25,8 +25,8 @@ export function useOfferedActions(pkg: WorkPackage): OfferedActions {
   const actions = useQuery({ queryKey: ["actions", pkg.id], queryFn: () => api.packageActions(pkg.id) });
   const independent = needsIndependentCheck(pkg);
   const verifs = useQuery({ queryKey: ["person-verifications", pkg.id], queryFn: () => api.personVerifications(pkg.id), enabled: independent });
-  // Not read, or a failed refresh: unknown, which is not a pass.
-  const verified = verificationRead(pkg, verifs) === true;
+  // Not read, a failed refresh, or a refresh in flight: unknown, which is not a pass.
+  const verified = acceptVerified(pkg, verifs);
   return {
     data: actions.data === undefined ? undefined : blockUnverifiedAccept(pkg, actions.data, verified),
     isLoading: actions.isLoading,

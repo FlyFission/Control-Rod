@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ACCEPT_COMMANDS, ACCEPT_WAITS_FOR_VERIFICATION, blockUnverifiedAccept, needsIndependentCheck, verificationRead } from "../lib/board.js";
+import { ACCEPT_COMMANDS, ACCEPT_WAITS_FOR_VERIFICATION, acceptVerified, blockUnverifiedAccept, needsIndependentCheck } from "../lib/board.js";
 import { api } from "../api/client.js";
 import { type Command, buildCommands, filterCommands } from "../places/commands.js";
 import { PLACES } from "../places/places.js";
@@ -35,7 +35,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const packageActions = useMemo(() => {
     if (actions.data === undefined) return undefined;
     if (viewed === undefined) return actions.data.map((a) => (a.allowed && ACCEPT_COMMANDS.includes(a.command) ? { ...a, allowed: false, reason: ACCEPT_WAITS_FOR_VERIFICATION } : a));
-    return blockUnverifiedAccept(viewed, actions.data, verificationRead(viewed, verifications) === true);
+    return blockUnverifiedAccept(viewed, actions.data, acceptVerified(viewed, verifications));
   }, [actions.data, viewed, verifications]);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);

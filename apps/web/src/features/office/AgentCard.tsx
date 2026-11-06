@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { api } from "../../api/client.js";
 import type { ActionDescriptor, AgentFigure, PackageView } from "../../api/types.js";
 import { STATE_INFO, StateMark } from "../../components/StateMark.js";
-import { COLUMNS, blockUnverifiedAccept, boardColumn, needsIndependentCheck, verificationRead } from "../../lib/board.js";
+import { COLUMNS, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, verificationRead } from "../../lib/board.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../../lib/format.js";
 import { REGION } from "./layout.js";
 
@@ -55,7 +55,7 @@ function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
   const verifications = useQuery({ queryKey: ["person-verifications", f.package_id], queryFn: () => api.personVerifications(f.package_id), enabled: isPackage && independent });
   // Unknown (not read, or a failed refresh) for independent-check work; null for other work, which needs no verification.
   const verified: boolean | "unknown" | null = view.data === undefined ? null : independent ? verificationRead(view.data.package, verifications) : null;
-  const offered = actions.data && view.data ? blockUnverifiedAccept(view.data.package, actions.data, verified === true) : actions.data;
+  const offered = actions.data && view.data ? blockUnverifiedAccept(view.data.package, actions.data, independent ? acceptVerified(view.data.package, verifications) : true) : actions.data;
   const marks = [
     f.marks.gate && "A gate decision waits on this package",
     f.marks.changed_input && `Input ${f.marks.changed_input} changed`,

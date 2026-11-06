@@ -8,9 +8,11 @@ export const LIVE_GAP_EVENT = "cr:live-gap";
  * What the page knows about the event stream. "connecting" is before the first open: nothing is claimed
  * either way. "unknown" means the stream dropped and has not come
  * back, so nothing on screen can be called current; `unknownSince` is when it dropped. `generation`
- * changes when someone asks to reconnect, which opens a fresh stream.
+ * changes when someone asks to reconnect, which opens a fresh stream. `droppedAt` (epoch ms) is when
+ * the latest drop began and outlasts the recovery: a read whose data is older than it is last known,
+ * even once the stream is live again (a read that was inactive at the drop is refreshed only later).
  */
-export type LiveStatus = { status: "connecting" | "live" | "unknown"; unknownSince?: string; generation: number };
+export type LiveStatus = { status: "connecting" | "live" | "unknown"; unknownSince?: string; droppedAt?: number; generation: number };
 
 let liveState: LiveStatus = { status: "connecting", generation: 0 };
 const liveListeners = new Set<() => void>();
@@ -38,11 +40,12 @@ function setLive(next: LiveStatus) {
 }
 function markUnknown() {
   if (liveState.status === "unknown") return;
-  setLive({ ...liveState, status: "unknown", unknownSince: new Date().toISOString() });
+  const now = new Date();
+  setLive({ ...liveState, status: "unknown", unknownSince: now.toISOString(), droppedAt: now.getTime() });
 }
 function markLive() {
   if (liveState.status === "live") return;
-  setLive({ status: "live", generation: liveState.generation });
+  setLive({ status: "live", generation: liveState.generation, ...(liveState.droppedAt !== undefined ? { droppedAt: liveState.droppedAt } : {}) });
 }
 function subscribeLive(fn: () => void) {
   liveListeners.add(fn);
@@ -51,10 +54,10 @@ function subscribeLive(fn: () => void) {
 const readLive = () => liveState;
 
 /** The stream state for screens that must not present stale state as current, and a way to reconnect. */
-export function useLiveStatus(): { status: "connecting" | "live" | "unknown"; unknownSince?: string; reconnect: () => void } {
+export function useLiveStatus(): { status: "connecting" | "live" | "unknown"; unknownSince?: string; droppedAt?: number; reconnect: () => void } {
   const st = useSyncExternalStore(subscribeLive, readLive, readLive);
   const reconnect = useCallback(() => setLive({ ...liveState, generation: liveState.generation + 1 }), []);
-  return { status: st.status, ...(st.unknownSince ? { unknownSince: st.unknownSince } : {}), reconnect };
+  return { status: st.status, ...(st.unknownSince ? { unknownSince: st.unknownSince } : {}), ...(st.droppedAt !== undefined ? { droppedAt: st.droppedAt } : {}), reconnect };
 }
 
 /**

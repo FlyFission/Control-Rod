@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/pocket-lab/scene.1ae44f138d3b.svg",
-      "sha256": "1ae44f138d3b3b9921ae9c85b48cf68b358abb62fcb62416ca6dc72fb46c3064",
-      "bytes": 9042,
+      "path": "/floor-themes/pocket-lab/scene.dbabd89a3f3e.svg",
+      "sha256": "dbabd89a3f3e9d0647496e00ce47ba8dd7f1a0a3ada1ed551793787775ac4c7a",
+      "bytes": 10689,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/pocket-lab/thumbnail.d8e7b87947ac.svg",
-      "sha256": "d8e7b87947acb20fa5963dde7435c493ca913cbd0e2da6b8cfe6af2b481884a5",
-      "bytes": 16852,
+      "path": "/floor-themes/pocket-lab/thumbnail.365f97b8d467.svg",
+      "sha256": "365f97b8d467bd2b7719a6d97caa38ca30ca00a2e20cf6228f4723bb54969146",
+      "bytes": 18149,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/pocket-lab/character-0.6dddda887422.svg",
-        "sha256": "6dddda887422840378b14fabbcb5646abfc3183051e746a1a650c1fe5e270609",
-        "bytes": 1262,
+        "path": "/floor-themes/pocket-lab/character-0.41c87f904b4a.svg",
+        "sha256": "41c87f904b4af269ec2c0287c1949f04fdcfc9e7616684a54e7fbefabcff171a",
+        "bytes": 1275,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/pocket-lab/character-1.6eebef5a8608.svg",
-        "sha256": "6eebef5a8608972a275faf43aee540708e180253b02fe049b158cc61abb0211e",
-        "bytes": 1264,
+        "path": "/floor-themes/pocket-lab/character-1.28b126dba130.svg",
+        "sha256": "28b126dba13016fae28e1972cfcbd8fccb12f1613c735b7c7a6c58e345785a9c",
+        "bytes": 1191,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/pocket-lab/character-2.c2d1999927dd.svg",
-        "sha256": "c2d1999927dd9dbb22547f8e3e0acd4a604d0aa30e1ac20eb8d2e07a919d16cf",
-        "bytes": 1280,
+        "path": "/floor-themes/pocket-lab/character-2.9b5057d3bcfc.svg",
+        "sha256": "9b5057d3bcfc42225146709cb93fb34bc52d5a5d0de4a706a1ff5afc7cd18ed8",
+        "bytes": 1249,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/pocket-lab/character-3.81e5aca237b3.svg",
-        "sha256": "81e5aca237b3d6dde373cd3f4470732ad3b8e32ce608731123a7187bd029939a",
-        "bytes": 1317,
+        "path": "/floor-themes/pocket-lab/character-3.b518574678d9.svg",
+        "sha256": "b518574678d9b8d1b14c0f81f51f1fc7f85f721e579543df7eabcdda781cec3f",
+        "bytes": 1175,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/pocket-lab/character-4.1909da2ef6cc.svg",
-        "sha256": "1909da2ef6cc4d8cffb8501ee2749cd848d1cb0d2a95c8a0835e52fbf13eacf0",
-        "bytes": 1301,
+        "path": "/floor-themes/pocket-lab/character-4.544f62b35878.svg",
+        "sha256": "544f62b35878e285e52c20d394fe33b4ef78121b365ba5ffc92b681b49fb97c2",
+        "bytes": 1201,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/pocket-lab/character-5.d31f0bced07d.svg",
-        "sha256": "d31f0bced07d9f6efa29a7ce86d72d3506818a25401fd78df21bcccdbbf48597",
-        "bytes": 1282,
+        "path": "/floor-themes/pocket-lab/character-5.2b898f07e760.svg",
+        "sha256": "2b898f07e7604169d35ee96181a3320f4bde63d9d35fd71cb514a1f96c0dbc8d",
+        "bytes": 1265,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

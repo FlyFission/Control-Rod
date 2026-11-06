@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/coral-commons/scene.8f5eda62c4a5.svg",
-      "sha256": "8f5eda62c4a5830a37319b9cea857b0a2a69747e77a29b9b18fcce79cff38acc",
-      "bytes": 15042,
+      "path": "/floor-themes/coral-commons/scene.6cd703918e62.svg",
+      "sha256": "6cd703918e6213d0c14cb009f33f88745e05e52b01c5c72752688fc73100f5a5",
+      "bytes": 16689,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/coral-commons/thumbnail.92ef4169c136.svg",
-      "sha256": "92ef4169c13622238cc6c993ee59871979020764d860f4f0f46860096ff0a315",
-      "bytes": 21062,
+      "path": "/floor-themes/coral-commons/thumbnail.b48a5fc81f7f.svg",
+      "sha256": "b48a5fc81f7f42b70ab89ab4cd61906b4918a6c3127b777782b47abee43ac777",
+      "bytes": 22937,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/coral-commons/character-0.7ae95c7410b7.svg",
-        "sha256": "7ae95c7410b790ec843ace9cc969a02fecf12360354a8a5b27e07bc55a4a9c08",
-        "bytes": 957,
+        "path": "/floor-themes/coral-commons/character-0.14e459c56e25.svg",
+        "sha256": "14e459c56e258de89b0531bb2a343760c69b34b0314847030c28233d3f5c659f",
+        "bytes": 1032,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/coral-commons/character-1.ba0b13fee02a.svg",
-        "sha256": "ba0b13fee02acafde0cb66c1c172e914dbeb3ee1fa5c7eee1d3e686cd508803b",
-        "bytes": 998,
+        "path": "/floor-themes/coral-commons/character-1.a79048c53f4b.svg",
+        "sha256": "a79048c53f4bb3166c33d0611c846316428a4b919273d5669508eb4c4afa517d",
+        "bytes": 1045,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/coral-commons/character-2.e15d5ac98a25.svg",
-        "sha256": "e15d5ac98a25f388fc725a5b25d091ca378febd8a1684681b0f4c72c576314cf",
-        "bytes": 977,
+        "path": "/floor-themes/coral-commons/character-2.8c0b920bf5b9.svg",
+        "sha256": "8c0b920bf5b92054cbe6ccfddd8336b54641d65347da798dc80703ae2917f726",
+        "bytes": 1045,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/coral-commons/character-3.199804e6f4d8.svg",
-        "sha256": "199804e6f4d85cf4c9a34ace44b83e27e8cb89b4a1dab98aa5f84b61fec0f733",
-        "bytes": 1013,
+        "path": "/floor-themes/coral-commons/character-3.5e373fc1d70a.svg",
+        "sha256": "5e373fc1d70a5166d3c350218995c5088574c13052735104820ef53c588ed1f2",
+        "bytes": 1001,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/coral-commons/character-4.dfee094b5798.svg",
-        "sha256": "dfee094b5798d925fb8d3c032c08b65b9cd9e6da909dd5dd13713e6195c78512",
-        "bytes": 962,
+        "path": "/floor-themes/coral-commons/character-4.89d269db2680.svg",
+        "sha256": "89d269db26801f8de412a4a0436abcdbb77d11187bc112a78530fdb6c6739622",
+        "bytes": 992,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/coral-commons/character-5.fd1278945f48.svg",
-        "sha256": "fd1278945f48283d4c840692f7b73202472fabd7a34c06986928a6a389fdb418",
-        "bytes": 1009,
+        "path": "/floor-themes/coral-commons/character-5.5b267f03a0a0.svg",
+        "sha256": "5b267f03a0a05233258782b4852e62cc72641b4889e7e6acadee91e7d84c730b",
+        "bytes": 1029,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

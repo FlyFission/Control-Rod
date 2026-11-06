@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/cloudspring-bathhouse/scene.e8f5f67d334d.svg",
-      "sha256": "e8f5f67d334d2a44cd9e0e768a8a1c49d773d4d8230a2a9a22bca4f44d7a0346",
-      "bytes": 7828,
+      "path": "/floor-themes/cloudspring-bathhouse/scene.ff951f63941c.svg",
+      "sha256": "ff951f63941c6e90be7817c5a0e7feb3b2575346c23668dc02de17acc70acf80",
+      "bytes": 9475,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/cloudspring-bathhouse/thumbnail.0a06b164c294.svg",
-      "sha256": "0a06b164c294fe8e659d8e3a0d30f5b00d4e0a766b9a1eba20889c210d5fd793",
-      "bytes": 14766,
+      "path": "/floor-themes/cloudspring-bathhouse/thumbnail.d14490c7fde4.svg",
+      "sha256": "d14490c7fde4baed5e380935df8d694e344055f64d591d26073cada7f150f108",
+      "bytes": 16565,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/cloudspring-bathhouse/character-0.e67f71307716.svg",
-        "sha256": "e67f713077160b1fccaf3181a3ee5b9d6f6b8a926e1c13bc159323edde92b079",
-        "bytes": 1112,
+        "path": "/floor-themes/cloudspring-bathhouse/character-0.0e71c50e9bb4.svg",
+        "sha256": "0e71c50e9bb45a3219c6342d58a55dca068bfdacaa28594710c7398d70401fdd",
+        "bytes": 1149,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/cloudspring-bathhouse/character-1.eb5dd6bd9843.svg",
-        "sha256": "eb5dd6bd984373c65337718e3790e8cc6dd3996460aae976d62b251125110cba",
-        "bytes": 1191,
+        "path": "/floor-themes/cloudspring-bathhouse/character-1.cccdd07f3fdf.svg",
+        "sha256": "cccdd07f3fdfc46a7984e7fa9039b54649471d4adf6c1fa73fccb1222968cdfe",
+        "bytes": 1180,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/cloudspring-bathhouse/character-2.d8cdae8b2049.svg",
-        "sha256": "d8cdae8b2049d26cd0614bdf4fa4106a9b8b089dfc00980aaa404aca3e5dbca2",
-        "bytes": 1112,
+        "path": "/floor-themes/cloudspring-bathhouse/character-2.d5184282061a.svg",
+        "sha256": "d5184282061a881094f6d57d11f594be930b8f39943104b5be03631af8162256",
+        "bytes": 1138,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/cloudspring-bathhouse/character-3.924e9c7fcf81.svg",
-        "sha256": "924e9c7fcf810213dc893ccc72512dc7a79b1f9b72c0a4f93742e5a13efc4a5d",
-        "bytes": 1112,
+        "path": "/floor-themes/cloudspring-bathhouse/character-3.5bf1d400c0da.svg",
+        "sha256": "5bf1d400c0da1defe4e2b6eaccb5ac3eae7708b8fa6a785e7d7c65efd1bc6793",
+        "bytes": 1149,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/cloudspring-bathhouse/character-4.c26c98bce666.svg",
-        "sha256": "c26c98bce666d0c3c4aec19e11d87d852e2e1d7dd28dcbffa7f0c64aa73bb48e",
-        "bytes": 1122,
+        "path": "/floor-themes/cloudspring-bathhouse/character-4.97b60e4063d8.svg",
+        "sha256": "97b60e4063d80c4f5f796544ccda8d3a1e8ac8a8976db01b48ed5996672a5b11",
+        "bytes": 1231,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/cloudspring-bathhouse/character-5.7ebf6e951f44.svg",
-        "sha256": "7ebf6e951f44d479fbf221dd6880491e32a28dfe247ccffc28b2d04754730fc4",
-        "bytes": 1185,
+        "path": "/floor-themes/cloudspring-bathhouse/character-5.84540ea0e620.svg",
+        "sha256": "84540ea0e620e70f68ba991ae609872874cda35e0eaffc80fddda731b59e6ccc",
+        "bytes": 1139,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

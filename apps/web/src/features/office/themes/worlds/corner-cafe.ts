@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/corner-cafe/body-0.178314f5fc32.svg",
-      "sha256": "178314f5fc32e009288c2d9984440f3dc947eb27d5ed9a28016b2bd01d7540c2",
-      "bytes": 1216,
+      "path": "/office-themes/corner-cafe/body-0.df50cbaa4fce.svg",
+      "sha256": "df50cbaa4fce81a541892a21a40cc9aaba89b7e3f3901d045c56004ebfb73305",
+      "bytes": 1047,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/corner-cafe/body-2.deba7d7f9ecc.svg",
-      "sha256": "deba7d7f9ecc663c6d3b2f0ba7775368b461b60ff876000d16e0478cedf08578",
-      "bytes": 1223,
+      "path": "/office-themes/corner-cafe/body-2.15b7fbe5c6f0.svg",
+      "sha256": "15b7fbe5c6f0dd9afec9b453e99e7d536b3b7b6ebe3409ac9d9fd9f1c51e55ce",
+      "bytes": 1111,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/corner-cafe/body-3.544fb0dd1fb3.svg",
-      "sha256": "544fb0dd1fb35eb8fa2cca733e869d4d4674eb3aa718779318b0da54c27ede87",
-      "bytes": 1083,
+      "path": "/office-themes/corner-cafe/body-3.d1cd508bad08.svg",
+      "sha256": "d1cd508bad08511a257d29634a427e9e6f434f078d127dacf83f5bf36076cd40",
+      "bytes": 1037,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/corner-cafe/body-4.863c59cdafd6.svg",
-      "sha256": "863c59cdafd6a83fb6b73eaedda49c02d8f25ece7aeb80fa3a898688aa4b991d",
-      "bytes": 1173,
+      "path": "/office-themes/corner-cafe/body-4.cc7dd8c15336.svg",
+      "sha256": "cc7dd8c15336ae1f1525af555c90e28f68aeef04c0b8474c768475e5855d31e4",
+      "bytes": 1061,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

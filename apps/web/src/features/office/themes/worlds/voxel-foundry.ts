@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/voxel-foundry/body-0.f30d126b7b4a.svg",
-      "sha256": "f30d126b7b4a8ee064f643f3e29e22b513bb2faceacf7b7abd1625b7831a0ba4",
-      "bytes": 1105,
+      "path": "/office-themes/voxel-foundry/body-0.bec2193a9b6f.svg",
+      "sha256": "bec2193a9b6fadff3fd0845a718d6d8f86f5d597ea96b0e1ab75254db8ebf44b",
+      "bytes": 1152,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/voxel-foundry/body-1.f4bd8c7e84aa.svg",
-      "sha256": "f4bd8c7e84aa38e22c9bb55ce8d5d2f3e1bebadf5efac044ee348f7ca918ed8f",
-      "bytes": 1124,
+      "path": "/office-themes/voxel-foundry/body-1.93eac6eff8ab.svg",
+      "sha256": "93eac6eff8ab74008762950722c3bf3f87a892752c235ec8e6d0e4368f6dc9b5",
+      "bytes": 1133,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/voxel-foundry/body-2.22f69b762679.svg",
-      "sha256": "22f69b7626790954900cd07c810455abc48140cb33725fda7ca4e3b89910d306",
-      "bytes": 1153,
+      "path": "/office-themes/voxel-foundry/body-2.fea789410960.svg",
+      "sha256": "fea789410960280e9d7268cdbcaffc06b50e1f6ad6e5ed396d7a04d7e04a67ca",
+      "bytes": 1243,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/voxel-foundry/body-3.ef52094bac56.svg",
-      "sha256": "ef52094bac564fae03fffbffcf566757b1b9087f481be76e037ef9ad2055fd05",
-      "bytes": 1117,
+      "path": "/office-themes/voxel-foundry/body-3.12650c81eebc.svg",
+      "sha256": "12650c81eebcf3f5b9e05b9e1483f4f5d40db67ad49993ba8ba22699825364b7",
+      "bytes": 1161,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/voxel-foundry/body-4.233e68c0076e.svg",
-      "sha256": "233e68c0076ec0f1f7b5b834c4630d2b24bfda1945a2c62dbb43d4a89b668d92",
-      "bytes": 1134,
+      "path": "/office-themes/voxel-foundry/body-4.4006eabc9271.svg",
+      "sha256": "4006eabc92716becb9fe754aaa6c1b74bf540252f625a415b1221dfb69322536",
+      "bytes": 1168,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/voxel-foundry/body-5.998791516748.svg",
-      "sha256": "9987915167485b8aa0da2e53831a42564b0690516b19217967ffb0aef2950a0a",
-      "bytes": 1171,
+      "path": "/office-themes/voxel-foundry/body-5.eda858516e6b.svg",
+      "sha256": "eda858516e6bb5888c18fbc8d3d1e8a2671067e1d06d05045a51b1acff520ce8",
+      "bytes": 1184,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

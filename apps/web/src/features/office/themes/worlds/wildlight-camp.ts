@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/wildlight-camp/body-0.4c631ab4f922.svg",
-      "sha256": "4c631ab4f922a0583a23afcc2aff10209d3a3e31471f0f93fea6615684e13b7e",
-      "bytes": 1393,
+      "path": "/office-themes/wildlight-camp/body-0.683f4c13d026.svg",
+      "sha256": "683f4c13d0263d2eef0fdcbb7397bf9d449ce6fc179b41fcb59ea2646afa13fa",
+      "bytes": 1200,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/wildlight-camp/body-1.29706038ca68.svg",
-      "sha256": "29706038ca685f0c86ae417c6d3af8a8ccb7fb9494fc5469ec3674d4adc415ad",
-      "bytes": 1381,
+      "path": "/office-themes/wildlight-camp/body-1.4245e9fde2d1.svg",
+      "sha256": "4245e9fde2d16efd6e2e8d4b4ca0835a94b7a9fc4666d4f63ef704376b5419b6",
+      "bytes": 1209,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/wildlight-camp/body-2.5356b073d1d5.svg",
-      "sha256": "5356b073d1d51635442ee0154be2991e53b0108196d9a8bd3793370a0d62400e",
-      "bytes": 1392,
+      "path": "/office-themes/wildlight-camp/body-2.86d99ead9f83.svg",
+      "sha256": "86d99ead9f838eff166e2079999c5353646c0359e6295ce08df080bb187a12d9",
+      "bytes": 1183,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/wildlight-camp/body-3.31dfc5985be4.svg",
-      "sha256": "31dfc5985be4ec31c20aac01cdec2b7adaf6d0d9dd1a0af7579f17473506f727",
-      "bytes": 1488,
+      "path": "/office-themes/wildlight-camp/body-3.7b4b8f67c849.svg",
+      "sha256": "7b4b8f67c84937bdb8942926bee03171d0f502be43550fc67eb240e00ce41be3",
+      "bytes": 1273,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/wildlight-camp/body-4.275ba29119cf.svg",
-      "sha256": "275ba29119cfd9004f2024edf577524f159cca5951290073171895d21d2ddb60",
-      "bytes": 1380,
+      "path": "/office-themes/wildlight-camp/body-4.d788073f3384.svg",
+      "sha256": "d788073f33847e99962f849712194c6ad82cdce2dcf0f56fc6f14236ded50ecb",
+      "bytes": 1167,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/wildlight-camp/body-5.3dc43a4d4fe8.svg",
-      "sha256": "3dc43a4d4fe8985349a491ce35bb8d11b0022bcacb35a2ed43b7e7ae7df04ab1",
-      "bytes": 1385,
+      "path": "/office-themes/wildlight-camp/body-5.4dad48c07477.svg",
+      "sha256": "4dad48c0747784b7d953abe9b2d694a8c1a19b421010bfbb298182cb69e83e2d",
+      "bytes": 1206,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

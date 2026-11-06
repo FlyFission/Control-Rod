@@ -213,7 +213,13 @@ def vignette(world,px,py,palette):
 
 def scene(world,entry):
     a,b,c,d=entry['palette'];dark=mix(a,.18);light=mix(a,.65);accent=mix(c,.7,(255,230,195));rng=random.Random(world+17)
-    s=f'<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{mix(a,.4)}"/><stop offset="1" stop-color="{dark}"/></linearGradient><linearGradient id="desk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{mix(c,.6)}"/><stop offset="1" stop-color="{mix(b,.4)}"/></linearGradient></defs><rect width="1000" height="600" fill="url(#sky)"/>'
+    s=(f'<defs>'
+       f'<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{mix(a,.42)}"/><stop offset="1" stop-color="{dark}"/></linearGradient>'
+       f'<linearGradient id="desk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{mix(c,.65)}"/><stop offset="1" stop-color="{mix(b,.4)}"/></linearGradient>'
+       f'<radialGradient id="ambient" cx="50%" cy="50%" r="65%"><stop offset="0" stop-color="{mix(c,.25,(255,255,255))}" stop-opacity=".14"/><stop offset="100%" stop-color="{dark}" stop-opacity="0"/></radialGradient>'
+       f'</defs>'
+       f'<rect width="1000" height="600" fill="url(#sky)"/>'
+       f'<rect width="1000" height="600" fill="url(#ambient)"/>')
     # Quiet material detail around the functional clear zones.
     if world in (7,12):
         for _ in range(95):
@@ -240,6 +246,8 @@ def scene(world,entry):
     for index,(key,r) in enumerate(STATIONS.items()):
         x,y,w,h=r['x'],r['y'],r['w'],r['h'];rounding=26 if world in (4,8,10,13,14) else 9 if world in (2,7,9,12) else 17
         s+=f'<rect x="{x+3}" y="{y+7}" width="{w}" height="{h}" rx="{rounding}" fill="#071422" opacity=".35"/><rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rounding}" fill="{mix(a,.32)}" stroke="{mix(d,.45)}" stroke-width="1.5"/>'
+        # Quiet station header plate beneath title
+        s+=f'<rect x="{x+1}" y="{y+1}" width="{w-2}" height="32" rx="{rounding-1}" fill="{mix(a,.22)}" opacity=".75"/><rect x="{x+1}" y="{y+18}" width="{w-2}" height="14" fill="{mix(a,.22)}" opacity=".75"/><line x1="{x+12}" y1="{y+32}" x2="{x+w-12}" y2="{y+32}" stroke="{mix(d,.35)}" stroke-width="1"/>'
         s+=f'<path d="M{x+14} {y+h-30}h{w-28}l-8 15H{x+22}z" fill="url(#desk)"/><path d="M{x+22} {y+h-15}v7h{w-44}v-7" fill="{mix(b,.35)}"/>'
         for col in range(3):
             sx=x+w*(col+.5)/3

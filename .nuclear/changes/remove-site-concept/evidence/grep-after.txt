@@ -1,0 +1,14 @@
+# Search after the change, merged tree f5ecc39
+$ git grep -n -i -I "basemark|data center|data-center|site concept|site-concept|50 mw|cadcraft|cr-site|cr_site" -- . ":(exclude,glob).nuclear/changes/*/evidence/**"
+docs/adr/0018-drawing-engine-cadcraft.md:1:# ADR 0018: CADCraft as the drawing engine
+docs/adr/0018-drawing-engine-cadcraft.md:3:- Status: Superseded. Withdrawn 2026-11-06 by the owner: CADCraft and the drawings pack were removed with the site-concept pack
+docs/adr/0018-drawing-engine-cadcraft.md:7:This record had proposed CADCraft, driven headless inside the sandbox, as the engine that renders every drawing sheet from a template and a record, so agents never draw borders or type title blocks. Nothing in Control Rod depends on it now; the record stays so ADR numbering is unchanged.
+
+# Evidence logs (frozen, left as they are) that mention the removed subject:
+.nuclear/changes/board-m1/evidence/final-fix/08-accept-block-red-entrypoints.log
+.nuclear/changes/board-m1/evidence/final-fix/08-accept-block-red.log
+.nuclear/changes/platform-buildout/evidence/controller-grants/remote-source-pins.txt
+.nuclear/changes/platform-buildout/evidence/final-checks/review-web-red.log
+
+# Evidence files that contain BaseMark:
+none

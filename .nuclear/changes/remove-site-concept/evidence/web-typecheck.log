@@ -1,0 +1,13 @@
+# tree: remove-site-concept at f5ecc39 (merged with origin/main 8a9679e), 2026-11-06T21:19:37Z
+$ pnpm -C apps/web typecheck
+
+> @control-rod/web@0.0.0 typecheck /home/flyfission/worktrees/control-rod-sanitize/apps/web
+> pnpm gen:api && tsc -p tsconfig.json --noEmit
+
+
+> @control-rod/web@0.0.0 gen:api /home/flyfission/worktrees/control-rod-sanitize/apps/web
+> openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [194.2ms]
+exit 0

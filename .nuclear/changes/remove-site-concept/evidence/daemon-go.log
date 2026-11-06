@@ -1,0 +1,17 @@
+# tree: remove-site-concept at f5ecc39 (merged with origin/main 8a9679e), 2026-11-06T21:20:26Z
+$ gofmt -l .
+$ go vet ./...
+go: downloading github.com/BurntSushi/toml v1.6.0
+exit 0
+$ go test ./... -count=1
+?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	0.696s
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.003s
+--- FAIL: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.28s)
+    sandbox_test.go:304: the installed Codex leaves unqualified features on: [deferred_tool_world_state]
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	19.354s
+?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
+?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]
+FAIL
+exit 1

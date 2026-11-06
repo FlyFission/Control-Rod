@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../api/client.js";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -13,6 +15,13 @@ import { SignIn } from "./SignIn.js";
  */
 const passkeys: Passkeys = { get: async () => ({ signed: true }), create: async () => ({ created: true }) };
 const firstRun = { registered: false, signed_in: false } as never;
+
+/** Mirrors Root in router.tsx: the session query decides between the sign-in page and the app. */
+function Gate() {
+  const s = useQuery({ queryKey: ["session"], queryFn: api.session });
+  if (s.data === undefined) return null;
+  return s.data.signed_in ? <p>The app</p> : <SignIn session={s.data} passkeys={passkeys} />;
+}
 
 describe("a sign-in page drawn from an out-of-date session", () => {
   it("takes a browser that is already signed in to its session instead of refusing", async () => {
@@ -53,5 +62,62 @@ describe("a sign-in page drawn from an out-of-date session", () => {
     await user.type(screen.getByRole("textbox", { name: "Your name" }), "Ben");
     await user.click(screen.getByRole("button", { name: "Register passkey" }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("This authenticator is not allowed"));
+  });
+
+  it("switches the real gate from a stale setup page to the app, dropping what the stale page loaded", async () => {
+    let calls = 0;
+    server.use(
+      http.get("*/auth/session", () => HttpResponse.json(calls++ === 0 ? { registered: false, signed_in: false } : { registered: true, signed_in: true, user: "ben" })),
+      http.post("*/auth/register/options", () =>
+        HttpResponse.json({ code: "own-account-only", message: "You can add a passkey only to your own account" }, { status: 403 })),
+    );
+    const user = userEvent.setup();
+    const { qc } = await renderPage(<Gate />);
+    await screen.findByRole("heading", { name: "Set up this machine" });
+    qc.setQueryData(["stale"], "loaded by the stale page");
+    await user.type(screen.getByRole("textbox", { name: "Your name" }), "Ben");
+    await user.click(screen.getByRole("button", { name: "Register passkey" }));
+    await screen.findByText("The app");
+    expect(qc.getQueryData(["stale"])).toBeUndefined();
+  });
+
+  it("recovers when adding a passkey asks for a step-up the stale page never offered", async () => {
+    server.use(
+      http.post("*/auth/register/options", () =>
+        HttpResponse.json({ code: "step-up-required", message: "Sign with a passkey you already hold to add another" }, { status: 403 })),
+      http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: false })),
+    );
+    const user = userEvent.setup();
+    await renderPage(<SignIn session={firstRun} passkeys={passkeys} />);
+    await user.type(screen.getByRole("textbox", { name: "Your name" }), "Ben");
+    await user.click(screen.getByRole("button", { name: "Register passkey" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("This machine is already set up. Sign in with your passkey."));
+  });
+
+  it("sends a sign-in page whose machine was reset back to setup", async () => {
+    server.use(
+      http.post("*/auth/login/options", () => HttpResponse.json({ code: "not-registered", message: "Register a passkey first" }, { status: 409 })),
+      http.get("*/auth/session", () => HttpResponse.json({ registered: false, signed_in: false })),
+    );
+    const user = userEvent.setup();
+    const { qc } = await renderPage(<SignIn session={{ registered: true, signed_in: false } as never} passkeys={passkeys} />);
+    await user.click(screen.getByRole("button", { name: "Sign in with passkey" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Set up this machine to continue."));
+    expect(qc.getQueryData(["session"])).toMatchObject({ registered: false });
+  });
+
+  it("redraws the app after a first registration (the root cause of the pilot report)", async () => {
+    let done = false;
+    server.use(
+      http.get("*/auth/session", () => HttpResponse.json(done ? { registered: true, signed_in: true, user: "ben" } : { registered: false, signed_in: false })),
+      http.post("*/auth/register/options", () => HttpResponse.json({ options: { challenge: "c" } })),
+      http.post("*/auth/register/verify", () => { done = true; return HttpResponse.json({ registered: true, signed_in: true, user: "ben" }); }),
+    );
+    const user = userEvent.setup();
+    await renderPage(<Gate />);
+    await screen.findByRole("heading", { name: "Set up this machine" });
+    await user.type(screen.getByRole("textbox", { name: "Your name" }), "Ben");
+    await user.click(screen.getByRole("button", { name: "Register passkey" }));
+    await screen.findByText("The app");
   });
 });

@@ -6,6 +6,7 @@ import type { Session } from "../api/types.js";
 import { BrandMark } from "../pages/SignIn.js";
 import { PLACES } from "../places/places.js";
 import { CommandPalette } from "./CommandPalette.js";
+import { adoptSession } from "../lib/session.js";
 
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -42,8 +43,7 @@ export function Shell({ session, children }: { session: Session; children: React
     try {
       const s = await api.logout();
       // Nothing one person's session loaded survives into the next one.
-      qc.clear();
-      qc.setQueryData(["session"], s);
+      adoptSession(qc, s);
     } catch {
       void qc.invalidateQueries({ queryKey: ["session"] });
     }

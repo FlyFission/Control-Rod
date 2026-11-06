@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api/client.js";
+import { adoptSession } from "../lib/session.js";
 import type { Session } from "../api/types.js";
 import { browserPasskeys, type Passkeys } from "../lib/decide.js";
 import { captureInvitation, forgetInvitation, heldInvitation } from "../lib/invitation.js";
@@ -24,19 +25,18 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const adopt = (s: Session) => adoptSession(qc, s);
+
   async function run(fn: () => Promise<Session>) {
     setBusy(true);
     setError(null);
     try {
-      const s = await fn();
-      // A new session never sees what an earlier person's session loaded.
-      qc.clear();
-      qc.setQueryData(["session"], s);
+      adopt(await fn());
     } catch (e) {
       if (e instanceof ApiError && STALE_SESSION.has(e.code)) {
         const fresh = await api.session().catch(() => null);
         if (fresh !== null) {
-          qc.setQueryData(["session"], fresh);
+          adopt(fresh);
           if (!fresh.signed_in)
             setError(fresh.registered ? "This machine is already set up. Sign in with your passkey." : "Set up this machine to continue.");
           return;

@@ -36,7 +36,13 @@ The deciding logic is a small Rust program (the *kernel*) that agents never touc
 
 ## Try it
 
-You need [Node 22+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and [uv](https://docs.astral.sh/uv/getting-started/installation/). To run real agents, install [Claude Code](https://claude.com/claude-code) and sign in. Codex is optional. [mise](https://mise.jdx.dev) can install everything above at the pinned versions: run `mise install`.
+**Fastest:** open it in a ready-made environment with everything installed.
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/FlyFission/Control-Rod)
+
+Or, with Docker and VS Code, choose **Reopen in Container**. When it finishes setting up, run `pnpm cr start` in its terminal and the app opens in your browser. A Codespace is good for trying the app and for building it; see [the devcontainer notes](docs/getting-started.md#dev-container-and-codespaces) for what doesn't work there yet.
+
+**On your own machine:** you need [Node 22+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and [uv](https://docs.astral.sh/uv/getting-started/installation/). To run real agents, install [Claude Code](https://claude.com/claude-code) and sign in. Codex is optional. [mise](https://mise.jdx.dev) can install everything above at the pinned versions: run `mise install`.
 
 ```sh
 git clone https://github.com/FlyFission/Control-Rod.git

@@ -159,6 +159,15 @@ async function start() {
   // On a first run the database package was not installed yet when `doctor` looked; look again now.
   if (!databaseOk()) process.exit(1);
   const env = { ...process.env, CONTROLROD_HOME: home };
+  // In GitHub Codespaces the browser reaches the app at a forwarded https address, not localhost, and a
+  // passkey is bound to the address it was made on. Use that address unless the caller chose one.
+  const csName = process.env.CODESPACE_NAME;
+  const csDomain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN;
+  if (csName && csDomain && !process.env.CONTROLROD_ORIGIN) {
+    const host = `${csName}-${port}.${csDomain}`;
+    env.CONTROLROD_ORIGIN = `https://${host}`;
+    env.CONTROLROD_RP_ID ??= host;
+  }
   const cc = cadcraft();
   if (cc) env.CADCRAFT_CLI = cc;
   const venvBin = join(sitePack, ".venv", "bin");
@@ -171,7 +180,7 @@ async function start() {
     env: { ...env, CONTROLROD_API: `http://127.0.0.1:${port}`, CONTROLROD_DAEMON_TOKEN: token },
     stdio: "inherit",
   });
-  console.log(`\nControl Rod: open http://localhost:${port} (Ctrl+C stops everything)\n`);
+  console.log(`\nControl Rod: open ${env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`} (Ctrl+C stops everything)\n`);
   const stop = () => {
     daemon.kill("SIGTERM");
     api.kill("SIGTERM");

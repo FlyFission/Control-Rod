@@ -14,6 +14,7 @@
 - [crosswalk.md](crosswalk.md): how one control spine serves Software and Capital Projects modes
 - [`sqa/`](sqa/): the software quality assurance package for Control Rod itself
 - [`patterns/`](patterns/): ideas borrowed from other projects, written under the clean-room rule
+- [reading-comfort.md](reading-comfort.md): type, contrast and live-output rules for the web app, and where tests keep them
 
 ## Running and operating it
 

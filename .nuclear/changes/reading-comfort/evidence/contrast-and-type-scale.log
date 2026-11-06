@@ -1,0 +1,23 @@
+
+ RUN  v5.0.5 /home/user/Control-Rod/apps/web
+
+stdout | src/design/contrast.test.ts > text contrast > keeps every plain text colour in the stylesheets at AA
+6.24  #ffe0a4 on #644d29 (rule)  floor.css  .floor-neutral-icon.kind-request
+6.77  #d5edea on #34516a (rule)  floor.css  .floor-neutral-icon
+7.11  #c4f1dd on #2c514c (rule)  floor.css  .floor-neutral-icon.kind-package
+7.17  #ff7a59 on #141416 (page)  styles.css  .palette-badge.refused
+7.17  #ff7a59 on #141416 (page)  office.css  .btn.danger
+7.18  #94a3b8 on #141416 (page)  styles.css  .muted
+7.18  #94a3b8 on #141416 (page)  styles.css  .field span
+7.18  #94a3b8 on #141416 (page)  styles.css  .chip-x
+7.18  #94a3b8 on #141416 (page)  styles.css  .palette-group
+7.18  #94a3b8 on #141416 (page)  styles.css  .palette-option.refused .palette-label
+7.18  #94a3b8 on #141416 (page)  styles.css  .palette-hint
+7.18  #94a3b8 on #141416 (page)  styles.css  .palette-empty
+
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  19:01:04
+   Duration  771ms (environment 62%, setup 29%, transform 4%, tests 3%, import 2%, worker 1%)
+

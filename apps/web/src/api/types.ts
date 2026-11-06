@@ -10,6 +10,8 @@ export type CaptureView = S["Captures.CaptureView"];
 export type WorkPackage = S["ControlRod.Records.WorkPackage"];
 export type PackageStatus = S["ControlRod.Records.PackageStatus"];
 export type PackageView = S["PackageView"];
+/** A recorded person verification with the package revision it verified. */
+export type PersonVerificationEntry = S["PersonVerificationEntry"];
 export type Run = S["ControlRod.Records.Run"];
 export type Artifact = S["ControlRod.Records.Artifact"];
 export type Digest = S["ControlRod.Records.Digest"];

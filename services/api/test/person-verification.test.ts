@@ -122,3 +122,36 @@ describe("recording", () => {
     expect(r.json().code).toBe("wrong-state");
   });
 });
+
+describe("reading a package's person verifications", () => {
+  const get = (cookie: string, id: string) => h.app.inject({ method: "GET", url: `/packages/${id}/person-verifications`, headers: { cookie } });
+
+  it("returns every recorded verification with its package revision and outcome, oldest first", async () => {
+    const r = await get(carol, pkgId);
+    expect(r.statusCode).toBe(200);
+    const list = r.json();
+    expect(list.length).toBeGreaterThanOrEqual(2);
+    expect(list.map((v: { outcome: string }) => v.outcome).slice(0, 2)).toEqual(["pass", "inconclusive"]);
+    expect(list.every((v: { package_revision: number }) => v.package_revision === 0)).toBe(true);
+    expect(list[0]).toMatchObject({ verifier_member_id: memberIdFor("carol"), criteria: ALL });
+    const stored = (await h.db.query("select body->>'id' as id from person_verifications order by recorded_at, body->>'id'")).rows.map((x) => x.id);
+    expect(list.map((v: { id: string }) => v.id)).toEqual(stored);
+  });
+
+  it("returns an empty list for a package with none", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PV-NONE', 0, 'draft', $1)", [{ ...example, id: "WP-PV-NONE", revision: 0, status: "draft" }]);
+    const r = await get(carol, "WP-PV-NONE");
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual([]);
+  });
+
+  it("answers not-found for an unknown package and for another organization's package", async () => {
+    expect((await get(carol, "WP-PV-NOPE")).json()).toMatchObject({ code: "not-found" });
+    await h.admin.query(`insert into organizations (body) values ('{"id":"orgpvother_x","name":"Other","status":"suspended"}')`);
+    await h.admin.query("insert into object_owners (object_kind, object_id, org_id) values ('package', 'WP-PV-OTHER', 'orgpvother_x')");
+    const r = await get(carol, "WP-PV-OTHER");
+    expect(r.statusCode).toBe(404);
+    expect(r.json().code).toBe("not-found");
+    expect((await h.app.inject({ method: "GET", url: `/packages/${pkgId}/person-verifications` })).statusCode).toBe(401);
+  });
+});

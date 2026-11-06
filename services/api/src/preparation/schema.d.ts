@@ -427,7 +427,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** @description Every person verification recorded for this package, for every revision, oldest first. */
+        get: operations["Packages_personVerifications"];
         put?: never;
         /** @description Step 2: the signed verification, checked again and recorded. */
         post: operations["Packages_recordPersonVerification"];
@@ -2540,6 +2541,32 @@ export interface components {
             /** @enum {string} */
             outcome: "pass" | "fail" | "inconclusive";
         };
+        /** @description A recorded person verification with the package revision it verified. */
+        PersonVerificationEntry: {
+            id: components["schemas"]["ControlRod.Records.TenancyId"];
+            org_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            verifier_member_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            qualification_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            /** Format: int32 */
+            qualification_version: number;
+            candidate_id: components["schemas"]["ControlRod.Records.TenancyId"];
+            criteria: string[];
+            /** @enum {string} */
+            outcome: "pass" | "fail" | "inconclusive";
+            assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+            /**
+             * @description The digest the person signed: package, revision, the decision subject (outputs and pre-check)
+             *     and author run, sorted criteria and outcome. The challenge was SHA-256 of
+             *     "<subject_digest>|person-verification|<challenge_nonce>".
+             */
+            subject_digest?: components["schemas"]["ControlRod.Records.Digest"];
+            challenge_nonce?: string;
+            /**
+             * Format: int32
+             * @description The package revision whose candidate was verified.
+             */
+            package_revision: number;
+        };
         /** @description A passkey as the forms name it: its owner, when it was registered, and no attestation evidence. */
         RegistryCredential: {
             id: string;
@@ -4184,6 +4211,82 @@ export interface operations {
                 };
                 content: {
                     "*/*": unknown;
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_personVerifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonVerificationEntry"][];
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */

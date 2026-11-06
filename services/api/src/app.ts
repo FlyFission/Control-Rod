@@ -23,7 +23,7 @@ import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
 import { REASONS, teach } from "./refusals.js";
-import { personVerificationSubject, recordPersonVerification } from "./person-verification.js";
+import { listPersonVerifications, personVerificationSubject, recordPersonVerification } from "./person-verification.js";
 import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
 import { activeScramsFor, scramPreview, scramView } from "./scram.js";
@@ -557,6 +557,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const caller = await callerFor(db, await person(req));
     // The bundle is self contained; the control plane's own checks of it and of the whole chain travel beside it.
     return inclusionProof(db, auth, caller.orgId, req.params.id);
+  });
+  /** A package's recorded person verifications, every revision, oldest first. */
+  app.get<{ Params: { id: string } }>("/packages/:id/person-verifications", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return listPersonVerifications(db, caller.orgId, req.params.id);
   });
   /** Budgets with their use this window, the latest usage records, and which runtimes report tokens (plan task 5.2). */
   app.get("/usage", async (req) => {

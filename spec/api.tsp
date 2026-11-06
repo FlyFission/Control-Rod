@@ -294,6 +294,9 @@ namespace Packages {
     outcome: "pass" | "fail" | "inconclusive";
   }
 
+  /** Every person verification recorded for this package, for every revision, oldest first. */
+  @route("/{id}/person-verifications") @get op personVerifications(@path id: string): PersonVerificationEntry[] | Refused;
+
   /** Step 1: every rule that needs no signature is checked, then the digest to sign. */
   @route("/{id}/person-verifications/options")
   @post
@@ -312,6 +315,14 @@ namespace Packages {
     @statusCode _: 201;
     @body record: ControlRod.Records.PersonVerification;
   } | Refused;
+}
+
+/** A recorded person verification with the package revision it verified. */
+model PersonVerificationEntry {
+  ...ControlRod.Records.PersonVerification;
+
+  /** The package revision whose candidate was verified. */
+  @minValue(0) package_revision: int32;
 }
 
 /** One entry in your office: something that needs a person. */

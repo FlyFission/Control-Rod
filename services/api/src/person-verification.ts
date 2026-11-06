@@ -160,3 +160,21 @@ export async function recordPersonVerification(
     return record;
   });
 }
+
+/** A recorded verification with the revision of the package it verified. */
+export type PersonVerificationEntry = Json & { package_revision: number };
+
+/**
+ * Every person verification recorded for a package, all revisions, oldest first. The package must
+ * belong to the organization; another organization's package reads as absent.
+ */
+export async function listPersonVerifications(db: Db, orgId: string, packageId: string): Promise<PersonVerificationEntry[]> {
+  const owner = (await db.query<{ org_id: string }>("select org_id from object_owners where object_kind = 'package' and object_id = $1", [packageId])).rows[0];
+  if (!owner || owner.org_id !== orgId) throw new Refusal(404, "not-found", "No such package");
+  const r = await db.query<{ body: Json; package_revision: number }>(
+    `select v.body, ca.package_revision from person_verifications v
+       join candidate_assignments ca on ca.id = v.body->>'candidate_id' and ca.org_id = v.org_id
+      where ca.package_id = $1 and v.org_id = $2
+      order by v.recorded_at, v.body->>'id'`, [packageId, orgId]);
+  return r.rows.map((x) => ({ ...x.body, package_revision: x.package_revision }));
+}

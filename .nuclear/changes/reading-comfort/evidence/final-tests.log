@@ -7,17 +7,17 @@
 > openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
 
 ✨ openapi-typescript 7.13.0
-🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [282.6ms]
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [243.2ms]
 
  RUN  v5.0.5 /home/user/Control-Rod/apps/web
 
 
  Test Files  29 passed (29)
-      Tests  270 passed (270)
-   Start at  18:54:21
-   Duration  14.18s (tests 48%, environment 30%, setup 12%, import 7%, transform 2%)
+      Tests  276 passed (276)
+   Start at  18:57:42
+   Duration  14.79s (tests 48%, environment 30%, setup 13%, import 7%, transform 1%)
 
-Environment  jsdom was created 29 times · 11.55s total, 30% of tracked time
+Environment  jsdom was created 29 times · 11.98s total, 30% of tracked time
              create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
              learn more: https://vitest.dev/guide/improving-performance#test-environments
 

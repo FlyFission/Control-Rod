@@ -673,6 +673,19 @@ describe("reading a live run log", () => {
     expect(screen.queryByText(/new lines since you paused/)).toBeNull();
   });
 
+  it("fetches the log again on resume, so lines that landed after the last poll are not missed", async () => {
+    const lines = ["one"];
+    growingLog(lines);
+    await renderPage(<RunCard packageId="WP-9" run={running} />);
+    await waitFor(() => expect(logText()).toBe("one"));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Pause updates" }));
+    // Lines land with no poll in between (the next poll is seconds away), as when a run ends.
+    lines.push("final");
+    await user.click(screen.getByRole("button", { name: "Resume updates" }));
+    await waitFor(() => expect(logText()).toBe("one\nfinal"));
+  });
+
   it("says plainly when nothing has arrived while paused", async () => {
     growingLog(["one"]);
     await renderPage(<RunCard packageId="WP-9" run={running} />);

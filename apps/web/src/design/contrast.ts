@@ -46,8 +46,12 @@ function stripComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
+/** The only named colours the stylesheets use. Add one here if a rule needs another. */
+const NAMED: Record<string, string> = { white: "#ffffff", black: "#000000" };
+
 function resolve(value: string, tokens: Record<string, string>): string | undefined {
   const v = value.trim();
+  if (NAMED[v.toLowerCase()]) return NAMED[v.toLowerCase()];
   if (/^#[0-9a-fA-F]{3}$|^#[0-9a-fA-F]{6}$/.test(v)) return v;
   const m = /^var\(--([a-z0-9-]+)(?:\s*,\s*(#[0-9a-fA-F]{3,6}))?\)$/.exec(v);
   if (m) return tokens[m[1]!] ?? m[2];
@@ -81,4 +85,29 @@ export function textPairs(file: string, css: string, tokens: Record<string, stri
     for (const g of grounds) pairs.push({ file, selector, fg: fgHex, bg: g, bgSource: "page", ratio: ratio(fgHex, g) });
   }
   return pairs;
+}
+
+/**
+ * Text colours and fills the scan could not measure, so the gap is a list a reviewer can read, not
+ * a silent skip. `inherit` and `currentColor` are not gaps: the colour they take is measured where
+ * it is set. Fills that are translucent, gradients or written as rgb(), hsl() or 8-digit hex land here.
+ */
+export function unmeasured(file: string, css: string, tokens: Record<string, string>): string[] {
+  const out: string[] = [];
+  for (const block of stripComments(css).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = block[1]!.trim().replace(/\s+/g, " ");
+    if (selector.startsWith("@")) continue;
+    const decls = block[2]!;
+    const fg = /(?:^|[;\s])color\s*:\s*([^;]+)/.exec(decls);
+    const fgValue = fg?.[1]!.trim();
+    if (!fg || /^(?:inherit|currentcolor|initial|unset)$/i.test(fgValue!)) continue;
+    if (!resolve(fgValue!, tokens)) {
+      out.push(`${file} ${selector}: color ${fgValue}`);
+      continue;
+    }
+    const bg = /(?:^|[;\s])background(?:-color)?\s*:\s*([^;]+)/.exec(decls);
+    const bgValue = bg?.[1]!.trim();
+    if (bg && !/^(?:transparent|none)$/i.test(bgValue!) && !resolve(bgValue!, tokens)) out.push(`${file} ${selector}: background ${bgValue}`);
+  }
+  return out;
 }

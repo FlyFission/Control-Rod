@@ -196,7 +196,12 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packag
         <RunActions packageId={packageId} run={run} />
         {(live || frozen !== null) && (
           <div className="log-bar">
-            <button type="button" className="btn ghost small" onClick={() => setFrozen(frozen === null ? latest : null)}>
+            <button type="button" className="btn ghost small" onClick={() => {
+              // Resuming fetches again, so lines that landed after the last poll (a run that just
+              // ended stops polling) are not missed.
+              if (frozen !== null) void log.refetch();
+              setFrozen(frozen === null ? latest : null);
+            }}>
               {frozen === null ? "Pause updates" : "Resume updates"}
             </button>
             {frozen !== null && (

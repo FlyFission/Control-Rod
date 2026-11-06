@@ -1,0 +1,4 @@
+ 14.80  #f8f7eb on #162330 (fill alpha 0.91, treated as opaque)  .floor-station-label > span
+ 13.39  #e0e9ef on #122030 (fill alpha 0.94, treated as opaque)  .floor-station-label small
+ 15.83  #f0f5f9 on #0e1b2a (fill alpha 0.96, treated as opaque)  .floor-actor-code, .floor-actor-status
+ 16.62  #ffffff on #10202b (fill alpha 0.85, treated as opaque)  .floor-theme-number

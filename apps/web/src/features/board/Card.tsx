@@ -8,12 +8,20 @@ const KIND_WORD: Record<Kind, string> = { code: "Code", doc: "Document" };
 const KIND_ICON: Record<Kind, string> = { code: "</>", doc: "☰" };
 
 /** One fixed symbol and word per tone; the symbols belong to the meaning, never to a lens. */
-const TONE: Record<NextLine["tone"], { symbol: string; word: string }> = {
+const TONE: Record<NextLine["tone"], { symbol: string; word?: string }> = {
   needs: { symbol: "▲", word: "Needs you" },
   block: { symbol: "✕", word: "Blocked" },
-  ok: { symbol: "✓", word: "Done" },
+  // The ok line's own text ("Accepted", "Closed") is its word.
+  ok: { symbol: "✓" },
   wait: { symbol: "○", word: "Waiting" },
 };
+
+/** A time of day for "Status unknown since", or a plain phrase when the time is not known. */
+export function sinceText(iso: string | undefined): string {
+  if (!iso) return "an unknown time";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "an unknown time" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 function initials(name: string): string {
   const parts = name.split(/[\s._-]+/).filter(Boolean);
@@ -30,17 +38,22 @@ export type CardProps = {
   owner?: string;
   /**
    * The event stream. Only "live" shows the symbol and meaning word; "connecting" shows the line plainly;
-   * "unknown" shows it as last known.
+   * "unknown" replaces it with "Status unknown since <time>" (spec 8, ruling 13).
    */
   stream?: "connecting" | "live" | "unknown";
+  /** When the stream dropped, for the unknown line. */
+  unknownSince?: string;
+  /** Reads again what the next line could not read. */
+  onRetry?: () => void;
 };
 
 /** A board card: the small fixed core of spec 6.2. No drag; the title opens the package. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live" }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
+  const titleId = `bd-card-${pkg.id}`;
   return (
-    <article className="bd-card" data-kind={kinds[0]} data-column={column} data-tone={stream === "live" ? next.tone : "unknown"}>
+    <article aria-labelledby={titleId} className="bd-card" data-kind={kinds[0]} data-column={column} data-tone={stream === "live" ? next.tone : "unknown"}>
       <div className="bd-kinds">
         {kinds.map((k) => (
           <span key={k} className="bd-kind" data-kind={k}>
@@ -51,7 +64,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live" 
           </span>
         ))}
       </div>
-      <button type="button" className="bd-title" onClick={onOpen}>
+      <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
         {pkg.title}
       </button>
       <span className="bd-id mono small muted">
@@ -83,16 +96,21 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live" 
           <>
             <span className="bd-sym">
               <span aria-hidden="true">{tone.symbol} </span>
-              {next.tone === "ok" ? null : <span className="bd-word">{tone.word}: </span>}
+              {tone.word ? <span className="bd-word">{tone.word}: </span> : null}
             </span>
             <span>{next.text}</span>
           </>
         ) : stream === "unknown" ? (
-          <span className="muted">Status unknown. Last known: {next.text}</span>
+          <span className="muted">Status unknown since {sinceText(unknownSince)}</span>
         ) : (
           <span className="muted">{next.text}</span>
         )}
       </p>
+      {onRetry && stream !== "unknown" && (
+        <button type="button" className="btn small bd-retry" onClick={onRetry}>
+          Retry
+        </button>
+      )}
     </article>
   );
 }

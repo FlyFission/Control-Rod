@@ -63,6 +63,14 @@
   font-weight: 600;
   color: var(--text);
 }
+.bd-col-head h2 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.bd-retry {
+  align-self: flex-start;
+}
 .bd-card {
   display: flex;
   flex-direction: column;

@@ -73,15 +73,37 @@ describe("BoardView", () => {
     api({ packages: [pkg({ id: "WP-1" })] });
     await renderPage(<Page />);
     const regions = await screen.findAllByRole("region");
-    expect(regions.map((r) => r.getAttribute("aria-label"))).toEqual(["Ready", "Drafting", "Agent check", "Person verifies", "Needs signature", "Accepted"]);
+    expect(regions.map((r) => document.getElementById(r.getAttribute("aria-labelledby")!)!.textContent)).toEqual(["Ready", "Drafting", "Agent check", "Person verifies", "Needs signature", "Accepted"]);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Ready", "Drafting", "Agent check", "Person verifies", "Needs signature", "Accepted"]);
+  });
+
+  it("labels each card by its title and keeps the counts out of a live region", async () => {
+    api({ packages: [pkg({ id: "WP-1", title: "Lighting layout" })] });
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Lighting layout")).closest("article")!;
+    expect(document.getElementById(card.getAttribute("aria-labelledby")!)!.textContent).toBe("Lighting layout");
+    expect(document.querySelector(".bd-counts")!.getAttribute("aria-live")).toBeNull();
   });
 
   it("tags a Safety package as an independent check and shows its next line", async () => {
-    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], actions: { "WP-S": [accept] } });
+    const ret: ActionDescriptor = { command: "return", label: "Return", allowed: true, signature: "direct" };
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], actions: { "WP-S": [ret] } });
     await renderPage(<Page />);
     const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
     expect(within(card).getByText("Independent check")).toBeTruthy();
-    await waitFor(() => expect(within(card).getByText("Accept")).toBeTruthy());
+    await waitFor(() => expect(within(card).getByText("Return")).toBeTruthy());
+  });
+
+  it("offers no Accept on Safety work that no person has verified, even when the server allows it", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], actions: { "WP-S": [accept] }, originators: { "WP-S": ["ana"] } });
+    server.use(
+      http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])),
+      http.get("*/admin", () => HttpResponse.json({ members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }], registry: { qualifications: [{ org_id: "o", member_id: "mem_ben", version: 1, roles: ["checker"], authorities: [], grades: ["safety"], disciplines: [], revoked: false }] } })),
+    );
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
+    await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("Waiting on a person verification"));
+    expect(card.textContent).not.toMatch(/Accept/);
   });
 
   it("does not tag a General service package", async () => {
@@ -100,12 +122,15 @@ describe("BoardView", () => {
   });
 
   it("says status is unknown after the stream errors, with a Reconnect button and no live symbol", async () => {
-    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], actions: { "WP-S": [accept] } });
+    api({ packages: [pkg({ id: "WP-G", title: "Lighting layout", status: "in-verification" })], actions: { "WP-G": [accept] } });
     await renderPage(<Page />);
-    const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
+    const card = (await screen.findByText("Lighting layout")).closest("article")!;
     await waitFor(() => expect(within(card).getByText(/Accept/)).toBeTruthy());
     act(() => FakeSource.last!.emit("error"));
-    expect(await screen.findByText(/status unknown since/i)).toBeTruthy();
+    expect(await screen.findByText(/What you see may be out of date/)).toBeTruthy();
+    // The card no longer shows its last state as if it were current (spec 8, ruling 13).
+    expect(card.querySelector(".bd-next")!.textContent).toMatch(/^Status unknown since /);
+    expect(card.querySelector(".bd-next")!.textContent).not.toContain("Accept");
     expect(screen.getByRole("button", { name: "Reconnect" })).toBeTruthy();
     expect(card.textContent).not.toMatch(/[▲✕✓]/);
     const before = FakeSource.count;
@@ -113,7 +138,47 @@ describe("BoardView", () => {
     await user.click(screen.getByRole("button", { name: "Reconnect" }));
     await waitFor(() => expect(FakeSource.count).toBe(before + 1));
     act(() => FakeSource.last!.emit("open"));
-    await waitFor(() => expect(screen.queryByText(/status unknown since/i)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/What you see may be out of date/)).toBeNull());
+    await waitFor(() => expect(within(card).getByText(/Accept/)).toBeTruthy());
+  });
+
+  it("shows the counts as last known while the stream is unknown", async () => {
+    api({ packages: [pkg({ id: "WP-1", title: "One", status: "in-verification" })], actions: { "WP-1": [accept] } });
+    await renderPage(<Page />);
+    await waitFor(() => expect(screen.getByText("1 needs you")).toBeTruthy());
+    act(() => FakeSource.last!.emit("error"));
+    expect(await screen.findByText("Last known: 1 needs you")).toBeTruthy();
+    expect(screen.getByText("Last known: 0 agents running or queued")).toBeTruthy();
+    expect(screen.queryByText("1 needs you")).toBeNull();
+  });
+
+  it("says the work could not be loaded, not that the board is empty, and retries", async () => {
+    api({ packages: [] });
+    let calls = 0;
+    server.use(http.get("*/packages", () => (++calls === 1 ? HttpResponse.json({ code: "boom" }, { status: 500 }) : HttpResponse.json([pkg({ id: "WP-1", title: "One" })]))));
+    await renderPage(<Page />);
+    expect(await screen.findByText(/Could not load the work on this board/)).toBeTruthy();
+    expect(screen.queryByText(/Add your first card/)).toBeNull();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("One")).toBeTruthy();
+    expect(screen.queryByText(/Could not load the work on this board/)).toBeNull();
+  });
+
+  it("says it could not read what is next when the package view or actions fail, with a retry", async () => {
+    api({ packages: [pkg({ id: "WP-1", title: "One", status: "in-verification" }), pkg({ id: "WP-2", title: "Two", status: "in-verification" })], actions: { "WP-1": [accept], "WP-2": [accept] } });
+    let actionCalls = 0;
+    server.use(
+      http.get("*/packages/WP-1/actions", () => (++actionCalls === 1 ? HttpResponse.json({ code: "boom" }, { status: 500 }) : HttpResponse.json([accept]))),
+      http.get("*/packages/WP-2", () => HttpResponse.json({ code: "boom" }, { status: 500 })),
+    );
+    await renderPage(<Page />);
+    const one = (await screen.findByText("One")).closest("article")!;
+    const two = screen.getByText("Two").closest("article")!;
+    await waitFor(() => expect(one.querySelector(".bd-next")!.textContent).toContain("Could not read what is next"));
+    await waitFor(() => expect(two.querySelector(".bd-next")!.textContent).toContain("Could not read what is next"));
+    expect(screen.queryByText("Checking what is next")).toBeNull();
+    await userEvent.setup().click(within(one).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(one.querySelector(".bd-next")!.textContent).toContain("Accept"));
   });
 
   it("carries the chosen look on the board container only", async () => {
@@ -133,6 +198,7 @@ describe("BoardView", () => {
     api({ packages: [] });
     await renderPage(<Page />);
     expect(await screen.findByText(/Add your first card/)).toBeTruthy();
+    expect(screen.getByText(/When its intake drafts a package, the package appears here in Ready\./)).toBeTruthy();
   });
 
   it("counts what needs you and the agents running", async () => {
@@ -143,7 +209,7 @@ describe("BoardView", () => {
     });
     await renderPage(<Page />);
     await waitFor(() => expect(screen.getByText("1 needs you")).toBeTruthy());
-    expect(screen.getByText("2 agents running")).toBeTruthy();
+    expect(screen.getByText("2 agents running or queued")).toBeTruthy();
     expect(screen.queryByText(/limit/i)).toBeNull();
   });
 
@@ -151,7 +217,23 @@ describe("BoardView", () => {
     api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], originators: { "WP-S": ["ben"] } });
     server.use(http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])));
     await renderPage(<Page />);
-    expect(await screen.findByText("Needs a second qualified person")).toBeTruthy();
+    expect(await screen.findByText(/^Needs a second qualified person/)).toBeTruthy();
+  });
+
+  it("tells a viewer who did not originate the work that nobody can verify it, naming the excluded originators", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], originators: { "WP-S": ["ana"] } });
+    server.use(
+      http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])),
+      http.get("*/admin", () =>
+        HttpResponse.json({
+          members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }, { id: "mem_ana", org_id: "o", user_name: "ana", display_name: "Ana", status: "active" }],
+          // The only checker is the originator, who is excluded.
+          registry: { qualifications: [{ org_id: "o", member_id: "mem_ana", version: 1, roles: ["checker"], authorities: [], grades: ["safety"], disciplines: [], revoked: false }] },
+        }),
+      ),
+    );
+    await renderPage(<Page />);
+    expect(await screen.findByText("Needs a second qualified person. Originators cannot verify their own work: ana")).toBeTruthy();
   });
 
   it("says nothing definite when person verifications cannot be read", async () => {
@@ -162,8 +244,21 @@ describe("BoardView", () => {
     );
     await renderPage(<Page />);
     expect(await screen.findByText(/Could not read person verifications/)).toBeTruthy();
-    expect(screen.queryByText("Needs a second qualified person")).toBeNull();
+    expect(screen.queryByText(/Needs a second qualified person/)).toBeNull();
     expect(screen.queryByText("Waiting on a person verification")).toBeNull();
+    // Ruling 11: the card sits in Person verifies, never in Needs signature, while the step is unknown.
+    const region = screen.getByText("Relief valve sizing").closest("section")!;
+    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Person verifies");
+  });
+
+  it("says it cannot tell who can verify when the session cannot be read", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], originators: { "WP-S": ["ben"] } });
+    server.use(
+      http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])),
+      http.get("*/auth/session", () => HttpResponse.json({ code: "boom" }, { status: 500 })),
+    );
+    await renderPage(<Page />);
+    expect(await screen.findByText(/Cannot tell who can verify/)).toBeTruthy();
   });
 
   it("makes no second-person claim while /admin is still loading", async () => {
@@ -177,8 +272,8 @@ describe("BoardView", () => {
     );
     await renderPage(<Page />);
     expect(await screen.findByText("Checking what is next")).toBeTruthy();
-    expect(screen.queryByText("Needs a second qualified person")).toBeNull();
-    expect(await screen.findByText("Needs a second qualified person")).toBeTruthy();
+    expect(screen.queryByText(/Needs a second qualified person/)).toBeNull();
+    expect(await screen.findByText(/^Needs a second qualified person/)).toBeTruthy();
   });
 
   it("says it cannot tell who can verify when /admin fails", async () => {
@@ -189,26 +284,26 @@ describe("BoardView", () => {
     );
     await renderPage(<Page />);
     expect(await screen.findByText(/Cannot tell who can verify/)).toBeTruthy();
-    expect(screen.queryByText("Needs a second qualified person")).toBeNull();
+    expect(screen.queryByText(/Needs a second qualified person/)).toBeNull();
   });
 
   it("shows the meaning word beside its symbol", async () => {
-    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" }), pkg({ id: "WP-A", title: "Done work", status: "accepted" })], actions: { "WP-S": [accept] } });
+    api({ packages: [pkg({ id: "WP-G", title: "Lighting layout", status: "in-verification" }), pkg({ id: "WP-A", title: "Done work", status: "accepted" })], actions: { "WP-G": [accept] } });
     await renderPage(<Page />);
-    const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
+    const card = (await screen.findByText("Lighting layout")).closest("article")!;
     await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("▲ Needs you: Accept"));
     const done = screen.getByText("Done work").closest("article")!;
     await waitFor(() => expect(done.querySelector(".bd-next")!.textContent).toContain("✓ Accepted"));
   });
 
   it("is neutral while connecting: no banner and no live symbol", async () => {
-    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], actions: { "WP-S": [accept] } });
+    api({ packages: [pkg({ id: "WP-G", title: "Lighting layout", status: "in-verification" })], actions: { "WP-G": [accept] } });
     function Quiet() {
       useLiveEvents(true);
       return <BoardView />;
     }
     await renderPage(<Quiet />);
-    const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
+    const card = (await screen.findByText("Lighting layout")).closest("article")!;
     await waitFor(() => expect(within(card).getByText(/Accept/)).toBeTruthy());
     expect(screen.queryByText(/status unknown since/i)).toBeNull();
     expect(card.textContent).not.toMatch(/[▲✕✓]/);

@@ -1,0 +1,2873 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+stderr | src/features/board/board.test.tsx > BoardView > offers no Accept on Safety work that no person has verified, even when the server allows it
+TypeError: excluded.has is not a function
+    at ~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:89:17
+    at Array.some (<anonymous>)
+    at hasOtherQualified (~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:85:31)
+    at ~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:88:87
+    at Array.forEach (<anonymous>)
+    at useBoardData (~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:61:11)
+    at BoardView (~/worktrees/control-rod-m1/apps/web/src/features/board/BoardView.tsx:16:16)
+    at Object.react_stack_bottom_frame (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28571:20)
+    at renderWithHooks (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:8030:22)
+    at updateFunctionComponent (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:10569:19) {
+  [stack]: [Getter/Setter],
+  [message]: 'excluded.has is not a function'
+}
+
+The above error occurred in the <BoardView> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundary.
+
+Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute!
+Warning: TypeError: excluded.has is not a function
+    at ~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:89:17
+    at Array.some (<anonymous>)
+    at hasOtherQualified (~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:85:31)
+    at ~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:88:87
+    at Array.forEach (<anonymous>)
+    at useBoardData (~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:61:11)
+    at BoardView (~/worktrees/control-rod-m1/apps/web/src/features/board/BoardView.tsx:16:16)
+    at Object.react_stack_bottom_frame (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28571:20)
+    at renderWithHooks (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:8030:22)
+    at updateFunctionComponent (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:10569:19)
+
+stderr | src/features/board/board.test.tsx > BoardView > says a viewer who originated the work needs a second qualified person
+TypeError: Cannot read properties of undefined (reading 'length')
+    at nextLine (~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:43:31)
+    at ~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:80:14
+    at Array.forEach (<anonymous>)
+    at useBoardData (~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:61:11)
+    at BoardView (~/worktrees/control-rod-m1/apps/web/src/features/board/BoardView.tsx:16:16)
+    at Object.react_stack_bottom_frame (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28571:20)
+    at renderWithHooks (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:8030:22)
+    at updateFunctionComponent (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:10569:19)
+    at beginWork (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:12205:18)
+    at runWithFiberInDEV (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13) {
+  [stack]: [Getter/Setter],
+  [message]: "Cannot read properties of undefined (reading 'length')"
+}
+
+The above error occurred in the <BoardView> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundary.
+
+Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute!
+Warning: TypeError: Cannot read properties of undefined (reading 'length')
+    at nextLine (~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:43:31)
+    at ~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:80:14
+    at Array.forEach (<anonymous>)
+    at useBoardData (~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:61:11)
+    at BoardView (~/worktrees/control-rod-m1/apps/web/src/features/board/BoardView.tsx:16:16)
+    at Object.react_stack_bottom_frame (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28571:20)
+    at renderWithHooks (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:8030:22)
+    at updateFunctionComponent (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:10569:19)
+    at beginWork (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:12205:18)
+    at runWithFiberInDEV (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+
+stderr | src/features/board/board.test.tsx > BoardView > tells a viewer who did not originate the work that nobody can verify it, naming the excluded originators
+TypeError: excluded.has is not a function
+    at ~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:89:17
+    at Array.some (<anonymous>)
+    at hasOtherQualified (~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:85:31)
+    at ~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:88:87
+    at Array.forEach (<anonymous>)
+    at useBoardData (~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:61:11)
+    at BoardView (~/worktrees/control-rod-m1/apps/web/src/features/board/BoardView.tsx:16:16)
+    at Object.react_stack_bottom_frame (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28571:20)
+    at renderWithHooks (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:8030:22)
+    at updateFunctionComponent (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:10569:19) {
+  [stack]: [Getter/Setter],
+  [message]: 'excluded.has is not a function'
+}
+
+The above error occurred in the <BoardView> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundary.
+
+Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute!
+Warning: TypeError: excluded.has is not a function
+    at ~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:89:17
+    at Array.some (<anonymous>)
+    at hasOtherQualified (~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:85:31)
+    at ~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:88:87
+    at Array.forEach (<anonymous>)
+    at useBoardData (~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:61:11)
+    at BoardView (~/worktrees/control-rod-m1/apps/web/src/features/board/BoardView.tsx:16:16)
+    at Object.react_stack_bottom_frame (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28571:20)
+    at renderWithHooks (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:8030:22)
+    at updateFunctionComponent (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:10569:19)
+
+stderr | src/features/board/board.test.tsx > BoardView > makes no second-person claim while /admin is still loading
+TypeError: Cannot read properties of undefined (reading 'length')
+    at nextLine (~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:43:31)
+    at ~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:80:14
+    at Array.forEach (<anonymous>)
+    at useBoardData (~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:61:11)
+    at BoardView (~/worktrees/control-rod-m1/apps/web/src/features/board/BoardView.tsx:16:16)
+    at Object.react_stack_bottom_frame (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28571:20)
+    at renderWithHooks (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:8030:22)
+    at updateFunctionComponent (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:10569:19)
+    at beginWork (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:12205:18)
+    at runWithFiberInDEV (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13) {
+  [stack]: [Getter/Setter],
+  [message]: "Cannot read properties of undefined (reading 'length')"
+}
+
+The above error occurred in the <BoardView> component.
+
+React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundary.
+
+Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute!
+Warning: TypeError: Cannot read properties of undefined (reading 'length')
+    at nextLine (~/worktrees/control-rod-m1/apps/web/src/lib/next.ts:43:31)
+    at ~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:80:14
+    at Array.forEach (<anonymous>)
+    at useBoardData (~/worktrees/control-rod-m1/apps/web/src/features/board/useBoardData.ts:61:11)
+    at BoardView (~/worktrees/control-rod-m1/apps/web/src/features/board/BoardView.tsx:16:16)
+    at Object.react_stack_bottom_frame (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:28571:20)
+    at renderWithHooks (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:8030:22)
+    at updateFunctionComponent (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:10569:19)
+    at beginWork (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:12205:18)
+    at runWithFiberInDEV (~/worktrees/control-rod-m1/node_modules/.pnpm/react-dom@19.3.1_react@19.3.1/node_modules/react-dom/cjs/react-dom-client.development.js:1048:13)
+
+ ❯ src/features/board/board.test.tsx (21 tests | 14 failed) 8724ms
+   ❯ BoardView (21)
+     × renders the six column headings in order 137ms
+     × labels each card by its title and keeps the counts out of a live region 45ms
+     × offers no Accept on Safety work that no person has verified, even when the server allows it 1043ms
+     × says status is unknown after the stream errors, with a Reconnect button and no live symbol 49ms
+     × shows the counts as last known while the stream is unknown 1036ms
+     × says the work could not be loaded, not that the board is empty, and retries 1011ms
+     × says it could not read what is next when the package view or actions fail, with a retry 1034ms
+     × guides the first card on an empty board 15ms
+     × counts what needs you and the agents running 37ms
+     × says a viewer who originated the work needs a second qualified person 1009ms
+     × tells a viewer who did not originate the work that nobody can verify it, naming the excluded originators 1009ms
+     × says nothing definite when person verifications cannot be read 30ms
+     × says it cannot tell who can verify when the session cannot be read 1009ms
+     × makes no second-person claim while /admin is still loading 1024ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > renders the six column headings in order
+TypeError: Cannot read properties of null (reading 'textContent')
+ ❯ src/features/board/board.test.tsx:76:90
+
+ ❯ src/features/board/board.test.tsx:76:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > labels each card by its title and keeps the counts out of a live region
+TypeError: Cannot read properties of null (reading 'textContent')
+ ❯ src/features/board/board.test.tsx:84:74
+     82|     await renderPage(<Page />);
+     83|     const card = (await screen.findByText("Lighting layout")).closest(…
+     84|     expect(document.getElementById(card.getAttribute("aria-labelledby"…
+       |                                                                          ^
+     85|     expect(document.querySelector(".bd-counts")!.getAttribute("aria-li…
+     86|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > offers no Accept on Safety work that no person has verified, even when the server allows it
+AssertionError: expected '○ Waiting: Checking what is next' to contain 'Waiting on a person verification'
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"padding: 0.5rem; max-width: 100%;"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"display: flex; align-items: center; gap: .5rem;"[39m
+        [36m>[39m
+          [36m<strong[39m
+            [33mstyle[39m=[32m"font-size: 1rem;"[39m
+          [36m>[39m
+            [0mSomething went wrong![0m
+          [36m</strong>[39m
+          [36m<button[39m
+            [33mstyle[39m=[32m"appearance: none; font-size: 0.6em; border: 1px solid currentcolor; padding: 0.1rem 0.2rem; font-weight: bold; border-radius: .25rem;"[39m
+          [36m>[39m
+            [0mHide Error[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mstyle[39m=[32m"height: 0.25rem;"[39m
+        [36m/>[39m
+        [36m<div>[39m
+          [36m<pre[39m
+            [33mstyle[39m=[32m"font-size: 0.7em; border: 1px solid red; border-radius: .25rem; padding: 0.3rem; color: red; overflow: auto;"[39m
+          [36m>[39m
+            [36m<code>[39m
+              [0mexcluded.has is not a function[0m
+            [36m</code>[39m
+          [36m</pre>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+Expected: "Waiting on a person verification"
+Received: "○ Waiting: Checking what is next"
+
+ ❯ src/features/board/board.test.tsx:105:77
+    103|     await renderPage(<Page />);
+    104|     const card = (await screen.findByText("Relief valve sizing")).clos…
+    105|     await waitFor(() => expect(card.querySelector(".bd-next")!.textCon…
+       |                                                                             ^
+    106|     expect(card.textContent).not.toMatch(/Accept/);
+    107|   });
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > says status is unknown after the stream errors, with a Reconnect button and no live symbol
+AssertionError: expected 'Status unknown. Last known: Accept' to match /^Status unknown since /
+
+- Expected:
+/^Status unknown since /
+
++ Received:
+"Status unknown. Last known: Accept"
+
+ ❯ src/features/board/board.test.tsx:132:57
+    130|     expect(await screen.findByText(/What you see may be out of date/))…
+    131|     // The card no longer shows its last state as if it were current (…
+    132|     expect(card.querySelector(".bd-next")!.textContent).toMatch(/^Stat…
+       |                                                         ^
+    133|     expect(card.querySelector(".bd-next")!.textContent).not.toContain(…
+    134|     expect(screen.getByRole("button", { name: "Reconnect" })).toBeTrut…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > shows the counts as last known while the stream is unknown
+TestingLibraryElementError: Unable to find an element with the text: Last known: 1 needs you. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"bd"[39m
+      [33mdata-look[39m=[32m"a"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"bd-head"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mid[39m=[32m"board-title"[39m
+        [36m>[39m
+          [0mBoard[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33maria-live[39m=[32m"polite"[39m
+          [33mclass[39m=[32m"bd-counts"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0m1[0m
+            [0m needs you[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m [0m
+            [0magents[0m
+            [0m running[0m
+          [36m</span>[39m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"bd-unknown"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mStatus unknown since [0m
+            [0m03:10 PM[0m
+            [0m. What you see may be out of date.[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mReconnect[0m
+          [36m</button>[39m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bd-board"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Ready"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mReady[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Drafting"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mDrafting[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Agent check"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAgent check[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<article[39m
+            [33mclass[39m=[32m"bd-card"[39m
+            [33mdata-column[39m=[32m"agent-check"[39m
+            [33mdata-kind[39m=[32m"doc"[39m
+            [33mdata-tone[39m=[32m"unknown"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-kinds"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-kind"[39m
+                [33mdata-kind[39m=[32m"doc"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"bd-kind-icon"[39m
+                [36m>[39m
+                  [0m☰[0m
+                [36m</span>[39m
+                [0mDocument[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"bd-title"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mOne[0m
+            [36m</button>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"bd-id mono small muted"[39m
+            [36m>[39m
+              [0mWP-1[0m
+              [0m rev [0m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-meta"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar"[39m
+                [33mtitle[39m=[32m"Owner: ben"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mBE[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mOwner [0m
+                  [0mben[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar bd-agent"[39m
+                [33mtitle[39m=[32m"Agent: site-author"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mSA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mAgent [0m
+                  [0msite-author[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-chip"[39m
+              [36m>[39m
+                [0mgeneral-service[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"bd-next"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"muted"[39m
+              [36m>[39m
+                [0mStatus unknown. Last known: [0m
+                [0mAccept[0m
+              [36m</span>[39m
+            [36m</p>[39m
+          [36m</article>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Person verifies"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mPerson verifies[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Needs signature"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mNeeds signature[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Accepted"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAccepted[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"bd"[39m
+      [33mdata-look[39m=[32m"a"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"bd-head"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mid[39m=[32m"board-title"[39m
+        [36m>[39m
+          [0mBoard[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33maria-live[39m=[32m"polite"[39m
+          [33mclass[39m=[32m"bd-counts"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0m1[0m
+            [0m needs you[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m [0m
+            [0magents[0m
+            [0m running[0m
+          [36m</span>[39m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"bd-unknown"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0mStatus unknown since [0m
+            [0m03:10 PM[0m
+            [0m. What you see may be out of date.[0m
+          [36m</span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"btn small"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mReconnect[0m
+          [36m</button>[39m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bd-board"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Ready"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mReady[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Drafting"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mDrafting[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Agent check"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAgent check[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<article[39m
+            [33mclass[39m=[32m"bd-card"[39m
+            [33mdata-column[39m=[32m"agent-check"[39m
+            [33mdata-kind[39m=[32m"doc"[39m
+            [33mdata-tone[39m=[32m"unknown"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-kinds"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-kind"[39m
+                [33mdata-kind[39m=[32m"doc"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"bd-kind-icon"[39m
+                [36m>[39m
+                  [0m☰[0m
+                [36m</span>[39m
+                [0mDocument[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"bd-title"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mOne[0m
+            [36m</button>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"bd-id mono small muted"[39m
+            [36m>[39m
+              [0mWP-1[0m
+              [0m rev [0m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-meta"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar"[39m
+                [33mtitle[39m=[32m"Owner: ben"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mBE[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mOwner [0m
+                  [0mben[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar bd-agent"[39m
+                [33mtitle[39m=[32m"Agent: site-author"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mSA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mAgent [0m
+                  [0msite-author[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-chip"[39m
+              [36m>[39m
+                [0mgeneral-service[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"bd-next"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"muted"[39m
+              [36m>[39m
+                [0mStatus unknown. Last known: [0m
+                [0mAccept[0m
+              [36m</span>[39m
+            [36m</p>[39m
+          [36m</article>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Person verifies"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mPerson verifies[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Needs signature"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mNeeds signature[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Accepted"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAccepted[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/board/board.test.tsx:150:25
+    148|     await waitFor(() => expect(screen.getByText("1 needs you")).toBeTr…
+    149|     act(() => FakeSource.last!.emit("error"));
+    150|     expect(await screen.findByText("Last known: 1 needs you")).toBeTru…
+       |                         ^
+    151|     expect(screen.getByText("Last known: 0 agents running or queued"))…
+    152|     expect(screen.queryByText("1 needs you")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > says the work could not be loaded, not that the board is empty, and retries
+TestingLibraryElementError: Unable to find an element with the text: /Could not load the work on this board/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"bd"[39m
+      [33mdata-look[39m=[32m"a"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"bd-head"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mid[39m=[32m"board-title"[39m
+        [36m>[39m
+          [0mBoard[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33maria-live[39m=[32m"polite"[39m
+          [33mclass[39m=[32m"bd-counts"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m needs you[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m [0m
+            [0magents[0m
+            [0m running[0m
+          [36m</span>[39m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"bd-empty"[39m
+      [36m>[39m
+        [0mAdd your first card. Capture a request on the Packages page and it appears here in Ready.[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bd-board"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Ready"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mReady[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Drafting"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mDrafting[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Agent check"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAgent check[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Person verifies"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mPerson verifies[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Needs signature"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mNeeds signature[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Accepted"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAccepted[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"bd"[39m
+      [33mdata-look[39m=[32m"a"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"bd-head"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mid[39m=[32m"board-title"[39m
+        [36m>[39m
+          [0mBoard[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33maria-live[39m=[32m"polite"[39m
+          [33mclass[39m=[32m"bd-counts"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m needs you[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m [0m
+            [0magents[0m
+            [0m running[0m
+          [36m</span>[39m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"bd-empty"[39m
+      [36m>[39m
+        [0mAdd your first card. Capture a request on the Packages page and it appears here in Ready.[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bd-board"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Ready"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mReady[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Drafting"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mDrafting[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Agent check"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAgent check[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Person verifies"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mPerson verifies[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Needs signature"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mNeeds signature[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Accepted"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAccepted[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/board/board.test.tsx:160:25
+    158|     server.use(http.get("*/packages", () => (++calls === 1 ? HttpRespo…
+    159|     await renderPage(<Page />);
+    160|     expect(await screen.findByText(/Could not load the work on this bo…
+       |                         ^
+    161|     expect(screen.queryByText(/Add your first card/)).toBeNull();
+    162|     await userEvent.setup().click(screen.getByRole("button", { name: "…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > says it could not read what is next when the package view or actions fail, with a retry
+AssertionError: expected '○ Waiting: Checking what is next' to contain 'Could not read what is next'
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bd"[39m
+        [33mdata-look[39m=[32m"a"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"bd-head"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mid[39m=[32m"board-title"[39m
+          [36m>[39m
+            [0mBoard[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33maria-live[39m=[32m"polite"[39m
+            [33mclass[39m=[32m"bd-counts"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0m0[0m
+              [0m needs you[0m
+            [36m</span>[39m
+            [36m<span>[39m
+              [0m0[0m
+              [0m [0m
+              [0magents[0m
+              [0m running[0m
+            [36m</span>[39m
+          [36m</p>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"bd-board"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Ready"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+            [33mrole[39m=[32m"region"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mReady[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Drafting"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+            [33mrole[39m=[32m"region"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mDrafting[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Agent check"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+            [33mrole[39m=[32m"region"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mAgent check[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m2[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<article[39m
+              [33mclass[39m=[32m"bd-card"[39m
+              [33mdata-column[39m=[32m"agent-check"[39m
+              [33mdata-kind[39m=[32m"doc"[39m
+              [33mdata-tone[39m=[32m"wait"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"bd-kinds"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-kind"[39m
+                  [33mdata-kind[39m=[32m"doc"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"bd-kind-icon"[39m
+                  [36m>[39m
+                    [0m☰[0m
+                  [36m</span>[39m
+                  [0mDocument[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"bd-title"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mOne[0m
+              [36m</button>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-id mono small muted"[39m
+              [36m>[39m
+                [0mWP-1[0m
+                [0m rev [0m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"bd-meta"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-avatar"[39m
+                  [33mtitle[39m=[32m"Owner: ben"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                  [36m>[39m
+                    [0mBE[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"sr-only"[39m
+                  [36m>[39m
+                    [0mOwner [0m
+                    [0mben[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-avatar bd-agent"[39m
+                  [33mtitle[39m=[32m"Agent: site-author"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                  [36m>[39m
+                    [0mSA[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"sr-only"[39m
+                  [36m>[39m
+                    [0mAgent [0m
+                    [0msite-author[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-chip"[39m
+                [36m>[39m
+                  [0mgeneral-service[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"bd-next"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-sym"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                  [36m>[39m
+                    [0m○[0m
+                    [0m [0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"bd-word"[39m
+                  [36m>[39m
+                    [0mWaiting[0m
+                    [0m: [0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0mChecking what is next[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</article>[39m
+            [36m<article[39m
+              [33mclass[39m=[32m"bd-card"[39m
+              [33mdata-column[39m=[32m"agent-check"[39m
+              [33mdata-kind[39m=[32m"doc"[39m
+              [33mdata-tone[39m=[32m"wait"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"bd-kinds"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-kind"[39m
+                  [33mdata-kind[39m=[32m"doc"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"bd-kind-icon"[39m
+                  [36m>[39m
+                    [0m☰[0m
+                  [36m</span>[39m
+                  [0mDocument[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"bd-title"[39m
+                [33mtype[39m=[32m"button"[39m
+              [36m>[39m
+                [0mTwo[0m
+              [36m</button>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-id mono small muted"[39m
+              [36m>[39m
+                [0mWP-2[0m
+                [0m rev [0m
+                [0m0[0m
+              [36m</span>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"bd-meta"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-avatar bd-agent"[39m
+                  [33mtitle[39m=[32m"Agent: site-author"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                  [36m>[39m
+                    [0mSA[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"sr-only"[39m
+                  [36m>[39m
+                    [0mAgent [0m
+                    [0msite-author[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-chip"[39m
+                [36m>[39m
+                  [0mgeneral-service[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"bd-next"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-sym"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                  [36m>[39m
+                    [0m○[0m
+                    [0m [0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"bd-word"[39m
+                  [36m>[39m
+                    [0mWaiting[0m
+                    [0m: [0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0mChecking what is next[0m
+                [36m</span>[39m
+              [36m</p>[39m
+            [36m</article>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Person verifies"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+            [33mrole[39m=[32m"region"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mPerson verifies[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Needs signature"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+            [33mrole[39m=[32m"region"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mNeeds signature[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Accepted"[39m
+            [33mclass[39m=[32m"bd-col"[39m
+            [33mrole[39m=[32m"region"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-col-head"[39m
+            [36m>[39m
+              [36m<span>[39m
+                [0mAccepted[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"mono muted"[39m
+              [36m>[39m
+                [0m0[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+Expected: "Could not read what is next"
+Received: "○ Waiting: Checking what is next"
+
+ ❯ src/features/board/board.test.tsx:177:76
+    175|     const one = (await screen.findByText("One")).closest("article")!;
+    176|     const two = screen.getByText("Two").closest("article")!;
+    177|     await waitFor(() => expect(one.querySelector(".bd-next")!.textCont…
+       |                                                                            ^
+    178|     await waitFor(() => expect(two.querySelector(".bd-next")!.textCont…
+    179|     expect(screen.queryByText("Checking what is next")).toBeNull();
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > guides the first card on an empty board
+TestingLibraryElementError: Unable to find an element with the text: /When its intake drafts a package, the package appears here in Ready\./. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"bd"[39m
+      [33mdata-look[39m=[32m"a"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"bd-head"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mid[39m=[32m"board-title"[39m
+        [36m>[39m
+          [0mBoard[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33maria-live[39m=[32m"polite"[39m
+          [33mclass[39m=[32m"bd-counts"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m needs you[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m [0m
+            [0magents[0m
+            [0m running[0m
+          [36m</span>[39m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"bd-empty"[39m
+      [36m>[39m
+        [0mAdd your first card. Capture a request on the Packages page and it appears here in Ready.[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bd-board"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Ready"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mReady[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Drafting"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mDrafting[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Agent check"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAgent check[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Person verifies"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mPerson verifies[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Needs signature"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mNeeds signature[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Accepted"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAccepted[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/features/board/board.test.tsx:201:19
+    199|     await renderPage(<Page />);
+    200|     expect(await screen.findByText(/Add your first card/)).toBeTruthy(…
+    201|     expect(screen.getByText(/When its intake drafts a package, the pac…
+       |                   ^
+    202|   });
+    203|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > counts what needs you and the agents running
+TestingLibraryElementError: Unable to find an element with the text: 2 agents running or queued. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"bd"[39m
+      [33mdata-look[39m=[32m"a"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"bd-head"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mid[39m=[32m"board-title"[39m
+        [36m>[39m
+          [0mBoard[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33maria-live[39m=[32m"polite"[39m
+          [33mclass[39m=[32m"bd-counts"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0m1[0m
+            [0m needs you[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m2[0m
+            [0m [0m
+            [0magents[0m
+            [0m running[0m
+          [36m</span>[39m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bd-board"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Ready"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mReady[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Drafting"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mDrafting[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<article[39m
+            [33mclass[39m=[32m"bd-card"[39m
+            [33mdata-column[39m=[32m"drafting"[39m
+            [33mdata-kind[39m=[32m"doc"[39m
+            [33mdata-tone[39m=[32m"wait"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-kinds"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-kind"[39m
+                [33mdata-kind[39m=[32m"doc"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"bd-kind-icon"[39m
+                [36m>[39m
+                  [0m☰[0m
+                [36m</span>[39m
+                [0mDocument[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"bd-title"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mTwo[0m
+            [36m</button>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"bd-id mono small muted"[39m
+            [36m>[39m
+              [0mWP-2[0m
+              [0m rev [0m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-meta"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar"[39m
+                [33mtitle[39m=[32m"Owner: ben"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mBE[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mOwner [0m
+                  [0mben[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar bd-agent"[39m
+                [33mtitle[39m=[32m"Agent: site-author"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mSA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mAgent [0m
+                  [0msite-author[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-chip"[39m
+              [36m>[39m
+                [0mgeneral-service[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"bd-next"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-sym"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0m○[0m
+                  [0m [0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-word"[39m
+                [36m>[39m
+                  [0mWaiting[0m
+                  [0m: [0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span>[39m
+                [0mAn agent is working on it[0m
+              [36m</span>[39m
+            [36m</p>[39m
+          [36m</article>[39m
+          [36m<article[39m
+            [33mclass[39m=[32m"bd-card"[39m
+            [33mdata-column[39m=[32m"drafting"[39m
+            [33mdata-kind[39m=[32m"doc"[39m
+            [33mdata-tone[39m=[32m"wait"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-kinds"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-kind"[39m
+                [33mdata-kind[39m=[32m"doc"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"bd-kind-icon"[39m
+                [36m>[39m
+                  [0m☰[0m
+                [36m</span>[39m
+                [0mDocument[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"bd-title"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mThree[0m
+            [36m</button>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"bd-id mono small muted"[39m
+            [36m>[39m
+              [0mWP-3[0m
+              [0m rev [0m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-meta"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar"[39m
+                [33mtitle[39m=[32m"Owner: ben"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mBE[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mOwner [0m
+                  [0mben[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar bd-agent"[39m
+                [33mtitle[39m=[32m"Agent: site-author"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mSA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mAgent [0m
+                  [0msite-author[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-chip"[39m
+              [36m>[39m
+                [0mgeneral-service[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"bd-next"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-sym"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0m○[0m
+                  [0m [0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-word"[39m
+                [36m>[39m
+                  [0mWaiting[0m
+                  [0m: [0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span>[39m
+                [0mAn agent is working on it[0m
+              [36m</span>[39m
+            [36m</p>[39m
+          [36m</article>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Agent check"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAgent check[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<article[39m
+            [33mclass[39m=[32m"bd-card"[39m
+            [33mdata-column[39m=[32m"agent-check"[39m
+            [33mdata-kind[39m=[32m"doc"[39m
+            [33mdata-tone[39m=[32m"needs"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-kinds"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-kind"[39m
+                [33mdata-kind[39m=[32m"doc"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"bd-kind-icon"[39m
+                [36m>[39m
+                  [0m☰[0m
+                [36m</span>[39m
+                [0mDocument[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"bd-title"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mOne[0m
+            [36m</button>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"bd-id mono small muted"[39m
+            [36m>[39m
+              [0mWP-1[0m
+              [0m rev [0m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-meta"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar"[39m
+                [33mtitle[39m=[32m"Owner: ben"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mBE[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mOwner [0m
+                  [0mben[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar bd-agent"[39m
+                [33mtitle[39m=[32m"Agent: site-author"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mSA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mAgent [0m
+                  [0msite-author[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-chip"[39m
+              [36m>[39m
+                [0mgeneral-service[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"bd-next"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-sym"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0m▲[0m
+                  [0m [0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-word"[39m
+                [36m>[39m
+                  [0mNeeds you[0m
+                  [0m: [0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span>[39m
+                [0mAccept[0m
+              [36m</span>[39m
+            [36m</p>[39m
+          [36m</article>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Person verifies"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mPerson verifies[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Needs signature"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mNeeds signature[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Accepted"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAccepted[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/features/board/board.test.tsx:212:19
+    210|     await renderPage(<Page />);
+    211|     await waitFor(() => expect(screen.getByText("1 needs you")).toBeTr…
+    212|     expect(screen.getByText("2 agents running or queued")).toBeTruthy(…
+       |                   ^
+    213|     expect(screen.queryByText(/limit/i)).toBeNull();
+    214|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > says a viewer who originated the work needs a second qualified person
+TestingLibraryElementError: Unable to find an element with the text: /^Needs a second qualified person/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; max-width: 100%;"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"display: flex; align-items: center; gap: .5rem;"[39m
+      [36m>[39m
+        [36m<strong[39m
+          [33mstyle[39m=[32m"font-size: 1rem;"[39m
+        [36m>[39m
+          [0mSomething went wrong![0m
+        [36m</strong>[39m
+        [36m<button[39m
+          [33mstyle[39m=[32m"appearance: none; font-size: 0.6em; border: 1px solid currentcolor; padding: 0.1rem 0.2rem; font-weight: bold; border-radius: .25rem;"[39m
+        [36m>[39m
+          [0mHide Error[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"height: 0.25rem;"[39m
+      [36m/>[39m
+      [36m<div>[39m
+        [36m<pre[39m
+          [33mstyle[39m=[32m"font-size: 0.7em; border: 1px solid red; border-radius: .25rem; padding: 0.3rem; color: red; overflow: auto;"[39m
+        [36m>[39m
+          [36m<code>[39m
+            [0mCannot read properties of undefined (reading 'length')[0m
+          [36m</code>[39m
+        [36m</pre>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; max-width: 100%;"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"display: flex; align-items: center; gap: .5rem;"[39m
+      [36m>[39m
+        [36m<strong[39m
+          [33mstyle[39m=[32m"font-size: 1rem;"[39m
+        [36m>[39m
+          [0mSomething went wrong![0m
+        [36m</strong>[39m
+        [36m<button[39m
+          [33mstyle[39m=[32m"appearance: none; font-size: 0.6em; border: 1px solid currentcolor; padding: 0.1rem 0.2rem; font-weight: bold; border-radius: .25rem;"[39m
+        [36m>[39m
+          [0mHide Error[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"height: 0.25rem;"[39m
+      [36m/>[39m
+      [36m<div>[39m
+        [36m<pre[39m
+          [33mstyle[39m=[32m"font-size: 0.7em; border: 1px solid red; border-radius: .25rem; padding: 0.3rem; color: red; overflow: auto;"[39m
+        [36m>[39m
+          [36m<code>[39m
+            [0mCannot read properties of undefined (reading 'length')[0m
+          [36m</code>[39m
+        [36m</pre>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/board/board.test.tsx:220:25
+    218|     server.use(http.get("*/office", () => HttpResponse.json([{ id: "o1…
+    219|     await renderPage(<Page />);
+    220|     expect(await screen.findByText(/^Needs a second qualified person/)…
+       |                         ^
+    221|   });
+    222|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > tells a viewer who did not originate the work that nobody can verify it, naming the excluded originators
+TestingLibraryElementError: Unable to find an element with the text: Needs a second qualified person. Originators cannot verify their own work: ana. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; max-width: 100%;"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"display: flex; align-items: center; gap: .5rem;"[39m
+      [36m>[39m
+        [36m<strong[39m
+          [33mstyle[39m=[32m"font-size: 1rem;"[39m
+        [36m>[39m
+          [0mSomething went wrong![0m
+        [36m</strong>[39m
+        [36m<button[39m
+          [33mstyle[39m=[32m"appearance: none; font-size: 0.6em; border: 1px solid currentcolor; padding: 0.1rem 0.2rem; font-weight: bold; border-radius: .25rem;"[39m
+        [36m>[39m
+          [0mHide Error[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"height: 0.25rem;"[39m
+      [36m/>[39m
+      [36m<div>[39m
+        [36m<pre[39m
+          [33mstyle[39m=[32m"font-size: 0.7em; border: 1px solid red; border-radius: .25rem; padding: 0.3rem; color: red; overflow: auto;"[39m
+        [36m>[39m
+          [36m<code>[39m
+            [0mexcluded.has is not a function[0m
+          [36m</code>[39m
+        [36m</pre>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; max-width: 100%;"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"display: flex; align-items: center; gap: .5rem;"[39m
+      [36m>[39m
+        [36m<strong[39m
+          [33mstyle[39m=[32m"font-size: 1rem;"[39m
+        [36m>[39m
+          [0mSomething went wrong![0m
+        [36m</strong>[39m
+        [36m<button[39m
+          [33mstyle[39m=[32m"appearance: none; font-size: 0.6em; border: 1px solid currentcolor; padding: 0.1rem 0.2rem; font-weight: bold; border-radius: .25rem;"[39m
+        [36m>[39m
+          [0mHide Error[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"height: 0.25rem;"[39m
+      [36m/>[39m
+      [36m<div>[39m
+        [36m<pre[39m
+          [33mstyle[39m=[32m"font-size: 0.7em; border: 1px solid red; border-radius: .25rem; padding: 0.3rem; color: red; overflow: auto;"[39m
+        [36m>[39m
+          [36m<code>[39m
+            [0mexcluded.has is not a function[0m
+          [36m</code>[39m
+        [36m</pre>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/board/board.test.tsx:236:25
+    234|     );
+    235|     await renderPage(<Page />);
+    236|     expect(await screen.findByText("Needs a second qualified person. O…
+       |                         ^
+    237|   });
+    238|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > says nothing definite when person verifications cannot be read
+TypeError: Cannot read properties of null (reading 'textContent')
+ ❯ src/features/board/board.test.tsx:251:76
+    249|     // Ruling 11: the card sits in Person verifies, never in Needs sig…
+    250|     const region = screen.getByText("Relief valve sizing").closest("[r…
+    251|     expect(document.getElementById(region.getAttribute("aria-labelledb…
+       |                                                                            ^
+    252|   });
+    253|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > says it cannot tell who can verify when the session cannot be read
+TestingLibraryElementError: Unable to find an element with the text: /Cannot tell who can verify/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"bd"[39m
+      [33mdata-look[39m=[32m"a"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"bd-head"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mid[39m=[32m"board-title"[39m
+        [36m>[39m
+          [0mBoard[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33maria-live[39m=[32m"polite"[39m
+          [33mclass[39m=[32m"bd-counts"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m needs you[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m [0m
+            [0magents[0m
+            [0m running[0m
+          [36m</span>[39m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bd-board"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Ready"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mReady[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Drafting"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mDrafting[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Agent check"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAgent check[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Person verifies"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mPerson verifies[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<article[39m
+            [33mclass[39m=[32m"bd-card"[39m
+            [33mdata-column[39m=[32m"person-verifies"[39m
+            [33mdata-kind[39m=[32m"doc"[39m
+            [33mdata-tone[39m=[32m"wait"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-kinds"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-kind"[39m
+                [33mdata-kind[39m=[32m"doc"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"bd-kind-icon"[39m
+                [36m>[39m
+                  [0m☰[0m
+                [36m</span>[39m
+                [0mDocument[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"bd-title"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mRelief valve sizing[0m
+            [36m</button>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"bd-id mono small muted"[39m
+            [36m>[39m
+              [0mWP-S[0m
+              [0m rev [0m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-meta"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar"[39m
+                [33mtitle[39m=[32m"Owner: ben"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mBE[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mOwner [0m
+                  [0mben[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar bd-agent"[39m
+                [33mtitle[39m=[32m"Agent: site-author"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mSA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mAgent [0m
+                  [0msite-author[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-chip"[39m
+              [36m>[39m
+                [0msafety[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-check"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0m◆[0m
+                  [0m [0m
+                [36m</span>[39m
+                [0mIndependent check[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"bd-next"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-sym"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0m○[0m
+                  [0m [0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-word"[39m
+                [36m>[39m
+                  [0mWaiting[0m
+                  [0m: [0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span>[39m
+                [0mChecking what is next[0m
+              [36m</span>[39m
+            [36m</p>[39m
+          [36m</article>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Needs signature"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mNeeds signature[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Accepted"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAccepted[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"bd"[39m
+      [33mdata-look[39m=[32m"a"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"bd-head"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mid[39m=[32m"board-title"[39m
+        [36m>[39m
+          [0mBoard[0m
+        [36m</h1>[39m
+        [36m<p[39m
+          [33maria-live[39m=[32m"polite"[39m
+          [33mclass[39m=[32m"bd-counts"[39m
+        [36m>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m needs you[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m0[0m
+            [0m [0m
+            [0magents[0m
+            [0m running[0m
+          [36m</span>[39m
+        [36m</p>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"bd-board"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Ready"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mReady[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Drafting"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mDrafting[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Agent check"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAgent check[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Person verifies"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mPerson verifies[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m1[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<article[39m
+            [33mclass[39m=[32m"bd-card"[39m
+            [33mdata-column[39m=[32m"person-verifies"[39m
+            [33mdata-kind[39m=[32m"doc"[39m
+            [33mdata-tone[39m=[32m"wait"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-kinds"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-kind"[39m
+                [33mdata-kind[39m=[32m"doc"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"bd-kind-icon"[39m
+                [36m>[39m
+                  [0m☰[0m
+                [36m</span>[39m
+                [0mDocument[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"bd-title"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mRelief valve sizing[0m
+            [36m</button>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"bd-id mono small muted"[39m
+            [36m>[39m
+              [0mWP-S[0m
+              [0m rev [0m
+              [0m0[0m
+            [36m</span>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"bd-meta"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar"[39m
+                [33mtitle[39m=[32m"Owner: ben"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mBE[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mOwner [0m
+                  [0mben[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-avatar bd-agent"[39m
+                [33mtitle[39m=[32m"Agent: site-author"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mSA[0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"sr-only"[39m
+                [36m>[39m
+                  [0mAgent [0m
+                  [0msite-author[0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-chip"[39m
+              [36m>[39m
+                [0msafety[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-check"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0m◆[0m
+                  [0m [0m
+                [36m</span>[39m
+                [0mIndependent check[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"bd-next"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"bd-sym"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                [36m>[39m
+                  [0m○[0m
+                  [0m [0m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"bd-word"[39m
+                [36m>[39m
+                  [0mWaiting[0m
+                  [0m: [0m
+                [36m</span>[39m
+              [36m</span>[39m
+              [36m<span>[39m
+                [0mChecking what is next[0m
+              [36m</span>[39m
+            [36m</p>[39m
+          [36m</article>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Needs signature"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mNeeds signature[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Accepted"[39m
+          [33mclass[39m=[32m"bd-col"[39m
+          [33mrole[39m=[32m"region"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"bd-col-head"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mAccepted[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mono muted"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/board/board.test.tsx:261:25
+    259|     );
+    260|     await renderPage(<Page />);
+    261|     expect(await screen.findByText(/Cannot tell who can verify/)).toBe…
+       |                         ^
+    262|   });
+    263|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/14]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > makes no second-person claim while /admin is still loading
+TestingLibraryElementError: Unable to find an element with the text: /^Needs a second qualified person/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; max-width: 100%;"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"display: flex; align-items: center; gap: .5rem;"[39m
+      [36m>[39m
+        [36m<strong[39m
+          [33mstyle[39m=[32m"font-size: 1rem;"[39m
+        [36m>[39m
+          [0mSomething went wrong![0m
+        [36m</strong>[39m
+        [36m<button[39m
+          [33mstyle[39m=[32m"appearance: none; font-size: 0.6em; border: 1px solid currentcolor; padding: 0.1rem 0.2rem; font-weight: bold; border-radius: .25rem;"[39m
+        [36m>[39m
+          [0mHide Error[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"height: 0.25rem;"[39m
+      [36m/>[39m
+      [36m<div>[39m
+        [36m<pre[39m
+          [33mstyle[39m=[32m"font-size: 0.7em; border: 1px solid red; border-radius: .25rem; padding: 0.3rem; color: red; overflow: auto;"[39m
+        [36m>[39m
+          [36m<code>[39m
+            [0mCannot read properties of undefined (reading 'length')[0m
+          [36m</code>[39m
+        [36m</pre>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mstyle[39m=[32m"padding: 0.5rem; max-width: 100%;"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"display: flex; align-items: center; gap: .5rem;"[39m
+      [36m>[39m
+        [36m<strong[39m
+          [33mstyle[39m=[32m"font-size: 1rem;"[39m
+        [36m>[39m
+          [0mSomething went wrong![0m
+        [36m</strong>[39m
+        [36m<button[39m
+          [33mstyle[39m=[32m"appearance: none; font-size: 0.6em; border: 1px solid currentcolor; padding: 0.1rem 0.2rem; font-weight: bold; border-radius: .25rem;"[39m
+        [36m>[39m
+          [0mHide Error[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mstyle[39m=[32m"height: 0.25rem;"[39m
+      [36m/>[39m
+      [36m<div>[39m
+        [36m<pre[39m
+          [33mstyle[39m=[32m"font-size: 0.7em; border: 1px solid red; border-radius: .25rem; padding: 0.3rem; color: red; overflow: auto;"[39m
+        [36m>[39m
+          [36m<code>[39m
+            [0mCannot read properties of undefined (reading 'length')[0m
+          [36m</code>[39m
+        [36m</pre>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/board/board.test.tsx:276:25
+    274|     expect(await screen.findByText("Checking what is next")).toBeTruth…
+    275|     expect(screen.queryByText(/Needs a second qualified person/)).toBe…
+    276|     expect(await screen.findByText(/^Needs a second qualified person/)…
+       |                         ^
+    277|   });
+    278|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/14]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  14 failed | 7 passed (21)
+   Start at  15:10:01
+   Duration  9.51s (tests 93%, environment 4%, setup 2%, import 1%, transform 1%)
+

@@ -18,6 +18,9 @@
 | T-14 | Codex r2 3: a failed verification refresh is unknown at every entry point, so no Accept. | `components/components.test.tsx`, `features/board/board.test.tsx`, `features/office/agent-card.test.tsx` | implemented and tested |
 | T-15 | Codex r2 4: the office card's step uses the verification read; never Needs signature for unverified work. | `features/office/agent-card.test.tsx` | implemented and tested |
 | T-16 | Codex r2 5: no counts shown as facts before a successful read of the work. | `features/board/board.test.tsx` | implemented and tested |
+| T-17 | Codex r3 1: Accept rechecks person verifications at submit; a refresh in flight is unknown for offering Accept. | `components/components.test.tsx` in-flight refresh and submit recheck | implemented and tested (screen-only until D-4) |
+| T-18 | Codex r3 2: board reads older than the latest stream drop read as last known, including reads inactive at the drop. | `features/board/board.test.tsx` leave, drop, reconnect, return | implemented and tested |
+| T-19 | Codex r3 3: each count's confidence comes from every read it needs. | `features/board/board.test.tsx` one failed package view | implemented and tested |
 
 ## Required links
 

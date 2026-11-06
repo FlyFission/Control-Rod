@@ -5,8 +5,9 @@ Evidence status: **pass** for SS-01 on this host (Linux, jsdom).
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | With the fix removed, the signed-in and set-up tests fail; the unrelated-refusal test passes. | `evidence/red-signin.log` |
-| E-02 | pass | With the fixes, the whole web suite passes (269 tests, as the linked log shows). Not a real browser. | `evidence/green-web.log` |
+| E-02 | pass | With the fixes, the whole web suite passes (273 tests, as the linked log shows). Not a real browser. | `evidence/green-web.log` |
 | E-03 | pass | With `adoptSession` reverted to `clear()`, the three gate and session tests fail: the app does not redraw. | `evidence/red-adopt.log` |
+| E-04 | pass | Each delayed-response test (recovery read, preparation save, preparation reload, criteria save) fails when its guard is removed and passes when restored. jsdom, not a real browser. | `evidence/mutation.log` |
 
 ## Evidence custody and coupling
 
@@ -15,12 +16,14 @@ Evidence status: **pass** for SS-01 on this host (Linux, jsdom).
 | E-01 | SS-01 | yes | evidence/red-signin.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 | E-02 | SS-01 | yes | evidence/green-web.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-03 | SS-02 | yes | evidence/red-adopt.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
+| E-04 | SS-03 | yes | evidence/mutation.log | Implementing agent | Vitest | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check (mutation) |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
 | E-03 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
+| E-04 | coupled: implementing agent | coupled: implementation session | separated: deterministic local test tools | separated: owner retains merge decision | coupled: local machine | self-check | jsdom, not a real browser  [Ship limits](ship.md) |
 
 No independent review was done.
 

@@ -1,3 +1,4 @@
+import { act } from "react";
 import { describe, expect, it } from "vitest";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
@@ -8,6 +9,7 @@ import type { Passkeys } from "../lib/decide.js";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
 import { SignIn } from "./SignIn.js";
+import { adoptSession } from "../lib/session.js";
 
 /**
  * A sign-in page drawn from an out-of-date session (a second tab, or a page restored with Back)
@@ -119,5 +121,30 @@ describe("a sign-in page drawn from an out-of-date session", () => {
     await user.type(screen.getByRole("textbox", { name: "Your name" }), "Ben");
     await user.click(screen.getByRole("button", { name: "Register passkey" }));
     await screen.findByText("The app");
+  });
+
+  it("discards a recovery read that finishes after a newer session was adopted", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let started!: () => void;
+    const readStarted = new Promise<void>((r) => { started = r; });
+    server.use(
+      http.post("*/auth/register/options", () =>
+        HttpResponse.json({ code: "own-account-only", message: "You can add a passkey only to your own account" }, { status: 403 })),
+      http.get("*/auth/session", async () => {
+        started();
+        await gate;
+        return HttpResponse.json({ registered: true, signed_in: true, user: "ben" });
+      }),
+    );
+    const user = userEvent.setup();
+    const { qc } = await renderPage(<SignIn session={firstRun} passkeys={passkeys} />);
+    await user.type(screen.getByRole("textbox", { name: "Your name" }), "Ben");
+    await user.click(screen.getByRole("button", { name: "Register passkey" }));
+    await readStarted;
+    await act(() => adoptSession(qc, { registered: true, signed_in: true, user: "dora" } as never));
+    release();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Register passkey" }).hasAttribute("disabled")).toBe(false));
+    expect(qc.getQueryData(["session"])).toMatchObject({ user: "dora" });
   });
 });

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "../api/client.js";
-import { adoptSession } from "../lib/session.js";
+import { adoptSession, sessionGeneration } from "../lib/session.js";
 import type { Session } from "../api/types.js";
 import { browserPasskeys, type Passkeys } from "../lib/decide.js";
 import { captureInvitation, forgetInvitation, heldInvitation } from "../lib/invitation.js";
@@ -34,7 +34,11 @@ export function SignIn({ session, passkeys = browserPasskeys }: { session: Sessi
       await adopt(await fn());
     } catch (e) {
       if (e instanceof ApiError && STALE_SESSION.has(e.code)) {
+        // This read is outside the query cache, so the cache's cancellation cannot stop it. If a newer
+        // session was adopted while it was in flight, its answer is about the earlier one: drop it.
+        const startedUnder = sessionGeneration();
         const fresh = await api.session().catch(() => null);
+        if (startedUnder !== sessionGeneration()) return;
         if (fresh !== null) {
           await adopt(fresh);
           if (!fresh.signed_in)

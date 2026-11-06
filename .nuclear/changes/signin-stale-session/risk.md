@@ -3,17 +3,18 @@
 - **Mode:** Standard
 - Execution owner: Claude Code under the owner's 2026-11-05 pilot report.
 - Decision owner: Ben Huffer. No protected surface is touched: no kernel decision function, policy, red-team fixture, workflow or spec major version. No server, wire, schema or migration change.
-- Scope: `apps/web/src/pages/SignIn.tsx` and its test.
+- Scope: sign-in and its stale-session recovery (`apps/web/src/pages/SignIn.tsx`), sign-out (`Shell.tsx`), the shared session cache helper (`lib/session.ts`), the preparation save and reload (`PreparationPanel.tsx`) and the criteria save (`PackagePage.tsx`), with their tests.
 
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|
 | R-01 | A real refusal is hidden behind a reload. | Only the four codes that mean the page's session is out of date reload; others are shown (test). If the session cannot be read, the original refusal is shown. | A refusal of another kind not shown. |
 | R-02 | Reloading grants access. | The page only reads `/auth/session`; the server still decides who is signed in. | Any change to server authorization. |
+| R-03 | Session isolation: an answer to a request begun under an earlier session (the recovery read, a preparation save or reload, a criteria save) lands in the next session's cache and shows one person's data to another. | Generation guard (`sessionGeneration`, `setIfSameSession`); `adoptSession` cancels queries in flight and clears other queries and mutations; the recovery read discards its result if the generation moved; delayed-response tests for each flow, each shown to fail with its guard removed (`evidence/mutation.log`). | Any flow that writes to the cache after an await without the guard, or a delayed-response test that passes with its guard removed. |
 
 ## Selected mode
 
 - **Mode:** Standard
-- Basis: one web page's error handling; reversible; authorization stays on the server.
+- Basis: web client session and cache handling across sign-in, sign-out and two save flows; reversible; authorization stays on the server.
 
 ## Required links
 

@@ -1,0 +1,21 @@
+Mutation check: each new regression test with its guard removed in turn. Command: vitest run on signin, criteria, preparation and session tests.
+== baseline (all guards present)
+      Tests  34 passed (34)
+== mutation: SignIn recovery read guard removed
+     × discards a recovery read that finishes after a newer session was adopted 51ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 33 passed (34)
+== mutation: preparation save (perform) guard removed
+     × a save that finishes after a new session began leaves that session's cache without it 253ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 33 passed (34)
+== mutation: preparation reload guard removed
+     × a reload that finishes after a new session began leaves that session's cache without it 161ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 33 passed (34)
+== mutation: criteria save guard removed
+     × a save that finishes after a new session began leaves that session's cache without it 157ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 33 passed (34)
+== restored
+      Tests  34 passed (34)

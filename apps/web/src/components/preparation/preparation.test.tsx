@@ -8,6 +8,8 @@ import { renderPage } from "../../test/render.js";
 import { pkg, view, DIGEST } from "../../test/fixtures.js";
 import { Preparation } from "../../pages/PackagePage.js";
 import { PreparationPanel } from "./PreparationPanel.js";
+import { adoptSession } from "../../lib/session.js";
+import type { Session } from "../../api/types.js";
 import { preparationViewFixture as fixture } from "./test-fixtures.js";
 describe("manual preparation workbench", () => {
   it("shows stored context, requirement status and blocker ownership; saves with the loaded ETag", async () => {
@@ -258,5 +260,74 @@ describe("manual preparation workbench", () => {
     const retire = (await screen.findByRole("button", { name: "Retire criterion 1" })) as HTMLButtonElement;
     expect(retire.disabled).toBe(true);
     expect(screen.getByText(/A resolved escalation rests on this criterion/)).toBeTruthy();
+  });
+  /** A later session: the answer to a request begun under the earlier one must not reach its cache. */
+  const nextSession = { registered: true, signed_in: true, user: "dora" } as Session;
+
+  it("a save that finishes after a new session began leaves that session's cache without it", async () => {
+    const current = fixture();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let started!: () => void;
+    const putStarted = new Promise<void>((r) => { started = r; });
+    let hangLoads = false;
+    server.use(
+      http.get("*/packages/:id/preparation", async () => {
+        // After the new session begins, its own load never answers, so only a late write could fill the cache.
+        if (hangLoads) await new Promise(() => undefined);
+        return HttpResponse.json(current);
+      }),
+      http.put("*/packages/:id/preparation", async () => {
+        started();
+        await gate;
+        return HttpResponse.json({ ...current, snapshot: { ...current.snapshot, revision: 9 } });
+      }),
+    );
+    const { qc } = await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const user = userEvent.setup();
+    const problem = await screen.findByRole("textbox", { name: "Problem or need" });
+    await user.clear(problem);
+    await user.type(problem, "Earlier person's text");
+    await user.click(screen.getByRole("button", { name: "Save preparation" }));
+    await putStarted;
+    hangLoads = true;
+    await act(() => adoptSession(qc, nextSession));
+    release();
+    await act(async () => { await new Promise((r) => setTimeout(r, 100)); });
+    expect(qc.getQueryData(["preparation", pkg().id])).toBeUndefined();
+  });
+
+  it("a reload that finishes after a new session began leaves that session's cache without it", async () => {
+    const current = fixture();
+    let hold = false;
+    let afterReload = false;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let started!: () => void;
+    const getStarted = new Promise<void>((r) => { started = r; });
+    server.use(
+      http.get("*/packages/:id/preparation", async () => {
+        if (hold) {
+          hold = false;
+          started();
+          await gate;
+          return HttpResponse.json({ ...current, snapshot: { ...current.snapshot, revision: 7 } });
+        }
+        // After the held reload, the new session's own load never answers, so only a late write could fill the cache.
+        if (afterReload) await new Promise(() => undefined);
+        return HttpResponse.json(current);
+      }),
+    );
+    const { qc } = await renderPage(<PreparationPanel pkg={pkg()} enabled enrolled />);
+    const user = userEvent.setup();
+    await screen.findByRole("textbox", { name: "Problem or need" });
+    hold = true;
+    await user.click(screen.getByRole("button", { name: "Reload saved preparation" }));
+    await getStarted;
+    afterReload = true;
+    await act(() => adoptSession(qc, nextSession));
+    release();
+    await act(async () => { await new Promise((r) => setTimeout(r, 100)); });
+    expect(qc.getQueryData(["preparation", pkg().id])).toBeUndefined();
   });
 });

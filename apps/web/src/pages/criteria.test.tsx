@@ -9,6 +9,8 @@ import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
 import { pkg, view } from "../test/fixtures.js";
 import { Criteria } from "./PackagePage.js";
+import { adoptSession } from "../lib/session.js";
+import type { Session } from "../api/types.js";
 
 /** Draft compare and swap in the criteria editor (workbench plan task 1.6). */
 const draft = pkg({ status: "draft", acceptance_criteria: ["Loads within 5 percent"] });
@@ -97,5 +99,33 @@ describe("criteria editor", () => {
   it("offers no edit without a tag", async () => {
     await renderPage(<Criteria pkg={draft} enrolled={false} />);
     expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+  });
+
+  it("a save that finishes after a new session began leaves that session's cache without it", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    let started!: () => void;
+    const putStarted = new Promise<void>((r) => { started = r; });
+    server.use(http.put("*/packages/:id", async ({ request }) => {
+      started();
+      await gate;
+      const body = (await request.json()) as { acceptance_criteria: string[] };
+      return HttpResponse.json({ ...draft, acceptance_criteria: body.acceptance_criteria }, { headers: { ETag: `"${"d".repeat(64)}"` } });
+    }));
+    const { qc } = await renderPage(<Criteria pkg={draft} etag={TAG} enrolled={false} />);
+    qc.setQueryData(["package", draft.id], view({ draft_etag: TAG }, { status: "draft" }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.clear(screen.getByRole("textbox"));
+    await user.type(screen.getByRole("textbox"), "Earlier person's criterion");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await putStarted;
+    await act(() => adoptSession(qc, { registered: true, signed_in: true, user: "dora" } as Session));
+    // The new session has its own copy of the package; the late save must not overwrite it.
+    const theirs = view({ draft_etag: `"${"e".repeat(64)}"` }, { status: "draft", acceptance_criteria: ["The new session's criterion"] });
+    qc.setQueryData(["package", draft.id], theirs);
+    release();
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(qc.getQueryData(["package", draft.id])).toEqual(theirs);
   });
 });

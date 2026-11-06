@@ -22,6 +22,8 @@
 
 Only steps 1 to 4 are in this change. Steps 5 to 7 are authorized only by later records.
 
+The task-level implementation plan is `docs/superpowers/plans/2026-11-06-board-redesign.md` (15 tasks across slices M1 to M8, three spikes, owner validation).
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

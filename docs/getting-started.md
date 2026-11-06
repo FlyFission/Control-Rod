@@ -18,6 +18,8 @@ Optional, for real agent runs: [Claude Code](https://claude.com/claude-code) sig
 
 The embedded database refuses to run as root, so use an ordinary user account.
 
+If `pnpm cr doctor` reports that the database cannot start, it means the bundled PostgreSQL could not load its libraries. `pnpm-workspace.yaml` allows the install step that creates them (`onlyBuiltDependencies`); an install done before that was added can lack them, and `rm -rf node_modules && pnpm install` fixes it. Otherwise set `CONTROLROD_DATABASE_URL` to your own PostgreSQL 17 superuser connection, as `doctor` shows.
+
 ## Run it
 
 ```sh

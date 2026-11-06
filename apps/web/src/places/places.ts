@@ -10,6 +10,7 @@ export interface Place {
 }
 
 export const PLACES: Place[] = [
+  { to: "/", label: "Board", purpose: "Every card by step: what needs you and what is waiting" },
   { to: "/inbox", label: "Inbox", purpose: "Decisions waiting on you, riskiest first" },
   { to: "/office", label: "Office", purpose: "The floor and the board: who is working on what" },
   { to: "/packages", label: "Packages", purpose: "Capture work and find every package" },

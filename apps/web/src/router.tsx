@@ -10,6 +10,7 @@ import { api } from "./api/client.js";
 import { Shell } from "./components/Shell.js";
 import { useLiveEvents } from "./lib/live.js";
 import { CasePage } from "./features/case/CasePage.js";
+import { Board } from "./pages/Board.js";
 import { Explore } from "./pages/Explore.js";
 import { Inbox } from "./pages/Inbox.js";
 import { OfficePlace } from "./pages/OfficePlace.js";
@@ -46,13 +47,13 @@ function Root() {
 
 const rootRoute = createRootRoute({ component: Root });
 
-/** The places (specification 12). "/" opens the Inbox; the floor and board are the Office's two views. */
+/** The places (specification 12). "/" is the board; "/board" is its old address. The Inbox stays at /inbox. */
 const routes = [
-  createRoute({ getParentRoute: () => rootRoute, path: "/", beforeLoad: () => { throw redirect({ to: "/inbox" }); } }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/", component: Board }),
   createRoute({ getParentRoute: () => rootRoute, path: "/inbox", component: Inbox }),
   createRoute({ getParentRoute: () => rootRoute, path: "/office", component: () => <OfficePlace view="office" /> }),
   createRoute({ getParentRoute: () => rootRoute, path: "/floor", component: () => <OfficePlace view="floor" /> }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/board", component: () => <OfficePlace view="board" /> }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/board", beforeLoad: () => { throw redirect({ to: "/" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/packages", component: Packages }),
   createRoute({ getParentRoute: () => rootRoute, path: "/registers", component: Registers }),
   createRoute({ getParentRoute: () => rootRoute, path: "/explore", component: Explore }),

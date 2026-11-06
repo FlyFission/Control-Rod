@@ -113,6 +113,17 @@ describe("shell and palette", () => {
     expect(screen.getByRole("link", { name: "Registers" }).getAttribute("aria-current")).toBe("page");
   });
 
+  it("switches the look on the document and keeps it", async () => {
+    apiFor();
+    await renderShell();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Look B Drafting table/ }));
+    expect(document.documentElement.dataset["look"]).toBe("b");
+    expect(window.localStorage.getItem("cr.look")).toBe("b");
+    await user.click(screen.getByRole("button", { name: /Look A Control room/ }));
+    expect(document.documentElement.dataset["look"]).toBe("a");
+  });
+
   it("opens on Ctrl+K, finds a place by typing, and goes there on Enter", async () => {
     apiFor();
     const router = await renderShell();

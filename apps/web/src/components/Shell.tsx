@@ -4,8 +4,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { BrandMark } from "../pages/SignIn.js";
+import { type Look, loadLook, saveLook } from "../lib/kind.js";
 import { PLACES } from "../places/places.js";
 import { CommandPalette } from "./CommandPalette.js";
+
+const LOOKS: { id: Look; name: string }[] = [
+  { id: "a", name: "A Control room" },
+  { id: "b", name: "B Drafting table" },
+  { id: "c", name: "C Instrument panel" },
+];
 
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -20,12 +27,18 @@ export function Shell({ session, children }: { session: Session; children: React
   const needs = inbox.data?.items.length ?? 0;
   const [palette, setPalette] = useState(false);
   const shortcut = isMac() ? "⌘K" : "Ctrl K";
+  const [look, setLook] = useState<Look>(loadLook);
   const path = useRouterState({ select: (st) => st.location.pathname });
 
   // On a phone the places are one scrolling row: keep the current one in view.
   useEffect(() => {
     document.querySelector(".places .place-link.active")?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [path]);
+
+  // The look is a token theme on the document, kept per viewer.
+  useEffect(() => {
+    document.documentElement.dataset["look"] = look;
+  }, [look]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -55,7 +68,7 @@ export function Shell({ session, children }: { session: Session; children: React
         Skip to content
       </a>
       <header className="topbar">
-        <Link to="/inbox" className="brand">
+        <Link to="/" className="brand">
           <BrandMark />
           <span>Control Rod</span>
         </Link>
@@ -63,6 +76,24 @@ export function Shell({ session, children }: { session: Session; children: React
           <span>Search or run a command</span>
           <kbd>{shortcut}</kbd>
         </button>
+        <div className="look-switch" role="group" aria-label="Look">
+          {LOOKS.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              className="look-btn"
+              aria-pressed={look === l.id}
+              title={l.name}
+              onClick={() => {
+                saveLook(l.id);
+                setLook(l.id);
+              }}
+            >
+              <span aria-hidden="true">{l.id.toUpperCase()}</span>
+              <span className="sr-only">Look {l.name}</span>
+            </button>
+          ))}
+        </div>
         <div className="who">
           <span className="muted">{session.user ?? "Signed in"}</span>
           <button type="button" className="btn ghost small" onClick={() => void logout()}>
@@ -75,7 +106,7 @@ export function Shell({ session, children }: { session: Session; children: React
           <ul>
             {PLACES.map((p) => (
               <li key={p.to}>
-                <Link to={p.to} className="place-link" activeProps={{ className: "place-link active", "aria-current": "page" }}>
+                <Link to={p.to} className="place-link" activeOptions={{ exact: p.to === "/" }} activeProps={{ className: "place-link active", "aria-current": "page" }}>
                   <span>{p.label}</span>
                   {p.to === "/inbox" && needs > 0 && (
                     <span className="badge" aria-label={`${needs} waiting on you`}>

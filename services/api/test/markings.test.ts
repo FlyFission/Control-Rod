@@ -136,6 +136,25 @@ describe("provenance", () => {
     expect(again.json().code).toBe("not-proposed");
   });
 
+  it("takes an unrelated draft edit after an input raised the package above its own lane", async () => {
+    const c = (await post("/captures", { text: "Edit me after a raise", lane: "internal" })).json();
+    const id = await intake(c.id, "internal");
+    expect((await post(`/captures/${c.id}/classify`, { lane: "proprietary" })).statusCode).toBe(200);
+    const v = (await get(`/packages/${id}`)).json();
+    expect(v.package.data_lane).toBe("internal");
+    expect(v.effective_lane).toBe("proprietary");
+    const put = (payload: Json) => h.app.inject({ method: "PUT", url: `/packages/${id}`, headers: { cookie, origin: ORIGIN, "if-match": v.draft_etag }, payload });
+    // Leaving the lane alone is no lowering, and the inherited lane stays effective.
+    const r = await put({ ...v.package, title: "Loads, retitled" });
+    expect(r.statusCode, r.body).toBe(200);
+    expect((await get(`/packages/${id}`)).json().effective_lane).toBe("proprietary");
+    // Lowering the draft's own lane is still refused.
+    const now = (await get(`/packages/${id}`)).json();
+    const low = await h.app.inject({ method: "PUT", url: `/packages/${id}`, headers: { cookie, origin: ORIGIN, "if-match": now.draft_etag },
+      payload: { ...now.package, data_lane: "public" } });
+    expect(low.json().code).toBe("lowering-needs-change-request");
+  });
+
   it("keeps a declassification when a draft is edited without touching its lane", async () => {
     const before = (await get(`/packages/${packageId}`)).json();
     expect(before.effective_lane).toBe("client-confidential");

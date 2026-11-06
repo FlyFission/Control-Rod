@@ -38,6 +38,15 @@ Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_DATA
 
 **Agents run for real.** `pnpm cr start` also starts the daemon, which launches Claude Code or Codex processes under your login, inside the sandbox policy recorded for the run ([ADR 0021](adr/0021-native-cli-sandboxes.md)). If you only want the API and web app, see the pilot guide for starting the API alone.
 
+## Dev container and Codespaces
+
+`.devcontainer/` describes an Ubuntu 24.04 environment with Node 22, pnpm, Go, Python, uv and Rust at the pinned versions. Open the repository in GitHub Codespaces, or in VS Code with the Dev Containers extension (**Reopen in Container**). Setup installs dependencies and builds everything (a few minutes on first build); then run `pnpm cr start`.
+
+- In VS Code the app is at <http://localhost:7300> through port forwarding, same as on your own machine.
+- In Codespaces the app is at a forwarded `https://<name>-7300.app.github.dev` address. `pnpm cr start` detects Codespaces and sets the passkey origin to match. A passkey is bound to the address it was created on, so one made in a Codespace does not work anywhere else, and the data goes when the Codespace is deleted. Treat it as a place to try and build, not to keep real records.
+- Agent runs need Claude Code signed in inside the container (`npm i -g @anthropic-ai/claude-code`, then `claude`). Runs also start only on a platform whose sandbox has been qualified, which so far is WSL2; on other platforms the preflight refuses the run and says why. Expect the container to be fine for the web app, the API, and all the tests, and not yet for real agent runs.
+- The configuration was checked by running its setup script on a fresh clone as a non-root user and starting the app with Codespaces-style variables. The container image itself has not yet been built by anyone, so report anything that breaks.
+
 ## Check your change
 
 These mirror the CI jobs in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Run the ones for the area you touched.

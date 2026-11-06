@@ -1,15 +1,15 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { LOOKS, SURFACE_TOKENS, TEXT_TOKENS, contrastRatio, parseLooks } from "../../scripts/contrast-lib.mjs";
+import { FILL_PAIRS, LOOKS, SURFACE_TOKENS, TEXT_TOKENS, contrastRatio, parseLooks } from "../../scripts/contrast-lib.mjs";
 
-const css = readFileSync(resolve(process.cwd(), "src/design/tokens.css"), "utf8");
+const css = readFileSync(join(import.meta.dirname, "tokens.css"), "utf8");
 const looks = parseLooks(css);
 
 describe("contrast of text tokens on surfaces", () => {
   it("parses all three looks with every checked token", () => {
     for (const look of LOOKS) {
-      for (const t of [...TEXT_TOKENS, ...SURFACE_TOKENS]) {
+      for (const t of [...TEXT_TOKENS, ...SURFACE_TOKENS, ...FILL_PAIRS.flat()]) {
         expect(looks[look]![t], `${look} ${t}`).toMatch(/^#[0-9a-f]{6}$/);
       }
     }
@@ -28,6 +28,14 @@ describe("contrast of text tokens on surfaces", () => {
           expect(ratio).toBeGreaterThanOrEqual(4.5);
         });
       }
+    }
+  }
+
+  for (const look of LOOKS) {
+    for (const [text, fill] of FILL_PAIRS) {
+      it(`look ${look}: ${text} on ${fill} is at least 4.5:1`, () => {
+        expect(contrastRatio(looks[look]![text]!, looks[look]![fill]!)).toBeGreaterThanOrEqual(4.5);
+      });
     }
   }
 });

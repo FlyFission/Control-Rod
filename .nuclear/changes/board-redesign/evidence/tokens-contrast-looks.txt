@@ -22,6 +22,15 @@ a     --check        #e58bd8  --panel       #141416   7.90   pass
 a     --stuck        #ff7a59  --ground      #0a0a0c   7.71   pass
 a     --stuck        #ff7a59  --surface     #101012   7.40   pass
 a     --stuck        #ff7a59  --panel       #141416   7.17   pass
+a     --waiting      #b89cff  --ground      #0a0a0c   8.70   pass
+a     --waiting      #b89cff  --surface     #101012   8.36   pass
+a     --waiting      #b89cff  --panel       #141416   8.09   pass
+a     --changed      #ffb347  --ground      #0a0a0c  11.11   pass
+a     --changed      #ffb347  --surface     #101012  10.67   pass
+a     --changed      #ffb347  --panel       #141416  10.33   pass
+a     --idle         #7d8a9a  --ground      #0a0a0c   5.63   pass
+a     --idle         #7d8a9a  --surface     #101012   5.41   pass
+a     --idle         #7d8a9a  --panel       #141416   5.23   pass
 a     --done         #00ff9d  --ground      #0a0a0c  14.87   pass
 a     --done         #00ff9d  --surface     #101012  14.29   pass
 a     --done         #00ff9d  --panel       #141416  13.83   pass
@@ -34,6 +43,7 @@ a     --kind-doc     #4fc3d0  --panel       #141416   8.80   pass
 a     --accent       #00f2ff  --ground      #0a0a0c  14.27   pass
 a     --accent       #00f2ff  --surface     #101012  13.71   pass
 a     --accent       #00f2ff  --panel       #141416  13.27   pass
+a     --accent-ink   #001a1c  --accent      #00f2ff  13.01   pass
 b     --text         #1b2231  --ground      #f1ece2  13.51   pass
 b     --text         #1b2231  --surface     #f6f3ec  14.36   pass
 b     --text         #1b2231  --panel       #fffdf8  15.65   pass
@@ -52,6 +62,15 @@ b     --check        #a21caf  --panel       #fffdf8   6.22   pass
 b     --stuck        #b42318  --ground      #f1ece2   5.58   pass
 b     --stuck        #b42318  --surface     #f6f3ec   5.93   pass
 b     --stuck        #b42318  --panel       #fffdf8   6.47   pass
+b     --waiting      #5b3fa8  --ground      #f1ece2   6.55   pass
+b     --waiting      #5b3fa8  --surface     #f6f3ec   6.96   pass
+b     --waiting      #5b3fa8  --panel       #fffdf8   7.59   pass
+b     --changed      #9a5200  --ground      #f1ece2   4.98   pass
+b     --changed      #9a5200  --surface     #f6f3ec   5.29   pass
+b     --changed      #9a5200  --panel       #fffdf8   5.77   pass
+b     --idle         #5f584b  --ground      #f1ece2   5.98   pass
+b     --idle         #5f584b  --surface     #f6f3ec   6.35   pass
+b     --idle         #5f584b  --panel       #fffdf8   6.92   pass
 b     --done         #1a6e4c  --ground      #f1ece2   5.28   pass
 b     --done         #1a6e4c  --surface     #f6f3ec   5.61   pass
 b     --done         #1a6e4c  --panel       #fffdf8   6.11   pass
@@ -64,6 +83,7 @@ b     --kind-doc     #0e6f78  --panel       #fffdf8   5.80   pass
 b     --accent       #1f3a8a  --ground      #f1ece2   8.78   pass
 b     --accent       #1f3a8a  --surface     #f6f3ec   9.33   pass
 b     --accent       #1f3a8a  --panel       #fffdf8  10.17   pass
+b     --accent-ink   #ffffff  --accent      #1f3a8a  10.34   pass
 c     --text         #101828  --ground      #f4f5f7  16.27   pass
 c     --text         #101828  --surface     #ffffff  17.75   pass
 c     --text         #101828  --panel       #eceef2  15.28   pass
@@ -82,6 +102,15 @@ c     --check        #a21caf  --panel       #eceef2   5.44   pass
 c     --stuck        #c4251a  --ground      #f4f5f7   5.31   pass
 c     --stuck        #c4251a  --surface     #ffffff   5.79   pass
 c     --stuck        #c4251a  --panel       #eceef2   4.98   pass
+c     --waiting      #5b3fa8  --ground      #f4f5f7   7.07   pass
+c     --waiting      #5b3fa8  --surface     #ffffff   7.72   pass
+c     --waiting      #5b3fa8  --panel       #eceef2   6.64   pass
+c     --changed      #9a4a00  --ground      #f4f5f7   5.74   pass
+c     --changed      #9a4a00  --surface     #ffffff   6.26   pass
+c     --changed      #9a4a00  --panel       #eceef2   5.39   pass
+c     --idle         #556072  --ground      #f4f5f7   5.83   pass
+c     --idle         #556072  --surface     #ffffff   6.36   pass
+c     --idle         #556072  --panel       #eceef2   5.47   pass
 c     --done         #0b7a47  --ground      #f4f5f7   4.95   pass
 c     --done         #0b7a47  --surface     #ffffff   5.40   pass
 c     --done         #0b7a47  --panel       #eceef2   4.65   pass
@@ -94,5 +123,6 @@ c     --kind-doc     #086a74  --panel       #eceef2   5.44   pass
 c     --accent       #b83a08  --ground      #f4f5f7   5.28   pass
 c     --accent       #b83a08  --surface     #ffffff   5.76   pass
 c     --accent       #b83a08  --panel       #eceef2   4.96   pass
+c     --accent-ink   #ffffff  --accent      #b83a08   5.76   pass
 
-Failures: 0 of 90
+Failures: 0 of 120

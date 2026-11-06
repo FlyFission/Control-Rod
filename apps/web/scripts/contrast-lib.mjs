@@ -11,11 +11,16 @@ export const TEXT_TOKENS = [
   "--needs",
   "--check",
   "--stuck",
+  "--waiting",
+  "--changed",
+  "--idle",
   "--done",
   "--kind-code",
   "--kind-doc",
   "--accent",
 ];
+/** Filled controls: text token on fill token. */
+export const FILL_PAIRS = [["--accent-ink", "--accent"]];
 export const MIN_RATIO = 4.5;
 
 function blockBody(css, selector) {
@@ -70,6 +75,12 @@ export function contrastTable(looks) {
         const ratio = contrastRatio(fg, bg);
         rows.push({ look, text, fg, surface, bg, ratio, pass: ratio >= MIN_RATIO });
       }
+    }
+    for (const [text, fill] of FILL_PAIRS) {
+      const fg = looks[look][text];
+      const bg = looks[look][fill];
+      const ratio = contrastRatio(fg, bg);
+      rows.push({ look, text, fg, surface: fill, bg, ratio, pass: ratio >= MIN_RATIO });
     }
   }
   return rows;

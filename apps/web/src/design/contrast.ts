@@ -69,7 +69,9 @@ export function textPairs(file: string, css: string, tokens: Record<string, stri
     if (!fg) continue;
     const fgHex = resolve(fg[1]!, tokens);
     if (!fgHex) continue;
-    const bg = /(?:^|[;\s])background(?:-color)?\s*:\s*([^;]+)/.exec(decls);
+    const bgMatch = /(?:^|[;\s])background(?:-color)?\s*:\s*([^;]+)/.exec(decls);
+    // "transparent" and "none" paint nothing: the text sits on the page ground, so measure it there.
+    const bg = bgMatch && !/^(?:transparent|none)$/i.test(bgMatch[1]!.trim()) ? bgMatch : null;
     const bgHex = bg ? resolve(bg[1]!, tokens) : undefined;
     if (bgHex) {
       pairs.push({ file, selector, fg: fgHex, bg: bgHex, bgSource: "rule", ratio: ratio(fgHex, bgHex) });

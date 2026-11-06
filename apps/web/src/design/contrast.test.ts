@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ratio, textPairs, tokenColors } from "./contrast.js";
 
+const GROUND = ["#101012"];
+
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8");
 const tokensCss = read("./tokens.css");
 const tokens = tokenColors(tokensCss);
@@ -54,5 +56,28 @@ describe("text contrast", () => {
     );
     const failing = worst.filter((p) => p.ratio < 4.5).map((p) => `${p.ratio.toFixed(2)} ${p.fg} on ${p.bg} ${p.file} ${p.selector}`);
     expect(failing).toEqual([]);
+  });
+});
+
+describe("the contrast scan itself", () => {
+  const scan = (css: string) => textPairs("t.css", css, {}, GROUND);
+
+  it("measures a rule with a transparent or no background against the page ground", () => {
+    for (const bg of ["transparent", "none"]) {
+      const pairs = scan(`.btn { color: #888888; background: ${bg}; }`);
+      expect(pairs.map((p) => p.bgSource), bg).toEqual(["page"]);
+    }
+    expect(scan(".btn { color: #888888; background-color: transparent; }")).toHaveLength(1);
+  });
+
+  it("still skips fills it cannot resolve, and measures a rule's own fill", () => {
+    expect(scan(".a { color: #ffffff; background: linear-gradient(#000, #111); }")).toEqual([]);
+    expect(scan(".b { color: #ffffff; background: rgba(0, 0, 0, 0.5); }")).toEqual([]);
+    expect(scan(".c { color: #ffffff; background: #000000; }").map((p) => p.bgSource)).toEqual(["rule"]);
+  });
+
+  it("scans the base button rule in the real stylesheet", () => {
+    const pairs = textPairs("styles.css", read("../styles.css"), tokens, GROUNDS.map((g) => tokens[g]!));
+    expect(pairs.some((p) => p.selector === ".btn" && p.bgSource === "page")).toBe(true);
   });
 });

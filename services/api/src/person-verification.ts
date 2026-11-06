@@ -126,11 +126,18 @@ async function admissible(q: Db | Tx, user: string, id: string, req: Verificatio
   if (unknown.length) throw new Refusal(400, "invalid", `This package has no criterion ${unknown.join(", ")}`);
   const missing = mandatory.filter((c) => !req.criteria.includes(c));
   if (missing.length) throw new Refusal(409, "verification-incomplete", `A verification must cover every mandatory criterion; it leaves out ${missing.join(", ")}`);
-  // The signature names the exact work verified: the decision subject (outputs and pre-check) and author run.
   const subject = await subjectOf(q, pkg);
-  const signedDigest = digest({ act: "person-verification", package_id: pkg.id, package_revision: pkg.revision, subject_digest: subject.digest,
-    author_run: author.id, criteria: req.criteria, outcome: req.outcome });
+  const signedDigest = verificationDigest(pkg, subject.digest, author.id, req.criteria, req.outcome);
   return { pkg, signedDigest };
+}
+
+/**
+ * The digest a person verification signs. It names the exact work verified: the decision subject
+ * (outputs and pre-check) and author run, with the criteria covered and the outcome.
+ */
+function verificationDigest(pkg: PackageRow, subjectDigest: unknown, authorRun: string, criteria: string[], outcome: string): string {
+  return digest({ act: "person-verification", package_id: pkg.id, package_revision: pkg.revision, subject_digest: subjectDigest,
+    author_run: authorRun, criteria, outcome });
 }
 
 /** Step 1: the digest the person signs, after every rule that can be checked without a signature. */
@@ -176,8 +183,12 @@ export async function recordPersonVerification(
   });
 }
 
-/** A recorded verification with the revision of the package it verified. */
-export type PersonVerificationEntry = Json & { package_revision: number };
+/**
+ * A recorded verification with the revision of the package it verified, and whether it covers the
+ * package's current work: its signed digest equals the one a verification of the current subject and
+ * latest author run would sign now, with the same criteria and outcome.
+ */
+export type PersonVerificationEntry = Json & { package_revision: number; covers_current_subject: boolean };
 
 /** Refuses with not-found unless the caller's organization owns the package (another org's work reads as absent). */
 export async function requireOwnPackage(db: Db | Tx, orgId: string, packageId: string): Promise<void> {
@@ -197,5 +208,14 @@ export async function listPersonVerifications(db: Db, orgId: string, packageId: 
        join candidate_assignments ca on ca.id = v.body->>'candidate_id' and ca.org_id = v.org_id
       where ca.package_id = $1 and v.org_id = $2
       order by v.recorded_at, v.body->>'id'`, [packageId, orgId]);
-  return r.rows.map((x) => ({ ...x.body, package_revision: x.package_revision }));
+  // The current work: what a verification signed now would bind. Within one revision the author
+  // output or pre-check can change, so a matching revision alone does not show the record covers it.
+  const pkg = await currentPackage(db, packageId);
+  const author = pkg ? await latestAuthorRun(db, pkg.id, pkg.revision) : null;
+  const subject = pkg && author?.status === "succeeded" ? (await subjectOf(db, pkg)).digest : undefined;
+  return r.rows.map((x) => {
+    const covers = pkg !== null && author !== null && subject !== undefined && x.package_revision === pkg.revision &&
+      x.body.subject_digest?.value === verificationDigest(pkg, subject, author.id, x.body.criteria ?? [], x.body.outcome);
+    return { ...x.body, package_revision: x.package_revision, covers_current_subject: covers };
+  });
 }

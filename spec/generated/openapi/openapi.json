@@ -10589,7 +10589,8 @@
           "criteria",
           "outcome",
           "assertion",
-          "package_revision"
+          "package_revision",
+          "covers_current_subject"
         ],
         "properties": {
           "id": {
@@ -10642,6 +10643,10 @@
             "format": "int32",
             "minimum": 0,
             "description": "The package revision whose candidate was verified."
+          },
+          "covers_current_subject": {
+            "type": "boolean",
+            "description": "True when the record's signed digest equals what a verification of the package's current work\nwould sign now: the current revision, its decision subject (outputs and pre-check), its latest\nauthor run, and the same criteria and outcome. Within one revision the work can change, so only\na pass that covers the current subject counts as verified."
           }
         },
         "description": "A recorded person verification with the package revision it verified."

@@ -326,6 +326,14 @@ model PersonVerificationEntry {
 
   /** The package revision whose candidate was verified. */
   @minValue(0) package_revision: int32;
+
+  /**
+   * True when the record's signed digest equals what a verification of the package's current work
+   * would sign now: the current revision, its decision subject (outputs and pre-check), its latest
+   * author run, and the same criteria and outcome. Within one revision the work can change, so only
+   * a pass that covers the current subject counts as verified.
+   */
+  covers_current_subject: boolean;
 }
 
 /** One entry in your office: something that needs a person. */

@@ -2568,6 +2568,13 @@ export interface components {
              * @description The package revision whose candidate was verified.
              */
             package_revision: number;
+            /**
+             * @description True when the record's signed digest equals what a verification of the package's current work
+             *     would sign now: the current revision, its decision subject (outputs and pre-check), its latest
+             *     author run, and the same criteria and outcome. Within one revision the work can change, so only
+             *     a pass that covers the current subject counts as verified.
+             */
+            covers_current_subject: boolean;
         };
         /** @description A passkey as the forms name it: its owner, when it was registered, and no attestation evidence. */
         RegistryCredential: {

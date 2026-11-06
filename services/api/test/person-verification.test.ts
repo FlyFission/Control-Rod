@@ -203,3 +203,34 @@ describe("reading a package's person verifications", () => {
     expect((await h.app.inject({ method: "GET", url: `/packages/${pkgId}/person-verifications` })).statusCode).toBe(401);
   });
 });
+
+describe("whether a verification covers the current work", () => {
+  const id = "WP-PV-COV";
+  const get = () => h.app.inject({ method: "GET", url: `/packages/${id}/person-verifications`, headers: { cookie: carol } });
+  const authorRun = (runId: string, round: number) =>
+    h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'author', $3, 'succeeded', $4)", [runId, id, round,
+      { schema_version: "0.1.0", id: runId, package_id: id, package_revision: 0, role: "author", agent_baseline: "author", runtime: { kind: "local", provider: "fake", model: "fake" }, round, status: "succeeded", queued_at: new Date().toISOString() }]);
+
+  it("marks a pass on the current subject as covering it, and no longer once the author output changes within the revision", async () => {
+    const capture = (await post(ben, "/captures", { text: "Coverage", lane: "internal" })).json();
+    await h.admin.query("update runs set status = 'stopped' where status = 'queued'");
+    await h.admin.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'in-verification', $2, $3)", [id, capture.id, { ...example, id, revision: 0, status: "draft" }]);
+    const release = { schema_version: "0.1.0", id: "D-pvcov0001", package_id: id, package_revision: 0, kind: "release", actor: { kind: "human", id: "ben" },
+      subject_digest: { algorithm: "sha256", value: "b".repeat(64) }, assertion: { credential_id: "x", authenticator_data: "x", client_data_json: "x", signature: "x" }, decided_at: new Date().toISOString() };
+    await h.admin.query("insert into decisions (id, package_id, package_revision, kind, body) values ($1, $2, 0, 'release', $3)", [release.id, id, release]);
+    await authorRun("R-pvcov0001", 1);
+    const body = { package_revision: 0, criteria: ALL, outcome: "pass" };
+    const o = await post(carol, `/packages/${id}/person-verifications/options`, body);
+    expect(o.statusCode, o.body).toBe(200);
+    expect((await post(carol, `/packages/${id}/person-verifications`, { ...body, assertion: carolKey.assert(o.json().options) })).statusCode).toBe(201);
+
+    const before = (await get()).json() as { id: string; outcome: string; covers_current_subject: boolean }[];
+    expect(before).toHaveLength(1);
+    expect(before[0]).toMatchObject({ outcome: "pass", covers_current_subject: true });
+    // A new author round on the same revision: the work the person verified is no longer the current work.
+    await authorRun("R-pvcov0002", 2);
+    const after = (await get()).json() as { id: string; covers_current_subject: boolean }[];
+    expect(after.map((v) => v.id)).toEqual(before.map((v) => v.id));
+    expect(after[0]!.covers_current_subject).toBe(false);
+  });
+});

@@ -21,6 +21,10 @@
 | T-17 | Codex r3 1: Accept rechecks person verifications at submit; a refresh in flight is unknown for offering Accept. | `components/components.test.tsx` in-flight refresh and submit recheck | implemented and tested (screen-only until D-4) |
 | T-18 | Codex r3 2: board reads older than the latest stream drop read as last known, including reads inactive at the drop. | `features/board/board.test.tsx` leave, drop, reconnect, return | implemented and tested |
 | T-19 | Codex r3 3: each count's confidence comes from every read it needs. | `features/board/board.test.tsx` one failed package view | implemented and tested |
+| T-20 | Review bots A: the office, inbox and office figures read only the caller's organization's work. | API `person-verification.test.ts` "keeps another organization's package out of the office, the inbox and the office figures" | implemented and tested |
+| T-21 | Review bots B: recovery after a drop waits for the required reads to settle, even when a second invalidation replaces a refetch. | `lib/live.test.tsx` second refresh during recovery | implemented and tested |
+| T-22 | Review bots C: a card whose view or actions read is refetching shows its next step as last known. | `features/board/board.test.tsx` refetching actions | implemented and tested |
+| T-23 | Review bots D: cold-load counts stay unknown until every view and actions read completes; a verification refetch in flight offers no Accept (board, office card). | `features/board/board.test.tsx`, `features/office/agent-card.test.tsx` | tested (behavior already present) |
 
 ## Required links
 

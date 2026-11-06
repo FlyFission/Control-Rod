@@ -1,0 +1,24 @@
+
+> @control-rod/web@0.0.0 test ~/worktrees/control-rod-m1/apps/web
+> pnpm gen:api && vitest run
+
+
+> @control-rod/web@0.0.0 gen:api ~/worktrees/control-rod-m1/apps/web
+> openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [196.5ms]
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+
+ Test Files  39 passed (39)
+      Tests  580 passed (580)
+   Start at  15:56:12
+   Duration  7.32s (tests 49%, environment 31%, setup 12%, import 7%, transform 2%)
+
+Environment  jsdom was created 39 times · 21.68s total, 31% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+exit 0

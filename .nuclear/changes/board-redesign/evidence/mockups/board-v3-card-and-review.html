@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card and review</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #16171a; color: #e8e8ea; font: 15px/1.5 Inter, system-ui, sans-serif; }
+  .page { max-width: 1320px; margin: 0 auto; padding: 32px 24px 64px; }
+  .page > h1 { font-size: 24px; font-weight: 600; margin: 0 0 6px; }
+  .page > p.lede { color: #a4a6ad; margin: 0 0 18px; max-width: 920px; }
+  .demo { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; font-size: 13px; color: #a4a6ad; }
+  .seg { display: inline-flex; border: 1px solid #34363c; border-radius: 7px; overflow: hidden; }
+  .seg button { font: 500 12.5px Inter, sans-serif; color: #c9cbd1; background: transparent; border: 0; padding: 6px 11px; cursor: pointer; }
+  .seg button.on { background: #e8e8ea; color: #16171a; }
+
+  .t-a { --bg:#0e0f11; --bar:#0e0f11; --panel:#131417; --card:#17181b; --line:#24262a; --line-strong:#30323a; --field:#141518;
+    --ink:#ececef; --ink-2:#c3c5cb; --mute:#7c7f87; --accent:#f2a33a; --accent-ink:#1a1206; --needs-bg:#2a1f10; --needs-ink:#f5c27a; --needs-edge:#f2a33a;
+    --code:#7aa2ff; --doc:#7cc49a; --check-ink:#c9b7ff; --check-line:#3b3357; --check-bg:#1d1930; --ok:#5ad08a; --bad:#f07a7a;
+    --add-bg:#12261b; --del-bg:#2b1517; --hl:#3a2f12; --hl-on:#5a4614; --sans:Inter, sans-serif; --mono:"JetBrains Mono", monospace; --serif:Inter, sans-serif; --r:10px; --r-sm:6px; }
+  .t-b { --bg:#f6f3ec; --bar:#fbf9f4; --panel:#fbf9f4; --card:#fffdf8; --line:#ddd5c4; --line-strong:#cbbfa8; --field:#fffdf8;
+    --ink:#1d2433; --ink-2:#3c4558; --mute:#7a7365; --accent:#1f3a8a; --accent-ink:#fff; --needs-bg:#fbe9d0; --needs-ink:#7a3d00; --needs-edge:#c2620c;
+    --code:#2f5bd3; --doc:#2f7d5b; --check-ink:#6b21a8; --check-line:#d8c3ec; --check-bg:#f6eefc; --ok:#1f6f5c; --bad:#b42318;
+    --add-bg:#e5f2ea; --del-bg:#f8e3e0; --hl:#fbeec9; --hl-on:#f5d98a; --sans:"IBM Plex Sans", sans-serif; --mono:"IBM Plex Mono", monospace; --serif:Newsreader, serif; --r:4px; --r-sm:3px; }
+  .t-c { --bg:#ffffff; --bar:#ffffff; --panel:#f8f9fb; --card:#ffffff; --line:#e6e8ec; --line-strong:#d5d9e0; --field:#f4f5f7;
+    --ink:#101828; --ink-2:#344054; --mute:#667085; --accent:#ff5a1f; --accent-ink:#fff; --needs-bg:#fff4ed; --needs-ink:#b93815; --needs-edge:#f08a24;
+    --code:#3b6ff5; --doc:#16a36b; --check-ink:#6941c6; --check-line:#e9d7fe; --check-bg:#f9f5ff; --ok:#12b76a; --bad:#f04438;
+    --add-bg:#ecfdf3; --del-bg:#fef3f2; --hl:#fff1c2; --hl-on:#ffe08a; --sans:Geist, Inter, sans-serif; --mono:"JetBrains Mono", monospace; --serif:Geist, sans-serif; --r:14px; --r-sm:8px; }
+
+  .app { border-radius: 12px; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); box-shadow: 0 30px 80px -30px rgba(0,0,0,.6); }
+  .head { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--bar); }
+  .head .back { color: var(--mute); font-size: 13px; }
+  .kind { font: 500 10.5px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--k); display: inline-flex; align-items: center; gap: 5px; }
+  .kind svg { width: 12px; height: 12px; }
+  .head h2 { margin: 0; font-size: 17px; font-weight: 600; font-family: var(--serif); }
+  .head .id { font: 12px var(--mono); color: var(--mute); }
+  .pill { font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink-2); white-space: nowrap; }
+  .pill.check { color: var(--check-ink); border-color: var(--check-line); background: var(--check-bg); }
+  .pill.state { color: var(--k); border-color: color-mix(in srgb, var(--k) 40%, var(--line)); }
+  .head .sp { flex: 1; }
+  .btn { font: 500 12.5px var(--sans); padding: 6px 12px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); white-space: nowrap; cursor: pointer; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.ghost { background: transparent; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .tabs { display: flex; gap: 4px; padding: 0 20px; border-bottom: 1px solid var(--line); background: var(--bar); }
+  .tabs button { font: 500 13px var(--sans); color: var(--mute); background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 10px 10px; cursor: pointer; }
+  .tabs button.on { color: var(--ink); border-bottom-color: var(--k); }
+  .tabs .n { font: 11px var(--mono); margin-left: 4px; opacity: .8; }
+  .body { display: grid; grid-template-columns: 1fr 340px; min-height: 620px; }
+  .main { padding: 18px 20px; min-width: 0; border-right: 1px solid var(--line); }
+  .side { padding: 16px 18px; background: var(--panel); }
+  .side h4 { margin: 0 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--mute); font-weight: 600; }
+  .side section { margin: 0 0 20px; }
+  .kv { display: grid; grid-template-columns: 96px 1fr; gap: 6px 10px; font-size: 13px; }
+  .kv > span:nth-child(odd) { color: var(--mute); }
+  .notes .btn { white-space: normal; }
+  .av { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font: 600 9.5px var(--sans); color: #fff; vertical-align: middle; margin-right: 6px; }
+  .av.ag { border-radius: 5px; font-family: var(--mono); color: #14161a; }
+  .checks { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .checks li { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  .checks li:last-child { border-bottom: 0; }
+  .checks .ic { width: 16px; flex: none; text-align: center; font-weight: 700; }
+  .checks .ok .ic { color: var(--ok); } .checks .wait .ic { color: var(--needs-edge); } .checks .no .ic { color: var(--bad); }
+  .checks small { display: block; color: var(--mute); font-size: 11.5px; }
+  .budget { font: 12px var(--mono); color: var(--mute); }
+  .budget .bar { height: 5px; border-radius: 3px; background: var(--line); margin: 6px 0 4px; overflow: hidden; }
+  .budget .bar i { display: block; height: 100%; background: var(--k); }
+
+  /* activity */
+  .feed { list-style: none; margin: 0; padding: 0; }
+  .feed li { display: grid; grid-template-columns: 74px 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .feed .t { font: 10.5px var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--mute); padding-top: 2px; }
+  .feed .t.action { color: var(--k); } .feed .t.question { color: var(--needs-ink); } .feed .t.human { color: var(--ink); } .feed .t.check { color: var(--check-ink); }
+  .feed code { font: 12px var(--mono); background: var(--field); padding: 1px 5px; border-radius: 4px; }
+  .feed .time { color: var(--mute); font: 11px var(--mono); margin-left: 6px; }
+  .compose { margin-top: 14px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--card); }
+  .compose textarea { width: 100%; border: 0; background: transparent; color: var(--ink); font: 13.5px var(--sans); padding: 10px 12px; resize: none; height: 54px; outline: none; }
+  .compose .bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--mute); }
+  .compose .bar .sp { flex: 1; }
+  .mode { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+  .mode button { font: 500 12px var(--sans); border: 0; background: transparent; color: var(--mute); padding: 3px 10px; border-radius: 999px; cursor: pointer; }
+  .mode button.on { background: var(--field); color: var(--ink); }
+
+  /* code review */
+  .rv-top { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 13px; color: var(--mute); }
+  .rv-top .sp { flex: 1; }
+  .file { border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; margin: 0 0 14px; background: var(--card); }
+  .file .fh { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); font: 12.5px var(--mono); background: var(--panel); }
+  .file .fh .sp { flex: 1; }
+  .diff { font: 12.5px/1.6 var(--mono); }
+  .ln { display: grid; grid-template-columns: 44px 44px 1fr; cursor: pointer; }
+  .ln:hover { outline: 1px solid var(--line-strong); outline-offset: -1px; }
+  .ln span:nth-child(-n+2) { color: var(--mute); text-align: right; padding-right: 10px; user-select: none; }
+  .ln.add { background: var(--add-bg); } .ln.del { background: var(--del-bg); }
+  .ln .src { white-space: pre; padding-left: 8px; overflow: hidden; }
+  .cmt { margin: 6px 12px 10px 96px; border: 1px solid var(--line-strong); border-left: 3px solid var(--k); border-radius: var(--r-sm); background: var(--bg); padding: 8px 10px; font: 13px var(--sans); }
+  .cmt .who { font-size: 12px; color: var(--mute); margin-bottom: 3px; }
+  .cmt.draft { border-style: dashed; }
+  .pre { margin: 0 0 14px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--check-bg); border: 1px solid var(--check-line); font-size: 13px; color: var(--ink-2); }
+  .pre b { color: var(--check-ink); font-weight: 600; }
+
+  /* document review */
+  .docwrap { display: grid; grid-template-columns: 1fr 250px; gap: 18px; }
+  .paper { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 28px 34px; font: 15px/1.65 var(--serif); box-shadow: 0 1px 0 var(--line); }
+  .t-a .paper { font-family: Inter, sans-serif; font-size: 14.5px; }
+  .paper h3 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
+  .paper .tb { display: flex; gap: 0; border: 1px solid var(--line-strong); font: 11px var(--mono); color: var(--mute); margin: 8px 0 18px; width: max-content; }
+  .paper .tb span { padding: 3px 8px; border-right: 1px solid var(--line-strong); } .paper .tb span:last-child { border: 0; }
+  .paper h5 { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .06em; color: var(--mute); margin: 18px 0 6px; }
+  .paper p { margin: 0 0 10px; }
+  .mark { background: var(--hl); border-radius: 2px; cursor: pointer; padding: 0 1px; }
+  .mark.on { background: var(--hl-on); }
+  .val { font: 12.5px var(--mono); padding: 1px 6px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--field); white-space: nowrap; }
+  .val::before { content: "\2197 "; color: var(--k); }
+  .notes .note { border: 1px solid var(--line); border-left: 3px solid var(--k); border-radius: var(--r-sm); padding: 8px 10px; margin: 0 0 10px; font-size: 13px; background: var(--card); cursor: pointer; }
+  .notes .note.on { border-color: var(--line-strong); box-shadow: 0 0 0 2px color-mix(in srgb, var(--k) 25%, transparent); }
+  .notes .note .who { color: var(--mute); font-size: 11.5px; margin-bottom: 3px; }
+  .notes .note.agent { border-left-color: var(--check-ink); }
+  .sign { border: 1px solid var(--check-line); background: var(--check-bg); border-radius: var(--r-sm); padding: 12px; font-size: 13px; }
+  .sign b { color: var(--check-ink); }
+  .sign .row { display: flex; gap: 8px; margin-top: 10px; }
+  .who-as { font-size: 12px; color: var(--mute); margin-top: 8px; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #ececef; color: #16171a; font: 500 13px Inter, sans-serif; padding: 9px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>The card, and reviewing what an agent made</h1>
+  <p class="lede">Click a card on the board and this opens. Three screens: the card itself while an agent works, a code review, and a document review with an independent check. Everything here responds: switch tabs, click diff lines or highlighted passages to comment, send comments back to the agent, and try signing as the requester versus as a checker.</p>
+  <div class="demo">Look:
+    <span class="seg" id="themes"><button data-t="a" class="on">A Control room</button><button data-t="b">B Drafting table</button><button data-t="c">C Instrument panel</button></span>
+    <span style="margin-left:12px">Screen:</span>
+    <span class="seg" id="screens"><button data-s="card" class="on">1 Card while running</button><button data-s="code">2 Code review</button><button data-s="doc">3 Document review and sign</button></span>
+  </div>
+  <div class="app t-a" id="app"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const ICON = {
+  code: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5"/></svg>',
+  doc: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.8h5.2L12.5 5v9.2H4z"/><path d="M9 1.8V5.2h3.4M6 8.5h4.5M6 11h4.5"/></svg>'
+};
+const st = { theme: "a", screen: "card", tab: null, mode: "queue", drafts: [], as: "DK", sent: false, signed: false, note: 1 };
+const AV = (c, col) => `<span class="av" style="background:${col}">${c}</span>`;
+const BH = AV("BH", "#5b6cff"), DK = AV("DK", "#0f9d8a"), MR = AV("MR", "#c2410c");
+const CC = `<span class="av ag" style="background:#d4a27f">CC</span>`, CX = `<span class="av ag" style="background:#8b9bb4">CX</span>`;
+function toast(t) { const el = document.getElementById("toast"); el.textContent = t; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 2200); }
+
+function header(kind, id, title, pills, actions) {
+  return `<div class="head" style="--k:var(--${kind})"><span class="back">&larr; Board</span><span class="kind">${ICON[kind]}${kind === "doc" ? "Document" : "Code"}</span><span class="id">${id}</span><h2>${title}</h2>${pills}<span class="sp"></span>${actions}</div>`;
+}
+function tabs(kind, list, on) {
+  return `<div class="tabs" style="--k:var(--${kind})">` + list.map(([k, l, n]) => `<button data-tab="${k}" class="${on === k ? "on" : ""}">${l}${n != null ? `<span class="n">${n}</span>` : ""}</button>`).join("") + `</div>`;
+}
+
+/* ---------- 1 card while running ---------- */
+function screenCard() {
+  const tab = st.tab || "activity";
+  let main = "";
+  if (tab === "activity") {
+    main = `<ul class="feed">
+      <li><span class="t human">You</span><span>${BH}Started with Codex. Plan approved as written.<span class="time">10:02</span></span></li>
+      <li><span class="t">Thought</span><span>The walk stops at 20,000 entries; real login folders exceed that. Raise the bound and keep the time limit.<span class="time">10:03</span></span></li>
+      <li><span class="t action">Action</span><span>Edited <code>daemon/internal/runner/sandbox.go</code> <span style="color:var(--ok)">+12</span> <span style="color:var(--bad)">-3</span><span class="time">10:05</span></span></li>
+      <li><span class="t action">Action</span><span>Added a regression test for a folder over the old bound<span class="time">10:06</span></span></li>
+      <li><span class="t action">Action</span><span>Ran <code>go test ./internal/runner/</code>: 41 passed<span class="time">10:08</span></span></li>
+      <li><span class="t check">Sandbox</span><span>Attested before start: home folder unreadable, no network, writes stay in the workspace. All observed.<span class="time">10:02</span></span></li>
+      <li><span class="t action">Action</span><span style="display:flex;align-items:center;gap:8px"><span class="pulse"></span>Running the race detector on the whole package<span class="time">now</span></span></li>
+    </ul>
+    <div class="compose"><textarea placeholder="Message Codex about this card"></textarea>
+      <div class="bar"><span class="mode" id="mode"><button data-mode="queue" class="${st.mode === "queue" ? "on" : ""}">Queue for next turn</button><button data-mode="steer" class="${st.mode === "steer" ? "on" : ""}">Steer now</button></span>
+      <span class="sp"></span><span>${st.mode === "steer" ? "Interrupts the current step" : "Waits until this step finishes"}</span><button class="btn primary" data-act="msg">Send</button></div></div>`;
+  } else if (tab === "plan") {
+    main = `<ol style="margin:0;padding-left:18px;font-size:14px;line-height:1.8"><li>Find where the store walk sets its entry bound.</li><li>Raise the bound; keep the 5 second limit and fail closed when either is hit.</li><li>Add a test with a folder larger than the old bound.</li><li>Run the package tests and the race detector.</li></ol><p style="color:var(--mute);font-size:13px">Approved by Ben at 10:02. Changing the plan after start asks again.</p>`;
+  } else {
+    main = `<p style="color:var(--mute)">Nothing to review until the agent finishes its turn. You will be notified, and the card moves to Review on its own.</p>`;
+  }
+  return header("code", "CR-43", "Raise the store-walk bound for large login folders",
+      `<span class="pill state" style="--k:var(--code)">Running</span>`, `<button class="btn ghost" data-act="stop">Stop</button>`) +
+    tabs("code", [["activity", "Activity"], ["plan", "Plan"], ["review", "Review"]], tab) +
+    `<div class="body" style="--k:var(--code)"><div class="main">${main}</div><div class="side">
+      <section><h4>Card</h4><div class="kv"><span>Owner</span><span>${BH}Ben</span><span>Agent</span><span>${CX}Codex</span><span>Review</span><span>Light review</span><span>Project</span><span>Control Rod</span><span>Started</span><span>6m 12s ago</span></div></section>
+      <section><h4>Budget</h4><div class="budget"><div class="bar"><i style="width:17%"></i></div>$0.84 of $5 cap. Stops on its own at the cap.</div></section>
+      <section><h4>Before this can be Done</h4><ul class="checks">
+        <li class="ok"><span class="ic">&#10003;</span><span>Sandbox attested<small>3 of 3 claims observed</small></span></li>
+        <li class="ok"><span class="ic">&#10003;</span><span>Plan approved</span></li>
+        <li class="wait"><span class="ic">&#9679;</span><span>Agent finishes its turn</span></li>
+        <li class="wait"><span class="ic">&#9679;</span><span>Tests pass in CI</span></li>
+        <li class="wait"><span class="ic">&#9679;</span><span>A person reviews the diff</span></li></ul></section>
+    </div></div>`;
+}
+
+/* ---------- 2 code review ---------- */
+const DIFF = [
+  [" ", 136, 136, "func discoverStoreLinks(roots []string) ([]string, error) {"],
+  [" ", 137, 137, "\tdeadline := time.Now().Add(walkTimeLimit)"],
+  ["-", 138, null, "\tconst maxEntries = 20000"],
+  ["+", null, 138, "\tconst maxEntries = 1_000_000"],
+  [" ", 139, 139, "\tseen := 0"],
+  [" ", 140, 140, "\tfor _, root := range roots {"],
+  ["+", null, 141, "\t\tif err := walkResolved(root, &seen, maxEntries, deadline); err != nil {"],
+  ["+", null, 142, "\t\t\treturn nil, fmt.Errorf(\"credential discovery incomplete: %w\", err)"],
+  ["+", null, 143, "\t\t}"],
+];
+function screenCode() {
+  const showAll = st.tab !== "since";
+  let rows = "";
+  DIFF.forEach((d, i) => {
+    const cls = d[0] === "+" ? "add" : d[0] === "-" ? "del" : "";
+    rows += `<div class="ln ${cls}" data-line="${i}"><span>${d[1] ?? ""}</span><span>${d[2] ?? ""}</span><span class="src">${d[0]} ${d[3].replace(/</g, "&lt;")}</span></div>`;
+    if (i === 3) rows += `<div class="cmt"><div class="who">${BH}Ben, earlier</div>Why a million? Point to where that came from.</div><div class="cmt"><div class="who">${CX}Codex replied</div>Measured: the largest login folder on this machine holds about 21,800 entries. The bound is a ceiling, and the 5 second limit is the real guard. Recorded in the evidence.</div>`;
+    st.drafts.filter(x => x.line === i).forEach(x => rows += `<div class="cmt draft"><div class="who">${DK}Dora, draft</div>${x.text}</div>`);
+  });
+  const n = st.drafts.length;
+  const main = `<div class="pre"><b>Pre-review by a second agent:</b> 1 likely issue (high confidence): the error on line 142 does not say which folder hit the limit, which slows diagnosis. 0 security findings.</div>
+    <div class="rv-top"><span class="mode"><button data-tab="all" class="${showAll ? "on" : ""}">All changes</button><button data-tab="since" class="${showAll ? "" : "on"}">Since your last review</button></span><span>Click any line to comment</span><span class="sp"></span>
+    <button class="btn" data-act="send" ${n ? "" : "disabled"}>Send ${n || ""} comment${n === 1 ? "" : "s"} to Codex</button></div>
+    <div class="file"><div class="fh">daemon/internal/runner/sandbox.go<span class="sp"></span><span style="color:var(--ok)">+4</span> <span style="color:var(--bad)">-1</span></div><div class="diff">${rows}</div></div>
+    ${showAll ? `<div class="file"><div class="fh">daemon/internal/runner/sandbox_test.go<span class="sp"></span><span style="color:var(--ok)">+38</span></div><div class="diff"><div class="ln add"><span></span><span>212</span><span class="src">+ func TestStoreWalkPastTheOldBound(t *testing.T) {</span></div><div class="ln" style="color:var(--mute)"><span></span><span></span><span class="src">  ... 37 more lines</span></div></div></div>` : ""}
+    ${st.sent ? `<p style="color:var(--mute);font-size:13px">Sent as one follow-up run. The card is back in Running; you will see only the new changes next time.</p>` : ""}`;
+  return header("code", "PR 53", "Raise the store-walk bound for large login folders",
+      `<span class="pill state" style="--k:#a78bfa">Review</span><span class="pill">Light review</span>`,
+      `<button class="btn ghost" data-act="discard">Discard</button><button class="btn" data-act="pr">Open pull request</button><button class="btn primary" data-act="approve">Approve and merge</button>`) +
+    tabs("code", [["all", "Changes", 2], ["checks", "Checks", 7], ["activity", "Activity"]], st.tab === "checks" ? "checks" : "all") +
+    `<div class="body" style="--k:var(--code)"><div class="main">${main}</div><div class="side">
+      <section><h4>Card</h4><div class="kv"><span>Owner</span><span>${BH}Ben</span><span>Agent</span><span>${CX}Codex</span><span>Reviewer</span><span>${DK}Dora</span><span>Cost</span><span>$1.12 of $5</span></div></section>
+      <section><h4>Before this can merge</h4><ul class="checks">
+        <li class="ok"><span class="ic">&#10003;</span><span>Sandbox attested for every run<small>2 runs, all claims observed</small></span></li>
+        <li class="ok"><span class="ic">&#10003;</span><span>7 of 7 CI checks pass</span></li>
+        <li class="ok"><span class="ic">&#10003;</span><span>No open questions from the agent</span></li>
+        <li class="wait"><span class="ic">&#9679;</span><span>A person approves<small>Light review: any engineer but the agent</small></span></li></ul></section>
+    </div></div>`;
+}
+
+/* ---------- 3 document review ---------- */
+const NOTES = [
+  { who: BH + "Ben (requester)", text: "Confirm the trip setting basis matches the coordination study, not the vendor default.", agent: false },
+  { who: `<span class="av ag" style="background:#c9b7ff">PR</span>Pre-review agent`, text: "Two cited sections of the relay manual are from an older revision than the one on file.", agent: true },
+  { who: DK + "Dora (checker)", text: "This value should come from tool run R-12, not be restated. It is linked correctly; fine.", agent: false },
+];
+function screenDoc() {
+  const requester = st.as === "BH";
+  const sign = st.signed
+    ? `<div class="sign"><b>Signed by Dora as independent checker</b><br>Passkey signature recorded with the document digest. The card moved to Done; the evidence package is exportable.</div>`
+    : `<div class="sign"><b>Independent check required</b><br>Anyone but the requester (Ben) may sign. Signing records your passkey against this exact revision. One check is failing, so signing now also asks you to state why it is acceptable.
+        <div class="row"><button class="btn primary" data-act="sign" ${requester ? "disabled" : ""}>Sign with passkey</button><button class="btn" data-act="return">Return with notes</button></div>
+        ${requester ? `<div class="who-as" style="color:var(--bad)">You requested this work, so you cannot sign its check.</div>` : ""}
+        <div class="who-as">Viewing as: <span class="mode"><button data-as="DK" class="${st.as === "DK" ? "on" : ""}">Dora (checker)</button><button data-as="BH" class="${requester ? "on" : ""}">Ben (requester)</button></span></div></div>`;
+  const m = i => `class="mark${st.note === i ? " on" : ""}" data-note="${i}"`;
+  const main = `<div class="docwrap"><div class="paper">
+      <h3>MCC bucket protection review memo</h3>
+      <div class="tb"><span>DOC FF-MEM-036</span><span>REV B</span><span>DRAFTED CLAUDE CODE</span><span>OWNER BH</span></div>
+      <h5>1. Purpose</h5>
+      <p>This memo reviews the overload and short circuit protection of the motor control center buckets serving the confinement exhaust fans, and states whether each setting is supported by the coordination study.</p>
+      <h5>2. Basis</h5>
+      <p><span ${m(0)}>Trip settings are taken from the coordination study rather than the vendor default settings</span>, and each is traced to its source table. Where the study is silent, the memo says so instead of assuming a value.</p>
+      <p>The relay manual sections cited below govern the setting ranges. <span ${m(1)}>Sections 4.2 and 4.5 of the relay manual</span> define the adjustment steps.</p>
+      <h5>3. Findings</h5>
+      <p>Bucket 3A overload setting: <span ${m(2)}><span class="val">tool run R-12, output 3</span></span>. Every engineering value in this memo comes from a recorded tool run with its inputs and digest; none is typed by the agent.</p>
+      <p style="color:var(--mute)">... 4 more pages</p>
+    </div>
+    <div class="notes">${NOTES.map((n, i) => `<div class="note${n.agent ? " agent" : ""}${st.note === i ? " on" : ""}" data-note="${i}"><div class="who">${n.who}</div>${n.text}</div>`).join("")}
+      <button class="btn" style="width:100%" data-act="docsend">Send notes to Claude Code as one revision</button></div></div>`;
+  return header("doc", "CR-36", "MCC bucket protection review memo",
+      `<span class="pill state" style="--k:#a78bfa">${st.signed ? "Done" : "Review"}</span><span class="pill check">Independent check</span>`, ``) +
+    tabs("doc", [["draft", "Draft", null], ["changes", "Changes since rev A"], ["sources", "Sources", 6], ["evidence", "Evidence"]], "draft") +
+    `<div class="body" style="--k:var(--doc)"><div class="main">${main}</div><div class="side">
+      <section><h4>Sign-off</h4>${sign}</section>
+      <section><h4>Card</h4><div class="kv"><span>Requester</span><span>${BH}Ben</span><span>Drafted by</span><span>${CC}Claude Code</span><span>Checker</span><span>${DK}Dora</span><span>Revision</span><span>B, 3 notes</span></div></section>
+      <section><h4>Before this can be signed</h4><ul class="checks">
+        <li class="ok"><span class="ic">&#10003;</span><span>Every value traced to a tool run<small>4 values, 4 runs with digests</small></span></li>
+        <li class="ok"><span class="ic">&#10003;</span><span>Sandbox attested for every run</span></li>
+        <li class="no"><span class="ic">&#10005;</span><span>Cited sources at current revision<small>2 relay manual sections are older; see note</small></span></li>
+        <li class="wait"><span class="ic">&#9679;</span><span>Independent checker signs</span></li></ul></section>
+    </div></div>`;
+}
+
+function render() {
+  const app = document.getElementById("app");
+  app.className = `app t-${st.theme}`;
+  app.innerHTML = st.screen === "card" ? screenCard() : st.screen === "code" ? screenCode() : screenDoc();
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-t],[data-s],[data-tab],[data-mode],[data-act],[data-line],[data-note],[data-as]");
+  if (!b) return;
+  if (b.dataset.t) { st.theme = b.dataset.t; document.querySelectorAll("#themes button").forEach(x => x.classList.toggle("on", x === b)); }
+  else if (b.dataset.s) { st.screen = b.dataset.s; st.tab = null; document.querySelectorAll("#screens button").forEach(x => x.classList.toggle("on", x === b)); }
+  else if (b.dataset.tab) st.tab = b.dataset.tab;
+  else if (b.dataset.mode) st.mode = b.dataset.mode;
+  else if (b.dataset.as) st.as = b.dataset.as;
+  else if (b.dataset.note) st.note = Number(b.dataset.note);
+  else if (b.dataset.line) {
+    const text = ["Keep the bound, but name the folder in the error.", "Add the measured size to the test name.", "Log how many entries were walked."][st.drafts.length % 3];
+    st.drafts.push({ line: Number(b.dataset.line), text }); st.sent = false;
+  } else if (b.dataset.act) {
+    const a = b.dataset.act;
+    if (a === "send") { st.drafts = []; st.sent = true; toast("Sent as one follow-up run to Codex"); }
+    else if (a === "sign") { st.signed = true; toast("Signed with passkey; evidence recorded"); }
+    else if (a === "msg") toast(st.mode === "steer" ? "Steering Codex now" : "Queued for Codex's next turn");
+    else if (a === "docsend") toast("Notes sent to Claude Code as one revision");
+    else if (a === "return") toast("Returned to the agent with 3 notes");
+    else if (a === "approve") toast("Approval is a signed decision: passkey prompt would open");
+    else toast(b.textContent.trim());
+  } else return;
+  if (window.brainstorm) window.brainstorm.send({ type: "click", choice: st.screen + ":" + (b.dataset.act || b.dataset.tab || b.dataset.s || b.dataset.t || "") });
+  render();
+});
+render();
+</script>
+<style>.pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--k); animation: p 1.8s infinite; flex: none; } @keyframes p { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--k) 60%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } } @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }</style>
+</body>
+</html>

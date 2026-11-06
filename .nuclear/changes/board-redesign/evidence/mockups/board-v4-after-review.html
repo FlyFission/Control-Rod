@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board after review</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #16171a; color: #e8e8ea; font: 15px/1.5 Inter, "Segoe UI", system-ui, sans-serif; }
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 20px 64px; }
+  .page > h1 { font-size: 23px; font-weight: 600; margin: 0 0 6px; }
+  .page > p.lede { color: #b3b5bc; margin: 0 0 16px; max-width: 960px; }
+  .demo { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; font-size: 13px; color: #b3b5bc; }
+  .seg { display: inline-flex; border: 1px solid #3a3c42; border-radius: 7px; overflow: hidden; }
+  .seg button { font: 500 12.5px inherit; font-family: inherit; color: #d5d7dc; background: transparent; border: 0; padding: 6px 11px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: #e8e8ea; color: #16171a; }
+  :focus-visible { outline: 2px solid #5fd4ff; outline-offset: 2px; }
+
+  /* Themes. Status hues: ok green, needs amber, check magenta, fail red. Kind hues: code blue, doc teal. */
+  .t-a { --bg:#0e0f11; --bar:#121316; --board:#0e0f11; --col:#131417; --card:#1a1b1f; --card-line:#2a2c31; --field:#16171a; --line:#25272c; --line-strong:#383a41;
+    --ink:#eeeef1; --ink-2:#cfd1d6; --mute:#a2a5ad; --accent:#e8e8ea; --accent-ink:#101114;
+    --needs:#f2a33a; --needs-bg:#2b2010; --needs-ink:#ffcf8a; --check:#e58bd8; --check-bg:#2a1628; --check-ink:#f6b8ec; --ok:#5ad08a; --ok-ink:#8ee6b0; --fail:#f07a7a; --fail-ink:#ffa8a8;
+    --code:#6ea8ff; --doc:#4fc3d0; --wash:6%; --sans:Inter, "Segoe UI", system-ui, sans-serif; --serif:var(--sans); --mono:"JetBrains Mono", Consolas, monospace; --r:10px; --r-sm:6px; }
+  .t-b { --bg:#f6f3ec; --bar:#fbf9f4; --board:#f1ece2; --col:#ebe5d8; --card:#fffdf8; --card-line:#d6ccb8; --field:#fffdf8; --line:#ddd5c4; --line-strong:#bfb39b;
+    --ink:#1b2231; --ink-2:#343c4e; --mute:#5f584b; --accent:#1f3a8a; --accent-ink:#ffffff;
+    --needs:#b45309; --needs-bg:#fbe9d0; --needs-ink:#7a3d00; --check:#a21caf; --check-bg:#f8e8fa; --check-ink:#7e1590; --ok:#1f7a55; --ok-ink:#16603f; --fail:#b42318; --fail-ink:#8f1b12;
+    --code:#2f5bd3; --doc:#0e7c86; --wash:5%; --sans:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --serif:Georgia, "Times New Roman", serif; --mono:"IBM Plex Mono", Consolas, monospace; --r:4px; --r-sm:3px; }
+  .t-c { --bg:#ffffff; --bar:#ffffff; --board:#f4f5f7; --col:#eceef2; --card:#ffffff; --card-line:#dfe2e8; --field:#f4f5f7; --line:#e3e6eb; --line-strong:#c9ced7;
+    --ink:#101828; --ink-2:#2f3a4d; --mute:#556072; --accent:#c2410c; --accent-ink:#ffffff;
+    --needs:#c2410c; --needs-bg:#fff1e8; --needs-ink:#9a3412; --check:#a21caf; --check-bg:#fbeefc; --check-ink:#86198f; --ok:#0f8a52; --ok-ink:#0b6b40; --fail:#d92d20; --fail-ink:#b42318;
+    --code:#2f6ae0; --doc:#0e8a95; --wash:5%; --sans:Geist, Inter, "Segoe UI", system-ui, sans-serif; --serif:var(--sans); --mono:"JetBrains Mono", Consolas, monospace; --r:12px; --r-sm:8px; }
+  .t-b .ctitle, .t-b h2, .t-b .colname { font-family: var(--serif); }
+
+  .app { border-radius: 12px; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--sans); box-shadow: 0 30px 80px -30px rgba(0,0,0,.6); }
+  .app button { font-family: inherit; }
+  .top { display: flex; align-items: center; gap: 14px; padding: 11px 16px; border-bottom: 1px solid var(--line); background: var(--bar); }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; }
+  .brand i { width: 16px; height: 16px; border-radius: 4px; background: linear-gradient(135deg, var(--code) 0 50%, var(--doc) 50%); }
+  .crumb { color: var(--mute); font-size: 14px; } .crumb b { color: var(--ink); font-weight: 500; }
+  .search { margin-left: auto; width: 260px; padding: 6px 10px; border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--mute); font-size: 13px; background: var(--field); }
+  .needs-top { font-size: 13px; font-weight: 600; padding: 6px 11px; border-radius: var(--r-sm); background: var(--needs-bg); color: var(--needs-ink); border: 1px solid transparent; cursor: pointer; }
+  .needs-top[aria-pressed="true"] { border-color: var(--needs-ink); }
+  .agents { font: 12px var(--mono); color: var(--mute); }
+  .bar2 { display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-bottom: 1px solid var(--line); font-size: 13px; flex-wrap: wrap; background: var(--bar); }
+  .kinds { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; background: var(--field); }
+  .kinds button { font-size: 12.5px; font-weight: 500; border: 0; background: transparent; color: var(--mute); padding: 4px 11px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .kinds button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 0 0 1px var(--line-strong); }
+  .tog { font-size: 12.5px; font-weight: 500; border: 1px solid var(--line); background: transparent; color: var(--mute); padding: 4px 11px; border-radius: 999px; cursor: pointer; }
+  .tog[aria-pressed="true"] { color: var(--ink); border-color: var(--ink-2); }
+  .sp { flex: 1; }
+  .ctl { display: inline-flex; align-items: center; gap: 6px; color: var(--mute); }
+  .ctl select { font: inherit; font-size: 12.5px; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 3px 6px; }
+  .ki { width: 12px; height: 12px; flex: none; }
+
+  .board { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; padding: 12px; background: var(--board); align-items: start; min-height: 470px; }
+  .lanehead { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); padding: 6px 2px 0; }
+  .col { background: var(--col); border-radius: var(--r); padding: 8px; min-width: 0; }
+  .colhead { display: flex; align-items: baseline; gap: 6px; padding: 2px 4px 8px; font-size: 12.5px; font-weight: 600; }
+  .colhead .n { font: 11px var(--mono); color: var(--mute); font-weight: 400; }
+  .colhead .lim { margin-left: auto; font: 10.5px var(--mono); color: var(--mute); font-weight: 400; }
+  .add { width: 100%; text-align: left; display: block; padding: 7px 9px; margin: 0 0 8px; border: 1px dashed var(--line-strong); border-radius: var(--r-sm); color: var(--mute); font-size: 12.5px; background: transparent; cursor: pointer; }
+  .card { --k: var(--mute); position: relative; background: color-mix(in srgb, var(--k) var(--wash), var(--card)); border: 1px solid var(--card-line); border-radius: var(--r-sm); padding: 9px 10px 9px 12px; margin: 0 0 8px; overflow: hidden; }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--k); }
+  .card .row { display: flex; align-items: center; gap: 6px; }
+  .kind { font: 600 10.5px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--kc); display: inline-flex; align-items: center; gap: 4px; }
+  .id { margin-left: auto; font: 11px var(--mono); color: var(--mute); }
+  .ctitle { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; color: var(--ink); font-size: 13.5px; font-weight: 500; line-height: 1.35; margin: 5px 0 7px; cursor: pointer; }
+  .meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11.5px; color: var(--mute); }
+  .av { width: 19px; height: 19px; border-radius: 50%; display: inline-grid; place-items: center; font: 600 9px var(--sans); color: #fff; flex: none; }
+  .av.ag { border-radius: 5px; font-family: var(--mono); color: #111; }
+  .grade { font: 600 10px var(--mono); padding: 1px 5px; border: 1px solid var(--line-strong); border-radius: 4px; color: var(--ink-2); }
+  .tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .tag.check { color: var(--check-ink); background: var(--check-bg); }
+  .tag.check::before { content: "\25C6"; font-size: 9px; }
+  .next { margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+  .next.needs { color: var(--needs-ink); font-weight: 600; }
+  .next.needs::before { content: "\25B2"; font-size: 9px; }
+  .next.wait::before { content: "\25CB"; font-size: 10px; color: var(--mute); }
+  .next.block { color: var(--fail-ink); font-weight: 600; }
+  .next.block::before { content: "\2715"; font-size: 10px; }
+  .next.ok { color: var(--ok-ink); }
+  .next.ok::before { content: "\2713"; }
+  .move { margin-left: auto; white-space: nowrap; flex: none; font-size: 11.5px; border: 1px solid var(--line-strong); background: var(--card); color: var(--ink-2); border-radius: var(--r-sm); padding: 1px 7px; cursor: pointer; }
+  .menu { position: absolute; right: 8px; bottom: 34px; z-index: 5; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--r-sm); box-shadow: 0 10px 30px rgba(0,0,0,.35); padding: 4px; min-width: 190px; }
+  .menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--ink); font-size: 12.5px; padding: 6px 8px; border-radius: 4px; cursor: pointer; }
+  .menu button:hover, .menu button:focus-visible { background: var(--field); }
+  .refusal { margin-top: 7px; padding: 7px 8px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--fail) 12%, var(--card)); color: var(--fail-ink); font-size: 12px; }
+  .refusal b { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; }
+  .legend { display: flex; gap: 14px; align-items: center; padding: 8px 16px; font-size: 12px; color: var(--mute); border-top: 1px solid var(--line); background: var(--bar); flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  /* detail screens */
+  .head { display: flex; align-items: center; gap: 10px; padding: 13px 18px; border-bottom: 1px solid var(--line); background: var(--bar); flex-wrap: wrap; }
+  .head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  .back { background: none; border: 0; color: var(--mute); font-size: 13px; cursor: pointer; }
+  .pill { font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink-2); }
+  .btn { font-size: 12.5px; font-weight: 500; padding: 6px 12px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--card); color: var(--ink); cursor: pointer; white-space: nowrap; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .tabs { display: flex; gap: 2px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--bar); }
+  .tabs button { font-size: 13px; color: var(--mute); background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 9px 10px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--kc); }
+  .body { display: grid; grid-template-columns: 1fr 330px; min-height: 560px; }
+  .main { padding: 16px 18px; min-width: 0; border-right: 1px solid var(--line); }
+  .side { padding: 14px 16px; background: var(--bar); }
+  .side h4 { margin: 0 0 7px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--mute); }
+  .side section { margin: 0 0 18px; }
+  .kv { display: grid; grid-template-columns: 92px 1fr; gap: 5px 10px; font-size: 13px; }
+  .kv > span:nth-child(odd) { color: var(--mute); }
+  .checks { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+  .checks li { display: flex; gap: 8px; padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  .checks .ic { width: 16px; flex: none; text-align: center; font-weight: 700; }
+  .checks .ok .ic { color: var(--ok-ink); } .checks .wait .ic { color: var(--mute); } .checks .no .ic { color: var(--fail-ink); } .checks .na .ic { color: var(--mute); }
+  .checks small { display: block; color: var(--mute); font-size: 11.5px; }
+  .feed { list-style: none; margin: 0; padding: 0; }
+  .feed li { display: grid; grid-template-columns: 80px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .feed .t { font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--mute); padding-top: 2px; }
+  .feed code { font: 12px var(--mono); background: var(--field); padding: 1px 5px; border-radius: 4px; }
+  .feed .time { color: var(--mute); font: 11px var(--mono); margin-left: 6px; }
+  .notebox { margin-top: 14px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--card); }
+  .notebox textarea { width: 100%; border: 0; background: transparent; color: var(--ink); font: 13.5px var(--sans); padding: 10px 12px; resize: none; height: 52px; }
+  .notebox .bar { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--mute); }
+  .diff { font: 12.5px/1.6 var(--mono); border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--card); margin-bottom: 12px; }
+  .fh { display: flex; padding: 7px 12px; border-bottom: 1px solid var(--line); background: var(--bar); font-size: 12.5px; }
+  .ln { display: grid; grid-template-columns: 40px 40px 1fr; width: 100%; text-align: left; border: 0; background: transparent; color: var(--ink); font: inherit; padding: 0; cursor: pointer; }
+  .ln > span:nth-child(-n+2) { color: var(--mute); text-align: right; padding-right: 8px; }
+  .ln .src { white-space: pre; padding-left: 8px; overflow: hidden; }
+  .ln.add { background: color-mix(in srgb, var(--ok) 13%, var(--card)); } .ln.del { background: color-mix(in srgb, var(--fail) 13%, var(--card)); }
+  .ln .src::before { content: attr(data-sign); display: inline-block; width: 14px; font-weight: 700; }
+  .cmt { margin: 6px 12px 10px 88px; border: 1px solid var(--line-strong); border-left: 3px solid var(--kc); border-radius: var(--r-sm); background: var(--bg); padding: 7px 10px; font: 13px var(--sans); }
+  .cmt.draft { border-style: dashed; }
+  .who { font-size: 12px; color: var(--mute); margin-bottom: 2px; }
+  .adv { margin: 0 0 12px; padding: 9px 12px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--field); font-size: 13px; }
+  .paper { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 18px 22px; }
+  .filebar { display: flex; align-items: center; gap: 10px; font: 12px var(--mono); color: var(--mute); margin-bottom: 10px; flex-wrap: wrap; }
+  .pdfpage { height: 330px; border: 1px solid var(--line-strong); border-radius: 3px; background: repeating-linear-gradient(var(--card) 0 22px, color-mix(in srgb, var(--line) 60%, var(--card)) 22px 23px); position: relative; }
+  .pdfpage .pmark { position: absolute; left: 40px; right: 120px; height: 24px; border: 2px solid var(--needs); border-radius: 3px; background: color-mix(in srgb, var(--needs) 14%, transparent); }
+  .notes .note { border: 1px solid var(--line); border-left: 3px solid var(--kc); border-radius: var(--r-sm); padding: 8px 10px; margin: 0 0 8px; font-size: 13px; background: var(--card); }
+  .sign { border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 11px; font-size: 13px; background: var(--card); }
+  .sign .binds { font: 11.5px/1.5 var(--mono); color: var(--ink-2); background: var(--field); border-radius: 4px; padding: 7px 8px; margin: 8px 0; }
+  .sign .why { color: var(--fail-ink); font-size: 12.5px; margin-top: 8px; font-weight: 500; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #ececef; color: #16171a; font-size: 13px; font-weight: 500; padding: 9px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>The board after three adversarial reviews</h1>
+  <p class="lede">Same lenses you liked, now honest about what Control Rod can do. Columns are the kernel's real steps and are never dragged across; a card moves through its own button or the Move to menu, and refusals show the kernel's reason (try moving CR-36 to Accepted). Every card shows the next thing a person must do. No steering, no dollar caps, no signing past a failing check, and an independent check with no eligible second person says so.</p>
+  <div class="demo">Look:
+    <span class="seg" id="themes"><button data-t="a" aria-pressed="true">A Control room</button><button data-t="b" aria-pressed="false">B Drafting table</button><button data-t="c" aria-pressed="false">C Instrument panel</button></span>
+    <span style="margin-left:10px">Screen:</span>
+    <span class="seg" id="screens"><button data-s="board" aria-pressed="true">Board</button><button data-s="run" aria-pressed="false">Card while drafting</button><button data-s="code" aria-pressed="false">Code review</button><button data-s="doc" aria-pressed="false">Document review</button></span>
+  </div>
+  <div class="app t-a" id="app"></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+const KI = {
+  code: '<svg class="ki" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5"/></svg>',
+  doc: '<svg class="ki" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.8h5.2L12.5 5v9.2H4z"/><path d="M9 1.8V5.2h3.4M6 8.5h4.5M6 11h4.5"/></svg>'
+};
+const PEOPLE = { BH: ["Ben", "#6366f1"], DK: ["Dora", "#d97706"], MR: ["Marco", "#64748b"] };
+const AGENTS = { CC: ["Claude Code", "#d4a27f"], CX: ["Codex", "#9aa7bd"] };
+const COLS = [["ready", "Ready"], ["drafting", "Drafting"], ["agent-check", "Agent check"], ["person-verifies", "Person verifies"], ["needs-signature", "Needs signature"], ["accepted", "Accepted"]];
+const STATEC = { ready: "#8a8f98", drafting: "#6ea8ff", "agent-check": "#9aa7bd", "person-verifies": "#b9a3e3", "needs-signature": "#f2a33a", accepted: "#5ad08a" };
+const CARDS = [
+  { id: "CR-41", kind: "doc", col: "ready", owner: "BH", grade: "Material", title: "Draft SOW for the VJ LN2 section replacement and new branch", check: true, next: ["needs", "Start: choose an agent"], act: "Start" },
+  { id: "CR-44", kind: "code", col: "ready", owner: "DK", grade: "General service", title: "Add per-run time to the usage export", next: ["needs", "Start: choose an agent"], act: "Start" },
+  { id: "CR-47", kind: "code", col: "ready", owner: "BH", grade: "General service", title: "Import cards from a Linear project", next: ["wait", "Basis has 1 open question"] },
+  { id: "CR-43", kind: "code", col: "drafting", owner: "BH", agent: "CX", grade: "General service", title: "Raise the store-walk bound for large login folders", next: ["wait", "Codex drafting, 6m 12s"] },
+  { id: "CR-46", kind: "doc", col: "drafting", owner: "MR", agent: "CC", grade: "Material", title: "Datasheet table for the replacement VFDs", next: ["wait", "Claude Code drafting, 2m 40s"] },
+  { id: "CR-38", kind: "doc", col: "agent-check", owner: "BH", agent: "CC", grade: "Safety", check: true, title: "Relief valve sizing calculation for the glovebox header", next: ["wait", "Codex pre-checking"] },
+  { id: "CR-36", kind: "doc", col: "person-verifies", owner: "BH", agent: "CC", grade: "Safety", check: true, title: "MCC bucket protection review memo", next: ["needs", "Verify: Dora or Marco"], act: "Verify" },
+  { id: "CR-39", kind: "doc", col: "person-verifies", owner: "MR", agent: "CC", grade: "Safety", check: true, title: "Instrument loop sheets, train 2", next: ["block", "Needs a second qualified person"] },
+  { id: "PR 53", kind: "code", col: "needs-signature", owner: "DK", agent: "CC", grade: "General service", title: "Sign-in recovers from an out-of-date session", next: ["needs", "Review diff and sign"], act: "Review" },
+  { id: "PR 51", kind: "code", col: "accepted", owner: "BH", grade: "General service", title: "Every run starts inside its sandbox", next: ["ok", "Signed by BH"] },
+  { id: "CR-30", kind: "doc", col: "accepted", owner: "DK", grade: "Material", check: true, title: "Outage playbook for the LN2 tie-in", next: ["ok", "Verified by MR, signed by DK"] },
+];
+const REFUSE = {
+  "CR-36:accepted": "Refused: person verification is not recorded, and the basis has a stale source. Verify the memo first.",
+  "CR-39:accepted": "Refused: no eligible verifier. Everyone who originated this work is excluded, and no other qualified member exists.",
+};
+const st = { theme: "a", screen: "board", kind: "all", needs: false, mine: false, colorBy: "kind", groupBy: "none", menu: null, refusal: {}, drafts: [], as: "DK", tab: null };
+const toast = t => { const e = document.getElementById("toast"); e.textContent = t; e.classList.add("on"); setTimeout(() => e.classList.remove("on"), 2400); };
+const av = c => `<span class="av" style="background:${PEOPLE[c][1]}" title="${PEOPLE[c][0]}">${c}</span>`;
+const ag = c => `<span class="av ag" style="background:${AGENTS[c][1]}" title="${AGENTS[c][0]}">${c}</span>`;
+const kindLabel = k => `<span class="kind" style="--kc:var(--${k})">${KI[k]}${k === "doc" ? "Document" : "Code"}</span>`;
+
+function edge(c) {
+  if (st.colorBy === "kind") return `var(--${c.kind})`;
+  if (st.colorBy === "state") return STATEC[c.col];
+  if (st.colorBy === "agent") return c.agent ? AGENTS[c.agent][1] : "var(--line-strong)";
+  if (st.colorBy === "person") return PEOPLE[c.owner][1];
+  return "var(--line-strong)";
+}
+function visible(c) {
+  if (st.kind !== "all" && c.kind !== st.kind) return false;
+  if (st.needs && c.next[0] !== "needs" && c.next[0] !== "block") return false;
+  if (st.mine && c.owner !== "BH") return false;
+  return true;
+}
+function card(c) {
+  let h = `<article class="card" style="--k:${edge(c)}" aria-label="${c.id} ${c.title}">`;
+  h += `<div class="row">${kindLabel(c.kind)}<span class="id">${c.id}</span></div>`;
+  h += `<button class="ctitle" data-open="${c.id}">${c.title}</button>`;
+  h += `<div class="meta">${av(c.owner)}${c.agent ? ag(c.agent) : ""}<span class="grade" title="Grade">${c.grade}</span>${c.check ? '<span class="tag check">Independent check</span>' : ""}</div>`;
+  h += `<div class="next ${c.next[0]}"><span>${c.next[1]}</span><button class="move" data-move="${c.id}" aria-haspopup="menu" aria-expanded="${st.menu === c.id}">Move to</button></div>`;
+  if (st.refusal[c.id]) h += `<div class="refusal" role="alert"><b>Kernel refused</b>${st.refusal[c.id]}</div>`;
+  if (st.menu === c.id) h += `<div class="menu" role="menu">` + COLS.filter(([k]) => k !== c.col).map(([k, l]) => `<button role="menuitem" data-to="${c.id}:${k}">${l}</button>`).join("") + `</div>`;
+  return h + `</article>`;
+}
+function columns(cards, first) {
+  return COLS.map(([k, l]) => {
+    const cs = cards.filter(c => c.col === k);
+    let h = `<section class="col" aria-label="${l}"><div class="colhead"><span class="colname">${l}</span><span class="n">${cs.length}</span>${k === "drafting" ? '<span class="lim">2 of 3 agents</span>' : ""}</div>`;
+    if (k === "ready" && first) h += `<button class="add" data-add="1">+ Add a card (C)</button>`;
+    return h + cs.map(card).join("") + `</section>`;
+  }).join("");
+}
+function screenBoard() {
+  const vis = CARDS.filter(visible);
+  const count = k => CARDS.filter(c => k === "all" || c.kind === k).length;
+  const needsN = CARDS.filter(c => c.next[0] === "needs" || c.next[0] === "block").length;
+  let board = "";
+  if (st.groupBy === "none") board = columns(vis, true);
+  else {
+    const keys = st.groupBy === "kind" ? [["code", "Code"], ["doc", "Documents"]] : Object.entries(PEOPLE).map(([k, p]) => [k, p[0]]);
+    keys.forEach(([k, l], i) => { const cs = vis.filter(c => st.groupBy === "kind" ? c.kind === k : c.owner === k); if (cs.length) board += `<div class="lanehead">${l} <span class="n" style="color:var(--mute);font-weight:400">${cs.length}</span></div>` + columns(cs, i === 0); });
+  }
+  const L = { kind: [["Code", "var(--code)"], ["Documents", "var(--doc)"]], state: COLS.map(([k, l]) => [l, STATEC[k]]), agent: Object.values(AGENTS).map(a => [a[0], a[1]]), person: Object.values(PEOPLE).map(p => [p[0], p[1]]), none: [] }[st.colorBy];
+  return `<div class="top"><div class="brand"><i></i>Control Rod</div><div class="crumb">FlyFission / <b>Plant support</b></div><div class="search">Search or run a command  Ctrl K</div>
+    <button class="needs-top" id="needsTop" aria-pressed="${st.needs}">Needs you ${needsN}</button><div class="agents">agents 2/3</div></div>
+    <div class="bar2"><span class="kinds" role="group" aria-label="Kind">` + [["all", "All"], ["code", "Code"], ["doc", "Documents"]].map(([k, l]) => `<button data-k="${k}" aria-pressed="${st.kind === k}">${k !== "all" ? `<span style="color:var(--${k});display:inline-flex">${KI[k]}</span>` : ""}${l} ${count(k)}</button>`).join("") + `</span>
+    <button class="tog" data-f="mine" aria-pressed="${st.mine}">Mine</button><span class="sp"></span>
+    <label class="ctl">Color by <select id="colorBy">${["kind", "state", "agent", "person", "none"].map(v => `<option ${st.colorBy === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+    <label class="ctl">Group by <select id="groupBy">${["none", "kind", "person"].map(v => `<option ${st.groupBy === v ? "selected" : ""}>${v}</option>`).join("")}</select></label></div>
+    <div class="board">${board}</div>
+    <div class="legend"><span>Edge: ${st.colorBy}</span>${L.map(([l, c]) => `<span><i style="background:${c}"></i>${l}</span>`).join("")}
+      <span class="sp"></span><span style="color:var(--needs-ink)">&#9650; needs you</span><span style="color:var(--check-ink)">&#9670; independent check</span><span style="color:var(--fail-ink)">&#10005; blocked</span><span style="color:var(--ok-ink)">&#10003; accepted</span><span>${vis.length} of ${CARDS.length}</span></div>`;
+}
+function head(kind, id, title, pills, actions) {
+  return `<div class="head" style="--kc:var(--${kind})"><button class="back" data-s="board">&larr; Board</button>${kindLabel(kind)}<span class="id" style="margin:0">${id}</span><h2>${title}</h2>${pills}<span class="sp"></span>${actions}</div>`;
+}
+function tabs(kind, list, on) {
+  return `<div class="tabs" role="tablist" style="--kc:var(--${kind})">` + list.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${on === k}">${l}</button>`).join("") + `</div>`;
+}
+function screenRun() {
+  return head("code", "CR-43", "Raise the store-walk bound for large login folders", `<span class="pill">Drafting</span><span class="grade">General service</span>`, `<button class="btn" data-act="stop">Stop</button>`) +
+    tabs("code", [["activity", "Activity"], ["plan", "Plan and basis"], ["evidence", "Evidence"]], "activity") +
+    `<div class="body" style="--kc:var(--code)"><div class="main"><ul class="feed">
+      <li><span class="t">You</span><span>${av("BH")} Started with Codex on revision 3.<span class="time">10:02</span></span></li>
+      <li><span class="t">Sandbox</span><span>Policy sbp_none applied. Attestation: home folder unreadable, observed; no network, observed; writes stay in workspace, observed.<span class="time">10:02</span></span></li>
+      <li><span class="t">Action</span><span>Edited <code>daemon/internal/runner/sandbox.go</code><span class="time">10:05</span></span></li>
+      <li><span class="t">Action</span><span>Ran <code>go test ./internal/runner/</code>, reported 41 passed<span class="time">10:08</span></span></li>
+      <li><span class="t">Usage</span><span>Tokens reported: 182k in, 9k out. Cost: not reported by this runtime.<span class="time">10:08</span></span></li>
+      <li><span class="t">Now</span><span>Running the race detector</span></li></ul>
+      <div class="notebox"><textarea aria-label="Note for the follow-up run" placeholder="Leave a note for the follow-up run"></textarea><div class="bar">This run cannot be steered. Your note is attached to the next run, after this one ends.<span class="sp"></span><button class="btn" data-act="note">Save note</button></div></div></div>
+    <div class="side"><section><h4>Card</h4><div class="kv"><span>Owner</span><span>${av("BH")} Ben</span><span>Agent</span><span>${ag("CX")} Codex</span><span>Review</span><span>Light review (set at creation)</span><span>Lane</span><span>Internal</span></div></section>
+      <section><h4>Time</h4><div style="font-size:13px">6m 12s of a 45m run limit. The run limit is the only hard stop.</div></section>
+      <section><h4>What happens next</h4><ul class="checks"><li class="ok"><span class="ic">&#10003;</span><span>Sandbox attested before start</span></li><li class="wait"><span class="ic">&#9675;</span><span>Agent finishes its turn</span></li><li class="wait"><span class="ic">&#9675;</span><span>Agent pre-check by a different provider</span></li><li class="wait"><span class="ic">&#9675;</span><span>A person reviews and signs</span></li></ul></section></div></div>`;
+}
+const DIFF = [[" ", 137, 137, "\tdeadline := time.Now().Add(walkTimeLimit)"], ["-", 138, null, "\tconst maxEntries = 20000"], ["+", null, 138, "\tconst maxEntries = 1_000_000"], [" ", 139, 139, "\tseen := 0"], ["+", null, 141, "\t\tif err := walkResolved(root, &seen, maxEntries, deadline); err != nil {"], ["+", null, 142, "\t\t\treturn nil, fmt.Errorf(\"credential discovery incomplete: %w\", err)"]];
+function screenCode() {
+  let rows = "";
+  DIFF.forEach((d, i) => {
+    rows += `<button class="ln ${d[0] === "+" ? "add" : d[0] === "-" ? "del" : ""}" data-line="${i}" aria-label="Comment on line ${d[2] ?? d[1]}"><span>${d[1] ?? ""}</span><span>${d[2] ?? ""}</span><span class="src" data-sign="${d[0] === " " ? "" : d[0]}">${d[3].replace(/</g, "&lt;")}</span></button>`;
+    st.drafts.filter(x => x.line === i).forEach(x => rows += `<div class="cmt draft"><div class="who">${av("DK")} Dora, draft</div>${x.text}</div>`);
+  });
+  const n = st.drafts.length;
+  return head("code", "PR 53", "Raise the store-walk bound for large login folders", `<span class="pill">Needs signature</span><span class="grade">General service</span>`, `<button class="btn" data-act="return" ${n ? "" : "disabled"}>Return with ${n} comment${n === 1 ? "" : "s"}</button><button class="btn" data-act="pr">Open pull request</button><button class="btn primary" data-act="approve">Approve and sign</button>`) +
+    tabs("code", [["changes", "Changes"], ["checks", "Checks"], ["activity", "Activity"]], "changes") +
+    `<div class="body" style="--kc:var(--code)"><div class="main"><div class="adv"><b>Agent pre-check (Claude Code, different provider), advice only:</b> one likely issue, high confidence: the error on line 142 does not name the folder that hit the limit.</div>
+      <div style="font-size:12.5px;color:var(--mute);margin-bottom:8px">Select a line to comment. Comments go back together as one follow-up run.</div>
+      <div class="diff"><div class="fh">daemon/internal/runner/sandbox.go</div>${rows}</div></div>
+    <div class="side"><section><h4>Approve and sign binds</h4><div class="sign"><div class="binds">decision: accept<br>package PR 53, revision 4<br>subject sha256:9f3c...a41e<br>outputs: 2 files, digests listed in Evidence</div>It does not certify that the code is correct; it records that you accepted this revision.</div></section>
+      <section><h4>Before this can be accepted</h4><ul class="checks"><li class="ok"><span class="ic">&#10003;</span><span>Agent pre-check recorded</span></li><li class="ok"><span class="ic">&#10003;</span><span>Sandbox attestation observed for every run</span></li><li class="ok"><span class="ic">&#10003;</span><span>CI: 7 of 7 pass</span></li><li class="wait"><span class="ic">&#9675;</span><span>A person signs<small>Light review: any member who did not originate it</small></span></li></ul></section></div></div>`;
+}
+function screenDoc() {
+  const originator = st.as === "BH";
+  const canSign = false;
+  const why = originator ? "You originated this work, so you cannot verify it." : "Signing is unavailable while a required check fails. Return the memo with notes, or record the finding once the kernel allows accepting with findings for this grade.";
+  return head("doc", "CR-36", "MCC bucket protection review memo", `<span class="pill">Person verifies</span><span class="grade">Safety</span><span class="tag check">Independent check</span>`, ``) +
+    tabs("doc", [["file", "File"], ["changes", "Changes since rev A"], ["sources", "Sources"], ["evidence", "Evidence"]], "file") +
+    `<div class="body" style="--kc:var(--doc)"><div class="main"><div class="filebar"><span>FF-MEM-036 rev B.pdf</span><span>sha256:2b7e...90cd</span><button class="btn">Download original</button><span>Page 2 of 6</span></div>
+      <div style="display:grid;grid-template-columns:1fr 240px;gap:14px"><div class="pdfpage" role="img" aria-label="Page 2 of the retained PDF, with the area for note 2 outlined"><div class="pmark" style="top:118px"></div></div>
+      <div class="notes"><div class="note"><div class="who">${av("BH")} Ben, page 2</div>Confirm the trip setting basis matches the coordination study, not the vendor default.</div>
+      <div class="note" style="border-left-color:var(--needs)"><div class="who">Pre-check agent, page 2, outlined</div>Two cited relay manual sections are from an older revision than the one on file.</div>
+      <div class="note"><div class="who">${av("DK")} Dora, page 4</div>Value in table 3 links to tool run R-12 (digest matches). Fine.</div>
+      <button class="btn" style="width:100%;white-space:normal" data-act="return">Return to Claude Code with 3 notes</button></div></div></div>
+    <div class="side"><section><h4>Verification</h4><div class="sign">Verify binds: decision verify, package CR-36 revision B, subject sha256:71aa...c2f0, criteria AC-1 to AC-4.
+      <div style="margin-top:9px"><button class="btn primary" disabled aria-describedby="why">Verify with passkey</button></div><div class="why" id="why">${why}</div>
+      <div style="margin-top:9px;font-size:12px;color:var(--mute)">Viewing as: <span class="seg" style="border-color:var(--line-strong)"><button data-as="DK" aria-pressed="${!originator}" style="color:var(--ink)">Dora</button><button data-as="BH" aria-pressed="${originator}" style="color:var(--ink)">Ben (originator)</button></span></div></div></section>
+      <section><h4>Before this can be verified</h4><ul class="checks"><li class="ok"><span class="ic">&#10003;</span><span>Every value linked to a tool run<small>4 of 4 links resolve to recorded digests</small></span></li><li class="no"><span class="ic">&#10005;</span><span>Sources at current revision<small>2 relay manual sections are older</small></span></li><li class="ok"><span class="ic">&#10003;</span><span>Sandbox attestation observed for every run</span></li><li class="na"><span class="ic">&#8211;</span><span>Hardware key for a Safety signature<small>Dora's key is attested; Marco's is not</small></span></li></ul></section></div></div>`;
+}
+function render() {
+  const app = document.getElementById("app");
+  app.className = `app t-${st.theme}`;
+  app.innerHTML = st.screen === "board" ? screenBoard() : st.screen === "run" ? screenRun() : st.screen === "code" ? screenCode() : screenDoc();
+  const cb = document.getElementById("colorBy"); if (cb) cb.onchange = e => { st.colorBy = e.target.value; render(); };
+  const gb = document.getElementById("groupBy"); if (gb) gb.onchange = e => { st.groupBy = e.target.value; render(); };
+  document.querySelectorAll("#themes button").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === st.theme));
+  document.querySelectorAll("#screens button").forEach(b => b.setAttribute("aria-pressed", b.dataset.s === st.screen));
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) { if (st.menu) { st.menu = null; render(); } return; }
+  const d = b.dataset;
+  if (d.t) st.theme = d.t;
+  else if (d.s) { st.screen = d.s; st.menu = null; }
+  else if (d.k) st.kind = d.k;
+  else if (d.f) st[d.f] = !st[d.f];
+  else if (b.id === "needsTop") st.needs = !st.needs;
+  else if (d.move) st.menu = st.menu === d.move ? null : d.move;
+  else if (d.to) {
+    const [id, to] = d.to.split(":"); st.menu = null;
+    const c = CARDS.find(x => x.id === id);
+    const r = REFUSE[d.to] || (COLS.findIndex(x => x[0] === to) > COLS.findIndex(x => x[0] === c.col) + 1 ? "Refused: a card moves one step at a time, through the action its current step requires." : null);
+    if (r) st.refusal[id] = r; else { delete st.refusal[id]; toast(`Asked the kernel to move ${id} to ${COLS.find(x => x[0] === to)[1]}`); }
+  }
+  else if (d.open) st.screen = CARDS.find(x => x.id === d.open).kind === "code" ? (CARDS.find(x => x.id === d.open).col === "drafting" ? "run" : "code") : "doc";
+  else if (d.line) { st.drafts.push({ line: Number(d.line), text: ["Name the folder in this error.", "Add the measured size to the test name."][st.drafts.length % 2] }); }
+  else if (d.as) st.as = d.as;
+  else if (d.add) toast("Inline add opens here: type a title, Enter adds the next");
+  else if (d.act) {
+    const m = { stop: "Stop requested; the card will show the recorded outcome", note: "Note saved for the follow-up run", return: "Returned to the agent as one follow-up run", pr: "Pull request opened", approve: "Passkey prompt: approving binds the subject shown" }[d.act];
+    if (d.act === "return") st.drafts = [];
+    toast(m);
+  } else return;
+  if (window.brainstorm) window.brainstorm.send({ type: "click", choice: st.screen + ":" + (d.act || d.to || d.s || d.t || d.k || "") });
+  render();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && st.menu) { st.menu = null; render(); } });
+render();
+</script>
+</body>
+</html>

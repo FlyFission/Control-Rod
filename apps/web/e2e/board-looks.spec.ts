@@ -2,7 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 /** Run with: playwright test -c playwright.board.config.ts (keeps the JSON evidence file untouched).
- * The board at "/" in each look has no WCAG 2.2 A or AA violations (redesign task 4). */
+ * The board at "/" in each look has no WCAG 2.2 A or AA violations (redesign task 4): live, with a
+ * blocked O6 card, and with the stream unknown (banner and unknown cards). */
 test.skip(process.env["THEME_TEST_LEGACY"] === "true", "Dedicated legacy rollback run");
 test.skip(process.env["THEME_TEST_RELEASE"] === "true", "Dedicated release artifact run");
 
@@ -33,7 +34,11 @@ async function mockBoardApi(page: Page, look: string) {
     class OpenSource {
       listeners = new Map<string, ((e: Event) => void)[]>();
       constructor() {
-        queueMicrotask(() => setTimeout(() => (this.listeners.get("open") ?? []).forEach((fn) => fn(new Event("open"))), 0));
+        (window as unknown as { __stream: OpenSource }).__stream = this;
+        queueMicrotask(() => setTimeout(() => this.emit("open"), 0));
+      }
+      emit(type: string) {
+        (this.listeners.get(type) ?? []).forEach((fn) => fn(new Event(type)));
       }
       addEventListener(type: string, fn: (e: Event) => void) {
         this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]);
@@ -55,17 +60,31 @@ async function mockBoardApi(page: Page, look: string) {
   await page.route("**/packages/*/person-verifications", (r) => r.fulfill({ json: [] }));
 }
 
+const scan = async (page: Page) => {
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+};
+
 for (const look of ["a", "b", "c"]) {
-  test(`the board has no axe violations in look ${look}`, async ({ page }) => {
+  test(`the board has no axe violations in look ${look}, live, with a blocked O6 card, and with the stream unknown`, async ({ page }) => {
     await mockBoardApi(page, look);
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Relief valve sizing" })).toBeVisible();
-    await expect(page.locator("html")).toHaveAttribute("data-look", look);
+    // Ruling 10: the look sits on the board container only; the rest of the app stays look A.
+    await expect(page.locator(".bd")).toHaveAttribute("data-look", look);
+    await expect(page.locator("html")).not.toHaveAttribute("data-look", /./);
     await expect(page.getByText("Independent check")).toBeVisible();
     // Settled: every card has read its actions, so no card still says it is checking.
     await expect(page.getByText("Checking what is next")).toHaveCount(0);
     await expect(page.getByText("Needs you: Accept").first()).toBeVisible();
-    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
-    expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+    // The Safety card's only qualified verifier would be its originator: the O6 line is blocked.
+    await expect(page.getByText("Blocked: Needs a second qualified person. Originators cannot verify their own work: ben")).toBeVisible();
+    expect(await scan(page)).toEqual([]);
+
+    await page.evaluate(() => (window as unknown as { __stream: { emit(t: string): void } }).__stream.emit("error"));
+    await expect(page.getByText(/What you see may be out of date/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reconnect" })).toBeVisible();
+    await expect(page.getByText(/^Status unknown since /).first()).toBeVisible();
+    expect(await scan(page)).toEqual([]);
   });
 }

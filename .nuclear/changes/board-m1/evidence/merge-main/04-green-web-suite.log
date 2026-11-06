@@ -1,0 +1,14 @@
+Command: pnpm -C apps/web exec vitest run (GREEN, full web suite)
+
+ RUN  v5.0.5 <repo>/apps/web
+
+
+ Test Files  35 passed (35)
+      Tests  534 passed (534)
+   Start at  15:29:46
+   Duration  5.77s (tests 46%, environment 32%, setup 13%, import 7%, transform 2%)
+
+Environment  jsdom was created 35 times · 17.55s total, 32% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

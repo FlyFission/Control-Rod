@@ -18,7 +18,7 @@
   gap: 16px;
   margin: 0;
   color: var(--text-2);
-  font-size: 13px;
+  font-size: var(--fs-small);
 }
 .bd-unknown {
   display: flex;
@@ -30,7 +30,7 @@
   border: 1px solid var(--stuck);
   border-radius: 8px;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-small);
 }
 .bd-empty {
   padding: 16px;
@@ -59,7 +59,7 @@
 .bd-col-head {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: var(--fs-small);
   font-weight: 600;
   color: var(--text);
 }
@@ -88,7 +88,7 @@
 .bd-kinds {
   display: flex;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--fs-chip);
   color: var(--text-2);
 }
 .bd-kind[data-kind="code"] .bd-kind-icon {
@@ -104,7 +104,7 @@
 .bd-title {
   all: unset;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--fs-small);
   font-weight: 600;
   line-height: 1.3;
   color: var(--text);
@@ -133,7 +133,7 @@
   border: 1px solid var(--line-2);
   background: var(--surface);
   color: var(--text);
-  font-size: 10px;
+  font-size: var(--fs-chip);
   font-weight: 600;
 }
 .bd-agent {
@@ -143,21 +143,21 @@
   padding: 1px 6px;
   border: 1px solid var(--line-2);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--fs-chip);
   color: var(--text-2);
 }
 .bd-check {
   padding: 1px 6px;
   border: 1px solid var(--check);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--fs-chip);
   color: var(--check);
 }
 .bd-next {
   display: flex;
   gap: 6px;
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: var(--fs-label);
   color: var(--text);
 }
 .bd-card[data-tone="needs"] .bd-sym {

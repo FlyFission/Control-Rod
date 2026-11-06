@@ -25,10 +25,17 @@ export function ratio(a: string, b: string): number {
   return (hi! + 0.05) / (lo! + 0.05);
 }
 
-/** The `--name: #hex` declarations in a stylesheet (the design tokens). */
+/**
+ * The `--name: #hex` declarations in the `:root` block of a stylesheet: the page tokens, the
+ * design as drawn for look a. Look overrides (`[data-look="b"]` and the like) are separate
+ * palettes, each checked against its own grounds by scripts/contrast-lib.mjs, so they must not
+ * overwrite these.
+ */
 export function tokenColors(css: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const m of stripComments(css).matchAll(/--([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,6})\s*;/g)) out[m[1]!] = m[2]!;
+  const root = /(?:^|[}\s])(?::root)\s*\{([^{}]*)\}/.exec(stripComments(css));
+  if (!root) return out;
+  for (const m of root[1]!.matchAll(/--([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,6})\s*;/g)) out[m[1]!] = m[2]!;
   return out;
 }
 

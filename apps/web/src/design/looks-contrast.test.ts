@@ -38,4 +38,16 @@ describe("contrast of text tokens on surfaces", () => {
       });
     }
   }
+
+  // Reading comfort (.nuclear/changes/reading-comfort): the three reading colours are AAA (7:1)
+  // on the page grounds, in every look, not only look a.
+  for (const look of LOOKS) {
+    for (const text of ["--text", "--text-2", "--muted"]) {
+      for (const surface of ["--ground", "--surface", "--panel"]) {
+        it(`look ${look}: ${text} on ${surface} is at least 7:1 (AAA reading colours)`, () => {
+          expect(contrastRatio(looks[look]![text]!, looks[look]![surface]!)).toBeGreaterThanOrEqual(7);
+        });
+      }
+    }
+  }
 });

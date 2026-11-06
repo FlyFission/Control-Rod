@@ -1372,7 +1372,7 @@ select {
   border: 1px solid var(--line-2);
   border-radius: 6px;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-label);
   cursor: pointer;
 }
 .look-btn[aria-pressed="true"] {

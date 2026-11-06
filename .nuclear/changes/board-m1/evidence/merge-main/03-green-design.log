@@ -1,0 +1,10 @@
+Command: pnpm exec vitest run src/design (GREEN)
+
+ RUN  v5.0.5 <repo>/apps/web
+
+
+ Test Files  3 passed (3)
+      Tests  203 passed (203)
+   Start at  15:29:44
+   Duration  641ms (environment 68%, setup 24%, tests 4%, transform 2%, import 1%, worker 1%)
+

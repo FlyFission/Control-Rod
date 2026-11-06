@@ -1,0 +1,9 @@
+.github/workflows/ci.yml: typescript: no timeout-minutes (GitHub's default is 360)
+.github/workflows/ci.yml: rust: no timeout-minutes (GitHub's default is 360)
+.github/workflows/ci.yml: go: no timeout-minutes (GitHub's default is 360)
+.github/workflows/ci.yml: python: no timeout-minutes (GitHub's default is 360)
+.github/workflows/ci.yml: licenses: no timeout-minutes (GitHub's default is 360)
+.github/workflows/ci.yml: change-records: no timeout-minutes (GitHub's default is 360)
+.github/workflows/ci.yml: sbom: no timeout-minutes (GitHub's default is 360)
+7 job(s) without a bounded timeout
+exit=1

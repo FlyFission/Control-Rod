@@ -15,12 +15,12 @@ All evidence is in `evidence/`; `evidence/SHA256SUMS` holds the digest of each f
 |---|---|---|
 | E-001 | `type-token-moves.txt` | Each declaration the move script changed (58), with selector, old size and new token. Scene selectors are absent by design. |
 | E-002 | `contrast-and-type-scale.log` | The contrast scan's twelve lowest pairs, measured by `contrast.ts`, and the passing guard tests. |
-| E-003 | `final-tests.log` | Web suite: 29 files, 267 tests, all pass. Includes three new run-log pause tests, written first: two failed before the control existed; the third (no pause on a finished run) already held. |
+| E-003 | `final-tests.log` | Web suite: 29 files, 270 tests, all pass. Includes three new run-log pause tests, written first: two failed before the control existed; the third (no pause on a finished run) already held. |
 | E-004 | `final-tests.log`, `final-types.log`, `final-build.log` | Typecheck clean; production build passes, including the theme and office contract checks. |
 | E-005 | `e2e-chromium.log` | Browser suite on Chromium: 156 passed, 20 skipped (reasons not examined), 1 failed. Includes the WCAG 2.2 AA scan of every place and reflow at 320px, both passing. |
 | E-006 | `screenshots/` | Floor preview and office harness after the change at 1280px: no horizontal overflow, no clipped labels. |
 | E-007 | `git diff --stat` at ship time | Changes confined to `apps/web`, `docs/` and this record. |
-| E-008 | `baseline-test.log` | Before: 27 files, 257 tests, all pass. After adds 2 files and 10 tests. |
+| E-008 | `baseline-test.log` | Before: 27 files, 257 tests, all pass. After adds 2 files and 13 tests. |
 | E-009 | `offline-assets.log` | Offline-assets check passes with the new preload. |
 
 ## Claim status
@@ -28,7 +28,7 @@ All evidence is in `evidence/`; `evidence/SHA256SUMS` holds the digest of each f
 | Claim | Method | Result | Gap |
 |---|---|---|---|
 | C-001 | Guard test over the three stylesheets | pass | Scene exemptions are a list in the test; a new scene selector must be added there. |
-| C-002 | Contrast scan at test time | pass | Scans plain `#hex` and `var()` colours. Translucent, gradient and inherited colours are skipped, as stated in `contrast.ts`. The WCAG axe scan in E-005 covers rendered text. |
+| C-002 | Contrast scan at test time | pass | Scans plain `#hex` and `var()` colours; a `transparent` or `none` background is measured against the page grounds (a review found the first version skipped those, which left the base `.btn` rule out; fixed with tests). Translucent, gradient and inherited colours are skipped, as stated in `contrast.ts`. The WCAG axe scan in E-005 covers rendered text. |
 | C-003 | Stylesheet review and render check | pass | No test asserts the measure. |
 | C-004 | Component tests | pass | None. |
 | C-005 | Browser suite | pass | See the known failure. |

@@ -9,15 +9,15 @@ stdout | src/design/contrast.test.ts > text contrast > keeps every plain text co
 7.17  #ff7a59 on #141416 (page)  office.css  .btn.danger
 7.18  #94a3b8 on #141416 (page)  styles.css  .muted
 7.18  #94a3b8 on #141416 (page)  styles.css  .field span
+7.18  #94a3b8 on #141416 (page)  styles.css  .chip-x
 7.18  #94a3b8 on #141416 (page)  styles.css  .palette-group
 7.18  #94a3b8 on #141416 (page)  styles.css  .palette-option.refused .palette-label
 7.18  #94a3b8 on #141416 (page)  styles.css  .palette-hint
 7.18  #94a3b8 on #141416 (page)  styles.css  .palette-empty
-7.18  #94a3b8 on #141416 (page)  styles.css  .waiting-others summary::before
 
 
  Test Files  2 passed (2)
-      Tests  7 passed (7)
-   Start at  20:42:04
-   Duration  686ms (environment 68%, setup 25%, tests 3%, transform 3%, import 1%, worker 1%)
+      Tests  10 passed (10)
+   Start at  18:54:35
+   Duration  683ms (environment 67%, setup 25%, tests 3%, transform 3%, import 2%, worker 1%)
 

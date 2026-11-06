@@ -17,15 +17,15 @@ PASS: 15 complete passive-art packs; thumbnails 301606 bytes. No legal clearance
 
  Test Files  1 passed (1)
       Tests  40 passed (40)
-   Start at  20:42:06
-   Duration  941ms (environment 43%, tests 29%, setup 17%, transform 7%, import 4%, worker 1%)
+   Start at  18:54:38
+   Duration  990ms (environment 41%, tests 30%, setup 18%, transform 6%, import 4%)
 
 
 > @control-rod/web@0.0.0 gen:api /home/user/Control-Rod/apps/web
 > openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
 
 ✨ openapi-typescript 7.13.0
-🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [254.3ms]
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [275.1ms]
 vite v8.3.5 building client environment for production...
 transforming...
 ✓ 443 modules transformed.
@@ -57,4 +57,4 @@ dist/assets/app-DUbCPDdj.js                    827.65 kB │ gzip: 234.21 kB
 - Using dynamic import() to code-split the application
 - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-✓ built in 824ms
+✓ built in 678ms

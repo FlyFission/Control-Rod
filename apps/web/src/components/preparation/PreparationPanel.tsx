@@ -12,7 +12,7 @@ import { Text, Select, Line, itemId } from "./fields.js";
 import { RequirementsEditor } from "./RequirementsEditor.js";
 import { TechnicalPlanEditor } from "./TechnicalPlanEditor.js";
 import { QuestionList } from "./QuestionList.js";
-import { sessionGeneration, setIfSameSession } from "../../lib/session.js";
+import { sessionGeneration, stillCurrent } from "../../lib/session.js";
 function content(s: PreparationView["snapshot"]): PreparationContent {
   const {
     request_kind,
@@ -81,24 +81,29 @@ export function PreparationPanel({
     setDirty(true);
     setError(null);
   }
+  // Each await below can finish after the signed-in person changed. Its answer is then about the
+  // earlier person: nothing is changed, not the draft, the ETag, the cache or the messages.
   async function perform(action: () => Promise<PreparationView>) {
     const startedUnder = sessionGeneration();
     setBusy(true);
     setError(null);
     try {
       const v = await action();
+      if (!stillCurrent(startedUnder)) return;
       setDirty(false);
       setDraft(content(v.snapshot));
       setEtag(`"${v.content_digest.value}"`);
-      setIfSameSession(qc, startedUnder, key, v);
+      qc.setQueryData(key, v);
       setComparison(null);
       setHistory(null);
       void qc.invalidateQueries({ queryKey: ["package", pkg.id] });
     } catch (e) {
+      if (!stillCurrent(startedUnder)) return;
       setError(e instanceof Error ? e.message : "Preparation was not saved");
       if (enrolled) {
         try {
-          setComparison(await api.preparation(pkg.id));
+          const saved = await api.preparation(pkg.id);
+          if (stillCurrent(startedUnder)) setComparison(saved);
         } catch {
           /* retain local draft */
         }
@@ -112,14 +117,15 @@ export function PreparationPanel({
     setBusy(true);
     try {
       const v = await api.preparation(pkg.id);
+      if (!stillCurrent(startedUnder)) return;
       setDirty(false);
       setDraft(content(v.snapshot));
       setEtag(`"${v.content_digest.value}"`);
-      setIfSameSession(qc, startedUnder, key, v);
+      qc.setQueryData(key, v);
       setComparison(null);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not reload");
+      if (stillCurrent(startedUnder)) setError(e instanceof Error ? e.message : "Could not reload");
     } finally {
       setBusy(false);
     }
@@ -149,14 +155,16 @@ export function PreparationPanel({
     }
   }
   async function loadHistory(cursor?: number) {
+    const startedUnder = sessionGeneration();
     try {
       const v = await api.preparationHistory(pkg.id, cursor);
+      if (!stillCurrent(startedUnder)) return;
       setHistory((prev) =>
         cursor === undefined ? v.revisions : [...(prev ?? []), ...v.revisions],
       );
       setBefore(v.next_before);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load history");
+      if (stillCurrent(startedUnder)) setError(e instanceof Error ? e.message : "Could not load history");
     }
   }
   if (!enrolled)

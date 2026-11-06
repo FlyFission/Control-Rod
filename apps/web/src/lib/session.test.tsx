@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import type { Session } from "../api/types.js";
-import { adoptSession, sessionGeneration, setIfSameSession } from "./session.js";
+import { adoptSession, sessionGeneration, stillCurrent } from "./session.js";
 
 function Who() {
   const s = useQuery<Session>({ queryKey: ["session"], queryFn: async () => ({ registered: true, signed_in: false }), staleTime: Infinity });
@@ -39,15 +39,13 @@ describe("adopting a new session", () => {
     expect(qc.getMutationCache().getAll()).toHaveLength(0);
   });
 
-  it("drops a result written by work that started under the earlier session", async () => {
+  it("tells work that started under the earlier session that its answer is obsolete", async () => {
     const qc = new QueryClient();
     const startedUnder = sessionGeneration();
+    expect(stillCurrent(startedUnder)).toBe(true);
     await adoptSession(qc, { registered: true, signed_in: false } as Session);
-    setIfSameSession(qc, startedUnder, ["preparation", "WP-1"], { owner: "ben" });
-    expect(qc.getQueryData(["preparation", "WP-1"])).toBeUndefined();
-    const now = sessionGeneration();
-    setIfSameSession(qc, now, ["preparation", "WP-1"], { owner: "dora" });
-    expect(qc.getQueryData(["preparation", "WP-1"])).toEqual({ owner: "dora" });
+    expect(stillCurrent(startedUnder)).toBe(false);
+    expect(stillCurrent(sessionGeneration())).toBe(true);
   });
 
   it("stops any query in flight, so its answer cannot land in the next session", async () => {

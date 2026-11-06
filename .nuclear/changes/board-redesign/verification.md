@@ -1,6 +1,6 @@
 # Verification: board redesign design spec
 
-Evidence status: **pass** for the spec's research, review and mockup accessibility claims (E-01 to E-03). **Open** for owner validation with real tasks after M7 (E-04). Nothing here verifies an implementation. Implementation status for slice M1 is in the [board-m1](../board-m1/verification.md) record.
+Evidence status: **pass** for the spec's research, review and mockup accessibility claims (E-01 to E-03) and for the recorded owner approval (E-05). **Open** for owner validation with real tasks after M7 (E-04). Nothing here verifies an implementation; none exists.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
@@ -8,6 +8,7 @@ Evidence status: **pass** for the spec's research, review and mockup accessibili
 | E-02 | pass | Three independent model reviews (Codex, Grok, Antigravity) of one brief, plus a synthesis that filters accepted from rejected findings. Reviewers share a brief and the same author, so coupling is partial; a model review is not proof. | `evidence/review/BRIEF.md`, `codex.md`, `grok.md`, `agy.md`, `SYNTHESIS.md`, `screens/` |
 | E-03 | pass | Mockups scanned with @axe-core/playwright 4.14.0 on 2026-11-06: zero WCAG A and AA violations in looks A, B and C on the board mockup. Static mockups only, not the product; axe finds a subset of issues and no screen-reader or keyboard walkthrough was done. | `evidence/mockups/*.html` |
 | E-04 | open | Owner validation after M7: the owner and one engineer each take one real code task and one real engineering-document task through the app. | Not executed |
+| E-05 | pass | The owner approved the spec on 2026-11-06 ("approved, write the implementation plan") and chose subagent-driven execution ("subagent-driven, go ahead"). The evidence is the owner's messages in the working conversation of 2026-11-06, not a retained signed artifact; it is the author's record of a verbal instruction. | Working conversation of 2026-11-06 with the owner; no retained file |
 
 ## Evidence custody and coupling
 
@@ -17,6 +18,7 @@ Evidence status: **pass** for the spec's research, review and mockup accessibili
 | E-02 | G-5, A-1 | yes | evidence/review/ | Authoring agent | Codex, Grok, Antigravity | Authoring agent | Authoring agent (synthesis) | Local CLIs | Packet and export | Authoring agent | Independent model review (shared brief) |
 | E-03 | G-6, A-3 | yes | evidence/mockups/ | Authoring agent | axe-core 4.14.0 via Playwright | Authoring agent | Authoring agent | Local toolchain | Packet and export | Authoring agent | Self-check |
 | E-04 | G-3 | yes | Owner validation | Authoring agent | Not executed | Authoring agent | Not executed | Not executed | Packet and export | Authoring agent | Not supplied |
+| E-05 | O-0 | no | Owner instruction in the 2026-11-06 conversation | Authoring agent | Owner | Authoring agent | Authoring agent (recorded the instruction) | Authoring agent | Packet and export | Authoring agent | Self-check |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
@@ -24,6 +26,7 @@ Evidence status: **pass** for the spec's research, review and mockup accessibili
 | E-02 | separated: three different model reviewers | coupled: same brief and materials | separated: different models and vendors | separated: owner retains approval | partially separated: different providers, same operator | diverse verification | Models share a brief and can share blind spots; findings were filtered by the authoring agent  [Ship limits](ship.md) |
 | E-03 | coupled: authoring agent | coupled: authoring session | separated: deterministic scanner | separated: owner retains approval | coupled: local machine | self-check | Mockups only, subset of accessibility  [Ship limits](ship.md) |
 | E-04 | coupled: authoring agent | coupled: authoring session | partially separated: not executed | separated: owner retains approval | coupled: local machine | self-check | Hold usability and trust claims until the owner validation is run  [Ship limits](ship.md) |
+| E-05 | separated: the owner gave the instruction | coupled: authoring session | coupled: conversation recorded by the authoring agent | separated: the owner is the authority | coupled: local machine | self-check | Authorizes writing the plan and per-slice implementation by instruction only; no retained signed artifact, so each slice record should restate the authority  [Ship limits](ship.md) |
 
 The reviews in E-02 are independent model reviewers, coupled by the same brief. No human independent review was done.
 

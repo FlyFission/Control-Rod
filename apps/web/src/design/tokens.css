@@ -61,6 +61,21 @@
   --kind-doc: #4fc3d0;
   --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /*
+   * Reading comfort (.nuclear/changes/reading-comfort, docs/reading-comfort.md). Readable text
+   * never drops below --fs-chip; metadata, logs and tables sit one step above where they were.
+   * Scene art (stations, figures, room and plate labels) sizes its own labels inside a scaled
+   * canvas and is exempt (src/design/type-scale.test.ts lists the exemptions). Letter spacing
+   * stays at each font's designed default.
+   */
+  --fs-chip: 11px;
+  --fs-label: 12px;
+  --fs-small: 13px;
+  --fs-ui: 14px;
+  /* Multi-line monospace (run logs, previews): open enough to group lines, tight enough to scan. */
+  --lh-mono: 1.25;
+  /* A prose reading column. Code, tables and logs may run wider. */
+  --measure: 75ch;
   color-scheme: dark;
 }
 

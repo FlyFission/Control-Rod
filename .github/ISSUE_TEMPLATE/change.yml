@@ -1,0 +1,56 @@
+name: Change (feature, docs or chore)
+description: A piece of work with one outcome a reviewer can check.
+labels: ["kind: feature"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What is true when this is done? One outcome per issue.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The need behind it. Link the spec, ADR or plan section if one exists.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: How we will know it is done
+      description: The tests, checks or evidence a reviewer can run. Name requirement IDs (REQ-...) where they exist.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Kernel
+        - API
+        - Web
+        - Daemon
+        - Packs
+        - Spec
+        - Docs
+        - Repo and CI
+    validations:
+      required: true
+  - type: dropdown
+    id: trust
+    attributes:
+      label: Touches a trust surface?
+      description: policies/, tests/redteam/, .github/workflows/, spec/ major versions or kernel decision functions. These need a maintainer who did not author the change.
+      options:
+        - No
+        - Yes
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: record
+    attributes:
+      label: Change record
+      description: Slug under .nuclear/changes/ once it exists. Create it before writing code.

@@ -61,6 +61,21 @@ export async function originators(q: Db | Tx, pkg: PackageRow): Promise<Set<stri
 }
 
 /**
+ * The same people as `originators`, for display: the capture's actor first, then the rest ordered by
+ * each actor's earliest event. The set returned by `originators` is what verification exclusion uses.
+ */
+export async function originatorsInOrder(q: Db | Tx, pkg: PackageRow): Promise<string[]> {
+  const r = await q.query<{ id: string }>(
+    `select body->'actor'->>'id' as id from events
+      where body->'actor'->>'kind' = 'human'
+        and ((body->>'type' = 'capture.created' and body->>'subject' = $1) or (body->>'type' = any($3::text[]) and body->>'subject' = $2))
+      group by body->'actor'->>'id'
+      order by bool_or(body->>'type' = 'capture.created') desc, min(seq), body->'actor'->>'id'`,
+    [pkg.capture_id ?? "", pkg.id, AUTHORING_EVENTS]);
+  return r.rows.map((x) => x.id);
+}
+
+/**
  * The single candidate of a package revision released without an attempt set (ordinal 1), recorded
  * the first time a verification needs it. Its release digest is the signed release decision's subject.
  */
@@ -111,11 +126,18 @@ async function admissible(q: Db | Tx, user: string, id: string, req: Verificatio
   if (unknown.length) throw new Refusal(400, "invalid", `This package has no criterion ${unknown.join(", ")}`);
   const missing = mandatory.filter((c) => !req.criteria.includes(c));
   if (missing.length) throw new Refusal(409, "verification-incomplete", `A verification must cover every mandatory criterion; it leaves out ${missing.join(", ")}`);
-  // The signature names the exact work verified: the decision subject (outputs and pre-check) and author run.
   const subject = await subjectOf(q, pkg);
-  const signedDigest = digest({ act: "person-verification", package_id: pkg.id, package_revision: pkg.revision, subject_digest: subject.digest,
-    author_run: author.id, criteria: req.criteria, outcome: req.outcome });
+  const signedDigest = verificationDigest(pkg, subject.digest, author.id, req.criteria, req.outcome);
   return { pkg, signedDigest };
+}
+
+/**
+ * The digest a person verification signs. It names the exact work verified: the decision subject
+ * (outputs and pre-check) and author run, with the criteria covered and the outcome.
+ */
+function verificationDigest(pkg: PackageRow, subjectDigest: unknown, authorRun: string, criteria: string[], outcome: string): string {
+  return digest({ act: "person-verification", package_id: pkg.id, package_revision: pkg.revision, subject_digest: subjectDigest,
+    author_run: authorRun, criteria, outcome });
 }
 
 /** Step 1: the digest the person signs, after every rule that can be checked without a signature. */
@@ -158,5 +180,42 @@ export async function recordPersonVerification(
     };
     await recordObject(c, "person_verification", record as never, actor);
     return record;
+  });
+}
+
+/**
+ * A recorded verification with the revision of the package it verified, and whether it covers the
+ * package's current work: its signed digest equals the one a verification of the current subject and
+ * latest author run would sign now, with the same criteria and outcome.
+ */
+export type PersonVerificationEntry = Json & { package_revision: number; covers_current_subject: boolean };
+
+/** Refuses with not-found unless the caller's organization owns the package (another org's work reads as absent). */
+export async function requireOwnPackage(db: Db | Tx, orgId: string, packageId: string): Promise<void> {
+  const owner = (await db.query<{ org_id: string }>("select org_id from object_owners where object_kind = 'package' and object_id = $1", [packageId])).rows[0];
+  if (!owner || owner.org_id !== orgId) throw new Refusal(404, "not-found", "No such package");
+}
+
+/**
+ * Every person verification recorded for a package, all revisions, oldest first. The package must
+ * belong to the organization; another organization's package reads as absent.
+ */
+
+export async function listPersonVerifications(db: Db, orgId: string, packageId: string): Promise<PersonVerificationEntry[]> {
+  await requireOwnPackage(db, orgId, packageId);
+  const r = await db.query<{ body: Json; package_revision: number }>(
+    `select v.body, ca.package_revision from person_verifications v
+       join candidate_assignments ca on ca.id = v.body->>'candidate_id' and ca.org_id = v.org_id
+      where ca.package_id = $1 and v.org_id = $2
+      order by v.recorded_at, v.body->>'id'`, [packageId, orgId]);
+  // The current work: what a verification signed now would bind. Within one revision the author
+  // output or pre-check can change, so a matching revision alone does not show the record covers it.
+  const pkg = await currentPackage(db, packageId);
+  const author = pkg ? await latestAuthorRun(db, pkg.id, pkg.revision) : null;
+  const subject = pkg && author?.status === "succeeded" ? (await subjectOf(db, pkg)).digest : undefined;
+  return r.rows.map((x) => {
+    const covers = pkg !== null && author !== null && subject !== undefined && x.package_revision === pkg.revision &&
+      x.body.subject_digest?.value === verificationDigest(pkg, subject, author.id, x.body.criteria ?? [], x.body.outcome);
+    return { ...x.body, package_revision: x.package_revision, covers_current_subject: covers };
   });
 }

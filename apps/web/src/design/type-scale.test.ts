@@ -47,7 +47,7 @@ describe("reading comfort: type scale", () => {
 
   it("sets no readable text below 14px outside scene art except through a --fs-* token", () => {
     const offenders: string[] = [];
-    for (const file of ["../styles.css", "../features/floor/floor.css", "../features/office/office.css"]) {
+    for (const file of ["../styles.css", "../features/floor/floor.css", "../features/office/office.css", "../features/board/board.css"]) {
       for (const block of read(file).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
         const selector = block[1]!.trim().replace(/\s+/g, " ");
         if (selector.startsWith("@") || isScene(selector)) continue;

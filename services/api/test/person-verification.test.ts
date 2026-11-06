@@ -122,3 +122,138 @@ describe("recording", () => {
     expect(r.json().code).toBe("wrong-state");
   });
 });
+
+describe("the package view names who originated the work", () => {
+  it("lists the capturer in originators", async () => {
+    // Ben made the capture. Carol authored preparation in an earlier test.
+    const r = await h.app.inject({ method: "GET", url: `/packages/${pkgId}`, headers: { cookie: carol } });
+    expect(r.statusCode).toBe(200);
+    expect(r.json().originators).toContain("ben");
+  });
+
+  it("puts the capturer first even when an editor's event came earlier", async () => {
+    await tx(h.admin, (c) => appendEvent(c, "package.edited", "WP-PV-ORD", { kind: "human", id: "aaron" }, {}));
+    const capture = (await post(ben, "/captures", { text: "Ordering", lane: "internal" })).json();
+    await tx(h.admin, (c) => appendEvent(c, "package.edited", "WP-PV-ORD", { kind: "human", id: "zed" }, {}));
+    await h.admin.query("insert into packages (id, revision, status, capture_id, body) values ('WP-PV-ORD', 0, 'draft', $1, $2)", [capture.id, { ...example, id: "WP-PV-ORD", revision: 0, status: "draft" }]);
+    const r = await h.app.inject({ method: "GET", url: "/packages/WP-PV-ORD", headers: { cookie: carol } });
+    expect(r.json().originators).toEqual(["ben", "aaron", "zed"]);
+  });
+
+  it("answers not-found for another organization's package, and never names its originators", async () => {
+    await h.admin.query(`insert into organizations (body) values ('{"id":"orgpvview_x","name":"Other view","status":"suspended"}') on conflict do nothing`);
+    const o = await h.admin.connect();
+    try {
+      // The ownership trigger gives new rows to the one active organization, so this fixture sets it
+      // aside inside its own transaction; foreign keys and every other trigger still hold.
+      await o.query("begin");
+      await o.query("alter table packages disable trigger packages_owned");
+      await o.query("insert into object_owners (object_kind, object_id, org_id) values ('package', 'WP-PV-VIEW-OTHER', 'orgpvview_x')");
+      await o.query("insert into packages (id, revision, status, body) values ('WP-PV-VIEW-OTHER', 0, 'draft', $1)", [{ ...example, id: "WP-PV-VIEW-OTHER", revision: 0, status: "draft" }]);
+      await o.query("alter table packages enable trigger packages_owned");
+      await o.query("commit");
+    } catch (e) {
+      await o.query("rollback");
+      throw e;
+    } finally {
+      o.release();
+    }
+    const r = await h.app.inject({ method: "GET", url: "/packages/WP-PV-VIEW-OTHER", headers: { cookie: carol } });
+    expect(r.statusCode).toBe(404);
+    expect(r.json().code).toBe("not-found");
+    expect(r.json().originators).toBeUndefined();
+  });
+
+  it("lists only the caller's organization's packages", async () => {
+    // WP-PV-VIEW-OTHER belongs to another organization (fixture in the test above).
+    const r = await h.app.inject({ method: "GET", url: "/packages", headers: { cookie: carol } });
+    expect(r.statusCode).toBe(200);
+    const ids = (r.json() as { id: string }[]).map((p) => p.id);
+    expect(ids).toContain(pkgId);
+    expect(ids).not.toContain("WP-PV-VIEW-OTHER");
+  });
+
+  it("keeps another organization's package out of the office, the inbox and the office figures", async () => {
+    // WP-PV-VIEW-OTHER is a draft owned by another organization (fixture above), so an unscoped office lists it for release.
+    const get = (url: string) => h.app.inject({ method: "GET", url, headers: { cookie: ben } });
+    const office = await get("/office");
+    expect(office.statusCode).toBe(200);
+    const officeIds = (office.json() as { package_id: string }[]).map((i) => i.package_id);
+    expect(officeIds).toContain("WP-PV-ORD");
+    expect(officeIds).not.toContain("WP-PV-VIEW-OTHER");
+    expect(JSON.stringify((await get("/inbox")).json())).not.toContain("WP-PV-VIEW-OTHER");
+    const figures = await get("/office/figures");
+    expect(figures.statusCode).toBe(200);
+    expect(JSON.stringify(figures.json())).not.toContain("WP-PV-VIEW-OTHER");
+  });
+
+  it("lists nobody for a package with no human origin", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PV-NOORIG', 0, 'draft', $1)", [{ ...example, id: "WP-PV-NOORIG", revision: 0, status: "draft" }]);
+    const r = await h.app.inject({ method: "GET", url: "/packages/WP-PV-NOORIG", headers: { cookie: carol } });
+    expect(r.json().originators).toEqual([]);
+  });
+});
+
+describe("reading a package's person verifications", () => {
+  const get = (cookie: string, id: string) => h.app.inject({ method: "GET", url: `/packages/${id}/person-verifications`, headers: { cookie } });
+
+  it("returns every recorded verification with its package revision and outcome, oldest first", async () => {
+    const r = await get(carol, pkgId);
+    expect(r.statusCode).toBe(200);
+    const list = r.json();
+    expect(list.length).toBeGreaterThanOrEqual(2);
+    expect(list.map((v: { outcome: string }) => v.outcome).slice(0, 2)).toEqual(["pass", "inconclusive"]);
+    expect(list.every((v: { package_revision: number }) => v.package_revision === 0)).toBe(true);
+    expect(list[0]).toMatchObject({ verifier_member_id: memberIdFor("carol"), criteria: ALL });
+    const stored = (await h.db.query("select body->>'id' as id from person_verifications order by recorded_at, body->>'id'")).rows.map((x) => x.id);
+    expect(list.map((v: { id: string }) => v.id)).toEqual(stored);
+  });
+
+  it("returns an empty list for a package with none", async () => {
+    await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PV-NONE', 0, 'draft', $1)", [{ ...example, id: "WP-PV-NONE", revision: 0, status: "draft" }]);
+    const r = await get(carol, "WP-PV-NONE");
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual([]);
+  });
+
+  it("answers not-found for an unknown package and for another organization's package", async () => {
+    expect((await get(carol, "WP-PV-NOPE")).json()).toMatchObject({ code: "not-found" });
+    await h.admin.query(`insert into organizations (body) values ('{"id":"orgpvother_x","name":"Other","status":"suspended"}')`);
+    await h.admin.query("insert into object_owners (object_kind, object_id, org_id) values ('package', 'WP-PV-OTHER', 'orgpvother_x')");
+    const r = await get(carol, "WP-PV-OTHER");
+    expect(r.statusCode).toBe(404);
+    expect(r.json().code).toBe("not-found");
+    expect((await h.app.inject({ method: "GET", url: `/packages/${pkgId}/person-verifications` })).statusCode).toBe(401);
+  });
+});
+
+describe("whether a verification covers the current work", () => {
+  const id = "WP-PV-COV";
+  const get = () => h.app.inject({ method: "GET", url: `/packages/${id}/person-verifications`, headers: { cookie: carol } });
+  const authorRun = (runId: string, round: number) =>
+    h.admin.query("insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'author', $3, 'succeeded', $4)", [runId, id, round,
+      { schema_version: "0.1.0", id: runId, package_id: id, package_revision: 0, role: "author", agent_baseline: "author", runtime: { kind: "local", provider: "fake", model: "fake" }, round, status: "succeeded", queued_at: new Date().toISOString() }]);
+
+  it("marks a pass on the current subject as covering it, and no longer once the author output changes within the revision", async () => {
+    const capture = (await post(ben, "/captures", { text: "Coverage", lane: "internal" })).json();
+    await h.admin.query("update runs set status = 'stopped' where status = 'queued'");
+    await h.admin.query("insert into packages (id, revision, status, capture_id, body) values ($1, 0, 'in-verification', $2, $3)", [id, capture.id, { ...example, id, revision: 0, status: "draft" }]);
+    const release = { schema_version: "0.1.0", id: "D-pvcov0001", package_id: id, package_revision: 0, kind: "release", actor: { kind: "human", id: "ben" },
+      subject_digest: { algorithm: "sha256", value: "b".repeat(64) }, assertion: { credential_id: "x", authenticator_data: "x", client_data_json: "x", signature: "x" }, decided_at: new Date().toISOString() };
+    await h.admin.query("insert into decisions (id, package_id, package_revision, kind, body) values ($1, $2, 0, 'release', $3)", [release.id, id, release]);
+    await authorRun("R-pvcov0001", 1);
+    const body = { package_revision: 0, criteria: ALL, outcome: "pass" };
+    const o = await post(carol, `/packages/${id}/person-verifications/options`, body);
+    expect(o.statusCode, o.body).toBe(200);
+    expect((await post(carol, `/packages/${id}/person-verifications`, { ...body, assertion: carolKey.assert(o.json().options) })).statusCode).toBe(201);
+
+    const before = (await get()).json() as { id: string; outcome: string; covers_current_subject: boolean }[];
+    expect(before).toHaveLength(1);
+    expect(before[0]).toMatchObject({ outcome: "pass", covers_current_subject: true });
+    // A new author round on the same revision: the work the person verified is no longer the current work.
+    await authorRun("R-pvcov0002", 2);
+    const after = (await get()).json() as { id: string; covers_current_subject: boolean }[];
+    expect(after.map((v) => v.id)).toEqual(before.map((v) => v.id));
+    expect(after[0]!.covers_current_subject).toBe(false);
+  });
+});

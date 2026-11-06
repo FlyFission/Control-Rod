@@ -1,0 +1,28 @@
+[test-api] PostgreSQL fixture binaries: ~/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/services/api
+
+ ❯ test/person-verification.test.ts (16 tests | 1 failed) 2520ms
+   ❯ the package view names who originated the work (6)
+     × keeps another organization's package out of the office, the inbox and the office figures 18ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/person-verification.test.ts > the package view names who originated the work > keeps another organization's package out of the office, the inbox and the office figures
+AssertionError: expected [ 'WP-PV-ORD', 'WP-PV-VIEW-OTHER' ] to not include 'WP-PV-VIEW-OTHER'
+ ❯ test/person-verification.test.ts:183:27
+    181|     const officeIds = (office.json() as { package_id: string }[]).map(…
+    182|     expect(officeIds).toContain("WP-PV-ORD");
+    183|     expect(officeIds).not.toContain("WP-PV-VIEW-OTHER");
+       |                           ^
+    184|     expect(JSON.stringify((await get("/inbox")).json())).not.toContain…
+    185|     const figures = await get("/office/figures");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 15 passed (16)
+   Start at  15:52:29
+   Duration  3.09s (tests 84%, import 11%, transform 4%)
+

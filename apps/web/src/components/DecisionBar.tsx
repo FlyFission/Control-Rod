@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, explain } from "../api/client.js";
+import { useQueryClient } from "@tanstack/react-query";
+import { explain } from "../api/client.js";
 import type { ActionDescriptor, DecisionKind, PackageView } from "../api/types.js";
 import { decisionLabel, NEEDS_REASON, browserPasskeys, decide, type Passkeys } from "../lib/decide.js";
 import { shortDigest } from "../lib/format.js";
+import { useOfferedActions } from "../lib/offered.js";
+import { needsIndependentCheck } from "../lib/board.js";
 
 const KINDS: DecisionKind[] = ["release", "accept", "accept-with-findings", "return", "reject"];
 const isKind = (c: string): c is DecisionKind => (KINDS as string[]).includes(c);
@@ -17,7 +19,8 @@ const isKind = (c: string): c is DecisionKind => (KINDS as string[]).includes(c)
 export function DecisionBar({ view, passkeys = browserPasskeys }: { view: PackageView; passkeys?: Passkeys }) {
   const qc = useQueryClient();
   const pkg = view.package;
-  const actions = useQuery({ queryKey: ["actions", pkg.id], queryFn: () => api.packageActions(pkg.id) });
+  // The server's actions with the acceptance rule applied (ruling 16), the same rule the board uses.
+  const actions = useOfferedActions(pkg);
   const role = pkg.agent_assignment[0]?.role;
   const label = (k: DecisionKind) => decisionLabel(k, role);
   const [pending, setPending] = useState<DecisionKind | null>(null);
@@ -43,7 +46,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
     setDone(null);
     try {
       const { decision } = await decide(
-        { packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, ...(reason.trim().length > 0 ? { reason } : {}) },
+        { packageId: pkg.id, revision: pkg.revision, kind, shownDigest: view.subject_digest, independentCheck: needsIndependentCheck(pkg), ...(reason.trim().length > 0 ? { reason } : {}) },
         passkeys,
       );
       setDone(`${label(decision.kind)} recorded.`);
@@ -52,6 +55,8 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
       for (const key of ["package", "office", "inbox", "packages", "actions"]) void qc.invalidateQueries({ queryKey: key === "package" ? [key, pkg.id] : [key] });
     } catch (e) {
       setError(explain(e, "The decision was not recorded."));
+      // A refusal may come from a verification read that no longer matches what the bar offers.
+      void qc.invalidateQueries({ queryKey: ["person-verifications", pkg.id] });
     } finally {
       setBusy(false);
     }
@@ -83,7 +88,15 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
       {actions.isError && (
         <div role="alert" className="error">
           <p>{actions.data === undefined ? "What you may sign could not be checked." : "What you may sign could not be refreshed; the buttons may be out of date."}</p>
-          <button type="button" className="btn small" onClick={() => void actions.refetch()}>
+          <button type="button" className="btn small" onClick={actions.refetch}>
+            Try again
+          </button>
+        </div>
+      )}
+      {actions.verificationsFailed && (
+        <div role="alert" className="error">
+          <p>The person verifications could not be read, so Accept is not offered.</p>
+          <button type="button" className="btn small" onClick={actions.refetchVerifications}>
             Try again
           </button>
         </div>

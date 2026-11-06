@@ -1880,6 +1880,95 @@
       }
     },
     "/packages/{id}/person-verifications": {
+      "get": {
+        "operationId": "Packages_personVerifications",
+        "description": "Every person verification recorded for this package, for every revision, oldest first.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PersonVerificationEntry"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "Packages_recordPersonVerification",
         "description": "Step 2: the signed verification, checked again and recorded.",
@@ -10342,6 +10431,13 @@
             "$ref": "#/components/schemas/ControlRod.Records.DataLane",
             "description": "The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1)."
           },
+          "originators": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ids of the people who originated the work (captured it, edited its drafts, authored its preparation), the capture's actor first, then the rest ordered by each actor's earliest event."
+          },
           "preparation_enabled": {
             "type": "boolean"
           },
@@ -10480,6 +10576,80 @@
           }
         },
         "description": "What a qualified checker verified in person (specification 11.5)."
+      },
+      "PersonVerificationEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "verifier_member_id",
+          "qualification_id",
+          "qualification_version",
+          "candidate_id",
+          "criteria",
+          "outcome",
+          "assertion",
+          "package_revision",
+          "covers_current_subject"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "org_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "verifier_member_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "qualification_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "qualification_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "candidate_id": {
+            "$ref": "#/components/schemas/ControlRod.Records.TenancyId"
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive"
+            ]
+          },
+          "assertion": {
+            "$ref": "#/components/schemas/ControlRod.Records.PasskeyAssertion"
+          },
+          "subject_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "The digest the person signed: package, revision, the decision subject (outputs and pre-check)\nand author run, sorted criteria and outcome. The challenge was SHA-256 of\n\"<subject_digest>|person-verification|<challenge_nonce>\"."
+          },
+          "challenge_nonce": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0,
+            "description": "The package revision whose candidate was verified."
+          },
+          "covers_current_subject": {
+            "type": "boolean",
+            "description": "True when the record's signed digest equals what a verification of the package's current work\nwould sign now: the current revision, its decision subject (outputs and pre-check), its latest\nauthor run, and the same criteria and outcome. Within one revision the work can change, so only\na pass that covers the current subject counts as verified."
+          }
+        },
+        "description": "A recorded person verification with the package revision it verified."
       },
       "RegistryCredential": {
         "type": "object",

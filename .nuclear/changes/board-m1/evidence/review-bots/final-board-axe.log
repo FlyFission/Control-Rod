@@ -1,0 +1,12 @@
+
+Running 6 tests using 2 workers
+
+  ✓  1 [chromium] › e2e/board-looks.spec.ts:69:3 › the board has no axe violations in look a, live, with a blocked O6 card, and with the stream unknown (1.5s)
+  ✓  3 [chromium] › e2e/board-looks.spec.ts:69:3 › the board has no axe violations in look b, live, with a blocked O6 card, and with the stream unknown (1.5s)
+  ✓  2 [firefox] › e2e/board-looks.spec.ts:69:3 › the board has no axe violations in look a, live, with a blocked O6 card, and with the stream unknown (3.1s)
+  ✓  4 [chromium] › e2e/board-looks.spec.ts:69:3 › the board has no axe violations in look c, live, with a blocked O6 card, and with the stream unknown (1.5s)
+  ✓  5 [firefox] › e2e/board-looks.spec.ts:69:3 › the board has no axe violations in look b, live, with a blocked O6 card, and with the stream unknown (1.9s)
+  ✓  6 [firefox] › e2e/board-looks.spec.ts:69:3 › the board has no axe violations in look c, live, with a blocked O6 card, and with the stream unknown (2.1s)
+
+  6 passed (19.3s)
+exit 0

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OfficeItem } from "../api/types.js";
 import { pkg } from "../test/fixtures.js";
-import { boardColumn, groupBoard } from "./board.js";
+import { boardColumn, preCheckState } from "./board.js";
 import { decisionLabel } from "./decide.js";
 import { composeCapture, splitAttachments } from "./attachments.js";
 import { sortOffice } from "./office.js";
@@ -11,13 +11,13 @@ import { api } from "../api/client.js";
 
 describe("board mapping", () => {
   it("maps each status to its work step", () => {
-    expect(boardColumn(pkg({ status: "draft" }), false)).toBe("ready");
-    expect(boardColumn(pkg({ status: "released" }), false)).toBe("drafting");
-    expect(boardColumn(pkg({ status: "in-work" }), false)).toBe("drafting");
-    expect(boardColumn(pkg({ status: "in-verification" }), false)).toBe("agent-check");
-    expect(boardColumn(pkg({ status: "in-verification" }), true)).toBe("needs-signature");
-    expect(boardColumn(pkg({ status: "accepted" }), false)).toBe("reached");
-    expect(boardColumn(pkg({ status: "closed" }), false)).toBeNull();
+    expect(boardColumn(pkg({ status: "draft" }), "none", null)).toBe("ready");
+    expect(boardColumn(pkg({ status: "released" }), "none", null)).toBe("drafting");
+    expect(boardColumn(pkg({ status: "in-work" }), "none", null)).toBe("drafting");
+    expect(boardColumn(pkg({ status: "in-verification" }), "none", null)).toBe("agent-check");
+    expect(boardColumn(pkg({ status: "in-verification" }), "passed", null)).toBe("needs-signature");
+    expect(boardColumn(pkg({ status: "accepted" }), "none", null)).toBe("reached");
+    expect(boardColumn(pkg({ status: "closed" }), "none", null)).toBeNull();
   });
 
   it("uses the office to tell a finished pre-check apart", () => {
@@ -28,9 +28,8 @@ describe("board mapping", () => {
       // An accept item for an older revision does not count.
       { kind: "accept", package_id: "B", package_revision: 5, title: "t", detail: "d", since: "2026-10-22T10:00:00Z" },
     ];
-    const g = groupBoard([a, b], office);
-    expect(g["needs-signature"].map((p) => p.id)).toEqual(["A"]);
-    expect(g["agent-check"].map((p) => p.id)).toEqual(["B"]);
+    expect(boardColumn(a, preCheckState(a, office), null)).toBe("needs-signature");
+    expect(boardColumn(b, preCheckState(b, office), null)).toBe("agent-check");
   });
 });
 

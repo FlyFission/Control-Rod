@@ -136,6 +136,9 @@ model PackageView {
   /** The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1). */
   effective_lane?: ControlRod.Records.DataLane;
 
+  /** Ids of the people who originated the work (captured it, edited its drafts, authored its preparation), the capture's actor first, then the rest ordered by each actor's earliest event. */
+  originators?: string[];
+
   preparation_enabled?: boolean;
   preparation_enrolled?: boolean;
   preparation_release_ready?: boolean;
@@ -294,6 +297,9 @@ namespace Packages {
     outcome: "pass" | "fail" | "inconclusive";
   }
 
+  /** Every person verification recorded for this package, for every revision, oldest first. */
+  @route("/{id}/person-verifications") @get op personVerifications(@path id: string): PersonVerificationEntry[] | Refused;
+
   /** Step 1: every rule that needs no signature is checked, then the digest to sign. */
   @route("/{id}/person-verifications/options")
   @post
@@ -312,6 +318,22 @@ namespace Packages {
     @statusCode _: 201;
     @body record: ControlRod.Records.PersonVerification;
   } | Refused;
+}
+
+/** A recorded person verification with the package revision it verified. */
+model PersonVerificationEntry {
+  ...ControlRod.Records.PersonVerification;
+
+  /** The package revision whose candidate was verified. */
+  @minValue(0) package_revision: int32;
+
+  /**
+   * True when the record's signed digest equals what a verification of the package's current work
+   * would sign now: the current revision, its decision subject (outputs and pre-check), its latest
+   * author run, and the same criteria and outcome. Within one revision the work can change, so only
+   * a pass that covers the current subject counts as verified.
+   */
+  covers_current_subject: boolean;
 }
 
 /** One entry in your office: something that needs a person. */

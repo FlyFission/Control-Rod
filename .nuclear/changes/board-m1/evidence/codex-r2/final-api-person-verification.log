@@ -1,0 +1,11 @@
+[test-api] PostgreSQL fixture binaries: ~/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/services/api
+
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  15:40:49
+   Duration  2.73s (tests 83%, import 13%, transform 3%)
+
+exit 0

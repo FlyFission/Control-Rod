@@ -1,8 +1,64 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { CrEvent } from "../api/types.js";
 export const LIVE_GAP_EVENT = "cr:live-gap";
+
+/**
+ * What the page knows about the event stream. "connecting" is before the first open: nothing is claimed
+ * either way. "unknown" means the stream dropped and has not come
+ * back, so nothing on screen can be called current; `unknownSince` is when it dropped. `generation`
+ * changes when someone asks to reconnect, which opens a fresh stream. `droppedAt` (epoch ms) is when
+ * the latest drop began and outlasts the recovery: a read whose data is older than it is last known,
+ * even once the stream is live again (a read that was inactive at the drop is refreshed only later).
+ */
+export type LiveStatus = { status: "connecting" | "live" | "unknown"; unknownSince?: string; droppedAt?: number; generation: number };
+
+let liveState: LiveStatus = { status: "connecting", generation: 0 };
+const liveListeners = new Set<() => void>();
+
+/**
+ * The id of the last frame the stream gave (an event, the opening checkpoint or a loss frame), so a
+ * reconnect resumes after it with ?after= instead of starting at the head and skipping the outage.
+ */
+let lastEventId: string | undefined;
+
+/** The reads the board's work rests on; after a drop the stream reads live again only once these succeed. */
+const REQUIRED_READS: readonly string[] = ["packages", "office"];
+
+/** A stream that sends nothing for this long is treated as dropped. The server sends a heartbeat about every 15 s. */
+export const STALL_MS = 45_000;
+
+/** Back to the state before any stream has opened. Called by tests and by the identity transition (lib/session.ts), so signing out or in as someone else starts clean. */
+export function resetLiveStatus() {
+  lastEventId = undefined;
+  setLive({ status: "connecting", generation: 0 });
+}
+function setLive(next: LiveStatus) {
+  liveState = next;
+  for (const fn of liveListeners) fn();
+}
+function markUnknown() {
+  if (liveState.status === "unknown") return;
+  const now = new Date();
+  setLive({ ...liveState, status: "unknown", unknownSince: now.toISOString(), droppedAt: now.getTime() });
+}
+function markLive() {
+  if (liveState.status === "live") return;
+  setLive({ status: "live", generation: liveState.generation, ...(liveState.droppedAt !== undefined ? { droppedAt: liveState.droppedAt } : {}) });
+}
+function subscribeLive(fn: () => void) {
+  liveListeners.add(fn);
+  return () => void liveListeners.delete(fn);
+}
+const readLive = () => liveState;
+
+/** The stream state for screens that must not present stale state as current, and a way to reconnect. */
+export function useLiveStatus(): { status: "connecting" | "live" | "unknown"; unknownSince?: string; droppedAt?: number; reconnect: () => void } {
+  const st = useSyncExternalStore(subscribeLive, readLive, readLive);
+  const reconnect = useCallback(() => setLive({ ...liveState, generation: liveState.generation + 1 }), []);
+  return { status: st.status, ...(st.unknownSince ? { unknownSince: st.unknownSince } : {}), ...(st.droppedAt !== undefined ? { droppedAt: st.droppedAt } : {}), reconnect };
+}
 
 /**
  * Subscribes to the event stream and refreshes whatever the new event touches. Batches bursts
@@ -10,11 +66,71 @@ export const LIVE_GAP_EVENT = "cr:live-gap";
  */
 export function useLiveEvents(enabled: boolean): void {
   const qc = useQueryClient();
+  const generation = useSyncExternalStore(subscribeLive, readLive, readLive).generation;
   useEffect(() => {
     if (!enabled || typeof EventSource === "undefined") return;
-    const source = new EventSource(api.streamUrl());
+    const source = new EventSource(api.streamUrl(lastEventId));
     const subjects = new Set<string>();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let stall: ReturnType<typeof setTimeout> | undefined;
+    let recovering = false;
+    let closed = false;
+    let epoch = 0;
+
+    // Any frame means the stream is alive. A frame that ends a drop also refreshes everything on
+    // screen: replay covers missed events, but a reconnect that could not resume (or a native retry
+    // that started at the head) must not leave the outage's changes unseen.
+    // A stream that never opens, or goes quiet, is closed and read as unknown; Reconnect opens another.
+    const armStall = () => {
+      if (stall !== undefined) clearTimeout(stall);
+      stall = setTimeout(() => {
+        stall = undefined;
+        epoch++;
+        markUnknown();
+        window.dispatchEvent(new Event(LIVE_GAP_EVENT));
+        source.close();
+      }, STALL_MS);
+    };
+    armStall();
+    // After a drop the stream stays unknown until everything on screen has been read again and the
+    // reads the work rests on (REQUIRED_READS) succeeded. A failed refresh leaves it unknown, with the
+    // Reconnect control still offered; a drop during the refresh starts over.
+    // Another invalidation during recovery (a loss frame, or the event flush) can replace a refetch,
+    // so recovery does not trust the first promise alone: it waits until every required read is
+    // idle, and counts as recovered only reads that succeeded with data newer than the recovery.
+    const required = () =>
+      qc.getQueryCache().findAll({ type: "active" }).filter((q) => REQUIRED_READS.includes(String(q.queryKey[0])));
+    const settled = () =>
+      new Promise<void>((resolve) => {
+        const check = () => {
+          if (closed || required().every((q) => q.state.fetchStatus === "idle")) {
+            unsubscribe();
+            resolve();
+          }
+        };
+        const unsubscribe = qc.getQueryCache().subscribe(check);
+        check();
+      });
+    const recover = async () => {
+      recovering = true;
+      const mine = epoch;
+      const started = Date.now();
+      try {
+        await qc.invalidateQueries();
+        await settled();
+      } finally {
+        recovering = false;
+      }
+      if (closed || mine !== epoch) return;
+      const recovered = required().every((q) => q.state.status === "success" && q.state.dataUpdatedAt >= started);
+      if (recovered) markLive();
+    };
+    const alive = (msg?: { lastEventId?: string }) => {
+      if (msg?.lastEventId) lastEventId = msg.lastEventId;
+      armStall();
+      if (liveState.status !== "unknown") return markLive();
+      if (!recovering) void recover();
+    };
 
     const flush = () => {
       timer = undefined;
@@ -42,6 +158,7 @@ export function useLiveEvents(enabled: boolean): void {
         "office-figures",
         "scrams",
         "scram",
+        "person-verifications",
         "records-head",
         "scram-preview",
       ]) {
@@ -50,6 +167,7 @@ export function useLiveEvents(enabled: boolean): void {
     };
 
     const onMessage = (msg: MessageEvent<string>) => {
+      alive(msg);
       try {
         const ev = JSON.parse(msg.data) as CrEvent;
         if (typeof ev.subject === "string")
@@ -63,24 +181,38 @@ export function useLiveEvents(enabled: boolean): void {
       if (timer === undefined) timer = setTimeout(flush, 300);
     };
 
-    // The browser reconnects with the last event id and the stream replays what was missed. The
-    // stream opens with a checkpoint frame carrying the head id, so a reconnect before any event
-    // still resumes from a known place. Only when replay is impossible (a loss frame) is everything
-    // refreshed.
-    const onLoss = () => {
+    // The browser's own retry sends the last event id, and a Reconnect opens a new stream with
+    // ?after= the last id seen; either way the stream replays what was missed. The stream opens with
+    // a checkpoint frame carrying the head id, so a reconnect before any event still resumes from a
+    // known place. A loss frame (replay impossible) refreshes everything, as does the first frame
+    // after a drop.
+    const onLoss = (msg: MessageEvent<string>) => {
+      alive(msg);
       window.dispatchEvent(new Event(LIVE_GAP_EVENT));
       void qc.invalidateQueries();
     };
-    const onError = () => window.dispatchEvent(new Event(LIVE_GAP_EVENT));
-    source.addEventListener("loss", onLoss);
+    const onError = () => {
+      epoch++;
+      if (stall !== undefined) clearTimeout(stall);
+      stall = undefined;
+      markUnknown();
+      window.dispatchEvent(new Event(LIVE_GAP_EVENT));
+    };
+    const onFrame = (msg: MessageEvent<string>) => alive(msg);
+    source.addEventListener("open", () => alive());
+    source.addEventListener("checkpoint", onFrame as EventListener);
+    source.addEventListener("heartbeat", onFrame as EventListener);
+    source.addEventListener("loss", onLoss as EventListener);
     source.addEventListener("error", onError);
     source.addEventListener("message", onMessage);
     source.addEventListener("event", onMessage as EventListener);
     return () => {
+      closed = true;
       if (timer !== undefined) clearTimeout(timer);
+      if (stall !== undefined) clearTimeout(stall);
       source.close();
     };
-  }, [enabled, qc]);
+  }, [enabled, qc, generation]);
 }
 
 /** True while the tab is visible, so animations and polling can rest when it is not. */

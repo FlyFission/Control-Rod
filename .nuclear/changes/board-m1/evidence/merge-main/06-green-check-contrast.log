@@ -1,0 +1,2 @@
+Command: node apps/web/scripts/check-contrast.mjs
+exit: 0

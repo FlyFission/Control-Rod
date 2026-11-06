@@ -5,6 +5,7 @@ import type {
 } from "@simplewebauthn/browser";
 import { api, type Api } from "../api/client.js";
 import type { Decision, DecisionKind, Digest } from "../api/types.js";
+import { ACCEPT_COMMANDS, ACCEPT_WAITS_FOR_VERIFICATION } from "./board.js";
 
 /** The browser passkey calls, injectable so tests can stand in for the authenticator. */
 export interface Passkeys {
@@ -30,6 +31,11 @@ export interface DecideInput {
   reason?: string;
   /** The subject digest shown to the person. Signing stops if the server's differs. */
   shownDigest: Digest;
+  /**
+   * Safety or Material work. An accept is sent only if a person verification read at this moment
+   * shows a pass that covers the current work (ruling 16; screen-only until the kernel guard D-4).
+   */
+  independentCheck?: boolean;
 }
 
 /** Kinds that need a written reason before the person signs. */
@@ -54,6 +60,11 @@ export async function decide(
 ): Promise<{ decision: Decision; signed: Digest }> {
   if (NEEDS_REASON.has(input.kind) && (input.reason ?? "").trim().length === 0) {
     throw new Error("A reason is required for this decision.");
+  }
+  if (input.independentCheck && ACCEPT_COMMANDS.includes(input.kind)) {
+    const fresh = await client.personVerifications(input.packageId);
+    const covers = fresh.some((v) => v.package_revision === input.revision && v.outcome === "pass" && v.covers_current_subject === true);
+    if (!covers) throw new Error(`${ACCEPT_WAITS_FOR_VERIFICATION}. No recorded pass covers the work as it is now.`);
   }
   const req = {
     kind: input.kind,

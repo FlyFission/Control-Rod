@@ -1,0 +1,10 @@
+Command: pnpm exec vitest run src/design/looks-contrast.test.ts (RED: new per-look 7:1 checks against the M1 look b and c --muted values)
+     × look b: --muted on --ground is at least 7:1 (AAA reading colours) 3ms
+     × look b: --muted on --surface is at least 7:1 (AAA reading colours) 0ms
+     × look b: --muted on --panel is at least 7:1 (AAA reading colours) 0ms
+     × look c: --muted on --ground is at least 7:1 (AAA reading colours) 0ms
+     × look c: --muted on --surface is at least 7:1 (AAA reading colours) 0ms
+     × look c: --muted on --panel is at least 7:1 (AAA reading colours) 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  6 failed | 182 passed (188)

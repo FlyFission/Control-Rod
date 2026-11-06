@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { api } from "../../api/client.js";
 import type { ActionDescriptor, AgentFigure, PackageView } from "../../api/types.js";
 import { STATE_INFO, StateMark } from "../../components/StateMark.js";
-import { COLUMNS, boardColumn } from "../../lib/board.js";
+import { COLUMNS, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, verificationRead } from "../../lib/board.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../../lib/format.js";
 import { REGION } from "./layout.js";
 
@@ -50,6 +50,12 @@ function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
   const isPackage = f.href.to === "/packages/$id";
   const view = useQuery({ queryKey: ["package", f.package_id], queryFn: () => api.packageView(f.package_id), enabled: isPackage });
   const actions = useQuery({ queryKey: ["actions", f.package_id], queryFn: () => api.packageActions(f.package_id), enabled: isPackage });
+  // Needed only to apply the acceptance rule (ruling 16) to what the card says the viewer may sign.
+  const independent = view.data !== undefined && needsIndependentCheck(view.data.package);
+  const verifications = useQuery({ queryKey: ["person-verifications", f.package_id], queryFn: () => api.personVerifications(f.package_id), enabled: isPackage && independent });
+  // Unknown (not read, or a failed refresh) for independent-check work; null for other work, which needs no verification.
+  const verified: boolean | "unknown" | null = view.data === undefined ? null : independent ? verificationRead(view.data.package, verifications) : null;
+  const offered = actions.data && view.data ? blockUnverifiedAccept(view.data.package, actions.data, independent ? acceptVerified(view.data.package, verifications) : true) : actions.data;
   const marks = [
     f.marks.gate && "A gate decision waits on this package",
     f.marks.changed_input && `Input ${f.marks.changed_input} changed`,
@@ -81,7 +87,7 @@ function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
       )}
       {lens && <p className="small">{lens}</p>}
       {f.observability && <p className="muted small">This runtime cannot report permission waits: {f.observability}.</p>}
-      {isPackage && <Glance f={f} view={view.data} actions={actions.data} failed={view.isError || actions.isError} />}
+      {isPackage && <Glance f={f} view={view.data} actions={offered} verified={verified} failed={view.isError || actions.isError} />}
       <AgentActions f={f} view={view.data} />
       {isPackage ? (
         <Link to="/packages/$id" params={{ id: f.package_id }} {...(f.href.hash ? { hash: f.href.hash } : {})} className="btn small">
@@ -97,11 +103,15 @@ function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
 }
 
 /** The package at a glance (OV-08), rigor and independence (OV-10), and who may sign (OV-11). */
-function Glance({ f, view, actions, failed }: { f: AgentFigure; view: PackageView | undefined; actions: ActionDescriptor[] | undefined; failed: boolean }) {
+function Glance({ f, view, actions, verified, failed }: { f: AgentFigure; view: PackageView | undefined; actions: ActionDescriptor[] | undefined; verified: boolean | "unknown" | null; failed: boolean }) {
   if (failed) return <p className="office-note">The package details could not be loaded, so they are not shown.</p>;
   if (!view || !actions) return <p className="office-note">Loading the package details…</p>;
   const pkg = view.package;
-  const step = boardColumn(pkg, Boolean(view.pre_check));
+  // The step uses the verification read like the board: unverified independent-check work is at
+  // Person verifies, and an unread verification is an unknown step, never Needs signature.
+  const pre = view.pre_check ? "passed" : "none";
+  const stepUnknown = verified === "unknown" && pkg.status === "in-verification" && pre === "passed";
+  const step = stepUnknown ? null : boardColumn(pkg, pre, verified === "unknown" ? false : verified);
   const lastRun = [...view.runs].sort((a, b) => Date.parse(b.finished_at ?? b.started_at ?? b.queued_at) - Date.parse(a.finished_at ?? a.started_at ?? a.queued_at))[0];
   const checker = [...view.runs].reverse().find((r) => r.role === "pre-check");
   const CHECKER_STATUS: Record<string, string> = { queued: "queued, not started", running: "checking now", succeeded: "finished", failed: "failed", stopped: "stopped", lost: "lost" };
@@ -124,7 +134,7 @@ function Glance({ f, view, actions, failed }: { f: AgentFigure; view: PackageVie
       <dt>Rung</dt>
       <dd>
         {STATUS_LABEL[pkg.status ?? ""] ?? pkg.status}
-        {step ? `; step: ${COLUMNS.find((c) => c.id === step)?.title}` : ""}
+        {stepUnknown ? "; step unknown until the person verifications are read" : step ? `; step: ${COLUMNS.find((c) => c.id === step)?.title}` : ""}
       </dd>
       <dt>Due</dt>
       <dd>No due date is recorded for this package.</dd>

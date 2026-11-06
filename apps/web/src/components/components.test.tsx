@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
@@ -156,6 +156,86 @@ describe("decision flow", () => {
         },
       ],
     ]);
+  });
+
+  it("offers no Accept on Safety work until a person verification covers the current work (ruling 16)", async () => {
+    const pass = (covers: boolean) => ({ id: "pv1", package_revision: 3, outcome: "pass", covers_current_subject: covers });
+    let verifs: unknown[] = [];
+    server.use(http.get("*/packages/WP-0001/person-verifications", () => HttpResponse.json(verifs)));
+    offer(["accept", "accept-with-findings", "return"]);
+    const v = view({}, { status: "in-verification", revision: 3, grade: "safety" });
+    const first = await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
+    expect(await screen.findByRole("button", { name: "Return with direction" })).toBeTruthy();
+    await waitFor(() => expect(screen.getAllByText(/A person verification of the current work must come before/).length).toBeGreaterThan(0));
+    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Accept with findings/ })).toBeNull();
+    first.unmount();
+    // A pass that no longer covers the current work (the output changed within the revision) is not enough.
+    verifs = [pass(false)];
+    const second = await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
+    expect(await screen.findByRole("button", { name: "Return with direction" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+    second.unmount();
+    verifs = [pass(true)];
+    await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
+    expect(await screen.findByRole("button", { name: "Accept" })).toBeTruthy();
+  });
+
+  it("withdraws Accept when a refresh of the person verifications fails after a covering pass", async () => {
+    let fail = false;
+    server.use(http.get("*/packages/WP-0001/person-verifications", () =>
+      fail ? HttpResponse.json({ code: "boom" }, { status: 500 }) : HttpResponse.json([{ id: "pv1", package_revision: 3, outcome: "pass", covers_current_subject: true }])));
+    offer(["accept", "return"]);
+    const v = view({}, { status: "in-verification", revision: 3, grade: "safety" });
+    const { qc } = await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
+    expect(await screen.findByRole("button", { name: "Accept" })).toBeTruthy();
+    fail = true;
+    await act(async () => void (await qc.refetchQueries({ queryKey: ["person-verifications"] })));
+    expect(await screen.findByText(/The person verifications could not be read, so Accept is not offered/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Accept" })).toBeNull();
+  });
+
+  it("does not offer Accept while a refresh of a cached covering pass is in flight", async () => {
+    let hold: Promise<void> | undefined;
+    server.use(http.get("*/packages/WP-0001/person-verifications", async () => {
+      if (hold) await hold;
+      return HttpResponse.json([{ id: "pv1", package_revision: 3, outcome: "pass", covers_current_subject: true }]);
+    }));
+    offer(["accept", "return"]);
+    const v = view({}, { status: "in-verification", revision: 3, grade: "safety" });
+    const { qc } = await renderPage(<DecisionBar view={v} passkeys={passkeys([])} />);
+    expect(await screen.findByRole("button", { name: "Accept" })).toBeTruthy();
+    let release!: () => void;
+    hold = new Promise<void>((r) => (release = r));
+    act(() => void qc.invalidateQueries({ queryKey: ["person-verifications"] }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Accept" })).toBeNull());
+    await act(async () => release());
+    expect(await screen.findByRole("button", { name: "Accept" })).toBeTruthy();
+  });
+
+  it("reads the person verifications again on Accept and sends no decision when no pass covers the work", async () => {
+    let covering = true;
+    let asked = false;
+    server.use(
+      http.get("*/packages/WP-0001/person-verifications", () =>
+        HttpResponse.json(covering ? [{ id: "pv1", package_revision: 3, outcome: "pass", covers_current_subject: true }] : [{ id: "pv1", package_revision: 3, outcome: "pass", covers_current_subject: false }])),
+      http.post("*/packages/WP-0001/decisions/options", () => {
+        asked = true;
+        return HttpResponse.json({ subject_digest: DIGEST, options: { challenge: "abc" } });
+      }),
+    );
+    offer(["accept", "return"]);
+    const signed: unknown[] = [];
+    const v = view({}, { status: "in-verification", revision: 3, grade: "safety" });
+    await renderPage(<DecisionBar view={v} passkeys={passkeys(signed)} />);
+    const button = await screen.findByRole("button", { name: "Accept" });
+    // The work changed since the page read its verifications; the cached pass no longer covers it.
+    covering = false;
+    await userEvent.setup().click(button);
+    expect(await screen.findByText(/A person verification of the current work must come before Accept/, { selector: "[role=alert]" })).toBeTruthy();
+    expect(asked).toBe(false);
+    expect(signed).toEqual([]);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Accept" })).toBeNull());
   });
 
   it("stops before signing when the package changed since the page loaded", async () => {

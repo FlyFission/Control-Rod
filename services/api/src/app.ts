@@ -23,7 +23,7 @@ import { preparationRoutes } from "./preparation/routes.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
 import { REASONS, teach } from "./refusals.js";
-import { personVerificationSubject, recordPersonVerification } from "./person-verification.js";
+import { listPersonVerifications, originatorsInOrder, personVerificationSubject, recordPersonVerification, requireOwnPackage } from "./person-verification.js";
 import { inbox } from "./inbox.js";
 import { officeFigures } from "./figures.js";
 import { activeScramsFor, scramPreview, scramView } from "./scram.js";
@@ -54,6 +54,7 @@ import {
   packageActions,
   packageLane,
   packageOutput,
+  currentPackage,
   packageView,
   recordRuntimeStatus,
   requeueRun,
@@ -321,12 +322,19 @@ export function buildApp(opts: AppOptions): FastifyInstance {
 
   /* ---- packages ---- */
   app.get("/packages", async (req) => {
-    await person(req);
-    return listPackages(db);
+    // Scoped to the caller's organization, like the package view and its person verifications.
+    const caller = await callerFor(db, await person(req));
+    return listPackages(db, caller.orgId);
   });
   app.get<{ Params: { id: string } }>("/packages/:id", async (req) => {
-    await person(req);
-    return { ...await packageView(db, req.params.id, cfg), preparation_enabled: cfg.guidedPreparation };
+    // Gated by the caller's organization, as the person verifications route is, since the view names
+    // originators (M1 ruling 14).
+    const caller = await callerFor(db, await person(req));
+    await requireOwnPackage(db, caller.orgId, req.params.id);
+    const view = await packageView(db, req.params.id, cfg);
+    const row = await currentPackage(db, req.params.id);
+    const who = row ? await originatorsInOrder(db, row) : [];
+    return { ...view, originators: who, preparation_enabled: cfg.guidedPreparation };
   });
   app.put<{ Params: { id: string } }>("/packages/:id", async (req, reply) => {
     const user = await person(req);
@@ -513,9 +521,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return inbox(db, cfg, user, raw === undefined || raw === "" ? undefined : Number(raw));
   });
   app.get("/office", async (req) => {
-    await person(req);
+    // Scoped to the caller's organization, like the package list and views.
+    const caller = await callerFor(db, await person(req));
     await sweep();
-    return office(db);
+    return office(db, caller.orgId);
   });
   /** The office floor for the viewer: one AgentFigure per agent, from recorded data only (plan task 4.6). */
   app.get<{ Querystring: { presenting?: string } }>("/office/figures", async (req) => {
@@ -557,6 +566,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const caller = await callerFor(db, await person(req));
     // The bundle is self contained; the control plane's own checks of it and of the whole chain travel beside it.
     return inclusionProof(db, auth, caller.orgId, req.params.id);
+  });
+  /** A package's recorded person verifications, every revision, oldest first. */
+  app.get<{ Params: { id: string } }>("/packages/:id/person-verifications", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return listPersonVerifications(db, caller.orgId, req.params.id);
   });
   /** Budgets with their use this window, the latest usage records, and which runtimes report tokens (plan task 5.2). */
   app.get("/usage", async (req) => {

@@ -18,6 +18,7 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   ScramDetail,
   ChainHead, PackageProof, RecordsVerification, ScramPreview, ScramSummary,
   PackageView,
+  PersonVerificationEntry,
   Run,
   RuntimeStatus,
   Session,
@@ -190,8 +191,10 @@ export const api = {
   verifyEvents: () => call<{ ok: boolean; count: number; broken_at?: number }>("GET", "/events/verify"),
   verifyRecords: () => call<RecordsVerification>("GET", "/records/verify"),
   recordsHead: () => call<{ head: ChainHead | null }>("GET", "/records/head"),
+  personVerifications: (id: string) => call<PersonVerificationEntry[]>("GET", `/packages/${enc(id)}/person-verifications`),
   packageProof: (id: string) => call<PackageProof>("GET", `/packages/${enc(id)}/proof`),
-  streamUrl: () => url("/events/stream"),
+  /** The event stream; `after` resumes after that event id (the server replays what was missed). */
+  streamUrl: (after?: string) => url(after ? `/events/stream?after=${encodeURIComponent(after)}` : "/events/stream"),
 };
 
 export type Api = typeof api;

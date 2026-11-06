@@ -1,0 +1,170 @@
+Command: pnpm exec vitest run src/design (RED, after merging main, before the fix)
+
+ RUN  v5.0.5 <repo>/apps/web
+
+ ❯ src/design/type-scale.test.ts (5 tests | 1 failed) 17ms
+   ❯ reading comfort: type scale (5)
+     × sets no readable text below 14px outside scene art except through a --fs-* token 7ms
+stdout | src/design/contrast.test.ts > text contrast > keeps every plain text colour in the stylesheets at AA
+1.00  #fff on #ffffff (page)  floor.css  .floor-actor
+1.00  #ffffff on #ffffff (page)  floor.css  .floor-close
+1.01  #101828 on #111821 (rule)  styles.css  .card
+1.01  #eaf0f5 on #eceef2 (page)  floor.css  .floor-list button
+1.01  #eaf0f7 on #eceef2 (page)  floor.css  .floor-workbench
+1.05  #eaf0f7 on #f4f5f7 (page)  floor.css  .floor-workbench
+1.05  #eaf0f5 on #f4f5f7 (page)  floor.css  .floor-list button
+1.08  #d7e9ed on #eceef2 (page)  floor.css  .floor-office-link
+1.09  #101828 on #16212d (rule)  styles.css  .view-switch .view.active
+1.09  #fff on #f4f5f7 (page)  floor.css  .floor-actor
+1.09  #ffffff on #f4f5f7 (page)  floor.css  .floor-close
+1.15  #eaf0f7 on #ffffff (page)  floor.css  .floor-workbench
+
+ ❯ src/design/contrast.test.ts (10 tests | 2 failed) 24ms
+   ❯ text contrast (4)
+     × keeps the three reading colours at AAA on every page ground 4ms
+     × keeps every plain text colour in the stylesheets at AA 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/design/contrast.test.ts > text contrast > keeps the three reading colours at AAA on every page ground
+AssertionError: --muted on --ground: expected 5.8293150799111695 to be greater than or equal to 7
+ ❯ src/design/contrast.test.ts:27:73
+     25|     for (const name of ["text", "text-2", "muted"]) {
+     26|       for (const g of GROUNDS) {
+     27|         expect(ratio(tokens[name]!, tokens[g]!), `--${name} on --${g}`…
+       |                                                                         ^
+     28|       }
+     29|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/design/contrast.test.ts > text contrast > keeps every plain text colour in the stylesheets at AA
+AssertionError: expected [ …(83) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "1.00 #fff on #ffffff floor.css .floor-actor",
++   "1.00 #ffffff on #ffffff floor.css .floor-close",
++   "1.01 #101828 on #111821 styles.css .card",
++   "1.01 #eaf0f5 on #eceef2 floor.css .floor-list button",
++   "1.01 #eaf0f7 on #eceef2 floor.css .floor-workbench",
++   "1.05 #eaf0f7 on #f4f5f7 floor.css .floor-workbench",
++   "1.05 #eaf0f5 on #f4f5f7 floor.css .floor-list button",
++   "1.08 #d7e9ed on #eceef2 floor.css .floor-office-link",
++   "1.09 #101828 on #16212d styles.css .view-switch .view.active",
++   "1.09 #fff on #f4f5f7 floor.css .floor-actor",
++   "1.09 #ffffff on #f4f5f7 floor.css .floor-close",
++   "1.15 #eaf0f7 on #ffffff floor.css .floor-workbench",
++   "1.15 #d7e9ed on #f4f5f7 floor.css .floor-office-link",
++   "1.15 #eaf0f5 on #ffffff floor.css .floor-list button",
++   "1.15 #c8e6d2 on #eceef2 floor.css .floor-active-tag",
++   "1.16 #fff on #eceef2 floor.css .floor-actor",
++   "1.16 #ffffff on #eceef2 floor.css .floor-close",
++   "1.18 #d0dee6 on #eceef2 floor.css .floor-theme-tags span",
++   "1.23 #c8e6d2 on #f4f5f7 floor.css .floor-active-tag",
++   "1.25 #d7e9ed on #ffffff floor.css .floor-office-link",
++   "1.26 #d0dee6 on #f4f5f7 floor.css .floor-theme-tags span",
++   "1.27 #c5d8e0 on #eceef2 floor.css .floor-preview p",
++   "1.28 #c6d6df on #eceef2 floor.css .floor-source-notes",
++   "1.30 #a8ddca on #eceef2 floor.css .floor-footnote span:first-child span",
++   "1.31 #8fe3b5 on #eceef2 styles.css .ok",
++   "1.31 #b8d8d4 on #eceef2 floor.css .floor-plain-thumb",
++   "1.33 #b7d5dd on #eceef2 floor.css .floor-run-badge",
++   "1.34 #c8e6d2 on #ffffff floor.css .floor-active-tag",
++   "1.35 #c5d8e0 on #f4f5f7 floor.css .floor-preview p",
++   "1.36 #c1d0db on #eceef2 floor.css .floor-theme-copy > p",
++   "1.37 #c2cfda on #eceef2 floor.css .floor-paging",
++   "1.37 #c6d6df on #f4f5f7 floor.css .floor-source-notes",
++   "1.37 #d0dee6 on #ffffff floor.css .floor-theme-tags span",
++   "1.39 #a8ddca on #f4f5f7 floor.css .floor-footnote span:first-child span",
++   "1.39 #8fe3b5 on #f4f5f7 styles.css .ok",
++   "1.39 #b8d8d4 on #f4f5f7 floor.css .floor-plain-thumb",
++   "1.40 #bdcddd on #eceef2 floor.css .floor-list-main strong small",
++   "1.42 #b7d5dd on #f4f5f7 floor.css .floor-run-badge",
++   "1.42 #2f3a4d on #16212d styles.css .tag",
++   "1.43 #a8d2c4 on #eceef2 floor.css .floor-eyebrow",
++   "1.45 #c1d0db on #f4f5f7 floor.css .floor-theme-copy > p",
++   "1.45 #c2cfda on #f4f5f7 floor.css .floor-paging",
++   "1.46 #b9c9d7 on #eceef2 floor.css .floor-gallery-head p:last-child",
++   "1.47 #ffb4a0 on #eceef2 styles.css .error",
++   "1.47 #ffb4a0 on #eceef2 styles.css .btn.danger",
++   "1.47 #ffb4a0 on #eceef2 styles.css .story-step.problem, .story-step.failed",
++   "1.47 #c5d8e0 on #ffffff floor.css .floor-preview p",
++   "1.49 #bdcddd on #f4f5f7 floor.css .floor-list-main strong small",
++   "1.49 #b3c8d6 on #eceef2 floor.css .floor-list-main > small",
++   "1.49 #c6d6df on #ffffff floor.css .floor-source-notes",
++   "1.50 #b7c6d5 on #eceef2 floor.css .floor-controls label",
++   "1.52 #a8ddca on #ffffff floor.css .floor-footnote span:first-child span",
++   "1.52 #b6c5d4 on #eceef2 floor.css .floor-page-heading p:last-child",
++   "1.52 #a8d2c4 on #f4f5f7 floor.css .floor-eyebrow",
++   "1.52 #8fe3b5 on #ffffff styles.css .ok",
++   "1.52 #b8d8d4 on #ffffff floor.css .floor-plain-thumb",
++   "1.52 #a9c8d0 on #eceef2 floor.css .floor-list-id",
++   "1.55 #b7d5dd on #ffffff floor.css .floor-run-badge",
++   "1.55 #b9c9d7 on #f4f5f7 floor.css .floor-gallery-head p:last-child",
++   "1.57 #ffb4a0 on #f4f5f7 styles.css .error",
++   "1.57 #ffb4a0 on #f4f5f7 styles.css .btn.danger",
++   "1.57 #ffb4a0 on #f4f5f7 styles.css .story-step.problem, .story-step.failed",
++   "1.58 #c1d0db on #ffffff floor.css .floor-theme-copy > p",
++   "1.58 #b3c8d6 on #f4f5f7 floor.css .floor-list-main > small",
++   "1.59 #c2cfda on #ffffff floor.css .floor-paging",
++   "1.60 #b7c6d5 on #f4f5f7 floor.css .floor-controls label",
++   "1.61 #b6c5d4 on #f4f5f7 floor.css .floor-page-heading p:last-child",
++   "1.62 #2f3a4d on #15130d styles.css .binds",
++   "1.62 #bdcddd on #ffffff floor.css .floor-list-main strong small",
++   "1.62 #a9c8d0 on #f4f5f7 floor.css .floor-list-id",
++   "1.66 #a8d2c4 on #ffffff floor.css .floor-eyebrow",
++   "1.69 #b9c9d7 on #ffffff floor.css .floor-gallery-head p:last-child",
++   "1.71 #ffb4a0 on #ffffff styles.css .error",
++   "1.71 #ffb4a0 on #ffffff styles.css .btn.danger",
++   "1.71 #ffb4a0 on #ffffff styles.css .story-step.problem, .story-step.failed",
++   "1.73 #b3c8d6 on #ffffff floor.css .floor-list-main > small",
++   "1.74 #b7c6d5 on #ffffff floor.css .floor-controls label",
++   "1.76 #b6c5d4 on #ffffff floor.css .floor-page-heading p:last-child",
++   "1.77 #a9c8d0 on #ffffff floor.css .floor-list-id",
++   "1.79 #a9b5c3 on #eceef2 styles.css .figure .code",
++   "1.91 #a9b5c3 on #f4f5f7 styles.css .figure .code",
++   "2.08 #a9b5c3 on #ffffff styles.css .figure .code",
++   "3.13 #1a1305 on #a8470a styles.css .badge",
++ ]
+
+ ❯ src/design/contrast.test.ts:58:21
+     56|     );
+     57|     const failing = worst.filter((p) => p.ratio < 4.5).map((p) => `${p…
+     58|     expect(failing).toEqual([]);
+       |                     ^
+     59|   });
+     60| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/design/type-scale.test.ts > reading comfort: type scale > sets no readable text below 14px outside scene art except through a --fs-* token
+AssertionError: expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "../styles.css .look-btn: 12px (use a --fs-* token)",
++ ]
+
+ ❯ src/design/type-scale.test.ts:60:23
+     58|       }
+     59|     }
+     60|     expect(offenders).toEqual([]);
+       |                       ^
+     61|   });
+     62|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  3 failed | 173 passed (176)
+   Start at  15:28:43
+   Duration  604ms (environment 67%, setup 26%, tests 4%, transform 2%, import 1%, worker 1%)
+

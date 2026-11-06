@@ -1,0 +1,38 @@
+[test-api] PostgreSQL fixture binaries: ~/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/services/api
+
+ ❯ test/person-verification.test.ts (14 tests | 1 failed) 2890ms
+   ❯ whether a verification covers the current work (1)
+     × marks a pass on the current subject as covering it, and no longer once the author output changes within the revision 54ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/person-verification.test.ts > whether a verification covers the current work > marks a pass on the current subject as covering it, and no longer once the author output changes within the revision
+AssertionError: expected { Object (id, org_id, ...) } to match object { outcome: 'pass', …(1) }
+(17 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "covers_current_subject": true,
+    "outcome": "pass",
+  }
+
+ ❯ test/person-verification.test.ts:229:23
+    227|     const before = (await get()).json() as { id: string; outcome: stri…
+    228|     expect(before).toHaveLength(1);
+    229|     expect(before[0]).toMatchObject({ outcome: "pass", covers_current_…
+       |                       ^
+    230|     // A new author round on the same revision: the work the person ve…
+    231|     await authorRun("R-pvcov0002", 2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 passed (14)
+   Start at  15:15:05
+   Duration  3.52s (tests 85%, import 11%, transform 4%)
+

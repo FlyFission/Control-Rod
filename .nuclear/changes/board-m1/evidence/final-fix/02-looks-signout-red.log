@@ -1,0 +1,373 @@
+
+ RUN  v5.0.5 ~/worktrees/control-rod-m1/apps/web
+
+stderr | src/places/places.test.tsx > shell and palette > switches the board look and keeps it, leaving the rest of the app in look A
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /inbox
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /inbox
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ❯ src/features/board/board.test.tsx (14 tests | 1 failed) 1057ms
+   ❯ BoardView (14)
+     × carries the chosen look on the board container only 30ms
+stderr | src/places/places.test.tsx > shell and palette > forgets the event stream state on sign out
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /inbox
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ❯ src/places/places.test.tsx (18 tests | 2 failed) 1939ms
+   ❯ shell and palette (10)
+     × switches the board look and keeps it, leaving the rest of the app in look A 89ms
+     × forgets the event stream state on sign out 1058ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/places/places.test.tsx > shell and palette > switches the board look and keeps it, leaving the rest of the app in look A
+AssertionError: expected 'b' to be undefined
+
+- Expected:
+undefined
+
++ Received:
+"b"
+
+ ❯ src/places/places.test.tsx:127:54
+    125|     expect(window.localStorage.getItem("cr.look")).toBe("b");
+    126|     // Only the board container carries the look (M1 ruling 10); other…
+    127|     expect(document.documentElement.dataset["look"]).toBeUndefined();
+       |                                                      ^
+    128|     await user.click(screen.getByRole("button", { name: /Look A Contro…
+    129|     expect(window.localStorage.getItem("cr.look")).toBe("a");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/places/places.test.tsx > shell and palette > forgets the event stream state on sign out
+AssertionError: expected 'unknown' to be 'connecting' // Object.is equality
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mdata-look[39m=[32m"b"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div />[39m
+    [36m<div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"shell"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"skip"[39m
+          [33mhref[39m=[32m"#main"[39m
+        [36m>[39m
+          [0mSkip to content[0m
+        [36m</a>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"topbar"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"brand"[39m
+            [33mhref[39m=[32m"/"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mviewBox[39m=[32m"0 0 28 28"[39m
+              [33mwidth[39m=[32m"24"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"12"[39m
+                [33my[39m=[32m"2"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"12"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"4"[39m
+                [33my[39m=[32m"8"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"12"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mstyle[39m=[32m"fill: var(--accent-dim);"[39m
+                [33mwidth[39m=[32m"4"[39m
+                [33mx[39m=[32m"20"[39m
+                [33my[39m=[32m"8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span>[39m
+              [0mControl Rod[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<button[39m
+            [33maria-keyshortcuts[39m=[32m"Control+K"[39m
+            [33mclass[39m=[32m"palette-trigger"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<span>[39m
+              [0mSearch or run a command[0m
+            [36m</span>[39m
+            [36m<kbd>[39m
+              [0mCtrl K[0m
+            [36m</kbd>[39m
+          [36m</button>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"Look"[39m
+            [33mclass[39m=[32m"look-switch"[39m
+            [33mrole[39m=[32m"group"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mclass[39m=[32m"look-btn"[39m
+              [33mtitle[39m=[32m"A Control room"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0mA[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"sr-only"[39m
+              [36m>[39m
+                [0mLook [0m
+                [0mA Control room[0m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"true"[39m
+              [33mclass[39m=[32m"look-btn"[39m
+              [33mtitle[39m=[32m"B Drafting table"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0mB[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"sr-only"[39m
+              [36m>[39m
+                [0mLook [0m
+                [0mB Drafting table[0m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mclass[39m=[32m"look-btn"[39m
+              [33mtitle[39m=[32m"C Instrument panel"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33maria-hidden[39m=[32m"true"[39m
+              [36m>[39m
+                [0mC[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"sr-only"[39m
+              [36m>[39m
+                [0mLook [0m
+                [0mC Instrument panel[0m
+              [36m</span>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"who"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"muted"[39m
+            [36m>[39m
+              [0mben[0m
+            [36m</span>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"btn ghost small"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [0mSign out[0m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"frame"[39m
+        [36m>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"Places"[39m
+            [33mclass[39m=[32m"places"[39m
+          [36m>[39m
+            [36m<ul>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mBoard[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33maria-current[39m=[32m"page"[39m
+                  [33mclass[39m=[32m"place-link place-link active"[39m
+                  [33mdata-status[39m=[32m"active"[39m
+                  [33mhref[39m=[32m"/inbox"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mInbox[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/office"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mOffice[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/packages"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mPackages[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/registers"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mRegisters[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/explore"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mExplore[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/roster"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mRoster[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/usage"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mUsage[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/records"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mRecords[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"place-link"[39m
+                  [33mhref[39m=[32m"/policies"[39m
+                [36m>[39m
+                  [36m<span>[39m
+                    [0mPolicies[0m
+                  [36m</span>[39m
+                [36m</a>[39m
+              [36m</li>[39m
+            [36m</ul>[39m
+          [36m</nav>[39m
+          [36m<main[39m
+            [33mclass[39m=[32m"content"[39m
+            [33mid[39m=[32m"main"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+          [36m>[39m
+            [36m<p>[39m
+              [0mat [0m
+              [0m/inbox[0m
+            [36m</p>[39m
+          [36m</main>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+
+Expected: "connecting"
+Received: "unknown"
+
+ ❯ src/places/places.test.tsx:159:63
+    157|       await renderShell();
+    158|       await userEvent.setup().click(screen.getByRole("button", { name:…
+    159|       await waitFor(() => expect(probe.result.current.status).toBe("co…
+       |                                                               ^
+    160|     } finally {
+    161|       vi.unstubAllGlobals();
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/features/board/board.test.tsx > BoardView > carries the chosen look on the board container only
+AssertionError: expected null to be 'c' // Object.is equality
+
+- Expected:
+"c"
+
++ Received:
+null
+
+ ❯ src/features/board/board.test.tsx:125:72
+    123|       await renderPage(<Page />);
+    124|       await screen.findByText("One");
+    125|       expect(document.querySelector(".bd")!.getAttribute("data-look"))…
+       |                                                                        ^
+    126|       expect(document.documentElement.dataset["look"]).toBeUndefined();
+    127|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 29 passed (32)
+   Start at  15:06:38
+   Duration  2.94s (tests 66%, environment 15%, import 8%, setup 6%, transform 5%)
+

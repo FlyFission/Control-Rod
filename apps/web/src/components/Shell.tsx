@@ -6,6 +6,7 @@ import type { Session } from "../api/types.js";
 import { BrandMark } from "../pages/SignIn.js";
 import { PLACES } from "../places/places.js";
 import { CommandPalette } from "./CommandPalette.js";
+import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
 
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -38,14 +39,31 @@ export function Shell({ session, children }: { session: Session; children: React
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // One sign-out at a time: the button is disabled while one is pending. An answer that arrives
+  // after a newer session began (another sign-in here, or one this tab learned of by refetching) is
+  // about the earlier session, so it is not adopted; the tab reads the session from the server
+  // instead.
+  const [pendingSignOut, setPendingSignOut] = useState(false);
   async function logout() {
+    setPendingSignOut(true);
+    const startedUnder = sessionGeneration();
     try {
       const s = await api.logout();
+      if (!stillCurrent(startedUnder)) {
+        // The answer is about an earlier session, but the browser applied its cookie change before
+        // this script saw it, so the newer session may be gone too. Ask the server who is signed in;
+        // if that differs, the identity watcher runs the transition. Other tabs converge on their
+        // own next session read.
+        void qc.invalidateQueries({ queryKey: ["session"] });
+        return;
+      }
       // Nothing one person's session loaded survives into the next one.
-      qc.clear();
-      qc.setQueryData(["session"], s);
+      await adoptSession(qc, s);
     } catch {
+      // Whatever happened, the session query says who is signed in now.
       void qc.invalidateQueries({ queryKey: ["session"] });
+    } finally {
+      setPendingSignOut(false);
     }
   }
 
@@ -65,7 +83,7 @@ export function Shell({ session, children }: { session: Session; children: React
         </button>
         <div className="who">
           <span className="muted">{session.user ?? "Signed in"}</span>
-          <button type="button" className="btn ghost small" onClick={() => void logout()}>
+          <button type="button" className="btn ghost small" disabled={pendingSignOut} onClick={() => void logout()}>
             Sign out
           </button>
         </div>

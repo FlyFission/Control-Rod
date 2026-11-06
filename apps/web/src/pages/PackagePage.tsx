@@ -10,6 +10,7 @@ import { OutputItem } from "../components/OutputPreview.js";
 import { RunCard } from "../components/RunLog.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../lib/format.js";
 import { DECISION_LABEL } from "../lib/decide.js";
+import { sessionGeneration } from "../lib/session.js";
 
 const RUNGS: WorkPackage["status"][] = ["draft", "released", "in-work", "in-verification", "accepted"];
 
@@ -168,7 +169,10 @@ export function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: str
   const loadLatest = () => latest.mutate();
   const save = useMutation({
     mutationFn: (criteria: string[]) => api.updatePackage({ ...base!.pkg, acceptance_criteria: criteria }, base!.etag),
-    onSuccess: ({ data, etag: saved }) => {
+    onMutate: () => ({ startedUnder: sessionGeneration() }),
+    onSuccess: ({ data, etag: saved }, _criteria, context) => {
+      // A save that finishes after a sign-out must not write the earlier person's draft back.
+      if (context?.startedUnder !== sessionGeneration()) return;
       // The save answers with the draft as stored and its new tag; the page shows them at once, so a
       // later edit never starts from the old tag, even if the background refresh fails.
       qc.setQueryData<PackageView>(["package", pkg.id], (old) =>

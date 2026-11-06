@@ -8,7 +8,7 @@ import { appendEvent, type Actor } from "./events.js";
 import { digest } from "./kernel.js";
 import {
   type DataLane, type License, type Member, type SignerAuthority, type SignerGrade, type SignerQualification, type SignerRole,
-  addMember, bindRepo, checkSchema, qualificationIdFor, createProject, currentCredential, currentPolicySet, currentQualification, memberIdFor,
+  addMember, bindRepo, checkSchema, qualificationIdFor, createProject, currentCredential, currentPolicySet, currentQualification, firstMemberOf, memberIdFor,
   recordCredential, recordDelegation, recordPolicySet, recordQualification, setStatus,
 } from "./tenancy.js";
 import { isLane } from "./disclosure.js";
@@ -671,10 +671,6 @@ export async function needsBootstrap(c: Tx | Db, orgId: string): Promise<boolean
   return !r.rowCount;
 }
 
-/** The organization's first Member, who alone may bootstrap. */
-async function firstMember(c: Tx, orgId: string): Promise<string | undefined> {
-  return (await c.query<{ id: string }>("select id from members where org_id = $1 order by created_at, id limit 1", [orgId])).rows[0]?.id;
-}
 
 /** Expected database refusals become clear answers instead of server errors. */
 function translate(error: unknown): unknown {
@@ -717,7 +713,7 @@ export async function runAdmin(db: Db, ctx: AdminContext, name: string, caller: 
     }
     // Bootstrap: until the first administrator exists, the first Member may issue their own qualification.
     const bootstrap = name === "qualification.issue" && payload.member_id === caller.memberId
-      && (await needsBootstrap(c, caller.orgId)) && (await firstMember(c, caller.orgId)) === caller.memberId;
+      && (await needsBootstrap(c, caller.orgId)) && (await firstMemberOf(c, caller.orgId)) === caller.memberId;
     await authorize(c, caller, cmd.need, bootstrap);
     // A bootstrap must create someone able to issue the next qualification, or nobody ever could.
     if (bootstrap) {

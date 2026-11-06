@@ -13,7 +13,7 @@
 | A-2 Status is derived, never dragged. | M1, M3 | No drag in the MVP; Move to lists only lawful actions | designed, not implemented |
 | A-3 Color is never the only carrier of meaning. | M1, M2, M8 | Word and symbol present for each meaning; axe | designed, not implemented |
 | A-4 The default view never hides work waiting on a person verification or signature. | M2 | Default-view guard test | designed, not implemented |
-| A-6 Safety and Material work without a passing person verification for the current revision is never offered Accept or Accept with findings on screen (a screen rule; other API clients can still accept until D-4 is signed). | M1, M3, M7 | acceptBlock tests; next line, Move to, card header and Review tab entry points; subject digest mismatch not treated as verified | designed, not implemented |
+| A-6 Safety and Material work without a passing person verification for the current revision is never offered Accept or Accept with findings on screen (a screen rule; other API clients can still accept until D-4 is signed). | M1, M3, M7 | acceptBlock tests; next line, Move to, the shared DecisionBar on the package page and the case route, card header and Review tab entry points; a pass with covers_current_subject false is not treated as verified; M1 covers DecisionBar and both routes | designed, not implemented |
 | A-5 No third-party runtime fonts, scripts or assets. | M1, M8 | Review of built output for external hosts | designed, not implemented |
 | Parked items (steering, money cap, kernel rules, D-4, solo independent check, evidence export, in-file anchors, multi-repo, calendar, tracker import) | none | none | open: owner decisions (spec section 11) |
 

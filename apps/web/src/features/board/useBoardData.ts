@@ -1,5 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { api } from "../../api/client.js";
+import { ApiError, api } from "../../api/client.js";
 import type { ActionDescriptor, PersonVerificationEntry, WorkPackage } from "../../api/types.js";
 import { type ColumnId, boardColumn, isVerified, needsIndependentCheck, preCheckState } from "../../lib/board.js";
 import { type Kind, kindsOf } from "../../lib/kind.js";
@@ -33,6 +33,11 @@ export type BoardData = {
   needsYou: number;
   /** Cards with an agent run queued or running. */
   agentsRunning: number;
+  /**
+   * What the counts rest on: "unknown" before any successful read of the work (no count is shown),
+   * "last-known" after a failed refresh or while the stream is unknown, "current" otherwise.
+   */
+  counts: "current" | "last-known" | "unknown";
 };
 
 const CHECKING: NextLine = { tone: "wait", text: "Checking what is next" };
@@ -79,6 +84,9 @@ export function useBoardData(): BoardData {
     const verified = verifications ? isVerified(p, verifications) : false;
     const column = boardColumn(p, pre, verified);
     if (column === null) return;
+    // The server lists only the caller's organization's work; a view that answers not-found means the
+    // package is not this viewer's to see, so it gets no card even if a list once named it.
+    if (viewQ?.error instanceof ApiError && viewQ.error.status === 404) return;
     const owner = view?.originators?.[0];
     const runActive = (view?.runs ?? []).some((r) => r.status === "running" || r.status === "queued");
     const waitingOnVerifs = verifQ?.isPending === true && verifQ.fetchStatus !== "idle";
@@ -133,6 +141,7 @@ export function useBoardData(): BoardData {
     status: live.status,
     ...(live.unknownSince ? { unknownSince: live.unknownSince } : {}),
     reconnect: live.reconnect,
+    counts: packages.data === undefined ? "unknown" : packages.isError || live.status === "unknown" ? "last-known" : "current",
     needsYou: cards.filter((c) => c.next.tone === "needs" || c.next.tone === "block").length,
     agentsRunning: cards.filter((c) => c.runActive).length,
   };

@@ -164,6 +164,15 @@ describe("the package view names who originated the work", () => {
     expect(r.json().originators).toBeUndefined();
   });
 
+  it("lists only the caller's organization's packages", async () => {
+    // WP-PV-VIEW-OTHER belongs to another organization (fixture in the test above).
+    const r = await h.app.inject({ method: "GET", url: "/packages", headers: { cookie: carol } });
+    expect(r.statusCode).toBe(200);
+    const ids = (r.json() as { id: string }[]).map((p) => p.id);
+    expect(ids).toContain(pkgId);
+    expect(ids).not.toContain("WP-PV-VIEW-OTHER");
+  });
+
   it("lists nobody for a package with no human origin", async () => {
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PV-NOORIG', 0, 'draft', $1)", [{ ...example, id: "WP-PV-NOORIG", revision: 0, status: "draft" }]);
     const r = await h.app.inject({ method: "GET", url: "/packages/WP-PV-NOORIG", headers: { cookie: carol } });

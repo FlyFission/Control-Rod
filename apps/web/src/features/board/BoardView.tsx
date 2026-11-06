@@ -13,22 +13,28 @@ export function BoardView() {
   const unknown = data.status === "unknown";
   // An empty board is only claimed from a successful, empty read.
   const empty = !data.loading && data.problems.length === 0 && data.cards.length === 0;
-  // While the stream is unknown the counts are what was last read, not what is true now.
-  const lastKnown = unknown ? "Last known: " : "";
+  // Counts are facts only after a successful read; after a failed refresh or while the stream is
+  // unknown they are what was last read, and before any read they are not shown.
+  const lastKnown = data.counts === "last-known" ? "Last known: " : "";
+  const countsKnown = data.counts !== "unknown";
   return (
     <div className="bd" data-look={look}>
       <header className="bd-head">
         <h1 id="board-title">Board</h1>
-        <p className="bd-counts">
-          <span>
-            {lastKnown}
-            {data.needsYou} needs you
-          </span>
-          <span>
-            {lastKnown}
-            {data.agentsRunning} {data.agentsRunning === 1 ? "agent" : "agents"} running or queued
-          </span>
-        </p>
+        {countsKnown ? (
+          <p className="bd-counts">
+            <span>
+              {lastKnown}
+              {data.needsYou} needs you
+            </span>
+            <span>
+              {lastKnown}
+              {data.agentsRunning} {data.agentsRunning === 1 ? "agent" : "agents"} running or queued
+            </span>
+          </p>
+        ) : (
+          <p className="bd-counts">Counts unknown until the work is read</p>
+        )}
         {unknown && (
           <p className="bd-unknown" role="status">
             <span>Status unknown since {sinceText(data.unknownSince)}. What you see may be out of date.</span>
@@ -60,7 +66,14 @@ export function BoardView() {
             <section key={c.id} className="bd-col" aria-labelledby={headingId}>
               <div className="bd-col-head">
                 <h2 id={headingId}>{c.title}</h2>
-                <span className="mono muted">{here.length}</span>
+                {countsKnown ? (
+                  <span className="mono muted">{here.length}</span>
+                ) : (
+                  <span className="mono muted">
+                    <span aria-hidden="true">?</span>
+                    <span className="sr-only">count unknown</span>
+                  </span>
+                )}
               </div>
               {here.map((x) => (
                 <Card

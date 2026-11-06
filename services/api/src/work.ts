@@ -297,9 +297,13 @@ export async function currentPackage(q: Db | Tx, id: string, lock = false): Prom
   return r.rows[0] ?? null;
 }
 
-export async function listPackages(db: Db): Promise<Json[]> {
+/** The latest revision of every package the organization owns; another organization's work is not listed. */
+export async function listPackages(db: Db, orgId: string): Promise<Json[]> {
   const r = await db.query<{ body: Json; status: string }>(
-    `select distinct on (id) body, status from packages order by id, revision desc`,
+    `select distinct on (p.id) p.body, p.status from packages p
+       join object_owners o on o.object_kind = 'package' and o.object_id = p.id and o.org_id = $1
+      order by p.id, p.revision desc`,
+    [orgId],
   );
   return r.rows.map((x) => ({ ...x.body, status: x.status }));
 }

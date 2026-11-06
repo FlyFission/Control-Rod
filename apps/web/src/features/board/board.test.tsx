@@ -164,6 +164,25 @@ describe("BoardView", () => {
     expect(screen.queryByText(/Could not load the work on this board/)).toBeNull();
   });
 
+  it("shows no card for a listed package whose view says it does not exist for this viewer", async () => {
+    api({ packages: [pkg({ id: "WP-1", title: "Ours" }), pkg({ id: "WP-X", title: "Another organization's" })] });
+    server.use(http.get("*/packages/WP-X", () => HttpResponse.json({ code: "not-found", message: "No such package" }, { status: 404 })));
+    await renderPage(<Page />);
+    expect(await screen.findByText("Ours")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Another organization's")).toBeNull());
+  });
+
+  it("says the counts are unknown, not zero, when the work could not be read", async () => {
+    api({ packages: [] });
+    server.use(http.get("*/packages", () => HttpResponse.json({ code: "boom" }, { status: 500 })));
+    await renderPage(<Page />);
+    expect(await screen.findByText(/Could not load the work on this board/)).toBeTruthy();
+    expect(screen.getByText("Counts unknown until the work is read")).toBeTruthy();
+    expect(screen.queryByText(/0 needs you/)).toBeNull();
+    expect(screen.queryByText(/0 agents running/)).toBeNull();
+    for (const region of screen.getAllByRole("region")) expect(region.querySelector(".bd-col-head .mono")!.textContent).not.toBe("0");
+  });
+
   it("says it could not read what is next when the package view or actions fail, with a retry", async () => {
     api({ packages: [pkg({ id: "WP-1", title: "One", status: "in-verification" }), pkg({ id: "WP-2", title: "Two", status: "in-verification" })], actions: { "WP-1": [accept], "WP-2": [accept] } });
     let actionCalls = 0;

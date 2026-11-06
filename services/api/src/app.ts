@@ -322,8 +322,9 @@ export function buildApp(opts: AppOptions): FastifyInstance {
 
   /* ---- packages ---- */
   app.get("/packages", async (req) => {
-    await person(req);
-    return listPackages(db);
+    // Scoped to the caller's organization, like the package view and its person verifications.
+    const caller = await callerFor(db, await person(req));
+    return listPackages(db, caller.orgId);
   });
   app.get<{ Params: { id: string } }>("/packages/:id", async (req) => {
     // Gated by the caller's organization, as the person verifications route is, since the view names

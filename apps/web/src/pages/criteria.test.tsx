@@ -43,7 +43,10 @@ describe("criteria editor", () => {
   });
 
   it("keeps what is being typed when a refresh arrives, and offers the latest on a stale save", async () => {
-    server.use(http.put("*/packages/:id", () => HttpResponse.json({ code: "stale", message: "changed" }, { status: 409 })));
+    server.use(
+      http.put("*/packages/:id", () => HttpResponse.json({ code: "stale", message: "changed" }, { status: 409 })),
+      http.get("*/packages/:id", () => HttpResponse.json(view({ draft_etag: `"${"b".repeat(64)}"` }, { status: "draft", acceptance_criteria: ["Their new criterion"] }))),
+    );
     await renderPage(<Live />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Edit" }));
@@ -59,6 +62,49 @@ describe("criteria editor", () => {
     expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("My unsaved criterion");
     await user.click(screen.getByRole("button", { name: "Load the latest criteria" }));
     expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Their new criterion");
+  });
+
+  it("loads the latest criteria from the server when the page has not refreshed yet, and saves with its tag", async () => {
+    const theirs = `"${"d".repeat(64)}"`;
+    const seen: (string | null)[] = [];
+    server.use(
+      http.put("*/packages/:id", async ({ request }) => {
+        const match = request.headers.get("if-match");
+        seen.push(match);
+        if (match !== theirs) return HttpResponse.json({ code: "stale", message: "changed" }, { status: 409 });
+        const body = (await request.json()) as { acceptance_criteria: string[] };
+        return HttpResponse.json({ ...draft, acceptance_criteria: body.acceptance_criteria });
+      }),
+      http.get("*/packages/:id", () => HttpResponse.json(view({ draft_etag: theirs }, { status: "draft", acceptance_criteria: ["Their new criterion"] }))),
+    );
+    // The page never refreshes here, as when the event stream is down: it still holds the old draft.
+    await renderPage(<Criteria pkg={draft} etag={TAG} enrolled={false} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.clear(screen.getByRole("textbox"));
+    await user.type(screen.getByRole("textbox"), "My unsaved criterion");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(await screen.findByRole("button", { name: "Load the latest criteria" }));
+    await waitFor(() => expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Their new criterion"));
+    await user.type(screen.getByRole("textbox"), " and mine");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(seen).toEqual([TAG, theirs]));
+  });
+
+  it("keeps the person's text when the latest criteria cannot be loaded", async () => {
+    server.use(
+      http.put("*/packages/:id", () => HttpResponse.json({ code: "stale", message: "changed" }, { status: 409 })),
+      http.get("*/packages/:id", () => HttpResponse.json({ code: "error", message: "down" }, { status: 500 })),
+    );
+    await renderPage(<Criteria pkg={draft} etag={TAG} enrolled={false} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.clear(screen.getByRole("textbox"));
+    await user.type(screen.getByRole("textbox"), "My unsaved criterion");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(await screen.findByRole("button", { name: "Load the latest criteria" }));
+    expect(await screen.findByText(/Could not load the latest criteria/)).toBeTruthy();
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("My unsaved criterion");
   });
 
   it("after a save, the next edit uses the saved tag even when the reload fails", async () => {

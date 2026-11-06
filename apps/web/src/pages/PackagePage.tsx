@@ -147,11 +147,25 @@ export function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: str
     setText(pkg.acceptance_criteria.join("\n"));
     setEditing(true);
   };
-  const loadLatest = () => {
-    setBase({ pkg, etag: etag! });
-    setText(pkg.acceptance_criteria.join("\n"));
-    save.reset();
-  };
+  // The page's copy may itself be stale (the refresh not in yet, or the event stream down), so the
+  // latest draft is read from the server. Only once that read succeeds does it replace the text and
+  // the tag the next save sends; if it fails, the person's text stays and the stale notice stays.
+  const latest = useMutation({
+    mutationFn: () => api.packageView(pkg.id),
+    onSuccess: (fresh) => {
+      qc.setQueryData<PackageView>(["package", pkg.id], fresh);
+      if (fresh.package.status !== "draft" || fresh.draft_etag === undefined) {
+        setEditing(false);
+        setBase(null);
+        save.reset();
+        return;
+      }
+      setBase({ pkg: fresh.package, etag: fresh.draft_etag });
+      setText(fresh.package.acceptance_criteria.join("\n"));
+      save.reset();
+    },
+  });
+  const loadLatest = () => latest.mutate();
   const save = useMutation({
     mutationFn: (criteria: string[]) => api.updatePackage({ ...base!.pkg, acceptance_criteria: criteria }, base!.etag),
     onSuccess: ({ data, etag: saved }) => {
@@ -194,16 +208,17 @@ export function Criteria({ pkg, etag, enrolled }: { pkg: WorkPackage; etag?: str
             >
               Save
             </button>
-            <button type="button" className="btn ghost small" onClick={() => { setEditing(false); setBase(null); save.reset(); }}>
+            <button type="button" className="btn ghost small" onClick={() => { setEditing(false); setBase(null); save.reset(); latest.reset(); }}>
               Cancel
             </button>
           </div>
           {stale ? (
             <div role="alert" className="error">
               <p>These criteria changed since you started editing. Your text is still here.</p>
-              <button type="button" className="btn ghost small" onClick={loadLatest}>
+              <button type="button" className="btn ghost small" disabled={latest.isPending} onClick={loadLatest}>
                 Load the latest criteria
               </button>
+              {latest.isError && <p>Could not load the latest criteria. Your text is still here; try again.</p>}
             </div>
           ) : save.isError && (
             <p role="alert" className="error">

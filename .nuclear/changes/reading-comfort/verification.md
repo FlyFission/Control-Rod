@@ -15,12 +15,12 @@ All evidence is in `evidence/`; `evidence/SHA256SUMS` holds the digest of each f
 |---|---|---|
 | E-001 | `type-token-moves.txt` | Each declaration the move script changed (58), with selector, old size and new token. Scene selectors are absent by design. One `font:` shorthand the script could not see (`.floor-theme-number`, 10px) was moved to the token by hand after review. |
 | E-002 | `contrast-and-type-scale.log` | The contrast scan's twelve lowest pairs, measured by `contrast.ts`, and the passing guard tests. `unmeasured-fills-opaque.txt` is a script's ratio for the four near-opaque fills the scan cannot read. |
-| E-003 | `final-tests.log` | Web suite: 29 files, 276 tests, all pass. Includes three new run-log pause tests, written first: two failed before the control existed; the third (no pause on a finished run) already held. |
+| E-003 | `final-tests.log` | Web suite on the tree merged with `main`: 29 files, 278 tests, all pass. Includes three new run-log pause tests, written first: two failed before the control existed; the third (no pause on a finished run) already held. |
 | E-004 | `final-tests.log`, `final-types.log`, `final-build.log` | Typecheck clean; production build passes, including the theme and office contract checks. |
 | E-005 | `e2e-chromium.log` | Browser suite on Chromium: 156 passed, 20 skipped (reasons not examined), 1 failed. Includes the WCAG 2.2 AA scan of every place and reflow at 320px, both passing. |
 | E-006 | `screenshots/` | Floor preview and office harness after the change at 1280px: no horizontal overflow, no clipped labels. |
 | E-007 | `git diff --stat` at ship time | Changes confined to `apps/web`, `docs/` and this record. |
-| E-008 | `baseline-test.log` | Before: 27 files, 257 tests, all pass. After adds 2 files and 19 tests. |
+| E-008 | `baseline-test.log` | Before, on the original base: 27 files, 257 tests, all pass. This change adds 2 files and 19 tests; the merge with `main` brought 2 more tests of its own. |
 | E-009 | `offline-assets.log` | Offline-assets check passes with the new preload. |
 
 ## Claim status

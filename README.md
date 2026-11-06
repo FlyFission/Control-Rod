@@ -1,42 +1,86 @@
 # Control Rod
 
-**A platform for running AI agents on real engineering work, with every claim checked before it counts.**
+**A workspace where you and your AI agents get real work done, and the agents don't get to say when it's done.**
 
-Control Rod is an open-source platform for all things engineering: software, and capital project engineering such as calculations, reports and drawing markups. You create an organization, connect the AI agents you already use, and hand off work by voice, text or chat. Every piece of work becomes a controlled work package, is designed to run in a sandbox, and is accepted only after independent checks and the human sign-off its rigor requires.
+You hand over a task. Agents you already use (Claude Code, Codex) do the work. A different agent checks it. Then *you* look at the result and sign off. Until you do, nothing counts as finished, no matter how confident the agent sounds.
 
-It is built for the toughest industries, where a confident mistake costs more than a slow answer. The discipline underneath comes from [nuclear-grade context engineering](https://github.com/FlyFission/nuclear-grade-context-engineering).
+It runs on your own machine, in your browser. There's a board for your work, an office view where you can watch agents at their desks, and a record of who did, checked and approved everything.
 
-> **Status: pre-alpha, local MVP under review.** Main has the scaffold; this buildout branch includes the reviewed owner-local workbench, API, daemon and site-concept/drawing work. Organization controls, general sandbox confinement, independent witnessed evidence and hosted deployment remain planned. See the [buildout specification](docs/superpowers/specs/2026-10-23-platform-buildout-design.md), [execution plan](docs/superpowers/plans/2026-10-23-platform-buildout.md) and [evidence ledger](docs/superpowers/execution/2026-10-23-platform-buildout.md).
+> **Pre-alpha.** It works end to end on one machine for one person, and we're building it in the open. Expect rough edges. [What works today, and what doesn't](docs/status.md).
 
-## The idea in one paragraph
+## Why this exists
 
-Most agent tools let the agent that wrote the work also move it to "done." Control Rod keeps that decision out of the agent's reach. A small Rust kernel decides every state change, a sandbox is designed to limit what each agent can touch (not yet in force for release runs; see the status note), and the runner captures evidence as the work happens. Nothing is accepted until a verification record and the required human signature exist, and the record shows who generated, checked and approved every piece of evidence.
+Most agent tools make it easy to start an agent and watch it go. That part is fun. The trouble comes at the end: the same agent that did the work also tells you it passed, and you either trust it or re-check everything yourself.
 
-## Two modes, one spine
+For a side project, fine. For work where a confident mistake is expensive (production code, engineering calculations, drawings) it isn't.
 
-| | Software mode | Capital Projects mode |
-| --- | --- | --- |
-| Unit of work | A change (pull request) | A deliverable revision |
-| Evidence | Tests, checks, CI, independent review | Execution traces, reproducible calcs, independent checks |
-| Human decision | Approve the pull request | Approve for issue |
+Control Rod keeps the freedom and moves the final say. **You can work however you like. Agents can't mark their own homework.**
 
-Both modes share the same controls: work packages, sandboxed runs (planned), custody of evidence, independent verification, signed decisions, and organization floors that no project can loosen. Rigor scales with consequence, from administrative changes to high-consequence work.
+| You can | An agent can't |
+| --- | --- |
+| Type anything, drop in files, and let an intake agent draft the work for you | Release a task, accept a result, or sign anything. Those need your passkey (Touch ID, Windows Hello or a hardware key). |
+| Run Claude Code, Codex or both, on your own subscriptions | Check its own work. The checker runs separately and never sees the author's transcript. |
+| Stop a run, send work back with notes, or override a rule *on the record*, with a reason | Edit its own acceptance criteria, policies or tests |
+| Change what "done" means for a task, as long as you re-sign it | Type up a number and have it believed. Values have to come from a tool run that left evidence. |
+| Set it up for software changes or for engineering deliverables like a site concept | Get an answer without a reason. When the system refuses something, it says why. |
 
-## Principles
+The deciding logic is a small Rust program (the *kernel*) that agents never touch. Evidence is captured by the system while the work happens, not written up afterward by the agent. We keep a [catalog of every known way around a control](tests/redteam/catalog.yaml); each one is meant to become a test that keeps failing, and some are still pending.
 
-- Agents never hold the gate.
-- Evidence is captured by the system as work happens; agents submit claims.
-- Floors only tighten: a project can add control above its organization's floors.
-- Provider-neutral: no dependency ties Control Rod to one model vendor or cloud.
-- Designed to run anywhere: a laptop, your own machines, a hosted service, a customer's network, or an air-gapped network. Today the web app still requests public fonts and map tiles, so it is not yet air-gap ready.
+## How it feels
 
-## What Control Rod is not
+1. **Say what you want.** "Fix the login redirect." "Site a 50 MW data center on this parcel," with a file attached.
+2. **It becomes a task with a definition of done.** An intake agent either answers you or drafts one or more work packages, each with clear acceptance criteria. You read them, edit them, and release them with your passkey.
+3. **Agents do the work.** You can watch from the board or the office view. Each run starts inside the sandbox policy recorded for it, and is stopped with one click if it goes sideways.
+4. **A different agent checks it.** It doesn't get the author's chain of thought, only the result and the evidence.
+5. **You decide.** Accept, send it back with direction, or reject. Your signature is attached to exactly what you looked at, and the history shows every step.
 
-Control Rod is not a quality assurance program, a certification, or a substitute for qualified engineering judgment. It supplies discipline and records that a QA program can rely on; the program, and the licensed professionals in it, still own quality and safety decisions. Nothing here claims compliance with any standard until an assessment says so.
+## Try it
 
-## Repository layout
+You need [Node 22+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and [uv](https://docs.astral.sh/uv/getting-started/installation/). To run real agents, install [Claude Code](https://claude.com/claude-code) and sign in. Codex is optional. [mise](https://mise.jdx.dev) can install everything above at the pinned versions: run `mise install`.
 
-The repository contains executable MVP modules alongside planning stubs. See [AGENTS.md](AGENTS.md) for how work in this repository is done, and `docs/adr/` for decision records as they land.
+```sh
+git clone https://github.com/FlyFission/Control-Rod.git
+cd Control-Rod
+pnpm install
+pnpm cr doctor   # checks your setup and tells you what to fix
+pnpm cr start    # builds on first run, then opens everything at http://localhost:7300
+```
+
+Open <http://localhost:7300>, choose **Set up this machine**, and register a passkey. That's the whole account: one machine, one person, no cloud sign-up. (Your agents still talk to their own providers, and the web app still loads some public fonts and map tiles, so it does not yet work fully offline.)
+
+The first start builds the app and takes a few minutes. After that it's quick. `Ctrl+C` stops everything. Your data lives in `~/.controlrod`.
+
+**If `pnpm cr doctor` says the database can't start:** it prints the fix. Usually a clean reinstall (`rm -rf node_modules && pnpm install`) does it. If not, point Control Rod at your own PostgreSQL 17 (Docker, Postgres.app or Homebrew all work) and everything else is the same.
+
+More detail, test commands and troubleshooting: [docs/getting-started.md](docs/getting-started.md).
+
+## What it is not
+
+Control Rod isn't a quality assurance program, a certification, or a replacement for qualified engineering judgment. It produces discipline and records that a QA program can lean on; the people and processes around it still own quality and safety decisions. Nothing here claims compliance with a standard.
+
+## Building it with us
+
+We want this to be easy to join.
+
+- **Start here:** [docs/getting-started.md](docs/getting-started.md) gets you running and shows how to check a change.
+- **How we work:** [docs/collaboration.md](docs/collaboration.md) covers issues, branches, reviews and merging.
+- **The rules, in one page:** [AGENTS.md](AGENTS.md). They apply to people and to the agents you drive.
+- **Why it's built this way:** the [decision records](docs/adr/) and the [threat model](docs/threat-model.md).
+
+The repo is built under its own discipline: each change gets a short record under `.nuclear/changes/`, contracts in `spec/` are the source of truth, and a few directories (`kernel/`, `policies/`, `spec/`, `tests/redteam/`, `.github/`) need a second pair of human eyes. [CONTRIBUTING.md](CONTRIBUTING.md) explains.
+
+### Find your way around
+
+| Where | What |
+| --- | --- |
+| `apps/web/` | The web app: inbox, board, office view, roster, records, spend, policies |
+| `services/api/` | The API, database migrations, sign-in and the evidence record |
+| `kernel/` | The Rust kernel that decides every state change |
+| `daemon/` | The Go daemon that runs agents and collects evidence |
+| `spec/` | The contracts everything else is generated from |
+| `packs/` | Domain packs: site concept and drawings, plus the general-purpose agent roles |
+| `docs/` | Guides, decisions, specs and plans, starting at [docs/README.md](docs/README.md) |
+| `policies/`, `connectors/`, `runtimes/`, `deploy/` | Placeholders for what's planned |
 
 ## License
 

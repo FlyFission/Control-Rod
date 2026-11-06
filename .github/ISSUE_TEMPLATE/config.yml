@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/FlyFission/Control-Rod/security/advisories/new
+    about: Any way around a control is a security issue. Report it privately here, not as a public issue (see SECURITY.md).
+  - name: Read the docs first
+    url: https://github.com/FlyFission/Control-Rod/blob/main/docs/README.md
+    about: Getting started, current status, decisions and how we work.

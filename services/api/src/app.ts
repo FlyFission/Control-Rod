@@ -229,15 +229,16 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { options: await registrationOptions(db, auth, user, { kind: "additional", via: ok.credentialId }) };
   });
   app.post("/auth/register/verify", async (req, reply) => {
-    let user: string | null;
+    let registered: { user: string; credentialId: string } | null;
     try {
-      user = await registrationVerify(db, auth, req.body as never);
+      registered = await registrationVerify(db, auth, req.body as never);
     } catch (e) {
       if ((e as { code?: string }).code) throw e;
       throw new Refusal(403, "registration-refused", (e as Error).message);
     }
-    if (!user) throw new Refusal(400, "invalid", "Passkey registration failed");
-    await startSession(db, reply, user).catch(() => { throw new Refusal(403, "member-inactive", "This membership is not active"); });
+    if (!registered) throw new Refusal(400, "invalid", "Passkey registration failed");
+    const { user, credentialId } = registered;
+    await startSession(db, reply, user, credentialId).catch(() => { throw new Refusal(403, "member-inactive", "This membership is not active"); });
     return { registered: true, signed_in: true, user };
   });
   app.post("/auth/login/options", async () => {
@@ -247,7 +248,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post("/auth/login/verify", async (req, reply) => {
     const ok = await assertionVerify(db, auth, "login", req.body as never);
     if (!ok) throw new Refusal(401, "invalid", "Passkey sign-in failed");
-    await startSession(db, reply, ok.user).catch(() => { throw new Refusal(401, "invalid", "Passkey sign-in failed"); });
+    await startSession(db, reply, ok.user, ok.credentialId).catch(() => { throw new Refusal(401, "invalid", "Passkey sign-in failed"); });
     return { registered: true, signed_in: true, user: ok.user };
   });
   app.post("/auth/logout", async (req, reply) => {
@@ -344,7 +345,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
     const type = MIME[ext];
     reply.header("content-type", type ?? "application/octet-stream").header("x-content-type-options", "nosniff");
-    const lane = await packageLane(db, req.params.id);
+    const lane = await packageLane(db, req.params.id, cfg);
     if (lane) reply.header("x-controlrod-lane", lane);
     // Agent outputs are untrusted. Anything a browser could run as a document (SVG, HTML, XML)
     // is served in a sandbox with an opaque origin and no script, so it can never act with the

@@ -157,3 +157,12 @@
 .bd-card[data-tone="wait"] .bd-sym {
   color: var(--text-2);
 }
+.bd-word {
+  font-weight: 600;
+}
+.bd-card[data-tone="needs"] .bd-word {
+  color: var(--needs);
+}
+.bd-card[data-tone="block"] .bd-word {
+  color: var(--stuck);
+}

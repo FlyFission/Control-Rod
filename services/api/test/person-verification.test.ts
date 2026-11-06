@@ -131,6 +131,15 @@ describe("the package view names who originated the work", () => {
     expect(r.json().originators).toContain("ben");
   });
 
+  it("puts the capturer first even when an editor's event came earlier", async () => {
+    await tx(h.admin, (c) => appendEvent(c, "package.edited", "WP-PV-ORD", { kind: "human", id: "aaron" }, {}));
+    const capture = (await post(ben, "/captures", { text: "Ordering", lane: "internal" })).json();
+    await tx(h.admin, (c) => appendEvent(c, "package.edited", "WP-PV-ORD", { kind: "human", id: "zed" }, {}));
+    await h.admin.query("insert into packages (id, revision, status, capture_id, body) values ('WP-PV-ORD', 0, 'draft', $1, $2)", [capture.id, { ...example, id: "WP-PV-ORD", revision: 0, status: "draft" }]);
+    const r = await h.app.inject({ method: "GET", url: "/packages/WP-PV-ORD", headers: { cookie: carol } });
+    expect(r.json().originators).toEqual(["ben", "aaron", "zed"]);
+  });
+
   it("lists nobody for a package with no human origin", async () => {
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-PV-NOORIG', 0, 'draft', $1)", [{ ...example, id: "WP-PV-NOORIG", revision: 0, status: "draft" }]);
     const r = await h.app.inject({ method: "GET", url: "/packages/WP-PV-NOORIG", headers: { cookie: carol } });

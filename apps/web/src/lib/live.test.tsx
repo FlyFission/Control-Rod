@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useLiveEvents } from "./live.js";
+import { resetLiveStatus, useLiveEvents, useLiveStatus } from "./live.js";
 
 /** A stand-in event stream the test can push messages through. */
 class FakeSource {
@@ -51,6 +51,24 @@ describe("live events", () => {
       expect(spy).not.toHaveBeenCalledWith();
       FakeSource.last?.emit("loss", { resume_from: 10, reason: "too far behind to replay" });
       expect(spy).toHaveBeenCalledWith();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("reads connecting until the stream opens, then live, then unknown after an error", async () => {
+    vi.stubGlobal("EventSource", FakeSource);
+    try {
+      resetLiveStatus();
+      const qc = new QueryClient();
+      const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+      const { result } = renderHook(() => { useLiveEvents(true); return useLiveStatus(); }, { wrapper });
+      expect(result.current.status).toBe("connecting");
+      act(() => FakeSource.last?.emit("open", {}));
+      expect(result.current.status).toBe("live");
+      act(() => FakeSource.last?.emit("error", {}));
+      expect(result.current.status).toBe("unknown");
+      expect(result.current.unknownSince).toBeTruthy();
     } finally {
       vi.unstubAllGlobals();
     }

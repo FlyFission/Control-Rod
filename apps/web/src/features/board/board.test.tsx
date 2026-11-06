@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -6,7 +7,7 @@ import { server } from "../../test/server.js";
 import { renderPage } from "../../test/render.js";
 import { pkg, view } from "../../test/fixtures.js";
 import type { ActionDescriptor, WorkPackage } from "../../api/types.js";
-import { useLiveEvents } from "../../lib/live.js";
+import { resetLiveStatus, useLiveEvents } from "../../lib/live.js";
 import { BoardView } from "./BoardView.js";
 
 /** The board as home (redesign task 4; spec 6.2). */
@@ -30,6 +31,9 @@ class FakeSource {
 
 function Page() {
   useLiveEvents(true);
+  useEffect(() => {
+    FakeSource.last?.emit("open");
+  }, []);
   return <BoardView />;
 }
 
@@ -60,6 +64,7 @@ function api(s: Setup) {
 beforeEach(() => {
   vi.stubGlobal("EventSource", FakeSource);
   FakeSource.count = 0;
+  resetLiveStatus();
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -134,5 +139,65 @@ describe("BoardView", () => {
     server.use(http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])));
     await renderPage(<Page />);
     expect(await screen.findByText("Needs a second qualified person")).toBeTruthy();
+  });
+
+  it("says nothing definite when person verifications cannot be read", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], originators: { "WP-S": ["ben"] } });
+    server.use(
+      http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])),
+      http.get("*/packages/:id/person-verifications", () => HttpResponse.json({ code: "boom" }, { status: 500 })),
+    );
+    await renderPage(<Page />);
+    expect(await screen.findByText(/Could not read person verifications/)).toBeTruthy();
+    expect(screen.queryByText("Needs a second qualified person")).toBeNull();
+    expect(screen.queryByText("Waiting on a person verification")).toBeNull();
+  });
+
+  it("makes no second-person claim while /admin is still loading", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], originators: { "WP-S": ["ben"] } });
+    server.use(
+      http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])),
+      http.get("*/admin", async () => {
+        await new Promise((r) => setTimeout(r, 400));
+        return HttpResponse.json({ members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }], registry: { qualifications: [] } });
+      }),
+    );
+    await renderPage(<Page />);
+    expect(await screen.findByText("Checking what is next")).toBeTruthy();
+    expect(screen.queryByText("Needs a second qualified person")).toBeNull();
+    expect(await screen.findByText("Needs a second qualified person")).toBeTruthy();
+  });
+
+  it("says it cannot tell who can verify when /admin fails", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], originators: { "WP-S": ["ben"] } });
+    server.use(
+      http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S", package_revision: 0 }])),
+      http.get("*/admin", () => HttpResponse.json({ code: "forbidden" }, { status: 403 })),
+    );
+    await renderPage(<Page />);
+    expect(await screen.findByText(/Cannot tell who can verify/)).toBeTruthy();
+    expect(screen.queryByText("Needs a second qualified person")).toBeNull();
+  });
+
+  it("shows the meaning word beside its symbol", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" }), pkg({ id: "WP-A", title: "Done work", status: "accepted" })], actions: { "WP-S": [accept] } });
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
+    await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("▲ Needs you: Accept"));
+    const done = screen.getByText("Done work").closest("article")!;
+    await waitFor(() => expect(done.querySelector(".bd-next")!.textContent).toContain("✓ Accepted"));
+  });
+
+  it("is neutral while connecting: no banner and no live symbol", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", status: "in-verification" })], actions: { "WP-S": [accept] } });
+    function Quiet() {
+      useLiveEvents(true);
+      return <BoardView />;
+    }
+    await renderPage(<Quiet />);
+    const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
+    await waitFor(() => expect(within(card).getByText(/Accept/)).toBeTruthy());
+    expect(screen.queryByText(/status unknown since/i)).toBeNull();
+    expect(card.textContent).not.toMatch(/[▲✕✓]/);
   });
 });

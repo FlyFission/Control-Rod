@@ -2497,7 +2497,7 @@ export interface components {
             draft_etag?: string;
             /** @description The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1). */
             effective_lane?: components["schemas"]["ControlRod.Records.DataLane"];
-            /** @description Ids of the people who originated the work (captured it, edited its drafts, authored its preparation), oldest source first. */
+            /** @description Ids of the people who originated the work (captured it, edited its drafts, authored its preparation), the capture's actor first, then the rest ordered by each actor's earliest event. */
             originators?: string[];
             preparation_enabled?: boolean;
             preparation_enrolled?: boolean;

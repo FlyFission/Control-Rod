@@ -26,6 +26,13 @@ describe("nextLine", () => {
     expect(nextLine(input({ grade: "safety", column: "person-verifies", viewerIsOriginator: true, otherQualifiedVerifier: false })))
       .toEqual({ tone: "block", text: "Needs a second qualified person" });
   });
+  it("uses the verified value it is given, not one recomputed from the list", () => {
+    // The list holds a pass, but the caller says it could not tell: the column is Needs signature, not Person verifies.
+    const base = input({ column: "person-verifies", viewerIsOriginator: true, otherQualifiedVerifier: false });
+    const passed: PersonVerificationEntry = { id: "pv1", package_id: base.pkg.id, package_revision: base.pkg.revision, outcome: "pass", verifier_member_id: "m", criteria: [], recorded_at: "2026-10-22T10:00:00Z" } as unknown as PersonVerificationEntry;
+    expect(nextLine({ ...base, verified: null, verifications: [passed] }).text).not.toBe("Needs a second qualified person");
+    expect(nextLine({ ...base, verified: false, verifications: [passed] }).text).toBe("Needs a second qualified person");
+  });
   it("is not blocked when another qualified person exists", () => {
     expect(nextLine(input({ column: "person-verifies", viewerIsOriginator: true, otherQualifiedVerifier: true })).tone).toBe("wait");
   });

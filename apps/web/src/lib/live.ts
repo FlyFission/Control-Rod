@@ -5,15 +5,20 @@ import type { CrEvent } from "../api/types.js";
 export const LIVE_GAP_EVENT = "cr:live-gap";
 
 /**
- * What the page knows about the event stream. "unknown" means the stream dropped and has not come
+ * What the page knows about the event stream. "connecting" is before the first open: nothing is claimed
+ * either way. "unknown" means the stream dropped and has not come
  * back, so nothing on screen can be called current; `unknownSince` is when it dropped. `generation`
  * changes when someone asks to reconnect, which opens a fresh stream.
  */
-export type LiveStatus = { status: "live" | "unknown"; unknownSince?: string; generation: number };
+export type LiveStatus = { status: "connecting" | "live" | "unknown"; unknownSince?: string; generation: number };
 
-let liveState: LiveStatus = { status: "live", generation: 0 };
+let liveState: LiveStatus = { status: "connecting", generation: 0 };
 const liveListeners = new Set<() => void>();
 
+/** Back to the state before any stream has opened (tests, and signing out). */
+export function resetLiveStatus() {
+  setLive({ status: "connecting", generation: 0 });
+}
 function setLive(next: LiveStatus) {
   liveState = next;
   for (const fn of liveListeners) fn();
@@ -33,7 +38,7 @@ function subscribeLive(fn: () => void) {
 const readLive = () => liveState;
 
 /** The stream state for screens that must not present stale state as current, and a way to reconnect. */
-export function useLiveStatus(): { status: "live" | "unknown"; unknownSince?: string; reconnect: () => void } {
+export function useLiveStatus(): { status: "connecting" | "live" | "unknown"; unknownSince?: string; reconnect: () => void } {
   const st = useSyncExternalStore(subscribeLive, readLive, readLive);
   const reconnect = useCallback(() => setLive({ ...liveState, generation: liveState.generation + 1 }), []);
   return { status: st.status, ...(st.unknownSince ? { unknownSince: st.unknownSince } : {}), reconnect };

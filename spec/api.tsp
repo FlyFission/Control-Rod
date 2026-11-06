@@ -136,7 +136,7 @@ model PackageView {
   /** The package's effective lane: its own lane raised by everything it was derived from (11.3 M-1). */
   effective_lane?: ControlRod.Records.DataLane;
 
-  /** Ids of the people who originated the work (captured it, edited its drafts, authored its preparation), oldest source first. */
+  /** Ids of the people who originated the work (captured it, edited its drafts, authored its preparation), the capture's actor first, then the rest ordered by each actor's earliest event. */
   originators?: string[];
 
   preparation_enabled?: boolean;

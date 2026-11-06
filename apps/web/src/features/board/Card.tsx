@@ -28,16 +28,19 @@ export type CardProps = {
   column: ColumnId;
   onOpen: () => void;
   owner?: string;
-  /** False while the event stream is unknown: the next line is shown as last known, with no symbol. */
-  live?: boolean;
+  /**
+   * The event stream. Only "live" shows the symbol and meaning word; "connecting" shows the line plainly;
+   * "unknown" shows it as last known.
+   */
+  stream?: "connecting" | "live" | "unknown";
 };
 
 /** A board card: the small fixed core of spec 6.2. No drag; the title opens the package. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, live = true }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live" }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   return (
-    <article className="bd-card" data-kind={kinds[0]} data-column={column} data-tone={live ? next.tone : "unknown"}>
+    <article className="bd-card" data-kind={kinds[0]} data-column={column} data-tone={stream === "live" ? next.tone : "unknown"}>
       <div className="bd-kinds">
         {kinds.map((k) => (
           <span key={k} className="bd-kind" data-kind={k}>
@@ -76,16 +79,18 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, live = true }: C
         )}
       </div>
       <p className="bd-next">
-        {live ? (
+        {stream === "live" ? (
           <>
-            <span aria-hidden="true" className="bd-sym">
-              {tone.symbol}
+            <span className="bd-sym">
+              <span aria-hidden="true">{tone.symbol} </span>
+              {next.tone === "ok" ? null : <span className="bd-word">{tone.word}: </span>}
             </span>
-            <span className="sr-only">{tone.word}: </span>
             <span>{next.text}</span>
           </>
-        ) : (
+        ) : stream === "unknown" ? (
           <span className="muted">Status unknown. Last known: {next.text}</span>
+        ) : (
+          <span className="muted">{next.text}</span>
         )}
       </p>
     </article>

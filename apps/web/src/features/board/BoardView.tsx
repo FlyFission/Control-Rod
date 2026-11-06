@@ -59,7 +59,7 @@ export function BoardView() {
                   kinds={x.kinds}
                   next={x.next}
                   column={x.column}
-                  live={!unknown}
+                  stream={data.status}
                   {...(x.owner ? { owner: x.owner } : {})}
                   onOpen={() => void navigate({ to: "/packages/$id", params: { id: x.pkg.id } })}
                 />

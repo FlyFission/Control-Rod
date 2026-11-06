@@ -1,7 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-/** The board at "/" in each look has no WCAG 2.2 A or AA violations (redesign task 4). */
+/** Run with: playwright test -c playwright.board.config.ts (keeps the JSON evidence file untouched).
+ * The board at "/" in each look has no WCAG 2.2 A or AA violations (redesign task 4). */
 test.skip(process.env["THEME_TEST_LEGACY"] === "true", "Dedicated legacy rollback run");
 test.skip(process.env["THEME_TEST_RELEASE"] === "true", "Dedicated release artifact run");
 
@@ -27,7 +28,20 @@ const packages = [
 async function mockBoardApi(page: Page, look: string) {
   await page.addInitScript((l) => window.localStorage.setItem("cr.look", l), look);
   await page.route("**/auth/session", (r) => r.fulfill({ json: { registered: true, signed_in: true, user: "ben" } }));
-  await page.route("**/events/stream", (r) => r.fulfill({ contentType: "text/event-stream", body: ": connected\n\n" }));
+  // A stream that opens and stays open, so the board reads live.
+  await page.addInitScript(() => {
+    class OpenSource {
+      listeners = new Map<string, ((e: Event) => void)[]>();
+      constructor() {
+        queueMicrotask(() => setTimeout(() => (this.listeners.get("open") ?? []).forEach((fn) => fn(new Event("open"))), 0));
+      }
+      addEventListener(type: string, fn: (e: Event) => void) {
+        this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]);
+      }
+      close() {}
+    }
+    Object.defineProperty(window, "EventSource", { value: OpenSource, configurable: true });
+  });
   await page.route("**/inbox**", (r) => r.fulfill({ json: { items: [], since: [] } }));
   await page.route("**/office", (r) => r.fulfill({ json: [{ id: "o1", kind: "accept", package_id: "WP-1", package_revision: 0 }] }));
   await page.route("**/admin", (r) => r.fulfill({ json: { members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }], registry: { qualifications: [] } } }));
@@ -48,7 +62,9 @@ for (const look of ["a", "b", "c"]) {
     await expect(page.getByRole("button", { name: "Relief valve sizing" })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-look", look);
     await expect(page.getByText("Independent check")).toBeVisible();
-    await page.waitForTimeout(300);
+    // Settled: every card has read its actions, so no card still says it is checking.
+    await expect(page.getByText("Checking what is next")).toHaveCount(0);
+    await expect(page.getByText("Needs you: Accept").first()).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   });

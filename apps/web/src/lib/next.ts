@@ -8,6 +8,11 @@ export type NextInput = {
   actions: ActionDescriptor[];
   office: OfficeItem[];
   verifications: PersonVerificationEntry[];
+  /**
+   * Whether a passing person verification is recorded, exactly as the card's column was chosen with it.
+   * null means not known. Leave it out to derive it from `verifications`.
+   */
+  verified?: boolean | null;
   viewerIsOriginator: boolean;
   otherQualifiedVerifier: boolean;
   runActive: boolean;
@@ -29,7 +34,7 @@ export function nextLine(i: NextInput): NextLine {
   if (pkg.status === "accepted") return { tone: "ok", text: "Accepted" };
   if (pkg.status === "closed") return { tone: "ok", text: "Closed" };
 
-  const column = boardColumn(pkg, preCheckState(pkg, i.office), isVerified(pkg, i.verifications));
+  const column = boardColumn(pkg, preCheckState(pkg, i.office), i.verified !== undefined ? i.verified : isVerified(pkg, i.verifications));
   if (column === "person-verifies" && i.viewerIsOriginator && !i.otherQualifiedVerifier) {
     return { tone: "block", text: "Needs a second qualified person" };
   }

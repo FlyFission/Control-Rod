@@ -10436,7 +10436,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Ids of the people who originated the work (captured it, edited its drafts, authored its preparation), oldest source first."
+            "description": "Ids of the people who originated the work (captured it, edited its drafts, authored its preparation), the capture's actor first, then the rest ordered by each actor's earliest event."
           },
           "preparation_enabled": {
             "type": "boolean"

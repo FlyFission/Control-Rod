@@ -61,6 +61,21 @@ export async function originators(q: Db | Tx, pkg: PackageRow): Promise<Set<stri
 }
 
 /**
+ * The same people as `originators`, for display: the capture's actor first, then the rest ordered by
+ * each actor's earliest event. The set returned by `originators` is what verification exclusion uses.
+ */
+export async function originatorsInOrder(q: Db | Tx, pkg: PackageRow): Promise<string[]> {
+  const r = await q.query<{ id: string }>(
+    `select body->'actor'->>'id' as id from events
+      where body->'actor'->>'kind' = 'human'
+        and ((body->>'type' = 'capture.created' and body->>'subject' = $1) or (body->>'type' = any($3::text[]) and body->>'subject' = $2))
+      group by body->'actor'->>'id'
+      order by bool_or(body->>'type' = 'capture.created') desc, min(seq), body->'actor'->>'id'`,
+    [pkg.capture_id ?? "", pkg.id, AUTHORING_EVENTS]);
+  return r.rows.map((x) => x.id);
+}
+
+/**
  * The single candidate of a package revision released without an attempt set (ordinal 1), recorded
  * the first time a verification needs it. Its release digest is the signed release decision's subject.
  */

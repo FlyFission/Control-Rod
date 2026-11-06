@@ -22,10 +22,19 @@ async function legacyTables(db: Db): Promise<string[]> {
   return r.rows.map((x) => x.t).filter((t) => !added.has(t));
 }
 
+/**
+ * Columns later migrations add to legacy tables. They are not legacy history: reversing their
+ * migration drops them, so the comparison leaves them out (018 adds the passkey a session names).
+ */
+const ADDED_COLUMNS: Record<string, string[]> = { sessions: ["credential_id"] };
+
 /** Every row of every legacy table, byte for byte, plus the event log. */
 async function snapshot(db: Db, tables: string[]) {
   const out: Record<string, string[]> = {};
-  for (const t of tables) out[t] = (await db.query<{ r: string }>(`select to_jsonb(x)::text as r from ${t} x order by 1`)).rows.map((x) => x.r);
+  for (const t of tables) {
+    const added = (ADDED_COLUMNS[t] ?? []).map((c) => ` - '${c}'`).join("");
+    out[t] = (await db.query<{ r: string }>(`select (to_jsonb(x)${added})::text as r from ${t} x order by 1`)).rows.map((x) => x.r);
+  }
   out.events = (await db.query<{ r: string }>("select to_jsonb(x)::text as r from events x order by seq")).rows.map((x) => x.r);
   return out;
 }

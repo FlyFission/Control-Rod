@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { type Harness, ORIGIN, VirtualAuthenticator, signIn, startHarness } from "./harness.js";
+import { type Harness, ORIGIN, VirtualAuthenticator, addOwnPasskey, logIn, signIn, startHarness } from "./harness.js";
 import { type InclusionBundle, verifyInclusion } from "../src/seals.js";
 import { currentCredential, recordCredential } from "../src/tenancy.js";
 import { recordObject } from "../src/workbench.js";
@@ -231,6 +231,10 @@ describe("key history", () => {
     const credentialId = Buffer.from(key.credentialId).toString("base64url");
     const cur = await currentCredential(h.db, credentialId);
     expect(cur).toBeTruthy();
+    // Revoking a passkey ends the sessions it started, so carry on signed in with a second one.
+    const spare = new VirtualAuthenticator();
+    expect((await addOwnPasskey(h.app, cookie, key, spare)).statusCode).toBe(200);
+    cookie = await logIn(h.app, spare);
     const c = await h.admin.connect();
     try {
       await c.query("begin");

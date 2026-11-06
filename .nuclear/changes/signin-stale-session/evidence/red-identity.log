@@ -1,0 +1,30 @@
+     × cannot be sent twice while a sign-out is pending 166ms
+     × an answer that arrives after a newer sign-in does not replace the newer session 137ms
+     × treats a refetched session for someone else as a new session: clears the earlier data and remounts the app 226ms
+     × treats a refetched sign-out as a new session too 48ms
+     × a basis refresh answered after a new session began does not appear in the editor 179ms
+     × a refusal answered after a new session began is not shown 215ms
+     × a comparison read answered after a new session began is not shown 219ms
+     × a reload answered after a new session began does not appear in the editor 171ms
+     × history answered after a new session began is not shown 170ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/session-gate.test.tsx > the session gate when the signed-in person changes behind it > treats a refetched session for someone else as a new session: clears the earlier data and remounts the app
+AssertionError: expected 0 to be greater than 0
+ FAIL  src/session-gate.test.tsx > the session gate when the signed-in person changes behind it > treats a refetched sign-out as a new session too
+AssertionError: expected 0 to be greater than 0
+ FAIL  src/components/shell.test.tsx > signing out > cannot be sent twice while a sign-out is pending
+AssertionError: expected false to be true // Object.is equality
+ FAIL  src/components/shell.test.tsx > signing out > an answer that arrives after a newer sign-in does not replace the newer session
+AssertionError: expected { registered: true, signed_in: false } to deeply equal { registered: true, …(2) }
+ FAIL  src/components/preparation/preparation.test.tsx > manual preparation workbench > a basis refresh answered after a new session began does not appear in the editor
+AssertionError: expected <textarea rows="2"></textarea> to be null
+ FAIL  src/components/preparation/preparation.test.tsx > manual preparation workbench > a refusal answered after a new session began is not shown
+AssertionError: expected <p role="alert" class="error"></p> to be null
+ FAIL  src/components/preparation/preparation.test.tsx > manual preparation workbench > a comparison read answered after a new session began is not shown
+AssertionError: expected <p></p> to be null
+ FAIL  src/components/preparation/preparation.test.tsx > manual preparation workbench > a reload answered after a new session began does not appear in the editor
+AssertionError: expected <textarea rows="2"></textarea> to be null
+ FAIL  src/components/preparation/preparation.test.tsx > manual preparation workbench > history answered after a new session began is not shown
+AssertionError: expected <p></p> to be null
+ Test Files  3 failed (3)
+      Tests  9 failed | 14 passed (23)

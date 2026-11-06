@@ -27,7 +27,7 @@ const REQUIRED_READS: readonly string[] = ["packages", "office"];
 /** A stream that sends nothing for this long is treated as dropped. The server sends a heartbeat about every 15 s. */
 export const STALL_MS = 45_000;
 
-/** Back to the state before any stream has opened. Called by tests and on signing out (Shell). */
+/** Back to the state before any stream has opened. Called by tests and by the identity transition (lib/session.ts), so signing out or in as someone else starts clean. */
 export function resetLiveStatus() {
   lastEventId = undefined;
   setLive({ status: "connecting", generation: 0 });

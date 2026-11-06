@@ -167,6 +167,23 @@ describe("storage", () => {
     await expect(put("selection", { id: "sel_y", attempt_set_id: "set_1", candidate_id: "cand_solo", reason: "x", proposed_by: owner })).rejects.toThrow(/foreign key/);
   });
 
+  it("binds a checkpoint's workspace to its own exploration", async () => {
+    await put("exploration", { id: "exp_2", project_id: "prj_wb", lane: "internal", sandbox_policy_digest: D, started_by: verifier, status: "active", interactive: true, unattested: true });
+    await put("workspace", { id: "ws_2", kind: "exploration-worktree", exploration_id: "exp_2", path: "/work/exp_2", status: "provisioning" });
+    const chk = { git_tree: "c".repeat(40), content_digest: D, actor: owner, captured_at: "2026-10-30T12:00:00.000Z" };
+    // Another exploration's worktree, and a run's workspace, are refused.
+    await expect(put("checkpoint", { id: "chk_wrongws", exploration_id: "exp_1", workspace_id: "ws_2", ...chk })).rejects.toThrow(/checkpoints_workspace_of_exploration/);
+    await expect(put("checkpoint", { id: "chk_runws", exploration_id: "exp_1", workspace_id: "ws_run", ...chk })).rejects.toThrow(/checkpoints_workspace_of_exploration/);
+    await put("checkpoint", { id: "chk_own", exploration_id: "exp_2", workspace_id: "ws_2", ...chk });
+  });
+
+  it("binds a controlled record's candidate to the package revision it names", async () => {
+    await put("candidate_assignment", { id: "cand_other", package_id: "pkg_other", package_revision: 0, release_digest: D, ordinal: 1, author_assignment: assignment });
+    const rec = { project_id: "prj_wb", kind: "merged-change", input_digests: [D], clearance_decision_id: "dec_1", applied_ref: "e".repeat(40) };
+    await expect(put("controlled_record", { id: "rec_wrongcand", package_id: "pkg_wb", package_revision: 0, candidate_id: "cand_other", ...rec })).rejects.toThrow(/controlled_records_candidate_of_revision/);
+    await put("controlled_record", { id: "rec_own", package_id: "pkg_wb", package_revision: 0, candidate_id: "cand_1", ...rec });
+  });
+
   it("R4: a person verification uses the verifier's own qualification", async () => {
     await expect(put("person_verification", { id: "pv_borrowed", verifier_member_id: verifier, qualification_id: "qual_c", qualification_version: 1, candidate_id: "cand_2", criteria: ["C-1"], outcome: "pass", assertion })).rejects.toThrow(/foreign key/);
     await expect(put("person_verification", { id: "pv_y", verifier_member_id: verifier, qualification_id: "qual_v", qualification_version: 7, candidate_id: "cand_2", criteria: ["C-1"], outcome: "pass", assertion })).rejects.toThrow(/foreign key/);

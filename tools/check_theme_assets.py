@@ -79,14 +79,14 @@ def check_manifest(directory, manifest, complete=True):
             pass
         if not a.get('creator') or not a.get('licenseNoticeId') or a.get('rightsBasis') not in {'original','licensed','public-domain'}:
             errors.append(f'{key}: missing provenance')
-        if key == 'scene' and len(raw) > 30*1024:
+        if key == 'scene' and len(raw) >= 30*1024:
             errors.append(f'{key}: scene exceeds 30 KiB ({len(raw)} bytes)')
-        if key and key.startswith('character-') and len(raw) > 2*1024:
+        if key and key.startswith('character-') and len(raw) >= 2*1024:
             errors.append(f'{key}: character exceeds 2 KiB ({len(raw)} bytes)')
-        if key == 'thumbnail' and len(raw) > 100*1024:
+        if key == 'thumbnail' and len(raw) >= 100*1024:
             errors.append('Thumbnail exceeds 100 KiB')
         total += len(raw)
-    if total > 1024*1024:
+    if total >= 1024*1024:
         errors.append('Pack exceeds 1 MiB')
     return errors
 

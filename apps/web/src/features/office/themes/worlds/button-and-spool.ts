@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/button-and-spool/body-0.99441860ea8c.svg",
-      "sha256": "99441860ea8cd4c3df172248588c317f63efb9379e7e0be50bd775a546ccff66",
-      "bytes": 1034,
+      "path": "/office-themes/button-and-spool/body-0.09ae2a5dc6fd.svg",
+      "sha256": "09ae2a5dc6fdef9ee863a2de88ba218c7f0ef850e048b34e2a71a76f405f2a46",
+      "bytes": 917,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/button-and-spool/body-1.4c317cfddda1.svg",
-      "sha256": "4c317cfddda1edebebc2b0840ae345d48cada8bfbfae9a517331f64e41308d5f",
-      "bytes": 1044,
+      "path": "/office-themes/button-and-spool/body-1.4e5403334273.svg",
+      "sha256": "4e5403334273bbd0e599e2355160d37fcec50e72997595602595eca4d5ca9af7",
+      "bytes": 852,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/button-and-spool/body-2.4c56083b24aa.svg",
-      "sha256": "4c56083b24aab928936620d0a6a4a2d4a9823844290a27754e9b477295769890",
-      "bytes": 1071,
+      "path": "/office-themes/button-and-spool/body-2.1f93134769d6.svg",
+      "sha256": "1f93134769d6a6c9b08d0824014e261a72d22207e5682e23ce1ead49644ab9f9",
+      "bytes": 928,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/button-and-spool/body-3.299f458a0fbb.svg",
-      "sha256": "299f458a0fbbad8000022332242d30d37c073546b41453d58562c3cfcab8d0c8",
-      "bytes": 1032,
+      "path": "/office-themes/button-and-spool/body-3.34ccc93019f9.svg",
+      "sha256": "34ccc93019f9f39ec6ba51d7c2d64e7ccb14964678cf1c29fc86f1bb4116ca36",
+      "bytes": 912,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/button-and-spool/body-4.836392892763.svg",
-      "sha256": "836392892763455e6784d040f8b92513d615dfc7aa882e339313a5743be28dd4",
-      "bytes": 1029,
+      "path": "/office-themes/button-and-spool/body-4.e0fbb372f425.svg",
+      "sha256": "e0fbb372f425aa0bcf4486a16a57f4a19f041ba736428ed5dd8639aa85fcc40a",
+      "bytes": 924,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/button-and-spool/body-5.8d7119834fe8.svg",
-      "sha256": "8d7119834fe8e6e38130c46ac6b4bb0558ee36d929e0e2a064dda3ebca901066",
-      "bytes": 1058,
+      "path": "/office-themes/button-and-spool/body-5.fd059064b5f1.svg",
+      "sha256": "fd059064b5f19799f0ad581cfd95cfeb0cdbe4a86c3be2d025c7d05ce63fd9d2",
+      "bytes": 992,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

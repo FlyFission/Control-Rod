@@ -7,7 +7,7 @@ import re
 import xml.etree.ElementTree as ET
 
 ELEMENTS = {'svg','g','path','rect','circle','ellipse','line','polyline','polygon','defs','linearGradient','radialGradient','stop','clipPath','mask','title','desc','use'}
-ATTRS = {'id','xmlns','version','width','height','viewBox','x','y','x1','x2','y1','y2','cx','cy','r','rx','ry','d','points','fill','fill-opacity','fill-rule','stroke','stroke-width','stroke-opacity','stroke-linecap','stroke-linejoin','stroke-dasharray','opacity','transform','gradientUnits','gradientTransform','offset','stop-color','stop-opacity','clip-path','mask','href','preserveAspectRatio'}
+ATTRS = {'id','xmlns','version','width','height','viewBox','x','y','x1','x2','y1','y2','cx','cy','r','rx','ry','d','points','fill','fill-opacity','fill-rule','stroke','stroke-width','stroke-opacity','stroke-linecap','stroke-linejoin','stroke-dasharray','opacity','transform','gradientUnits','gradientTransform','offset','stop-color','stop-opacity','clip-path','mask','href','preserveAspectRatio','shape-rendering'}
 
 
 def check_svg(raw):
@@ -79,6 +79,10 @@ def check_manifest(directory, manifest, complete=True):
             pass
         if not a.get('creator') or not a.get('licenseNoticeId') or a.get('rightsBasis') not in {'original','licensed','public-domain'}:
             errors.append(f'{key}: missing provenance')
+        if key == 'scene' and len(raw) > 30*1024:
+            errors.append(f'{key}: scene exceeds 30 KiB ({len(raw)} bytes)')
+        if key and key.startswith('character-') and len(raw) > 2*1024:
+            errors.append(f'{key}: character exceeds 2 KiB ({len(raw)} bytes)')
         if key == 'thumbnail' and len(raw) > 100*1024:
             errors.append('Thumbnail exceeds 100 KiB')
         total += len(raw)

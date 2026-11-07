@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/orbital-shipyard/body-0.268ec6ab3e78.svg",
-      "sha256": "268ec6ab3e78743ffe32b34f2b7452bf4105f4e38f8d81c9befa9ae2f5b7e501",
-      "bytes": 1269,
+      "path": "/office-themes/orbital-shipyard/body-0.c3b86b1a70a1.svg",
+      "sha256": "c3b86b1a70a11535fa9f4f7547cd4ee18636c38329d333b9b708589f3138490a",
+      "bytes": 937,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/orbital-shipyard/body-1.985862065ae4.svg",
-      "sha256": "985862065ae40951b44e9ab90f26128027bbe3528743a3dc9744dc3d3b5159c6",
-      "bytes": 1266,
+      "path": "/office-themes/orbital-shipyard/body-1.8cd9cc10845e.svg",
+      "sha256": "8cd9cc10845e422360ad8a643dc515e5e4f3aa4945be9cf5ce9d81171a3161de",
+      "bytes": 868,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/orbital-shipyard/body-2.9fcab05a676a.svg",
-      "sha256": "9fcab05a676a6649a9d9a8fe19ef89ec754f94741f32b6840f39cdbafa29fdc2",
-      "bytes": 1288,
+      "path": "/office-themes/orbital-shipyard/body-2.892f3d35e38b.svg",
+      "sha256": "892f3d35e38b033ba4b43ca5ec7a25fa559671c91534d5445f73681f84a28fe3",
+      "bytes": 964,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/orbital-shipyard/body-3.3771a9472c7b.svg",
-      "sha256": "3771a9472c7bd1d6cdaf699aa2693ab1b252a97e83b46ff9f31cba34b22a423f",
-      "bytes": 1257,
+      "path": "/office-themes/orbital-shipyard/body-3.68f741e61c4a.svg",
+      "sha256": "68f741e61c4a5489640aa79704eddcde4db7cab34eab4016e04a80cf94d1c109",
+      "bytes": 812,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/orbital-shipyard/body-4.89ceb8d5c90c.svg",
-      "sha256": "89ceb8d5c90ce36438a7613110fc4fd34e20a2fe32781e819a8da5fd45f1fb2d",
-      "bytes": 1236,
+      "path": "/office-themes/orbital-shipyard/body-4.544aa57211d2.svg",
+      "sha256": "544aa57211d26abda5bf84fb6b79f7fed9097bc46b1f2032d180bb7bad91dfe6",
+      "bytes": 796,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/orbital-shipyard/body-5.0f4efb1be5b3.svg",
-      "sha256": "0f4efb1be5b3d8678a823ad43913a94e3d619a2ae4b8a86cb9c40415900904fb",
-      "bytes": 1275,
+      "path": "/office-themes/orbital-shipyard/body-5.5fa55b2e10dd.svg",
+      "sha256": "5fa55b2e10ddc085c9c77ecb3cfd6044f876cdb184cfaee5f6549c355dc6c69f",
+      "bytes": 802,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

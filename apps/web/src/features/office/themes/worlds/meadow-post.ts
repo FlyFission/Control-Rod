@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/meadow-post/body-0.620167e15e9e.svg",
-      "sha256": "620167e15e9ec264975937913336d28088ad36344bbf2061eb018f4b0796d980",
-      "bytes": 1257,
+      "path": "/office-themes/meadow-post/body-0.8973599c1e25.svg",
+      "sha256": "8973599c1e257829e857447068304c5f18aa4bddc562597bd4cb15b536bee18f",
+      "bytes": 1023,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/meadow-post/body-1.8fe3b6e71142.svg",
-      "sha256": "8fe3b6e7114237a983b6a9c65e6c5cbc954718deaad6b7cb38186fac59288678",
-      "bytes": 1184,
+      "path": "/office-themes/meadow-post/body-1.2766b87cf304.svg",
+      "sha256": "2766b87cf3049ae6f615ca6b139242d5cb096f911a76665bbe123f3f1932fecd",
+      "bytes": 958,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/meadow-post/body-2.7ef068b60c96.svg",
-      "sha256": "7ef068b60c9644ea5f4f61b47dc990a23957389b9507088d3120b9cac08dbcc9",
-      "bytes": 1181,
+      "path": "/office-themes/meadow-post/body-2.63935630b958.svg",
+      "sha256": "63935630b95862bbcf61ecf76e5e3bab58719707b3278393e7272ef226fc3d57",
+      "bytes": 906,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/meadow-post/body-3.13308ef8efc4.svg",
-      "sha256": "13308ef8efc4993e13e6e172f0f7d9fb5009a63519ecaf06c1ab67b5bb5d2a67",
-      "bytes": 1222,
+      "path": "/office-themes/meadow-post/body-3.82848717f05e.svg",
+      "sha256": "82848717f05ee2bdee1fd31e4645937c9ff2885ec11419b521c147662e43ec7e",
+      "bytes": 1111,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/meadow-post/body-4.58ee95bef1db.svg",
-      "sha256": "58ee95bef1db27d3bd94642b955ee95143701201a4b7f14bd1aaff4c2c301a79",
-      "bytes": 1243,
+      "path": "/office-themes/meadow-post/body-4.429b47bc2993.svg",
+      "sha256": "429b47bc29935ab921bb09b6a337f87633d656fefdfc948538cb2de683e8d628",
+      "bytes": 985,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/meadow-post/body-5.f6df679c1f5a.svg",
-      "sha256": "f6df679c1f5aa7c6b4c2cf2f181e1bf7d2e816b5464915791fe4f3dbb110ecee",
-      "bytes": 1198,
+      "path": "/office-themes/meadow-post/body-5.30b594c836ac.svg",
+      "sha256": "30b594c836ac3f69bdd6028cc35a2aa59b502677b418e8a786c54a16d9d026e9",
+      "bytes": 968,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/lanternwood-guild/body-0.bf4d726c3369.svg",
-      "sha256": "bf4d726c336950547096f9fb1c74d4435f4c41423e52d30a373beac6d8a469e1",
-      "bytes": 1022,
+      "path": "/office-themes/lanternwood-guild/body-0.519a737dcbe4.svg",
+      "sha256": "519a737dcbe4c01eec80024566ff333be7db7a022b22d7a93d626e6f4fade688",
+      "bytes": 783,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/lanternwood-guild/body-1.e8e31c4fc59c.svg",
-      "sha256": "e8e31c4fc59cd01ec828981e0cf4addf2ef7d4fa7cf6ad3af7b67b8cb648cdcf",
-      "bytes": 1004,
+      "path": "/office-themes/lanternwood-guild/body-1.ea456a0232f1.svg",
+      "sha256": "ea456a0232f1e05828a87a16ca52fbf7189dd78dda656107eb4213a57d7e41d8",
+      "bytes": 840,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/lanternwood-guild/body-2.ad9598c0133d.svg",
-      "sha256": "ad9598c0133dcbf163d537a84e4cee6bc1a74edc60feddde3bda56883bc91f21",
-      "bytes": 944,
+      "path": "/office-themes/lanternwood-guild/body-2.37d2fa6b6b6a.svg",
+      "sha256": "37d2fa6b6b6a342ae3e5026e60bf90536acfa7a4a5926d828934e8acccdecd18",
+      "bytes": 784,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/lanternwood-guild/body-3.a0852059718a.svg",
-      "sha256": "a0852059718a71d7c2feb6e18ac47105834101f3c57c19f9251427d40cc7d269",
-      "bytes": 983,
+      "path": "/office-themes/lanternwood-guild/body-3.5d6c677ea211.svg",
+      "sha256": "5d6c677ea211a8f05521161fe3c52ab9abe09cdfb5d762ec97c41e400ec8923f",
+      "bytes": 782,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/lanternwood-guild/body-4.edba6c386cfc.svg",
-      "sha256": "edba6c386cfc598a4e5cf97febf5cf08fc67468b0cb4dc9447cdcf4acea7ff74",
-      "bytes": 1050,
+      "path": "/office-themes/lanternwood-guild/body-4.4292a820b4a3.svg",
+      "sha256": "4292a820b4a391914f803ba9fdecd90649c628b0d9e71e65e8e4f7a0797dd3d6",
+      "bytes": 781,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/lanternwood-guild/body-5.e9e8517666dc.svg",
-      "sha256": "e9e8517666dc3325a31437fe608641d634fe4e2ecaeffa489584637eddc6ad9e",
-      "bytes": 1082,
+      "path": "/office-themes/lanternwood-guild/body-5.18f362b51246.svg",
+      "sha256": "18f362b512461afb838c0dc1518447bddec7c99a94c6c2daa03b28060f677ba5",
+      "bytes": 781,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/orbital-shipyard/scene.611d3335d8fd.svg",
-      "sha256": "611d3335d8fd099aa3d9246d8f05cde14aaeaf04e4910e41dd7e3dc13c1428e3",
-      "bytes": 18026,
+      "path": "/floor-themes/orbital-shipyard/scene.657dc5461743.svg",
+      "sha256": "657dc54617439b264d10fc68cc5db49f9b5af6cff3fe38aba0023bc78bae02f3",
+      "bytes": 14397,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/orbital-shipyard/thumbnail.a9e960f099f7.svg",
-      "sha256": "a9e960f099f75d708c8a9592d66fe0314192be4d2146c211c442fca620074bd6",
-      "bytes": 25571,
+      "path": "/floor-themes/orbital-shipyard/thumbnail.b1baac34b3f1.svg",
+      "sha256": "b1baac34b3f1bc2c2e70e8a9f492bdc57f1d672405ef277ad1881697a96ad96a",
+      "bytes": 19530,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/orbital-shipyard/character-0.c4364ec837e4.svg",
-        "sha256": "c4364ec837e4f4c2b371c5915bb34e2795e6ad678ff132dcae57b5b7b45d80b6",
-        "bytes": 1244,
+        "path": "/floor-themes/orbital-shipyard/character-0.d301ae36b029.svg",
+        "sha256": "d301ae36b029d2fde01115ef7c278b37f1a11613256bcb81c905f5fe79dc7ae0",
+        "bytes": 912,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/orbital-shipyard/character-1.d92f1867e2fd.svg",
-        "sha256": "d92f1867e2fd0edd86b6ed85bf9482fa12b0ec783cb7e456803fcb01ac209bff",
-        "bytes": 1241,
+        "path": "/floor-themes/orbital-shipyard/character-1.f81460c753d9.svg",
+        "sha256": "f81460c753d90d8161000d8e2bbc3e3d83524deebbfe1bb67a1beccd20e31d6d",
+        "bytes": 843,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/orbital-shipyard/character-2.94d99465bc7f.svg",
-        "sha256": "94d99465bc7f81620d98f33fb5bbecd2e3b649777e76b03e6a930ed835dbbb5b",
-        "bytes": 1263,
+        "path": "/floor-themes/orbital-shipyard/character-2.8d9fa120cb2a.svg",
+        "sha256": "8d9fa120cb2af5cc90c32c38eacb06ebacfc6b0044c9fe086c32123916344122",
+        "bytes": 939,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/orbital-shipyard/character-3.c3af9800e56a.svg",
-        "sha256": "c3af9800e56a9ec3044836db8c636ab5eacbd78504e966123d77021b9743dc1a",
-        "bytes": 1232,
+        "path": "/floor-themes/orbital-shipyard/character-3.273b919aa23e.svg",
+        "sha256": "273b919aa23e80c47148b26bdd3149c674e5f87035a6a79309826f395b95fe75",
+        "bytes": 787,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/orbital-shipyard/character-4.d88cf3a08c0f.svg",
-        "sha256": "d88cf3a08c0f2e149c0004915bb019deed3dbbedf7d7d9f6b1fdb4ce9a371e96",
-        "bytes": 1211,
+        "path": "/floor-themes/orbital-shipyard/character-4.c752f50755d8.svg",
+        "sha256": "c752f50755d8313d0a2bce65ba81dbc7320f202e831346086ba6623e32f3f1a3",
+        "bytes": 771,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/orbital-shipyard/character-5.e05eff5a9c72.svg",
-        "sha256": "e05eff5a9c7265b3806726108b4d80894a81166352bdad14fa9d508474a7c12b",
-        "bytes": 1250,
+        "path": "/floor-themes/orbital-shipyard/character-5.d4ca777361b4.svg",
+        "sha256": "d4ca777361b4d865eda1506df982235bf3517d282046d5d19750447f6bb843df",
+        "bytes": 777,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

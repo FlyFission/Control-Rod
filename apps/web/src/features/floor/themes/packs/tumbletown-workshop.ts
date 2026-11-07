@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/tumbletown-workshop/scene.f7b8323430ec.svg",
-      "sha256": "f7b8323430ec1739be2c5e5a5626dc1b19e7cf3009bcf68d71e7281790e0e668",
-      "bytes": 11382,
+      "path": "/floor-themes/tumbletown-workshop/scene.6cf7d307eda3.svg",
+      "sha256": "6cf7d307eda3b4e388272057d55404dd46b38967bac52f34525f70db9f3771ee",
+      "bytes": 11545,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/tumbletown-workshop/thumbnail.7436dc0e9860.svg",
-      "sha256": "7436dc0e9860140f399566a532d2f19e338a3d575d7938055c8c318f19b0cac9",
-      "bytes": 18554,
+      "path": "/floor-themes/tumbletown-workshop/thumbnail.5743cbbbd38a.svg",
+      "sha256": "5743cbbbd38a7d337517323dc80cc6baf615b0deaea80a304e0d14f283c76fcd",
+      "bytes": 16528,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/tumbletown-workshop/character-0.6303dcfe586a.svg",
-        "sha256": "6303dcfe586a15571ac12f0f8be5a55c3a5e432edb0150a585c1306142920405",
-        "bytes": 1246,
+        "path": "/floor-themes/tumbletown-workshop/character-0.6404c19c6574.svg",
+        "sha256": "6404c19c65749b05bd7dd3edf7ec28c7c162bbfb131439d85f29152c2b00b70a",
+        "bytes": 802,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/tumbletown-workshop/character-1.7d0dbb9b738e.svg",
-        "sha256": "7d0dbb9b738eae009f659a5794a62aad77cb96cc30d4aa2af81cfdb929e84805",
-        "bytes": 1118,
+        "path": "/floor-themes/tumbletown-workshop/character-1.41d006f55737.svg",
+        "sha256": "41d006f557379c9db00749afeab39ffdc69d73dc3fc222aa688962e80fab1d3c",
+        "bytes": 764,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/tumbletown-workshop/character-2.0cf1e1c7a7c0.svg",
-        "sha256": "0cf1e1c7a7c0468666a26e6d12e7fe21693d11c401bfb5ae8b8d01dddf0ef739",
-        "bytes": 1204,
+        "path": "/floor-themes/tumbletown-workshop/character-2.ccda641d77a8.svg",
+        "sha256": "ccda641d77a88593a5edb12e75a78ed93a343ae2333d752b7fe05c2706bd833b",
+        "bytes": 813,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/tumbletown-workshop/character-3.1b88ed27b097.svg",
-        "sha256": "1b88ed27b097ccafe6f02f8ed3ecb6a06a8e372487e445ccd7895ca61ac3d5a2",
-        "bytes": 1194,
+        "path": "/floor-themes/tumbletown-workshop/character-3.4574520e3492.svg",
+        "sha256": "4574520e34925ac0fb2a6de1c942a2659a7c3285bb3f0317dc2a895ddfd937d2",
+        "bytes": 860,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/tumbletown-workshop/character-4.d98331dabd23.svg",
-        "sha256": "d98331dabd23b306be238eac2aa96f2191c2ee6f3db2f5495dd7516015c4d9a1",
-        "bytes": 1201,
+        "path": "/floor-themes/tumbletown-workshop/character-4.0132fb740faa.svg",
+        "sha256": "0132fb740faabca630be702797a65b133b3cc50c038848e056f72a96a1489219",
+        "bytes": 913,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/tumbletown-workshop/character-5.6d0c3aaac2eb.svg",
-        "sha256": "6d0c3aaac2ebe0fb8c113ffd36addff3baaec1a49d4cbdaf11db934fe2d2d0f5",
-        "bytes": 1105,
+        "path": "/floor-themes/tumbletown-workshop/character-5.d4f5464f6fc7.svg",
+        "sha256": "d4f5464f6fc7a73f1de9c08622ef22760e77d4dd114615d537bd0c0bd30aa8b4",
+        "bytes": 727,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

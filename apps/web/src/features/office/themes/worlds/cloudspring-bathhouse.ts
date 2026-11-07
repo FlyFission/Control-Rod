@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/cloudspring-bathhouse/body-0.f8c74763783a.svg",
-      "sha256": "f8c74763783aafd383d0576c2f0a748a02254a4a67cd06dbb1b25a9d31f23e35",
-      "bytes": 1174,
+      "path": "/office-themes/cloudspring-bathhouse/body-0.74e8042672a7.svg",
+      "sha256": "74e8042672a7f8fdd109bbe8eed106a054797740b7378b64979588b55c1b7e95",
+      "bytes": 855,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/cloudspring-bathhouse/body-1.ae18a3c9289d.svg",
-      "sha256": "ae18a3c9289dd24829de48d55d802d77ac11cda0e6d28c1ebfaf2b60f7e9f0cb",
-      "bytes": 1205,
+      "path": "/office-themes/cloudspring-bathhouse/body-1.864668ad1101.svg",
+      "sha256": "864668ad110189817eb200a6113792bf1be0ed3f15f754bc442028b8adfb21bb",
+      "bytes": 884,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/cloudspring-bathhouse/body-2.ff6a7010d7c2.svg",
-      "sha256": "ff6a7010d7c2bf6eff6847553184ae1d5e7016154f4f4c5877eb27320acdcb06",
-      "bytes": 1163,
+      "path": "/office-themes/cloudspring-bathhouse/body-2.b1dd3a49e1d7.svg",
+      "sha256": "b1dd3a49e1d7f5c9205cc3904d08b4243aed98ecd45f2677cd0fc7a8392c7a61",
+      "bytes": 894,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/cloudspring-bathhouse/body-3.df1c636e8c76.svg",
-      "sha256": "df1c636e8c7694619bf7360bc7aaa4ea925214f5ef0b019db4793911483a8f8b",
-      "bytes": 1174,
+      "path": "/office-themes/cloudspring-bathhouse/body-3.0eec04ae1d8f.svg",
+      "sha256": "0eec04ae1d8f5eb0976f63fd4a500cd45bb2414338e70a2f5a174d2a3616c0bc",
+      "bytes": 852,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/cloudspring-bathhouse/body-4.7dfa6b4ae0d5.svg",
-      "sha256": "7dfa6b4ae0d51f02e966267e26b47fe5c398ee6b2248988033d9e540e8242c67",
-      "bytes": 1256,
+      "path": "/office-themes/cloudspring-bathhouse/body-4.0c8cd2dfacaa.svg",
+      "sha256": "0c8cd2dfacaa39a53045033fb0f93acb071edaf727e0777fbf7e0ce190ea31b9",
+      "bytes": 983,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/cloudspring-bathhouse/body-5.59284421e1a4.svg",
-      "sha256": "59284421e1a4d5e164b6f5a65339b2e075cc04e71b4d49c4acdaa1166ad6a6a1",
-      "bytes": 1164,
+      "path": "/office-themes/cloudspring-bathhouse/body-5.a68adaef49e5.svg",
+      "sha256": "a68adaef49e5da13ce504cba8fb75de21788025a088d299832123e2e1d2c503e",
+      "bytes": 868,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

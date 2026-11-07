@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/tumbletown-workshop/body-0.dc662e05be9a.svg",
-      "sha256": "dc662e05be9aa1a3483680b0d95b4cfa5dcc9a88e8d583d7f8a5731d43055a9e",
-      "bytes": 1271,
+      "path": "/office-themes/tumbletown-workshop/body-0.f5c1c1f63c33.svg",
+      "sha256": "f5c1c1f63c3397a27376bcf580499eaefe53b1e99d5a12aa5f62fb249057fede",
+      "bytes": 827,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/tumbletown-workshop/body-1.84e1bf0fba8c.svg",
-      "sha256": "84e1bf0fba8cf4e4816ffca73e06d1b4970247b707aed2d0efc7cfb5ecc69025",
-      "bytes": 1143,
+      "path": "/office-themes/tumbletown-workshop/body-1.7dbd847d5b0d.svg",
+      "sha256": "7dbd847d5b0d79d53b1998f882a2585ddf7003df143319be64f5416f1cefd8d0",
+      "bytes": 789,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/tumbletown-workshop/body-2.803adb0a6dcc.svg",
-      "sha256": "803adb0a6dcc450457e909e1f44270f36afd7a152e5ce0563f372d11e4214f19",
-      "bytes": 1229,
+      "path": "/office-themes/tumbletown-workshop/body-2.424d45983ba7.svg",
+      "sha256": "424d45983ba77013886a1f5832bdaa8ac4599cfc00300232521aca94311a72cb",
+      "bytes": 838,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/tumbletown-workshop/body-3.7d898767556e.svg",
-      "sha256": "7d898767556e4b4e355133902c05d2d92777818aa736e78b41ef39fb501ad165",
-      "bytes": 1219,
+      "path": "/office-themes/tumbletown-workshop/body-3.7dd142116246.svg",
+      "sha256": "7dd142116246de140f94c6c9ee444256eccecc2328cf2791d8b796d05f21521e",
+      "bytes": 885,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/tumbletown-workshop/body-4.755f7fb325cb.svg",
-      "sha256": "755f7fb325cbca5f781832468037c59576cbdb6e12d3203d96c331976cb50ba6",
-      "bytes": 1226,
+      "path": "/office-themes/tumbletown-workshop/body-4.4fcee175377d.svg",
+      "sha256": "4fcee175377d7589acfa8d560057e5f550c2d471ccf04b7f6ebd1ddfd0ede04d",
+      "bytes": 938,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/tumbletown-workshop/body-5.aab996dea65e.svg",
-      "sha256": "aab996dea65ebce15eeed02cadc856060566e3e466848abf60a0f982d962c7b8",
-      "bytes": 1130,
+      "path": "/office-themes/tumbletown-workshop/body-5.c3cbaad75f70.svg",
+      "sha256": "c3cbaad75f7039e089dbefdee58f7c9717c150e56ed264d212b024bf565ee92e",
+      "bytes": 752,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

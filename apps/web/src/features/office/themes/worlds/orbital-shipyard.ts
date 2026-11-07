@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process bay",
       "art": {
-        "path": "/office-themes/orbital-shipyard/process.66c959041f7d.svg",
-        "sha256": "66c959041f7d052a29ed22e1630f0f3e334e98d19814702e34f78eb2b259bebe",
-        "bytes": 2671,
+        "path": "/office-themes/orbital-shipyard/process.18313866c6db.svg",
+        "sha256": "18313866c6dbef7859fee5bbff726141a35536127834c8a43beb1d46c8d6b6ce",
+        "bytes": 2757,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical bay",
       "art": {
-        "path": "/office-themes/orbital-shipyard/mechanical.7dbd5912b36e.svg",
-        "sha256": "7dbd5912b36e59a314123eb0d4b7f87fd773a749c435cf00816f46c3104ea1af",
-        "bytes": 2672,
+        "path": "/office-themes/orbital-shipyard/mechanical.8205dba94168.svg",
+        "sha256": "8205dba9416842e0ebe997db3afc1bd8aeb3da3bf05c846f132041a72c4f59ec",
+        "bytes": 2758,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical bay",
       "art": {
-        "path": "/office-themes/orbital-shipyard/electrical.f15b5abeb904.svg",
-        "sha256": "f15b5abeb904878af40523efd4621f51e2c9caf854c0b33fcf4c4807bdbe0fbc",
-        "bytes": 2668,
+        "path": "/office-themes/orbital-shipyard/electrical.c1757590b9a4.svg",
+        "sha256": "c1757590b9a4a3051a79cc1e675d639fd1e60b347ba0df77560d3acce2c0f9d0",
+        "bytes": 2754,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil bay",
       "art": {
-        "path": "/office-themes/orbital-shipyard/civil.81cdab83c8b6.svg",
-        "sha256": "81cdab83c8b6409b89a61fc0fe087585fadfd262d46baf436025d13c4f1646f9",
-        "bytes": 2666,
+        "path": "/office-themes/orbital-shipyard/civil.5df28088f43a.svg",
+        "sha256": "5df28088f43a5016c370d516d6ef98a9975450046cbdc60b829111b8c54b7cd5",
+        "bytes": 2752,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance bay",
       "art": {
-        "path": "/office-themes/orbital-shipyard/assurance.5475c6c11c27.svg",
-        "sha256": "5475c6c11c27b5250cffa5434d0609a9bbb58318445b2a598bad87d220bfc9ad",
-        "bytes": 2674,
+        "path": "/office-themes/orbital-shipyard/assurance.74120f2f47ba.svg",
+        "sha256": "74120f2f47ba4322bd0df44591f0b663c87f5f727499b5ad9b9f37c1eadf79c1",
+        "bytes": 2760,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls bay",
       "art": {
-        "path": "/office-themes/orbital-shipyard/project-controls.83a2625ab5c0.svg",
-        "sha256": "83a2625ab5c05f286c833cbfd98b8208f900f9ad25fe8725fafbacbbe61fac94",
-        "bytes": 2666,
+        "path": "/office-themes/orbital-shipyard/project-controls.34ac5063fb3c.svg",
+        "sha256": "34ac5063fb3c8b51a5a8ed377de4273969a52eae79b7b1c307f0007cd3bf24e3",
+        "bytes": 2752,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Briefing ring",
       "art": {
-        "path": "/office-themes/orbital-shipyard/review.83aae1f85be2.svg",
-        "sha256": "83aae1f85be28e7067bb06e1cc867d3deb5ff37d87856c19fecb0f9766cf1121",
-        "bytes": 2296,
+        "path": "/office-themes/orbital-shipyard/review.00d54ee08081.svg",
+        "sha256": "00d54ee080814f23d6bebe3604094f848cb939b28adef1766e453ab698b00424",
+        "bytes": 2382,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Navigation desk",
       "art": {
-        "path": "/office-themes/orbital-shipyard/interface.62c7a6eac755.svg",
-        "sha256": "62c7a6eac755090f318aade6768dba72ef5331ae8725b0f6103ec30821f031c9",
-        "bytes": 2305,
+        "path": "/office-themes/orbital-shipyard/interface.7eb6b2a8e69e.svg",
+        "sha256": "7eb6b2a8e69e5d226ff3d55ef613ef8de50d4a5b927d7428a4e2ba53ad0e12d7",
+        "bytes": 2391,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Systems inspection",
       "art": {
-        "path": "/office-themes/orbital-shipyard/verification.fc4a8afa689f.svg",
-        "sha256": "fc4a8afa689f69c57cd99389911f30ff1eff074dcd3b91c662ebcfcc8921385b",
-        "bytes": 2309,
+        "path": "/office-themes/orbital-shipyard/verification.7fbab5f36905.svg",
+        "sha256": "7fbab5f36905c5a3796c30029cc62aeacd9ee55cd44deda3f2a5c76fe7ec7e4d",
+        "bytes": 2395,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Command desk",
       "art": {
-        "path": "/office-themes/orbital-shipyard/your-office.32502d1354a3.svg",
-        "sha256": "32502d1354a3507df1212767da1abde7217a8a2f28949a5d7e4e41b45a8c022c",
-        "bytes": 2141,
+        "path": "/office-themes/orbital-shipyard/your-office.2c877b178a77.svg",
+        "sha256": "2c877b178a77b1186ef0617acb52320ba61aef16a650ecfef61bb86b96cc2f06",
+        "bytes": 2227,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Cargo archive",
       "art": {
-        "path": "/office-themes/orbital-shipyard/document-control.f9745113334a.svg",
-        "sha256": "f9745113334a24399cb4fd350855a1c846b88a82c4051a38f5f0dd8bc1a0ddb2",
-        "bytes": 2548,
+        "path": "/office-themes/orbital-shipyard/document-control.a9caad6dd45b.svg",
+        "sha256": "a9caad6dd45b660d8f01e386c7db9f5156ea6fad600d283aac05bc349280af5f",
+        "bytes": 2634,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Docking cradle",
       "art": {
-        "path": "/office-themes/orbital-shipyard/bench.c7fb2211e266.svg",
-        "sha256": "c7fb2211e26630e40d3a112579c309be7732e5a7d82a630b346aa6682ca4758d",
-        "bytes": 2309,
+        "path": "/office-themes/orbital-shipyard/bench.3736e9774639.svg",
+        "sha256": "3736e977463966450b45a8de8d7e65c54439b7b1d4cadb9ffd1e67a765566698",
+        "bytes": 2395,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Isolation airlock",
       "art": {
-        "path": "/office-themes/orbital-shipyard/quarantine.a38f3449e7d5.svg",
-        "sha256": "a38f3449e7d5a61e30adb67203a8b414f1c4a7c735f613a20d15fe1676794ff8",
-        "bytes": 4129,
+        "path": "/office-themes/orbital-shipyard/quarantine.28787c14bd19.svg",
+        "sha256": "28787c14bd196c5e4336a3af224d53b5bf802282973e735ed5c3666b8f3f648c",
+        "bytes": 4215,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/orbital-shipyard/body-0.268ec6ab3e78.svg",
-      "sha256": "268ec6ab3e78743ffe32b34f2b7452bf4105f4e38f8d81c9befa9ae2f5b7e501",
-      "bytes": 1269,
+      "path": "/office-themes/orbital-shipyard/body-0.c3b86b1a70a1.svg",
+      "sha256": "c3b86b1a70a11535fa9f4f7547cd4ee18636c38329d333b9b708589f3138490a",
+      "bytes": 937,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/orbital-shipyard/body-1.985862065ae4.svg",
-      "sha256": "985862065ae40951b44e9ab90f26128027bbe3528743a3dc9744dc3d3b5159c6",
-      "bytes": 1266,
+      "path": "/office-themes/orbital-shipyard/body-1.8cd9cc10845e.svg",
+      "sha256": "8cd9cc10845e422360ad8a643dc515e5e4f3aa4945be9cf5ce9d81171a3161de",
+      "bytes": 868,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/orbital-shipyard/body-2.9fcab05a676a.svg",
-      "sha256": "9fcab05a676a6649a9d9a8fe19ef89ec754f94741f32b6840f39cdbafa29fdc2",
-      "bytes": 1288,
+      "path": "/office-themes/orbital-shipyard/body-2.892f3d35e38b.svg",
+      "sha256": "892f3d35e38b033ba4b43ca5ec7a25fa559671c91534d5445f73681f84a28fe3",
+      "bytes": 964,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/orbital-shipyard/body-3.3771a9472c7b.svg",
-      "sha256": "3771a9472c7bd1d6cdaf699aa2693ab1b252a97e83b46ff9f31cba34b22a423f",
-      "bytes": 1257,
+      "path": "/office-themes/orbital-shipyard/body-3.68f741e61c4a.svg",
+      "sha256": "68f741e61c4a5489640aa79704eddcde4db7cab34eab4016e04a80cf94d1c109",
+      "bytes": 812,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/orbital-shipyard/body-4.89ceb8d5c90c.svg",
-      "sha256": "89ceb8d5c90ce36438a7613110fc4fd34e20a2fe32781e819a8da5fd45f1fb2d",
-      "bytes": 1236,
+      "path": "/office-themes/orbital-shipyard/body-4.544aa57211d2.svg",
+      "sha256": "544aa57211d26abda5bf84fb6b79f7fed9097bc46b1f2032d180bb7bad91dfe6",
+      "bytes": 796,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/orbital-shipyard/body-5.0f4efb1be5b3.svg",
-      "sha256": "0f4efb1be5b3d8678a823ad43913a94e3d619a2ae4b8a86cb9c40415900904fb",
-      "bytes": 1275,
+      "path": "/office-themes/orbital-shipyard/body-5.5fa55b2e10dd.svg",
+      "sha256": "5fa55b2e10ddc085c9c77ecb3cfd6044f876cdb184cfaee5f6549c355dc6c69f",
+      "bytes": 802,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

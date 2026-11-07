@@ -482,6 +482,43 @@
   border-radius: 50%;
   cursor: pointer;
 }
+.floor-gallery-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.floor-mood-tab {
+  background: #152535;
+  border: 1px solid #3c5264;
+  color: #c5d8e2;
+  font-size: var(--fs-small);
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+.floor-mood-tab:hover {
+  background: #1e3347;
+  border-color: #5c7890;
+  color: #ffffff;
+}
+.floor-mood-tab.is-selected {
+  background: #254258;
+  border-color: #92d4c0;
+  color: #ffffff;
+  box-shadow: 0 0 0 1px #92d4c0;
+}
+.floor-mood-count {
+  font-size: var(--fs-chip);
+  background: #0f1c29;
+  border-radius: 10px;
+  padding: 1px 6px;
+  color: #93b2c6;
+}
 .floor-gallery-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -521,6 +558,51 @@
   font: var(--fs-chip) monospace;
   padding: 5px 7px;
   border-radius: 5px;
+}
+.floor-theme-swatches {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: inline-flex;
+  gap: 4px;
+  background: #0d1b26d9;
+  padding: 4px 6px;
+  border-radius: 12px;
+  border: 1px solid #3d5466;
+}
+.floor-theme-swatches span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.floor-preview-stations {
+  margin: 8px 0;
+  font-size: var(--fs-label);
+  color: #a8c4d2;
+}
+.floor-preview-stations p {
+  margin: 4px 0 0;
+  line-height: 1.5;
+  color: #e0ecf2;
+}
+.floor-preview-heading {
+  font-size: var(--fs-chip);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #7d9cb0;
+}
+.floor-preview-sig {
+  font-size: var(--fs-label);
+  margin-bottom: 8px;
+}
+.floor-preview-sig code {
+  background: #0d1a24;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #8fe3b5;
+  font-family: var(--font-mono, monospace);
 }
 .floor-plain-thumb {
   font-size: 24px;
@@ -660,6 +742,12 @@
 }
 .signature-capsule .floor-signature {
   border-radius: 10px;
+}
+.signature-parcel .floor-signature {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1.5px var(--world-accent);
 }
 .signature-spark .floor-signature {
   clip-path: polygon(

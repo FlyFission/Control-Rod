@@ -11,17 +11,17 @@ export default {
   "availability": "development",
   "tokens": {
     "backdrop": "#101c27",
-    "surface": "#121e2a",
+    "surface": "#162534",
     "ink": "#ffffff",
     "mutedInk": "#d4e0eb",
-    "accent": "#735743",
+    "accent": "#CDB78F",
     "focus": "#ffffff"
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/midnight-bureau/scene.be65798340b2.svg",
-      "sha256": "be65798340b2c4e18d4d35db85d8ba48a9abbfcf4919e5aafb8fc3b1c10e9b33",
-      "bytes": 29198,
+      "path": "/floor-themes/midnight-bureau/scene.845643748a85.svg",
+      "sha256": "845643748a852dfd2f23c6d51b7eba9ba5be00aac1e7993b22c5128b6b19f22b",
+      "bytes": 11246,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/midnight-bureau/thumbnail.a442d3dae786.svg",
-      "sha256": "a442d3dae7869c9845b695a18b81451432a00096eb6c18daa478de76192042ee",
-      "bytes": 36404,
+      "path": "/floor-themes/midnight-bureau/thumbnail.2b6e4073ace0.svg",
+      "sha256": "2b6e4073ace064cbfaade3876a16316b1f84e33ce727b9eca3b3db07d0808591",
+      "bytes": 16866,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/midnight-bureau/character-0.4131c9c26de2.svg",
-        "sha256": "4131c9c26de2b3d915d9e73edca58d507161aba5dde91ff4941021712e0eb37f",
-        "bytes": 1179,
+        "path": "/floor-themes/midnight-bureau/character-0.3e3925c5751f.svg",
+        "sha256": "3e3925c5751f220461be388c6e4da1c4c73f629db3599dbaa0d0b4a3187d9b11",
+        "bytes": 891,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-1.25d78fb4b376.svg",
-        "sha256": "25d78fb4b3763d2b3a3d425a14c2ce80ccf73995d004bc49afe32d83d87ff3e7",
-        "bytes": 1172,
+        "path": "/floor-themes/midnight-bureau/character-1.88b4716d6ede.svg",
+        "sha256": "88b4716d6edeeeb5333b3a91571944e70617149e87c0a0f49eadc012b84fc835",
+        "bytes": 948,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-2.49efbdfe8b89.svg",
-        "sha256": "49efbdfe8b89754e472beaff54e4b16d0e3fc6d71d4fa94e65119560e87dd7c8",
-        "bytes": 1195,
+        "path": "/floor-themes/midnight-bureau/character-2.bcc5c10fcb93.svg",
+        "sha256": "bcc5c10fcb939d89e9b423f5ce9f8b2f1dcad73acd3eeb19357b1358f3cb9ee9",
+        "bytes": 943,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-3.c2f0eb8db5ab.svg",
-        "sha256": "c2f0eb8db5abf87ead0ea68812d4489a27ff300fdce1b4e885a2e2d4b25299f4",
-        "bytes": 1191,
+        "path": "/floor-themes/midnight-bureau/character-3.3dc1d4609be4.svg",
+        "sha256": "3dc1d4609be4533697b0602f488176a58881956026394641db62f8c25c5df89c",
+        "bytes": 896,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-4.6c4feb856ae0.svg",
-        "sha256": "6c4feb856ae0aa8efcd11998330c3dc11495671c0a3d3ba0de7fa43975770d84",
-        "bytes": 1173,
+        "path": "/floor-themes/midnight-bureau/character-4.28ea5cb9b459.svg",
+        "sha256": "28ea5cb9b4594b5e0e44aaf2e06a2dbb4e9d42ae7f21551bb8d49500ff6352fa",
+        "bytes": 928,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/midnight-bureau/character-5.2f20caa53c99.svg",
-        "sha256": "2f20caa53c995573ac06a3de5bb196e195d9ac33223cdeae6706dcb89e43a36a",
-        "bytes": 1192,
+        "path": "/floor-themes/midnight-bureau/character-5.7af73e69191c.svg",
+        "sha256": "7af73e69191c8f3853e569cd7b52ca763d49eb1804b843a91c527d0adf492eb2",
+        "bytes": 910,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

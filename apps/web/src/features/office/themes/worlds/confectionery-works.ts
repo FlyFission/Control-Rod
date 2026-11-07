@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process kitchen",
       "art": {
-        "path": "/office-themes/confectionery-works/process.37bc2417b04b.svg",
-        "sha256": "37bc2417b04bd09857387c515d3ab74270afd38498ee856f653ea2f2279514e2",
-        "bytes": 4299,
+        "path": "/office-themes/confectionery-works/process.cb3b8ad1e930.svg",
+        "sha256": "cb3b8ad1e9303fee1379baff8fb679aea69bb25432a54650e04d14e0eca02e88",
+        "bytes": 4385,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical kitchen",
       "art": {
-        "path": "/office-themes/confectionery-works/mechanical.833a8ddbd8a3.svg",
-        "sha256": "833a8ddbd8a317aad28a4b85866e0049ae9aa799e4f7adf62365061ee9441816",
-        "bytes": 4299,
+        "path": "/office-themes/confectionery-works/mechanical.0c6ef330c05b.svg",
+        "sha256": "0c6ef330c05be8efb966c5e99dda8769de0c17e151b1138dcd5b4ce5d6d62036",
+        "bytes": 4385,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical kitchen",
       "art": {
-        "path": "/office-themes/confectionery-works/electrical.54b2ac8b4f6a.svg",
-        "sha256": "54b2ac8b4f6a49dc3224b93cf6cc0601fc5790076eeb52a2aa17015a5956ab3e",
-        "bytes": 4299,
+        "path": "/office-themes/confectionery-works/electrical.79c23d5fb3df.svg",
+        "sha256": "79c23d5fb3dfee1f2c3e05da67561cf585d7736a6552de78742aeb8aa19bd9cf",
+        "bytes": 4385,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil kitchen",
       "art": {
-        "path": "/office-themes/confectionery-works/civil.65fc65a9056d.svg",
-        "sha256": "65fc65a9056dccccfeb489331eab8a1b4e12d2fd2caade54b10d32e0176e8171",
-        "bytes": 4299,
+        "path": "/office-themes/confectionery-works/civil.67563e77623e.svg",
+        "sha256": "67563e77623eb039d040a95272d855a16b33693f6f6e6817759885d756e0365d",
+        "bytes": 4385,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance kitchen",
       "art": {
-        "path": "/office-themes/confectionery-works/assurance.45e62183ed98.svg",
-        "sha256": "45e62183ed98170816433a08bded0754e85f5b1c612b264b3e078d19bf920dec",
-        "bytes": 4299,
+        "path": "/office-themes/confectionery-works/assurance.b88d1f502216.svg",
+        "sha256": "b88d1f50221635917be5d30990cc97ee90360c33552c664e83170e8bac696d49",
+        "bytes": 4385,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls kitchen",
       "art": {
-        "path": "/office-themes/confectionery-works/project-controls.bf09646bd183.svg",
-        "sha256": "bf09646bd1839d6f701c28f88035dd3e635b20a812394f3400a0c8288ebdd6f2",
-        "bytes": 4299,
+        "path": "/office-themes/confectionery-works/project-controls.edae21414ac2.svg",
+        "sha256": "edae21414ac2d71c9bfcf19d5ccc15dd2c282e44722ee6dd9f2f67f7b0f9c624",
+        "bytes": 4385,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Tasting table",
       "art": {
-        "path": "/office-themes/confectionery-works/review.3b64064cd7ef.svg",
-        "sha256": "3b64064cd7ef37c52f9e2cea149b04eee29f9fe0ef0a3568b5626cde2985a10d",
-        "bytes": 4686,
+        "path": "/office-themes/confectionery-works/review.f2edb3d2436a.svg",
+        "sha256": "f2edb3d2436a70fd927f3179d5ad6c66cb70c29c1c3247b9a3ac05312aa5c498",
+        "bytes": 4772,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Recipe desk",
       "art": {
-        "path": "/office-themes/confectionery-works/interface.b6948d02d854.svg",
-        "sha256": "b6948d02d8545e1312848880be6fc97d7704911860397b0c18ba06ace450fcf5",
-        "bytes": 4120,
+        "path": "/office-themes/confectionery-works/interface.486795f3af03.svg",
+        "sha256": "486795f3af039938b3fcf295fa30e5c180a455a1ac9a0d0ce068c9983b2cc514",
+        "bytes": 4206,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Inspection table",
       "art": {
-        "path": "/office-themes/confectionery-works/verification.247cebfd7560.svg",
-        "sha256": "247cebfd7560e2bc7b04dbd4410ab8d739b2bc022e75358d7918030da63c480c",
-        "bytes": 4694,
+        "path": "/office-themes/confectionery-works/verification.93a8a14161eb.svg",
+        "sha256": "93a8a14161eb4db409494267a3a982e7ce86c2a561fc34ba989a19351b1e7260",
+        "bytes": 4780,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Head confectioner desk",
       "art": {
-        "path": "/office-themes/confectionery-works/your-office.ccde317617d2.svg",
-        "sha256": "ccde317617d21ed14b0e19400fd8c0c5bc4f83987c184e0466ac9e4121d002ae",
-        "bytes": 5106,
+        "path": "/office-themes/confectionery-works/your-office.1dd7b10f3831.svg",
+        "sha256": "1dd7b10f3831f45f9fd7ba3ec20f8750f0c3584d43b267e61491089fe58c994b",
+        "bytes": 5192,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Wrapped goods",
       "art": {
-        "path": "/office-themes/confectionery-works/document-control.51b7f91a0602.svg",
-        "sha256": "51b7f91a0602a85e06e40842c429d167b37ce84d909f667bb429ad6251b4a201",
-        "bytes": 4934,
+        "path": "/office-themes/confectionery-works/document-control.571a8965930b.svg",
+        "sha256": "571a8965930b9642d94fb2866dac36ac20923e618f7515b28e3de298bd3720cf",
+        "bytes": 5020,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Cooling rack",
       "art": {
-        "path": "/office-themes/confectionery-works/bench.447eae63c7cd.svg",
-        "sha256": "447eae63c7cddb584f6fa986ebf8f426de3607eaf77b15251e4064dfef6b2294",
-        "bytes": 4122,
+        "path": "/office-themes/confectionery-works/bench.54e6b1570001.svg",
+        "sha256": "54e6b157000173f13c9559e49583ba0f8d6318fc4999a7a2345ac30d0eac8b07",
+        "bytes": 4208,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Cold store",
       "art": {
-        "path": "/office-themes/confectionery-works/quarantine.94adc1211f4c.svg",
-        "sha256": "94adc1211f4c3092a790d21ca5069cdc564243fe75e7a03b3a3ffd1b09244e3d",
-        "bytes": 5944,
+        "path": "/office-themes/confectionery-works/quarantine.74b454667823.svg",
+        "sha256": "74b4546678237c59c73c84da08449562ae37bf1f198e12de851afeb216899d53",
+        "bytes": 6030,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/confectionery-works/body-0.83376f61cc6f.svg",
-      "sha256": "83376f61cc6f195f308d5279c68804d961f408fe667b9047de01580f5e1500f4",
-      "bytes": 1332,
+      "path": "/office-themes/confectionery-works/body-0.281414132003.svg",
+      "sha256": "28141413200377dd4a849f322ff07ec77d56ba34fc4f8e6843ec6ab67adc1d06",
+      "bytes": 1014,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/confectionery-works/body-1.14f33f338a27.svg",
-      "sha256": "14f33f338a272788566d21d5dbbce93d98dacc89c61917adcc9a0978902f97e8",
-      "bytes": 1317,
+      "path": "/office-themes/confectionery-works/body-1.70d463312faf.svg",
+      "sha256": "70d463312fafdd0c517888da5e1453a5579845956f2d678c2ca7e53eec2412ea",
+      "bytes": 853,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/confectionery-works/body-2.018addc35fcc.svg",
-      "sha256": "018addc35fccd8bca7b143eb33b6aa665430fd8a10b5b1c0c33f013ef9ed0f65",
-      "bytes": 1320,
+      "path": "/office-themes/confectionery-works/body-2.5555de5043d8.svg",
+      "sha256": "5555de5043d800cac69a20532de3b206534d4b1be8d45bd0ccdcc255516d0f2b",
+      "bytes": 777,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/confectionery-works/body-3.1a84975639d4.svg",
-      "sha256": "1a84975639d4aef90dd6157a1efe786e3b40cfdaf735af15e1090354ceb658e4",
-      "bytes": 1417,
+      "path": "/office-themes/confectionery-works/body-3.2ea1251d45bc.svg",
+      "sha256": "2ea1251d45bc155af7207f3bdcb469ca9f6d2bae1099d7eac0eff131b35f0702",
+      "bytes": 925,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/confectionery-works/body-4.1d575e795a36.svg",
-      "sha256": "1d575e795a36eb3d49b4f2da451863ec3beb9a8f454e6b52c8be1fd1ddf9cf9a",
-      "bytes": 1419,
+      "path": "/office-themes/confectionery-works/body-4.dd45044d7dd4.svg",
+      "sha256": "dd45044d7dd40c0af3f230dfbce02acb41008b401e0b1a6489e05e0148927cf1",
+      "bytes": 897,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/confectionery-works/body-5.b6e2b201a560.svg",
-      "sha256": "b6e2b201a56026be3ac3efb42c726efc946f1e2938718d351eba3a32fb2b1eea",
-      "bytes": 1375,
+      "path": "/office-themes/confectionery-works/body-5.d08f0c5d0457.svg",
+      "sha256": "d08f0c5d045766fca697a511df46aabce38e4f1426ec119940796193a6768107",
+      "bytes": 919,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

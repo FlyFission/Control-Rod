@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process corner",
       "art": {
-        "path": "/office-themes/corner-cafe/process.6f064df31b0e.svg",
-        "sha256": "6f064df31b0e822eaff62619a2a18a8acce174f7c5310eaa2dc195e28a9b4ed3",
-        "bytes": 3559,
+        "path": "/office-themes/corner-cafe/process.aeab0edb025b.svg",
+        "sha256": "aeab0edb025bd57e25938ab4307dec24e4d6816a901da96752987802ef184e5d",
+        "bytes": 3645,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical corner",
       "art": {
-        "path": "/office-themes/corner-cafe/mechanical.2d355bb535a5.svg",
-        "sha256": "2d355bb535a5fddf1c380c6857dd86738d3abb835cd0e2fb8ad82fc8e911e0a8",
-        "bytes": 3559,
+        "path": "/office-themes/corner-cafe/mechanical.4a8eb0349bf8.svg",
+        "sha256": "4a8eb0349bf87a6843a0214d13fafa9e4d13e6d574ce091d5abfc0b88799f9aa",
+        "bytes": 3645,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical corner",
       "art": {
-        "path": "/office-themes/corner-cafe/electrical.1194a04896a7.svg",
-        "sha256": "1194a04896a71a46b6dce5117ea12781a4068a663ba398e16cb96c65a55b8cbe",
-        "bytes": 3559,
+        "path": "/office-themes/corner-cafe/electrical.d14152539f56.svg",
+        "sha256": "d14152539f56cef2c725356b8b0ee7f6e4346a395ad190d53e6ddbd68a3c170f",
+        "bytes": 3645,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil corner",
       "art": {
-        "path": "/office-themes/corner-cafe/civil.a668e016ab94.svg",
-        "sha256": "a668e016ab9467765c9eda186ea0c11a187e16c8758fb2469382645965832893",
-        "bytes": 3559,
+        "path": "/office-themes/corner-cafe/civil.1a5837b1d578.svg",
+        "sha256": "1a5837b1d578974f0b9701fb5edcac40881d2f0830d69f45247b04c2f51498cc",
+        "bytes": 3645,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance corner",
       "art": {
-        "path": "/office-themes/corner-cafe/assurance.21ca44bbfcb0.svg",
-        "sha256": "21ca44bbfcb0e1fd60f02fd1735112be283ae240046c51713bc8126bdde4d52a",
-        "bytes": 3559,
+        "path": "/office-themes/corner-cafe/assurance.985f37495037.svg",
+        "sha256": "985f3749503759e824d6cf4f5ee9d751d57093f15dbc6b66ff4ae4a7783b2688",
+        "bytes": 3645,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls corner",
       "art": {
-        "path": "/office-themes/corner-cafe/project-controls.975cef67de39.svg",
-        "sha256": "975cef67de396fbe4fc90495470c77c4e477561c19c7c4954297f32dd6cf9f70",
-        "bytes": 3559,
+        "path": "/office-themes/corner-cafe/project-controls.d7bd6f0be18e.svg",
+        "sha256": "d7bd6f0be18e8a8fc00a79755fe2e8db3b0a65260bac32e91003f90901d6c61d",
+        "bytes": 3645,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Big table",
       "art": {
-        "path": "/office-themes/corner-cafe/review.b0bc8d6421c8.svg",
-        "sha256": "b0bc8d6421c832eb2aeedb4cfb4312b39f7a9adb35f5c3011a52547b74843241",
-        "bytes": 3776,
+        "path": "/office-themes/corner-cafe/review.029c3d467052.svg",
+        "sha256": "029c3d4670522ef1fc88ad7cca6cf51f3e6fe35c2117547d82bafb545f84a424",
+        "bytes": 3862,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Window desk",
       "art": {
-        "path": "/office-themes/corner-cafe/interface.da7ff938a9ed.svg",
-        "sha256": "da7ff938a9ed5ec8fb87ecb8611eb0d2b0c62e564b61d552dac213d4dabae0dc",
-        "bytes": 3784,
+        "path": "/office-themes/corner-cafe/interface.4b37837298ca.svg",
+        "sha256": "4b37837298ca13a289698096b625298cbadd8a81563813a83e63d473cc722cbe",
+        "bytes": 3870,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Reading table",
       "art": {
-        "path": "/office-themes/corner-cafe/verification.bfa7ec0f193c.svg",
-        "sha256": "bfa7ec0f193c6179546e3b74ed4d03918577917f8492ba9631fe96bbf96ca6fc",
-        "bytes": 3784,
+        "path": "/office-themes/corner-cafe/verification.8fca599b69cb.svg",
+        "sha256": "8fca599b69cb775219cfe2b77a17edee28dff78c880e756fe7663d7f4fd97bfd",
+        "bytes": 3870,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Host's desk",
       "art": {
-        "path": "/office-themes/corner-cafe/your-office.7aeb422ebdf5.svg",
-        "sha256": "7aeb422ebdf50898ddb4961809f8065cea2663a96c1a2984981732a5274854e5",
-        "bytes": 4433,
+        "path": "/office-themes/corner-cafe/your-office.7f320b248554.svg",
+        "sha256": "7f320b24855448d56cf65ed72eca882237f75e2548645f8ca380dd43f6e642ab",
+        "bytes": 4519,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Bookshelf",
       "art": {
-        "path": "/office-themes/corner-cafe/document-control.44131ae33366.svg",
-        "sha256": "44131ae33366f0b4543a4bfc3631307f9987977212aa027949a774869e12773e",
-        "bytes": 4024,
+        "path": "/office-themes/corner-cafe/document-control.1942e3d38672.svg",
+        "sha256": "1942e3d386729e5cc42713833fb7bc175c71f591e09711b3f30c2f2102eec5ad",
+        "bytes": 4110,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Lounge nook",
       "art": {
-        "path": "/office-themes/corner-cafe/bench.e0fc261fb367.svg",
-        "sha256": "e0fc261fb367f80a717f1ddb0234c6fb85c58202a6e4576f6deb1f73150fd11d",
-        "bytes": 3786,
+        "path": "/office-themes/corner-cafe/bench.93e6e44279ff.svg",
+        "sha256": "93e6e44279ffac6d86ed60126a3256a62544f86314dd7862f74dc8f5373ee5cc",
+        "bytes": 3872,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Back room",
       "art": {
-        "path": "/office-themes/corner-cafe/quarantine.2e894e5d853d.svg",
-        "sha256": "2e894e5d853d5f615bfd5407bb77567da5ff52c200f6c678f7715ae4909842c0",
-        "bytes": 5239,
+        "path": "/office-themes/corner-cafe/quarantine.13e56a55913e.svg",
+        "sha256": "13e56a55913e4c269fda0f3c4a776b902b752501ad9fd99e71c37ec440016dc0",
+        "bytes": 5325,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/corner-cafe/body-0.178314f5fc32.svg",
-      "sha256": "178314f5fc32e009288c2d9984440f3dc947eb27d5ed9a28016b2bd01d7540c2",
-      "bytes": 1216,
+      "path": "/office-themes/corner-cafe/body-0.f5ac56613442.svg",
+      "sha256": "f5ac56613442bce65799a1d4f01f9568ce43a7a051ea787a37a4367ed300fdc7",
+      "bytes": 953,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/corner-cafe/body-1.bd607a9dccf4.svg",
-      "sha256": "bd607a9dccf40dd54644e75d31c7c8f1acedef15d5e2ba3968810f78acac1c66",
-      "bytes": 1036,
+      "path": "/office-themes/corner-cafe/body-1.82b32a90cda2.svg",
+      "sha256": "82b32a90cda25e9b4dc4ce27fd8ac3635080ad424bc341f1b1e550000ecc1a29",
+      "bytes": 1059,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/corner-cafe/body-2.deba7d7f9ecc.svg",
-      "sha256": "deba7d7f9ecc663c6d3b2f0ba7775368b461b60ff876000d16e0478cedf08578",
-      "bytes": 1223,
+      "path": "/office-themes/corner-cafe/body-2.0f364d70de0d.svg",
+      "sha256": "0f364d70de0df6e69027289508102d94ccccfd1f128a6099099a421f621b325d",
+      "bytes": 980,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/corner-cafe/body-3.544fb0dd1fb3.svg",
-      "sha256": "544fb0dd1fb35eb8fa2cca733e869d4d4674eb3aa718779318b0da54c27ede87",
-      "bytes": 1083,
+      "path": "/office-themes/corner-cafe/body-3.cd89b3574fff.svg",
+      "sha256": "cd89b3574fff65f936c542b3464148e1597ef6d0defc38becd1646dde1d70f3d",
+      "bytes": 914,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/corner-cafe/body-4.863c59cdafd6.svg",
-      "sha256": "863c59cdafd6a83fb6b73eaedda49c02d8f25ece7aeb80fa3a898688aa4b991d",
-      "bytes": 1173,
+      "path": "/office-themes/corner-cafe/body-4.7574642c8b21.svg",
+      "sha256": "7574642c8b212260bcff83e29af9fd06df3b0f4095bd4fe981b697fcac6a1a7a",
+      "bytes": 909,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/corner-cafe/body-5.bbf5f8b6fb4c.svg",
-      "sha256": "bbf5f8b6fb4c7ca5bcbc0def037b81207bc10b17afed550559f77c701f71f844",
-      "bytes": 1069,
+      "path": "/office-themes/corner-cafe/body-5.3102773b02fa.svg",
+      "sha256": "3102773b02fab2bd3bc7ba47a79ef4236834d8906cf65ed6d273ec10a36ec31e",
+      "bytes": 950,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

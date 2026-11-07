@@ -5,7 +5,10 @@ import {
   RELEASE_RECORDS,
 } from "./themes/registry.js";
 
-const MOODS = ["All", "Whimsical", "Cinematic", "Adventure", "Calm"] as const;
+const MOODS = [
+  "All",
+  ...Array.from(new Set(THEME_CATALOG.flatMap((e) => e.moodTags))).sort(),
+] as const;
 
 export function ThemeGallery({
   activeId,
@@ -92,13 +95,13 @@ export function ThemeGallery({
           </button>
         </div>
 
-        <div className="floor-gallery-filters" role="tablist" aria-label="Filter by mood">
+        <div className="floor-gallery-filters" role="group" aria-label="Filter by mood">
           {MOODS.map((m) => (
             <button
               key={m}
               type="button"
-              role="tab"
-              aria-selected={mood === m}
+              aria-pressed={mood === m}
+              aria-controls="theme-gallery-grid"
               className={`floor-mood-tab ${mood === m ? "is-selected" : ""}`}
               onClick={() => setMood(m)}
             >
@@ -123,7 +126,7 @@ export function ThemeGallery({
             {error}
           </p>
         )}
-        <div className="floor-gallery-grid">
+        <div id="theme-gallery-grid" className="floor-gallery-grid">
           {entries.map((e, i) => (
             <article
               key={e.id}

@@ -45,6 +45,7 @@ function api(s: Setup) {
     http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })),
     http.get("*/packages", () => HttpResponse.json(s.packages)),
     http.get("*/office", () => HttpResponse.json([])),
+    http.get("*/captures", () => HttpResponse.json([])),
     http.get("*/admin", () => HttpResponse.json({ members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }], registry: { qualifications: [] } })),
     http.get("*/packages/:id/actions", ({ params }) => HttpResponse.json(s.actions?.[String(params["id"])] ?? [])),
     http.get("*/packages/:id/person-verifications", () => HttpResponse.json([])),
@@ -362,7 +363,8 @@ describe("BoardView", () => {
     api({ packages: [] });
     await renderPage(<Page />);
     expect(await screen.findByText(/Add your first card/)).toBeTruthy();
-    expect(screen.getByText(/When its intake drafts a package, the package appears here in Ready\./)).toBeTruthy();
+    expect(screen.getByText(/an intake agent drafts a package/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "+ Add a card" })).toBeTruthy();
   });
 
   it("counts what needs you and the agents running", async () => {

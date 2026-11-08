@@ -46,9 +46,13 @@ checks the static rules and that this catalog matches the commands executed.
 | `admin.policy-propose` | member | none | Change policy set (proposal) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.policy-approve` | member | direct | Change policy set | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.runtime-pin` | member | direct | Pin runtime | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.scram-pull` | member | direct | SCRAM | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.scram-review` | member | direct | SCRAM (quarantine review) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.scram-restart` | member | direct | SCRAM (staged restart) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.runtime-rollback` | member | direct | Pin runtime (rollback) | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.budget-set` | member | direct | Set budget | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.theme-select` | member | none | Select office theme | `admin.ts` runAdmin | `POST /admin/commands/:name` |
+| `admin.chain-seal` | member | direct | Seal chain | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `grant.issue` | system | none | Grant issue | `preparation/grants.ts` issuePreparationGrant | no production caller yet (declared seam) |
 | `grant.begin-use` | agent-via-daemon | none | Grant begin use | `preparation/grants.ts` beginGrantUse | `POST /runner/preparation-grants/:id/begin` |
 | `grant.finish-use` | agent-via-daemon | none | Grant finalize use | `preparation/grants.ts` finishGrantUse | `POST /runner/preparation-grants/:id/finalize` |

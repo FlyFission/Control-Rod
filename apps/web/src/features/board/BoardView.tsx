@@ -2,6 +2,8 @@ import { useNavigate } from "@tanstack/react-router";
 import { COLUMNS } from "../../lib/board.js";
 import { useLook } from "../../lib/kind.js";
 import { Card, sinceText } from "./Card.js";
+import { CaptureCard } from "./CaptureCard.js";
+import { QuickAdd } from "./QuickAdd.js";
 import { useBoardData } from "./useBoardData.js";
 import "./board.css";
 
@@ -12,7 +14,7 @@ export function BoardView() {
   const look = useLook();
   const unknown = data.status === "unknown";
   // An empty board is only claimed from a successful, empty read.
-  const empty = !data.loading && data.problems.length === 0 && data.cards.length === 0;
+  const empty = !data.loading && data.problems.length === 0 && data.cards.length === 0 && data.captures.length === 0;
   // Counts are facts only after a successful read; after a failed refresh, a drop not yet recovered
   // from, or while the stream is unknown they are what was last read, and before any read they are
   // not shown. Each count also needs every read it is made from (Codex round 3).
@@ -53,7 +55,8 @@ export function BoardView() {
       {data.loading && <p className="muted">Loading</p>}
       {empty && (
         <p className="bd-empty">
-          Add your first card. Capture a request on the Packages page. When its intake drafts a package, the package appears here in Ready.
+          Add your first card with the field at the top of Ready, or press C. Classify its data lane, and an intake agent drafts a package
+          with a definition of done for you to read, edit and release.
         </p>
       )}
       <div className="bd-board">
@@ -73,6 +76,8 @@ export function BoardView() {
                   </span>
                 )}
               </div>
+              {c.id === "ready" && <QuickAdd />}
+              {c.id === "ready" && data.captures.map((cap) => <CaptureCard key={cap.id} capture={cap} />)}
               {here.map((x) => (
                 <Card
                   key={x.pkg.id}

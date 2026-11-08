@@ -58,6 +58,12 @@ async function mockBoardApi(page: Page, look: string) {
   });
   await page.route("**/packages/*/actions", (r) => r.fulfill({ json: [{ command: "accept", label: "Accept", allowed: true, signature: "direct" }] }));
   await page.route("**/packages/*/person-verifications", (r) => r.fulfill({ json: [] }));
+  // One unclassified capture at the top of Ready (slice M4): its lane choices are inline.
+  await page.route("**/captures", (r) =>
+    r.request().method() === "GET"
+      ? r.fulfill({ json: [{ schema_version: "0.1.0", id: "C-1", text: "Fix the login redirect", source: "web", created_at: "2026-11-08T10:00:00Z" }] })
+      : r.fulfill({ status: 201, json: { schema_version: "0.1.0", id: "C-2", text: "x", source: "web", created_at: "2026-11-08T10:01:00Z" } }),
+  );
 }
 
 const scan = async (page: Page) => {
@@ -79,6 +85,10 @@ for (const look of ["a", "b", "c"]) {
     await expect(page.getByText("Needs you: Accept").first()).toBeVisible();
     // The Safety card's only qualified verifier would be its originator: the O6 line is blocked.
     await expect(page.getByText("Blocked: Needs a second qualified person. Originators cannot verify their own work: ben")).toBeVisible();
+    // The capture card asks for its lane; the quick add field is open while the scan runs (slice M4).
+    await expect(page.getByText("Needs you: Classify the data lane")).toBeVisible();
+    await page.getByRole("button", { name: "+ Add a card" }).click();
+    await expect(page.getByLabel("Card title")).toBeFocused();
     expect(await scan(page)).toEqual([]);
 
     await page.evaluate(() => (window as unknown as { __stream: { emit(t: string): void } }).__stream.emit("error"));

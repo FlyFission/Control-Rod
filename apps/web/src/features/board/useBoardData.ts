@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "../../api/client.js";
-import type { ActionDescriptor, PersonVerificationEntry, WorkPackage } from "../../api/types.js";
+import type { ActionDescriptor, CaptureView, PersonVerificationEntry, WorkPackage } from "../../api/types.js";
 import { type ColumnId, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, preCheckState, verificationRead } from "../../lib/board.js";
 import { type Kind, kindsOf } from "../../lib/kind.js";
 import { useLiveStatus } from "../../lib/live.js";
@@ -27,6 +27,8 @@ export type Confidence = "current" | "last-known" | "unknown";
 
 export type BoardData = {
   cards: BoardCard[];
+  /** Captures not yet drafted into a package, newest first; they sit at the top of Ready (spec 6.2). */
+  captures: CaptureView[];
   loading: boolean;
   /** The reads the whole board rests on that failed, in plain words; empty when none did. */
   problems: string[];
@@ -70,6 +72,7 @@ export function useBoardData(): BoardData {
   const packages = useQuery({ queryKey: ["packages"], queryFn: api.packages });
   const office = useQuery({ queryKey: ["office"], queryFn: api.office });
   const admin = useQuery({ queryKey: ["admin"], queryFn: api.admin });
+  const capturesQ = useQuery({ queryKey: ["captures"], queryFn: api.captures });
 
   const visible = (packages.data ?? []).filter((p) => p.status !== "closed");
   const views = useQueries({ queries: visible.map((p) => ({ queryKey: ["package", p.id], queryFn: () => api.packageView(p.id) })) });
@@ -194,14 +197,17 @@ export function useBoardData(): BoardData {
   const problems: string[] = [];
   if (packages.isError) problems.push("Could not load the work on this board.");
   if (office.isError) problems.push("Could not read the agent pre-check results, so cards may sit in Agent check.");
+  if (capturesQ.isError) problems.push("Could not read the captures, so new cards may be missing from Ready.");
 
   return {
     cards,
+    captures: pendingCaptures(capturesQ.data ?? []),
     loading: packages.isPending,
     problems,
     retry: () => {
       if (packages.isError) void packages.refetch();
       if (office.isError) void office.refetch();
+      if (capturesQ.isError) void capturesQ.refetch();
     },
     status: live.status,
     ...(live.unknownSince ? { unknownSince: live.unknownSince } : {}),
@@ -212,4 +218,14 @@ export function useBoardData(): BoardData {
     needsYou: cards.filter((c) => c.next.tone === "needs" || c.next.tone === "block").length,
     agentsRunning: cards.filter((c) => c.runActive).length,
   };
+}
+
+/**
+ * The captures that still belong on the board: not answered, and not yet drafted into any package
+ * (a capture that lists package ids is shown as those packages' cards instead). Newest first.
+ */
+export function pendingCaptures(all: CaptureView[]): CaptureView[] {
+  return all
+    .filter((c) => c.disposition !== "answered" && (c.package_ids ?? (c.package_id ? [c.package_id] : [])).length === 0)
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
 }

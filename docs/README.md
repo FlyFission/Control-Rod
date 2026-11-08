@@ -35,6 +35,8 @@ Design specifications and implementation plans live in [`superpowers/specs/`](su
 - [Workbench ontology specification](superpowers/specs/2026-10-29-workbench-ontology-design.md), which maps each of its sections to the Platform Plan in its [alignment table](superpowers/specs/2026-10-29-workbench-ontology-design.md#2-platform-plan-alignment)
 - [Guided preparation](superpowers/specs/2026-10-22-guided-preparation-design.md)
 - [Multi-provider agents design plan](plan/multi-provider-design-plan.md) and the [handoff](plan/HANDOFF.md) for the work that follows it
+- [Board redesign](superpowers/specs/2026-11-06-board-redesign-design.md), implemented slice by slice from its [plan](superpowers/plans/2026-11-06-board-redesign.md)
+- [Program gap analysis](superpowers/specs/2026-11-08-program-gap-analysis.md): SWOT and ranked end-user and program gaps against the agent-board field, with the roadmap after the board slices
 
 ### Overlay themes
 

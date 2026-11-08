@@ -5,6 +5,8 @@ import { useLook } from "../../lib/kind.js";
 import { MODE_COPY, useMode } from "../../lib/mode.js";
 import { BoardReviewDrawer } from "./BoardReviewDrawer.js";
 import { Card, sinceText } from "./Card.js";
+import { CaptureCard } from "./CaptureCard.js";
+import { QuickAdd } from "./QuickAdd.js";
 import { useBoardData } from "./useBoardData.js";
 import "./board.css";
 
@@ -23,7 +25,7 @@ export function BoardView() {
 
   const unknown = data.status === "unknown";
   // An empty board is only claimed from a successful, empty read.
-  const empty = !data.loading && data.problems.length === 0 && data.cards.length === 0;
+  const empty = !data.loading && data.problems.length === 0 && data.cards.length === 0 && data.captures.length === 0;
   // Counts are facts only after a successful read; after a failed refresh, a drop not yet recovered
   // from, or while the stream is unknown they are what was last read, and before any read they are
   // not shown. Each count also needs every read it is made from (Codex round 3).
@@ -185,6 +187,8 @@ export function BoardView() {
                     </span>
                   )}
                 </div>
+                {c.id === "ready" && <QuickAdd />}
+                {c.id === "ready" && data.captures.map((cap) => <CaptureCard key={cap.id} capture={cap} />)}
                 {here.map((x) => (
                   <Card
                     key={x.pkg.id}

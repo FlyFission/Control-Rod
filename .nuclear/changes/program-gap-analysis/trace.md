@@ -8,6 +8,7 @@
 | A-4 | Features the field has that Control Rod should keep refusing are listed with reasons. | Section 7 | done |
 | A-5 | The roadmap respects the slice rule and names the owner decisions it needs. | Section 8 | done |
 | A-6 | The command inventory is regenerated and `--check` is clean; the status page no longer lists it as behind. | E-02 | done |
+| A-8 | The adoption analysis covers spreading, install-then-idle, first-week churn, uninstall and daily use, each row tied to the repository or to a cited field failure, with a countermeasure and whether it needs an owner decision. | E-04 | done |
 | A-7 | The owner has read the analysis and answered or deferred its decisions. | E-03 | open |
 
 ## Required links
@@ -16,7 +17,7 @@
 
 ## Exit criteria
 
-The analysis document is complete, the sources it rests on are cited with their dates, the owner has read it and answered or deferred its four requested decisions. No product code is part of this change beyond the command inventory regeneration and the status page; no claim is made about any competitor beyond what its public README or the cited research said on the date given.
+The analysis documents are complete, the sources it rests on are cited with their dates, the owner has read it and answered or deferred its four requested decisions. No product code is part of this change beyond the command inventory regeneration and the status page; no claim is made about any competitor beyond what its public README or the cited research said on the date given.
 
 ## Source-lineage note
 

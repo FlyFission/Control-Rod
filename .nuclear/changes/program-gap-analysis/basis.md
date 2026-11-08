@@ -4,7 +4,7 @@
 **Related risk record:** `risk.md`
 **Owner:** Ben Huffer
 **Date:** 2026-11-08
-**Decision this basis supports:** whether `docs/superpowers/specs/2026-11-08-program-gap-analysis.md` is accepted as the ranked list of end-user and program gaps that orders work after the board redesign slices, and whether its four requested owner decisions are taken.
+**Decision this basis supports:** whether `docs/superpowers/specs/2026-11-08-program-gap-analysis.md` and its companion `2026-11-08-adoption-and-retention-analysis.md` are accepted as the ranked list of end-user and program gaps that orders work after the board redesign slices, and whether its four requested owner decisions are taken.
 
 ## Mission / need
 
@@ -38,7 +38,7 @@ The owner decisions O1 to O8 and the parked list of the board redesign record; A
 
 ## Exit criteria
 
-The analysis document is complete, the sources it rests on are cited with their dates, the owner has read it and answered or deferred its four requested decisions. No product code is part of this change beyond the command inventory regeneration and the status page; no claim is made about any competitor beyond what its public README or the cited research said on the date given.
+The analysis documents are complete, the sources it rests on are cited with their dates, the owner has read it and answered or deferred its four requested decisions. No product code is part of this change beyond the command inventory regeneration and the status page; no claim is made about any competitor beyond what its public README or the cited research said on the date given.
 
 ## Source-lineage note
 

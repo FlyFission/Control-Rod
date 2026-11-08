@@ -4,6 +4,7 @@
 - **Owner:** Ben Huffer
 - **Status:** Draft for owner review
 - **Change record:** `.nuclear/changes/program-gap-analysis/`
+- **Companion:** [Adoption and retention analysis](2026-11-08-adoption-and-retention-analysis.md), the same evidence read from the end user's chair across the funnel.
 - **Question answered:** where Control Rod falls short of the tools people use today to run AI agents from a board, for the end user and for the program that builds it, and what to do about it in what order.
 
 ## 1. Method and limits

@@ -181,3 +181,54 @@
 .bd-card[data-tone="block"] .bd-word {
   color: var(--stuck);
 }
+
+/* Quick add and capture cards at the top of Ready (spec 6.3). */
+.bd-add {
+  align-self: flex-start;
+}
+.bd-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px dashed var(--line-2);
+  border-radius: 10px;
+}
+.bd-add-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: var(--fs-small);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+}
+.bd-add-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.bd-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.bd-capture {
+  border-left-color: var(--line-2);
+}
+.bd-capture-title {
+  margin: 0;
+  cursor: default;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bd-capture-classify {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-label);
+}

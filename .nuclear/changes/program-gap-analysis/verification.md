@@ -6,6 +6,7 @@ Evidence status: **pass** for the document's sourcing and the inventory regenera
 |---|---|---|---|
 | E-01 | pass | The analysis cites the repository at `2d1886d`, the board redesign research files, and READMEs read on 2026-11-08 for each competitor claim. Competitor claims are vendor statements, untested. | `docs/superpowers/specs/2026-11-08-program-gap-analysis.md` sections 1, 2, 4, 9 |
 | E-02 | pass | `python3 -I tools/generate_command_inventory.py` rewrote `docs/commands/inventory.md` with four commands that were missing (`admin.scram-pull`, `admin.scram-review`, `admin.scram-restart`, `admin.chain-seal`); `--check` then exits 0. Local machine only. | `evidence/inventory-check.log` |
+| E-04 | pass | The adoption and retention analysis ties each row to a file, route or research item, labels inferences, and lists the owner decisions it needs. Personas are inferred; no user was interviewed. | `docs/superpowers/specs/2026-11-08-adoption-and-retention-analysis.md` |
 | E-03 | open | The owner reads the analysis and answers or defers the four requested decisions. | Not executed |
 
 ## Evidence custody and coupling
@@ -14,12 +15,14 @@ Evidence status: **pass** for the document's sourcing and the inventory regenera
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | E-01 | A-1, A-2, A-3, A-4, A-5 | yes | the analysis document | Authoring agent | Repository reads and web reads | Authoring agent | Authoring agent | Authoring agent | Packet and export | Authoring agent | Self-check |
 | E-02 | A-6 | yes | evidence/inventory-check.log | Authoring agent | tools/generate_command_inventory.py | Authoring agent | Authoring agent | Local toolchain | Packet and export | Authoring agent | Self-check |
+| E-04 | A-8 | yes | the adoption analysis document | Authoring agent | Repository reads and research files | Authoring agent | Authoring agent | Authoring agent | Packet and export | Authoring agent | Self-check |
 | E-03 | A-7 | yes | Owner decision | Authoring agent | Not executed | Owner | Not executed | Not executed | Packet and export | Authoring agent | Not supplied |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: authoring agent | coupled: one session | partially separated: public documents and repository facts | separated: owner retains the decision | coupled: local machine | self-check | Competitor claims untested; ranking is judgment  [Ship limits](ship.md) |
 | E-02 | coupled: authoring agent | coupled: one session | separated: deterministic generator and check | separated: owner retains the decision | coupled: local machine | self-check | Generator reads the code it describes  [Ship limits](ship.md) |
+| E-04 | coupled: authoring agent | coupled: one session | partially separated: repository facts and cited research | separated: owner retains the decision | coupled: local machine | self-check | Personas and reactions are inferences until the owner validation runs  [Ship limits](ship.md) |
 | E-03 | separated: owner | separated: owner's own reading | partially separated: not executed | separated: owner decides | coupled: local machine | self-check | Hold any reordering of work until the owner answers  [Ship limits](ship.md) |
 
 No human independent review has been done yet.
@@ -30,7 +33,7 @@ No human independent review has been done yet.
 
 ## Exit criteria
 
-The analysis document is complete, the sources it rests on are cited with their dates, the owner has read it and answered or deferred its four requested decisions. No product code is part of this change beyond the command inventory regeneration and the status page; no claim is made about any competitor beyond what its public README or the cited research said on the date given.
+The analysis documents are complete, the sources it rests on are cited with their dates, the owner has read it and answered or deferred its four requested decisions. No product code is part of this change beyond the command inventory regeneration and the status page; no claim is made about any competitor beyond what its public README or the cited research said on the date given.
 
 ## Source-lineage note
 

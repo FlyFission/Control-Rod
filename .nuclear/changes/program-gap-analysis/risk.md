@@ -3,7 +3,7 @@
 - **Mode:** Standard
 - Execution owner: Claude Code under the owner's 2026-11-08 instruction to find the gaps in the repository and the program for the end user, with a SWOT and a gap analysis against the agent-board field.
 - Decision owner: Ben Huffer. No protected surface is touched: no kernel decision function, policy, red-team fixture, workflow or spec major version.
-- Scope: `docs/superpowers/specs/2026-11-08-program-gap-analysis.md`, the regenerated `docs/commands/inventory.md`, `docs/status.md`, `docs/README.md`, and this packet.
+- Scope: `docs/superpowers/specs/2026-11-08-program-gap-analysis.md`, `docs/superpowers/specs/2026-11-08-adoption-and-retention-analysis.md`, the regenerated `docs/commands/inventory.md`, `docs/status.md`, `docs/README.md`, and this packet.
 
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|
@@ -23,7 +23,7 @@
 
 ## Exit criteria
 
-The analysis document is complete, the sources it rests on are cited with their dates, the owner has read it and answered or deferred its four requested decisions. No product code is part of this change beyond the command inventory regeneration and the status page; no claim is made about any competitor beyond what its public README or the cited research said on the date given.
+The analysis documents are complete, the sources it rests on are cited with their dates, the owner has read it and answered or deferred its four requested decisions. No product code is part of this change beyond the command inventory regeneration and the status page; no claim is made about any competitor beyond what its public README or the cited research said on the date given.
 
 ## Source-lineage note
 

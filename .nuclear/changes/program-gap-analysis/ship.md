@@ -2,7 +2,7 @@
 
 Release decision: **proposed merge as documentation plus the inventory regeneration; the owner retains the decision on every recommendation.**
 
-- **Proposed:** merge the analysis, the regenerated command inventory and the status and index updates.
+- **Proposed:** merge the two analyses, the regenerated command inventory and the status and index updates.
 - **Not claimed:** that any competitor was tested; that the ranking is validated with users (P-01 is open); any compliance, certification or safety claim; that any parked owner decision is now taken.
 - **Owner decisions requested** (section 8 of the analysis): run the owner validation after M3 instead of after M7; where the backlog lives (issues or plans); whether a local-model runtime may be scoped before M6 and M7; whether to tag a first alpha.
 
@@ -16,7 +16,7 @@ Monitoring after merge: each slice or feature the roadmap names opens its own ch
 
 ## Exit criteria
 
-The analysis document is complete, the sources it rests on are cited with their dates, the owner has read it and answered or deferred its four requested decisions. No product code is part of this change beyond the command inventory regeneration and the status page; no claim is made about any competitor beyond what its public README or the cited research said on the date given.
+The analysis documents are complete, the sources it rests on are cited with their dates, the owner has read it and answered or deferred its four requested decisions. No product code is part of this change beyond the command inventory regeneration and the status page; no claim is made about any competitor beyond what its public README or the cited research said on the date given.
 
 ## Source-lineage note
 

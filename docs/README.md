@@ -36,6 +36,7 @@ Design specifications and implementation plans live in [`superpowers/specs/`](su
 - [Guided preparation](superpowers/specs/2026-10-22-guided-preparation-design.md)
 - [Board redesign](superpowers/specs/2026-11-06-board-redesign-design.md), implemented slice by slice from its [plan](superpowers/plans/2026-11-06-board-redesign.md)
 - [Program gap analysis](superpowers/specs/2026-11-08-program-gap-analysis.md): SWOT and ranked end-user and program gaps against the agent-board field, with the roadmap after the board slices
+- [Adoption and retention analysis](superpowers/specs/2026-11-08-adoption-and-retention-analysis.md): from the end user's chair, what stops it spreading, what makes someone install and never use it, stop after a week, uninstall, or keep it out of the working day, with countermeasures
 
 ### Overlay themes
 

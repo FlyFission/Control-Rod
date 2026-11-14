@@ -8,6 +8,8 @@ Release decision: **pull request for owner review; no merge is authorized by thi
 
 Rollback: revert the merge. No schema, migration, wire field or stored record changes. An older daemon runs against the same control plane.
 
+Monitoring after merge: a runtime that was ready and then is not, with no change on the host, is the sign this refactor changed launch or probe behavior. Compare a `sandbox-args` print with the evidence in this packet if a run's arguments look different.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

@@ -41,7 +41,7 @@ The fake adapter's `Binary` is `bash`, the program that runs `inputs/FAKE.sh`. `
 | E-03 | coupled: implementing agent | coupled: one session | separated: `AgentEnv` on a fixed input | separated: owner retains merge decision | coupled: local machine | self-check | No key was kept; the allowlist was not edited [Ship limits](ship.md) |
 | E-04 | coupled: implementing agent | coupled: one session | separated: gofmt, vet, test | separated: owner retains merge decision | coupled: local machine | self-check | Local toolchain only [Ship limits](ship.md) |
 | E-05 | coupled: implementing agent | coupled: one session | separated: byte comparison of CLI output | separated: owner retains merge decision | coupled: local machine | self-check | No Codex install; the printed Codex launch uses a copy of `/bin/true` so staging can run. The absent-binary error was also compared [Ship limits](ship.md) |
-| E-06 | separated: owner | separated: owner's own review | not executed | separated: owner decides | coupled: local machine | self-check | Not executed [Ship limits](ship.md) |
+| E-06 | separated: owner | separated: owner's own review | separated: the owner's review has not run | separated: owner decides | coupled: local machine | self-check | Not executed [Ship limits](ship.md) |
 
 No human independent review has been done yet.
 

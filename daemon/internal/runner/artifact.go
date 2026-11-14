@@ -357,9 +357,6 @@ func StageRoot() string {
 	return filepath.Join(tmp, fmt.Sprintf("controlrod-runtimes-%d", os.Getuid()))
 }
 
-// stagedRuntimes are the runtimes launched from a staged copy.
-var stagedRuntimes = map[string]bool{RuntimeCodex: true}
-
 // ErrArtifactMismatch means the executable on disk is not the one the run may launch.
 var ErrArtifactMismatch = errors.New("runtime artifact mismatch")
 
@@ -396,7 +393,7 @@ func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) 
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s cannot be found or read: %v", ErrArtifactMismatch, runtimeName, err)
 	}
-	if stagedRuntimes[runtimeName] {
+	if a, ok := AdapterFor(runtimeName); ok && a.StagesArtifact() {
 		// Launched from its staged copy, checked below exactly as the install would be.
 		if got, err = StageArtifact(got, StageRoot()); err != nil {
 			return nil, fmt.Errorf("%w: %s cannot be staged outside the home folder: %v", ErrArtifactMismatch, runtimeName, err)

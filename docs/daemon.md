@@ -28,6 +28,8 @@ The daemon finds runtimes on `PATH` and offers those that pass the probe below:
 - `codex`: `codex exec --json --skip-git-repo-check -C <workspace> [-m <model>] <prompt>`, with the run's permission profile (see "Sandbox" below). Run workspaces are not Git repositories, so the repository check is skipped.
 - `fake`: test runtime. Runs `inputs/FAKE.sh` with bash, or copies `inputs/FAKE_OUT/*` into `out/`. It runs no agent CLI and takes no sandbox.
 
+Each runtime is a registered adapter. `daemon/internal/runner/adapter.go` holds the registry; `adapter_claude.go`, `adapter_codex.go` and `adapter_fake.go` build the launch, probe the CLI and normalize its stream. Detect, Command, LaunchFor, RuntimeFor and Probe dispatch through that registry.
+
 `controlrod sandbox-args --runtime claude|codex --policy <file> --workspace <dir>` prints exactly the argument list and environment a run would get under a policy, and runs nothing.
 
 ### Runtime probe

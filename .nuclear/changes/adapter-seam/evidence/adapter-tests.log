@@ -1,0 +1,88 @@
+=== RUN   TestRegistry
+--- PASS: TestRegistry (0.00s)
+=== RUN   TestAdapterStreamMatchesNormalize
+=== RUN   TestAdapterStreamMatchesNormalize/claude
+=== RUN   TestAdapterStreamMatchesNormalize/codex
+--- PASS: TestAdapterStreamMatchesNormalize (0.00s)
+    --- PASS: TestAdapterStreamMatchesNormalize/claude (0.00s)
+    --- PASS: TestAdapterStreamMatchesNormalize/codex (0.00s)
+=== RUN   TestAgentEnvDropsProviderProvenance
+=== RUN   TestAgentEnvDropsProviderProvenance/ANTHROPIC_BASE_URL
+=== RUN   TestAgentEnvDropsProviderProvenance/ANTHROPIC_MODEL
+=== RUN   TestAgentEnvDropsProviderProvenance/ANTHROPIC_API_KEY
+=== RUN   TestAgentEnvDropsProviderProvenance/CLAUDE_CODE_OAUTH_TOKEN
+=== RUN   TestAgentEnvDropsProviderProvenance/OPENAI_BASE_URL
+=== RUN   TestAgentEnvDropsProviderProvenance/OPENAI_API_KEY
+=== RUN   TestAgentEnvDropsProviderProvenance/XAI_API_KEY
+=== RUN   TestAgentEnvDropsProviderProvenance/GEMINI_API_KEY
+=== RUN   TestAgentEnvDropsProviderProvenance/GOOGLE_API_KEY
+=== RUN   TestAgentEnvDropsProviderProvenance/OLLAMA_HOST
+=== RUN   TestAgentEnvDropsProviderProvenance/OLLAMA_API_KEY
+=== RUN   TestAgentEnvDropsProviderProvenance/HTTP_PROXY
+=== RUN   TestAgentEnvDropsProviderProvenance/HTTPS_PROXY
+=== RUN   TestAgentEnvDropsProviderProvenance/ALL_PROXY
+=== RUN   TestAgentEnvDropsProviderProvenance/SSH_AUTH_SOCK
+--- PASS: TestAgentEnvDropsProviderProvenance (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/ANTHROPIC_BASE_URL (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/ANTHROPIC_MODEL (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/ANTHROPIC_API_KEY (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/CLAUDE_CODE_OAUTH_TOKEN (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/OPENAI_BASE_URL (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/OPENAI_API_KEY (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/XAI_API_KEY (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/GEMINI_API_KEY (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/GOOGLE_API_KEY (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/OLLAMA_HOST (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/OLLAMA_API_KEY (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/HTTP_PROXY (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/HTTPS_PROXY (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/ALL_PROXY (0.00s)
+    --- PASS: TestAgentEnvDropsProviderProvenance/SSH_AUTH_SOCK (0.00s)
+=== RUN   TestUnknownRuntimeMatchesTodaysError
+--- PASS: TestUnknownRuntimeMatchesTodaysError (0.00s)
+=== RUN   TestAdapterLaunchMatchesCommand
+=== RUN   TestAdapterLaunchMatchesCommand/claude-author-default-tools
+=== RUN   TestAdapterLaunchMatchesCommand/claude-author-explicit-model
+=== RUN   TestAdapterLaunchMatchesCommand/claude-pre-check
+=== RUN   TestAdapterLaunchMatchesCommand/claude-intake
+=== RUN   TestAdapterLaunchMatchesCommand/claude-author-network-hosts
+=== RUN   TestAdapterLaunchMatchesCommand/codex-author-default-tools
+=== RUN   TestAdapterLaunchMatchesCommand/codex-author-explicit-model
+=== RUN   TestAdapterLaunchMatchesCommand/codex-pre-check
+=== RUN   TestAdapterLaunchMatchesCommand/codex-intake
+=== RUN   TestAdapterLaunchMatchesCommand/codex-author-network-hosts
+--- PASS: TestAdapterLaunchMatchesCommand (0.00s)
+    --- PASS: TestAdapterLaunchMatchesCommand/claude-author-default-tools (0.00s)
+    --- PASS: TestAdapterLaunchMatchesCommand/claude-author-explicit-model (0.00s)
+    --- PASS: TestAdapterLaunchMatchesCommand/claude-pre-check (0.00s)
+    --- PASS: TestAdapterLaunchMatchesCommand/claude-intake (0.00s)
+    --- PASS: TestAdapterLaunchMatchesCommand/claude-author-network-hosts (0.00s)
+    --- PASS: TestAdapterLaunchMatchesCommand/codex-author-default-tools (0.00s)
+    --- PASS: TestAdapterLaunchMatchesCommand/codex-author-explicit-model (0.00s)
+    --- PASS: TestAdapterLaunchMatchesCommand/codex-pre-check (0.00s)
+    --- PASS: TestAdapterLaunchMatchesCommand/codex-intake (0.00s)
+    --- PASS: TestAdapterLaunchMatchesCommand/codex-author-network-hosts (0.00s)
+=== RUN   TestLaunchGolden
+=== RUN   TestLaunchGolden/claude-author-default-tools
+=== RUN   TestLaunchGolden/claude-author-explicit-model
+=== RUN   TestLaunchGolden/claude-pre-check
+=== RUN   TestLaunchGolden/claude-intake
+=== RUN   TestLaunchGolden/claude-author-network-hosts
+=== RUN   TestLaunchGolden/codex-author-default-tools
+=== RUN   TestLaunchGolden/codex-author-explicit-model
+=== RUN   TestLaunchGolden/codex-pre-check
+=== RUN   TestLaunchGolden/codex-intake
+=== RUN   TestLaunchGolden/codex-author-network-hosts
+--- PASS: TestLaunchGolden (0.00s)
+    --- PASS: TestLaunchGolden/claude-author-default-tools (0.00s)
+    --- PASS: TestLaunchGolden/claude-author-explicit-model (0.00s)
+    --- PASS: TestLaunchGolden/claude-pre-check (0.00s)
+    --- PASS: TestLaunchGolden/claude-intake (0.00s)
+    --- PASS: TestLaunchGolden/claude-author-network-hosts (0.00s)
+    --- PASS: TestLaunchGolden/codex-author-default-tools (0.00s)
+    --- PASS: TestLaunchGolden/codex-author-explicit-model (0.00s)
+    --- PASS: TestLaunchGolden/codex-pre-check (0.00s)
+    --- PASS: TestLaunchGolden/codex-intake (0.00s)
+    --- PASS: TestLaunchGolden/codex-author-network-hosts (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.018s

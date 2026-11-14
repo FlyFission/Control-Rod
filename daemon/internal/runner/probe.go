@@ -77,11 +77,16 @@ func hasSubcommand(help, name string) bool {
 // answer, and for Codex, when `codex login --help` lists a `status` subcommand, `codex login
 // status` must say a login is present. The fake runtime is always ready.
 func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) RuntimeStatus {
-	st := RuntimeStatus{Runtime: runtime}
-	if runtime == RuntimeFake {
-		st.Ready, st.Version = true, fakeVersion
+	if st, ok := probeDispatched(ctx, runtime, fakeVersion, run); ok {
 		return st
 	}
+	return probeInstalled(ctx, runtime, run, nil)
+}
+
+// probeInstalled checks a CLI runtime's artifact and version. login, when set, runs after a
+// version answer and reports whether the probe should stop before the runtime is marked ready.
+func probeInstalled(ctx context.Context, runtime string, run CommandRunner, login func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool) RuntimeStatus {
+	st := RuntimeStatus{Runtime: runtime}
 	// Identify the executable before running anything: a launcher Control Rod cannot pin is never
 	// executed, not even for its version.
 	if art, aerr := resolveArtifact(runtime); aerr == nil {
@@ -108,15 +113,8 @@ func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) 
 		return st
 	}
 	st.Version = firstLine(out)
-	if runtime == RuntimeCodex {
-		help, hcode, herr := call("login", "--help")
-		if herr == nil && hcode == 0 && hasSubcommand(help, "status") {
-			st.LoginChecked = true
-			if _, scode, serr := call("login", "status"); serr != nil || scode != 0 {
-				st.Reason = fmt.Sprintf("codex is installed but not signed in (`codex login status` exit %d). Sign in yourself with `codex login`; Control Rod never does.", scode)
-				return st
-			}
-		}
+	if login != nil && login(call, &st) {
+		return st
 	}
 	st.Ready = true
 	return st

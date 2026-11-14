@@ -32,13 +32,11 @@ const (
 
 // RuntimeFor maps a run's provider to a runtime name.
 func RuntimeFor(provider string) string {
-	switch strings.ToLower(provider) {
-	case "claude", "anthropic", "claude-code":
-		return RuntimeClaude
-	case "codex", "openai":
-		return RuntimeCodex
-	case "fake":
-		return RuntimeFake
+	p := strings.ToLower(provider)
+	for _, a := range Adapters {
+		if slices.Contains(a.Providers(), p) {
+			return a.ID()
+		}
 	}
 	return ""
 }
@@ -47,14 +45,10 @@ func RuntimeFor(provider string) string {
 // CONTROLROD_ALLOW_FAKE=1, so a real daemon never claims test jobs.
 func Detect(lookPath func(string) (string, error), getenv func(string) string) []string {
 	var out []string
-	if _, err := lookPath("claude"); err == nil {
-		out = append(out, RuntimeClaude)
-	}
-	if _, err := lookPath("codex"); err == nil {
-		out = append(out, RuntimeCodex)
-	}
-	if getenv("CONTROLROD_ALLOW_FAKE") == "1" {
-		out = append(out, RuntimeFake)
+	for _, a := range Adapters {
+		if a.Available(lookPath, getenv) {
+			out = append(out, a.ID())
+		}
 	}
 	return out
 }
@@ -246,20 +240,18 @@ type Launch struct {
 
 // LaunchFor describes the launch Command builds for a runtime.
 func LaunchFor(runtime string, run Run, ws *Workspace, p *SandboxPolicy) Launch {
+	if a, ok := AdapterFor(runtime); ok {
+		return a.LaunchInfo(run, ws, p)
+	}
+	return baseLaunch(run)
+}
+
+// baseLaunch is the description of a print-mode run before a runtime adds its own fields.
+// An unknown runtime keeps this, which is what LaunchFor returned before the registry.
+func baseLaunch(run Run) Launch {
 	l := Launch{Mode: "print", RequestedModel: RequestedModel(run)}
 	if l.RequestedModel == "" {
 		l.RequestedModel = "default"
-	}
-	switch runtime {
-	case RuntimeClaude:
-		l.PermissionMode = ClaudePermissionMode
-		l.AllowedTools = strings.Split(allowedTools(ws), ",")
-		l.Sandbox = sandboxLabel(p)
-	case RuntimeCodex:
-		l.Sandbox = sandboxLabel(p)
-	case RuntimeFake:
-		l.Mode = "fake"
-		l.Sandbox = "none"
 	}
 	return l
 }
@@ -280,50 +272,34 @@ func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at Sandbo
 	default:
 		return nil, fmt.Errorf("run role %q has no approved legacy runtime launcher", run.Role)
 	}
-	model := RequestedModel(run)
-	var cmd *exec.Cmd
-	switch runtime {
-	case RuntimeClaude, RuntimeCodex:
-		if p == nil {
-			return nil, ErrNoPolicy
-		}
-		for _, l := range at.Logins {
-			if within(l, at.Workspace) || within(at.Workspace, l) {
-				return nil, ErrLoginInWorkspace
-			}
-		}
-		if _, err := p.DeniedChecked(at); err != nil {
-			return nil, err
-		}
-	}
-	switch runtime {
-	case RuntimeClaude:
-		cmd = exec.Command("claude", ClaudeArgs(ws, model, p, at)...)
-	case RuntimeCodex:
-		args, err := CodexArgs(ws, model, p, at)
-		if err != nil {
-			return nil, err
-		}
-		cmd = exec.Command("codex", args...)
-	case RuntimeFake:
-		script := filepath.Join(ws.Inputs, "FAKE.sh")
-		if _, err := os.Stat(script); err != nil {
-			return nil, nil
-		}
-		cmd = exec.Command("bash", script)
-	default:
+	a, ok := AdapterFor(runtime)
+	if !ok {
 		return nil, fmt.Errorf("runtime %q is not available on this machine", runtime)
 	}
+	return a.Command(run, ws, p, at)
+}
+
+// requireAgentPolicy is the check Command used to run before building a Claude or Codex process.
+func requireAgentPolicy(p *SandboxPolicy, at SandboxPaths) error {
+	if p == nil {
+		return ErrNoPolicy
+	}
+	for _, l := range at.Logins {
+		if within(l, at.Workspace) || within(at.Workspace, l) {
+			return ErrLoginInWorkspace
+		}
+	}
+	if _, err := p.DeniedChecked(at); err != nil {
+		return err
+	}
+	return nil
+}
+
+func finishCommand(cmd *exec.Cmd, ws *Workspace, env []string) *exec.Cmd {
 	cmd.Dir = ws.Dir
-	cmd.Env = ChildEnv(os.Environ())
-	if runtime != RuntimeFake {
-		cmd.Env = AgentEnv(os.Environ())
-	}
-	if runtime == RuntimeClaude {
-		cmd.Env = withEnv(cmd.Env, ClaudeEnv...)
-	}
+	cmd.Env = env
 	setProcessGroup(cmd)
-	return cmd, nil
+	return cmd
 }
 
 // ErrTimeout is returned when a run outlives its timeout.

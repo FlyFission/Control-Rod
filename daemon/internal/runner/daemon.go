@@ -984,12 +984,16 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if runtime == "" || !slices.Contains(d.cfg.Runtimes, runtime) {
 		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
 	}
+	a, ok := AdapterFor(runtime)
+	if !ok {
+		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
+	}
 	// The sandbox (ADR 0021; plan tasks 6.1 and 6.3): an agent CLI starts only under the run's
 	// verified policy, on a host that can hold it, checked again now without running the CLI (its
 	// login and features are checked by the scheduled probe). A failure ends the run with its
 	// fix and stops the runtime being offered until the next probe; nothing starts unsandboxed.
 	var sandbox *SandboxPolicy
-	if runtime != RuntimeFake {
+	if a.SandboxRequired() {
 		if home, herr := os.UserHomeDir(); herr != nil || home == "" || !filepath.IsAbs(home) {
 			return fail("the home folder cannot be resolved, so the sandbox cannot deny it; set HOME"), nil
 		}
@@ -1036,19 +1040,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		d.log.Warn("breaker tripped; stopping the run", "run", job.Run.ID, "reason", reason)
 		release(errBreaker{reason})
 	}}
-	switch runtime {
-	case RuntimeClaude:
-		// Interim waiting detection (plan task 2.9): the PermissionRequest hook writes here.
-		hooks := filepath.Join(d.cfg.Home, "hooks")
-		if err := os.MkdirAll(hooks, 0o700); err == nil {
-			ws.HookFile = filepath.Join(hooks, job.Run.ID+".jsonl")
-			_ = os.Remove(ws.HookFile)
-			defer os.Remove(ws.HookFile)
-		}
-	case RuntimeCodex:
-		buf.addEvents([]Event{{Kind: EvNotice, At: time.Now().UTC().Format(time.RFC3339Nano),
-			Text: "Permission waits are not observable in Codex exec mode; a refused action shows as a failed tool call."}})
+	removeHook, prep := a.PrepareRun(ws, d.cfg.Home, job.Run.ID)
+	if removeHook {
+		defer os.Remove(ws.HookFile)
 	}
+	buf.addEvents(prep)
 	runCtx, cancel := context.WithTimeoutCause(held, d.cfg.Timeout, ErrTimeout)
 	defer cancel()
 	flushCtx, stopFlush := context.WithCancel(context.Background())
@@ -1096,7 +1092,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	var launched *Digest
 	var verified *VerifiedLaunch
-	if err == nil && cmd != nil && runtime != RuntimeFake {
+	if err == nil && cmd != nil && a.UsesVerifiedLaunch() {
 		// Launch by digest (specification 21): the exact file the pin (or, unpinned, the last probe)
 		// names, checked again now and executed from the descriptor whose bytes were hashed.
 		v, verr := VerifyLaunch(runtime, job.RuntimePin, d.probedArtifact(runtime))
@@ -1122,7 +1118,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if err == nil {
 		if cmd == nil {
 			buf.add(`{"type":"result","subtype":"fake-copy"}`)
-			err = CopyFakeOutputs(ws)
+			err = a.CopyOutputs(ws)
 		} else {
 			unit := UnitName(d.ns, job.Run.ID, job.Run.Generation)
 			d.container.Wrap(cmd, unit)
@@ -1276,11 +1272,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	case "pre-check":
 		comp.Verification = attach("verification.json")
 	}
-	bin, version := runtime, ""
-	if runtime == RuntimeFake {
-		version = d.cfg.Version
-	} else {
-		// Never run the executable again for its version: it may no longer be what was verified.
+	bin := runtime
+	// Never run the executable again for its version: it may no longer be what was verified.
+	// The fake runtime records the daemon version, as it did before the registry.
+	version := d.cfg.Version
+	if a.UsesVerifiedLaunch() {
 		version = d.verifiedVersion(runtime, launched, job.RuntimePin)
 	}
 	comp.Trace = &ExecutionTrace{

@@ -1,0 +1,58 @@
+# Verification: adapter seam for the run daemon
+
+Evidence status: **pass** for the local checks below (E-01 to E-05). **Open** for the owner's review of the pull request (E-06). No allowlist finding: every named provider, proxy and socket variable is dropped, and no subtest was skipped. Nothing here claims a new CLI or a changed sandbox.
+
+| Evidence ID | Status | Claim and limit | Artifact |
+|---|---|---|---|
+| E-01 | pass | Golden launch files were written by `TestLaunchGolden` with `CONTROLROD_WRITE_LAUNCH_GOLDEN=1` before any adapter code existed, then compared again after the refactor. Ten cases (Claude and Codex: author with default tools and model `default`, an explicit model, pre-check, intake, and a tools file naming network hosts). The policy is `testPolicy` with its `/mnt` denial pointed at a directory the test creates, so Codex's outermost denial set does not depend on the host. The process environment is the fixed list in `launch_golden_test.go`. | `daemon/internal/runner/testdata/launch-golden/`; `evidence/adapter-tests.log` |
+| E-02 | pass | `Normalize` and `TurnEnd` through the Claude and Codex adapters match the package functions on `testdata/claude-stream.jsonl` and `testdata/codex-stream.jsonl` (the Codex lines are the cases in `events_test.go`: a tool call, `turn.completed` with usage, `turn.failed`). Registry order is Claude, Codex, fake. Fake is offered only when `CONTROLROD_ALLOW_FAKE=1`. Unknown runtime error text is unchanged. | `evidence/adapter-tests.log` |
+| E-03 | pass | `AgentEnv` drops `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL`, `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `XAI_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `OLLAMA_HOST`, `OLLAMA_API_KEY`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` and `SSH_AUTH_SOCK`. All fifteen subtests passed. The allowlist was not edited. No M2 finding. | `evidence/adapter-tests.log` |
+| E-04 | pass | `gofmt -l .` in `daemon/` prints nothing. `go vet ./...` exits 0. `go test -count=1 ./...` exits 0 (confinement, digest and runner packages ok; cmd, version and wire have no tests). Local toolchain only. | `evidence/gofmt.log`, `evidence/vet.log`, `evidence/test.log` |
+| E-05 | pass | `controlrod sandbox-args` before and after, same policy file (`evidence/policy.json`, the `testPolicy` fields) and the same workspace `/tmp/adapter-seam-sandbox/workspace`. Claude stdout, stderr and exit code are byte-identical (stdout sha256 `fb6230fbef6ca498de4335ade010c727307a7122711522e9ee7bf29cad68e084`). Codex is not installed here: with `PATH=/usr/bin:/bin` both binaries print `stage codex: codex is not on the agent PATH` and exit 1 (stderr sha256 `585f47a79d986ff3c6432df752f22e1ef1136435054af5b386a0b71a58b75833`). With `/tmp/adapter-seam-bin/codex` a copy of `/bin/true`, both binaries print the staged launch and the stdout bytes match (sha256 `9bfdb09486f24f681cda2ba6ddafd498b3864e462d8ef2652d452634d5badc7c`). `git diff --stat` of the five existing assertion files is empty. The runtime-name switch scan outside `adapter*.go` and tests is empty; the three runtime constants remain in `runtime.go`. | `evidence/sandbox-args-*`, `evidence/sandbox-args-sha256.txt`, `evidence/sandbox-args-invocation.txt`, `evidence/switch-scan.txt` |
+| E-06 | open | Owner review of the pull request. | Not executed |
+
+## Deviations from the milestone text
+
+The real runner had more per-runtime branches than `Detect`, `Command`, `LaunchFor`, `RuntimeFor` and `Probe`. The `Adapter` interface therefore also has `Providers`, `Available`, `SandboxRequired`, `PrepareRun`, `UsesVerifiedLaunch`, `ExtraHostNeeds`, `DisplayName`, `PreflightCLI`, `CheckManagedConfig`, `StagesArtifact` and `CopyOutputs`. Those methods are how preflight, host needs, managed Codex config, artifact staging, the Claude hook file, the Codex permission notice, verified launch, the trace version and fake copy mode dispatch without a switch on the runtime name. Each one calls the helper the old branch called. `Capabilities` is not read to choose a path.
+
+`Probe` on the interface does not receive the daemon version. The exported `Probe` still does, and `probeDispatched` sets the fake runtime's version from that argument. Callers of `Probe` see the same status as before.
+
+The fake adapter's `Binary` is `bash`, the program that runs `inputs/FAKE.sh`. `Detect` does not look `bash` up. The fake runtime is still offered only when `CONTROLROD_ALLOW_FAKE=1`.
+
+`Normalize` and `TurnEnd` stay the shared functions in `events.go`. They switch on event type, not on runtime name. Each adapter calls them, and the log buffer still calls them directly, so a line produces the same events it did before.
+
+`Command` still switches on the run role (`intake`, `author`, `pre-check`) before it asks the registry. That switch is not on a runtime name.
+
+## Evidence custody and coupling
+
+| Evidence ID | Claim ID | Decisive? | Artifact / raw result | Change actor | Generated by | Selected by | Transformed / summarized by | Executed / captured by | Retained by | Presented by | Verified / witnessed by |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| E-01 | T-02 | yes | testdata/launch-golden/; evidence/adapter-tests.log | Implementing agent | `go test` `TestLaunchGolden` | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check; fixtures captured before the refactor |
+| E-02 | T-01, T-03, T-04, T-06 | yes | evidence/adapter-tests.log | Implementing agent | `go test` | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
+| E-03 | T-05 | yes | evidence/adapter-tests.log | Implementing agent | `go test` | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
+| E-04 | T-01 | yes | evidence/gofmt.log, evidence/vet.log, evidence/test.log | Implementing agent | gofmt, go vet, go test | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
+| E-05 | T-07, T-08, T-09, T-10 | yes | evidence/sandbox-args-*, evidence/switch-scan.txt | Implementing agent | `controlrod sandbox-args`, git diff, ripgrep | Implementing agent | Implementing agent | Local toolchain | Packet | Implementing agent | Self-check |
+| E-06 | T-09 | yes | Owner review | Implementing agent | Not executed | Owner | Not executed | Not executed | Packet | Implementing agent | Not supplied |
+
+| Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
+|---|---|---|---|---|---|---|---|
+| E-01 | coupled: implementing agent wrote the test and the refactor | partially separated: fixtures were generated from the code before the refactor | separated: byte comparison | separated: owner retains merge decision | coupled: local machine | self-check | The `/mnt` path in the policy fixture is a directory the test creates; other policy fields match `testPolicy` [Ship limits](ship.md) |
+| E-02 | coupled: implementing agent | coupled: one session | separated: byte and deep comparison of events | separated: owner retains merge decision | coupled: local machine | self-check | Stream parsers are the existing functions; the test shows the adapter calls them [Ship limits](ship.md) |
+| E-03 | coupled: implementing agent | coupled: one session | separated: `AgentEnv` on a fixed input | separated: owner retains merge decision | coupled: local machine | self-check | No key was kept; the allowlist was not edited [Ship limits](ship.md) |
+| E-04 | coupled: implementing agent | coupled: one session | separated: gofmt, vet, test | separated: owner retains merge decision | coupled: local machine | self-check | Local toolchain only [Ship limits](ship.md) |
+| E-05 | coupled: implementing agent | coupled: one session | separated: byte comparison of CLI output | separated: owner retains merge decision | coupled: local machine | self-check | No Codex install; the printed Codex launch uses a copy of `/bin/true` so staging can run. The absent-binary error was also compared [Ship limits](ship.md) |
+| E-06 | separated: owner | separated: owner's own review | not executed | separated: owner decides | coupled: local machine | self-check | Not executed [Ship limits](ship.md) |
+
+No human independent review has been done yet.
+
+## Required links
+
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).
+
+## Exit criteria
+
+The registry is the only dispatch for `Detect`, `Command`, `LaunchFor`, `RuntimeFor` and `Probe`. Golden launch output and `sandbox-args` output match the pre-refactor bytes. `gofmt`, `go vet` and `go test ./...` in `daemon/` are clean. No protected surface is touched. The owner retains the merge decision.
+
+## Source-lineage note
+
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

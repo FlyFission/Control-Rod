@@ -1,0 +1,60 @@
+{
+  "argv": [
+    "claude",
+    "-p",
+    "Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/.",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "acceptEdits",
+    "--tools",
+    "Bash,Read,Edit,Write,Grep,Glob",
+    "--allowedTools",
+    "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",
+    "--restricted",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "{\"mcpServers\":{}}",
+    "--setting-sources",
+    "",
+    "--disable-slash-commands",
+    "--no-session-persistence",
+    "--settings",
+    "{\"permissions\":{\"blockReadsOutsideWorkingDirectories\":true,\"defaultMode\":\"acceptEdits\",\"deny\":[\"Read(//tmp/controlrod-launch-golden/home)\",\"Read(//tmp/controlrod-launch-golden/home/**)\",\"Edit(//tmp/controlrod-launch-golden/home)\",\"Edit(//tmp/controlrod-launch-golden/home/**)\",\"Read(//tmp/controlrod-launch-golden/home/.claude)\",\"Read(//tmp/controlrod-launch-golden/home/.claude/**)\",\"Edit(//tmp/controlrod-launch-golden/home/.claude)\",\"Edit(//tmp/controlrod-launch-golden/home/.claude/**)\",\"Read(//tmp/controlrod-launch-golden/home/.codex)\",\"Read(//tmp/controlrod-launch-golden/home/.codex/**)\",\"Edit(//tmp/controlrod-launch-golden/home/.codex)\",\"Edit(//tmp/controlrod-launch-golden/home/.codex/**)\",\"Read(//tmp/controlrod-launch-golden/home/.ssh)\",\"Read(//tmp/controlrod-launch-golden/home/.ssh/**)\",\"Edit(//tmp/controlrod-launch-golden/home/.ssh)\",\"Edit(//tmp/controlrod-launch-golden/home/.ssh/**)\",\"Read(//tmp/controlrod-launch-golden/home/.controlrod)\",\"Read(//tmp/controlrod-launch-golden/home/.controlrod/**)\",\"Edit(//tmp/controlrod-launch-golden/home/.controlrod)\",\"Edit(//tmp/controlrod-launch-golden/home/.controlrod/**)\",\"Read(//tmp/controlrod-launch-golden/mnt)\",\"Read(//tmp/controlrod-launch-golden/mnt/**)\",\"Edit(//tmp/controlrod-launch-golden/mnt)\",\"Edit(//tmp/controlrod-launch-golden/mnt/**)\"]},\"sandbox\":{\"allowUnsandboxedCommands\":false,\"autoAllowBashIfSandboxed\":false,\"enabled\":true,\"failIfUnavailable\":true,\"filesystem\":{\"denyRead\":[\"/tmp/controlrod-launch-golden/home\",\"/tmp/controlrod-launch-golden/home/.claude\",\"/tmp/controlrod-launch-golden/home/.codex\",\"/tmp/controlrod-launch-golden/home/.ssh\",\"/tmp/controlrod-launch-golden/home/.controlrod\",\"/tmp/controlrod-launch-golden/mnt\"]},\"network\":{\"allowedDomains\":[]}}}"
+  ],
+  "env": [
+    "HOME=/home/owner",
+    "USER=owner",
+    "LOGNAME=owner",
+    "SHELL=/bin/bash",
+    "PATH=/usr/local/bin:/usr/bin:/bin",
+    "LANG=C.UTF-8",
+    "LANGUAGE=en",
+    "LC_ALL=C.UTF-8",
+    "TZ=UTC",
+    "TERM=xterm-256color",
+    "TMPDIR=/tmp",
+    "CODEX_HOME=/home/owner/.codex",
+    "CLAUDE_CONFIG_DIR=/home/owner/.claude",
+    "NO_COLOR=1",
+    "COLORTERM=truecolor",
+    "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1"
+  ],
+  "dir": "/tmp/controlrod-launch-golden/ws-claude-intake",
+  "launch": {
+    "Mode": "print",
+    "RequestedModel": "default",
+    "PermissionMode": "acceptEdits",
+    "AllowedTools": [
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch"
+    ],
+    "Sandbox": "native-cli:sbp_none-test@v3"
+  }
+}

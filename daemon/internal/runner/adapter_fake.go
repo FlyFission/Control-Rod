@@ -5,18 +5,19 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 )
 
-type fakeAdapter struct{}
+type fakeAdapter struct{ streamBase }
 
-func (fakeAdapter) ID() string     { return RuntimeFake }
-func (fakeAdapter) Binary() string { return "bash" }
+func (fakeAdapter) ID() string          { return RuntimeFake }
+func (fakeAdapter) Binary() string      { return "bash" }
+func (fakeAdapter) DisplayName() string { return "fake" }
 
 func (fakeAdapter) Providers() []string { return []string{"fake"} }
 
-// Available offers the fake runtime only when CONTROLROD_ALLOW_FAKE=1. Detect does not look up
-// Binary on PATH; bash is what a FAKE.sh script is started with.
+// Available offers the fake runtime only when CONTROLROD_ALLOW_FAKE=1. It does not look up
+// Binary: bash is the interpreter for inputs/FAKE.sh, and requiring it on PATH would change
+// which machines Detect offers the fake runtime to.
 func (fakeAdapter) Available(_ func(string) (string, error), getenv func(string) string) bool {
 	return getenv("CONTROLROD_ALLOW_FAKE") == "1"
 }
@@ -32,17 +33,18 @@ func (fakeAdapter) Capabilities() Capabilities {
 	}
 }
 
-func (fakeAdapter) Probe(context.Context, CommandRunner) RuntimeStatus {
-	return RuntimeStatus{Runtime: RuntimeFake, Ready: true}
+func (fakeAdapter) SandboxRequired() bool { return false }
+
+func (fakeAdapter) Probe(_ context.Context, version string, _ CommandRunner) RuntimeStatus {
+	return RuntimeStatus{Runtime: RuntimeFake, Ready: true, Version: version}
 }
 
-func (fakeAdapter) Command(_ Run, ws *Workspace, _ *SandboxPolicy, _ SandboxPaths) (*exec.Cmd, error) {
+func (a fakeAdapter) Command(_ Run, ws *Workspace, _ *SandboxPolicy, _ SandboxPaths) (*exec.Cmd, error) {
 	script := filepath.Join(ws.Inputs, "FAKE.sh")
 	if _, err := os.Stat(script); err != nil {
 		return nil, nil
 	}
-	cmd := exec.Command("bash", script)
-	return finishCommand(cmd, ws, ChildEnv(os.Environ())), nil
+	return exec.Command(a.Binary(), script), nil
 }
 
 func (fakeAdapter) LaunchInfo(run Run, _ *Workspace, _ *SandboxPolicy) Launch {
@@ -52,19 +54,4 @@ func (fakeAdapter) LaunchInfo(run Run, _ *Workspace, _ *SandboxPolicy) Launch {
 	return l
 }
 
-func (fakeAdapter) Normalize(line string, now time.Time) []Event { return Normalize(line, now) }
-func (fakeAdapter) TurnEnd(line string) (bool, bool)             { return TurnEnd(line) }
-
-func (fakeAdapter) SandboxRequired() bool      { return false }
-func (fakeAdapter) UsesVerifiedLaunch() bool   { return false }
-func (fakeAdapter) StagesArtifact() bool       { return false }
-func (fakeAdapter) DisplayName() string        { return "fake" }
-func (fakeAdapter) ExtraHostNeeds() []HostNeed { return nil }
-func (fakeAdapter) CheckManagedConfig([]string) error {
-	return nil
-}
-func (fakeAdapter) PrepareRun(*Workspace, string, string) (bool, []Event) { return false, nil }
-func (fakeAdapter) PreflightCLI(context.Context, CommandRunner, func(context.Context) (string, error)) error {
-	return nil
-}
 func (fakeAdapter) CopyOutputs(ws *Workspace) error { return CopyFakeOutputs(ws) }

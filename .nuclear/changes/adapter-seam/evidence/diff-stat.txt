@@ -1,57 +1,18 @@
- .nuclear/changes/adapter-seam/basis.md             |  41 +++++
- .../adapter-seam/evidence/adapter-tests.log        |  88 +++++++++
- .../changes/adapter-seam/evidence/diff-stat.txt    |   0
- .nuclear/changes/adapter-seam/evidence/gofmt.log   |   0
- .nuclear/changes/adapter-seam/evidence/policy.json |  11 ++
- .../evidence/sandbox-args-claude-after.exit        |   1 +
- .../evidence/sandbox-args-claude-after.stderr      |   0
- .../evidence/sandbox-args-claude-after.stdout      |  43 +++++
- .../evidence/sandbox-args-claude-before.exit       |   1 +
- .../evidence/sandbox-args-claude-before.stderr     |   0
- .../evidence/sandbox-args-claude-before.stdout     |  43 +++++
- .../evidence/sandbox-args-codex-absent-after.exit  |   1 +
- .../sandbox-args-codex-absent-after.stderr         |   1 +
- .../sandbox-args-codex-absent-after.stdout         |   0
- .../evidence/sandbox-args-codex-absent-before.exit |   1 +
- .../sandbox-args-codex-absent-before.stderr        |   1 +
- .../sandbox-args-codex-absent-before.stdout        |   0
- .../evidence/sandbox-args-codex-after.exit         |   1 +
- .../evidence/sandbox-args-codex-after.stderr       |   0
- .../evidence/sandbox-args-codex-after.stdout       |  96 ++++++++++
- .../evidence/sandbox-args-codex-before.exit        |   1 +
- .../evidence/sandbox-args-codex-before.stderr      |   0
- .../evidence/sandbox-args-codex-before.stdout      |  96 ++++++++++
- .../evidence/sandbox-args-invocation.txt           |   5 +
- .../adapter-seam/evidence/sandbox-args-sha256.txt  |  19 ++
- .../changes/adapter-seam/evidence/switch-scan.txt  |   6 +
- .nuclear/changes/adapter-seam/evidence/test.log    |   7 +
- .nuclear/changes/adapter-seam/evidence/vet.log     |   1 +
- .nuclear/changes/adapter-seam/plan.md              |  24 +++
- .nuclear/changes/adapter-seam/risk.md              |  31 ++++
- .nuclear/changes/adapter-seam/ship.md              |  21 +++
- .nuclear/changes/adapter-seam/trace.md             |  26 +++
- .nuclear/changes/adapter-seam/verification.md      |  58 ++++++
- daemon/internal/runner/adapter.go                  |  77 ++++++++
- daemon/internal/runner/adapter_claude.go           |  95 ++++++++++
- daemon/internal/runner/adapter_codex.go            | 101 +++++++++++
- daemon/internal/runner/adapter_fake.go             |  70 ++++++++
- daemon/internal/runner/adapter_test.go             | 197 ++++++++++++++++++++
- daemon/internal/runner/artifact.go                 |   5 +-
- daemon/internal/runner/daemon.go                   |  36 ++--
- daemon/internal/runner/launch_golden_test.go       | 200 +++++++++++++++++++++
- daemon/internal/runner/probe.go                    |  22 ++-
- daemon/internal/runner/runtime.go                  | 106 +++++------
- daemon/internal/runner/sandbox.go                  |  66 ++++---
- daemon/internal/runner/testdata/codex-stream.jsonl |   7 +
- .../launch-golden/claude-author-default-tools.json |  60 +++++++
- .../claude-author-explicit-model.json              |  62 +++++++
- .../launch-golden/claude-author-network-hosts.json |  54 ++++++
- .../testdata/launch-golden/claude-intake.json      |  60 +++++++
- .../testdata/launch-golden/claude-pre-check.json   |  60 +++++++
- .../launch-golden/codex-author-default-tools.json  | 105 +++++++++++
- .../launch-golden/codex-author-explicit-model.json | 107 +++++++++++
- .../launch-golden/codex-author-network-hosts.json  | 105 +++++++++++
- .../testdata/launch-golden/codex-intake.json       | 105 +++++++++++
- .../testdata/launch-golden/codex-pre-check.json    | 105 +++++++++++
- docs/daemon.md                                     |   2 +
- 56 files changed, 2294 insertions(+), 137 deletions(-)
+ .nuclear/changes/adapter-seam/evidence/test.log    |   6 +-
+ .nuclear/changes/adapter-seam/verification.md      |  28 ++-
+ daemon/cmd/controlrod/main.go                      |  25 ++-
+ daemon/internal/runner/adapter.go                  | 104 +++++++---
+ daemon/internal/runner/adapter_claude.go           |  58 ++----
+ daemon/internal/runner/adapter_codex.go            |  66 +++---
+ daemon/internal/runner/adapter_fake.go             |  39 ++--
+ daemon/internal/runner/adapter_test.go             | 223 ++++++++++++++-------
+ daemon/internal/runner/artifact.go                 |  12 +-
+ daemon/internal/runner/daemon.go                   |  17 +-
+ daemon/internal/runner/launch_golden_test.go       |  41 ++--
+ .../internal/runner/launch_golden_update_test.go   |  49 +++++
+ daemon/internal/runner/probe.go                    |  28 +--
+ daemon/internal/runner/runtime.go                  |  24 ++-
+ daemon/internal/runner/sandbox.go                  |  20 +-
+ .../runner/testdata/stream-golden/claude.json      | 135 +++++++++++++
+ .../runner/testdata/stream-golden/codex.json       |  87 ++++++++
+ 17 files changed, 695 insertions(+), 267 deletions(-)

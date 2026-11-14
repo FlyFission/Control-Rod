@@ -105,21 +105,12 @@ func prepareGoldenRoot(t *testing.T) (string, *SandboxPolicy) {
 
 func TestLaunchGolden(t *testing.T) {
 	root, p := prepareGoldenRoot(t)
-	writeGolden := os.Getenv("CONTROLROD_WRITE_LAUNCH_GOLDEN") == "1"
 	withGoldenEnv(t, func() {
 		for _, c := range launchCases {
 			t.Run(c.id, func(t *testing.T) {
 				got := normalizeLaunch(root, captureLaunch(t, root, p, c))
 				path := filepath.Join("testdata", "launch-golden", c.id+".json")
 				raw := mustGoldenJSON(t, got)
-				if writeGolden {
-					if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-						t.Fatal(err)
-					}
-					if err := os.WriteFile(path, raw, 0o644); err != nil {
-						t.Fatal(err)
-					}
-				}
 				want, err := os.ReadFile(path)
 				if err != nil {
 					t.Fatalf("read golden: %v", err)
@@ -168,21 +159,31 @@ func captureLaunch(t *testing.T, root string, p *SandboxPolicy, c launchCase) la
 
 func withGoldenEnv(t *testing.T, fn func()) {
 	t.Helper()
-	old := os.Environ()
-	os.Clearenv()
-	for _, kv := range goldenEnviron {
+	// Unset every allowlisted variable first, then t.Setenv the fixture in order. AgentEnv
+	// keeps environ order, so the captured env matches goldenEnviron on any machine. t.Setenv
+	// restores the keys it sets; the cleanup below puts back what this process had.
+	type saved struct {
+		k, v string
+	}
+	var prior []saved
+	for _, kv := range os.Environ() {
 		k, v, _ := strings.Cut(kv, "=")
-		if err := os.Setenv(k, v); err != nil {
-			t.Fatal(err)
+		if agentEnvKeys[k] || strings.HasPrefix(k, "LC_") {
+			prior = append(prior, saved{k, v})
+			if err := os.Unsetenv(k); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
-	defer func() {
-		os.Clearenv()
-		for _, kv := range old {
-			k, v, _ := strings.Cut(kv, "=")
-			_ = os.Setenv(k, v)
+	t.Cleanup(func() {
+		for _, s := range prior {
+			_ = os.Setenv(s.k, s.v)
 		}
-	}()
+	})
+	for _, kv := range goldenEnviron {
+		k, v, _ := strings.Cut(kv, "=")
+		t.Setenv(k, v)
+	}
 	fn()
 }
 

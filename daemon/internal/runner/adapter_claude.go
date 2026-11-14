@@ -6,21 +6,20 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
-type claudeAdapter struct{}
+type claudeAdapter struct{ sandboxedBase }
 
-func (claudeAdapter) ID() string     { return RuntimeClaude }
-func (claudeAdapter) Binary() string { return "claude" }
+func (claudeAdapter) ID() string          { return RuntimeClaude }
+func (claudeAdapter) Binary() string      { return "claude" }
+func (claudeAdapter) DisplayName() string { return "Claude Code" }
 
 func (claudeAdapter) Providers() []string {
 	return []string{"claude", "anthropic", "claude-code"}
 }
 
-func (claudeAdapter) Available(lookPath func(string) (string, error), _ func(string) string) bool {
-	_, err := lookPath("claude")
-	return err == nil
+func (a claudeAdapter) Available(lookPath func(string) (string, error), _ func(string) string) bool {
+	return availableBinary(a, lookPath)
 }
 
 func (claudeAdapter) Capabilities() Capabilities {
@@ -38,16 +37,13 @@ func (claudeAdapter) Capabilities() Capabilities {
 	}
 }
 
-func (claudeAdapter) Probe(ctx context.Context, run CommandRunner) RuntimeStatus {
-	return probeInstalled(ctx, RuntimeClaude, run, nil)
+func (a claudeAdapter) Probe(ctx context.Context, _ string, run CommandRunner) RuntimeStatus {
+	// id and binary are the same string. probeInstalled records the id and looks up the binary.
+	return probeInstalled(ctx, a.ID(), a.Binary(), run, nil)
 }
 
-func (claudeAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {
-	if err := requireAgentPolicy(p, at); err != nil {
-		return nil, err
-	}
-	cmd := exec.Command("claude", ClaudeArgs(ws, RequestedModel(run), p, at)...)
-	return finishCommand(cmd, ws, withEnv(AgentEnv(os.Environ()), ClaudeEnv...)), nil
+func (a claudeAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {
+	return exec.Command(a.Binary(), ClaudeArgs(ws, RequestedModel(run), p, at)...), nil
 }
 
 func (claudeAdapter) LaunchInfo(run Run, ws *Workspace, p *SandboxPolicy) Launch {
@@ -58,37 +54,25 @@ func (claudeAdapter) LaunchInfo(run Run, ws *Workspace, p *SandboxPolicy) Launch
 	return l
 }
 
-func (claudeAdapter) Normalize(line string, now time.Time) []Event { return Normalize(line, now) }
-func (claudeAdapter) TurnEnd(line string) (bool, bool)             { return TurnEnd(line) }
-
-func (claudeAdapter) SandboxRequired() bool    { return true }
-func (claudeAdapter) UsesVerifiedLaunch() bool { return true }
-func (claudeAdapter) StagesArtifact() bool     { return false }
-func (claudeAdapter) DisplayName() string      { return "Claude Code" }
-func (claudeAdapter) CheckManagedConfig([]string) error {
-	return nil
-}
+func (claudeAdapter) ExtraEnv() []string { return ClaudeEnv }
 
 func (claudeAdapter) ExtraHostNeeds() []HostNeed {
 	return []HostNeed{{Program: "socat", Fix: "Install socat (on Ubuntu: `sudo apt install socat`)"}}
 }
 
-func (claudeAdapter) CopyOutputs(ws *Workspace) error { return CopyFakeOutputs(ws) }
-
-// PrepareRun records permission requests for the interim waiting detector. The caller removes the
-// file when the run ends.
-func (claudeAdapter) PrepareRun(ws *Workspace, daemonHome, runID string) (bool, []Event) {
+// PrepareHook records permission requests for the interim waiting detector.
+func (claudeAdapter) PrepareHook(ws *Workspace, daemonHome, runID string) bool {
 	hooks := filepath.Join(daemonHome, "hooks")
-	if err := os.MkdirAll(hooks, 0o700); err == nil {
-		ws.HookFile = filepath.Join(hooks, runID+".jsonl")
-		_ = os.Remove(ws.HookFile)
-		return true, nil
+	if err := os.MkdirAll(hooks, 0o700); err != nil {
+		return false
 	}
-	return false, nil
+	ws.HookFile = filepath.Join(hooks, runID+".jsonl")
+	_ = os.Remove(ws.HookFile)
+	return true
 }
 
-func (claudeAdapter) PreflightCLI(ctx context.Context, run CommandRunner, _ func(context.Context) (string, error)) error {
-	if _, code, err := run(ctx, "claude", "auth", "status"); err != nil || code != 0 {
+func (claudeAdapter) PreflightCLI(ctx context.Context, run CommandRunner) error {
+	if _, code, err := run(ctx, claudeAdapter{}.Binary(), "auth", "status"); err != nil || code != 0 {
 		return refuse("Claude Code is not signed in. Run `claude login`; Control Rod never signs in for you.")
 	}
 	return nil

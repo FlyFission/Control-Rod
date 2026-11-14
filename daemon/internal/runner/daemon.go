@@ -1058,11 +1058,12 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		d.log.Warn("breaker tripped; stopping the run", "run", job.Run.ID, "reason", reason)
 		release(errBreaker{reason})
 	}}
-	removeHook, prep := a.PrepareRun(ws, d.cfg.Home, job.Run.ID)
-	if removeHook {
+	if h, ok := a.(HookProvider); ok && h.PrepareHook(ws, d.cfg.Home, job.Run.ID) {
 		defer os.Remove(ws.HookFile)
 	}
-	buf.addEvents(prep)
+	if n, ok := a.(LaunchNotifier); ok {
+		buf.addEvents(n.LaunchNotice(time.Now()))
+	}
 	runCtx, cancel := context.WithTimeoutCause(held, d.cfg.Timeout, ErrTimeout)
 	defer cancel()
 	flushCtx, stopFlush := context.WithCancel(context.Background())
@@ -1110,7 +1111,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	var launched *Digest
 	var verified *VerifiedLaunch
-	if err == nil && cmd != nil && a.UsesVerifiedLaunch() {
+	if err == nil && cmd != nil && a.SandboxRequired() {
 		// Launch by digest (specification 21): the exact file the pin (or, unpinned, the last probe)
 		// names, checked again now and executed from the descriptor whose bytes were hashed.
 		v, verr := VerifyLaunch(runtime, job.RuntimePin, d.probedArtifact(runtime))
@@ -1136,7 +1137,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if err == nil {
 		if cmd == nil {
 			buf.add(`{"type":"result","subtype":"fake-copy"}`)
-			err = a.CopyOutputs(ws)
+			if c, ok := a.(OutputCopier); ok {
+				err = c.CopyOutputs(ws)
+			} else {
+				err = CopyFakeOutputs(ws)
+			}
 		} else {
 			unit := UnitName(d.ns, job.Run.ID, job.Run.Generation)
 			d.container.Wrap(cmd, unit)
@@ -1294,7 +1299,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	// Never run the executable again for its version: it may no longer be what was verified.
 	// The fake runtime records the daemon version, as it did before the registry.
 	version := d.cfg.Version
-	if a.UsesVerifiedLaunch() {
+	if a.SandboxRequired() {
 		version = d.verifiedVersion(runtime, launched, job.RuntimePin)
 	}
 	comp.Trace = &ExecutionTrace{

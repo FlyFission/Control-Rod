@@ -5,25 +5,33 @@ package runner
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 )
 
+// runtimeNamePattern matches a switch or comparison on a runtime name. Declarations
+// (const RuntimeClaude = "claude", return RuntimeClaude) are not matches. Comments are skipped
+// by the scan. No line under daemon/ is on an allowlist.
+var runtimeNamePattern = regexp.MustCompile(`case\s+Runtime(Claude|Codex|Fake)\b|switch\s+runtime\b|switch\s+rt\b|==\s*(runner\.)?Runtime(Claude|Codex|Fake)\b|!=\s*(runner\.)?Runtime(Claude|Codex|Fake)\b`)
+
 func TestRegistry(t *testing.T) {
-	if len(Adapters) != 3 {
-		t.Fatalf("registry %d", len(Adapters))
+	regs := RegisteredAdapters()
+	if len(regs) != 3 {
+		t.Fatalf("registry %d", len(regs))
 	}
 	wantOrder := []string{RuntimeClaude, RuntimeCodex, RuntimeFake}
 	seen := map[string]bool{}
 	var ids []string
-	for _, a := range Adapters {
+	for _, a := range regs {
 		id := a.ID()
 		if id == "" || a.Binary() == "" {
 			t.Fatalf("%q id or binary empty", id)
@@ -90,11 +98,11 @@ func TestRegistry(t *testing.T) {
 	}
 }
 
-func TestAdapterStreamMatchesNormalize(t *testing.T) {
+func TestStreamGolden(t *testing.T) {
 	now := time.Date(2026, 10, 31, 12, 0, 0, 0, time.UTC)
 	for _, c := range []struct {
-		file string
-		id   string
+		stream string
+		id     string
 	}{
 		{"claude-stream.jsonl", RuntimeClaude},
 		{"codex-stream.jsonl", RuntimeCodex},
@@ -104,36 +112,64 @@ func TestAdapterStreamMatchesNormalize(t *testing.T) {
 			if !ok {
 				t.Fatal(c.id)
 			}
-			f, err := os.Open(filepath.Join("testdata", c.file))
+			got := streamCapture(t, a, filepath.Join("testdata", c.stream), now)
+			raw := mustJSON(t, got)
+			path := filepath.Join("testdata", "stream-golden", c.id+".json")
+			want, err := os.ReadFile(path)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("read golden: %v", err)
 			}
-			defer f.Close()
-			sc := bufio.NewScanner(f)
-			n := 0
-			for sc.Scan() {
-				line := sc.Text()
-				if strings.TrimSpace(line) == "" {
-					continue
-				}
-				n++
-				if !reflect.DeepEqual(a.Normalize(line, now), Normalize(line, now)) {
-					t.Fatalf("%s line %d events differ: %s", c.file, n, line)
-				}
-				ae, afailed := a.TurnEnd(line)
-				ended, failed := TurnEnd(line)
-				if ae != ended || afailed != failed {
-					t.Fatalf("%s line %d TurnEnd adapter %v %v function %v %v", c.file, n, ae, afailed, ended, failed)
-				}
-			}
-			if err := sc.Err(); err != nil {
-				t.Fatal(err)
-			}
-			if n == 0 {
-				t.Fatal("no lines")
+			if string(want) != string(raw) {
+				t.Fatalf("stream bytes differ from %s\n got %s\nwant %s", path, raw, want)
 			}
 		})
 	}
+}
+
+type streamLine struct {
+	Line   string  `json:"line"`
+	Ended  bool    `json:"ended"`
+	Failed bool    `json:"failed"`
+	Events []Event `json:"events"`
+}
+
+func streamCapture(t *testing.T, a Adapter, path string, now time.Time) []streamLine {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	var out []streamLine
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := sc.Text()
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		events := a.Normalize(line, now)
+		if events == nil {
+			events = []Event{}
+		}
+		ended, failed := a.TurnEnd(line)
+		out = append(out, streamLine{Line: line, Ended: ended, Failed: failed, Events: events})
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(out) == 0 {
+		t.Fatal("no lines")
+	}
+	return out
+}
+
+func mustJSON(t *testing.T, v any) []byte {
+	t.Helper()
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return append(b, '\n')
 }
 
 func TestAgentEnvDropsProviderProvenance(t *testing.T) {
@@ -203,7 +239,9 @@ func (callAdapter) Providers() []string { return []string{"call"} }
 func (callAdapter) Available(func(string) (string, error), func(string) string) bool {
 	return false
 }
-func (callAdapter) Probe(context.Context, CommandRunner) RuntimeStatus { return RuntimeStatus{} }
+func (callAdapter) Probe(context.Context, string, CommandRunner) RuntimeStatus {
+	return RuntimeStatus{}
+}
 func (callAdapter) Command(Run, *Workspace, *SandboxPolicy, SandboxPaths) (*exec.Cmd, error) {
 	return nil, nil
 }
@@ -211,51 +249,86 @@ func (callAdapter) LaunchInfo(Run, *Workspace, *SandboxPolicy) Launch { return L
 func (c callAdapter) Normalize(string, time.Time) []Event             { return c.events }
 func (c callAdapter) TurnEnd(string) (bool, bool)                     { return c.ended, c.failed }
 func (callAdapter) SandboxRequired() bool                             { return false }
-func (callAdapter) PrepareRun(*Workspace, string, string) (bool, []Event) {
-	return false, nil
-}
-func (callAdapter) UsesVerifiedLaunch() bool { return false }
-func (callAdapter) ExtraHostNeeds() []HostNeed {
-	return nil
-}
-func (callAdapter) DisplayName() string { return "call" }
-func (callAdapter) PreflightCLI(context.Context, CommandRunner, func(context.Context) (string, error)) error {
-	return nil
-}
-func (callAdapter) CheckManagedConfig([]string) error { return nil }
-func (callAdapter) StagesArtifact() bool              { return false }
-func (callAdapter) CopyOutputs(*Workspace) error      { return nil }
+func (callAdapter) DisplayName() string                               { return "call" }
 
-func TestAdapterLaunchMatchesCommand(t *testing.T) {
-	root, p := prepareGoldenRoot(t)
-	withGoldenEnv(t, func() {
-		for _, c := range launchCases {
-			t.Run(c.id, func(t *testing.T) {
-				viaCommand := captureLaunch(t, root, p, c)
-				a, ok := AdapterFor(c.runtime)
-				if !ok {
-					t.Fatal(c.runtime)
-				}
-				dir := filepath.Join(root, "ws-"+c.id)
-				ws := &Workspace{Dir: dir, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out")}
-				run := testRun("run-"+c.id, c.role)
-				run.Runtime = RuntimeRef{Kind: "subscription", Provider: c.runtime, Model: c.model}
-				at := SandboxPaths{
-					Home:       filepath.Join(root, "home"),
-					DaemonHome: filepath.Join(root, "home", ".controlrod"),
-					Workspace:  ws.Dir,
-				}
-				cmd, err := a.Command(run, ws, p, at)
-				if err != nil || cmd == nil {
-					t.Fatalf("adapter Command: %v", err)
-				}
-				if !slices.Equal(cmd.Args, viaCommand.Argv) || !slices.Equal(cmd.Env, viaCommand.Env) || cmd.Dir != viaCommand.Dir {
-					t.Fatalf("adapter launch bytes differ from Command")
-				}
-				if !reflect.DeepEqual(a.LaunchInfo(run, ws, p), viaCommand.Launch) {
-					t.Fatalf("adapter LaunchInfo differs from LaunchFor")
-				}
-			})
+func TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv(t *testing.T) {
+	sawFake := false
+	for _, a := range RegisteredAdapters() {
+		if !a.SandboxRequired() {
+			if a.ID() != RuntimeFake {
+				t.Fatalf("%s reports no sandbox; only %s may", a.ID(), RuntimeFake)
+			}
+			sawFake = true
+			continue
 		}
+		ws := workspaceWithTools(t, "")
+		run := testRun("gate-"+a.ID(), "author")
+		if _, err := Command(a.ID(), run, ws, nil, testPaths(ws)); !errors.Is(err, ErrNoPolicy) {
+			t.Fatalf("%s nil policy: %v", a.ID(), err)
+		}
+		cmd, err := Command(a.ID(), run, ws, testPolicy(), testPaths(ws))
+		if err != nil || cmd == nil {
+			t.Fatalf("%s command: %v", a.ID(), err)
+		}
+		want := AgentEnv(os.Environ())
+		if extra, ok := a.(ExtraEnvProvider); ok {
+			want = withEnv(append([]string{}, want...), extra.ExtraEnv()...)
+		}
+		if !slices.Equal(cmd.Env, want) {
+			t.Fatalf("%s env\n got %q\nwant %q", a.ID(), cmd.Env, want)
+		}
+	}
+	if !sawFake {
+		t.Fatal("registry has no fake runtime")
+	}
+}
+
+func TestProviderAndIDUnique(t *testing.T) {
+	ids := map[string]bool{}
+	providers := map[string]string{}
+	for _, a := range RegisteredAdapters() {
+		if ids[a.ID()] {
+			t.Fatalf("duplicate id %s", a.ID())
+		}
+		ids[a.ID()] = true
+		for _, p := range a.Providers() {
+			if p != strings.ToLower(p) || p == "" {
+				t.Fatalf("%s provider %q is not a lower-case name", a.ID(), p)
+			}
+			if prev, ok := providers[p]; ok {
+				t.Fatalf("provider %q claimed by %s and %s", p, prev, a.ID())
+			}
+			providers[p] = a.ID()
+		}
+	}
+}
+
+func TestNoRuntimeNameSwitch(t *testing.T) {
+	root := filepath.Join("..", "..")
+	var hits []string
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") || strings.Contains(path, "testdata") {
+			return nil
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for i, line := range strings.Split(string(b), "\n") {
+			trim := strings.TrimSpace(line)
+			if strings.HasPrefix(trim, "//") {
+				continue
+			}
+			if runtimeNamePattern.MatchString(line) {
+				hits = append(hits, fmt.Sprintf("%s:%d: %s", path, i+1, trim))
+			}
+		}
+		return nil
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) > 0 {
+		t.Fatalf("runtime-name dispatch:\n%s", strings.Join(hits, "\n"))
+	}
 }

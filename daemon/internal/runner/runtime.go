@@ -33,7 +33,7 @@ const (
 // RuntimeFor maps a run's provider to a runtime name.
 func RuntimeFor(provider string) string {
 	p := strings.ToLower(provider)
-	for _, a := range Adapters {
+	for _, a := range registry {
 		if slices.Contains(a.Providers(), p) {
 			return a.ID()
 		}
@@ -45,7 +45,7 @@ func RuntimeFor(provider string) string {
 // CONTROLROD_ALLOW_FAKE=1, so a real daemon never claims test jobs.
 func Detect(lookPath func(string) (string, error), getenv func(string) string) []string {
 	var out []string
-	for _, a := range Adapters {
+	for _, a := range registry {
 		if a.Available(lookPath, getenv) {
 			out = append(out, a.ID())
 		}
@@ -276,7 +276,25 @@ func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at Sandbo
 	if !ok {
 		return nil, fmt.Errorf("runtime %q is not available on this machine", runtime)
 	}
-	return a.Command(run, ws, p, at)
+	// The policy check and the environment choice live here, not in the adapter. An adapter
+	// that returns SandboxRequired cannot skip them by building its own command.
+	if a.SandboxRequired() {
+		if err := requireAgentPolicy(p, at); err != nil {
+			return nil, err
+		}
+	}
+	cmd, err := a.Command(run, ws, p, at)
+	if err != nil || cmd == nil {
+		return cmd, err
+	}
+	env := ChildEnv(os.Environ())
+	if a.SandboxRequired() {
+		env = AgentEnv(os.Environ())
+	}
+	if extra, ok := a.(ExtraEnvProvider); ok {
+		env = withEnv(env, extra.ExtraEnv()...)
+	}
+	return finishCommand(cmd, ws, env), nil
 }
 
 // requireAgentPolicy is the check Command used to run before building a Claude or Codex process.

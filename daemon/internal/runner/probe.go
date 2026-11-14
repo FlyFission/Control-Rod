@@ -77,31 +77,35 @@ func hasSubcommand(help, name string) bool {
 // answer, and for Codex, when `codex login --help` lists a `status` subcommand, `codex login
 // status` must say a login is present. The fake runtime is always ready.
 func Probe(ctx context.Context, runtime, fakeVersion string, run CommandRunner) RuntimeStatus {
-	if st, ok := probeDispatched(ctx, runtime, fakeVersion, run); ok {
-		return st
+	if a, ok := AdapterFor(runtime); ok {
+		return a.Probe(ctx, fakeVersion, run)
 	}
-	return probeInstalled(ctx, runtime, run, nil)
+	// An unregistered name is probed as a CLI whose id and PATH name are the same string.
+	return probeInstalled(ctx, runtime, runtime, run, nil)
 }
 
-// probeInstalled checks a CLI runtime's artifact and version. login, when set, runs after a
-// version answer and reports whether the probe should stop before the runtime is marked ready.
-func probeInstalled(ctx context.Context, runtime string, run CommandRunner, login func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool) RuntimeStatus {
-	st := RuntimeStatus{Runtime: runtime}
+// probeInstalled checks a CLI runtime's artifact and version. id is the registry id recorded on
+// the status. binary is the PATH name passed to resolveArtifact and to the version command. For
+// Claude and Codex they are the same string, so the sentences stay the ones the probes used
+// before the registry. login, when set, runs after a version answer and reports whether the probe
+// should stop before the runtime is marked ready.
+func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, login func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool) RuntimeStatus {
+	st := RuntimeStatus{Runtime: id}
 	// Identify the executable before running anything: a launcher Control Rod cannot pin is never
 	// executed, not even for its version.
-	if art, aerr := resolveArtifact(runtime); aerr == nil {
+	if art, aerr := resolveArtifact(binary); aerr == nil {
 		st.Artifact = &art
 	} else if errors.Is(aerr, ErrUnsupportedLauncher) {
-		st.Reason = fmt.Sprintf("%s is installed, but Control Rod can only run a runtime it can identify by digest: %v", runtime, aerr)
+		st.Reason = fmt.Sprintf("%s is installed, but Control Rod can only run a runtime it can identify by digest: %v", binary, aerr)
 		return st
 	} else {
-		st.Reason = fmt.Sprintf("%s cannot be found or its executable read to record which version it is: %v", runtime, aerr)
+		st.Reason = fmt.Sprintf("%s cannot be found or its executable read to record which version it is: %v", binary, aerr)
 		return st
 	}
 	call := func(args ...string) (string, int, error) {
 		c, cancel := context.WithTimeout(ctx, probeTimeout)
 		defer cancel()
-		return run(c, runtime, args...)
+		return run(c, binary, args...)
 	}
 	out, code, err := call("--version")
 	if err != nil || code != 0 || firstLine(out) == "" {
@@ -109,7 +113,7 @@ func probeInstalled(ctx context.Context, runtime string, run CommandRunner, logi
 		if err != nil {
 			detail = err.Error()
 		}
-		st.Reason = fmt.Sprintf("%s is installed but `%s --version` did not answer (exit %d): %s", runtime, runtime, code, detail)
+		st.Reason = fmt.Sprintf("%s is installed but `%s --version` did not answer (exit %d): %s", binary, binary, code, detail)
 		return st
 	}
 	st.Version = firstLine(out)

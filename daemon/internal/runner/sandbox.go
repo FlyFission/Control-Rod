@@ -505,9 +505,14 @@ func HostNeeds(rt string) []HostNeed {
 	if runtime.GOOS != "linux" {
 		return nil
 	}
+	if a, ok := AdapterFor(rt); ok && !a.SandboxRequired() {
+		return nil
+	}
 	needs := []HostNeed{{Program: "bwrap", Fix: "Install bubblewrap (on Ubuntu: `sudo apt install bubblewrap`)"}}
 	if a, ok := AdapterFor(rt); ok {
-		needs = append(needs, a.ExtraHostNeeds()...)
+		if h, ok := a.(HostNeeder); ok {
+			needs = append(needs, h.ExtraHostNeeds()...)
+		}
 	}
 	return needs
 }
@@ -518,7 +523,7 @@ func hostLabel(rt string) string {
 			return name
 		}
 	}
-	return "Codex"
+	return rt
 }
 
 // platformCheck is QualifiedPlatform; tests replace it to exercise the rest of the preflight anywhere.
@@ -556,7 +561,10 @@ func Preflight(ctx context.Context, rt string, run CommandRunner, lookPath func(
 	if !ok {
 		return nil
 	}
-	return a.PreflightCLI(ctx, run, codexFeatures)
+	if p, ok := a.(CLIPreflight); ok {
+		return p.PreflightCLI(contextWithCodexFeatures(ctx, codexFeatures), run)
+	}
+	return nil
 }
 
 // PreflightHost checks what the sandbox needs without running the CLI: the programs it needs are on
@@ -574,7 +582,9 @@ func PreflightHost(rt string, lookPath func(string) (string, error), managedCode
 		}
 	}
 	if a, ok := AdapterFor(rt); ok {
-		return a.CheckManagedConfig(managedCodexConfig)
+		if c, ok := a.(ManagedConfigChecker); ok {
+			return c.CheckManagedConfig(managedCodexConfig)
+		}
 	}
 	return nil
 }
@@ -702,7 +712,7 @@ func CodexEffectiveFeatures(ctx context.Context) (string, error) {
 	for _, f := range CodexDisabledFeatures {
 		args = append(args, "--disable", f)
 	}
-	// The very executable the probe identified and runs launch, found on the agent PATH.
+	// Binary() is the PATH name. For Codex it is the same string as the runtime id.
 	a, err := resolveArtifact(codexAdapter{}.Binary())
 	if err != nil {
 		return "", err

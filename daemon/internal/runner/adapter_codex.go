@@ -3,22 +3,39 @@ package runner
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
 )
 
-type codexAdapter struct{}
+type codexAdapter struct{ sandboxedBase }
 
-func (codexAdapter) ID() string     { return RuntimeCodex }
-func (codexAdapter) Binary() string { return "codex" }
+// codexFeatureKey carries the feature lister Preflight was given. The adapter owns the
+// preflight; the shared CLIPreflight signature has no callback. Absent means CodexEffectiveFeatures.
+type codexFeatureKey struct{}
+
+func contextWithCodexFeatures(ctx context.Context, f func(context.Context) (string, error)) context.Context {
+	if f == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, codexFeatureKey{}, f)
+}
+
+func codexFeatureList(ctx context.Context) func(context.Context) (string, error) {
+	if f, ok := ctx.Value(codexFeatureKey{}).(func(context.Context) (string, error)); ok && f != nil {
+		return f
+	}
+	return CodexEffectiveFeatures
+}
+
+func (codexAdapter) ID() string          { return RuntimeCodex }
+func (codexAdapter) Binary() string      { return "codex" }
+func (codexAdapter) DisplayName() string { return "Codex" }
 
 func (codexAdapter) Providers() []string { return []string{"codex", "openai"} }
 
-func (codexAdapter) Available(lookPath func(string) (string, error), _ func(string) string) bool {
-	_, err := lookPath("codex")
-	return err == nil
+func (a codexAdapter) Available(lookPath func(string) (string, error), _ func(string) string) bool {
+	return availableBinary(a, lookPath)
 }
 
 func (codexAdapter) Capabilities() Capabilities {
@@ -33,8 +50,8 @@ func (codexAdapter) Capabilities() Capabilities {
 	}
 }
 
-func (codexAdapter) Probe(ctx context.Context, run CommandRunner) RuntimeStatus {
-	return probeInstalled(ctx, RuntimeCodex, run, func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool {
+func (a codexAdapter) Probe(ctx context.Context, _ string, run CommandRunner) RuntimeStatus {
+	return probeInstalled(ctx, a.ID(), a.Binary(), run, func(call func(args ...string) (string, int, error), st *RuntimeStatus) bool {
 		help, hcode, herr := call("login", "--help")
 		if herr == nil && hcode == 0 && hasSubcommand(help, "status") {
 			st.LoginChecked = true
@@ -47,16 +64,12 @@ func (codexAdapter) Probe(ctx context.Context, run CommandRunner) RuntimeStatus 
 	})
 }
 
-func (codexAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {
-	if err := requireAgentPolicy(p, at); err != nil {
-		return nil, err
-	}
+func (a codexAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {
 	args, err := CodexArgs(ws, RequestedModel(run), p, at)
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command("codex", args...)
-	return finishCommand(cmd, ws, AgentEnv(os.Environ())), nil
+	return exec.Command(a.Binary(), args...), nil
 }
 
 func (codexAdapter) LaunchInfo(run Run, _ *Workspace, p *SandboxPolicy) Launch {
@@ -65,32 +78,23 @@ func (codexAdapter) LaunchInfo(run Run, _ *Workspace, p *SandboxPolicy) Launch {
 	return l
 }
 
-func (codexAdapter) Normalize(line string, now time.Time) []Event { return Normalize(line, now) }
-func (codexAdapter) TurnEnd(line string) (bool, bool)             { return TurnEnd(line) }
+func (codexAdapter) StagesArtifact() bool { return true }
 
-func (codexAdapter) SandboxRequired() bool    { return true }
-func (codexAdapter) UsesVerifiedLaunch() bool { return true }
-func (codexAdapter) StagesArtifact() bool     { return true }
-func (codexAdapter) DisplayName() string      { return "Codex" }
-func (codexAdapter) ExtraHostNeeds() []HostNeed {
-	return nil
-}
 func (codexAdapter) CheckManagedConfig(files []string) error { return managedConfigRefusal(files) }
-func (codexAdapter) CopyOutputs(ws *Workspace) error         { return CopyFakeOutputs(ws) }
 
-func (codexAdapter) PrepareRun(*Workspace, string, string) (bool, []Event) {
-	return false, []Event{{
+func (codexAdapter) LaunchNotice(now time.Time) []Event {
+	return []Event{{
 		Kind: EvNotice,
-		At:   time.Now().UTC().Format(time.RFC3339Nano),
+		At:   now.UTC().Format(time.RFC3339Nano),
 		Text: "Permission waits are not observable in Codex exec mode; a refused action shows as a failed tool call.",
 	}}
 }
 
-func (codexAdapter) PreflightCLI(ctx context.Context, run CommandRunner, features func(context.Context) (string, error)) error {
-	if _, code, err := run(ctx, "codex", "login", "status"); err != nil || code != 0 {
+func (a codexAdapter) PreflightCLI(ctx context.Context, run CommandRunner) error {
+	if _, code, err := run(ctx, a.Binary(), "login", "status"); err != nil || code != 0 {
 		return refuse("Codex is not signed in. Run `codex login`; Control Rod never signs in for you.")
 	}
-	list, err := features(ctx)
+	list, err := codexFeatureList(ctx)(ctx)
 	if err != nil {
 		return refuse("Codex did not list its features (%v), so Control Rod cannot tell what an agent could reach. Reinstall the pinned Codex.", err)
 	}

@@ -389,11 +389,19 @@ func (l *VerifiedLaunch) Close() {
 // first and its digest computed from that open file, so the bytes checked are the bytes that run.
 // A mismatch fails closed with a sentence a person can act on.
 func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) (*VerifiedLaunch, error) {
-	got, err := resolveArtifact(runtimeName)
+	// runtimeName is the registry id. The PATH lookup uses Binary() when this id is registered;
+	// for Claude and Codex that name equals the id.
+	binary := runtimeName
+	var stager ArtifactStager
+	if a, ok := AdapterFor(runtimeName); ok {
+		binary = a.Binary()
+		stager, _ = a.(ArtifactStager)
+	}
+	got, err := resolveArtifact(binary)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s cannot be found or read: %v", ErrArtifactMismatch, runtimeName, err)
 	}
-	if a, ok := AdapterFor(runtimeName); ok && a.StagesArtifact() {
+	if stager != nil && stager.StagesArtifact() {
 		// Launched from its staged copy, checked below exactly as the install would be.
 		if got, err = StageArtifact(got, StageRoot()); err != nil {
 			return nil, fmt.Errorf("%w: %s cannot be staged outside the home folder: %v", ErrArtifactMismatch, runtimeName, err)

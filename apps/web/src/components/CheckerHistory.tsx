@@ -7,22 +7,29 @@ type Override = NonNullable<PackageView["recheck_overrides"]>[number];
 /** The checker attempt log and, when a fail is sticky, the reason another check is refused. */
 export function CheckerHistory({
   blocked,
+  warning,
   attempts,
   overrides,
 }: {
   blocked: PackageView["check_blocked"];
+  warning?: PackageView["check_warning"];
   attempts: PackageView["checker_attempts"];
   overrides: PackageView["recheck_overrides"];
 }) {
   const list = attempts ?? [];
   const signed = overrides ?? [];
-  if (!blocked && list.length === 0 && signed.length === 0) return null;
+  if (!blocked && !warning && list.length === 0 && signed.length === 0) return null;
   return (
     <div className="checker-history">
       {blocked && (
         <div role="status">
           <p className="error">{blocked.reason}</p>
           <p className="muted small">{blocked.change}</p>
+        </div>
+      )}
+      {warning && (
+        <div role="status">
+          <p>{warning.reason}</p>
         </div>
       )}
       {list.length > 0 && (
@@ -67,7 +74,7 @@ function AttemptLine({ attempt }: { attempt: Attempt }) {
         {" · "}
         {time(attempt.started_at)} to {time(attempt.finished_at)}
         {" · digest "}
-        <span className="mono">{shortDigest(attempt.deliverable_digest)}</span>
+        <span className="mono">{attempt.digest_unknown ? "unknown" : shortDigest(attempt.deliverable_digest)}</span>
       </p>
       <p className="muted small">
         Evidence <a href={attempt.evidence}>{attempt.evidence}</a>

@@ -1,0 +1,28 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CheckWarning.json",
+    "type": "object",
+    "properties": {
+        "code": {
+            "type": "string",
+            "const": "repeated-inconclusive"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+        },
+        "count": {
+            "type": "integer",
+            "minimum": 3,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "code",
+        "reason",
+        "count"
+    ],
+    "description": "Several checks of this digest were inconclusive. Another check is still allowed.\nThe page warns; it does not refuse the check.",
+    "unevaluatedProperties": false
+}

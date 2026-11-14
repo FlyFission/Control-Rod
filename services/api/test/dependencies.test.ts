@@ -11,6 +11,7 @@ import { SESSION_CREDENTIALS_DOWN_SQL } from "../src/db/migrations/018-session-c
 import { WORKBENCH_LINKS_DOWN_SQL } from "../src/db/migrations/019-workbench-links.js";
 import { CHECKER_ATTEMPTS_DOWN_SQL } from "../src/db/migrations/020-checker-attempts.js";
 import { CHECKER_QUEUED_DIGESTS_DOWN_SQL } from "../src/db/migrations/021-checker-queued-digests.js";
+import { CHECKER_NO_TRUNCATE_DOWN_SQL } from "../src/db/migrations/022-checker-no-truncate.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, daemonHeaders, signIn, startHarness } from "./harness.js";
 
 /** Explicit package dependencies (workbench plan task 1.8; specification 7 "depends on"). */
@@ -111,6 +112,7 @@ describe("editing a draft", () => {
 describe("migration 013", () => {
   it("classifies design inputs that named a package before it as dependencies, and later revisions inherit them", async () => {
     // Later migrations come off first, as a real rollback would take them.
+    await h.admin.query(CHECKER_NO_TRUNCATE_DOWN_SQL);
     await h.admin.query(CHECKER_QUEUED_DIGESTS_DOWN_SQL);
     await h.admin.query(CHECKER_ATTEMPTS_DOWN_SQL);
     await h.admin.query(WORKBENCH_LINKS_DOWN_SQL);

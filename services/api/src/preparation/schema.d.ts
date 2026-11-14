@@ -378,7 +378,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description Every checker attempt for this package, oldest first. The same list is on the package view.
+         * @description Checker attempts for this package, oldest first. limit keeps the latest ones (1 to 100).
+         *     before, a seq, returns the page older than that attempt.
          *     Timeout, error, quota and cancelled attempts are in the list and count as inconclusive.
          */
         get: operations["Packages_checkerAttempts"];
@@ -400,8 +401,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Ask for a check of the current author deliverables. Refused, with sticky-fail, when a check of
-         *     that digest has already failed and no signed recheck override is waiting to be used.
+         * @description Ask for a check of the current author deliverables. 201 when a check is queued.
+         *     409 check-active when one is already queued or running.
+         *     409 sticky-fail when a check of that digest has already failed and no signed recheck override
+         *     is waiting to be used.
          */
         post: operations["Packages_requestCheck"];
         delete?: never;
@@ -1355,17 +1358,6 @@ export interface components {
             /** @description Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
             lane?: components["schemas"]["ControlRod.Records.DataLane"];
         };
-        /**
-         * @description A fail on the current deliverable digest is sticky: another check is refused until the
-         *     deliverable changes or the owner signs an override. The words are what the API and the page show.
-         */
-        CheckBlocked: {
-            /** @enum {string} */
-            code: "sticky-fail";
-            reason: string;
-            change: string;
-            deliverable_digest: components["schemas"]["ControlRod.Records.Digest"];
-        };
         "ControlRod.Preparation.BasisRef": {
             /** @enum {string} */
             kind: "capture" | "attachment" | "repository" | "document" | "package" | "policy";
@@ -1804,6 +1796,28 @@ export interface components {
         /** @enum {string} */
         "ControlRod.Records.ChangeRequestStatus": "proposed" | "approved" | "rejected" | "withdrawn";
         /**
+         * @description A fail on the current deliverable digest is sticky: another check is refused until the
+         *     deliverable changes or the owner signs an override. The words are what the API and the page show.
+         */
+        "ControlRod.Records.CheckBlocked": {
+            /** @enum {string} */
+            code: "sticky-fail";
+            reason: string;
+            change: string;
+            deliverable_digest: components["schemas"]["ControlRod.Records.Digest"];
+        };
+        /**
+         * @description Several checks of this digest were inconclusive. Another check is still allowed.
+         *     The page warns; it does not refuse the check.
+         */
+        "ControlRod.Records.CheckWarning": {
+            /** @enum {string} */
+            code: "repeated-inconclusive";
+            reason: string;
+            /** Format: int32 */
+            count: number;
+        };
+        /**
          * @description One checker attempt on one deliverable digest. Append-only: a later attempt is a new row.
          *     Added in API 0.1; existing records are unchanged.
          */
@@ -1821,8 +1835,22 @@ export interface components {
             checker_runtime: string;
             /** @description The model the runtime said it used. Absent when it did not say. */
             reported_model?: string;
-            /** @description Digest of the author deliverables this attempt checked, names and digests in name order. */
-            deliverable_digest: components["schemas"]["ControlRod.Records.Digest"];
+            /**
+             * Format: int32
+             * @description Place in the package's attempt history. Older attempts are read with before set to this value.
+             */
+            seq?: number;
+            /**
+             * @description Digest of the author deliverables this attempt checked, names and digests in name order.
+             *     Absent when digest_unknown is set: the bytes were not captured, and the attempt is not
+             *     attached to the deliverable the package holds now.
+             */
+            deliverable_digest?: components["schemas"]["ControlRod.Records.Digest"];
+            /**
+             * @description The bytes this attempt checked were not captured. It does not stick to today's deliverable.
+             * @enum {boolean}
+             */
+            digest_unknown?: true;
             outcome: components["schemas"]["ControlRod.Records.CheckerAttemptOutcome"];
             /**
              * @description pass and fail stand. inconclusive, timeout, error, quota and cancelled count as inconclusive.
@@ -2231,6 +2259,15 @@ export interface components {
             reviewed_by: components["schemas"]["ControlRod.Records.TenancyId"];
             reason: string;
             assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
+        };
+        /** @description One signed override allowing a single re-check of a deliverable that already failed. */
+        "ControlRod.Records.RecheckOverride": {
+            id: string;
+            package_id: string;
+            /** Format: int32 */
+            package_revision: number;
+            deliverable_digest: components["schemas"]["ControlRod.Records.Digest"];
+            override: components["schemas"]["ControlRod.Records.OwnerOverride"];
         };
         /** @description How an unknown outcome was settled. */
         "ControlRod.Records.Reconciliation": {
@@ -2654,17 +2691,23 @@ export interface components {
             outputs: components["schemas"]["ControlRod.Records.Artifact"][];
             pre_check?: components["schemas"]["ControlRod.Records.VerificationRecord"];
             /**
-             * @description Every checker attempt for this package, oldest first, including inconclusive, timeout, error,
-             *     quota and cancelled. Additive in API 0.1.
+             * @description The latest checker attempts for this package, oldest of that page first, including inconclusive,
+             *     timeout, error, quota and cancelled. At most 50. Older attempts are on GET /checker-attempts.
              */
             checker_attempts?: components["schemas"]["ControlRod.Records.CheckerAttempt"][];
             /** @description Signed overrides that allow one more check of a deliverable a check had already failed. */
-            recheck_overrides?: components["schemas"]["RecheckOverride"][];
+            recheck_overrides?: components["schemas"]["ControlRod.Records.RecheckOverride"][];
             /**
-             * @description Set when another check of the current deliverable is refused because a fail on that digest
-             *     is sticky. Absent when a check may start, or one is already queued.
+             * @description Set when the governing decisive outcome for the current deliverable is fail.
+             *     Absent after an in-scope overridden recheck passes, when the digest changed, or when an
+             *     unused override is waiting.
              */
-            check_blocked?: components["schemas"]["CheckBlocked"];
+            check_blocked?: components["schemas"]["ControlRod.Records.CheckBlocked"];
+            /**
+             * @description Set when several checks of the current digest were inconclusive. A warning only:
+             *     another check is still allowed.
+             */
+            check_warning?: components["schemas"]["ControlRod.Records.CheckWarning"];
             decisions: components["schemas"]["ControlRod.Records.Decision"][];
             /** @description Digest a decision on this revision must be bound to. */
             subject_digest: components["schemas"]["ControlRod.Records.Digest"];
@@ -2726,15 +2769,6 @@ export interface components {
              *     a pass that covers the current subject counts as verified.
              */
             covers_current_subject: boolean;
-        };
-        /** @description One signed override allowing a single re-check of a deliverable that already failed. */
-        RecheckOverride: {
-            id: string;
-            package_id: string;
-            /** Format: int32 */
-            package_revision: number;
-            deliverable_digest: components["schemas"]["ControlRod.Records.Digest"];
-            override: components["schemas"]["ControlRod.Records.OwnerOverride"];
         };
         /** @description A passkey as the forms name it: its owner, when it was registered, and no attestation evidence. */
         RegistryCredential: {
@@ -4185,7 +4219,10 @@ export interface operations {
     };
     Packages_checkerAttempts: {
         parameters: {
-            query?: never;
+            query?: {
+                limit?: number;
+                before?: number;
+            };
             header?: never;
             path: {
                 id: string;
@@ -4270,8 +4307,8 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The request has succeeded. */
-            200: {
+            /** @description The request has succeeded and a new resource has been created as a result. */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5567,7 +5604,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RecheckOverride"];
+                    "application/json": components["schemas"]["ControlRod.Records.RecheckOverride"];
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */

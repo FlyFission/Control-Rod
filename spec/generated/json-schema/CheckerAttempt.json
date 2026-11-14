@@ -37,9 +37,20 @@
             "maxLength": 200,
             "description": "The model the runtime said it used. Absent when it did not say."
         },
+        "seq": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Place in the package's attempt history. Older attempts are read with before set to this value."
+        },
         "deliverable_digest": {
             "$ref": "Digest.json",
-            "description": "Digest of the author deliverables this attempt checked, names and digests in name order."
+            "description": "Digest of the author deliverables this attempt checked, names and digests in name order.\nAbsent when digest_unknown is set: the bytes were not captured, and the attempt is not\nattached to the deliverable the package holds now."
+        },
+        "digest_unknown": {
+            "type": "boolean",
+            "const": true,
+            "description": "The bytes this attempt checked were not captured. It does not stick to today's deliverable."
         },
         "outcome": {
             "$ref": "CheckerAttemptOutcome.json"
@@ -92,7 +103,6 @@
         "run_id",
         "round",
         "checker_runtime",
-        "deliverable_digest",
         "outcome",
         "counts_as",
         "started_at",

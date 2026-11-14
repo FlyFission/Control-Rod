@@ -1,0 +1,33 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RecheckOverride.json",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "string"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "deliverable_digest": {
+            "$ref": "Digest.json"
+        },
+        "override": {
+            "$ref": "OwnerOverride.json"
+        }
+    },
+    "required": [
+        "id",
+        "package_id",
+        "package_revision",
+        "deliverable_digest",
+        "override"
+    ],
+    "description": "One signed override allowing a single re-check of a deliverable that already failed.",
+    "unevaluatedProperties": false
+}

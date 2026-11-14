@@ -14,7 +14,7 @@ A pre-check can be run again until it passes, and a timeout, error, quota failur
 
 In scope: an append-only attempt record and a one-check recheck override in `services/api`, additive models in `spec/` (API 0.1, no schema_version bump of existing records), the package and case pages that show the attempt list and the refusal, and this packet.
 
-Out of scope: `kernel/` decision functions, `policies/`, `tests/redteam/`, `.github/workflows/`, `daemon/internal/runner`, and any spec major version. The kernel still receives the governing pre-check outcome. It does not grow a new action for the sticky rule. That would be a protected kernel change; this milestone enforces the rule in the server before a check is queued, and when it chooses which recorded outcome still stands.
+Out of scope: `kernel/` decision functions, `policies/`, `tests/redteam/`, `.github/workflows/`, `daemon/internal/runner`, and any spec major version. No kernel source file is edited, and the sticky rule is not a new kernel action. `subjectOf` does change what `decide` is given: it passes the governing verification for the current revision and digest, not merely the newest verification row. That is an acceptance-semantics change. The server also re-checks the rule when a run is claimed and when a result is admitted.
 
 ## Fixed inputs
 
@@ -24,10 +24,10 @@ The current pre-check path (`finishPreCheck`, `VerificationRecord`, the independ
 
 | Assumption | Basis | Invalidation trigger |
 |---|---|---|
-| A fail sticks to the digest of the author deliverables, across rounds of one package, until those bytes change. | The verification record already digests the deliverables that way. | A check that is given a different byte set than that digest. |
+| A fail sticks to the digest of the author deliverables, across revisions of one package, until those bytes change. A new package is a new digest scope. Any byte change, or a different package, defeats the stickiness. | The verification record already digests the deliverables that way, per package. | A check that is given a different byte set than that digest, or a fail on one package blocking another. |
 | One signed override pays for one later check, using the same passkey ceremony as the independence override. | `OwnerOverride` and `assertionOptions` / `assertionVerify`. | A second check starting on the same override. |
 | Timeout, error, quota and cancelled attempts count as inconclusive. | The milestone text. A checker verdict of pass, fail or inconclusive stands only when the run succeeded and the verification was admitted. | A completion path that records one of those four as pass. |
-| The kernel does not need a new action for this milestone. | The server refuses the queue, and the outcome it passes to `decide` stays the last pass or fail. An inconclusive attempt does not replace it. | A path that admits a pre-check without `queueRun`, or a decision that reads a verification row the server no longer treats as governing. |
+| The kernel does not need a new action for this milestone. | The server refuses the queue, stops a queued or running check at claim and at admission, and the verification passed to `decide` is the governing pass or fail. A pass from another revision does not count. A pass supersedes a fail only when that attempt spent a recheck override. An inconclusive result is not returned when a decisive one exists. | A path that admits a pass with no `checker_recheck_uses` row after a fail, or a decision that reads a newer inconclusive verification instead. |
 
 ## Required links
 

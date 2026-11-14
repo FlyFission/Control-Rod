@@ -23,9 +23,10 @@ import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
+  PACKAGE_ATTEMPT_LIMIT,
   STICKY_FAIL_REASON,
   checkBlocked,
-  consumeOverride,
+  checkWarning,
   currentDeliverable,
   governingVerification,
   hasStickyFail,
@@ -34,6 +35,7 @@ import {
   listCheckerAttempts,
   listRecheckOverrides,
   lockNextOverride,
+  preCheckClaimGate,
   recordCheckerAttempt,
 } from "./checker-attempts.js";
 
@@ -369,10 +371,15 @@ export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
         [pkg.id, pkg.revision],
       )).rows[0];
   const basisOuts = basis && basis.id !== author?.id ? await outputDigestsOf(q, basis.id) : outs;
+  // The verification handed to decide. A pass counts only for this revision, so a return with new
+  // acceptance criteria and the same files does not reuse the old pass. A fail stays. A later
+  // inconclusive attempt does not replace either one, including a fail that exists only as a
+  // verification written before attempts were recorded.
   const governed = basis
-    ? await governingVerification(q, pkg.id, digest(basisOuts.map((o) => ({ name: o.name, sha256: o.sha256 }))))
+    ? await governingVerification(q, pkg.id, pkg.revision, digest(basisOuts.map((o) => ({ name: o.name, sha256: o.sha256 }))))
     : null;
-  const ver = governed ? { body: governed } : author ? await latestVerification(q, pkg.id, pkg.revision, author.round) : null;
+  const latest = !governed && author ? await latestVerification(q, pkg.id, pkg.revision, author.round) : null;
+  const ver = governed ? { body: governed } : latest;
   const preparation = await preparationForSubject(q,pkg);
   const integrity=preparation && author?.status==="succeeded"?await authorOutputIntegrity(q,author.id):null;
   const subject = {
@@ -399,6 +406,8 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     [id],
   );
   const blocked = await checkBlocked(db, id, pkg.revision);
+  const current = await currentDeliverable(db, id, pkg.revision);
+  const warning = current ? await checkWarning(db, id, current.digest) : null;
   const lane = await liveLane(db, id, pkg.body.data_lane, cfg);
   return {
     ...(pkg.status === "draft" ? { draft_etag: draftEtag(pkg.body) } : {}),
@@ -407,9 +416,10 @@ export async function packageView(db: Db, id: string, cfg?: WorkConfig) {
     runs: runs.rows.map((r) => ({ ...r.body, status: r.status })),
     outputs: s.outputs.map((o) => ({ path: o.name, digest: { algorithm: "sha256", value: o.sha256 } })),
     ...(s.verification ? { pre_check: s.verification } : {}),
-    checker_attempts: await listCheckerAttempts(db, id),
+    checker_attempts: await listCheckerAttempts(db, id, { limit: PACKAGE_ATTEMPT_LIMIT }),
     recheck_overrides: await listRecheckOverrides(db, id),
     ...(blocked ? { check_blocked: blocked } : {}),
+    ...(warning ? { check_warning: warning } : {}),
     decisions: decisions.rows.map((d) => d.body),
     subject_digest: { algorithm: "sha256", value: s.digest },
     // What a signature on this revision binds, in words; for statuses with a gate decision.
@@ -512,14 +522,14 @@ export async function updateDraft(db: Db, cfg: WorkConfig, user: string, id: str
 /* ---------- runs ---------- */
 
 async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: number, role: string, round: number, requeueOf?: string, demand = false): Promise<Json | null> {
-  // A fail sticks to the deliverable. Every pre-check is queued here, so none can start on that
-  // digest unless the deliverable changed or an unused signed override pays for this one check.
-  let spent: { id: string } | null = null;
+  // A fail sticks to the deliverable. Queue refuses a check with no unused override. The override
+  // is spent when the check is claimed, so stopping the run before it starts does not burn it.
+  // Claim and completion check again: a fail recorded after this queue still stops the run.
   let queuedDigest: string | null = null;
   if (role === "pre-check") {
     const current = await currentDeliverable(c, packageId, revision);
     queuedDigest = current?.digest ?? null;
-    if (current && (await hasStickyFail(c, packageId, current.digest))) {
+    if (current && (await hasStickyFail(c, packageId, revision, current.digest))) {
       const override = await lockNextOverride(c, packageId, revision, current.digest);
       if (!override) {
         if (demand) throw new Refusal(409, "sticky-fail", STICKY_FAIL_REASON);
@@ -531,7 +541,6 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
         });
         return null;
       }
-      spent = override;
     }
   }
   const manifest=(await c.query<{digest:string}>("select digest from preparation_release_manifests where package_id=$1 and package_revision=$2",[packageId,revision])).rows[0];
@@ -561,6 +570,9 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
     [run.id, packageId, revision, role, round, run],
   );
   if (ins.rowCount === 0) {
+    if (demand && role === "pre-check") {
+      throw new Refusal(409, "check-active", "A check of this package is already queued or running.");
+    }
     // A live run for this assignment already exists: hand that one back, never a second.
     const live = await c.query<{ body: Json; status: string }>(
       "select body, status from runs where package_id = $1 and package_revision = $2 and role = $3 and round = $4 and status in ('queued', 'running')",
@@ -570,7 +582,6 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
     if (!existing) throw new Error("live run vanished");
     return { ...existing.body, status: existing.status };
   }
-  if (spent) await consumeOverride(c, spent.id, run.id);
   if (queuedDigest) await c.query("insert into checker_queued_digests (run_id, deliverable_digest) values ($1, $2)", [run.id, queuedDigest]);
   await appendEvent(c, "run.queued", run.id, SYSTEM, { package: packageId, role, round });
   return run;
@@ -1009,6 +1020,20 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             runtime = pickRuntime(offer);
           }
           if (!runtime) continue;
+          if (row.role === "pre-check") {
+            const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id);
+            if (gate !== "ok") {
+              await stopQueuedRun(
+                c,
+                cfg,
+                row,
+                gate === "drift"
+                  ? "Stopped because the deliverable changed after this check was queued."
+                  : "Stopped because a fail on this deliverable still stands and this check has no signed override.",
+              );
+              continue;
+            }
+          }
           const baseline = `${row.role === "pre-check" ? "checker" : "author"}-${runtime}`;
           // Budgets: the run's reservation is taken before anything moves, or a hard cap holds it here
           // and the package stays where it was (plan task 5.2).
@@ -1628,7 +1653,7 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
         if (latest && latest.round !== row.round) {
           throw new Refusal(409, "wrong-state", "This check is from an earlier round. The current deliverable needs its own check");
         }
-        if (current && (await hasStickyFail(c, packageId, current.digest)) && !(await hasUnconsumedOverride(c, packageId, row.package_revision, current.digest))) {
+        if (current && (await hasStickyFail(c, packageId, row.package_revision, current.digest)) && !(await hasUnconsumedOverride(c, packageId, row.package_revision, current.digest))) {
           throw new Refusal(409, "sticky-fail", STICKY_FAIL_REASON);
         }
         if (latest && latest.status !== "succeeded") {
@@ -1771,7 +1796,8 @@ const verifiedOverride = (run: Json) => Boolean(run?.independence_override?.asse
 const recheckReason = (reason: unknown) => {
   const why = typeof reason === "string" ? reason.trim() : "";
   if (!why) throw new Refusal(400, "reason-required", "Say why this deliverable may be checked again after a fail");
-  return why.slice(0, 2000);
+  if (why.length > 2000) throw new Refusal(400, "invalid", "The reason must be at most 2000 characters.");
+  return why;
 };
 
 /** Step 1 of a recheck override: the digest of the current deliverable the owner would be signing for. */
@@ -1784,10 +1810,20 @@ export async function recheckSubject(db: Db, packageId: string, reason: unknown,
   }
   const current = await currentDeliverable(db, pkg.id, pkg.revision);
   if (!current) throw new Refusal(409, "output-required", "No author deliverable is available to check");
-  if (!(await hasStickyFail(db, pkg.id, current.digest))) {
+  if (!(await hasStickyFail(db, pkg.id, pkg.revision, current.digest))) {
     throw new Refusal(409, "wrong-state", "This deliverable has no failed check to override");
   }
-  if (user !== undefined) await requireAuthority(db, user, "override-independence", needsOf(pkg.body));
+  const unused = await db.query(
+    `select 1 from checker_recheck_overrides o
+      where o.package_id = $1 and o.package_revision = $2 and o.deliverable_digest = $3
+        and not exists (select 1 from checker_recheck_uses u where u.override_id = o.id)
+      limit 1`,
+    [pkg.id, pkg.revision, current.digest],
+  );
+  if ((unused.rowCount ?? 0) > 0) {
+    throw new Refusal(409, "override-unused", "An unused override already covers this deliverable. Use it, or stop the check it pays for, before signing another.");
+  }
+  if (user !== undefined) await requireAuthority(db, user, "recheck-override", needsOf(pkg.body));
   const subject = { package_id: pkg.id, package_revision: pkg.revision, deliverable_digest: current.digest, act: "recheck-override", reason: why };
   return { digest: digest(subject), revision: pkg.revision, deliverable: current.digest, reason: why, pkg };
 }
@@ -1817,17 +1853,17 @@ export async function recordRecheckOverride(
     if (pkg.status !== "in-work" && pkg.status !== "in-verification") {
       throw new Refusal(409, "wrong-state", "A recheck override applies while the package is in work or in verification");
     }
-    await requireAuthority(c, user, "override-independence", needsOf(pkg.body));
+    await requireAuthority(c, user, "recheck-override", needsOf(pkg.body));
     if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
     const current = await currentDeliverable(c, pkg.id, pkg.revision);
     if (!current) throw new Refusal(409, "output-required", "No author deliverable is available to check");
-    if (!(await hasStickyFail(c, pkg.id, current.digest))) {
-      throw new Refusal(409, "wrong-state", "This deliverable has no failed check to override");
-    }
     const subject = { package_id: pkg.id, package_revision: pkg.revision, deliverable_digest: current.digest, act: "recheck-override", reason: why };
     const d = digest(subject);
     if (!signed || signed.subject_digest !== d) {
       throw new Refusal(403, "unsigned", "An override to check a failed deliverable again needs a verified passkey signature over that deliverable");
+    }
+    if (!(await hasStickyFail(c, pkg.id, pkg.revision, current.digest))) {
+      throw new Refusal(409, "wrong-state", "This deliverable has no failed check to override");
     }
     const a = signed.assertion;
     const assertion = {
@@ -1837,6 +1873,16 @@ export async function recordRecheckOverride(
       signature: String(a.response?.signature ?? ""),
     };
     if (!assertion.signature) throw new Refusal(403, "unsigned", "An override to check a failed deliverable again needs a verified passkey signature over that deliverable");
+    const unused = await c.query(
+      `select 1 from checker_recheck_overrides o
+        where o.package_id = $1 and o.package_revision = $2 and o.deliverable_digest = $3
+          and not exists (select 1 from checker_recheck_uses u where u.override_id = o.id)
+        limit 1`,
+      [pkg.id, pkg.revision, current.digest],
+    );
+    if ((unused.rowCount ?? 0) > 0) {
+      throw new Refusal(409, "override-unused", "An unused override already covers this deliverable. Use it, or stop the check it pays for, before signing another.");
+    }
     const override = { by: user, at: now(), reason: why, subject_digest: { algorithm: "sha256", value: d }, assertion };
     const id = `RO-${randomUUID().slice(0, 8)}`;
     const recorded = await insertRecheckOverride(c, cfg.ajv, { id, packageId: pkg.id, revision: pkg.revision, digest: current.digest, override });
@@ -1864,9 +1910,14 @@ export async function requestCheck(db: Db, cfg: WorkConfig, packageId: string) {
     }
     const current = await currentDeliverable(c, pkg.id, pkg.revision);
     if (!current) throw new Refusal(409, "output-required", "No author deliverable is available to check");
+    const live = await c.query(
+      "select 1 from runs where package_id = $1 and package_revision = $2 and role = 'pre-check' and status in ('queued', 'running') limit 1",
+      [pkg.id, pkg.revision],
+    );
+    if ((live.rowCount ?? 0) > 0) throw new Refusal(409, "check-active", "A check of this package is already queued or running.");
     const latest = await latestAuthorRun(c, pkg.id, pkg.revision);
     // Sticky is the answer even while a revision is in flight: the deliverable on record already failed.
-    if ((await hasStickyFail(c, pkg.id, current.digest)) && !(await hasUnconsumedOverride(c, pkg.id, pkg.revision, current.digest))) {
+    if ((await hasStickyFail(c, pkg.id, pkg.revision, current.digest)) && !(await hasUnconsumedOverride(c, pkg.id, pkg.revision, current.digest))) {
       throw new Refusal(409, "sticky-fail", STICKY_FAIL_REASON);
     }
     if (latest && latest.status !== "succeeded") {
@@ -1878,10 +1929,21 @@ export async function requestCheck(db: Db, cfg: WorkConfig, packageId: string) {
   });
 }
 
-export async function checkerAttempts(db: Db, packageId: string) {
+export async function checkerAttempts(db: Db, packageId: string, query?: { limit?: string; before?: string }) {
   const pkg = await currentPackage(db, packageId);
   if (!pkg) throw new Refusal(404, "not-found", "No such package");
-  return listCheckerAttempts(db, packageId);
+  const limit = query?.limit === undefined || query.limit === "" ? undefined : Number(query.limit);
+  const before = query?.before === undefined || query.before === "" ? undefined : Number(query.before);
+  if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > 100)) {
+    throw new Refusal(400, "invalid", "limit must be a whole number from 1 to 100");
+  }
+  if (before !== undefined && (!Number.isInteger(before) || before < 1)) {
+    throw new Refusal(400, "invalid", "before must be a checker attempt sequence");
+  }
+  return listCheckerAttempts(db, packageId, {
+    ...(limit !== undefined ? { limit } : {}),
+    ...(before !== undefined ? { before } : {}),
+  });
 }
 
 export async function runLogLines(db: Db, packageId: string, runId: string) {
@@ -2057,6 +2119,18 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   takeReceipt(cfg, row, finished, body);
   holdIfUnproven(row, finished, body);
   validate(cfg, "Run.json", finished);
+  if (row.role === "pre-check" && finished.status === "succeeded") {
+    const claimed = typeof body.verification?.output?.digest?.value === "string" ? body.verification.output.digest.value : null;
+    const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, claimed);
+    if (gate !== "ok") {
+      finished.status = "failed";
+      finished.label = "Not admitted";
+      finished.error = gate === "drift"
+        ? "The deliverable changed after this check was queued, so the result was not admitted."
+        : "A fail on this deliverable still stands, and this check had no signed override, so the result was not admitted.";
+      validate(cfg, "Run.json", finished);
+    }
+  }
   // Events the last log post could not deliver arrive with the completion.
   if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
   await c.query("update runs set status = $2, body = $3 where id = $1", [runId, finished.status, finished]);

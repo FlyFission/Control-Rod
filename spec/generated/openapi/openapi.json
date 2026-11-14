@@ -1552,7 +1552,7 @@
     "/packages/{id}/checker-attempts": {
       "get": {
         "operationId": "Packages_checkerAttempts",
-        "description": "Every checker attempt for this package, oldest first. The same list is on the package view.\nTimeout, error, quota and cancelled attempts are in the list and count as inconclusive.",
+        "description": "Checker attempts for this package, oldest first. limit keeps the latest ones (1 to 100).\nbefore, a seq, returns the page older than that attempt.\nTimeout, error, quota and cancelled attempts are in the list and count as inconclusive.",
         "parameters": [
           {
             "name": "id",
@@ -1561,6 +1561,29 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "explode": false
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1
+            },
+            "explode": false
           }
         ],
         "responses": {
@@ -1643,7 +1666,7 @@
     "/packages/{id}/checks": {
       "post": {
         "operationId": "Packages_requestCheck",
-        "description": "Ask for a check of the current author deliverables. Refused, with sticky-fail, when a check of\nthat digest has already failed and no signed recheck override is waiting to be used.",
+        "description": "Ask for a check of the current author deliverables. 201 when a check is queued.\n409 check-active when one is already queued or running.\n409 sticky-fail when a check of that digest has already failed and no signed recheck override\nis waiting to be used.",
         "parameters": [
           {
             "name": "id",
@@ -1655,8 +1678,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "The request has succeeded.",
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3374,7 +3397,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RecheckOverride"
+                  "$ref": "#/components/schemas/ControlRod.Records.RecheckOverride"
                 }
               }
             }
@@ -6893,37 +6916,6 @@
           }
         }
       },
-      "CheckBlocked": {
-        "type": "object",
-        "required": [
-          "code",
-          "reason",
-          "change",
-          "deliverable_digest"
-        ],
-        "properties": {
-          "code": {
-            "type": "string",
-            "enum": [
-              "sticky-fail"
-            ]
-          },
-          "reason": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500
-          },
-          "change": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500
-          },
-          "deliverable_digest": {
-            "$ref": "#/components/schemas/ControlRod.Records.Digest"
-          }
-        },
-        "description": "A fail on the current deliverable digest is sticky: another check is refused until the\ndeliverable changes or the owner signs an override. The words are what the API and the page show."
-      },
       "ControlRod.Preparation.BasisRef": {
         "type": "object",
         "required": [
@@ -8618,6 +8610,64 @@
           "withdrawn"
         ]
       },
+      "ControlRod.Records.CheckBlocked": {
+        "type": "object",
+        "required": [
+          "code",
+          "reason",
+          "change",
+          "deliverable_digest"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "sticky-fail"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "change": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "deliverable_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        },
+        "description": "A fail on the current deliverable digest is sticky: another check is refused until the\ndeliverable changes or the owner signs an override. The words are what the API and the page show."
+      },
+      "ControlRod.Records.CheckWarning": {
+        "type": "object",
+        "required": [
+          "code",
+          "reason",
+          "count"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "repeated-inconclusive"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 3
+          }
+        },
+        "description": "Several checks of this digest were inconclusive. Another check is still allowed.\nThe page warns; it does not refuse the check."
+      },
       "ControlRod.Records.CheckerAttempt": {
         "type": "object",
         "required": [
@@ -8628,7 +8678,6 @@
           "run_id",
           "round",
           "checker_runtime",
-          "deliverable_digest",
           "outcome",
           "counts_as",
           "started_at",
@@ -8672,9 +8721,22 @@
             "maxLength": 200,
             "description": "The model the runtime said it used. Absent when it did not say."
           },
+          "seq": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "description": "Place in the package's attempt history. Older attempts are read with before set to this value."
+          },
           "deliverable_digest": {
             "$ref": "#/components/schemas/ControlRod.Records.Digest",
-            "description": "Digest of the author deliverables this attempt checked, names and digests in name order."
+            "description": "Digest of the author deliverables this attempt checked, names and digests in name order.\nAbsent when digest_unknown is set: the bytes were not captured, and the attempt is not\nattached to the deliverable the package holds now."
+          },
+          "digest_unknown": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "The bytes this attempt checked were not captured. It does not stick to today's deliverable."
           },
           "outcome": {
             "$ref": "#/components/schemas/ControlRod.Records.CheckerAttemptOutcome"
@@ -9837,6 +9899,36 @@
           }
         },
         "description": "A person's signed review of one run SCRAM stopped, whose output was quarantined. (A)"
+      },
+      "ControlRod.Records.RecheckOverride": {
+        "type": "object",
+        "required": [
+          "id",
+          "package_id",
+          "package_revision",
+          "deliverable_digest",
+          "override"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "deliverable_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "override": {
+            "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride"
+          }
+        },
+        "description": "One signed override allowing a single re-check of a deliverable that already failed."
       },
       "ControlRod.Records.Reconciliation": {
         "type": "object",
@@ -11042,18 +11134,22 @@
             "items": {
               "$ref": "#/components/schemas/ControlRod.Records.CheckerAttempt"
             },
-            "description": "Every checker attempt for this package, oldest first, including inconclusive, timeout, error,\nquota and cancelled. Additive in API 0.1."
+            "description": "The latest checker attempts for this package, oldest of that page first, including inconclusive,\ntimeout, error, quota and cancelled. At most 50. Older attempts are on GET /checker-attempts."
           },
           "recheck_overrides": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RecheckOverride"
+              "$ref": "#/components/schemas/ControlRod.Records.RecheckOverride"
             },
             "description": "Signed overrides that allow one more check of a deliverable a check had already failed."
           },
           "check_blocked": {
-            "$ref": "#/components/schemas/CheckBlocked",
-            "description": "Set when another check of the current deliverable is refused because a fail on that digest\nis sticky. Absent when a check may start, or one is already queued."
+            "$ref": "#/components/schemas/ControlRod.Records.CheckBlocked",
+            "description": "Set when the governing decisive outcome for the current deliverable is fail.\nAbsent after an in-scope overridden recheck passes, when the digest changed, or when an\nunused override is waiting."
+          },
+          "check_warning": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckWarning",
+            "description": "Set when several checks of the current digest were inconclusive. A warning only:\nanother check is still allowed."
           },
           "decisions": {
             "type": "array",
@@ -11214,36 +11310,6 @@
           }
         },
         "description": "A recorded person verification with the package revision it verified."
-      },
-      "RecheckOverride": {
-        "type": "object",
-        "required": [
-          "id",
-          "package_id",
-          "package_revision",
-          "deliverable_digest",
-          "override"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "package_id": {
-            "type": "string"
-          },
-          "package_revision": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          },
-          "deliverable_digest": {
-            "$ref": "#/components/schemas/ControlRod.Records.Digest"
-          },
-          "override": {
-            "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride"
-          }
-        },
-        "description": "One signed override allowing a single re-check of a deliverable that already failed."
       },
       "RegistryCredential": {
         "type": "object",

@@ -1,12 +1,12 @@
 # Verification: checker attempts and sticky fails
 
-Evidence status: **pass** for the five acceptance cases, the review fixes (legacy fails, governing criterion results, restart loss), the API suite (634 tests) and the web suite (582 tests) on this host. **Open** for a signed-in browser session: the attempt list and the refusal were rendered in jsdom, not in a desktop browser with a passkey.
+Evidence status: **pass** for the five acceptance cases, claim and admission re-checks, digest drift, revision-scoped passes, legacy verification union, and the override ceremony. The API suite (651 tests) and the web suite (583 tests) passed on this host. **Open** for a signed-in browser session: the attempt list, the refusal and the inconclusive warning were rendered in jsdom, not in a desktop browser with a passkey.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | Same digest after a fail is refused with `sticky-fail` and the reason text. A changed digest is checked. A signed override allows one re-run and is listed. Attempts come back in order, including timeout, quota and inconclusive. A timeout after a fail leaves `pre_check.outcome` as fail and does not count as pass. | `evidence/api-suite.log` |
-| E-02 | pass | The API suite, 634 tests, exits 0. | `evidence/api-suite.log` |
-| E-03 | pass | The web suite, 582 tests, exits 0, including the attempt-list render. | `evidence/web-suite.log` |
+| E-02 | pass | The API suite, 651 tests, exits 0. | `evidence/api-suite.log` |
+| E-03 | pass | The web suite, 583 tests, exits 0, including the attempt list and the inconclusive warning. | `evidence/web-suite.log` |
 | E-04 | pass | API and web typecheck exit 0. `tsp compile` is what CI diffs under `spec/generated`. | `evidence/typecheck.log` |
 | E-05 | open | The package page and case view were not driven in a desktop browser. | Not executed |
 

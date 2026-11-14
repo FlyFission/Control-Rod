@@ -214,7 +214,7 @@ describe("typed criterion verification admission", () => {
     expect(passed.statusCode, passed.body).toBe(200);
     const passing = { ...p, checker: passed.json() };
     expect((await check(passing, submission(passing, "pass"), "pass")).json().status).toBe("succeeded");
-    expect((await f.owner("POST", `/packages/${p.id}/checks`)).statusCode).toBe(200);
+    expect((await f.owner("POST", `/packages/${p.id}/checks`)).statusCode).toBe(201);
     const again = await f.claim(["claude"]);
     expect(again.statusCode, again.body).toBe(200);
     const recheck = { ...p, checker: again.json() };

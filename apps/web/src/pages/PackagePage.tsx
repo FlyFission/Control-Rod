@@ -114,7 +114,7 @@ export function PackagePage({ id }: { id: string }) {
             </ul>
           </section>
           <PreCheck record={view.pre_check} />
-          <CheckerHistory blocked={view.check_blocked} attempts={view.checker_attempts} overrides={view.recheck_overrides} />
+          <CheckerHistory blocked={view.check_blocked} warning={view.check_warning} attempts={view.checker_attempts} overrides={view.recheck_overrides} />
           <CriterionCoverage view={view} />
           <Decisions view={view} />
         </div>

@@ -128,38 +128,6 @@ namespace Captures {
   @route("/{id}/classify") @post op classify(@path id: string, @body body: Classification): Capture | Refused;
 }
 
-/**
- * A fail on the current deliverable digest is sticky: another check is refused until the
- * deliverable changes or the owner signs an override. The words are what the API and the page show.
- */
-@extension("unevaluatedProperties", false)
-model CheckBlocked {
-  code: "sticky-fail";
-
-  @minLength(1)
-  @maxLength(500)
-  reason: string;
-
-  @minLength(1)
-  @maxLength(500)
-  change: string;
-
-  deliverable_digest: Digest;
-}
-
-/** One signed override allowing a single re-check of a deliverable that already failed. */
-@extension("unevaluatedProperties", false)
-model RecheckOverride {
-  id: string;
-  package_id: string;
-
-  @minValue(0)
-  package_revision: int32;
-
-  deliverable_digest: Digest;
-  override: OwnerOverride;
-}
-
 /** What the web app shows for one package: the revision, its runs, output and decisions. */
 model PackageView {
   /** Strong ETag of the current draft's content; send it as If-Match to edit the draft. */
@@ -186,19 +154,26 @@ model PackageView {
   pre_check?: VerificationRecord;
 
   /**
-   * Every checker attempt for this package, oldest first, including inconclusive, timeout, error,
-   * quota and cancelled. Additive in API 0.1.
+   * The latest checker attempts for this package, oldest of that page first, including inconclusive,
+   * timeout, error, quota and cancelled. At most 50. Older attempts are on GET /checker-attempts.
    */
   checker_attempts?: ControlRod.Records.CheckerAttempt[];
 
   /** Signed overrides that allow one more check of a deliverable a check had already failed. */
-  recheck_overrides?: RecheckOverride[];
+  recheck_overrides?: ControlRod.Records.RecheckOverride[];
 
   /**
-   * Set when another check of the current deliverable is refused because a fail on that digest
-   * is sticky. Absent when a check may start, or one is already queued.
+   * Set when the governing decisive outcome for the current deliverable is fail.
+   * Absent after an in-scope overridden recheck passes, when the digest changed, or when an
+   * unused override is waiting.
    */
-  check_blocked?: CheckBlocked;
+  check_blocked?: ControlRod.Records.CheckBlocked;
+
+  /**
+   * Set when several checks of the current digest were inconclusive. A warning only:
+   * another check is still allowed.
+   */
+  check_warning?: ControlRod.Records.CheckWarning;
 
   decisions: Decision[];
 
@@ -346,16 +321,26 @@ namespace Packages {
   }
 
   /**
-   * Every checker attempt for this package, oldest first. The same list is on the package view.
+   * Checker attempts for this package, oldest first. limit keeps the latest ones (1 to 100).
+   * before, a seq, returns the page older than that attempt.
    * Timeout, error, quota and cancelled attempts are in the list and count as inconclusive.
    */
-  @route("/{id}/checker-attempts") @get op checkerAttempts(@path id: string): ControlRod.Records.CheckerAttempt[] | Refused;
+  @route("/{id}/checker-attempts") @get op checkerAttempts(
+    @path id: string,
+    @query @minValue(1) @maxValue(100) limit?: int32,
+    @query @minValue(1) before?: int32,
+  ): ControlRod.Records.CheckerAttempt[] | Refused;
 
   /**
-   * Ask for a check of the current author deliverables. Refused, with sticky-fail, when a check of
-   * that digest has already failed and no signed recheck override is waiting to be used.
+   * Ask for a check of the current author deliverables. 201 when a check is queued.
+   * 409 check-active when one is already queued or running.
+   * 409 sticky-fail when a check of that digest has already failed and no signed recheck override
+   * is waiting to be used.
    */
-  @route("/{id}/checks") @post op requestCheck(@path id: string): Run | Refused;
+  @route("/{id}/checks") @post op requestCheck(@path id: string): {
+    @statusCode _: 201;
+    @body run: Run;
+  } | Refused;
 
   /**
    * Step 1 of the owner's override to check a failed deliverable again. The digest covers the
@@ -379,7 +364,7 @@ namespace Packages {
   op recordRecheckOverride(@path id: string, @body body: {
     ...OverrideRequest;
     assertion: Record<unknown>;
-  }): RecheckOverride | Refused;
+  }): ControlRod.Records.RecheckOverride | Refused;
 
   /** Every person verification recorded for this package, for every revision, oldest first. */
   @route("/{id}/person-verifications") @get op personVerifications(@path id: string): PersonVerificationEntry[] | Refused;

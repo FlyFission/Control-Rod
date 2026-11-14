@@ -493,15 +493,15 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       return overrideIndependence(db, cfg, user, req.params.id, req.params.runId, reason, signed);
     },
   );
-  app.get<{ Params: { id: string } }>("/packages/:id/checker-attempts", async (req) => {
+  app.get<{ Params: { id: string }; Querystring: { limit?: string; before?: string } }>("/packages/:id/checker-attempts", async (req) => {
     const caller = await callerFor(db, await person(req));
     await requireOwnPackage(db, caller.orgId, req.params.id);
-    return checkerAttempts(db, req.params.id);
+    return checkerAttempts(db, req.params.id, req.query);
   });
-  app.post<{ Params: { id: string } }>("/packages/:id/checks", async (req) => {
+  app.post<{ Params: { id: string } }>("/packages/:id/checks", async (req, reply) => {
     const caller = await callerFor(db, await person(req));
     await requireOwnPackage(db, caller.orgId, req.params.id);
-    return requestCheck(db, cfg, req.params.id);
+    return reply.code(201).send(await requestCheck(db, cfg, req.params.id));
   });
   app.post<{ Params: { id: string }; Body: { reason?: string } }>("/packages/:id/recheck-overrides/options", async (req) => {
     const caller = await callerFor(db, await person(req));

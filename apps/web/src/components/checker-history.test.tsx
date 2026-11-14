@@ -68,4 +68,31 @@ describe("checker attempt history", () => {
     expect(items[1]?.textContent).toContain("Look once more");
     expect(screen.getByRole("link", { name: "/packages/WP-1/runs/R-fail/log" }).getAttribute("href")).toBe("/packages/WP-1/runs/R-fail/log");
   });
+
+  it("warns on repeated inconclusive checks without hiding the history", async () => {
+    await renderPage(
+      <CheckerHistory
+        blocked={undefined}
+        warning={{ code: "repeated-inconclusive", reason: "Several checks of this deliverable were inconclusive.", count: 3 }}
+        attempts={[{
+          schema_version: "0.1.0",
+          id: "CA-time",
+          package_id: "WP-1",
+          package_revision: 0,
+          run_id: "R-time",
+          round: 1,
+          checker_runtime: "codex",
+          deliverable_digest: digest("a".repeat(64)),
+          outcome: "timeout",
+          counts_as: "inconclusive",
+          started_at: "2026-11-14T15:02:00.000Z",
+          finished_at: "2026-11-14T15:03:00.000Z",
+          evidence: "/packages/WP-1/runs/R-time/log",
+        }]}
+        overrides={[]}
+      />,
+    );
+    expect(screen.getByRole("status").textContent).toContain("inconclusive");
+    expect(screen.getByRole("list", { name: "Checker attempts" }).textContent).toContain("timeout");
+  });
 });

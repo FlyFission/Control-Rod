@@ -14,6 +14,7 @@ import { SESSION_CREDENTIALS_DOWN_SQL } from "../src/db/migrations/018-session-c
 import { WORKBENCH_LINKS_DOWN_SQL } from "../src/db/migrations/019-workbench-links.js";
 import { CHECKER_ATTEMPTS_DOWN_SQL } from "../src/db/migrations/020-checker-attempts.js";
 import { CHECKER_QUEUED_DIGESTS_DOWN_SQL } from "../src/db/migrations/021-checker-queued-digests.js";
+import { CHECKER_NO_TRUNCATE_DOWN_SQL } from "../src/db/migrations/022-checker-no-truncate.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import {
@@ -61,6 +62,7 @@ describe("migration 009", () => {
     expect((await verifyChain(h.db)).ok).toBe(true);
 
     // Migrations reverse newest first: the workbench tables depend on tenancy.
+    await h.admin.query(CHECKER_NO_TRUNCATE_DOWN_SQL);
     await h.admin.query(CHECKER_QUEUED_DIGESTS_DOWN_SQL);
     await h.admin.query(CHECKER_ATTEMPTS_DOWN_SQL);
     await h.admin.query(WORKBENCH_LINKS_DOWN_SQL);

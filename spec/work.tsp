@@ -371,8 +371,19 @@ model CheckerAttempt {
   @maxLength(200)
   reported_model?: string;
 
-  /** Digest of the author deliverables this attempt checked, names and digests in name order. */
-  deliverable_digest: Digest;
+  /** Place in the package's attempt history. Older attempts are read with before set to this value. */
+  @minValue(1)
+  seq?: int32;
+
+  /**
+   * Digest of the author deliverables this attempt checked, names and digests in name order.
+   * Absent when digest_unknown is set: the bytes were not captured, and the attempt is not
+   * attached to the deliverable the package holds now.
+   */
+  deliverable_digest?: Digest;
+
+  /** The bytes this attempt checked were not captured. It does not stick to today's deliverable. */
+  digest_unknown?: true;
 
   outcome: CheckerAttemptOutcome;
 
@@ -395,6 +406,54 @@ model CheckerAttempt {
 
   /** The signed override that allowed this attempt after a fail on the same digest. */
   recheck_override?: OwnerOverride;
+}
+
+/**
+ * A fail on the current deliverable digest is sticky: another check is refused until the
+ * deliverable changes or the owner signs an override. The words are what the API and the page show.
+ */
+@extension("unevaluatedProperties", false)
+model CheckBlocked {
+  code: "sticky-fail";
+
+  @minLength(1)
+  @maxLength(500)
+  reason: string;
+
+  @minLength(1)
+  @maxLength(500)
+  change: string;
+
+  deliverable_digest: Digest;
+}
+
+/**
+ * Several checks of this digest were inconclusive. Another check is still allowed.
+ * The page warns; it does not refuse the check.
+ */
+@extension("unevaluatedProperties", false)
+model CheckWarning {
+  code: "repeated-inconclusive";
+
+  @minLength(1)
+  @maxLength(500)
+  reason: string;
+
+  @minValue(3)
+  count: int32;
+}
+
+/** One signed override allowing a single re-check of a deliverable that already failed. */
+@extension("unevaluatedProperties", false)
+model RecheckOverride {
+  id: string;
+  package_id: string;
+
+  @minValue(0)
+  package_revision: int32;
+
+  deliverable_digest: Digest;
+  override: OwnerOverride;
 }
 
 enum DecisionKind {

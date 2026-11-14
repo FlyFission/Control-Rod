@@ -192,6 +192,38 @@ describe("typed criterion verification admission", () => {
         .statusCode,
     ).toBe(201);
   });
+  it("keeps a passing verification's criterion results when a later check of the same round is inconclusive", async () => {
+    const p = await f.draft();
+    await f.release(p.id);
+    for (let round = 1; round <= 2; round++) {
+      const a = await f.claim();
+      expect(a.statusCode, a.body).toBe(200);
+      expect((await f.complete(a.json(), {
+        outputs: [{ name: "report.md", content_base64: Buffer.from(`round ${round}`).toString("base64") }],
+      })).json().status).toBe("succeeded");
+      const c = await f.claim(["claude"]);
+      expect(c.statusCode, c.body).toBe(200);
+      const fixture = { ...p, checker: c.json() };
+      expect((await check(fixture, submission(fixture, "fail"), "fail")).json().status).toBe("succeeded");
+    }
+    const a = await f.claim();
+    expect((await f.complete(a.json(), {
+      outputs: [{ name: "report.md", content_base64: Buffer.from("final report").toString("base64") }],
+    })).json().status).toBe("succeeded");
+    const passed = await f.claim(["claude"]);
+    expect(passed.statusCode, passed.body).toBe(200);
+    const passing = { ...p, checker: passed.json() };
+    expect((await check(passing, submission(passing, "pass"), "pass")).json().status).toBe("succeeded");
+    expect((await f.owner("POST", `/packages/${p.id}/checks`)).statusCode).toBe(200);
+    const again = await f.claim(["claude"]);
+    expect(again.statusCode, again.body).toBe(200);
+    const recheck = { ...p, checker: again.json() };
+    expect((await check(recheck, submission(recheck, "inconclusive"), "inconclusive")).json().status).toBe("succeeded");
+    const view = await f.owner("GET", `/packages/${p.id}`);
+    expect(view.statusCode, view.body).toBe(200);
+    expect(view.json().pre_check.outcome).toBe("pass");
+    expect(view.json().criterion_results.results[0].outcome).toBe("pass");
+  });
   it("never waives an unexecuted required check, but permits a reasoned exception after completed failed checks", async () => {
     for (const execution of ["open", "fail"]) {
       const p = await f.draft();

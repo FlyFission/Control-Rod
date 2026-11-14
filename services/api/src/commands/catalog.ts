@@ -62,6 +62,7 @@ export const COMMANDS = {
 
   // Startup data changes after migrations.
   "migration.backfill-tenancy": entry("system", "none", "Migration data change (ownership, members, credential records)"),
+  "migration.backfill-checker-attempts": entry("system", "none", "Migration data change (checker attempts)"),
 
   // Administration (specification 10.2; services/api/src/admin.ts).
   "admin.org-create": entry("member", "direct", "Create organization"),

@@ -9,6 +9,9 @@
 | A timeout after a fail does not hide the fail and does not count as pass. | `classifyCheckerOutcome`, `governingVerification` | same file: `pre_check.outcome` stays `fail`, timeout `counts_as` is `inconclusive`, Accept stays refused | implemented and tested |
 | Timeout, error, quota and cancelled count as inconclusive. | `classifyCheckerOutcome` | unit cases in the same file; a timeout with no earlier fail can be requeued and is not a pass | implemented and tested |
 | Attempts and overrides are append-only. | migration `020-checker-attempts` | admin update/delete rejected with "append only" | implemented and tested |
+| A fail recorded before the attempts table still refuses a re-check, and is copied into the history at startup. | `hasStickyFail` also reads `verifications`; `backfillCheckerAttempts` | "keeps a fail that was recorded before attempts existed" | implemented and tested |
+| Criterion results are those of the governing verification. | `currentCriterionResults` selects by `verification_digest` | `preparation-results.test.ts` pass then inconclusive recheck | implemented and tested |
+| A checker lost because the daemon restarted is still an attempt. | `runEvidence` calls `recordCheckerAttempt` | "records an attempt when a restart reports the checker process gone" | implemented and tested |
 
 The three-round prepared-check test writes a new deliverable each round (`preparation-results.test.ts`). A fail now sticks to the previous digest, so that test no longer re-checks identical bytes.
 

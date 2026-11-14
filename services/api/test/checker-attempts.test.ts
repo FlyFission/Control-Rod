@@ -1,6 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { STICKY_FAIL_CHANGE, STICKY_FAIL_REASON, classifyCheckerOutcome } from "../src/checker-attempts.js";
+import { command } from "../src/commands/executor.js";
+import { backfillCheckerAttempts, STICKY_FAIL_CHANGE, STICKY_FAIL_REASON, classifyCheckerOutcome } from "../src/checker-attempts.js";
+import { digest } from "../src/kernel.js";
 import { REASONS } from "../src/refusals.js";
+import { loadValidator } from "../src/schemas.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
 /**
@@ -30,7 +33,7 @@ const asDaemon = (url: string, payload: unknown) =>
   h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: withClaim(url, payload as Record<string, unknown>) });
 
 interface Job {
-  run: { id: string; role: string; package_id: string; round: number; agent_baseline: string; runtime: { provider: string; model: string } };
+  run: { id: string; role: string; package_id: string; round: number; generation?: number; agent_baseline: string; runtime: { provider: string; model: string } };
   claim: { token: string };
 }
 
@@ -297,6 +300,67 @@ describe("sticky checker fails", () => {
     expect(listed[0]?.deliverable_digest.value).not.toBe(listed[1]?.deliverable_digest.value);
     expect((await asOwner("GET", `/packages/${id}`)).json().pre_check.outcome).toBe("pass");
     expect((await asOwner("GET", `/packages/${id}`)).json().check_blocked).toBeUndefined();
+  });
+
+  it("keeps a fail that was recorded before attempts existed, and copies it into the history", async () => {
+    const id = await releasedPackage("LEGACY");
+    await author(id, "legacy report");
+    const outs = (await h.admin.query<{ name: string; sha256: string }>(
+      "select name, sha256 from outputs where package_id = $1 order by name",
+      [id],
+    )).rows;
+    const value = digest(outs.map((o) => ({ name: o.name, sha256: o.sha256 })));
+    const runId = "R-legacyfail";
+    const at = "2026-11-01T00:00:00.000Z";
+    await h.admin.query(
+      "insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'pre-check', 1, 'succeeded', $3)",
+      [runId, id, {
+        schema_version: "0.1.0", id: runId, package_id: id, package_revision: 0, role: "pre-check",
+        agent_baseline: "checker", runtime: { kind: "subscription", provider: "codex", model: "default" },
+        round: 1, status: "succeeded", queued_at: at, started_at: at, finished_at: at,
+        trace: { reported_model: "legacy-model" },
+      }],
+    );
+    await h.admin.query(
+      "insert into verifications (run_id, package_id, package_revision, round, body) values ($1, $2, 0, 1, $3)",
+      [runId, id, {
+        schema_version: "0.1.0", package_id: id, package_revision: 0,
+        output: { path: "report.md", digest: { algorithm: "sha256", value } },
+        method: "agent-pre-check", verifier: "checker", evidence: [], findings: [], outcome: "fail",
+      }],
+    );
+    expect((await h.db.query("select 1 from checker_attempts where run_id = $1", [runId])).rowCount).toBe(0);
+    const refused = await asOwner("POST", `/packages/${id}/checks`);
+    expect(refused.statusCode, refused.body).toBe(409);
+    expect(refused.json().code).toBe("sticky-fail");
+
+    const copied = await command(h.db, "migration.backfill-checker-attempts", (c) => backfillCheckerAttempts(c, loadValidator()));
+    expect(copied).toBeGreaterThanOrEqual(1);
+    const again = await command(h.db, "migration.backfill-checker-attempts", (c) => backfillCheckerAttempts(c, loadValidator()));
+    expect(again).toBe(0);
+    const listed = await attempts(id);
+    expect(listed).toEqual([expect.objectContaining({
+      run_id: runId, outcome: "fail", counts_as: "fail", checker_runtime: "codex", reported_model: "legacy-model",
+      deliverable_digest: { algorithm: "sha256", value },
+    })]);
+    await settleOpenRuns();
+  });
+
+  it("records an attempt when a restart reports the checker process gone", async () => {
+    const id = await releasedPackage("RESTART");
+    await author(id, "still running");
+    const job = await claimRole(id, "pre-check", ["codex"]);
+    const receipt = {
+      pid: 4242, pgid: 4242, process_start: "123456", boot_id: "boot-1",
+      generation: job.run.generation ?? 1, started_at: new Date().toISOString(), containment: "cgroup", unit: "controlrod-run-restart",
+    };
+    expect((await asDaemon(`/runner/runs/${job.run.id}/log`, { lines: [], receipt })).statusCode).toBe(200);
+    const ev = await asDaemon(`/runner/runs/${job.run.id}/evidence`, { observation: "process-gone", receipt });
+    expect(ev.statusCode, ev.body).toBe(200);
+    const listed = await attempts(id);
+    expect(listed).toEqual([expect.objectContaining({ run_id: job.run.id, counts_as: "inconclusive" })]);
+    expect(listed[0]?.outcome).not.toBe("pass");
+    await settleOpenRuns();
   });
 
   it("lets a timeout with no earlier fail be requeued, and still does not count it as a pass", async () => {

@@ -6,8 +6,8 @@
 [control-rod] the database dropped an idle writer connection (terminating connection due to administrator command); a new one opens on next use
 
  Test Files  53 passed (53)
-      Tests  627 passed (627)
-   Start at  15:29:49
-   Duration  34.52s (tests 85%, import 14%)
+      Tests  630 passed (630)
+   Start at  15:40:18
+   Duration  38.29s (tests 86%, import 14%)
 
 EXIT:0

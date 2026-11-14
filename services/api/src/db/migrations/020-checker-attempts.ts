@@ -2,6 +2,9 @@
 // A fail on a deliverable digest stays in checker_attempts. A later timeout, error, quota or
 // cancelled attempt is another row; it does not update the fail. An override is one signed
 // permission to check that digest once, consumed by inserting a use row rather than editing it.
+// Rows already stored as verifications or terminal pre-check runs are copied at startup
+// (backfillCheckerAttempts). The copy uses the same canonical digest as a live attempt, which SQL
+// cannot recompute here.
 export const CHECKER_ATTEMPTS_SQL = `
 create table checker_attempts (
   id text primary key,

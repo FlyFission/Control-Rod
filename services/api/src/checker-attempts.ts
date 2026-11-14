@@ -77,10 +77,15 @@ export async function currentDeliverable(q: Q, packageId: string, revision: numb
 }
 
 export async function hasStickyFail(q: Q, packageId: string, deliverable: string): Promise<boolean> {
+  // Verifications written before attempts existed still count. Startup backfill copies them, and this
+  // lookup does not wait for that copy.
   const r = await q.query(
     `select 1 from checker_attempts
       where package_id = $1 and body->'deliverable_digest'->>'value' = $2 and body->>'counts_as' = 'fail'
-      limit 1`,
+     union all
+     select 1 from verifications
+      where package_id = $1 and body->>'outcome' = 'fail' and body->'output'->'digest'->>'value' = $2
+     limit 1`,
     [packageId, deliverable],
   );
   return (r.rowCount ?? 0) > 0;
@@ -190,6 +195,30 @@ export async function insertRecheckOverride(
     deliverable_digest: { algorithm: "sha256", value: row.digest },
     override: row.override,
   };
+}
+
+/**
+ * Copies terminal pre-checks that predate the attempts table. Idempotent: a run already listed
+ * is left alone. Runs at startup, after migration 020, so an old fail stays sticky and shows in
+ * the history without a second deployment step.
+ */
+export async function backfillCheckerAttempts(c: Tx, ajv: Ajv2020): Promise<number> {
+  const rows = await c.query<{
+    id: string;
+    package_id: string;
+    package_revision: number;
+    role: string;
+    round: number;
+    status: string;
+    body: Json;
+  }>(
+    `select id, package_id, package_revision, role, round, status, body from runs
+      where role = 'pre-check' and status in ('succeeded', 'failed', 'stopped', 'lost')
+        and not exists (select 1 from checker_attempts a where a.run_id = runs.id)
+      order by created_at, id`,
+  );
+  for (const row of rows.rows) await recordCheckerAttempt(c, ajv, row);
+  return rows.rows.length;
 }
 
 /**

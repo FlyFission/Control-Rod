@@ -381,7 +381,7 @@ export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
     outputs: integrity?integrity.observed:outs.map((o) => ({ name: o.name, sha256: o.sha256 })),
     pre_check: ver?.body ?? null,
   };
-  const criterionResults=preparation?await currentCriterionResults(q,pkg,author?.round,ver?.body??null):null;
+  const criterionResults=preparation?await currentCriterionResults(q,pkg,ver?.body??null):null;
   if(criterionResults) Object.assign(subject,{criterion_results_digest:{algorithm:"sha256",value:criterionResults.digest},criterion_evidence_digest:{algorithm:"sha256",value:digest(criterionResults.evidence_subject)}});
   return { subject, preparation, integrity, criterionResults, digest: digest(subject), author, outputs: outs, verification: ver?.body ?? null };
 }
@@ -1271,6 +1271,7 @@ export async function runEvidence(db: Db, cfg: WorkConfig, runId: string, body: 
       validate(cfg, "Run.json", lost);
       await c.query("update runs set status = 'lost', body = $2 where id = $1", [row.id, lost]);
       await appendEvent(c, "run.lost", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+      await recordCheckerAttempt(c, cfg.ajv, { ...row, status: "lost", body: lost });
       await scramRunEnded(c, row.id);
     }
     if (!whole) {

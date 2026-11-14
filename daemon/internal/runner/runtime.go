@@ -292,9 +292,38 @@ func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at Sandbo
 		env = AgentEnv(os.Environ())
 	}
 	if extra, ok := a.(ExtraEnvProvider); ok {
-		env = withEnv(env, extra.ExtraEnv()...)
+		env = withEnv(env, filterExtraEnv(extra.ExtraEnv())...)
 	}
 	return finishCommand(cmd, ws, env), nil
+}
+
+// filterExtraEnv drops provider provenance from an adapter's extra variables: base URLs,
+// model names, tokens and API keys. Claude's background-task switch is not one of these.
+func filterExtraEnv(kvs []string) []string {
+	out := make([]string, 0, len(kvs))
+	for _, kv := range kvs {
+		key, _, _ := strings.Cut(kv, "=")
+		if extraEnvDenied(key) {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return out
+}
+
+func extraEnvDenied(key string) bool {
+	u := strings.ToUpper(key)
+	switch {
+	case strings.HasSuffix(u, "_BASE_URL"),
+		strings.HasSuffix(u, "_MODEL"),
+		u == "MODEL",
+		strings.HasSuffix(u, "_TOKEN"),
+		strings.Contains(u, "_TOKEN"),
+		strings.HasSuffix(u, "_API_KEY"):
+		return true
+	default:
+		return false
+	}
 }
 
 // requireAgentPolicy is the check Command used to run before building a Claude or Codex process.

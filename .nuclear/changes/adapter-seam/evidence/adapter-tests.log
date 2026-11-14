@@ -1,11 +1,190 @@
+?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
+=== RUN   TestAssignedReadHasExactBytesAndCustody
+--- PASS: TestAssignedReadHasExactBytesAndCustody (0.00s)
+=== RUN   TestUnassignedOrChangedInputReturnsNoBytes
+=== RUN   TestUnassignedOrChangedInputReturnsNoBytes/unknown
+=== RUN   TestUnassignedOrChangedInputReturnsNoBytes/changed
+=== RUN   TestUnassignedOrChangedInputReturnsNoBytes/oversized
+=== RUN   TestUnassignedOrChangedInputReturnsNoBytes/missing
+--- PASS: TestUnassignedOrChangedInputReturnsNoBytes (0.00s)
+    --- PASS: TestUnassignedOrChangedInputReturnsNoBytes/unknown (0.00s)
+    --- PASS: TestUnassignedOrChangedInputReturnsNoBytes/changed (0.00s)
+    --- PASS: TestUnassignedOrChangedInputReturnsNoBytes/oversized (0.00s)
+    --- PASS: TestUnassignedOrChangedInputReturnsNoBytes/missing (0.00s)
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/preparation
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/stopped_authority
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/package
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/lease_extension
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/recorder
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/role
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/lane
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/grant
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/source
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/output
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/expires_at_record
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/revoked
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/expired
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/run
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/commit
+=== RUN   TestGrantDriftAndAuthorityFailuresHoldRead/base
+--- PASS: TestGrantDriftAndAuthorityFailuresHoldRead (0.01s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/preparation (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/stopped_authority (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/package (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/lease_extension (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/recorder (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/role (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/lane (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/grant (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/source (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/output (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/expires_at_record (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/revoked (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/expired (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/run (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/commit (0.00s)
+    --- PASS: TestGrantDriftAndAuthorityFailuresHoldRead/base (0.00s)
+=== RUN   TestCancellationAndClosedBrokerHoldRead
+--- PASS: TestCancellationAndClosedBrokerHoldRead (0.00s)
+=== RUN   TestInvalidRootAndGrantConfiguration
+=== RUN   TestInvalidRootAndGrantConfiguration/revoked
+=== RUN   TestInvalidRootAndGrantConfiguration/nested_output
+=== RUN   TestInvalidRootAndGrantConfiguration/nested_input
+=== RUN   TestInvalidRootAndGrantConfiguration/zero_input_budget
+=== RUN   TestInvalidRootAndGrantConfiguration/overflow_input_budget
+=== RUN   TestInvalidRootAndGrantConfiguration/unsupported_lane
+=== RUN   TestInvalidRootAndGrantConfiguration/traversal
+=== RUN   TestInvalidRootAndGrantConfiguration/backslash
+=== RUN   TestInvalidRootAndGrantConfiguration/malformed_source_digest
+=== RUN   TestInvalidRootAndGrantConfiguration/symlink_alias
+=== RUN   TestInvalidRootAndGrantConfiguration/no_authority
+=== RUN   TestInvalidRootAndGrantConfiguration/unsupported_role
+=== RUN   TestInvalidRootAndGrantConfiguration/absolute_path
+=== RUN   TestInvalidRootAndGrantConfiguration/output_traversal
+=== RUN   TestInvalidRootAndGrantConfiguration/output_subdirectory
+=== RUN   TestInvalidRootAndGrantConfiguration/same_root
+=== RUN   TestInvalidRootAndGrantConfiguration/zero_proposal_budget
+=== RUN   TestInvalidRootAndGrantConfiguration/expired
+=== RUN   TestInvalidRootAndGrantConfiguration/world_writable_output
+=== RUN   TestInvalidRootAndGrantConfiguration/malformed_base_digest
+--- PASS: TestInvalidRootAndGrantConfiguration (0.01s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/revoked (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/nested_output (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/nested_input (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/zero_input_budget (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/overflow_input_budget (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/unsupported_lane (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/traversal (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/backslash (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/malformed_source_digest (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/symlink_alias (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/no_authority (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/unsupported_role (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/absolute_path (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/output_traversal (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/output_subdirectory (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/same_root (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/zero_proposal_budget (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/expired (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/world_writable_output (0.00s)
+    --- PASS: TestInvalidRootAndGrantConfiguration/malformed_base_digest (0.00s)
+=== RUN   TestFilesystemEscapeAndSpecialFilesHoldRead
+=== RUN   TestFilesystemEscapeAndSpecialFilesHoldRead/symlink_outside
+=== RUN   TestFilesystemEscapeAndSpecialFilesHoldRead/fifo
+=== RUN   TestFilesystemEscapeAndSpecialFilesHoldRead/directory
+--- PASS: TestFilesystemEscapeAndSpecialFilesHoldRead (0.00s)
+    --- PASS: TestFilesystemEscapeAndSpecialFilesHoldRead/symlink_outside (0.00s)
+    --- PASS: TestFilesystemEscapeAndSpecialFilesHoldRead/fifo (0.00s)
+    --- PASS: TestFilesystemEscapeAndSpecialFilesHoldRead/directory (0.00s)
+=== RUN   TestInputRootHandleSurvivesRename
+--- PASS: TestInputRootHandleSurvivesRename (0.00s)
+=== RUN   TestProposalReceiptBytesPermissionsAndCustody
+--- PASS: TestProposalReceiptBytesPermissionsAndCustody (0.01s)
+=== RUN   TestFailedProposalLeavesNoArtifactOrReceipt
+=== RUN   TestFailedProposalLeavesNoArtifactOrReceipt/revoked
+=== RUN   TestFailedProposalLeavesNoArtifactOrReceipt/expired
+=== RUN   TestFailedProposalLeavesNoArtifactOrReceipt/stopped
+=== RUN   TestFailedProposalLeavesNoArtifactOrReceipt/recorder
+=== RUN   TestFailedProposalLeavesNoArtifactOrReceipt/commit
+=== RUN   TestFailedProposalLeavesNoArtifactOrReceipt/expiry_at_audit
+=== RUN   TestFailedProposalLeavesNoArtifactOrReceipt/changed_basis
+--- PASS: TestFailedProposalLeavesNoArtifactOrReceipt (0.00s)
+    --- PASS: TestFailedProposalLeavesNoArtifactOrReceipt/revoked (0.00s)
+    --- PASS: TestFailedProposalLeavesNoArtifactOrReceipt/expired (0.00s)
+    --- PASS: TestFailedProposalLeavesNoArtifactOrReceipt/stopped (0.00s)
+    --- PASS: TestFailedProposalLeavesNoArtifactOrReceipt/recorder (0.00s)
+    --- PASS: TestFailedProposalLeavesNoArtifactOrReceipt/commit (0.00s)
+    --- PASS: TestFailedProposalLeavesNoArtifactOrReceipt/expiry_at_audit (0.00s)
+    --- PASS: TestFailedProposalLeavesNoArtifactOrReceipt/changed_basis (0.00s)
+=== RUN   TestProposalBudgetCancellationAndSymlinkRefusal
+=== RUN   TestProposalBudgetCancellationAndSymlinkRefusal/oversized
+=== RUN   TestProposalBudgetCancellationAndSymlinkRefusal/cancelled
+=== RUN   TestProposalBudgetCancellationAndSymlinkRefusal/symlink
+=== RUN   TestProposalBudgetCancellationAndSymlinkRefusal/closed
+--- PASS: TestProposalBudgetCancellationAndSymlinkRefusal (0.00s)
+    --- PASS: TestProposalBudgetCancellationAndSymlinkRefusal/oversized (0.00s)
+    --- PASS: TestProposalBudgetCancellationAndSymlinkRefusal/cancelled (0.00s)
+    --- PASS: TestProposalBudgetCancellationAndSymlinkRefusal/symlink (0.00s)
+    --- PASS: TestProposalBudgetCancellationAndSymlinkRefusal/closed (0.00s)
+=== RUN   TestConcurrentProposalsAcrossBrokersAdmitOneWriter
+--- PASS: TestConcurrentProposalsAcrossBrokersAdmitOneWriter (0.00s)
+=== RUN   TestOutputRootHandleSurvivesRename
+--- PASS: TestOutputRootHandleSurvivesRename (0.00s)
+=== RUN   TestCancelledConstructionRefuses
+--- PASS: TestCancelledConstructionRefuses (0.00s)
+=== RUN   TestAuthorityCannotSilentlySkipRepeatOrOmitRecorder
+=== RUN   TestAuthorityCannotSilentlySkipRepeatOrOmitRecorder/skip
+=== RUN   TestAuthorityCannotSilentlySkipRepeatOrOmitRecorder/twice
+=== RUN   TestAuthorityCannotSilentlySkipRepeatOrOmitRecorder/nil_recorder
+--- PASS: TestAuthorityCannotSilentlySkipRepeatOrOmitRecorder (0.00s)
+    --- PASS: TestAuthorityCannotSilentlySkipRepeatOrOmitRecorder/skip (0.00s)
+    --- PASS: TestAuthorityCannotSilentlySkipRepeatOrOmitRecorder/twice (0.00s)
+    --- PASS: TestAuthorityCannotSilentlySkipRepeatOrOmitRecorder/nil_recorder (0.00s)
+=== RUN   TestCancellationDuringAuditCleansProposal
+--- PASS: TestCancellationDuringAuditCleansProposal (0.00s)
+=== RUN   TestCleanupFailureIsReportedWithoutAReceipt
+--- PASS: TestCleanupFailureIsReportedWithoutAReceipt (0.00s)
+=== RUN   TestHostileSourceReplacementNeverReturnsUnpinnedBytes
+--- PASS: TestHostileSourceReplacementNeverReturnsUnpinnedBytes (0.01s)
+=== RUN   TestReviewExpiryDuringCommit
+=== RUN   TestReviewExpiryDuringCommit/open
+=== RUN   TestReviewExpiryDuringCommit/read
+=== RUN   TestReviewExpiryDuringCommit/write
+--- PASS: TestReviewExpiryDuringCommit (0.00s)
+    --- PASS: TestReviewExpiryDuringCommit/open (0.00s)
+    --- PASS: TestReviewExpiryDuringCommit/read (0.00s)
+    --- PASS: TestReviewExpiryDuringCommit/write (0.00s)
+=== RUN   TestReviewCancellationDuringCommit
+=== RUN   TestReviewCancellationDuringCommit/open
+=== RUN   TestReviewCancellationDuringCommit/read
+=== RUN   TestReviewCancellationDuringCommit/write
+--- PASS: TestReviewCancellationDuringCommit (0.00s)
+    --- PASS: TestReviewCancellationDuringCommit/open (0.00s)
+    --- PASS: TestReviewCancellationDuringCommit/read (0.00s)
+    --- PASS: TestReviewCancellationDuringCommit/write (0.00s)
+=== RUN   TestReviewRootAliasRace
+--- PASS: TestReviewRootAliasRace (0.22s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	0.276s
+=== RUN   TestProfileConstantsMatchTheVectorFile
+--- PASS: TestProfileConstantsMatchTheVectorFile (0.00s)
+=== RUN   TestValidVectorsHashTheirCanonicalForm
+--- PASS: TestValidVectorsHashTheirCanonicalForm (0.00s)
+=== RUN   TestInvalidVectorsAreRefusedWithTheNamedError
+--- PASS: TestInvalidVectorsAreRefusedWithTheNamedError (0.00s)
+=== RUN   TestInvalidUTF8IsRefused
+--- PASS: TestInvalidUTF8IsRefused (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.004s
 === RUN   TestRegistry
 --- PASS: TestRegistry (0.00s)
-=== RUN   TestAdapterStreamMatchesNormalize
-=== RUN   TestAdapterStreamMatchesNormalize/claude
-=== RUN   TestAdapterStreamMatchesNormalize/codex
---- PASS: TestAdapterStreamMatchesNormalize (0.00s)
-    --- PASS: TestAdapterStreamMatchesNormalize/claude (0.00s)
-    --- PASS: TestAdapterStreamMatchesNormalize/codex (0.00s)
+=== RUN   TestStreamGolden
+=== RUN   TestStreamGolden/claude
+=== RUN   TestStreamGolden/codex
+--- PASS: TestStreamGolden (0.00s)
+    --- PASS: TestStreamGolden/claude (0.00s)
+    --- PASS: TestStreamGolden/codex (0.00s)
 === RUN   TestAgentEnvDropsProviderProvenance
 === RUN   TestAgentEnvDropsProviderProvenance/ANTHROPIC_BASE_URL
 === RUN   TestAgentEnvDropsProviderProvenance/ANTHROPIC_MODEL
@@ -38,30 +217,126 @@
     --- PASS: TestAgentEnvDropsProviderProvenance/HTTPS_PROXY (0.00s)
     --- PASS: TestAgentEnvDropsProviderProvenance/ALL_PROXY (0.00s)
     --- PASS: TestAgentEnvDropsProviderProvenance/SSH_AUTH_SOCK (0.00s)
+=== RUN   TestExtraEnvDropsProviderProvenance
+--- PASS: TestExtraEnvDropsProviderProvenance (0.00s)
+=== RUN   TestHostNeedsForFakeKeepsBubblewrapOnLinux
+--- PASS: TestHostNeedsForFakeKeepsBubblewrapOnLinux (0.00s)
+=== RUN   TestMissingOutputCopierIsAnError
+--- PASS: TestMissingOutputCopierIsAnError (0.00s)
 === RUN   TestUnknownRuntimeMatchesTodaysError
 --- PASS: TestUnknownRuntimeMatchesTodaysError (0.00s)
-=== RUN   TestAdapterLaunchMatchesCommand
-=== RUN   TestAdapterLaunchMatchesCommand/claude-author-default-tools
-=== RUN   TestAdapterLaunchMatchesCommand/claude-author-explicit-model
-=== RUN   TestAdapterLaunchMatchesCommand/claude-pre-check
-=== RUN   TestAdapterLaunchMatchesCommand/claude-intake
-=== RUN   TestAdapterLaunchMatchesCommand/claude-author-network-hosts
-=== RUN   TestAdapterLaunchMatchesCommand/codex-author-default-tools
-=== RUN   TestAdapterLaunchMatchesCommand/codex-author-explicit-model
-=== RUN   TestAdapterLaunchMatchesCommand/codex-pre-check
-=== RUN   TestAdapterLaunchMatchesCommand/codex-intake
-=== RUN   TestAdapterLaunchMatchesCommand/codex-author-network-hosts
---- PASS: TestAdapterLaunchMatchesCommand (0.00s)
-    --- PASS: TestAdapterLaunchMatchesCommand/claude-author-default-tools (0.00s)
-    --- PASS: TestAdapterLaunchMatchesCommand/claude-author-explicit-model (0.00s)
-    --- PASS: TestAdapterLaunchMatchesCommand/claude-pre-check (0.00s)
-    --- PASS: TestAdapterLaunchMatchesCommand/claude-intake (0.00s)
-    --- PASS: TestAdapterLaunchMatchesCommand/claude-author-network-hosts (0.00s)
-    --- PASS: TestAdapterLaunchMatchesCommand/codex-author-default-tools (0.00s)
-    --- PASS: TestAdapterLaunchMatchesCommand/codex-author-explicit-model (0.00s)
-    --- PASS: TestAdapterLaunchMatchesCommand/codex-pre-check (0.00s)
-    --- PASS: TestAdapterLaunchMatchesCommand/codex-intake (0.00s)
-    --- PASS: TestAdapterLaunchMatchesCommand/codex-author-network-hosts (0.00s)
+=== RUN   TestLogIngestionUsesTheAdapter
+--- PASS: TestLogIngestionUsesTheAdapter (0.00s)
+=== RUN   TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv
+--- PASS: TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv (0.00s)
+=== RUN   TestProviderAndIDUnique
+--- PASS: TestProviderAndIDUnique (0.00s)
+=== RUN   TestNoRuntimeNameSwitch
+--- PASS: TestNoRuntimeNameSwitch (0.01s)
+=== RUN   TestResolveArtifactFollowsSymlinksAndHashesNativeExecutables
+--- PASS: TestResolveArtifactFollowsSymlinksAndHashesNativeExecutables (0.00s)
+=== RUN   TestResolveArtifactRefusesScriptLaunchers
+--- PASS: TestResolveArtifactRefusesScriptLaunchers (0.00s)
+=== RUN   TestResolveArtifactFollowsTheCodexWrapperToItsNativeTree
+--- PASS: TestResolveArtifactFollowsTheCodexWrapperToItsNativeTree (0.00s)
+=== RUN   TestLaunchIsRefusedWhenTheExecutableIsNotTheExpectedArtifact
+--- PASS: TestLaunchIsRefusedWhenTheExecutableIsNotTheExpectedArtifact (0.00s)
+=== RUN   TestTreeLaunchRefusesAnExecutableTheTreeDigestDidNotCount
+--- PASS: TestTreeLaunchRefusesAnExecutableTheTreeDigestDidNotCount (0.00s)
+=== RUN   TestVerifiedLaunchRunsTheCheckedBytesEvenAfterTheFileIsReplaced
+--- PASS: TestVerifiedLaunchRunsTheCheckedBytesEvenAfterTheFileIsReplaced (0.00s)
+=== RUN   TestCodexTreeRefusesLinks
+--- PASS: TestCodexTreeRefusesLinks (0.00s)
+=== RUN   TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes
+--- PASS: TestConfirmProvesTheStartedProcessRunsTheVerifiedBytes (0.00s)
+=== RUN   TestAWriteBetweenCheckAndStartIsBlockedAndCaught
+--- PASS: TestAWriteBetweenCheckAndStartIsBlockedAndCaught (0.00s)
+=== RUN   TestARuntimeOpenForWritingIsRefused
+--- PASS: TestARuntimeOpenForWritingIsRefused (0.00s)
+=== RUN   TestConfirmFailsClosedWhenTheProcessNeverRunsTheRuntime
+--- PASS: TestConfirmFailsClosedWhenTheProcessNeverRunsTheRuntime (0.21s)
+=== RUN   TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart
+--- PASS: TestTheGuardIsCheckedAgainImmediatelyBeforeTheStart (0.00s)
+=== RUN   TestClaimRejectsInvalidRawWireBeforeStartingWork
+=== RUN   TestClaimRejectsInvalidRawWireBeforeStartingWork/unsafe_integer
+=== RUN   TestClaimRejectsInvalidRawWireBeforeStartingWork/unknown_field
+=== RUN   TestClaimRejectsInvalidRawWireBeforeStartingWork/partial_run
+=== RUN   TestClaimRejectsInvalidRawWireBeforeStartingWork/duplicate
+=== RUN   TestClaimRejectsInvalidRawWireBeforeStartingWork/trailing
+--- PASS: TestClaimRejectsInvalidRawWireBeforeStartingWork (0.02s)
+    --- PASS: TestClaimRejectsInvalidRawWireBeforeStartingWork/unsafe_integer (0.01s)
+    --- PASS: TestClaimRejectsInvalidRawWireBeforeStartingWork/unknown_field (0.01s)
+    --- PASS: TestClaimRejectsInvalidRawWireBeforeStartingWork/partial_run (0.00s)
+    --- PASS: TestClaimRejectsInvalidRawWireBeforeStartingWork/duplicate (0.00s)
+    --- PASS: TestClaimRejectsInvalidRawWireBeforeStartingWork/trailing (0.00s)
+=== RUN   TestRunnerRejectsIncompleteSuccessReplies
+=== RUN   TestRunnerRejectsIncompleteSuccessReplies/log
+=== RUN   TestRunnerRejectsIncompleteSuccessReplies/complete
+--- PASS: TestRunnerRejectsIncompleteSuccessReplies (0.00s)
+    --- PASS: TestRunnerRejectsIncompleteSuccessReplies/log (0.00s)
+    --- PASS: TestRunnerRejectsIncompleteSuccessReplies/complete (0.00s)
+=== RUN   TestClaimAcceptsCompleteGeneratedContract
+--- PASS: TestClaimAcceptsCompleteGeneratedContract (0.00s)
+=== RUN   TestRunnerRequiresARecordedReceipt
+=== RUN   TestRunnerRequiresARecordedReceipt/#00
+=== RUN   TestRunnerRequiresARecordedReceipt/{"run_id":"another","idempotency_key":"key","status":"succeeded","outputs":[],"received_at":"2026-10-23T00:00:00Z"}
+--- PASS: TestRunnerRequiresARecordedReceipt (0.00s)
+    --- PASS: TestRunnerRequiresARecordedReceipt/#00 (0.00s)
+    --- PASS: TestRunnerRequiresARecordedReceipt/{"run_id":"another","idempotency_key":"key","status":"succeeded","outputs":[],"received_at":"2026-10-23T00:00:00Z"} (0.00s)
+=== RUN   TestClaimReportsTheRunCeiling
+--- PASS: TestClaimReportsTheRunCeiling (0.00s)
+=== RUN   TestRunCeilingCoversTheTimeoutAndTheStopLadder
+--- PASS: TestRunCeilingCoversTheTimeoutAndTheStopLadder (0.01s)
+=== RUN   TestBreakerWarnsThenTripsOnRepetition
+--- PASS: TestBreakerWarnsThenTripsOnRepetition (0.00s)
+=== RUN   TestBreakerDoesNotTripOnVariedWork
+--- PASS: TestBreakerDoesNotTripOnVariedWork (0.00s)
+=== RUN   TestBreakerTripsOnVelocity
+--- PASS: TestBreakerTripsOnVelocity (0.00s)
+=== RUN   TestBreakerTripsOnNoProgressAndProgressResetsIt
+--- PASS: TestBreakerTripsOnNoProgressAndProgressResetsIt (0.00s)
+=== RUN   TestOnlyASucceededEditCountsAsProgress
+--- PASS: TestOnlyASucceededEditCountsAsProgress (0.00s)
+=== RUN   TestTheBreakerSeesEventsAdmissionDrops
+--- PASS: TestTheBreakerSeesEventsAdmissionDrops (0.00s)
+=== RUN   TestUnreadableCgroupStateCountsAsAlive
+--- PASS: TestUnreadableCgroupStateCountsAsAlive (0.00s)
+=== RUN   TestFinalFlushSendsEveryLineBeforeCompletion
+--- PASS: TestFinalFlushSendsEveryLineBeforeCompletion (0.02s)
+=== RUN   TestHeartbeatsCarryTheClaimTokenWhileTheAgentIsQuiet
+--- PASS: TestHeartbeatsCarryTheClaimTokenWhileTheAgentIsQuiet (0.51s)
+=== RUN   TestCompletionIsRetriedWithTheSameKeyAndLeavesTheOutboxWhenRecorded
+--- PASS: TestCompletionIsRetriedWithTheSameKeyAndLeavesTheOutboxWhenRecorded (0.06s)
+=== RUN   TestOutboxEntriesFromAnEarlierRunAreSentAtStart
+--- PASS: TestOutboxEntriesFromAnEarlierRunAreSentAtStart (0.01s)
+=== RUN   TestARefusedCompletionIsNotRetriedAndIsKeptAsEvidence
+--- PASS: TestARefusedCompletionIsNotRetriedAndIsKeptAsEvidence (0.16s)
+=== RUN   TestARunTheControlPlaneNoLongerHoldsIsEnded
+--- PASS: TestARunTheControlPlaneNoLongerHoldsIsEnded (0.05s)
+=== RUN   TestAStopFromTheOwnerEndsTheProcessAndCompletesAsStopped
+--- PASS: TestAStopFromTheOwnerEndsTheProcessAndCompletesAsStopped (0.06s)
+=== RUN   TestNormalizesClaudeStreamJSON
+--- PASS: TestNormalizesClaudeStreamJSON (0.00s)
+=== RUN   TestNormalizesCodexJSON
+--- PASS: TestNormalizesCodexJSON (0.00s)
+=== RUN   TestEventTextIsClipped
+--- PASS: TestEventTextIsClipped (0.00s)
+=== RUN   TestAdmissionCountsWhatItRefuses
+--- PASS: TestAdmissionCountsWhatItRefuses (0.00s)
+=== RUN   TestPermissionHookSettingsAndPayloads
+--- PASS: TestPermissionHookSettingsAndPayloads (0.00s)
+=== RUN   TestDaemonSendsNormalizedEventsAndTheExit
+--- PASS: TestDaemonSendsNormalizedEventsAndTheExit (0.01s)
+=== RUN   TestBreakerStopsARunawayRun
+--- PASS: TestBreakerStopsARunawayRun (0.13s)
+=== RUN   TestHookTailSkipsAnOversizedRecordAndResumesWhereTheLoopStopped
+--- PASS: TestHookTailSkipsAnOversizedRecordAndResumesWhereTheLoopStopped (0.01s)
+=== RUN   TestTheExitEventIsNeverRefusedByAdmission
+--- PASS: TestTheExitEventIsNeverRefusedByAdmission (0.00s)
+=== RUN   TestUsageKeepsReportedZeroAndOmitsMissing
+--- PASS: TestUsageKeepsReportedZeroAndOmitsMissing (0.00s)
+=== RUN   TestClaudeResultUsageIsCumulative
+--- PASS: TestClaudeResultUsageIsCumulative (0.00s)
 === RUN   TestLaunchGolden
 === RUN   TestLaunchGolden/claude-author-default-tools
 === RUN   TestLaunchGolden/claude-author-explicit-model
@@ -84,5 +359,198 @@
     --- PASS: TestLaunchGolden/codex-pre-check (0.00s)
     --- PASS: TestLaunchGolden/codex-intake (0.00s)
     --- PASS: TestLaunchGolden/codex-author-network-hosts (0.00s)
+=== RUN   TestAgentLaunchesRefuseWithoutASandboxPolicy
+--- PASS: TestAgentLaunchesRefuseWithoutASandboxPolicy (0.00s)
+=== RUN   TestCodexLaunchCarriesThePermissionProfileAndNeverASandboxMode
+--- PASS: TestCodexLaunchCarriesThePermissionProfileAndNeverASandboxMode (0.00s)
+=== RUN   TestClaudeLaunchIsolatesTheRunAndKeepsTheDirectiveOutOfTheToolList
+--- PASS: TestClaudeLaunchIsolatesTheRunAndKeepsTheDirectiveOutOfTheToolList (0.00s)
+=== RUN   TestReportedModelReadsOnlyTheRuntimesOwnFields
+--- PASS: TestReportedModelReadsOnlyTheRuntimesOwnFields (0.00s)
+=== RUN   TestLaunchForDescribesWhatCommandRuns
+--- PASS: TestLaunchForDescribesWhatCommandRuns (0.00s)
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands/requirements-preparer/claude
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands/requirements-preparer/codex
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands/requirements-preparer/fake
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands/technical-preparer/claude
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands/technical-preparer/codex
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands/technical-preparer/fake
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands/unknown-role/claude
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands/unknown-role/codex
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands/unknown-role/fake
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands//claude
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands//codex
+=== RUN   TestUnapprovedRolesNeverReachLegacyRuntimeCommands//fake
+--- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/requirements-preparer/claude (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/requirements-preparer/codex (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/requirements-preparer/fake (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/technical-preparer/claude (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/technical-preparer/codex (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/technical-preparer/fake (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/unknown-role/claude (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/unknown-role/codex (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands/unknown-role/fake (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands//claude (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands//codex (0.00s)
+    --- PASS: TestUnapprovedRolesNeverReachLegacyRuntimeCommands//fake (0.00s)
+=== RUN   TestNothingStartsWhenTheStartGateRefuses
+--- PASS: TestNothingStartsWhenTheStartGateRefuses (0.00s)
+=== RUN   TestTheLeaseEndsAtTheEarlierOfTheAdvertisedEndAndThreeHeartbeatsFromSending
+--- PASS: TestTheLeaseEndsAtTheEarlierOfTheAdvertisedEndAndThreeHeartbeatsFromSending (0.00s)
+=== RUN   TestTakeKeepsEveryLineInAPISizedBatches
+--- PASS: TestTakeKeepsEveryLineInAPISizedBatches (0.00s)
+=== RUN   TestTakeDoesNotCombineLargeLinesIntoOversizedUploads
+--- PASS: TestTakeDoesNotCombineLargeLinesIntoOversizedUploads (0.00s)
+=== RUN   TestPutBackKeepsFailedBatchFirst
+--- PASS: TestPutBackKeepsFailedBatchFirst (0.00s)
+=== RUN   TestPutBackIsBounded
+--- PASS: TestPutBackIsBounded (0.00s)
+=== RUN   TestTakeSendsAtMostOneBatchAndKeepsTheRest
+--- PASS: TestTakeSendsAtMostOneBatchAndKeepsTheRest (0.00s)
+=== RUN   TestEventsKeepStableIndexesAndLeftoversGoWithTheCompletion
+--- PASS: TestEventsKeepStableIndexesAndLeftoversGoWithTheCompletion (0.00s)
+=== RUN   TestHeldEventOverflowLeavesAGapAndBatchesStayConsecutive
+--- PASS: TestHeldEventOverflowLeavesAGapAndBatchesStayConsecutive (0.00s)
+=== RUN   TestACompletionAlwaysSendsWhereItsEventsStart
+--- PASS: TestACompletionAlwaysSendsWhereItsEventsStart (0.00s)
+=== RUN   TestProbeRefusesARuntimeWhoseVersionDoesNotAnswer
+--- PASS: TestProbeRefusesARuntimeWhoseVersionDoesNotAnswer (0.00s)
+=== RUN   TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand
+--- PASS: TestProbeChecksTheCodexLoginOnlyWhenTheCLIOffersAStatusCommand (0.00s)
+=== RUN   TestTheDaemonOffersOnlyReadyRuntimesAndReportsTheRest
+--- PASS: TestTheDaemonOffersOnlyReadyRuntimesAndReportsTheRest (0.02s)
+=== RUN   TestProbeRefusesARuntimeStartedByAScriptItCannotPin
+--- PASS: TestProbeRefusesARuntimeStartedByAScriptItCannotPin (0.00s)
+=== RUN   TestReceiptMatchesOnlyItsOwnLiveProcess
+--- PASS: TestReceiptMatchesOnlyItsOwnLiveProcess (0.02s)
+=== RUN   TestAZombieDoesNotCountAsRunning
+--- PASS: TestAZombieDoesNotCountAsRunning (0.02s)
+=== RUN   TestProcessGroupStopEndsWithKillForAProcessThatIgnoresTerm
+--- PASS: TestProcessGroupStopEndsWithKillForAProcessThatIgnoresTerm (0.84s)
+=== RUN   TestStopSignalsNothingWhenTheLeaderNoLongerMatches
+--- PASS: TestStopSignalsNothingWhenTheLeaderNoLongerMatches (0.02s)
+=== RUN   TestCgroupStopEndsChildrenThatEscapeTheGroupAndIgnoreSignals
+    receipt_test.go:135: cgroup containment needs Linux with a systemd user manager
+--- SKIP: TestCgroupStopEndsChildrenThatEscapeTheGroupAndIgnoreSignals (0.00s)
+=== RUN   TestStopFreezesTheRunAndOnlyTheSnapshotCounts
+    receipt_test.go:151: cgroup containment needs Linux with a systemd user manager
+--- SKIP: TestStopFreezesTheRunAndOnlyTheSnapshotCounts (0.00s)
+=== RUN   TestExecuteEndsProcessesTheLeaderLeftBehind
+--- PASS: TestExecuteEndsProcessesTheLeaderLeftBehind (0.46s)
+=== RUN   TestExecuteFailsClosedWhenTheRunCannotBeOwned
+--- PASS: TestExecuteFailsClosedWhenTheRunCannotBeOwned (0.02s)
+=== RUN   TestRestartedDaemonStopsOrphansReportsThemAndEndsUnreceiptedScopes
+--- PASS: TestRestartedDaemonStopsOrphansReportsThemAndEndsUnreceiptedScopes (0.03s)
+=== RUN   TestReceiptIsSentWithLogsUntilRecordedAndKeptUntilTheOutbox
+--- PASS: TestReceiptIsSentWithLogsUntilRecordedAndKeptUntilTheOutbox (0.31s)
+=== RUN   TestCaptureEnforcesLimitsWhileReadingAndRefusesSymlinks
+--- PASS: TestCaptureEnforcesLimitsWhileReadingAndRefusesSymlinks (0.08s)
+=== RUN   TestExecuteReportsUncontainedWhenTheUnitWillNotEmpty
+--- PASS: TestExecuteReportsUncontainedWhenTheUnitWillNotEmpty (1.03s)
+=== RUN   TestFallbackSignalsNothingOnAStaleReceiptEvenWhileItsGroupNumberExists
+--- PASS: TestFallbackSignalsNothingOnAStaleReceiptEvenWhileItsGroupNumberExists (0.02s)
+=== RUN   TestOneDaemonPerHome
+--- PASS: TestOneDaemonPerHome (0.00s)
+=== RUN   TestAReceiptWriteFailureEndsTheWholeUnitIncludingEscapedChildren
+    receipt_test.go:414: cgroup containment needs Linux with a systemd user manager
+--- SKIP: TestAReceiptWriteFailureEndsTheWholeUnitIncludingEscapedChildren (0.00s)
+=== RUN   TestAnEscapedChildHoldingThePipesMakesTheRunUncontainedNotStuck
+--- PASS: TestAnEscapedChildHoldingThePipesMakesTheRunUncontainedNotStuck (0.41s)
+=== RUN   TestAFailedStartKillsTheLauncherWithinABound
+--- PASS: TestAFailedStartKillsTheLauncherWithinABound (0.00s)
+=== RUN   TestAnOrphanGroupIsNeverSignalledByNumber
+--- PASS: TestAnOrphanGroupIsNeverSignalledByNumber (2.33s)
+=== RUN   TestWorkspaceDirRejectsUnsafeSegments
+--- PASS: TestWorkspaceDirRejectsUnsafeSegments (0.00s)
+=== RUN   TestPrepareRejectsPathEscapesBeforeWriting
+--- PASS: TestPrepareRejectsPathEscapesBeforeWriting (0.00s)
+=== RUN   TestCollectRefusesSymlinks
+--- PASS: TestCollectRefusesSymlinks (0.00s)
+=== RUN   TestCollectEnforcesCaps
+--- PASS: TestCollectEnforcesCaps (0.00s)
+=== RUN   TestLabelsComeOnlyFromEventTypes
+--- PASS: TestLabelsComeOnlyFromEventTypes (0.00s)
+=== RUN   TestDaemonRunsAFakeJobEndToEnd
+--- PASS: TestDaemonRunsAFakeJobEndToEnd (0.03s)
+=== RUN   TestIntakeAttachesPackageAndCopyModeWorks
+--- PASS: TestIntakeAttachesPackageAndCopyModeWorks (0.00s)
+=== RUN   TestUnavailableRuntimeFailsWithoutRunning
+--- PASS: TestUnavailableRuntimeFailsWithoutRunning (0.00s)
+=== RUN   TestTimeoutKillsTheWholeProcessGroup
+--- PASS: TestTimeoutKillsTheWholeProcessGroup (0.73s)
+=== RUN   TestShutdownStopsClaimingAndReportsRunningJobs
+--- PASS: TestShutdownStopsClaimingAndReportsRunningJobs (0.35s)
+=== RUN   TestTokenFromFileAndChildEnv
+--- PASS: TestTokenFromFileAndChildEnv (0.00s)
+=== RUN   TestARuntimeRefusedAtLaunchIsNeverExecuted
+--- PASS: TestARuntimeRefusedAtLaunchIsNeverExecuted (0.01s)
+=== RUN   TestAnUnpinnedRuntimeThatChangedIsWithdrawnWithoutRunningIt
+--- PASS: TestAnUnpinnedRuntimeThatChangedIsWithdrawnWithoutRunningIt (0.01s)
+=== RUN   TestADaemonOutOfContactForALeaseStopsItsRun
+--- PASS: TestADaemonOutOfContactForALeaseStopsItsRun (0.33s)
+=== RUN   TestAHeartbeatLeftHangingCannotKeepARunPastItsLease
+--- PASS: TestAHeartbeatLeftHangingCannotKeepARunPastItsLease (1.33s)
+=== RUN   TestTheAdvertisedLeaseIsHonouredEvenBetweenHeartbeats
+--- PASS: TestTheAdvertisedLeaseIsHonouredEvenBetweenHeartbeats (0.43s)
+=== RUN   TestVerifyPolicyAcceptsOnlyThePolicyTheRunCites
+--- PASS: TestVerifyPolicyAcceptsOnlyThePolicyTheRunCites (0.00s)
+=== RUN   TestDeniedExpandsHomeAndAlwaysAddsTheDaemonHome
+--- PASS: TestDeniedExpandsHomeAndAlwaysAddsTheDaemonHome (0.00s)
+=== RUN   TestClaudeSettingsConfineReadsAndKeepTheWorkspaceOpen
+--- PASS: TestClaudeSettingsConfineReadsAndKeepTheWorkspaceOpen (0.00s)
+=== RUN   TestCodexProfileDeniesTheOutermostPathsAndSwitchesOffUnqualifiedFeatures
+--- PASS: TestCodexProfileDeniesTheOutermostPathsAndSwitchesOffUnqualifiedFeatures (0.00s)
+=== RUN   TestAgentEnvKeepsOnlyTheAllowlist
+--- PASS: TestAgentEnvKeepsOnlyTheAllowlist (0.00s)
+=== RUN   TestPreflightRefusesWithTheFixAndNeverFallsBack
+--- PASS: TestPreflightRefusesWithTheFixAndNeverFallsBack (0.00s)
+=== RUN   TestInstalledCodexLeavesOnlyQualifiedFeatures
+    sandbox_test.go:297: codex is not installed here
+--- SKIP: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.00s)
+=== RUN   TestStagedRuntimesAreCopiedOutsideHomeAndRechecked
+--- PASS: TestStagedRuntimesAreCopiedOutsideHomeAndRechecked (0.00s)
+=== RUN   TestLoginLocationsFollowTheEnvironmentAndLinksAndAreDenied
+--- PASS: TestLoginLocationsFollowTheEnvironmentAndLinksAndAreDenied (0.00s)
+=== RUN   TestPolicyShapesTheDaemonCannotEnforceAreRefused
+--- PASS: TestPolicyShapesTheDaemonCannotEnforceAreRefused (0.00s)
+=== RUN   TestStagingConcurrentlyPublishesOneCopy
+--- PASS: TestStagingConcurrentlyPublishesOneCopy (0.00s)
+=== RUN   TestStageRootIgnoresTMPDIR
+--- PASS: TestStageRootIgnoresTMPDIR (0.00s)
+=== RUN   TestPreflightRefusesUnreadableFeatureListsAndUnqualifiedPlatforms
+--- PASS: TestPreflightRefusesUnreadableFeatureListsAndUnqualifiedPlatforms (0.00s)
+=== RUN   TestCredentialStoreLinksAreDeniedAtTheirTargets
+--- PASS: TestCredentialStoreLinksAreDeniedAtTheirTargets (0.00s)
+=== RUN   TestCredentialStoreDiscoveryFollowsLinkedFoldersAndFailsClosed
+--- PASS: TestCredentialStoreDiscoveryFollowsLinkedFoldersAndFailsClosed (0.00s)
+=== RUN   TestLinksInsideALoginFolderOutsideHomeAreDenied
+--- PASS: TestLinksInsideALoginFolderOutsideHomeAreDenied (0.00s)
+=== RUN   TestRunWorkspacesNeverFeedLinkDiscovery
+--- PASS: TestRunWorkspacesNeverFeedLinkDiscovery (0.00s)
+=== RUN   TestARunThatReportedItsResultButDidNotExitEndsOnItsResult
+--- PASS: TestARunThatReportedItsResultButDidNotExitEndsOnItsResult (0.34s)
+=== RUN   TestAFailedResultThatDidNotExitEndsFailed
+--- PASS: TestAFailedResultThatDidNotExitEndsFailed (0.34s)
+=== RUN   TestACodexTurnThatCompletedButDidNotExitEndsOnItsResult
+--- PASS: TestACodexTurnThatCompletedButDidNotExitEndsOnItsResult (0.33s)
+=== RUN   TestBackgroundWorkLeftByAFinishedRunIsEnded
+--- PASS: TestBackgroundWorkLeftByAFinishedRunIsEnded (0.33s)
+=== RUN   TestARunThatExitsAfterItsResultIsUntouched
+--- PASS: TestARunThatExitsAfterItsResultIsUntouched (0.21s)
+=== RUN   TestTurnEndReadsOnlyTheRuntimesFinalReport
+--- PASS: TestTurnEndReadsOnlyTheRuntimesFinalReport (0.00s)
+=== RUN   TestChildEnvDropsWhatThePackageManagerLauncherSet
+--- PASS: TestChildEnvDropsWhatThePackageManagerLauncherSet (0.00s)
+=== RUN   TestClaudeRunsCannotStartBackgroundTasks
+--- PASS: TestClaudeRunsCannotStartBackgroundTasks (0.00s)
+=== RUN   TestRetryGateDoublesTheWaitUpToItsLimitAndForgetsOnSuccess
+--- PASS: TestRetryGateDoublesTheWaitUpToItsLimitAndForgetsOnSuccess (0.00s)
+=== RUN   TestACompletionTheControlPlaneKeepsFailingIsRetriedLessOftenAndKept
+--- PASS: TestACompletionTheControlPlaneKeepsFailingIsRetriedLessOftenAndKept (2.01s)
 PASS
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.018s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	13.697s
+?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
+?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]
+test exit 0

@@ -28,7 +28,10 @@ type Adapter interface {
 	Capabilities() Capabilities
 	// Providers are the run-record names that select this runtime, already lower-case.
 	Providers() []string
-	// Available reports whether Detect offers this runtime.
+	// Available reports whether Detect offers this runtime. Binary() is the executable a
+	// launch runs; Available is not required to probe that name. The fake runtime is offered
+	// only when CONTROLROD_ALLOW_FAKE=1, not because bash was found. A later milestone may
+	// revisit that.
 	Available(lookPath func(string) (string, error), getenv func(string) string) bool
 	// Probe checks the runtime. version is the daemon version, used by the fake runtime; other
 	// adapters ignore it and record the CLI's own --version.
@@ -60,10 +63,15 @@ type ManagedConfigChecker interface {
 	CheckManagedConfig(files []string) error
 }
 
-// CLIPreflight runs the CLI to check sign-in and, for Codex, qualified features. The feature
-// list is the one Preflight stored on ctx, or CodexEffectiveFeatures when ctx has none.
+// CLIPreflight runs the CLI to check sign-in and, for Codex, qualified features.
 type CLIPreflight interface {
 	PreflightCLI(ctx context.Context, run CommandRunner) error
+}
+
+// codexFeaturePreflight copies a Codex adapter with the feature lister Preflight was given.
+// The registry value keeps a nil lister, which means CodexEffectiveFeatures.
+type codexFeaturePreflight interface {
+	withFeatures(func(context.Context) (string, error)) CLIPreflight
 }
 
 // ArtifactStager launches from a staged copy of the install tree.
@@ -77,8 +85,17 @@ type OutputCopier interface {
 }
 
 // ExtraEnvProvider adds variables after Command has chosen AgentEnv or ChildEnv.
+// Command drops provider provenance keys (*_BASE_URL, *_MODEL, *_TOKEN, *_API_KEY)
+// from this list before the process sees them.
 type ExtraEnvProvider interface {
 	ExtraEnv() []string
+}
+
+// StreamMetadataParser supplies the log label and reported model for one stream line.
+// Adapters that do not implement it use LabelFor and ReportedModel.
+type StreamMetadataParser interface {
+	StreamLabel(line string) string
+	StreamModel(line string) string
 }
 
 // streamBase parses with the shared normalizer. Every current adapter embeds it.

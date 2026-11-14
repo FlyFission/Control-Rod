@@ -4,7 +4,7 @@ Evidence status: **pass** for the local checks below (E-01 to E-05). **Open** fo
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Golden launch files were written by `TestLaunchGolden` with `CONTROLROD_WRITE_LAUNCH_GOLDEN=1` before any adapter code existed, then compared again after the refactor. Ten cases (Claude and Codex: author with default tools and model `default`, an explicit model, pre-check, intake, and a tools file naming network hosts). The policy is `testPolicy` with its `/mnt` denial pointed at a directory the test creates, so Codex's outermost denial set does not depend on the host. The process environment is the fixed list in `launch_golden_test.go`. | `daemon/internal/runner/testdata/launch-golden/`; `evidence/adapter-tests.log` |
+| E-01 | pass | Golden launch files were captured before the adapter registry existed and are compared by `TestLaunchGolden`. Rewriting them is `go test -tags launchgoldenupdate -run TestUpdateLaunchAndStreamGoldens`, which writes and does not compare. Ten cases (Claude and Codex: author with default tools and model `default`, an explicit model, pre-check, intake, and a tools file naming network hosts). The policy is `testPolicy` with its `/mnt` denial pointed at a directory the test creates, so Codex's outermost denial set does not depend on the host. The process environment is the fixed list in `launch_golden_test.go`, set with `t.Setenv`. | `daemon/internal/runner/testdata/launch-golden/`; `evidence/adapter-tests.log` |
 | E-02 | pass | Claude and Codex adapters match the committed stream goldens in `testdata/stream-golden/` for `testdata/claude-stream.jsonl` and `testdata/codex-stream.jsonl` (the Codex lines are the cases in `events_test.go`: a tool call, `turn.completed` with usage, `turn.failed`). The comparison is not against the live `Normalize` function. Registry order is Claude, Codex, fake. Fake is offered only when `CONTROLROD_ALLOW_FAKE=1`. Unknown runtime error text is unchanged. | `daemon/internal/runner/testdata/stream-golden/` |
 | E-03 | pass | `AgentEnv` drops `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL`, `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN`, `OPENAI_BASE_URL`, `OPENAI_API_KEY`, `XAI_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `OLLAMA_HOST`, `OLLAMA_API_KEY`, `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` and `SSH_AUTH_SOCK`. All fifteen subtests passed. The allowlist was not edited. No M2 finding. | `evidence/adapter-tests.log` |
 | E-04 | pass | `gofmt -l .` in `daemon/` prints nothing. `go vet ./...` exits 0. `go test -count=1 ./...` exits 0 (confinement, digest and runner packages ok; cmd, version and wire have no tests). Local toolchain only. | `evidence/gofmt.log`, `evidence/vet.log`, `evidence/test.log` |
@@ -36,8 +36,32 @@ For an unregistered runtime id, `hostLabel` now returns that id. It used to retu
 | Log ingestion did not call the adapter. | `logBuffer` calls the adapter's `Normalize` and `TurnEnd`. `TestLogIngestionUsesTheAdapter` installs a parser that disagrees with the shared functions and requires the buffer to follow it. |
 | A kept environment variable skipped the subtest. | `TestAgentEnvDropsProviderProvenance` calls `t.Fatalf`. The allowlist is unchanged. All fifteen keys are still dropped. |
 | The interface carried every runtime's branches. | The core interface is id, binary, display name, capabilities, providers, availability, probe, command, launch, normalize, turn end, and `SandboxRequired`. The other behaviors are optional interfaces. Codex owns its feature preflight; `Preflight` still accepts the existing callback and stores it on the context so the current tests keep supplying a feature list. |
-| Host needs, probe version, host label, binary lookup, and the switch scan were incomplete. | `HostNeeds` returns nothing when `SandboxRequired` is false. The fake version is set inside the fake adapter. `hostLabel` falls back to the runtime id. Claude and Codex availability use `Binary()`. `probeInstalled` and `CodexEffectiveFeatures` take the PATH name (`Binary()`) separately from the registry id. `TestProviderAndIDUnique` and `TestNoRuntimeNameSwitch` cover the registry and `daemon/` including `cmd/controlrod` and `adapter*.go`. |
+| Host needs, probe version, host label, binary lookup, and the switch scan were incomplete. | `HostNeeds("fake")` on Linux is the shared bubblewrap need again, the same list it had before the seam (`TestHostNeedsForFakeKeepsBubblewrapOnLinux`). The fake version is set inside the fake adapter. `hostLabel` falls back to the runtime id; that is a deviation for an unregistered id, recorded below. Claude and Codex availability use `Binary()`. `probeInstalled` and `CodexEffectiveFeatures` take the PATH name (`Binary()`) separately from the registry id. `TestProviderAndIDUnique` and `TestNoRuntimeNameSwitch` cover the registry and `daemon/` including `cmd/controlrod` and `adapter*.go`. |
 | The golden test deleted a shared directory, cleared the process environment, and could rewrite fixtures and then compare to itself. | The test uses `t.TempDir` and `t.Setenv`. Rewriting fixtures is `go test -tags launchgoldenupdate`, which writes and does not compare. |
+
+## Round 2
+
+Base commit: `2d1886d2d6ab5726656bad3889837718dff39451` (`main`). Head commit is the tip of `cursor/adapter-seam-55eb` that contains `evidence/adapter-tests.log` from this round; the diff stat commit, if it follows, only refreshes `evidence/diff-stat.txt`.
+
+Commands, from `daemon/`:
+
+```
+gofmt -l .
+go vet ./...
+go test -v -count=1 ./...
+```
+
+The verbose log is `evidence/adapter-tests.log`. It includes `TestStreamGolden`, `TestLogIngestionUsesTheAdapter`, `TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv`, `TestProviderAndIDUnique` and `TestNoRuntimeNameSwitch`. It does not include `TestAdapterLaunchMatchesCommand` or `TestAdapterStreamMatchesNormalize`.
+
+| Finding | What changed |
+|---|---|
+| Evidence still described the removed tests and `CONTROLROD_WRITE_LAUNCH_GOLDEN`. | The log, risk R-03 and R-05, trace T-03, and this file now name the committed stream goldens, `t.Fatalf`, and `-tags launchgoldenupdate`. |
+| Label and reported model stayed on the shared parsers. | `logBuffer.add` uses `StreamMetadataParser` when the adapter implements it, and `LabelFor` / `ReportedModel` otherwise. Claude and Codex do not implement it, so their labels and models are unchanged. The stub test requires a label and model the shared parsers do not produce for that line. |
+| `HostNeeds("fake")` on Linux no longer listed bubblewrap. | Restored. Fake still has no socat need. Preflight of the fake runtime still returns before those programs are required. |
+| A nil command with no output copier copied fake outputs. | `copyRunOutputs` returns an error naming the runtime. The fake runtime still implements `OutputCopier`. |
+| Extra environment could carry provider URLs, models, tokens or API keys. | `filterExtraEnv` drops `*_BASE_URL`, `*_MODEL`, `MODEL`, `*_TOKEN` and `*_API_KEY`. `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS` stays. `TestExtraEnvDropsProviderProvenance`. |
+| Codex feature list was stored on `context.Value`. | `codexAdapter.features` holds the lister. `withFeatures` returns a copy so the registry value stays nil. A nil lister still means `CodexEffectiveFeatures`. Existing preflight tests pass the same callback. |
+| `Available` could be read as a probe of `Binary()`. | The interface comment says `Binary()` is not necessarily what `Available` looks up. The fake runtime is the case. A later milestone may revisit it. |
 
 ## Evidence custody and coupling
 

@@ -8,24 +8,18 @@ import (
 	"time"
 )
 
-type codexAdapter struct{ sandboxedBase }
-
-// codexFeatureKey carries the feature lister Preflight was given. The adapter owns the
-// preflight; the shared CLIPreflight signature has no callback. Absent means CodexEffectiveFeatures.
-type codexFeatureKey struct{}
-
-func contextWithCodexFeatures(ctx context.Context, f func(context.Context) (string, error)) context.Context {
-	if f == nil {
-		return ctx
-	}
-	return context.WithValue(ctx, codexFeatureKey{}, f)
+type codexAdapter struct {
+	sandboxedBase
+	// features is the lister for one preflight. Nil means CodexEffectiveFeatures.
+	// The registry value stays nil; withFeatures returns a copy.
+	features func(context.Context) (string, error)
 }
 
-func codexFeatureList(ctx context.Context) func(context.Context) (string, error) {
-	if f, ok := ctx.Value(codexFeatureKey{}).(func(context.Context) (string, error)); ok && f != nil {
-		return f
+func (a codexAdapter) withFeatures(f func(context.Context) (string, error)) CLIPreflight {
+	if f != nil {
+		a.features = f
 	}
-	return CodexEffectiveFeatures
+	return a
 }
 
 func (codexAdapter) ID() string          { return RuntimeCodex }
@@ -94,7 +88,11 @@ func (a codexAdapter) PreflightCLI(ctx context.Context, run CommandRunner) error
 	if _, code, err := run(ctx, a.Binary(), "login", "status"); err != nil || code != 0 {
 		return refuse("Codex is not signed in. Run `codex login`; Control Rod never signs in for you.")
 	}
-	list, err := codexFeatureList(ctx)(ctx)
+	listFn := a.features
+	if listFn == nil {
+		listFn = CodexEffectiveFeatures
+	}
+	list, err := listFn(ctx)
 	if err != nil {
 		return refuse("Codex did not list its features (%v), so Control Rod cannot tell what an agent could reach. Reinstall the pinned Codex.", err)
 	}

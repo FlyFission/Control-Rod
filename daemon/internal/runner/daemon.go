@@ -654,6 +654,17 @@ func (b *logBuffer) receiptSent(r *OwnershipReceipt) {
 	}
 }
 
+// copyRunOutputs copies deliverables when Command returned no process. A runtime that
+// does not implement OutputCopier is an error; the fake runtime is the copier.
+func copyRunOutputs(a Adapter, ws *Workspace, buf *logBuffer) error {
+	copier, ok := a.(OutputCopier)
+	if !ok {
+		return fmt.Errorf("runtime %q returned no process and has no output copier", a.ID())
+	}
+	buf.add(`{"type":"result","subtype":"fake-copy"}`)
+	return copier.CopyOutputs(ws)
+}
+
 func (b *logBuffer) normalize(line string, now time.Time) []Event {
 	if b.adapt != nil {
 		return b.adapt.Normalize(line, now)
@@ -668,16 +679,32 @@ func (b *logBuffer) turnEnd(line string) (bool, bool) {
 	return TurnEnd(line)
 }
 
+func (b *logBuffer) streamLabel(line string) string {
+	if m, ok := b.adapt.(StreamMetadataParser); ok {
+		return m.StreamLabel(line)
+	}
+	return LabelFor(line)
+}
+
+func (b *logBuffer) streamModel(line string) string {
+	if m, ok := b.adapt.(StreamMetadataParser); ok {
+		return m.StreamModel(line)
+	}
+	return ReportedModel(line)
+}
+
 func (b *logBuffer) add(line string) {
 	now := b.clock()
 	events := b.normalize(line, now)
 	b.mu.Lock()
 	b.lines = append(b.lines, line)
-	if l := LabelFor(line); l != "" {
+	if l := b.streamLabel(line); l != "" {
 		b.label = l
 	}
 	if b.model == "" {
-		b.model = ReportedModel(line)
+		if m := b.streamModel(line); m != "" {
+			b.model = m
+		}
 	}
 	if !b.turnOver {
 		if over, failed := b.turnEnd(line); over {
@@ -1136,12 +1163,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	if err == nil {
 		if cmd == nil {
-			buf.add(`{"type":"result","subtype":"fake-copy"}`)
-			if c, ok := a.(OutputCopier); ok {
-				err = c.CopyOutputs(ws)
-			} else {
-				err = CopyFakeOutputs(ws)
-			}
+			err = copyRunOutputs(a, ws, buf)
 		} else {
 			unit := UnitName(d.ns, job.Run.ID, job.Run.Generation)
 			d.container.Wrap(cmd, unit)

@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -190,6 +191,40 @@ func TestAgentEnvDropsProviderProvenance(t *testing.T) {
 	}
 }
 
+func TestExtraEnvDropsProviderProvenance(t *testing.T) {
+	in := []string{
+		"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1",
+		"ANTHROPIC_BASE_URL=https://example.invalid",
+		"ANTHROPIC_MODEL=claude-x",
+		"MODEL=hidden",
+		"CLAUDE_CODE_OAUTH_TOKEN=oauth",
+		"OPENAI_API_KEY=sk",
+		"SAFE_FLAG=1",
+	}
+	got := filterExtraEnv(in)
+	want := []string{"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1", "SAFE_FLAG=1"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("extra env\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestHostNeedsForFakeKeepsBubblewrapOnLinux(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("the shared host list is empty off Linux")
+	}
+	got := HostNeeds(RuntimeFake)
+	if len(got) != 1 || got[0].Program != "bwrap" {
+		t.Fatalf("fake host needs %+v", got)
+	}
+}
+
+func TestMissingOutputCopierIsAnError(t *testing.T) {
+	err := copyRunOutputs(callAdapter{}, &Workspace{}, &logBuffer{})
+	if err == nil || !strings.Contains(err.Error(), "no output copier") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestUnknownRuntimeMatchesTodaysError(t *testing.T) {
 	ws := workspaceWithTools(t, "Read\n")
 	run := testRun("run-unknown", "author")
@@ -208,10 +243,15 @@ func TestLogIngestionUsesTheAdapter(t *testing.T) {
 	if ended, failed := TurnEnd(line); ended || failed {
 		t.Fatal("the fixture line must not end a turn in the shared parser")
 	}
+	if LabelFor(line) != "" || ReportedModel(line) != "" {
+		t.Fatal("the fixture line must carry no shared label or model")
+	}
 	adapt := callAdapter{
 		events: []Event{{Kind: EvNotice, Text: "from-adapter"}},
 		ended:  true,
 		failed: true,
+		label:  "StubLabel",
+		model:  "stub-model-not-in-json",
 	}
 	buf := &logBuffer{adapt: adapt}
 	buf.add(line)
@@ -221,6 +261,9 @@ func TestLogIngestionUsesTheAdapter(t *testing.T) {
 	if len(buf.events) != 1 || buf.events[0].Text != "from-adapter" {
 		t.Fatalf("ingestion events %+v", buf.events)
 	}
+	if buf.label != adapt.label || buf.model != adapt.model {
+		t.Fatalf("ingestion metadata label %q model %q", buf.label, buf.model)
+	}
 }
 
 // callAdapter is a stream parser installed on a log buffer to prove ingestion calls it.
@@ -228,6 +271,8 @@ type callAdapter struct {
 	events []Event
 	ended  bool
 	failed bool
+	label  string
+	model  string
 }
 
 func (callAdapter) ID() string     { return "call" }
@@ -248,6 +293,8 @@ func (callAdapter) Command(Run, *Workspace, *SandboxPolicy, SandboxPaths) (*exec
 func (callAdapter) LaunchInfo(Run, *Workspace, *SandboxPolicy) Launch { return Launch{} }
 func (c callAdapter) Normalize(string, time.Time) []Event             { return c.events }
 func (c callAdapter) TurnEnd(string) (bool, bool)                     { return c.ended, c.failed }
+func (c callAdapter) StreamLabel(string) string                       { return c.label }
+func (c callAdapter) StreamModel(string) string                       { return c.model }
 func (callAdapter) SandboxRequired() bool                             { return false }
 func (callAdapter) DisplayName() string                               { return "call" }
 

@@ -505,9 +505,6 @@ func HostNeeds(rt string) []HostNeed {
 	if runtime.GOOS != "linux" {
 		return nil
 	}
-	if a, ok := AdapterFor(rt); ok && !a.SandboxRequired() {
-		return nil
-	}
 	needs := []HostNeed{{Program: "bwrap", Fix: "Install bubblewrap (on Ubuntu: `sudo apt install bubblewrap`)"}}
 	if a, ok := AdapterFor(rt); ok {
 		if h, ok := a.(HostNeeder); ok {
@@ -561,8 +558,11 @@ func Preflight(ctx context.Context, rt string, run CommandRunner, lookPath func(
 	if !ok {
 		return nil
 	}
+	if c, ok := a.(codexFeaturePreflight); ok {
+		return c.withFeatures(codexFeatures).PreflightCLI(ctx, run)
+	}
 	if p, ok := a.(CLIPreflight); ok {
-		return p.PreflightCLI(contextWithCodexFeatures(ctx, codexFeatures), run)
+		return p.PreflightCLI(ctx, run)
 	}
 	return nil
 }

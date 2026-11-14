@@ -9,9 +9,9 @@
 |---|---|---|---|
 | R-01 | A launch flag, settings document, argument order or environment value changes while the call sites move. | Golden fixtures captured from `Command` and `LaunchFor` before the move; `sandbox-args` saved before and after; existing launch and sandbox tests left unchanged. | Any golden or `sandbox-args` byte mismatch, or any edit to an existing assertion. |
 | R-02 | Probe or preflight wording, or which runtime is offered, changes. | Adapters call the existing probe path; existing probe and runner tests left unchanged; registry test locks order and the fake gate. | A different sentence, a fake runtime offered without `CONTROLROD_ALLOW_FAKE=1`, or a dropped CLI. |
-| R-03 | Stream events or end-of-turn detection change. | Adapters call `Normalize` and `TurnEnd`; golden stream test compares adapter results to those functions on the existing Claude fixture and the Codex cases from `events_test.go`. | A differing event or `TurnEnd` result. |
+| R-03 | Stream events or end-of-turn detection change. | Claude and Codex embed the shared normalizer. `TestStreamGolden` compares adapter events and `TurnEnd` to committed files in `testdata/stream-golden/`, not to a live call of `Normalize`. | A differing event or `TurnEnd` result against those files. |
 | R-04 | `Capabilities` or a new branch starts deciding sandbox, network or model behavior. | Nothing in this change reads `Capabilities` to choose a path. The moved branches call the same helpers as before. | A decision that reads `Capabilities`, or a helper whose arguments changed. |
-| R-05 | The environment allowlist is widened or narrowed while proving it drops provider variables. | The guard records a failure as a skipped subtest and a finding. This change does not edit `agentEnvKeys`. | An edit to the allowlist in this pull request. |
+| R-05 | The environment allowlist is widened or narrowed while proving it drops provider variables. | `TestAgentEnvDropsProviderProvenance` fails the test if a listed key is kept. `filterExtraEnv` drops `*_BASE_URL`, `*_MODEL`, `*_TOKEN` and `*_API_KEY` from adapter extra variables. This change does not edit `agentEnvKeys`. | An edit to the allowlist in this pull request, or a skipped provenance subtest. |
 
 ## Selected mode
 

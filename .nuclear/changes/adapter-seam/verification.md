@@ -19,7 +19,7 @@ The real runner had more per-runtime branches than `Detect`, `Command`, `LaunchF
 
 The fake adapter's `Binary` is `bash`, the program that runs `inputs/FAKE.sh`. `Detect` does not look `bash` up. The fake runtime is still offered only when `CONTROLROD_ALLOW_FAKE=1`.
 
-`Normalize` and `TurnEnd` stay the shared functions in `events.go`. They switch on event type, not on runtime name. Each adapter calls them, and the log buffer still calls them directly, so a line produces the same events it did before.
+`Normalize` and `TurnEnd` stay the shared functions in `events.go`. They switch on event type, not on runtime name. Each adapter calls them. The run's log buffer calls the selected adapter's methods, so a later runtime-specific parser is what ingestion uses. Today's adapters return the same events as the shared functions.
 
 `Command` still switches on the run role (`intake`, `author`, `pre-check`) before it asks the registry. That switch is not on a runtime name.
 

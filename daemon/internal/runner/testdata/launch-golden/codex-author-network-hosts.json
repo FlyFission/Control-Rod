@@ -5,7 +5,7 @@
     "--json",
     "--skip-git-repo-check",
     "-C",
-    "/tmp/controlrod-launch-golden/ws-codex-author-network-hosts",
+    "/golden/ws-codex-author-network-hosts",
     "--ignore-user-config",
     "--ignore-rules",
     "--ephemeral",
@@ -14,7 +14,7 @@
     "-c",
     "permissions.control-rod.extends=\":workspace\"",
     "-c",
-    "permissions.control-rod.filesystem={\"/tmp/controlrod-launch-golden/home\"=\"deny\",\"/tmp/controlrod-launch-golden/mnt\"=\"deny\",\":slash_tmp\"=\"read\",\":tmpdir\"=\"read\"}",
+    "permissions.control-rod.filesystem={\"/golden/home\"=\"deny\",\"/golden/mnt\"=\"deny\",\":slash_tmp\"=\"read\",\":tmpdir\"=\"read\"}",
     "-c",
     "permissions.control-rod.network.enabled=false",
     "-c",
@@ -94,7 +94,7 @@
     "NO_COLOR=1",
     "COLORTERM=truecolor"
   ],
-  "dir": "/tmp/controlrod-launch-golden/ws-codex-author-network-hosts",
+  "dir": "/golden/ws-codex-author-network-hosts",
   "launch": {
     "Mode": "print",
     "RequestedModel": "default",

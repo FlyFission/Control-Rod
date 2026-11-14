@@ -4,8 +4,10 @@ package runner
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -145,7 +147,7 @@ func TestAgentEnvDropsProviderProvenance(t *testing.T) {
 			got := AgentEnv([]string{"HOME=/home/owner", "PATH=/usr/bin", key + "=secret"})
 			for _, kv := range got {
 				if strings.HasPrefix(kv, key+"=") {
-					t.Skip("finding for M2: AgentEnv still keeps " + key + "; the allowlist is not changed in this pull request")
+					t.Fatalf("AgentEnv keeps %s; the allowlist is unchanged and this key must be dropped", key)
 				}
 			}
 		})
@@ -162,23 +164,85 @@ func TestUnknownRuntimeMatchesTodaysError(t *testing.T) {
 	}
 }
 
+func TestLogIngestionUsesTheAdapter(t *testing.T) {
+	line := "not json at all"
+	if Normalize(line, time.Unix(0, 0).UTC()) != nil {
+		t.Fatal("the fixture line must be one the shared parser ignores")
+	}
+	if ended, failed := TurnEnd(line); ended || failed {
+		t.Fatal("the fixture line must not end a turn in the shared parser")
+	}
+	adapt := callAdapter{
+		events: []Event{{Kind: EvNotice, Text: "from-adapter"}},
+		ended:  true,
+		failed: true,
+	}
+	buf := &logBuffer{adapt: adapt}
+	buf.add(line)
+	if !buf.turnOver || !buf.turnFailed {
+		t.Fatal("ingestion did not use the adapter's TurnEnd")
+	}
+	if len(buf.events) != 1 || buf.events[0].Text != "from-adapter" {
+		t.Fatalf("ingestion events %+v", buf.events)
+	}
+}
+
+// callAdapter is a stream parser installed on a log buffer to prove ingestion calls it.
+type callAdapter struct {
+	events []Event
+	ended  bool
+	failed bool
+}
+
+func (callAdapter) ID() string     { return "call" }
+func (callAdapter) Binary() string { return "call" }
+func (callAdapter) Capabilities() Capabilities {
+	return Capabilities{Roles: []string{"author"}, OutputFormat: "text"}
+}
+func (callAdapter) Providers() []string { return []string{"call"} }
+func (callAdapter) Available(func(string) (string, error), func(string) string) bool {
+	return false
+}
+func (callAdapter) Probe(context.Context, CommandRunner) RuntimeStatus { return RuntimeStatus{} }
+func (callAdapter) Command(Run, *Workspace, *SandboxPolicy, SandboxPaths) (*exec.Cmd, error) {
+	return nil, nil
+}
+func (callAdapter) LaunchInfo(Run, *Workspace, *SandboxPolicy) Launch { return Launch{} }
+func (c callAdapter) Normalize(string, time.Time) []Event             { return c.events }
+func (c callAdapter) TurnEnd(string) (bool, bool)                     { return c.ended, c.failed }
+func (callAdapter) SandboxRequired() bool                             { return false }
+func (callAdapter) PrepareRun(*Workspace, string, string) (bool, []Event) {
+	return false, nil
+}
+func (callAdapter) UsesVerifiedLaunch() bool { return false }
+func (callAdapter) ExtraHostNeeds() []HostNeed {
+	return nil
+}
+func (callAdapter) DisplayName() string { return "call" }
+func (callAdapter) PreflightCLI(context.Context, CommandRunner, func(context.Context) (string, error)) error {
+	return nil
+}
+func (callAdapter) CheckManagedConfig([]string) error { return nil }
+func (callAdapter) StagesArtifact() bool              { return false }
+func (callAdapter) CopyOutputs(*Workspace) error      { return nil }
+
 func TestAdapterLaunchMatchesCommand(t *testing.T) {
-	p := prepareGoldenRoot(t)
+	root, p := prepareGoldenRoot(t)
 	withGoldenEnv(t, func() {
 		for _, c := range launchCases {
 			t.Run(c.id, func(t *testing.T) {
-				viaCommand := captureLaunch(t, p, c)
+				viaCommand := captureLaunch(t, root, p, c)
 				a, ok := AdapterFor(c.runtime)
 				if !ok {
 					t.Fatal(c.runtime)
 				}
-				dir := filepath.Join(goldenRoot, "ws-"+c.id)
+				dir := filepath.Join(root, "ws-"+c.id)
 				ws := &Workspace{Dir: dir, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out")}
 				run := testRun("run-"+c.id, c.role)
 				run.Runtime = RuntimeRef{Kind: "subscription", Provider: c.runtime, Model: c.model}
 				at := SandboxPaths{
-					Home:       filepath.Join(goldenRoot, "home"),
-					DaemonHome: filepath.Join(goldenRoot, "home", ".controlrod"),
+					Home:       filepath.Join(root, "home"),
+					DaemonHome: filepath.Join(root, "home", ".controlrod"),
 					Workspace:  ws.Dir,
 				}
 				cmd, err := a.Command(run, ws, p, at)

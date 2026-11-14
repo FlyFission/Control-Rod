@@ -21,7 +21,7 @@
     "--disable-slash-commands",
     "--no-session-persistence",
     "--settings",
-    "{\"permissions\":{\"blockReadsOutsideWorkingDirectories\":true,\"defaultMode\":\"acceptEdits\",\"deny\":[\"Read(//tmp/controlrod-launch-golden/home)\",\"Read(//tmp/controlrod-launch-golden/home/**)\",\"Edit(//tmp/controlrod-launch-golden/home)\",\"Edit(//tmp/controlrod-launch-golden/home/**)\",\"Read(//tmp/controlrod-launch-golden/home/.claude)\",\"Read(//tmp/controlrod-launch-golden/home/.claude/**)\",\"Edit(//tmp/controlrod-launch-golden/home/.claude)\",\"Edit(//tmp/controlrod-launch-golden/home/.claude/**)\",\"Read(//tmp/controlrod-launch-golden/home/.codex)\",\"Read(//tmp/controlrod-launch-golden/home/.codex/**)\",\"Edit(//tmp/controlrod-launch-golden/home/.codex)\",\"Edit(//tmp/controlrod-launch-golden/home/.codex/**)\",\"Read(//tmp/controlrod-launch-golden/home/.ssh)\",\"Read(//tmp/controlrod-launch-golden/home/.ssh/**)\",\"Edit(//tmp/controlrod-launch-golden/home/.ssh)\",\"Edit(//tmp/controlrod-launch-golden/home/.ssh/**)\",\"Read(//tmp/controlrod-launch-golden/home/.controlrod)\",\"Read(//tmp/controlrod-launch-golden/home/.controlrod/**)\",\"Edit(//tmp/controlrod-launch-golden/home/.controlrod)\",\"Edit(//tmp/controlrod-launch-golden/home/.controlrod/**)\",\"Read(//tmp/controlrod-launch-golden/mnt)\",\"Read(//tmp/controlrod-launch-golden/mnt/**)\",\"Edit(//tmp/controlrod-launch-golden/mnt)\",\"Edit(//tmp/controlrod-launch-golden/mnt/**)\"]},\"sandbox\":{\"allowUnsandboxedCommands\":false,\"autoAllowBashIfSandboxed\":false,\"enabled\":true,\"failIfUnavailable\":true,\"filesystem\":{\"denyRead\":[\"/tmp/controlrod-launch-golden/home\",\"/tmp/controlrod-launch-golden/home/.claude\",\"/tmp/controlrod-launch-golden/home/.codex\",\"/tmp/controlrod-launch-golden/home/.ssh\",\"/tmp/controlrod-launch-golden/home/.controlrod\",\"/tmp/controlrod-launch-golden/mnt\"]},\"network\":{\"allowedDomains\":[]}}}"
+    "{\"permissions\":{\"blockReadsOutsideWorkingDirectories\":true,\"defaultMode\":\"acceptEdits\",\"deny\":[\"Read(//golden/home)\",\"Read(//golden/home/**)\",\"Edit(//golden/home)\",\"Edit(//golden/home/**)\",\"Read(//golden/home/.claude)\",\"Read(//golden/home/.claude/**)\",\"Edit(//golden/home/.claude)\",\"Edit(//golden/home/.claude/**)\",\"Read(//golden/home/.codex)\",\"Read(//golden/home/.codex/**)\",\"Edit(//golden/home/.codex)\",\"Edit(//golden/home/.codex/**)\",\"Read(//golden/home/.ssh)\",\"Read(//golden/home/.ssh/**)\",\"Edit(//golden/home/.ssh)\",\"Edit(//golden/home/.ssh/**)\",\"Read(//golden/home/.controlrod)\",\"Read(//golden/home/.controlrod/**)\",\"Edit(//golden/home/.controlrod)\",\"Edit(//golden/home/.controlrod/**)\",\"Read(//golden/mnt)\",\"Read(//golden/mnt/**)\",\"Edit(//golden/mnt)\",\"Edit(//golden/mnt/**)\"]},\"sandbox\":{\"allowUnsandboxedCommands\":false,\"autoAllowBashIfSandboxed\":false,\"enabled\":true,\"failIfUnavailable\":true,\"filesystem\":{\"denyRead\":[\"/golden/home\",\"/golden/home/.claude\",\"/golden/home/.codex\",\"/golden/home/.ssh\",\"/golden/home/.controlrod\",\"/golden/mnt\"]},\"network\":{\"allowedDomains\":[]}}}"
   ],
   "env": [
     "HOME=/home/owner",
@@ -41,7 +41,7 @@
     "COLORTERM=truecolor",
     "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1"
   ],
-  "dir": "/tmp/controlrod-launch-golden/ws-claude-author-default-tools",
+  "dir": "/golden/ws-claude-author-default-tools",
   "launch": {
     "Mode": "print",
     "RequestedModel": "default",

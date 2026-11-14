@@ -10,10 +10,9 @@ import (
 	"testing"
 )
 
-// goldenRoot is a fixed directory so Command's argv and directory are byte-stable
-// across runs. The fixtures in testdata/launch-golden were written from this layout
-// before the adapter registry existed.
-const goldenRoot = "/tmp/controlrod-launch-golden"
+// goldenPrefix replaces the test's temporary root in the captured launch, so the fixtures
+// stay byte-stable without a shared directory under /tmp.
+const goldenPrefix = "/golden"
 
 // goldenEnviron is the process environment Command sees while the fixtures are made
 // and read. Values that an agent CLI must not receive are included so a leak fails
@@ -86,34 +85,31 @@ type launchGolden struct {
 	Launch Launch   `json:"launch"`
 }
 
-func prepareGoldenRoot(t *testing.T) *SandboxPolicy {
+func prepareGoldenRoot(t *testing.T) (string, *SandboxPolicy) {
 	t.Helper()
-	if err := os.RemoveAll(goldenRoot); err != nil {
-		t.Fatal(err)
-	}
+	root := t.TempDir()
 	for _, d := range []string{"home/.claude", "home/.codex", "home/.ssh", "home/.controlrod", "mnt"} {
-		if err := os.MkdirAll(filepath.Join(goldenRoot, d), 0o700); err != nil {
+		if err := os.MkdirAll(filepath.Join(root, d), 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
-	t.Cleanup(func() { _ = os.RemoveAll(goldenRoot) })
 	// The host path "/mnt" in testPolicy is replaced by a directory this test creates,
 	// so Codex's denial set does not depend on whether the machine has /mnt. Every other
 	// field matches testPolicy.
 	p := testPolicy()
 	denied := append([]string{}, p.DeniedRead...)
-	denied[len(denied)-1] = filepath.Join(goldenRoot, "mnt")
+	denied[len(denied)-1] = filepath.Join(root, "mnt")
 	p.DeniedRead = denied
-	return p
+	return root, p
 }
 
 func TestLaunchGolden(t *testing.T) {
-	p := prepareGoldenRoot(t)
+	root, p := prepareGoldenRoot(t)
 	writeGolden := os.Getenv("CONTROLROD_WRITE_LAUNCH_GOLDEN") == "1"
 	withGoldenEnv(t, func() {
 		for _, c := range launchCases {
 			t.Run(c.id, func(t *testing.T) {
-				got := captureLaunch(t, p, c)
+				got := normalizeLaunch(root, captureLaunch(t, root, p, c))
 				path := filepath.Join("testdata", "launch-golden", c.id+".json")
 				raw := mustGoldenJSON(t, got)
 				if writeGolden {
@@ -136,9 +132,9 @@ func TestLaunchGolden(t *testing.T) {
 	})
 }
 
-func captureLaunch(t *testing.T, p *SandboxPolicy, c launchCase) launchGolden {
+func captureLaunch(t *testing.T, root string, p *SandboxPolicy, c launchCase) launchGolden {
 	t.Helper()
-	dir := filepath.Join(goldenRoot, "ws-"+c.id)
+	dir := filepath.Join(root, "ws-"+c.id)
 	ws := &Workspace{Dir: dir, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out")}
 	if err := os.MkdirAll(ws.Inputs, 0o700); err != nil {
 		t.Fatal(err)
@@ -154,8 +150,8 @@ func captureLaunch(t *testing.T, p *SandboxPolicy, c launchCase) launchGolden {
 	run := testRun("run-"+c.id, c.role)
 	run.Runtime = RuntimeRef{Kind: "subscription", Provider: c.runtime, Model: c.model}
 	at := SandboxPaths{
-		Home:       filepath.Join(goldenRoot, "home"),
-		DaemonHome: filepath.Join(goldenRoot, "home", ".controlrod"),
+		Home:       filepath.Join(root, "home"),
+		DaemonHome: filepath.Join(root, "home", ".controlrod"),
 		Workspace:  ws.Dir,
 	}
 	cmd, err := Command(c.runtime, run, ws, p, at)
@@ -188,6 +184,29 @@ func withGoldenEnv(t *testing.T, fn func()) {
 		}
 	}()
 	fn()
+}
+
+func normalizeLaunch(root string, g launchGolden) launchGolden {
+	rep := func(s string) string { return strings.ReplaceAll(s, root, goldenPrefix) }
+	for i := range g.Argv {
+		g.Argv[i] = rep(g.Argv[i])
+	}
+	for i := range g.Env {
+		g.Env[i] = rep(g.Env[i])
+	}
+	g.Dir = rep(g.Dir)
+	g.Launch.Mode = rep(g.Launch.Mode)
+	g.Launch.RequestedModel = rep(g.Launch.RequestedModel)
+	g.Launch.PermissionMode = rep(g.Launch.PermissionMode)
+	g.Launch.Sandbox = rep(g.Launch.Sandbox)
+	if g.Launch.AllowedTools != nil {
+		tools := append([]string{}, g.Launch.AllowedTools...)
+		for i := range tools {
+			tools[i] = rep(tools[i])
+		}
+		g.Launch.AllowedTools = tools
+	}
+	return g
 }
 
 func mustGoldenJSON(t *testing.T, g launchGolden) []byte {

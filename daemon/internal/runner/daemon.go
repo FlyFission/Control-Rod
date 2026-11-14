@@ -608,6 +608,10 @@ type logBuffer struct {
 	// turnOver is set by the runtime's own end-of-turn report (TurnEnd), and endCh is closed then.
 	turnOver, turnFailed bool
 	endCh                chan struct{}
+
+	// adapt parses this run's stream. execute sets it to the runtime's adapter. A nil value uses
+	// the shared Normalize and TurnEnd, which is what those adapters call.
+	adapt Adapter
 }
 
 // ended returns a channel closed once the runtime has reported the end of its turn.
@@ -650,9 +654,23 @@ func (b *logBuffer) receiptSent(r *OwnershipReceipt) {
 	}
 }
 
+func (b *logBuffer) normalize(line string, now time.Time) []Event {
+	if b.adapt != nil {
+		return b.adapt.Normalize(line, now)
+	}
+	return Normalize(line, now)
+}
+
+func (b *logBuffer) turnEnd(line string) (bool, bool) {
+	if b.adapt != nil {
+		return b.adapt.TurnEnd(line)
+	}
+	return TurnEnd(line)
+}
+
 func (b *logBuffer) add(line string) {
 	now := b.clock()
-	events := Normalize(line, now)
+	events := b.normalize(line, now)
 	b.mu.Lock()
 	b.lines = append(b.lines, line)
 	if l := LabelFor(line); l != "" {
@@ -662,7 +680,7 @@ func (b *logBuffer) add(line string) {
 		b.model = ReportedModel(line)
 	}
 	if !b.turnOver {
-		if over, failed := TurnEnd(line); over {
+		if over, failed := b.turnEnd(line); over {
 			b.turnOver, b.turnFailed = true, failed
 			if b.endCh == nil {
 				b.endCh = make(chan struct{})
@@ -1036,7 +1054,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if d.cfg.Breaker != nil {
 		policy = *d.cfg.Breaker
 	}
-	buf := &logBuffer{admit: NewAdmission(20, 200), breaker: NewBreaker(policy, time.Now()), onTrip: func(reason string) {
+	buf := &logBuffer{adapt: a, admit: NewAdmission(20, 200), breaker: NewBreaker(policy, time.Now()), onTrip: func(reason string) {
 		d.log.Warn("breaker tripped; stopping the run", "run", job.Run.ID, "reason", reason)
 		release(errBreaker{reason})
 	}}

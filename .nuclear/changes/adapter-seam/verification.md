@@ -41,7 +41,7 @@ For an unregistered runtime id, `hostLabel` now returns that id. It used to retu
 
 ## Round 2
 
-Base commit: `2d1886d2d6ab5726656bad3889837718dff39451` (`main`). Head commit is the tip of `cursor/adapter-seam-55eb` that contains `evidence/adapter-tests.log` from this round; the diff stat commit, if it follows, only refreshes `evidence/diff-stat.txt`.
+Base commit: `2d1886d2d6ab5726656bad3889837718dff39451` (`main`). Head commit for the verbose test log: `fba8fba1f274601a4c9de52d1f7b1a2f797baad1`. A following commit only refreshes `evidence/diff-stat.txt` and this sentence.
 
 Commands, from `daemon/`:
 

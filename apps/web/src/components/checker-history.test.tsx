@@ -66,5 +66,6 @@ describe("checker attempt history", () => {
     expect(items[1]?.textContent).toContain("timeout");
     expect(items[1]?.textContent).toContain("counts as inconclusive");
     expect(items[1]?.textContent).toContain("Look once more");
+    expect(screen.getByRole("link", { name: "/packages/WP-1/runs/R-fail/log" }).getAttribute("href")).toBe("/packages/WP-1/runs/R-fail/log");
   });
 });

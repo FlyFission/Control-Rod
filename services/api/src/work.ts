@@ -370,7 +370,7 @@ export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
       )).rows[0];
   const basisOuts = basis && basis.id !== author?.id ? await outputDigestsOf(q, basis.id) : outs;
   const governed = basis
-    ? await governingVerification(q, pkg.id, pkg.revision, digest(basisOuts.map((o) => ({ name: o.name, sha256: o.sha256 }))))
+    ? await governingVerification(q, pkg.id, digest(basisOuts.map((o) => ({ name: o.name, sha256: o.sha256 }))))
     : null;
   const ver = governed ? { body: governed } : author ? await latestVerification(q, pkg.id, pkg.revision, author.round) : null;
   const preparation = await preparationForSubject(q,pkg);
@@ -515,10 +515,12 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
   // A fail sticks to the deliverable. Every pre-check is queued here, so none can start on that
   // digest unless the deliverable changed or an unused signed override pays for this one check.
   let spent: { id: string } | null = null;
+  let queuedDigest: string | null = null;
   if (role === "pre-check") {
     const current = await currentDeliverable(c, packageId, revision);
+    queuedDigest = current?.digest ?? null;
     if (current && (await hasStickyFail(c, packageId, current.digest))) {
-      const override = await lockNextOverride(c, packageId, current.digest);
+      const override = await lockNextOverride(c, packageId, revision, current.digest);
       if (!override) {
         if (demand) throw new Refusal(409, "sticky-fail", STICKY_FAIL_REASON);
         await appendEvent(c, "package.check-refused", packageId, SYSTEM, {
@@ -569,8 +571,32 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
     return { ...existing.body, status: existing.status };
   }
   if (spent) await consumeOverride(c, spent.id, run.id);
+  if (queuedDigest) await c.query("insert into checker_queued_digests (run_id, deliverable_digest) values ($1, $2)", [run.id, queuedDigest]);
   await appendEvent(c, "run.queued", run.id, SYSTEM, { package: packageId, role, round });
   return run;
+}
+
+/** Stops one queued run and, for a pre-check, records the attempt. A run already claimed is left alone. */
+async function stopQueuedRun(c: Tx, cfg: WorkConfig, row: { id: string; package_id: string; package_revision: number; role: string; round: number; body: Json }, error: string) {
+  const body = { ...row.body, status: "stopped", finished_at: now(), error };
+  if (row.body?.schema_version === "0.1.0") {
+    validate(cfg, "Run.json", body);
+    await c.query("update runs set status = 'stopped', body = $2 where id = $1 and status = 'queued'", [row.id, body]);
+  } else {
+    await c.query("update runs set status = 'stopped' where id = $1 and status = 'queued'", [row.id]);
+  }
+  await appendEvent(c, "run.stopped", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+  await recordCheckerAttempt(c, cfg.ajv, { ...row, status: "stopped", body });
+}
+
+async function stopQueuedRuns(c: Tx, cfg: WorkConfig, packageId: string, revision: number | undefined, error: string) {
+  const rows = await c.query<{ id: string; package_id: string; package_revision: number; role: string; round: number; body: Json }>(
+    revision === undefined
+      ? "select id, package_id, package_revision, role, round, body from runs where package_id = $1 and status = 'queued'"
+      : "select id, package_id, package_revision, role, round, body from runs where package_id = $1 and package_revision = $2 and status = 'queued'",
+    revision === undefined ? [packageId] : [packageId, revision],
+  );
+  for (const row of rows.rows) await stopQueuedRun(c, cfg, row, error);
 }
 
 /** Runtime name for a provider, as the daemon names them. */
@@ -920,7 +946,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         if (row.role !== "intake") {
           const pkg = await currentPackage(c, row.package_id, true);
           if (!pkg || pkg.revision !== row.package_revision) {
-            await c.query("update runs set status = 'stopped' where id = $1", [row.id]);
+            await stopQueuedRun(c, cfg, row, "Stopped because the package revision is no longer current.");
             continue;
           }
           const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
@@ -1599,7 +1625,10 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
       if (row.role === "pre-check") {
         const current = await currentDeliverable(c, packageId, row.package_revision);
         const latest = await latestAuthorRun(c, packageId, row.package_revision);
-        if (current && (await hasStickyFail(c, packageId, current.digest)) && !(await hasUnconsumedOverride(c, packageId, current.digest))) {
+        if (latest && latest.round !== row.round) {
+          throw new Refusal(409, "wrong-state", "This check is from an earlier round. The current deliverable needs its own check");
+        }
+        if (current && (await hasStickyFail(c, packageId, current.digest)) && !(await hasUnconsumedOverride(c, packageId, row.package_revision, current.digest))) {
           throw new Refusal(409, "sticky-fail", STICKY_FAIL_REASON);
         }
         if (latest && latest.status !== "succeeded") {
@@ -1837,7 +1866,7 @@ export async function requestCheck(db: Db, cfg: WorkConfig, packageId: string) {
     if (!current) throw new Refusal(409, "output-required", "No author deliverable is available to check");
     const latest = await latestAuthorRun(c, pkg.id, pkg.revision);
     // Sticky is the answer even while a revision is in flight: the deliverable on record already failed.
-    if ((await hasStickyFail(c, pkg.id, current.digest)) && !(await hasUnconsumedOverride(c, pkg.id, current.digest))) {
+    if ((await hasStickyFail(c, pkg.id, current.digest)) && !(await hasUnconsumedOverride(c, pkg.id, pkg.revision, current.digest))) {
       throw new Refusal(409, "sticky-fail", STICKY_FAIL_REASON);
     }
     if (latest && latest.status !== "succeeded") {
@@ -2500,12 +2529,12 @@ export async function applyDecision(
         body,
       ]);
       await advancePreparationRevision(c,cfg,user,pkg,body);
-      await c.query("update runs set status = 'stopped' where package_id = $1 and package_revision = $2 and status = 'queued'", [pkg.id, pkg.revision]);
+      await stopQueuedRuns(c, cfg, pkg.id, pkg.revision, "Stopped because the package was returned.");
     } else {
       await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
       if (req.kind === "release") await queueRun(c, cfg, pkg.id, pkg.revision, "author", 1);
       if (req.kind === "reject") {
-        await c.query("update runs set status = 'stopped' where package_id = $1 and status = 'queued'", [pkg.id]);
+        await stopQueuedRuns(c, cfg, pkg.id, undefined, "Stopped because the package was rejected.");
       }
     }
     await appendEvent(c, `decision.${req.kind}`, pkg.id, human, {

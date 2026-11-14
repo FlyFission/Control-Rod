@@ -7,7 +7,9 @@ Release decision: **pull request for owner review. This record does not authoriz
 - **Not claimed:** `daemon/internal/runner` was not changed. Timeout, quota and cancellation are classified from the completion error the daemon already sends (`timeout`, and text containing quota, rate limit, or cancel). A stop is cancelled.
 - **Owner decision requested:** whether the sticky rule should later move into the kernel, so a caller that bypasses `queueRun` cannot admit a check the server would have refused.
 
-Rollback: revert the commit. Migration `020-checker-attempts` creates three append-only tables. Reversing it drops those tables (`CHECKER_ATTEMPTS_DOWN_SQL`) and leaves earlier records in place. A control plane that still expects the new routes cannot serve them after rollback.
+Rollback: revert the commit. Migrations `020-checker-attempts` and `021-checker-queued-digests` create append-only tables. Reversing them drops those tables and leaves earlier records in place. A control plane that still expects the new routes cannot serve them after rollback.
+
+Monitoring after merge: package views whose `check_blocked.code` is `sticky-fail`, and `package.checker-attempt` events whose outcome is `timeout`, `error`, `quota` or `cancelled`. A burst of `sticky-fail` on digests the author has just changed means the captured digest and the governing lookup disagree.
 
 ## Required links
 

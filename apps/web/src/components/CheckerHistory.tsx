@@ -70,7 +70,7 @@ function AttemptLine({ attempt }: { attempt: Attempt }) {
         <span className="mono">{shortDigest(attempt.deliverable_digest)}</span>
       </p>
       <p className="muted small">
-        Evidence <span className="mono">{attempt.evidence}</span>
+        Evidence <a href={attempt.evidence}>{attempt.evidence}</a>
         {attempt.recheck_override && ` · override by ${attempt.recheck_override.by}: ${attempt.recheck_override.reason}`}
       </p>
     </li>

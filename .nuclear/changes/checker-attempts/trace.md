@@ -2,8 +2,8 @@
 
 | Requirement | Code | Tests | Disposition |
 |---|---|---|---|
-| A re-run on the same digest after a fail is refused, with a reason. | `queueRun` in `services/api/src/work.ts`; `STICKY_FAIL_REASON` | `checker-attempts.test.ts` "refuses a re-run..." | implemented and tested |
-| A re-run after the deliverable digest changes is allowed. | `currentDeliverable` / `hasStickyFail` | same file, "allows a check after the deliverable digest changes" | implemented and tested |
+| CA-01 A re-run on the same digest after a fail is refused, with a reason. | `queueRun` in `services/api/src/work.ts`; `STICKY_FAIL_REASON` | `checker-attempts.test.ts` "refuses a re-run..." | implemented and tested |
+| CA-02 A re-run after the deliverable digest changes is allowed. | `currentDeliverable` / `hasStickyFail` | same file, "allows a check after the deliverable digest changes" | implemented and tested |
 | A signed override allows one re-run and is recorded. | `recordRecheckOverride`, `checker_recheck_uses` | same file, override then `POST /checks`, `recheck_overrides` on the package view | implemented and tested |
 | Every attempt is listed in order, including inconclusive ones. | `checker_attempts`, `GET /packages/:id/checker-attempts`, package view, package page and case view | same file, outcome order fail, timeout, quota, inconclusive; `checker-history.test.tsx` | implemented and tested |
 | A timeout after a fail does not hide the fail and does not count as pass. | `classifyCheckerOutcome`, `governingVerification` | same file: `pre_check.outcome` stays `fail`, timeout `counts_as` is `inconclusive`, Accept stays refused | implemented and tested |

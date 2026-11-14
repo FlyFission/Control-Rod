@@ -363,6 +363,66 @@ describe("sticky checker fails", () => {
     await settleOpenRuns();
   });
 
+  it("attributes a timeout to the digest captured when the check was queued", async () => {
+    const id = await releasedPackage("PINNED");
+    await author(id, "first bytes");
+    const job = await claimRole(id, "pre-check", ["codex"]);
+    const pinned = (await h.admin.query<{ deliverable_digest: string }>("select deliverable_digest from checker_queued_digests where run_id = $1", [job.run.id])).rows[0]?.deliverable_digest;
+    expect(pinned).toMatch(/^[0-9a-f]{64}$/);
+    await h.admin.query("update outputs set sha256 = $2, bytes = $3 where package_id = $1", [id, "b".repeat(64), Buffer.from("changed")]);
+    const done = await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "timeout", outputs: [], trace: trace(job, "codex-test-model") });
+    expect(done.statusCode, done.body).toBeLessThan(300);
+    expect((await attempts(id))[0]?.deliverable_digest.value).toBe(pinned);
+    await settleOpenRuns();
+  });
+
+  it("does not spend an override that was signed for another revision", async () => {
+    const id = await releasedPackage("OVREV");
+    await author(id, "held bytes");
+    await check(id, { status: "succeeded", outputs: [], verification: { outcome: "fail", findings: [] } });
+    const digestValue = (await attempts(id))[0]?.deliverable_digest.value;
+    await h.admin.query(
+      "insert into checker_recheck_overrides (id, package_id, package_revision, deliverable_digest, body) values ($1, $2, 9, $3, $4)",
+      ["RO-otherrev", id, digestValue, {
+        by: "ben", at: new Date().toISOString(), reason: "A different revision",
+        subject_digest: { algorithm: "sha256", value: "a".repeat(64) },
+        assertion: { credential_id: "k", authenticator_data: "a", client_data_json: "c", signature: "s" },
+      }],
+    );
+    expect((await asOwner("POST", `/packages/${id}/checks`)).json().code).toBe("sticky-fail");
+    await settleOpenRuns();
+  });
+
+  it("refuses to requeue a check from an earlier author round", async () => {
+    const id = await releasedPackage("OLDROUND");
+    await author(id, "round one");
+    const timed = await check(id, { status: "failed", error: "timeout", outputs: [] });
+    const at = new Date().toISOString();
+    await h.admin.query(
+      "insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'author', 2, 'succeeded', $3)",
+      ["R-laterauthor", id, {
+        schema_version: "0.1.0", id: "R-laterauthor", package_id: id, package_revision: 0, role: "author",
+        agent_baseline: "author", runtime: { kind: "local", provider: "fake", model: "fake" },
+        round: 2, status: "succeeded", queued_at: at,
+      }],
+    );
+    const again = await asOwner("POST", `/packages/${id}/runs/${timed.run.id}/requeue`);
+    expect(again.statusCode, again.body).toBe(409);
+    expect(again.json().code).toBe("wrong-state");
+    await settleOpenRuns();
+  });
+
+  it("records a queued check that a return stops", async () => {
+    const id = await releasedPackage("RETURNED");
+    await author(id, "send it back");
+    const returned = await decide(id, "return", 0, "Send it back before the check starts");
+    expect(returned.statusCode, returned.body).toBe(201);
+    const listed = await attempts(id);
+    expect(listed.map((a) => a.counts_as)).toEqual(["inconclusive"]);
+    expect(listed[0]?.outcome).toBe("cancelled");
+    await settleOpenRuns();
+  });
+
   it("lets a timeout with no earlier fail be requeued, and still does not count it as a pass", async () => {
     const id = await releasedPackage("TIMEOUT");
     await author(id, "only version");

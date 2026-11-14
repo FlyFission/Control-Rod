@@ -91,28 +91,28 @@ export async function hasStickyFail(q: Q, packageId: string, deliverable: string
   return (r.rowCount ?? 0) > 0;
 }
 
-export async function hasUnconsumedOverride(q: Q, packageId: string, deliverable: string): Promise<boolean> {
+export async function hasUnconsumedOverride(q: Q, packageId: string, revision: number, deliverable: string): Promise<boolean> {
   const r = await q.query(
     `select 1 from checker_recheck_overrides o
-      where o.package_id = $1 and o.deliverable_digest = $2
+      where o.package_id = $1 and o.package_revision = $2 and o.deliverable_digest = $3
         and not exists (select 1 from checker_recheck_uses u where u.override_id = o.id)
       limit 1`,
-    [packageId, deliverable],
+    [packageId, revision, deliverable],
   );
   return (r.rowCount ?? 0) > 0;
 }
 
-/** The oldest unused override for this digest, locked so two checks cannot spend it. */
-export async function lockNextOverride(c: Tx, packageId: string, deliverable: string): Promise<{ id: string; body: Json } | null> {
+/** The oldest unused override for this revision and digest, locked so two checks cannot spend it. */
+export async function lockNextOverride(c: Tx, packageId: string, revision: number, deliverable: string): Promise<{ id: string; body: Json } | null> {
   await c.query("select pg_advisory_xact_lock(hashtext($1))", [`recheck-override:${packageId}`]);
   const r = await c.query<{ id: string; body: Json }>(
     `select id, body from checker_recheck_overrides o
-      where package_id = $1 and deliverable_digest = $2
+      where package_id = $1 and package_revision = $2 and deliverable_digest = $3
         and not exists (select 1 from checker_recheck_uses u where u.override_id = o.id)
       order by created_at, id
       limit 1
       for update`,
-    [packageId, deliverable],
+    [packageId, revision, deliverable],
   );
   return r.rows[0] ?? null;
 }
@@ -132,7 +132,7 @@ export async function checkBlocked(q: Q, packageId: string, revision: number): P
     [packageId, revision],
   );
   if ((live.rowCount ?? 0) > 0) return null;
-  if (await hasUnconsumedOverride(q, packageId, current.digest)) return null;
+  if (await hasUnconsumedOverride(q, packageId, revision, current.digest)) return null;
   return {
     code: "sticky-fail",
     reason: STICKY_FAIL_REASON,
@@ -141,13 +141,16 @@ export async function checkBlocked(q: Q, packageId: string, revision: number): P
   };
 }
 
-/** The latest pass or fail on this digest. A later inconclusive attempt does not replace it. */
-export async function governingVerification(q: Q, packageId: string, revision: number, deliverable: string): Promise<Json | null> {
+/**
+ * The latest pass or fail on this digest, across every revision of the package. A later inconclusive
+ * attempt does not replace it. A returned package that writes the same bytes still shows the old fail.
+ */
+export async function governingVerification(q: Q, packageId: string, deliverable: string): Promise<Json | null> {
   const rows = await q.query<{ body: Json }>(
     `select body from checker_attempts
-      where package_id = $1 and package_revision = $2 and body->'deliverable_digest'->>'value' = $3
+      where package_id = $1 and body->'deliverable_digest'->>'value' = $2
       order by seq`,
-    [packageId, revision, deliverable],
+    [packageId, deliverable],
   );
   let decisive: Json | null = null;
   for (const row of rows.rows) {
@@ -236,9 +239,11 @@ export async function recordCheckerAttempt(
   const verification = await c.query<{ body: Json }>("select body from verifications where run_id = $1", [run.id]);
   const verdict = verification.rows[0]?.body?.outcome as string | undefined;
   const classified = classifyCheckerOutcome(run.status, typeof run.body.error === "string" ? run.body.error : undefined, verdict);
+  const captured = await c.query<{ deliverable_digest: string }>("select deliverable_digest from checker_queued_digests where run_id = $1", [run.id]);
   const current = await currentDeliverable(c, run.package_id, run.package_revision);
   const fromRecord = verification.rows[0]?.body?.output?.digest?.value;
-  const deliverable = typeof fromRecord === "string" ? fromRecord : (current?.digest ?? deliverableDigest([]));
+  const deliverable = captured.rows[0]?.deliverable_digest
+    ?? (typeof fromRecord === "string" ? fromRecord : (current?.digest ?? deliverableDigest([])));
   const reported = String(run.body.trace?.reported_model ?? "").slice(0, 200);
   const use = await c.query<{ body: Json }>(
     `select o.body from checker_recheck_uses u

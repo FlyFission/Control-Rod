@@ -2,7 +2,7 @@
 
 Release decision: **pull request for owner review; no merge is authorized by this record.**
 
-- **Proposed:** merge the adapter-seam pull request after review. The pull request states that there is no behavior change and points at the golden fixtures and the `sandbox-args` evidence.
+- **Proposed:** merge [pull request #76](https://github.com/FlyFission/Control-Rod/pull/76) after review. The pull request states that there is no behavior change and points at the golden fixtures and the `sandbox-args` evidence.
 - **Not claimed:** a new CLI; a change to sandbox policy, flags, the environment allowlist, or probe commands; that this machine's Codex stand-in (`/bin/true` copied to a `codex` name) is a qualified Codex; qualification of any new host.
 - **Owner decisions requested:** approve or return the pull request.
 

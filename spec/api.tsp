@@ -128,6 +128,38 @@ namespace Captures {
   @route("/{id}/classify") @post op classify(@path id: string, @body body: Classification): Capture | Refused;
 }
 
+/**
+ * A fail on the current deliverable digest is sticky: another check is refused until the
+ * deliverable changes or the owner signs an override. The words are what the API and the page show.
+ */
+@extension("unevaluatedProperties", false)
+model CheckBlocked {
+  code: "sticky-fail";
+
+  @minLength(1)
+  @maxLength(500)
+  reason: string;
+
+  @minLength(1)
+  @maxLength(500)
+  change: string;
+
+  deliverable_digest: Digest;
+}
+
+/** One signed override allowing a single re-check of a deliverable that already failed. */
+@extension("unevaluatedProperties", false)
+model RecheckOverride {
+  id: string;
+  package_id: string;
+
+  @minValue(0)
+  package_revision: int32;
+
+  deliverable_digest: Digest;
+  override: OwnerOverride;
+}
+
 /** What the web app shows for one package: the revision, its runs, output and decisions. */
 model PackageView {
   /** Strong ETag of the current draft's content; send it as If-Match to edit the draft. */
@@ -152,6 +184,22 @@ model PackageView {
   runs: Run[];
   outputs: Artifact[];
   pre_check?: VerificationRecord;
+
+  /**
+   * Every checker attempt for this package, oldest first, including inconclusive, timeout, error,
+   * quota and cancelled. Additive in API 0.1.
+   */
+  checker_attempts?: ControlRod.Records.CheckerAttempt[];
+
+  /** Signed overrides that allow one more check of a deliverable a check had already failed. */
+  recheck_overrides?: RecheckOverride[];
+
+  /**
+   * Set when another check of the current deliverable is refused because a fail on that digest
+   * is sticky. Absent when a check may start, or one is already queued.
+   */
+  check_blocked?: CheckBlocked;
+
   decisions: Decision[];
 
   /** Digest a decision on this revision must be bound to. */
@@ -296,6 +344,42 @@ namespace Packages {
 
     outcome: "pass" | "fail" | "inconclusive";
   }
+
+  /**
+   * Every checker attempt for this package, oldest first. The same list is on the package view.
+   * Timeout, error, quota and cancelled attempts are in the list and count as inconclusive.
+   */
+  @route("/{id}/checker-attempts") @get op checkerAttempts(@path id: string): ControlRod.Records.CheckerAttempt[] | Refused;
+
+  /**
+   * Ask for a check of the current author deliverables. Refused, with sticky-fail, when a check of
+   * that digest has already failed and no signed recheck override is waiting to be used.
+   */
+  @route("/{id}/checks") @post op requestCheck(@path id: string): Run | Refused;
+
+  /**
+   * Step 1 of the owner's override to check a failed deliverable again. The digest covers the
+   * package, the revision, the deliverable digest, the act "recheck-override" and the reason.
+   * The same passkey ceremony as the independence override.
+   */
+  @route("/{id}/recheck-overrides/options")
+  @post
+  op recheckOverrideOptions(@path id: string, @body body: OverrideRequest): {
+    subject_digest: Digest;
+    deliverable_digest: Digest;
+    options: Record<unknown>;
+  } | Refused;
+
+  /**
+   * Step 2: the signed override. It authorizes one check of the deliverable digest the owner was
+   * shown. Recorded with the reason and the assertion. A later check needs another signature.
+   */
+  @route("/{id}/recheck-overrides")
+  @post
+  op recordRecheckOverride(@path id: string, @body body: {
+    ...OverrideRequest;
+    assertion: Record<unknown>;
+  }): RecheckOverride | Refused;
 
   /** Every person verification recorded for this package, for every revision, oldest first. */
   @route("/{id}/person-verifications") @get op personVerifications(@path id: string): PersonVerificationEntry[] | Refused;

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client.js";
 import type { ActionDescriptor, DecisionKind, PackageView, Run, VerificationRecord, WorkPackage } from "../../api/types.js";
 import { decisionLabel } from "../../lib/decide.js";
+import { CheckerHistory } from "../../components/CheckerHistory.js";
 import { DecisionBar } from "../../components/DecisionBar.js";
 import { useOfferedActions } from "../../lib/offered.js";
 import { StateMark } from "../../components/StateMark.js";
@@ -325,6 +326,7 @@ function Checked({ pkg, view, p }: { pkg: WorkPackage; view: PackageView; p: Pre
   return (
     <>
       <PreCheckFloor record={record} compact={p.checked === "compact"} />
+      <CheckerHistory blocked={view.check_blocked} attempts={view.checker_attempts} overrides={view.recheck_overrides} />
       {record !== undefined && p.checked !== "compact" && (
         <>
           <h3>Findings</h3>

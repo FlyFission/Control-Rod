@@ -329,6 +329,74 @@ model PasskeyAssertion {
   signature: string;
 }
 
+/**
+ * What one checker attempt counts as. A checker may report pass, fail or inconclusive.
+ * Timeout, error, quota and cancelled are recorded as themselves and count as inconclusive:
+ * they are never a pass, and they never erase a fail already recorded for the same deliverable.
+ */
+enum CheckerAttemptOutcome {
+  pass: "pass",
+  fail: "fail",
+  inconclusive: "inconclusive",
+  timeout: "timeout",
+  error: "error",
+  quota: "quota",
+  cancelled: "cancelled",
+}
+
+/**
+ * One checker attempt on one deliverable digest. Append-only: a later attempt is a new row.
+ * Added in API 0.1; existing records are unchanged.
+ */
+@extension("unevaluatedProperties", false)
+model CheckerAttempt {
+  schema_version: "0.1.0";
+  id: string;
+  package_id: string;
+
+  @minValue(0)
+  package_revision: int32;
+
+  run_id: string;
+
+  @minValue(1)
+  round: int32;
+
+  /** The checker runtime the daemon assigned. "unassigned" when the run never started. */
+  @minLength(1)
+  @maxLength(80)
+  checker_runtime: string;
+
+  /** The model the runtime said it used. Absent when it did not say. */
+  @maxLength(200)
+  reported_model?: string;
+
+  /** Digest of the author deliverables this attempt checked, names and digests in name order. */
+  deliverable_digest: Digest;
+
+  outcome: CheckerAttemptOutcome;
+
+  /** pass and fail stand. inconclusive, timeout, error, quota and cancelled count as inconclusive. */
+  counts_as: "pass" | "fail" | "inconclusive";
+
+  started_at: utcDateTime;
+  finished_at: utcDateTime;
+
+  /**
+   * Where to read the evidence: the run log, which holds the trace, the error and the outputs.
+   * When a verification was admitted, verification_run_id names that record too.
+   */
+  @minLength(1)
+  @maxLength(300)
+  evidence: string;
+
+  /** Set when a verification record was admitted for this attempt. */
+  verification_run_id?: string;
+
+  /** The signed override that allowed this attempt after a fail on the same digest. */
+  recheck_override?: OwnerOverride;
+}
+
 enum DecisionKind {
   release: "release",
   accept: "accept",

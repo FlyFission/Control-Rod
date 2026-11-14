@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ApiError, api } from "../api/client.js";
 import type { PackageView, VerificationRecord, WorkPackage } from "../api/types.js";
+import { CheckerHistory } from "../components/CheckerHistory.js";
 import { CriterionCoverage } from "../components/preparation/CriterionCoverage.js";
 import { PreparationPanel } from "../components/preparation/PreparationPanel.js";
 import { DecisionBar } from "../components/DecisionBar.js";
@@ -113,6 +114,7 @@ export function PackagePage({ id }: { id: string }) {
             </ul>
           </section>
           <PreCheck record={view.pre_check} />
+          <CheckerHistory blocked={view.check_blocked} attempts={view.checker_attempts} overrides={view.recheck_overrides} />
           <CriterionCoverage view={view} />
           <Decisions view={view} />
         </div>

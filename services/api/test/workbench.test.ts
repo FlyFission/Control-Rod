@@ -4,6 +4,7 @@ import { tx } from "../src/db/index.js";
 import { migrate } from "../src/db/migrate.js";
 import { WORKBENCH_MUTABLE, WORKBENCH_TABLES, WORKBENCH_TRANSITIONS } from "../src/db/migrations/010-workbench.js";
 import { WORKBENCH_LINKS_DOWN_SQL } from "../src/db/migrations/019-workbench-links.js";
+import { CHECKER_ATTEMPTS_DOWN_SQL } from "../src/db/migrations/020-checker-attempts.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import { loadValidator } from "../src/schemas.js";
@@ -280,6 +281,7 @@ describe("classes", () => {
 // Last in the file: it takes 019 off and puts it back over the rows the tests above stored.
 describe("migration 019", () => {
   it("refuses startup naming rows 010 allowed to cross links, changes nothing, and runs once they are removed", async () => {
+    await h.admin.query(CHECKER_ATTEMPTS_DOWN_SQL);
     await h.admin.query(WORKBENCH_LINKS_DOWN_SQL);
     const chk = { git_tree: "c".repeat(40), content_digest: D, actor: owner, captured_at: "2026-10-30T12:00:00.000Z" };
     await put("checkpoint", { id: "chk_crossed", exploration_id: "exp_1", workspace_id: "ws_2", ...chk });

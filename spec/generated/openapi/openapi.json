@@ -1549,6 +1549,185 @@
         }
       }
     },
+    "/packages/{id}/checker-attempts": {
+      "get": {
+        "operationId": "Packages_checkerAttempts",
+        "description": "Every checker attempt for this package, oldest first. The same list is on the package view.\nTimeout, error, quota and cancelled attempts are in the list and count as inconclusive.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ControlRod.Records.CheckerAttempt"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/checks": {
+      "post": {
+        "operationId": "Packages_requestCheck",
+        "description": "Ask for a check of the current author deliverables. Refused, with sticky-fail, when a check of\nthat digest has already failed and no signed recheck override is waiting to be used.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/decisions": {
       "post": {
         "operationId": "Packages_decide",
@@ -3169,6 +3348,234 @@
                     }
                   ]
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/recheck-overrides": {
+      "post": {
+        "operationId": "Packages_recordRecheckOverride",
+        "description": "Step 2: the signed override. It authorizes one check of the deliverable digest the owner was\nshown. Recorded with the reason and the assertion. A later check needs another signature.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecheckOverride"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "assertion": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "reason",
+                  "assertion"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/recheck-overrides/options": {
+      "post": {
+        "operationId": "Packages_recheckOverrideOptions",
+        "description": "Step 1 of the owner's override to check a failed deliverable again. The digest covers the\npackage, the revision, the deliverable digest, the act \"recheck-override\" and the reason.\nThe same passkey ceremony as the independence override.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subject_digest": {
+                      "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                    },
+                    "deliverable_digest": {
+                      "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "subject_digest",
+                    "deliverable_digest",
+                    "options"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Packages.OverrideRequest"
               }
             }
           }
@@ -6486,6 +6893,37 @@
           }
         }
       },
+      "CheckBlocked": {
+        "type": "object",
+        "required": [
+          "code",
+          "reason",
+          "change",
+          "deliverable_digest"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "sticky-fail"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "change": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "deliverable_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        },
+        "description": "A fail on the current deliverable digest is sticky: another check is refused until the\ndeliverable changes or the owner signs an override. The words are what the API and the page show."
+      },
       "ControlRod.Preparation.BasisRef": {
         "type": "object",
         "required": [
@@ -8179,6 +8617,114 @@
           "rejected",
           "withdrawn"
         ]
+      },
+      "ControlRod.Records.CheckerAttempt": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "id",
+          "package_id",
+          "package_revision",
+          "run_id",
+          "round",
+          "checker_runtime",
+          "deliverable_digest",
+          "outcome",
+          "counts_as",
+          "started_at",
+          "finished_at",
+          "evidence"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "checker_runtime": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "The checker runtime the daemon assigned. \"unassigned\" when the run never started."
+          },
+          "reported_model": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The model the runtime said it used. Absent when it did not say."
+          },
+          "deliverable_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Digest of the author deliverables this attempt checked, names and digests in name order."
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckerAttemptOutcome"
+          },
+          "counts_as": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive"
+            ],
+            "description": "pass and fail stand. inconclusive, timeout, error, quota and cancelled count as inconclusive."
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Where to read the evidence: the run log, which holds the trace, the error and the outputs.\nWhen a verification was admitted, verification_run_id names that record too."
+          },
+          "verification_run_id": {
+            "type": "string",
+            "description": "Set when a verification record was admitted for this attempt."
+          },
+          "recheck_override": {
+            "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride",
+            "description": "The signed override that allowed this attempt after a fail on the same digest."
+          }
+        },
+        "description": "One checker attempt on one deliverable digest. Append-only: a later attempt is a new row.\nAdded in API 0.1; existing records are unchanged."
+      },
+      "ControlRod.Records.CheckerAttemptOutcome": {
+        "type": "string",
+        "enum": [
+          "pass",
+          "fail",
+          "inconclusive",
+          "timeout",
+          "error",
+          "quota",
+          "cancelled"
+        ],
+        "description": "What one checker attempt counts as. A checker may report pass, fail or inconclusive.\nTimeout, error, quota and cancelled are recorded as themselves and count as inconclusive:\nthey are never a pass, and they never erase a fail already recorded for the same deliverable."
       },
       "ControlRod.Records.CodeOrStandard": {
         "type": "object",
@@ -10491,6 +11037,24 @@
           "pre_check": {
             "$ref": "#/components/schemas/ControlRod.Records.VerificationRecord"
           },
+          "checker_attempts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.CheckerAttempt"
+            },
+            "description": "Every checker attempt for this package, oldest first, including inconclusive, timeout, error,\nquota and cancelled. Additive in API 0.1."
+          },
+          "recheck_overrides": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecheckOverride"
+            },
+            "description": "Signed overrides that allow one more check of a deliverable a check had already failed."
+          },
+          "check_blocked": {
+            "$ref": "#/components/schemas/CheckBlocked",
+            "description": "Set when another check of the current deliverable is refused because a fail on that digest\nis sticky. Absent when a check may start, or one is already queued."
+          },
           "decisions": {
             "type": "array",
             "items": {
@@ -10650,6 +11214,36 @@
           }
         },
         "description": "A recorded person verification with the package revision it verified."
+      },
+      "RecheckOverride": {
+        "type": "object",
+        "required": [
+          "id",
+          "package_id",
+          "package_revision",
+          "deliverable_digest",
+          "override"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "deliverable_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "override": {
+            "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride"
+          }
+        },
+        "description": "One signed override allowing a single re-check of a deliverable that already failed."
       },
       "RegistryCredential": {
         "type": "object",

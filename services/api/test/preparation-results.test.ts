@@ -200,7 +200,10 @@ describe("typed criterion verification admission", () => {
         const a = await f.claim();
         expect(a.statusCode, a.body).toBe(200);
         expect(a.json().run.package_id).toBe(p.id);
-        expect((await f.complete(a.json())).json().status).toBe("succeeded");
+        // Each round writes a new deliverable. A fail sticks to the previous digest, so the next check is a new one.
+        expect((await f.complete(a.json(), {
+          outputs: [{ name: "report.md", content_base64: Buffer.from(`Controlled report ${execution} ${round}`).toString("base64") }],
+        })).json().status).toBe("succeeded");
         const c = await f.claim(["claude"]);
         expect(c.statusCode, c.body).toBe(200);
         const fixture = { ...p, checker: c.json() };

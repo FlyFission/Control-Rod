@@ -46,6 +46,7 @@ func prepareCheckerFixture(t *testing.T) (*Workspace, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = os.RemoveAll(ws.Dir) })
 	return ws, root
 }
 
@@ -572,6 +573,45 @@ func TestCanonicalPathResolvesTheAncestorSymlink(t *testing.T) {
 	want := filepath.Join(real, "scratch")
 	if got != want {
 		t.Fatalf("canonical %s want %s", got, want)
+	}
+}
+
+func TestCheckerNeverStartsUnderTheDaemonHome(t *testing.T) {
+	home := t.TempDir()
+	if err := os.WriteFile(filepath.Join(home, "CLAUDE.md"), []byte("home instructions"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	preferred := filepath.Join(home, ".controlrod")
+	if err := os.MkdirAll(preferred, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	ws, err := PrepareChecker(preferred, &Job{Run: testRun("run-out", "pre-check"), Inputs: []NamedFile{
+		{Name: "BRIEF.md", ContentBase64: b64("check")},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(ws.Dir) })
+	if pathWithin(ws.Dir, home) || pathWithin(ws.Dir, preferred) {
+		t.Fatalf("checker stayed on the discovery walk of the daemon home: %s", ws.Dir)
+	}
+	hits, err := upwardInstructionHits(ws.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 0 {
+		t.Fatalf("relocated checker still discovers %v", hits)
+	}
+	clean := t.TempDir()
+	ws2, err := PrepareChecker(clean, &Job{Run: testRun("run-clean", "pre-check"), Inputs: []NamedFile{
+		{Name: "BRIEF.md", ContentBase64: b64("check")},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(ws2.Dir) })
+	if pathWithin(ws2.Dir, clean) {
+		t.Fatalf("a clean daemon home still held the checker: %s", ws2.Dir)
 	}
 }
 

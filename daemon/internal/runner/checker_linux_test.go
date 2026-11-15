@@ -37,6 +37,8 @@ func copyRegularFile(src, dst string) error {
 }
 
 func TestVerifiedRuntimeMayBeAGrandchild(t *testing.T) {
+	// The outer shell stands in for systemd-run, the middle shell for bubblewrap,
+	// and sleep for the verified runtime. Start's pid is the launcher.
 	cmd := exec.Command("/bin/sh", "-c", "sh -c 'sleep 30'")
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -83,7 +85,7 @@ func TestBubblewrapMountsDeliverablesReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	script := "echo tampered >> inputs/deliverables/report.md; echo wrote > scratch/from-mount.txt"
+	script := "echo tampered >> inputs/deliverables/report.md; echo wrote > scratch/evidence/from-mount.txt; echo side > scratch/side.txt; echo SIDE:$? > scratch/evidence/side"
 	cmd := exec.Command("/bin/sh", "-c", script)
 	cmd.Dir = ws.Dir
 	if err := applyCheckerMount(cmd, ws); err != nil {
@@ -103,8 +105,15 @@ func TestBubblewrapMountsDeliverablesReadOnly(t *testing.T) {
 	if err != nil || strings.Contains(string(body), "tampered") {
 		t.Fatalf("deliverable bytes %q", body)
 	}
-	if _, err := os.ReadFile(filepath.Join(ws.Scratch, "from-mount.txt")); err != nil {
-		t.Fatal("scratch was not writable inside the mount")
+	if _, err := os.ReadFile(filepath.Join(ws.Scratch, "evidence", "from-mount.txt")); err != nil {
+		t.Fatal("evidence was not writable inside the mount")
+	}
+	if _, err := os.Lstat(filepath.Join(ws.Scratch, "side.txt")); !os.IsNotExist(err) {
+		t.Fatal("a file outside the allowed scratch paths was created")
+	}
+	side, err := os.ReadFile(filepath.Join(ws.Scratch, "evidence", "side"))
+	if err != nil || strings.HasSuffix(strings.TrimSpace(string(side)), ":0") {
+		t.Fatalf("scratch/side.txt was writable: %s", side)
 	}
 	argv, err := checkerMountArgv(exec.Command("claude", "-p", CheckerPrompt), ws)
 	if err != nil {
@@ -221,9 +230,9 @@ func TestCheckerMountBlocksWritesOutsideScratch(t *testing.T) {
 		t.Fatal(err)
 	}
 	script := `echo ok > scratch/verification.json
-echo x > "$HOME_FILE"; echo HOME:$? > scratch/home
-echo x > "$TMP_FILE"; echo TMP:$? > scratch/tmp
-echo x > "$SIB_FILE"; echo SIB:$? > scratch/sib
+echo x > "$HOME_FILE"; echo HOME:$? > scratch/evidence/home
+echo x > "$TMP_FILE"; echo TMP:$? > scratch/evidence/tmp
+echo x > "$SIB_FILE"; echo SIB:$? > scratch/evidence/sib
 `
 	cmd := exec.Command("/bin/sh", "-c", script)
 	cmd.Dir = ws.Dir
@@ -248,7 +257,7 @@ echo x > "$SIB_FILE"; echo SIB:$? > scratch/sib
 		t.Fatalf("deliverable bytes changed: %q", after)
 	}
 	for _, name := range []string{"home", "sib"} {
-		b, err := os.ReadFile(filepath.Join(ws.Scratch, name))
+		b, err := os.ReadFile(filepath.Join(ws.Scratch, "evidence", name))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -691,7 +700,7 @@ if [ -e /proc/%d/root ] || [ -e /proc/%d/fd ]; then found=1; fi
 for d in /proc/[0-9]*; do
   if grep -q host-marker "$d/root%s" 2>/dev/null; then found=1; fi
 done
-echo "$found" > scratch/status
+echo "$found" > scratch/evidence/status
 `, os.Getpid(), os.Getpid(), marker)
 	cmd := exec.Command("/bin/sh", "-c", script)
 	cmd.Dir = ws.Dir
@@ -701,7 +710,7 @@ echo "$found" > scratch/status
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
 	}
-	status, err := os.ReadFile(filepath.Join(ws.Scratch, "status"))
+	status, err := os.ReadFile(filepath.Join(ws.Scratch, "evidence", "status"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -787,14 +796,14 @@ func assertLoginWritesStayOffTheHost(t *testing.T, parent string) {
 	}
 	ws.LoginDigest = before
 	script := `mkdir -p "$CLAUDE_CONFIG_DIR/projects/other/memory"
-echo pwn > "$CLAUDE_CONFIG_DIR/projects/other/memory/MEMORY.md"; echo M:$? > scratch/m
+echo pwn > "$CLAUDE_CONFIG_DIR/projects/other/memory/MEMORY.md"; echo M:$? > scratch/evidence/m
 echo new > "$CLAUDE_CONFIG_DIR/projects/other/memory/new.md"
-echo pwn > "$CLAUDE_CONFIG_DIR/settings.json"; echo C:$? > scratch/c
-echo pwn > "$CLAUDE_CONFIG_DIR/CLAUDE.md"; echo D:$? > scratch/d
-echo pwn > "$CLAUDE_CONFIG_DIR/CLAUDE.local.md"; echo L:$? > scratch/l
-mkdir "$CLAUDE_CONFIG_DIR/hooks"; echo H:$? > scratch/h
-echo pwn > "$CODEX_HOME/config.toml"; echo X:$? > scratch/x
-echo pwn > "$CODEX_HOME/AGENTS.md"; echo A:$? > scratch/a
+echo pwn > "$CLAUDE_CONFIG_DIR/settings.json"; echo C:$? > scratch/evidence/c
+echo pwn > "$CLAUDE_CONFIG_DIR/CLAUDE.md"; echo D:$? > scratch/evidence/d
+echo pwn > "$CLAUDE_CONFIG_DIR/CLAUDE.local.md"; echo L:$? > scratch/evidence/l
+mkdir "$CLAUDE_CONFIG_DIR/hooks"; echo H:$? > scratch/evidence/h
+echo pwn > "$CODEX_HOME/config.toml"; echo X:$? > scratch/evidence/x
+echo pwn > "$CODEX_HOME/AGENTS.md"; echo A:$? > scratch/evidence/a
 printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
 	cmd := exec.Command("/bin/sh", "-c", script)
 	cmd.Dir = ws.Dir
@@ -813,7 +822,7 @@ printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
 		t.Fatal(err)
 	}
 	for _, name := range []string{"c", "d", "l", "h", "x", "a"} {
-		b, err := os.ReadFile(filepath.Join(ws.Scratch, name))
+		b, err := os.ReadFile(filepath.Join(ws.Scratch, "evidence", name))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -883,7 +892,7 @@ func TestCheckerSessionSymlinkDoesNotGrantHomeWrites(t *testing.T) {
 			t.Fatalf("seatbelt would allow %s", p)
 		}
 	}
-	script := `echo pwn > "$CODEX_HOME/sessions/pwned"; echo S:$? > scratch/s
+	script := `echo pwn > "$CODEX_HOME/sessions/pwned"; echo S:$? > scratch/evidence/s
 printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
 	cmd := exec.Command("/bin/sh", "-c", script)
 	cmd.Dir = ws.Dir

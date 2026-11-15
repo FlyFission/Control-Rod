@@ -29,9 +29,17 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Seatbelt (sandbox-exec) is not available, so the checker cannot deny writes outside scratch and the check cannot count")
 	}
-	scratch, err := canonicalPath(ws.Scratch)
+	files, evidence, err := checkerWriteTargets(ws)
 	if err != nil {
-		return nil, fmt.Errorf("cannot canonicalize the scratch directory (%v), so the check cannot count", err)
+		return nil, err
+	}
+	var writable []string
+	for _, p := range append(files, evidence) {
+		c, err := canonicalPath(p)
+		if err != nil {
+			return nil, fmt.Errorf("cannot canonicalize %s (%v), so the check cannot count", p, err)
+		}
+		writable = append(writable, c)
 	}
 	runTmp, err := makeCheckerRunTmp(ws)
 	if err != nil {
@@ -45,7 +53,8 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	writable := append([]string{scratch, runTmp}, extra...)
+	writable = append(writable, runTmp)
+	writable = append(writable, extra...)
 	if _, err := canonicalPath(ws.Deliverables); err != nil {
 		return nil, fmt.Errorf("cannot canonicalize the deliverable tree (%v), so the check cannot count", err)
 	}

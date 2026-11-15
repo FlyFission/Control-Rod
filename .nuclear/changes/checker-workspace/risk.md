@@ -3,11 +3,11 @@
 - **Mode:** Standard
 - Execution owner: implementing agent under the Milestone 2 brief (checker workspace).
 - Decision owner: Ben Huffer. No protected surface is touched: no kernel decision function, policy, red-team fixture, workflow, or spec edit.
-- Scope: `daemon/`, `docs/daemon.md`, `packs/general/roles/pre-check.md`, `services/api/src/work.ts`, and this packet. The pull request is based on `cursor/adapter-seam-55eb` (pull request #76), which is not merged.
+- Scope: `daemon/`, `docs/daemon.md`, `packs/general/roles/pre-check.md`, `services/api/src/work.ts`, and this packet. The pull request is based on `main`, which includes pull requests #76 and #77 (`de69082`).
 
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|
-| R-01 | Author or intake launch bytes change while the checker gains flags. | Checker flags and the checker prompt are added only when the run role is `pre-check` and the adapter requires a sandbox. Author golden files are not rewritten. | Any author file under `testdata/launch-golden/` differs from pull request #76. |
+| R-01 | Author or intake launch bytes change while the checker gains flags. | Checker flags and the checker prompt are added only when the run role is `pre-check` and the adapter requires a sandbox. Author golden files are not rewritten. | Any author file under `testdata/launch-golden/` differs from `main`. |
 | R-02 | The checker still starts where a planted `CLAUDE.md`, `AGENTS.md`, `CLAUDE.local.md`, `AGENTS.override.md`, or `.claude` hook is discovered, including a different case. | Those names are matched case-insensitively per path segment and are not written at the working directory or its parents inside the job root. The deliverable tree is `inputs/deliverables`. The staging test walks that chain and does not launch a CLI. | A discovery hit inside the job root, or the hook marker file exists. |
 | R-03 | A pass is recorded after a write outside scratch, a deliverable change, a bad `verification.json`, or a missing mount. | `settleChecker` sets `Counts` only for a schema-valid file with an unchanged tree and no other workspace write. The completion is then failed and the verification is cleared. Mount setup errors before `Start`. | A test where one of those faults still returns a verification or `Counts`. |
 | R-04 | Bubblewrap becomes the process the daemon accepts as the verified runtime, or the verified descriptor is lost inside the mount. | `--ro-bind-fd` puts the opened executable back on its own path. `ConfirmSandbox` requires a child whose `/proc/pid/exe` is that file. `Confirm` on the bubblewrap pid fails. | `TestConfirmSandboxSeesTheBubblewrapChild` fails, or the inner argv is still `/proc/self/fd/N`. |

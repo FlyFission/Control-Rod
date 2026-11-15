@@ -10,7 +10,7 @@
 
 Milestone 2 of the multi-provider plan. Today a pre-check runs in the same workspace as the deliverables and writes `out/verification.json`. Instruction files and hooks planted in the deliverables sit on the working-directory discovery path. This change gives the checker role, and only that role, a clean daemon-owned working directory, a read-only deliverable mount, a scratch file for the verdict, and a before/after hash. Author and intake launches stay as they are. The fake runtime's pre-check stays on the old layout so the existing end-to-end test still describes that runtime.
 
-Depends on the adapter seam, pull request #76, branch `cursor/adapter-seam-55eb`. That pull request is not merged. This branch is cut from it.
+Pull requests #76 and #77 are merged. This branch includes main through `de69082`.
 
 The milestone text is the design input. No separate multi-provider design file is in this tree. ADR 0021 still holds: each CLI keeps the real `HOME` for its own login. This change does not set a private home and does not read or copy a token.
 

@@ -8,13 +8,13 @@
  daemon/internal/runner/adapter_claude.go           |   19 +
  daemon/internal/runner/adapter_codex.go            |   12 +
  daemon/internal/runner/artifact.go                 |   79 +-
- daemon/internal/runner/checker.go                  | 1245 ++++++++++++++++++++
+ daemon/internal/runner/checker.go                  | 1293 ++++++++++++++++++++
  daemon/internal/runner/checker_file.schema.json    |   24 +
- daemon/internal/runner/checker_linux_test.go       |  935 +++++++++++++++
- daemon/internal/runner/checker_mount_darwin.go     |   55 +
- daemon/internal/runner/checker_mount_linux.go      |  364 ++++++
+ daemon/internal/runner/checker_linux_test.go       |  944 ++++++++++++++
+ daemon/internal/runner/checker_mount_darwin.go     |   64 +
+ daemon/internal/runner/checker_mount_linux.go      |  371 ++++++
  daemon/internal/runner/checker_mount_other.go      |   14 +
- daemon/internal/runner/checker_test.go             |  797 +++++++++++++
+ daemon/internal/runner/checker_test.go             |  837 +++++++++++++
  daemon/internal/runner/daemon.go                   |  107 +-
  daemon/internal/runner/login_other.go              |    7 +
  daemon/internal/runner/login_unix.go               |   16 +
@@ -39,4 +39,4 @@
  services/api/src/work.ts                           |   27 +-
  .../api/test/prepared-checker-evidence.test.ts     |   90 ++
  services/api/test/prepared-checker-paths.test.ts   |   25 +
- 41 files changed, 4834 insertions(+), 22 deletions(-)
+ 41 files changed, 4947 insertions(+), 22 deletions(-)

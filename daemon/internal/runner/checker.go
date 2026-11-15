@@ -199,31 +199,52 @@ func PrepareChecker(root string, job *Job) (*Workspace, error) {
 	return ws, nil
 }
 
-// checkerRoot keeps the preferred directory when the walk from it to the
-// filesystem root has no instruction names. Otherwise it uses a directory under
-// /var/tmp, which is outside the repo and outside the home directory. User-level
-// ~/.claude and ~/.codex are then not on the upward walk; the CLIs still read
-// them by absolute path because HOME is unchanged.
+// checkerRoot always places the checker under /var/tmp, outside the real home
+// and outside the daemon home (preferred). Those directories stay on a CLI's
+// upward discovery walk from the usual work directory, so a CLAUDE.md or
+// AGENTS.md planted there would be read. User-level ~/.claude and ~/.codex are
+// still read by absolute path because HOME is unchanged.
 func checkerRoot(preferred string) (string, error) {
-	hits, err := upwardInstructionHits(preferred)
-	if err != nil {
-		return "", err
-	}
-	if len(hits) == 0 {
-		return preferred, nil
-	}
 	base := filepath.Join("/var/tmp", fmt.Sprintf("controlrod-checker-%d", os.Getuid()))
 	if err := os.MkdirAll(base, 0o700); err != nil {
 		return "", err
 	}
-	hits, err = upwardInstructionHits(base)
+	real, err := canonicalPath(base)
+	if err != nil {
+		return "", err
+	}
+	if err := checkerOutsideDiscovery(real, preferred); err != nil {
+		return "", err
+	}
+	hits, err := upwardInstructionHits(real)
 	if err != nil {
 		return "", err
 	}
 	if len(hits) > 0 {
 		return "", fmt.Errorf("checker working directory would discover instruction files (%s), so the check cannot count", strings.Join(hits, ", "))
 	}
-	return base, nil
+	return real, nil
+}
+
+// checkerOutsideDiscovery fails when the checker directory sits inside the real
+// home or inside the daemon home. A CLI walks every ancestor of its cwd.
+func checkerOutsideDiscovery(dir, preferred string) error {
+	home, err := os.UserHomeDir()
+	if err == nil && home != "" {
+		if real, err := canonicalPath(home); err == nil && pathWithin(dir, real) {
+			return fmt.Errorf("checker working directory would sit inside the home directory, so the check cannot count")
+		}
+	}
+	if preferred != "" {
+		if real, err := canonicalPath(preferred); err == nil && pathWithin(dir, real) {
+			return fmt.Errorf("checker working directory would sit inside the daemon home, so the check cannot count")
+		}
+	}
+	return nil
+}
+
+func pathWithin(path, root string) bool {
+	return path == root || strings.HasPrefix(path, root+string(os.PathSeparator))
 }
 
 func withheldDeliverable(rel string) bool {
@@ -565,6 +586,33 @@ func snapWorkspace(root string) (map[string]string, error) {
 	return out, nil
 }
 
+// checkerWriteTargets creates the only paths a checker may write: the verdict
+// files and the evidence directory. The rest of the workspace, including the
+// scratch directory itself, stays read-only, so a file created and then removed
+// before settlement cannot exist.
+func checkerWriteTargets(ws *Workspace) (files []string, evidence string, err error) {
+	if ws == nil || ws.Scratch == "" {
+		return nil, "", errors.New("the checker has no scratch directory, so the check cannot count")
+	}
+	if err = os.MkdirAll(ws.Scratch, 0o700); err != nil {
+		return nil, "", err
+	}
+	for _, name := range []string{"verification.json", "criterion-results.json"} {
+		p := filepath.Join(ws.Scratch, name)
+		f, oerr := os.OpenFile(p, os.O_CREATE|os.O_WRONLY, 0o600)
+		if oerr != nil {
+			return nil, "", oerr
+		}
+		f.Close()
+		files = append(files, p)
+	}
+	evidence = filepath.Join(ws.Scratch, "evidence")
+	if err = os.MkdirAll(evidence, 0o700); err != nil {
+		return nil, "", err
+	}
+	return files, evidence, nil
+}
+
 func checkerWriteAllowed(path string) bool {
 	return path == checkerVerificationRel || path == checkerCriterionRel || path == checkerEvidenceRel || strings.HasPrefix(path, checkerEvidenceRel+"/")
 }
@@ -642,7 +690,7 @@ func settleChecker(ws *Workspace, before string, cwdBefore map[string]string, no
 		events = append(events, policyEvent(now, msg))
 	}
 	raw, readErr := readCapped(filepath.Join(ws.Dir, filepath.FromSlash(checkerVerificationRel)))
-	if readErr != nil {
+	if readErr != nil || len(bytes.TrimSpace(raw)) == 0 {
 		if !void {
 			msg := "the checker wrote no scratch/verification.json, so the check cannot count"
 			reasons = append(reasons, msg)
@@ -660,7 +708,7 @@ func settleChecker(ws *Workspace, before string, cwdBefore map[string]string, no
 	}
 	var criterion []byte
 	criterionPath := filepath.Join(ws.Dir, filepath.FromSlash(checkerCriterionRel))
-	if st, err := os.Lstat(criterionPath); err == nil {
+	if st, err := os.Lstat(criterionPath); err == nil && st.Size() > 0 {
 		if st.Mode()&os.ModeSymlink != 0 || !st.Mode().IsRegular() {
 			void = true
 			msg := "scratch/criterion-results.json is not a regular file, so the check cannot count"

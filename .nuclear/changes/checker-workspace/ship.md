@@ -2,7 +2,7 @@
 
 Release decision: **pull request for owner review; no merge is authorized by this record.**
 
-- **Proposed:** merge this pull request after review, and only after pull request #76. This branch is cut from `cursor/adapter-seam-55eb`. The pull request says it depends on #76.
+- **Proposed:** merge this pull request after review. Pull requests #76 and #77 are already on `main`, and this branch includes `main` through `de69082`.
 - **Not claimed:** that macOS Seatbelt was executed (a sandboxed checker on macOS is refused until `CONTROLROD_SEATBELT_QUALIFIED=1`; the profile text is tested and `GOOS=darwin go test -c` succeeds); that a blanket mach-lookup deny is safe; that Claude `--safe-mode` works with headless `-p` and the existing OAuth or keychain login; that a real Claude Code or Codex binary was launched (discovery qualification is pending; the owner will run it on a Mac); that `CLAUDE_CODE_DISABLE_AUTO_MEMORY` was remeasured against a Claude Code binary (it is the documented variable); that a CLI in this tree needs `socket(AF_UNIX)` (none was found; the filter refuses it); that user-level `~/.claude/CLAUDE.md` or `~/.codex` `AGENTS.md` is suppressed (no flag here does that while keeping the login; those files are read-only and a change voids the check); that the session directory names were remeasured against a live CLI; that `--max-turns 8` was remeasured for a checker (it is the existing qualification-spike bound).
 - **Owner decisions requested:** approve or return the pull request. Decide whether a prepared checker may write criterion results somewhere other than `scratch/verification.json`. Decide whether `--safe-mode` should be added after a headless login check on a machine that has Claude Code.
 

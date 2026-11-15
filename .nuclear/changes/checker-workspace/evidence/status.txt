@@ -1,9 +1,18 @@
+M  .nuclear/changes/checker-workspace/basis.md
+A  .nuclear/changes/checker-workspace/evidence/api-suite.log
+M  .nuclear/changes/checker-workspace/evidence/bwrap-version.txt
 M  .nuclear/changes/checker-workspace/evidence/checker-tests.log
 M  .nuclear/changes/checker-workspace/evidence/diff-stat-tracked.txt
- M .nuclear/changes/checker-workspace/evidence/status.txt
+MM .nuclear/changes/checker-workspace/evidence/status.txt
 M  .nuclear/changes/checker-workspace/evidence/test.log
+M  .nuclear/changes/checker-workspace/evidence/vet.log
 M  .nuclear/changes/checker-workspace/risk.md
+M  .nuclear/changes/checker-workspace/ship.md
+M  .nuclear/changes/checker-workspace/trace.md
 M  .nuclear/changes/checker-workspace/verification.md
+M  daemon/internal/runner/checker.go
 M  daemon/internal/runner/checker_linux_test.go
-M  daemon/internal/runner/seccomp_linux.go
+M  daemon/internal/runner/checker_mount_darwin.go
+M  daemon/internal/runner/checker_mount_linux.go
+M  daemon/internal/runner/checker_test.go
 M  docs/daemon.md

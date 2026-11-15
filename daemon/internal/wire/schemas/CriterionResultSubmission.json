@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CriterionResultSubmission.json",
+    "type": "object",
+    "properties": {
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "release_manifest_digest": {
+            "$ref": "Digest.json"
+        },
+        "results": {
+            "type": "array",
+            "items": {
+                "$ref": "CriterionResult.json"
+            }
+        }
+    },
+    "required": [
+        "package_id",
+        "package_revision",
+        "release_manifest_digest",
+        "results"
+    ],
+    "unevaluatedProperties": false
+}

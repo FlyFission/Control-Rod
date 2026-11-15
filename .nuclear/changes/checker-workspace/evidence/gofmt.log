@@ -1,0 +1,3 @@
+cd daemon
+gofmt -l .
+gofmt_exit:0

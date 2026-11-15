@@ -27,6 +27,9 @@ var safeSegment = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 var ErrUnsafePath = errors.New("unsafe input path")
 
 // Workspace is one job's directory: inputs/ from the control plane, out/ for deliverables.
+// A checker workspace (Checker set) is different: Dir is a clean working directory, Deliverables
+// is the tree mounted read-only at inputs/deliverables, and Scratch is the only directory the
+// checker may write.
 type Workspace struct {
 	Dir    string
 	Inputs string
@@ -34,6 +37,32 @@ type Workspace struct {
 	// HookFile, when set, is where a Claude Code PermissionRequest hook appends what it saw
 	// (interim waiting detection, plan task 2.9). It lives outside the workspace.
 	HookFile string
+	// Checker selects the pre-check workspace and the checker launch flags.
+	Checker bool
+	// Deliverables is the host path of the deliverable tree. It is not the working directory.
+	Deliverables string
+	// Scratch is the checker's write directory, inside Dir.
+	Scratch string
+	// VerifiedPath is the host path of the verified executable. The checker mount
+	// uses this path instead of reading /proc/self/fd, which can report " (deleted)".
+	VerifiedPath string
+	// CheckerRuntime is claude or codex for a sandboxed pre-check. Only that
+	// CLI's login directory is given any write.
+	CheckerRuntime string
+	// LoginRoot is that directory even when it does not exist yet. LoginDigest is
+	// the hash of its instruction and settings paths, taken before the process
+	// starts. An absent directory is part of the hash, so creating it voids the check.
+	LoginRoot   string
+	LoginDigest string
+	// LoginDisposable is this run's directory mounted over session paths on Linux.
+	// It is not the real login directory, and the daemon removes only this directory.
+	LoginDisposable string
+	// CheckerTmp is the macOS per-run temporary directory. The daemon removes it
+	// after the run. Linux uses the private /tmp tmpfs and does not set this.
+	CheckerTmp string
+	// Seccomp is the Unix-socket filter passed to bubblewrap. The daemon closes
+	// it after the run. It is nil when the platform has no seccomp filter.
+	Seccomp *os.File
 }
 
 // WorkspaceDir returns <root>/work/<package_id>/r<rev>/<role>-<round>-<runid>. Every segment

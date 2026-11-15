@@ -1,0 +1,9 @@
+cd daemon
+go vet ./...
+vet_linux_exit:0
+GOOS=darwin go vet ./...
+vet_darwin_exit:0
+GOOS=windows go vet ./...
+vet_windows_exit:0
+GOOS=darwin go test -c -o /tmp/controlrod-darwin.test ./internal/runner/
+darwin_test_c_exit:0

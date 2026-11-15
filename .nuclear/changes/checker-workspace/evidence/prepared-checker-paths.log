@@ -1,0 +1,10 @@
+
+ RUN  v5.1.0 /agent/repos/Control-Rod/services/api
+
+
+ Test Files  2 passed (2)
+      Tests  3 passed (3)
+   Start at  02:31:20
+   Duration  1.44s (tests 72%, import 20%, transform 7%)
+
+EXIT:0

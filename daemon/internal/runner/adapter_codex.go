@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -21,6 +22,17 @@ func (a codexAdapter) withFeatures(f func(context.Context) (string, error)) CLIP
 	}
 	return a
 }
+
+func (codexAdapter) LoginDir(home string, getenv func(string) string) string {
+	if v := getenv("CODEX_HOME"); v != "" {
+		return v
+	}
+	return filepath.Join(home, ".codex")
+}
+
+func (codexAdapter) LoginWritableFiles() []string { return []string{"auth.json"} }
+
+func (codexAdapter) LoginSessionDirs() []string { return []string{"sessions", "log"} }
 
 func (codexAdapter) ID() string          { return RuntimeCodex }
 func (codexAdapter) Binary() string      { return "codex" }

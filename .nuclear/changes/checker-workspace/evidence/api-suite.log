@@ -1,0 +1,18 @@
+
+> @control-rod/api@0.0.0 test /agent/repos/Control-Rod/services/api
+> node ../../tools/test-api.mjs
+
+[test-api] Building checksum-pinned PostgreSQL 17.10 for local fixtures: /home/ubuntu/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90
+[test-api] PostgreSQL fixture binaries: /home/ubuntu/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.1.0 /agent/repos/Control-Rod/services/api
+
+[control-rod] the database dropped an idle reader connection (terminating connection due to administrator command); a new one opens on next use
+[control-rod] the database dropped an idle writer connection (terminating connection due to administrator command); a new one opens on next use
+
+ Test Files  55 passed (55)
+      Tests  663 passed (663)
+   Start at  16:57:50
+   Duration  35.96s (tests 85%, import 13%, transform 2%)
+
+EXIT:0

@@ -45,6 +45,10 @@ export async function openDb(connectionString: string, roles: DbRoles = {}): Pro
     await attachWriter(reader, urls.writerUrl);
     const { backfillTenancy } = await import("../tenancy.js");
     await command(reader, "migration.backfill-tenancy", backfillTenancy);
+    const { loadValidator } = await import("../schemas.js");
+    const { backfillCheckerAttempts } = await import("../checker-attempts.js");
+    const ajv = loadValidator();
+    await command(reader, "migration.backfill-checker-attempts", (c) => backfillCheckerAttempts(c, ajv));
     return reader;
   } catch (error) {
     if (reader) await closeDb(reader).catch(() => undefined);

@@ -329,6 +329,133 @@ model PasskeyAssertion {
   signature: string;
 }
 
+/**
+ * What one checker attempt counts as. A checker may report pass, fail or inconclusive.
+ * Timeout, error, quota and cancelled are recorded as themselves and count as inconclusive:
+ * they are never a pass, and they never erase a fail already recorded for the same deliverable.
+ */
+enum CheckerAttemptOutcome {
+  pass: "pass",
+  fail: "fail",
+  inconclusive: "inconclusive",
+  timeout: "timeout",
+  error: "error",
+  quota: "quota",
+  cancelled: "cancelled",
+}
+
+/**
+ * One checker attempt on one deliverable digest. Append-only: a later attempt is a new row.
+ * Added in API 0.1; existing records are unchanged.
+ */
+@extension("unevaluatedProperties", false)
+model CheckerAttempt {
+  schema_version: "0.1.0";
+  id: string;
+  package_id: string;
+
+  @minValue(0)
+  package_revision: int32;
+
+  run_id: string;
+
+  @minValue(1)
+  round: int32;
+
+  /** The checker runtime the daemon assigned. "unassigned" when the run never started. */
+  @minLength(1)
+  @maxLength(80)
+  checker_runtime: string;
+
+  /** The model the runtime said it used. Absent when it did not say. */
+  @maxLength(200)
+  reported_model?: string;
+
+  /** Place in the package's attempt history. Older attempts are read with before set to this value. */
+  @minValue(1)
+  seq?: int32;
+
+  /**
+   * Digest of the author deliverables this attempt checked, names and digests in name order.
+   * Absent when digest_unknown is set: the bytes were not captured, and the attempt is not
+   * attached to the deliverable the package holds now.
+   */
+  deliverable_digest?: Digest;
+
+  /** The bytes this attempt checked were not captured. It does not stick to today's deliverable. */
+  digest_unknown?: true;
+
+  outcome: CheckerAttemptOutcome;
+
+  /** pass and fail stand. inconclusive, timeout, error, quota and cancelled count as inconclusive. */
+  counts_as: "pass" | "fail" | "inconclusive";
+
+  started_at: utcDateTime;
+  finished_at: utcDateTime;
+
+  /**
+   * Where to read the evidence: the run log, which holds the trace, the error and the outputs.
+   * When a verification was admitted, verification_run_id names that record too.
+   */
+  @minLength(1)
+  @maxLength(300)
+  evidence: string;
+
+  /** Set when a verification record was admitted for this attempt. */
+  verification_run_id?: string;
+
+  /** The signed override that allowed this attempt after a fail on the same digest. */
+  recheck_override?: OwnerOverride;
+}
+
+/**
+ * A fail on the current deliverable digest is sticky: another check is refused until the
+ * deliverable changes or the owner signs an override. The words are what the API and the page show.
+ */
+@extension("unevaluatedProperties", false)
+model CheckBlocked {
+  code: "sticky-fail";
+
+  @minLength(1)
+  @maxLength(500)
+  reason: string;
+
+  @minLength(1)
+  @maxLength(500)
+  change: string;
+
+  deliverable_digest: Digest;
+}
+
+/**
+ * Several checks of this digest were inconclusive. Another check is still allowed.
+ * The page warns; it does not refuse the check.
+ */
+@extension("unevaluatedProperties", false)
+model CheckWarning {
+  code: "repeated-inconclusive";
+
+  @minLength(1)
+  @maxLength(500)
+  reason: string;
+
+  @minValue(3)
+  count: int32;
+}
+
+/** One signed override allowing a single re-check of a deliverable that already failed. */
+@extension("unevaluatedProperties", false)
+model RecheckOverride {
+  id: string;
+  package_id: string;
+
+  @minValue(0)
+  package_revision: int32;
+
+  deliverable_digest: Digest;
+  override: OwnerOverride;
+}
+
 enum DecisionKind {
   release: "release",
   accept: "accept",

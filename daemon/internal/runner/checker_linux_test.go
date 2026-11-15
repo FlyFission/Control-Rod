@@ -4,6 +4,7 @@ package runner
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,23 @@ import (
 	"testing"
 	"time"
 )
+
+func copyRegularFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o755)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
+}
 
 func TestVerifiedRuntimeMayBeAGrandchild(t *testing.T) {
 	cmd := exec.Command("/bin/sh", "-c", "sh -c 'sleep 30'")
@@ -132,15 +150,24 @@ func TestConfirmSandboxSeesTheBubblewrapChild(t *testing.T) {
 	if _, err := exec.LookPath("bwrap"); err != nil {
 		t.Fatal(err)
 	}
-	f, err := os.Open("/bin/sleep")
+	ws, _ := prepareCheckerFixture(t)
+	// /bin/sleep is often a symlink to /usr/bin/sleep. Mounting the descriptor
+	// onto that symlink path does not make the child execute the opened inode.
+	// A regular file inside the workspace does.
+	bin := filepath.Join(ws.Dir, "sleep")
+	if err := copyRegularFile("/bin/sleep", bin); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(bin)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	ws, _ := prepareCheckerFixture(t)
-	ws.VerifiedPath = "/bin/sleep"
+	ws.VerifiedPath = bin
 	cmd := exec.Command("/proc/self/fd/3", "30")
 	cmd.ExtraFiles = []*os.File{f}
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
 	if err := applyCheckerMount(cmd, ws); err != nil {
 		t.Fatal(err)
 	}
@@ -151,9 +178,9 @@ func TestConfirmSandboxSeesTheBubblewrapChild(t *testing.T) {
 		_ = cmd.Process.Kill()
 		_, _ = cmd.Process.Wait()
 	})
-	v := &VerifiedLaunch{File: f, Path: "/bin/sleep"}
+	v := &VerifiedLaunch{File: f, Path: bin}
 	if err := v.ConfirmSandbox(cmd.Process.Pid); err != nil {
-		t.Fatal(err)
+		t.Fatalf("%v; stderr %s", err, stderr.String())
 	}
 	old := confirmWait
 	confirmWait = 300 * time.Millisecond

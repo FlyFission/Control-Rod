@@ -21,6 +21,7 @@ import { verificationEvidence } from "./preparation/results.js";
 import { grantRoutes } from "./preparation/grant-routes.js";
 import { preparationRoutes } from "./preparation/routes.js";
 import { repoRoutes } from "./repos.js";
+import { outfallRoutes } from "./outfall.js";
 import { validateRawJson } from "./kernel.js";
 import { loadValidator } from "./schemas.js";
 import { REASONS, teach } from "./refusals.js";
@@ -310,6 +311,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
 
   preparationRoutes(app, db, cfg, person, auth);
   repoRoutes(app, person);
+  outfallRoutes(app, person);
   grantRoutes(app,db,cfg,person);
 
   /* ---- captures ---- */

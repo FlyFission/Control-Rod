@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { Refusal } from "./refusal.js";
 import { HOST_GIT_ARGS, type WorkspaceMode, createCheckpoint, hostGitEnv } from "./repos.js";
 
@@ -165,4 +166,74 @@ export function recordApplication(opts: {
     record_digest,
     recorded_at,
   };
+}
+
+/**
+ * Governed Outfall HTTP routes (Stage 1 Verdict -> Stage 2 Clearance -> Stage 3 Application).
+ */
+export function outfallRoutes(
+  app: FastifyInstance,
+  person: (req: FastifyRequest) => Promise<string>,
+): void {
+  const verdicts = new Map<string, OutfallVerdict>();
+  const clearances = new Map<string, OutfallClearance>();
+  const records: ControlledRecord[] = [];
+
+  app.post<{
+    Body: { package_id?: string; freeze_digest?: string; status?: "accepted" | "rejected" };
+  }>("/outfall/verdict", async (req) => {
+    const signerId = await person(req);
+    const body = req.body ?? {};
+    const v = recordVerdict({
+      packageId: body.package_id ?? "",
+      freezeDigest: body.freeze_digest ?? "",
+      signerId,
+      status: body.status === "rejected" ? "rejected" : "accepted",
+    });
+    verdicts.set(v.id, v);
+    return { ok: true, verdict: v };
+  });
+
+  app.post<{
+    Body: { verdict_id?: string; mode?: WorkspaceMode; target?: string };
+  }>("/outfall/clearance", async (req) => {
+    const authorizerId = await person(req);
+    const body = req.body ?? {};
+    const verdict = verdicts.get(body.verdict_id ?? "");
+    if (!verdict) {
+      throw new Refusal(404, "verdict-not-found", `Verdict not found: ${body.verdict_id ?? ""}`);
+    }
+    const mode: WorkspaceMode = body.mode === "capital-projects" ? "capital-projects" : "software";
+    const c = issueClearance({
+      verdict,
+      mode,
+      target: body.target ?? "",
+      authorizerId,
+    });
+    clearances.set(c.id, c);
+    return { ok: true, clearance: c };
+  });
+
+  app.post<{
+    Body: { clearance_id?: string; external_ref?: string; artifact_digest?: string };
+  }>("/outfall/apply", async (req) => {
+    await person(req);
+    const body = req.body ?? {};
+    const clearance = clearances.get(body.clearance_id ?? "");
+    if (!clearance) {
+      throw new Refusal(404, "clearance-not-found", `Clearance not found: ${body.clearance_id ?? ""}`);
+    }
+    const rec = recordApplication({
+      clearance,
+      externalRef: body.external_ref ?? "",
+      artifactDigest: body.artifact_digest ?? "",
+    });
+    records.unshift(rec);
+    return { ok: true, record: rec };
+  });
+
+  app.get("/outfall/records", async (req) => {
+    await person(req);
+    return { records };
+  });
 }

@@ -229,6 +229,15 @@ export const api = {
     call<CheckpointResult>("POST", "/repos/checkpoint", body),
   removeRepo: (body: RemoveWorktreeRequest) =>
     call<RemoveWorktreeResult>("POST", "/repos/remove", body),
+  freezeRepo: (body: { repo_path: string; label?: string; workspace_root?: string }) =>
+    call<{
+      ok: boolean;
+      checkpoint_ref: string;
+      commit_sha: string;
+      tree_sha: string;
+      manifest_digest: string;
+      file_count: number;
+    }>("POST", "/repos/freeze", body),
   /** The event stream; `after` resumes after that event id (the server replays what was missed). */
   streamUrl: (after?: string) => url(after ? `/events/stream?after=${encodeURIComponent(after)}` : "/events/stream"),
 };

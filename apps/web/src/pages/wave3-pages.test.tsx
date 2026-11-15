@@ -31,14 +31,30 @@ const SAMPLE_PACKAGES = [
   },
 ];
 
-describe("Wave 3 workbench pages", () => {
-  it("Explore lets user switch between Software and Capital Projects modes", async () => {
+describe("Wave 3/4 workbench pages", () => {
+  it("Explore switches modes and runs Merkle Freeze against /repos/freeze", async () => {
     const user = userEvent.setup();
+    server.use(
+      http.post("*/repos/freeze", () =>
+        HttpResponse.json({
+          ok: true,
+          checkpoint_ref: "refs/cr-checkpoints/explore-1",
+          commit_sha: "abc1234567890",
+          tree_sha: "def1234567890",
+          manifest_digest: "deadbeef1234567890abcdef",
+          file_count: 14,
+        }),
+      ),
+    );
     await renderPage(<Explore />);
     expect(screen.getByRole("heading", { name: "Explore" })).toBeTruthy();
     const modeSelect = screen.getByLabelText(/Delivery Mode/i);
     await user.selectOptions(modeSelect, "capital-projects");
     expect((modeSelect as HTMLSelectElement).value).toBe("capital-projects");
+
+    await user.type(screen.getByLabelText(/Worktree \/ Repo Path/i), "/home/flyfission/projects/Control-Rod");
+    await user.click(screen.getByRole("button", { name: /Merkle Freeze/i }));
+    expect(await screen.findByText(/Merkle Freeze ready: deadbeef12345678/i)).toBeTruthy();
   });
 
   it("Compare renders side-by-side candidates and anchors digest review notes", async () => {

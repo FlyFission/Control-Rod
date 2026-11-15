@@ -55,6 +55,8 @@ fn enrolled_release_defaults_closed_and_requires_complete_guard() {
         digest_matches: true,
         reason_given: false,
         preparation: Some(PreparationGuard::default()),
+        attestation_verified: None,
+        safety_quorum_met: None,
     };
     assert!(!decide(&req).decision.is_allowed());
     req.preparation = Some(PreparationGuard {
@@ -98,6 +100,8 @@ fn acceptance_cannot_waive_missing_mandatory_prepared_verification() {
             results_complete: true,
             ..PreparationGuard::default()
         }),
+        attestation_verified: None,
+        safety_quorum_met: None,
     };
     assert!(!decide(&req).decision.is_allowed());
     if let Some(g) = req.preparation.as_mut() {

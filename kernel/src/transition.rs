@@ -85,17 +85,39 @@ pub enum PreCheckOutcome {
 pub struct RuntimeIdentity {
     pub provider: String,
     pub model: String,
+    #[serde(default)]
+    pub vendor: Option<String>,
+    #[serde(default)]
+    pub family: Option<String>,
 }
 
 impl RuntimeIdentity {
-    /// True when both sides count as the same runtime. The provider decides: two models from one
-    /// provider share training, tooling and blind spots, so a different model is not an
-    /// independent check.
+    /// Normalizes provider/vendor/family aliases so two models or aliases from the same
+    /// vendor family never count as independent O6 verifiers.
+    #[must_use]
+    pub fn canonical_family(&self) -> String {
+        let raw = self
+            .family
+            .as_deref()
+            .or(self.vendor.as_deref())
+            .unwrap_or(&self.provider)
+            .trim()
+            .to_ascii_lowercase();
+        match raw.as_str() {
+            "claude" | "anthropic" | "claude-code" => "anthropic".to_owned(),
+            "codex" | "openai" => "openai".to_owned(),
+            "grok" | "xai" | "grok-cli" => "xai".to_owned(),
+            "agy" | "antigravity" | "gemini" | "gemini-cli" | "google" => "google".to_owned(),
+            "opencode" => "opencode".to_owned(),
+            "ollama" | "local-ollama" | "ollama-local" => "ollama-local".to_owned(),
+            _ => raw,
+        }
+    }
+
+    /// True when both sides count as the same runtime or vendor family.
     #[must_use]
     pub fn may_be_same(&self, other: &Self) -> bool {
-        self.provider
-            .trim()
-            .eq_ignore_ascii_case(other.provider.trim())
+        self.canonical_family() == other.canonical_family()
     }
 }
 
@@ -139,6 +161,12 @@ pub struct Request {
     /// Present only for an enrolled package; facts come from controlled server records.
     #[serde(default)]
     pub preparation: Option<crate::preparation::PreparationGuard>,
+    /// Optional run-attestation verification flag from the server (M6).
+    #[serde(default)]
+    pub attestation_verified: Option<bool>,
+    /// Optional 2-of-2 Safety checker quorum flag from the server (M9).
+    #[serde(default)]
+    pub safety_quorum_met: Option<bool>,
 }
 
 /// The kernel's answer: the decision and, when allowed, the state the package moves to.
@@ -222,7 +250,11 @@ pub fn decide(req: &Request) -> Outcome {
                 refuse(ReasonCode::NotIndependent)
             }
             (Some(_), Some(_), Some(author), Some(checker)) => {
-                if author.may_be_same(checker) && !req.owner_override_verified {
+                let quorum_failed = req.safety_quorum_met == Some(false);
+                let att_failed = req.attestation_verified == Some(false);
+                if (author.may_be_same(checker) || quorum_failed || att_failed)
+                    && !req.owner_override_verified
+                {
                     refuse(ReasonCode::NotIndependent)
                 } else {
                     allow(S::InVerification)
@@ -278,6 +310,8 @@ mod tests {
         RuntimeIdentity {
             provider: provider.into(),
             model: model.into(),
+            vendor: None,
+            family: None,
         }
     }
 
@@ -297,6 +331,8 @@ mod tests {
             digest_matches: true,
             reason_given: false,
             preparation: None,
+            attestation_verified: None,
+            safety_quorum_met: None,
         }
     }
 

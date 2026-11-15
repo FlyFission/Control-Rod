@@ -1204,6 +1204,26 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			launched = &verified.Digest
 		}
 	}
+	if err == nil && cmd != nil && !ws.Checker && os.Getenv("CONTROLROD_EGRESS_FILTER") == "1" {
+		hosts := []string{"127.0.0.1:11434", "localhost:11434"}
+		if sandbox != nil && len(sandbox.AllowedHosts) > 0 {
+			hosts = make([]string, 0, len(sandbox.AllowedHosts))
+			for _, h := range sandbox.AllowedHosts {
+				if !strings.Contains(h, ":") {
+					hosts = append(hosts, h+":443")
+				} else {
+					hosts = append(hosts, h)
+				}
+			}
+		}
+		if ef, eferr := StartEgressFilter(hosts); eferr != nil {
+			err = fmt.Errorf("start author egress filter: %w", eferr)
+		} else {
+			defer ef.Close()
+			proxyURL := "http://" + ef.Addr()
+			cmd.Env = append(cmd.Env, "HTTP_PROXY="+proxyURL, "HTTPS_PROXY="+proxyURL)
+		}
+	}
 	var (
 		deliverableBefore string
 		cwdBefore         map[string]string

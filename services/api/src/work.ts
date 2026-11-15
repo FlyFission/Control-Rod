@@ -655,9 +655,21 @@ function identityOf(run: Json, trace?: Json): RuntimeIdentity {
   };
 }
 
-/** Same rule as the kernel's: the same provider is the same runtime, whatever the models. For the record only. */
+function canonicalFamily(provider: string): string {
+  const p = provider.trim().toLowerCase();
+  if (p === "claude" || p === "anthropic" || p === "claude-code") return "anthropic";
+  if (p === "codex" || p === "openai") return "openai";
+  if (p === "grok" || p === "xai" || p === "grok-cli") return "xai";
+  if (p === "agy" || p === "antigravity" || p === "gemini" || p === "gemini-cli" || p === "google") {
+    return "google";
+  }
+  if (p === "ollama" || p === "local-ollama" || p === "ollama-local") return "ollama-local";
+  return p;
+}
+
+/** Same rule as the kernel's: the same vendor family is the same runtime, whatever the models. */
 function mayBeSameRuntime(a: RuntimeIdentity, b: RuntimeIdentity): boolean {
-  return a.provider.trim().toLowerCase() === b.provider.trim().toLowerCase();
+  return canonicalFamily(a.provider) === canonicalFamily(b.provider);
 }
 
 function runtimeRef(name: string) {

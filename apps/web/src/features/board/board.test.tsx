@@ -73,8 +73,8 @@ describe("BoardView", () => {
     api({ packages: [pkg({ id: "WP-1" })] });
     await renderPage(<Page />);
     const regions = await screen.findAllByRole("region");
-    expect(regions.map((r) => document.getElementById(r.getAttribute("aria-labelledby")!)!.textContent)).toEqual(["Ready", "Drafting", "Agent check", "Person verifies", "Needs signature", "Accepted"]);
-    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Ready", "Drafting", "Agent check", "Person verifies", "Needs signature", "Accepted"]);
+    expect(regions.map((r) => document.getElementById(r.getAttribute("aria-labelledby")!)!.textContent)).toEqual(["Ready", "Implementing", "CI / Agent check", "Peer review", "Needs signature", "Accepted"]);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Ready", "Implementing", "CI / Agent check", "Peer review", "Needs signature", "Accepted"]);
   });
 
   it("labels each card by its title and keeps the counts out of a live region", async () => {
@@ -113,11 +113,14 @@ describe("BoardView", () => {
     expect(within(card).queryByText("Independent check")).toBeNull();
   });
 
-  it("opens the package from the title button", async () => {
+  it("opens the non-obscuring review drawer from the title button and links to the full case", async () => {
     api({ packages: [pkg({ id: "WP-1", title: "Open me" })] });
     const { router } = await renderPage(<Page />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Open me" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-1" });
+    expect(drawer).toBeTruthy();
+    await user.click(within(drawer).getByRole("link", { name: /Full case/i }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/packages/WP-1"));
   });
 
@@ -410,9 +413,9 @@ describe("BoardView", () => {
     expect(await screen.findByText(/Could not read person verifications/)).toBeTruthy();
     expect(screen.queryByText(/Needs a second qualified person/)).toBeNull();
     expect(screen.queryByText("Waiting on a person verification")).toBeNull();
-    // Ruling 11: the card sits in Person verifies, never in Needs signature, while the step is unknown.
+    // Ruling 11: the card sits in Person verifies (Peer review in Software mode), never in Needs signature, while the step is unknown.
     const region = screen.getByText("Relief valve sizing").closest("section")!;
-    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Person verifies");
+    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Peer review");
   });
 
   it("moves a card back to Person verifies and offers no Accept when a refresh of its covering pass fails", async () => {
@@ -432,7 +435,7 @@ describe("BoardView", () => {
     await act(async () => void (await qc.refetchQueries({ queryKey: ["person-verifications"] })));
     await waitFor(() => expect(next()).toContain("Could not read person verifications"));
     const region = screen.getByText("Relief valve sizing").closest("section")!;
-    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Person verifies");
+    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Peer review");
   });
 
   it("says it cannot tell who can verify when the session cannot be read", async () => {

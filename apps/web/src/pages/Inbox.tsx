@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { AttentionItem, InboxView } from "../api/types.js";
 import { StateMark, type StateKind } from "../components/StateMark.js";
+import { BoardReviewDrawer } from "../features/board/BoardReviewDrawer.js";
+import { useMode } from "../lib/mode.js";
 import { age } from "../lib/office.js";
 import { lastSeenKey, readNumber, writeNumber } from "../lib/storage.js";
 
@@ -33,6 +35,8 @@ const DECISION_WORDS: Record<string, string> = {
  * browser marked seen.
  */
 export function Inbox() {
+  const mode = useMode();
+  const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
   const session = useQuery({ queryKey: ["session"], queryFn: api.session });
   const user = session.data?.user ?? undefined;
   const cursorKey = lastSeenKey(user);
@@ -59,63 +63,89 @@ export function Inbox() {
     rerender((n) => n + 1);
   }
 
+  const activePkgId = selectedPkgId ?? view?.items.find((i) => i.package_id !== undefined)?.package_id ?? null;
+
   return (
-    <div className="place inbox">
-      <section className="panel" aria-labelledby="inbox-title">
-        <div className="panel-head">
-          <h1 id="inbox-title">Inbox</h1>
-          <span className="muted small">Riskiest first: security holds, waiting agents, unknown outcomes, disputes, then decisions by consequence; oldest first within each.</span>
-        </div>
-        {notReady.length > 0 && (
-          <ul className="runtime-alerts" aria-label="Runtimes not ready">
-            {notReady.map((r) => (
-              <li key={r.runtime} className="error">
-                <strong>{r.runtime} is not ready and is not offered for work.</strong> {r.reason ?? "The daemon gave no reason."}
-              </li>
-            ))}
-          </ul>
-        )}
-        {q.isLoading && <p className="muted">Loading</p>}
-        {q.isError && (
-          <div role="alert" className="error">
-            <p>{view === undefined ? "The Inbox could not be loaded." : "The Inbox could not be refreshed; what follows may be out of date."}</p>
-            <button type="button" className="btn small" onClick={() => void q.refetch()}>
-              Try again
-            </button>
+    <div className={activePkgId ? "place inbox inbox-has-drawer" : "place inbox"}>
+      <div className="inbox-main">
+        <section className="panel" aria-labelledby="inbox-title">
+          <div className="panel-head">
+            <h1 id="inbox-title">Inbox</h1>
+            <span className="muted small">Riskiest first: security holds, waiting agents, unknown outcomes, disputes, then decisions by consequence; oldest first within each.</span>
           </div>
-        )}
-        {q.isSuccess && view !== undefined && view.items.length === 0 && <p className="muted">Nothing waits on you. Decisions and held work arrive here as they need you.</p>}
-        {view !== undefined && view.items.length > 0 && (
-          <ol className="office-list" aria-label={`${view.items.length} waiting on you`}>
-            {view.items.map((item) => (
-              <Item key={itemKey(item)} item={item} />
-            ))}
-          </ol>
-        )}
-        {view !== undefined && view.waiting_on_others.length > 0 && (
-          <details className="waiting-others">
-            <summary>
-              Waiting on someone else <span className="muted">({view.waiting_on_others.length})</span>
-            </summary>
-            <ol className="office-list">
-              {view.waiting_on_others.map((item) => (
-                <Item key={itemKey(item)} item={item} theirs />
+          {notReady.length > 0 && (
+            <ul className="runtime-alerts" aria-label="Runtimes not ready">
+              {notReady.map((r) => (
+                <li key={r.runtime} className="error">
+                  <strong>{r.runtime} is not ready and is not offered for work.</strong> {r.reason ?? "The daemon gave no reason."}
+                </li>
+              ))}
+            </ul>
+          )}
+          {q.isLoading && <p className="muted">Loading</p>}
+          {q.isError && (
+            <div role="alert" className="error">
+              <p>{view === undefined ? "The Inbox could not be loaded." : "The Inbox could not be refreshed; what follows may be out of date."}</p>
+              <button type="button" className="btn small" onClick={() => void q.refetch()}>
+                Try again
+              </button>
+            </div>
+          )}
+          {q.isSuccess && view !== undefined && view.items.length === 0 && <p className="muted">Nothing waits on you. Decisions and held work arrive here as they need you.</p>}
+          {view !== undefined && view.items.length > 0 && (
+            <ol className="office-list" aria-label={`${view.items.length} waiting on you`}>
+              {view.items.map((item) => (
+                <Item
+                  key={itemKey(item)}
+                  item={item}
+                  selected={item.package_id !== undefined && item.package_id === activePkgId}
+                  onInspect={item.package_id !== undefined ? () => setSelectedPkgId(item.package_id!) : undefined}
+                />
               ))}
             </ol>
-          </details>
-        )}
-      </section>
-      <Digest view={view} lastSeen={lastSeen} onMarkSeen={markSeen} />
+          )}
+          {view !== undefined && view.waiting_on_others.length > 0 && (
+            <details className="waiting-others">
+              <summary>
+                Waiting on someone else <span className="muted">({view.waiting_on_others.length})</span>
+              </summary>
+              <ol className="office-list">
+                {view.waiting_on_others.map((item) => (
+                  <Item key={itemKey(item)} item={item} theirs />
+                ))}
+              </ol>
+            </details>
+          )}
+        </section>
+        <Digest view={view} lastSeen={lastSeen} onMarkSeen={markSeen} />
+      </div>
+      {activePkgId !== null && (
+        <BoardReviewDrawer
+          packageId={activePkgId}
+          mode={mode}
+          onClose={() => setSelectedPkgId(null)}
+        />
+      )}
     </div>
   );
 }
 
 const itemKey = (i: AttentionItem) => `${i.kind}-${i.package_id ?? i.scram_id ?? i.capture_id}-${i.package_revision ?? ""}`;
 
-function Item({ item, theirs = false }: { item: AttentionItem; theirs?: boolean }) {
+function Item({
+  item,
+  theirs = false,
+  selected = false,
+  onInspect,
+}: {
+  item: AttentionItem;
+  theirs?: boolean;
+  selected?: boolean;
+  onInspect?: (() => void) | undefined;
+}) {
   const decisions = (item.decisions ?? []).map((d) => DECISION_WORDS[d] ?? d);
   return (
-    <li className={`office-item${theirs ? " theirs" : ""}`}>
+    <li className={`office-item${theirs ? " theirs" : ""}${selected ? " inbox-selected" : ""}`}>
       <div className="office-meta">
         <StateMark kind={theirs ? "waiting" : markFor(item)} title={item.risk.label} />
         <span className="tag">{item.risk.label}</span>
@@ -137,6 +167,11 @@ function Item({ item, theirs = false }: { item: AttentionItem; theirs?: boolean 
       ) : (
         <div className="item-actions">
           <Target item={item} />
+          {onInspect && (
+            <button type="button" className="btn small" onClick={onInspect} aria-pressed={selected}>
+              {selected ? "Inspecting" : "Inspect inline"}
+            </button>
+          )}
           {decisions.length > 0 && <span className="muted small">You may {decisions.join(", ")}.</span>}
         </div>
       )}

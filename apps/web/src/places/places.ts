@@ -2,23 +2,26 @@
  * The web places (specification 12). Each is a page in the shell's navigation and an entry in the
  * command palette. Order is the order people reach for them.
  */
+export type PlaceGroup = "Work" | "Audit" | "Control";
+
 export interface Place {
   to: string;
   label: string;
   /** One line for the palette and for screen readers. */
   purpose: string;
+  group: PlaceGroup;
 }
 
 export const PLACES: Place[] = [
-  { to: "/", label: "Board", purpose: "Every card by step: what needs you and what is waiting" },
-  { to: "/inbox", label: "Inbox", purpose: "Decisions waiting on you, riskiest first" },
-  { to: "/office", label: "Office", purpose: "The floor: who is working on what" },
-  { to: "/packages", label: "Packages", purpose: "Capture work and find every package" },
-  { to: "/registers", label: "Registers", purpose: "Deliverables across every package" },
-  { to: "/explore", label: "Explore", purpose: "Live exploration before work is packaged" },
-  { to: "/roster", label: "Roster", purpose: "Runtimes, their versions and pins" },
-  { to: "/usage", label: "Usage", purpose: "Whether the work is earning its place" },
-  { to: "/records", label: "Records", purpose: "The event chain and its verification" },
-  { to: "/policies", label: "Policies", purpose: "Floors in force, members and administration" },
-  { to: "/settings/subscriptions", label: "Subscriptions", purpose: "Which provider CLIs are installed, signed in and qualified" },
+  { to: "/", label: "Board", purpose: "Every card by step: what needs you and what is waiting", group: "Work" },
+  { to: "/inbox", label: "Inbox", purpose: "Decisions waiting on you, riskiest first", group: "Work" },
+  { to: "/office", label: "Office", purpose: "The floor: who is working on what", group: "Work" },
+  { to: "/packages", label: "Packages", purpose: "Capture work and find every package", group: "Work" },
+  { to: "/registers", label: "Registers", purpose: "Deliverables across every package", group: "Audit" },
+  { to: "/records", label: "Records", purpose: "The event chain and its verification", group: "Audit" },
+  { to: "/usage", label: "Usage", purpose: "Whether the work is earning its place", group: "Audit" },
+  { to: "/explore", label: "Explore", purpose: "Live exploration before work is packaged", group: "Control" },
+  { to: "/roster", label: "Roster", purpose: "Runtimes, their versions and pins", group: "Control" },
+  { to: "/policies", label: "Policies", purpose: "Floors in force, members and administration", group: "Control" },
+  { to: "/settings/subscriptions", label: "Subscriptions", purpose: "Which provider CLIs are installed, signed in and qualified", group: "Control" },
 ];

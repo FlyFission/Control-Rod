@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode/utf16"
 
 	"github.com/flyfission/control-rod/daemon/internal/digest"
 )
@@ -194,19 +195,35 @@ func forbiddenEnv(key string) bool {
 	return strings.HasSuffix(up, "_BASE_URL") || strings.HasSuffix(up, "_PROXY")
 }
 
-// flagValue accepts `--name value` and `--name=value`. -c is the short form of a Codex override.
-func flagValue(args []string, i int) (value string, next int, ok bool) {
+// shortAttached splits -cX, -c=X, -pX, -p=X, -mX and -m=X. An exact -c, -p or -m is not attached.
+func shortAttached(a string) (name, value string, ok bool) {
+	for _, flag := range []string{"-c", "-p", "-m"} {
+		if a == flag || !strings.HasPrefix(a, flag) || len(a) == len(flag) {
+			continue
+		}
+		rest := a[len(flag):]
+		rest = strings.TrimPrefix(rest, "=")
+		return flag, rest, true
+	}
+	return "", "", false
+}
+
+// flagValue accepts a separate value, --name=value, and an attached short option.
+func flagValue(args []string, i int) (name, value string, next int, ok bool) {
 	a := args[i]
-	if k, v, inline := strings.Cut(a, "="); inline && (strings.HasPrefix(k, "--") || k == "-c") {
-		return v, i, true
+	if n, v, attached := shortAttached(a); attached {
+		return n, v, i, true
+	}
+	if k, v, inline := strings.Cut(a, "="); inline && strings.HasPrefix(k, "--") {
+		return k, v, i, true
 	}
 	switch a {
-	case "-c", "--settings", "--config", "--fallback-model", "--disable", "--model", "-m", "--profile", "--disallowedTools", "--setting-sources":
+	case "-c", "-m", "-p", "--settings", "--config", "--fallback-model", "--disable", "--model", "--profile", "--disallowedTools", "--setting-sources":
 		if i+1 < len(args) {
-			return args[i+1], i + 1, true
+			return a, args[i+1], i + 1, true
 		}
 	}
-	return "", i, false
+	return "", "", i, false
 }
 
 func scanArgs(harness string, args []string) error {
@@ -215,9 +232,14 @@ func scanArgs(harness string, args []string) error {
 		codex = true
 	}
 	for i := 0; i < len(args); i++ {
-		name := args[i]
-		if k, _, inline := strings.Cut(name, "="); inline {
-			name = k
+		name, value, next, ok := flagValue(args, i)
+		if !ok {
+			name = args[i]
+			if k, _, inline := strings.Cut(name, "="); inline {
+				name = k
+			}
+		} else {
+			i = next
 		}
 		if name == "--fallback-model" {
 			return errors.New("a counted check cannot pass --fallback-model")
@@ -225,11 +247,9 @@ func scanArgs(harness string, args []string) error {
 		if codex && (name == "--profile" || name == "-p") {
 			return errors.New("a counted Codex check cannot select a profile")
 		}
-		value, next, ok := flagValue(args, i)
 		if !ok {
 			continue
 		}
-		i = next
 		low := strings.ToLower(value)
 		if strings.Contains(low, "base_url") || strings.Contains(low, "baseurl") ||
 			strings.Contains(low, "model_provider") || strings.Contains(low, "ollama_host") ||
@@ -479,7 +499,7 @@ func uniqueSorted(in []string) []string {
 		seen[s] = true
 		out = append(out, s)
 	}
-	sort.Strings(out)
+	sort.Slice(out, func(i, j int) bool { return utf16Less(out[i], out[j]) })
 	if out == nil {
 		out = []string{}
 	}
@@ -643,13 +663,17 @@ func configMaterial(args []string) []string {
 	}
 	valued := map[string]bool{
 		"--setting-sources": true, "--disable": true, "--disallowedTools": true,
-		"-c": true, "--settings": true, "--config": true, "--model": true, "-m": true,
+		"-c": true, "-m": true, "-p": true, "--settings": true, "--config": true, "--model": true, "--profile": true,
 	}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
+		if n, v, attached := shortAttached(a); attached && valued[n] {
+			out = append(out, n, v)
+			continue
+		}
 		name, inlineVal, inline := strings.Cut(a, "=")
 		if inline && valued[name] {
-			out = append(out, a)
+			out = append(out, name, inlineVal)
 			continue
 		}
 		if flags[a] {
@@ -659,7 +683,6 @@ func configMaterial(args []string) []string {
 		if valued[a] && i+1 < len(args) {
 			i++
 			out = append(out, a, args[i])
-			_ = inlineVal
 		}
 	}
 	if out == nil {
@@ -724,7 +747,7 @@ func submissionDigest(id string, verification, criterion json.RawMessage, eviden
 		}
 		ev = append(ev, namedSHA{Name: a.Path, SHA: a.Digest.Value})
 	}
-	sort.Slice(ev, func(i, j int) bool { return ev[i].Name < ev[j].Name })
+	sort.Slice(ev, func(i, j int) bool { return utf16Less(ev[i].Name, ev[j].Name) })
 	raw, err := json.Marshal(struct {
 		CheckID   string          `json:"check_id"`
 		Criterion json.RawMessage `json:"criterion_results"`
@@ -743,7 +766,7 @@ func submissionDigest(id string, verification, criterion json.RawMessage, eviden
 }
 
 func canonicalNamed(rows []namedSHA) (Digest, error) {
-	sort.Slice(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
+	sort.Slice(rows, func(i, j int) bool { return utf16Less(rows[i].Name, rows[j].Name) })
 	raw, err := json.Marshal(nonNilNamed(rows))
 	if err != nil {
 		return Digest{}, err
@@ -753,6 +776,22 @@ func canonicalNamed(rows []namedSHA) (Digest, error) {
 		return Digest{}, err
 	}
 	return Digest{Algorithm: "sha256", Value: sum}, nil
+}
+
+// utf16Less is RFC 8785 key order: UTF-16 code units, not Go's UTF-8 byte order.
+func utf16Less(a, b string) bool {
+	ua := utf16.Encode([]rune(a))
+	ub := utf16.Encode([]rune(b))
+	n := len(ua)
+	if len(ub) < n {
+		n = len(ub)
+	}
+	for i := 0; i < n; i++ {
+		if ua[i] != ub[i] {
+			return ua[i] < ub[i]
+		}
+	}
+	return len(ua) < len(ub)
 }
 
 func nonNilNamed(rows []namedSHA) []namedSHA {

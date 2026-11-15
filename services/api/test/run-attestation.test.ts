@@ -73,6 +73,11 @@ describe("attestation bytes", () => {
     for (const c of vector.cases as { name: string; payload: unknown; hash: string }[]) {
       expect(digest(c.payload), c.name).toBe(c.hash);
     }
+    const order = vector.order as { names: string[]; names_hash: string; keys_hash: string };
+    const sorted = [...order.names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    expect(sorted).toEqual(order.names);
+    expect(digest(sorted)).toBe(order.names_hash);
+    expect(digest({ "\uffff": 1, "😀": 2 })).toBe(order.keys_hash);
   });
 });
 

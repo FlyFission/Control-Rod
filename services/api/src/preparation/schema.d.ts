@@ -2440,20 +2440,24 @@ export interface components {
             probe_result: "pass" | "fail" | "not-run";
             workspace_before: components["schemas"]["ControlRod.Records.Digest"];
             workspace_after: components["schemas"]["ControlRod.Records.Digest"];
-            /** @description The model the run asked for, after the same resolution the daemon uses. */
-            requested_model: string;
+            /**
+             * @description The model the run asked for, after the same resolution the daemon uses.
+             *     Optional on the wire. A counted check still has to carry it.
+             */
+            requested_model?: string;
             /**
              * @description The check this statement belongs to. An attempt id when one was assigned,
-             *     otherwise `<run id>:<package revision>`.
+             *     otherwise `<run id>:<package revision>`. Optional on the wire. A counted
+             *     check still has to carry it.
              */
-            check_id: string;
-            /** @description Canonical digest of the author deliverable names and byte digests. */
-            deliverable_digest: components["schemas"]["ControlRod.Records.Digest"];
+            check_id?: string;
+            /** @description Canonical digest of the author deliverable names and byte digests. Optional on the wire. */
+            deliverable_digest?: components["schemas"]["ControlRod.Records.Digest"];
             /**
              * @description Canonical digest of the verification submission: outcome, findings,
-             *     criterion results, and evidence artifact digests.
+             *     criterion results, and evidence artifact digests. Optional on the wire.
              */
-            verification_digest: components["schemas"]["ControlRod.Records.Digest"];
+            verification_digest?: components["schemas"]["ControlRod.Records.Digest"];
             /** @description Hex SHA-256 of the raw 32-byte public key. */
             key_id: string;
             /** @description Standard base64 of the 64-byte Ed25519 signature. */

@@ -38,7 +38,8 @@ function validate(ajv: Ajv2020, schema: string, value: unknown): void {
 
 /** Digest of author deliverables: name and sha256, in name order. The same value a verification records. */
 export function deliverableDigest(outputs: { name: string; sha256: string }[]): string {
-  return digest(outputs.map((o) => ({ name: o.name, sha256: o.sha256 })));
+  const rows = [...outputs].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return digest(rows.map((o) => ({ name: o.name, sha256: o.sha256 })));
 }
 
 /**

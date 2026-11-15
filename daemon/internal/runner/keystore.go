@@ -20,20 +20,23 @@ var (
 // keyCommand runs a keychain helper. Tests replace it. Production uses the OS binary.
 var keyCommand = defaultKeyCommand
 
-func defaultKeyCommand(name string, args []string, stdin []byte) ([]byte, int, error) {
+func defaultKeyCommand(name string, args []string, stdin []byte) (stdout, stderr []byte, code int, err error) {
 	cmd := exec.Command(name, args...)
 	if len(stdin) > 0 {
 		cmd.Stdin = bytes.NewReader(stdin)
 	}
-	out, err := cmd.CombinedOutput()
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+	err = cmd.Run()
 	if err == nil {
-		return out, 0, nil
+		return outb.Bytes(), errb.Bytes(), 0, nil
 	}
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
-		return out, exit.ExitCode(), nil
+		return outb.Bytes(), errb.Bytes(), exit.ExitCode(), nil
 	}
-	return out, -1, err
+	return outb.Bytes(), errb.Bytes(), -1, err
 }
 
 // SigningKey returns the daemon's existing Ed25519 private key.
@@ -71,20 +74,25 @@ func InitSigningKey() (ed25519.PrivateKey, error) {
 	return priv, nil
 }
 
-// classifyKeychain separates "no item" from a keychain that cannot be used.
-// An empty or unrelated failure is unavailable, so a key is never invented over it.
-func classifyKeychain(code int, out []byte) error {
+// classifyKeychain reads the helper's exit code and stderr, never its stdout.
+// secret-tool lookup exits 1 with empty stderr when the item is absent.
+// A GError or D-Bus message means the keychain cannot be used, so no key is created.
+func classifyKeychain(code int, stderr []byte) error {
 	if code == 0 {
 		return nil
 	}
-	text := strings.ToLower(string(out))
-	if strings.Contains(text, "could not be found") || strings.Contains(text, "does not exist") || strings.Contains(text, "item not found") {
+	text := strings.TrimSpace(string(stderr))
+	low := strings.ToLower(text)
+	if strings.Contains(low, "could not be found") || strings.Contains(low, "does not exist") || strings.Contains(low, "item not found") {
+		return errKeyNotFound
+	}
+	if code == 1 && text == "" {
 		return errKeyNotFound
 	}
 	if text == "" {
 		return errKeychainUnavailable
 	}
-	return fmt.Errorf("%w: %s", errKeychainUnavailable, strings.TrimSpace(text))
+	return fmt.Errorf("%w: %s", errKeychainUnavailable, text)
 }
 
 func parseStoredKey(out []byte) (ed25519.PrivateKey, error) {

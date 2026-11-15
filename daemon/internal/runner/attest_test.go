@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -272,8 +273,12 @@ func TestAttestationVector(t *testing.T) {
 			}
 			out = append(out, stored{Name: []string{"ascii", "non-ascii", "empty-models"}[i], Payload: c.signed(), Hash: hex.EncodeToString(sum)})
 		}
+		order, err := attestationOrder()
+		if err != nil {
+			t.Fatal(err)
+		}
 		raw, err := json.MarshalIndent(map[string]any{
-			"cases": out, "public_key": PublicKeyBase64(pub), "signature": signed.Signature, "key_id": signed.KeyID,
+			"cases": out, "order": order, "public_key": PublicKeyBase64(pub), "signature": signed.Signature, "key_id": signed.KeyID,
 		}, "", "  ")
 		if err != nil {
 			t.Fatal(err)
@@ -288,10 +293,20 @@ func TestAttestationVector(t *testing.T) {
 		t.Fatal(err)
 	}
 	var vec struct {
-		Cases []stored `json:"cases"`
+		Cases []stored       `json:"cases"`
+		Order map[string]any `json:"order"`
 	}
 	if err := json.Unmarshal(raw, &vec); err != nil {
 		t.Fatal(err)
+	}
+	wantOrder, err := attestationOrder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotNames, _ := vec.Order["names"].([]any)
+	wantNames, _ := wantOrder["names"].([]string)
+	if len(gotNames) != len(wantNames) || len(wantNames) != 2 || gotNames[0] != wantNames[0] || gotNames[1] != wantNames[1] || vec.Order["names_hash"] != wantOrder["names_hash"] || vec.Order["keys_hash"] != wantOrder["keys_hash"] {
+		t.Fatalf("order %+v want %+v", vec.Order, wantOrder)
 	}
 	if len(vec.Cases) != 3 {
 		t.Fatalf("cases %d", len(vec.Cases))
@@ -343,6 +358,29 @@ func TestAttestationVector(t *testing.T) {
 	}
 }
 
+func attestationOrder() (map[string]any, error) {
+	emoji, high := "😀.md", "\uffff.md"
+	if emoji < high || !utf16Less(emoji, high) {
+		return nil, errors.New("the emoji and U+FFFF no longer disagree between byte order and UTF-16")
+	}
+	names := []string{high, emoji}
+	sort.Slice(names, func(i, j int) bool { return utf16Less(names[i], names[j]) })
+	raw, err := json.Marshal(names)
+	if err != nil {
+		return nil, err
+	}
+	namesHash, err := digest.CanonicalSHA256(raw)
+	if err != nil {
+		return nil, err
+	}
+	keys := []byte("{\"\\uffff\":1,\"😀\":2}")
+	keysHash, err := digest.CanonicalSHA256(keys)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"names": names, "names_hash": namesHash, "keys_hash": keysHash}, nil
+}
+
 func TestCountedConfigParsing(t *testing.T) {
 	job := countedJob(t)
 	sum := registerJobHarness(t, job)
@@ -387,16 +425,38 @@ func TestCountedConfigParsing(t *testing.T) {
 	if !strings.Contains(material, "-m") || !strings.Contains(material, "gpt-5-codex") {
 		t.Fatalf("model flag not in config digest material: %s", material)
 	}
+	attachedModel := strings.Join(configMaterial(append(base, "-mgpt-5-codex")), "\n")
+	if !strings.Contains(attachedModel, "-m\ngpt-5-codex") {
+		t.Fatalf("attached model flag: %s", attachedModel)
+	}
+	provider := append(append([]string{}, base...), `-cmodel_provider="ollama"`)
+	if err := CheckerAdmissionJob(job, fakeCmd(provider), artifact); err == nil || !strings.Contains(err.Error(), "custom base URL") {
+		t.Fatalf("attached -c: %v", err)
+	}
+	providers := append(append([]string{}, base...), `-cmodel_providers.ollama.base_url="http://127.0.0.1:11434"`)
+	if err := CheckerAdmissionJob(job, fakeCmd(providers), artifact); err == nil || !strings.Contains(err.Error(), "custom base URL") {
+		t.Fatalf("attached -c base url: %v", err)
+	}
+	shortProfile := append(append([]string{}, base...), "-pfoo")
+	if err := CheckerAdmissionJob(job, fakeCmd(shortProfile), artifact); err == nil || !strings.Contains(err.Error(), "profile") {
+		t.Fatalf("attached -p: %v", err)
+	}
+	if err := scanArgs("claude", []string{"-pThe prompt"}); err != nil {
+		t.Fatalf("claude -p is the print prompt: %v", err)
+	}
 }
 
 func TestKeychainFailureIsNotAMissingKey(t *testing.T) {
 	if err := classifyKeychain(1, []byte("The specified item could not be found")); !errors.Is(err, errKeyNotFound) {
 		t.Fatal(err)
 	}
-	if err := classifyKeychain(1, []byte("The name org.freedesktop.secrets was not provided")); !errors.Is(err, errKeychainUnavailable) || errors.Is(err, errKeyNotFound) {
+	if err := classifyKeychain(1, nil); !errors.Is(err, errKeyNotFound) {
+		t.Fatalf("empty stderr: %v", err)
+	}
+	if err := classifyKeychain(1, []byte("GDBus.Error: org.freedesktop.DBus.Error.ServiceUnknown")); !errors.Is(err, errKeychainUnavailable) || errors.Is(err, errKeyNotFound) {
 		t.Fatal(err)
 	}
-	if err := classifyKeychain(1, nil); !errors.Is(err, errKeychainUnavailable) {
+	if err := classifyKeychain(2, nil); !errors.Is(err, errKeychainUnavailable) || errors.Is(err, errKeyNotFound) {
 		t.Fatal(err)
 	}
 }

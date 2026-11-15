@@ -8,6 +8,8 @@ Release decision: **draft pull request for owner review; no merge is authorized 
 
 Rollback: revert the merge. Down migration `023` drops `attestation_nonces` and `daemon_signing_keys` and must run before `022`. A counted completion with no attestation does not count. There is no production switch that restores the old behavior.
 
+Monitoring after merge: `run.attestation-failed` is not a separate event. Watch `package.checker-attempt` rows whose outcome is `error`, `attestation_verified` is false, and `counts_as` is `inconclusive`. A burst of those on checks that should have counted means the enrolled key, the executable digest, or the attempt id is not the one the daemon signed. A retired key that still verifies means `daemon.retire-key` did not reach this server.
+
 `docs/commands/inventory.md` was already stale against `tools/generate_command_inventory.py` before this change. This change adds the `admin.daemon-enroll-key` and `admin.daemon-retire-key` rows and does not regenerate the rest.
 
 ## Required links

@@ -80,21 +80,21 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 200,
-            "description": "The model the run asked for, after the same resolution the daemon uses."
+            "description": "The model the run asked for, after the same resolution the daemon uses.\nOptional on the wire. A counted check still has to carry it."
         },
         "check_id": {
             "type": "string",
             "minLength": 1,
             "maxLength": 120,
-            "description": "The check this statement belongs to. An attempt id when one was assigned,\notherwise `<run id>:<package revision>`."
+            "description": "The check this statement belongs to. An attempt id when one was assigned,\notherwise `<run id>:<package revision>`. Optional on the wire. A counted\ncheck still has to carry it."
         },
         "deliverable_digest": {
             "$ref": "Digest.json",
-            "description": "Canonical digest of the author deliverable names and byte digests."
+            "description": "Canonical digest of the author deliverable names and byte digests. Optional on the wire."
         },
         "verification_digest": {
             "$ref": "Digest.json",
-            "description": "Canonical digest of the verification submission: outcome, findings,\ncriterion results, and evidence artifact digests."
+            "description": "Canonical digest of the verification submission: outcome, findings,\ncriterion results, and evidence artifact digests. Optional on the wire."
         },
         "key_id": {
             "type": "string",
@@ -122,10 +122,6 @@
         "probe_result",
         "workspace_before",
         "workspace_after",
-        "requested_model",
-        "check_id",
-        "deliverable_digest",
-        "verification_digest",
         "key_id",
         "signature"
     ],

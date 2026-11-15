@@ -47,6 +47,8 @@ export const COMMANDS = {
   "run.requeue": entry("member", "none", "Requeue"),
   "run.stop": entry("member", "none", "Stop run"),
   "run.override-independence": entry("member", "direct", "Override independence"),
+  "check.request": entry("member", "none", "Request checker attempt"),
+  "check.recheck-override": entry("member", "direct", "Override a sticky checker fail"),
   "runtime.report-status": entry("agent-via-daemon", "none", "Probe runtime"),
   "decision.apply": entry("member", "direct", "Release; Verdict", "write"),
   "verification.record-person": entry("member", "direct", "Record person verification"),
@@ -60,6 +62,7 @@ export const COMMANDS = {
 
   // Startup data changes after migrations.
   "migration.backfill-tenancy": entry("system", "none", "Migration data change (ownership, members, credential records)"),
+  "migration.backfill-checker-attempts": entry("system", "none", "Migration data change (checker attempts)"),
 
   // Administration (specification 10.2; services/api/src/admin.ts).
   "admin.org-create": entry("member", "direct", "Create organization"),

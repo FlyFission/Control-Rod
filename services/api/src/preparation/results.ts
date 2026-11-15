@@ -247,16 +247,17 @@ export async function persistCriterionResults(
 export async function currentCriterionResults(
   q: Db | Tx,
   pkg: PackageRow,
-  round: number | undefined,
   verification: VerificationRecord | null,
   lockEvidence = false,
 ) {
-  if (round === undefined || !verification) return null;
+  if (!verification) return null;
+  // The results that belong to this verification, not the newest check of the round. A later
+  // inconclusive recheck keeps its own results and must not be compared with an older pass or fail.
   const row = (
     await q.query<{ run_id: string; digest: string; body: CriterionResultSet }>(
-      "select r.run_id,r.digest,r.body from preparation_criterion_results r join verifications v on v.run_id=r.run_id where r.package_id=$1 and r.package_revision=$2 and v.round=$3 order by v.created_at desc,r.run_id desc limit 1" +
-        (lockEvidence ? " for share of r,v" : ""),
-      [pkg.id, pkg.revision, round],
+      "select r.run_id,r.digest,r.body from preparation_criterion_results r where r.package_id=$1 and r.package_revision=$2 and r.verification_digest=$3 order by r.run_id limit 1" +
+        (lockEvidence ? " for share of r" : ""),
+      [pkg.id, pkg.revision, digest(verification)],
     )
   ).rows[0];
   if (!row) return null;
@@ -389,13 +390,7 @@ export async function preparedAcceptanceGuard(
       "preparation-stale",
       "Preparation enrollment disappeared",
     );
-  const results = await currentCriterionResults(
-    c,
-    pkg,
-    author?.round,
-    verification,
-    lock,
-  );
+  const results = await currentCriterionResults(c, pkg, verification, lock);
   if (
     results &&
     results.body.release_manifest_digest.value !== digest(p.manifest)

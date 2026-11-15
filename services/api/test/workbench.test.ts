@@ -4,6 +4,9 @@ import { tx } from "../src/db/index.js";
 import { migrate } from "../src/db/migrate.js";
 import { WORKBENCH_MUTABLE, WORKBENCH_TABLES, WORKBENCH_TRANSITIONS } from "../src/db/migrations/010-workbench.js";
 import { WORKBENCH_LINKS_DOWN_SQL } from "../src/db/migrations/019-workbench-links.js";
+import { CHECKER_ATTEMPTS_DOWN_SQL } from "../src/db/migrations/020-checker-attempts.js";
+import { CHECKER_QUEUED_DIGESTS_DOWN_SQL } from "../src/db/migrations/021-checker-queued-digests.js";
+import { CHECKER_NO_TRUNCATE_DOWN_SQL } from "../src/db/migrations/022-checker-no-truncate.js";
 import { RUN_ATTESTATION_DOWN_SQL } from "../src/db/migrations/023-run-attestation.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
@@ -282,6 +285,9 @@ describe("classes", () => {
 describe("migration 019", () => {
   it("refuses startup naming rows 010 allowed to cross links, changes nothing, and runs once they are removed", async () => {
     await h.admin.query(RUN_ATTESTATION_DOWN_SQL);
+    await h.admin.query(CHECKER_NO_TRUNCATE_DOWN_SQL);
+    await h.admin.query(CHECKER_QUEUED_DIGESTS_DOWN_SQL);
+    await h.admin.query(CHECKER_ATTEMPTS_DOWN_SQL);
     await h.admin.query(WORKBENCH_LINKS_DOWN_SQL);
     const chk = { git_tree: "c".repeat(40), content_digest: D, actor: owner, captured_at: "2026-10-30T12:00:00.000Z" };
     await put("checkpoint", { id: "chk_crossed", exploration_id: "exp_1", workspace_id: "ws_2", ...chk });

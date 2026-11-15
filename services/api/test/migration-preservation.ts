@@ -11,13 +11,16 @@ import { CHAIN_SEALS_DOWN_SQL } from "../src/db/migrations/016-chain-seals.js";
 import { USAGE_ONCE_DOWN_SQL } from "../src/db/migrations/017-usage-once.js";
 import { SESSION_CREDENTIALS_DOWN_SQL } from "../src/db/migrations/018-session-credentials.js";
 import { WORKBENCH_LINKS_DOWN_SQL } from "../src/db/migrations/019-workbench-links.js";
+import { CHECKER_ATTEMPTS_DOWN_SQL } from "../src/db/migrations/020-checker-attempts.js";
+import { CHECKER_QUEUED_DIGESTS_DOWN_SQL } from "../src/db/migrations/021-checker-queued-digests.js";
+import { CHECKER_NO_TRUNCATE_DOWN_SQL } from "../src/db/migrations/022-checker-no-truncate.js";
 import { RUN_ATTESTATION_DOWN_SQL } from "../src/db/migrations/023-run-attestation.js";
 import { verifyChain } from "../src/events.js";
 import { TEST_ROLE_SECRETS } from "./harness.js";
 
 /** Tables that existed before migrations 009 and 010, except the event log, compared separately. */
 async function legacyTables(db: Db): Promise<string[]> {
-  const added = new Set<string>([...TENANCY_TABLES, ...WORKBENCH_TABLES.map((t) => t.name), "delegation_revocations", "member_invitations", "package_dependencies", "run_events", "scram_restarts", "quarantine_reviews", "scram_quarantine", "scram_quarantine_batches", "scram_runs", "chain_seals", "daemon_signing_keys", "attestation_nonces", "schema_migrations", "events"]);
+  const added = new Set<string>([...TENANCY_TABLES, ...WORKBENCH_TABLES.map((t) => t.name), "delegation_revocations", "member_invitations", "package_dependencies", "run_events", "scram_restarts", "quarantine_reviews", "scram_quarantine", "scram_quarantine_batches", "scram_runs", "chain_seals", "checker_attempts", "checker_recheck_overrides", "checker_recheck_uses", "checker_queued_digests", "daemon_signing_keys", "attestation_nonces", "schema_migrations", "events"]);
   const r = await db.query<{ t: string }>(
     "select table_name as t from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' order by table_name",
   );
@@ -52,6 +55,9 @@ export async function assertMigrationsPreserveHistory(db: Db, nonEmpty: string[]
   for (const t of [...nonEmpty, "events"]) expect(before[t]?.length ?? 0, `${t} must hold history`).toBeGreaterThan(0);
   expect((await verifyChain(db)).ok).toBe(true);
   await db.query(RUN_ATTESTATION_DOWN_SQL);
+  await db.query(CHECKER_NO_TRUNCATE_DOWN_SQL);
+  await db.query(CHECKER_QUEUED_DIGESTS_DOWN_SQL);
+  await db.query(CHECKER_ATTEMPTS_DOWN_SQL);
   await db.query(WORKBENCH_LINKS_DOWN_SQL);
   await db.query(SESSION_CREDENTIALS_DOWN_SQL);
   await db.query(USAGE_ONCE_DOWN_SQL);

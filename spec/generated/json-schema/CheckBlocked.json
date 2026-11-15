@@ -1,0 +1,32 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CheckBlocked.json",
+    "type": "object",
+    "properties": {
+        "code": {
+            "type": "string",
+            "const": "sticky-fail"
+        },
+        "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+        },
+        "change": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+        },
+        "deliverable_digest": {
+            "$ref": "Digest.json"
+        }
+    },
+    "required": [
+        "code",
+        "reason",
+        "change",
+        "deliverable_digest"
+    ],
+    "description": "A fail on the current deliverable digest is sticky: another check is refused until the\ndeliverable changes or the owner signs an override. The words are what the API and the page show.",
+    "unevaluatedProperties": false
+}

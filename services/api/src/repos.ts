@@ -20,6 +20,7 @@ import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { Refusal } from "./refusal.js";
+import { freezeWorkspace } from "./outfall.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -1685,6 +1686,23 @@ export function repoRoutes(
       });
       return { ok: true, ...result };
     });
+  });
+
+  app.post<{
+    Body: { repo_path?: string; label?: string; workspace_root?: string };
+  }>("/repos/freeze", async (req) => {
+    await person(req);
+    const body = req.body ?? {};
+    const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
+    const repoPath = resolve(body.repo_path ?? "");
+    if (!body.repo_path?.trim() || !isContainedIn(workspaceRoot, repoPath)) {
+      throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
+    }
+    const result = await freezeWorkspace({
+      repoDir: repoPath,
+      ...(body.label !== undefined ? { label: body.label } : {}),
+    });
+    return { ok: true, ...result };
   });
 
   app.post<{

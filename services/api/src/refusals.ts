@@ -121,6 +121,7 @@ export const REASONS: Record<string, Reason> = {
   "sticky-fail": r(STICKY_FAIL_REASON, STICKY_FAIL_CHANGE),
   "check-active": r("A check of this package is already queued or running.", "Wait for that check to finish, or stop it, before asking for another."),
   "override-unused": r("An unused override already covers this deliverable.", "Use that override, or stop the check it pays for, before signing another."),
+  "recheck-running": r("A recheck of this deliverable is already queued or running.", "Wait for that check to finish before signing another override."),
   "not-running": r("The run is not running.", "Nothing to stop; check its current state."),
   "run-lost": r("The run's lease expired, so a late report cannot revive it.", "Requeue the run."),
   "stale-claim": r("The runner reporting this does not hold the run's claim.", "Only the runner that claimed the run may report on it."),

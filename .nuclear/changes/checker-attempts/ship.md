@@ -3,7 +3,7 @@
 Release decision: **pull request for owner review. This record does not authorize a merge.**
 
 - **Proposed:** merge to `main` after review. The spec change is additive inside API 0.1: `CheckerAttempt`, `CheckBlocked`, `RecheckOverride`, the attempt list, the check request, and the recheck override. Existing record `schema_version` values are unchanged. Optional fields were added to `PackageView`.
-- **Not claimed:** no kernel source file is edited, and the sticky rule is not a new kernel action. `subjectOf` now chooses the governing verification and passes that to `decide`. A pass from an earlier revision is not that verification. A fail still is. That changes what acceptance sees. Putting the floor inside the kernel would be a protected change and was not done.
+- **Not claimed:** no kernel source file is edited, and the sticky rule is not a new kernel action. `subjectOf` now chooses the governing verification for the current revision and passes that to `decide`. A verification from an earlier revision is not passed in. A fail on the same bytes still sticks until an overridden pass clears it. That changes what acceptance sees. Putting the floor inside the kernel would be a protected change and was not done.
 - **Not claimed:** `daemon/internal/runner` was not changed. Timeout, quota and cancellation are classified from the completion error the daemon already sends (`timeout`, and text containing quota, rate limit, or cancel). A stop is cancelled.
 - **Owner decision requested:** whether the sticky rule should later move into the kernel, so a caller that bypasses `queueRun` cannot admit a check the server would have refused.
 

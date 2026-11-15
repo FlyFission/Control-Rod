@@ -28,6 +28,9 @@ import {
   checkBlocked,
   checkWarning,
   currentDeliverable,
+  consumeClaimedOverride,
+  hasLiveRecheck,
+  governingDecisive,
   governingVerification,
   hasStickyFail,
   hasUnconsumedOverride,
@@ -35,6 +38,7 @@ import {
   listCheckerAttempts,
   listRecheckOverrides,
   lockNextOverride,
+  pinDispatchedDigest,
   preCheckClaimGate,
   recordCheckerAttempt,
 } from "./checker-attempts.js";
@@ -375,10 +379,14 @@ export async function subjectOf(q: Db | Tx, pkg: PackageRow) {
   // acceptance criteria and the same files does not reuse the old pass. A fail stays. A later
   // inconclusive attempt does not replace either one, including a fail that exists only as a
   // verification written before attempts were recorded.
-  const governed = basis
-    ? await governingVerification(q, pkg.id, pkg.revision, digest(basisOuts.map((o) => ({ name: o.name, sha256: o.sha256 }))))
+  const deliverable = basis ? digest(basisOuts.map((o) => ({ name: o.name, sha256: o.sha256 }))) : null;
+  const decisive = deliverable ? await governingDecisive(q, pkg.id, pkg.revision, deliverable) : null;
+  // A pass or fail recorded on another revision is not this revision's pre-check. Criterion results
+  // belong to the verification that produced them, so an earlier record must not be substituted.
+  const governed = decisive?.revision === pkg.revision && deliverable
+    ? await governingVerification(q, pkg.id, pkg.revision, deliverable)
     : null;
-  const latest = !governed && author ? await latestVerification(q, pkg.id, pkg.revision, author.round) : null;
+  const latest = !decisive && author ? await latestVerification(q, pkg.id, pkg.revision, author.round) : null;
   const ver = governed ? { body: governed } : latest;
   const preparation = await preparationForSubject(q,pkg);
   const integrity=preparation && author?.status==="succeeded"?await authorOutputIntegrity(q,author.id):null;
@@ -590,12 +598,14 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
 /** Stops one queued run and, for a pre-check, records the attempt. A run already claimed is left alone. */
 async function stopQueuedRun(c: Tx, cfg: WorkConfig, row: { id: string; package_id: string; package_revision: number; role: string; round: number; body: Json }, error: string) {
   const body = { ...row.body, status: "stopped", finished_at: now(), error };
+  let updated;
   if (row.body?.schema_version === "0.1.0") {
     validate(cfg, "Run.json", body);
-    await c.query("update runs set status = 'stopped', body = $2 where id = $1 and status = 'queued'", [row.id, body]);
+    updated = await c.query("update runs set status = 'stopped', body = $2 where id = $1 and status = 'queued'", [row.id, body]);
   } else {
-    await c.query("update runs set status = 'stopped' where id = $1 and status = 'queued'", [row.id]);
+    updated = await c.query("update runs set status = 'stopped' where id = $1 and status = 'queued'", [row.id]);
   }
+  if ((updated.rowCount ?? 0) === 0) return;
   await appendEvent(c, "run.stopped", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
   await recordCheckerAttempt(c, cfg.ajv, { ...row, status: "stopped", body });
 }
@@ -1021,7 +1031,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           }
           if (!runtime) continue;
           if (row.role === "pre-check") {
-            const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id);
+            const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, null, "claim");
             if (gate !== "ok") {
               await stopQueuedRun(
                 c,
@@ -1051,7 +1061,12 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
             await appendEvent(c, "package.claimed", pkg.id, { kind: "agent", id: baseline }, { revision: pkg.revision, status: next });
           }
-          return startRun(c, cfg, row, runtime, baseline, net.hosts, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
+          const started = await startRun(c, cfg, row, runtime, baseline, net.hosts, budget.reservedSeconds, ceiling ? minutesUp(ceiling.runSeconds + ceiling.marginSeconds) : null);
+          if (row.role === "pre-check") {
+            await pinDispatchedDigest(c, row.package_id, row.package_revision, row.id);
+            await consumeClaimedOverride(c, row.package_id, row.package_revision, row.id);
+          }
+          return started;
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
         // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
@@ -1813,6 +1828,9 @@ export async function recheckSubject(db: Db, packageId: string, reason: unknown,
   if (!(await hasStickyFail(db, pkg.id, pkg.revision, current.digest))) {
     throw new Refusal(409, "wrong-state", "This deliverable has no failed check to override");
   }
+  if (await hasLiveRecheck(db, pkg.id, pkg.revision, current.digest)) {
+    throw new Refusal(409, "recheck-running", "A recheck of this deliverable is already queued or running.");
+  }
   const unused = await db.query(
     `select 1 from checker_recheck_overrides o
       where o.package_id = $1 and o.package_revision = $2 and o.deliverable_digest = $3
@@ -1864,6 +1882,9 @@ export async function recordRecheckOverride(
     }
     if (!(await hasStickyFail(c, pkg.id, pkg.revision, current.digest))) {
       throw new Refusal(409, "wrong-state", "This deliverable has no failed check to override");
+    }
+    if (await hasLiveRecheck(c, pkg.id, pkg.revision, current.digest)) {
+      throw new Refusal(409, "recheck-running", "A recheck of this deliverable is already queued or running.");
     }
     const a = signed.assertion;
     const assertion = {
@@ -2121,13 +2142,15 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   validate(cfg, "Run.json", finished);
   if (row.role === "pre-check" && finished.status === "succeeded") {
     const claimed = typeof body.verification?.output?.digest?.value === "string" ? body.verification.output.digest.value : null;
-    const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, claimed);
+    const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, claimed, "admit");
     if (gate !== "ok") {
       finished.status = "failed";
       finished.label = "Not admitted";
       finished.error = gate === "drift"
         ? "The deliverable changed after this check was queued, so the result was not admitted."
-        : "A fail on this deliverable still stands, and this check had no signed override, so the result was not admitted.";
+        : gate === "unpinned"
+          ? "The deliverable this check was dispatched against was not recorded, so a pass or fail was not admitted."
+          : "A fail on this deliverable still stands, and this check had no signed override, so the result was not admitted.";
       validate(cfg, "Run.json", finished);
     }
   }

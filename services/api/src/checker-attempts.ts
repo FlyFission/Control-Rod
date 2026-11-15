@@ -4,6 +4,7 @@ import type { Db, Tx } from "./db/index.js";
 import { type Actor, appendEvent } from "./events.js";
 import { digest } from "./kernel.js";
 import { Refusal } from "./refusal.js";
+import { scramRunEnded } from "./scram.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
 type Json = any;
@@ -85,8 +86,9 @@ export async function currentDeliverable(q: Q, packageId: string, revision: numb
 type Decisive = { outcome: "pass" | "fail"; revision: number; runId: string | null; overrideUse: boolean; at: string; seq: number };
 
 /**
- * The decisive result for this digest. Fails stick across revisions. A pass counts only for the
- * revision asked, and a pass supersedes an earlier fail only when that attempt spent a recheck override.
+ * The decisive result for this digest. A fail sticks until an overridden pass clears it, including
+ * a pass on an earlier revision. A pass is returned only for the revision asked, so a cleared fail
+ * does not stay sticky on the next revision and the earlier pass is not that revision's result.
  * Inconclusive never becomes the result while a pass or a fail exists.
  */
 export async function governingDecisive(q: Q, packageId: string, revision: number, deliverable: string): Promise<Decisive | null> {
@@ -101,7 +103,13 @@ export async function governingDecisive(q: Q, packageId: string, revision: numbe
     `select v.body, v.run_id, v.package_revision, v.created_at from verifications v
       where v.package_id = $1 and v.body->>'outcome' in ('pass', 'fail')
         and v.body->'output'->'digest'->>'value' = $2
-        and not exists (select 1 from checker_attempts a where a.run_id = v.run_id)
+        and not exists (
+          select 1 from checker_attempts a
+           where a.run_id = v.run_id
+             and a.body->>'digest_unknown' is distinct from 'true'
+             and a.body->'deliverable_digest'->>'value' = v.body->'output'->'digest'->>'value'
+             and a.body->>'counts_as' = v.body->>'outcome'
+        )
       order by v.created_at, v.run_id`,
     [packageId, deliverable],
   );
@@ -125,22 +133,40 @@ export async function governingDecisive(q: Q, packageId: string, revision: numbe
       seq: 0,
     })),
   ].sort((a, b) => a.at.localeCompare(b.at) || a.seq - b.seq || String(a.runId).localeCompare(String(b.runId)));
-  let decisive: Decisive | null = null;
+  let fail: Decisive | null = null;
+  let passHere: Decisive | null = null;
   for (const item of timeline) {
     if (item.outcome === "fail") {
-      decisive = item;
+      fail = item;
+      passHere = null;
       continue;
     }
+    // An overridden pass clears the fail it follows, whichever revision it was checked on.
+    if (fail && item.overrideUse) fail = null;
     if (item.revision !== revision) continue;
-    if (decisive?.outcome === "fail" && !item.overrideUse) continue;
-    decisive = item;
+    if (fail && !item.overrideUse) continue;
+    passHere = item;
   }
-  return decisive;
+  return fail ?? passHere;
 }
 
 /** Sticky means the governing decisive outcome for this revision and digest is fail. */
 export async function hasStickyFail(q: Q, packageId: string, revision: number, deliverable: string): Promise<boolean> {
   return (await governingDecisive(q, packageId, revision, deliverable))?.outcome === "fail";
+}
+
+/** A check that already spent an override on this revision and digest is still queued or running. */
+export async function hasLiveRecheck(q: Q, packageId: string, revision: number, deliverable: string): Promise<boolean> {
+  const r = await q.query(
+    `select 1 from checker_recheck_uses u
+      join checker_recheck_overrides o on o.id = u.override_id
+      join runs r on r.id = u.run_id
+      where o.package_id = $1 and o.package_revision = $2 and o.deliverable_digest = $3
+        and r.status in ('queued', 'running')
+      limit 1`,
+    [packageId, revision, deliverable],
+  );
+  return (r.rowCount ?? 0) > 0;
 }
 
 export async function hasUnconsumedOverride(q: Q, packageId: string, revision: number, deliverable: string): Promise<boolean> {
@@ -209,38 +235,77 @@ export async function checkBlocked(q: Q, packageId: string, revision: number): P
   };
 }
 
-/** The verification `decide` should see. Null when nothing decisive is on record for this revision and digest. */
+/**
+ * The verification `decide` should see for this revision. A decisive result on another revision is
+ * not returned: criterion results are stored against the verification that produced them.
+ */
 export async function governingVerification(q: Q, packageId: string, revision: number, deliverable: string): Promise<Json | null> {
   const decisive = await governingDecisive(q, packageId, revision, deliverable);
-  if (!decisive?.runId) return null;
-  const v = await q.query<{ body: Json }>("select body from verifications where run_id = $1", [decisive.runId]);
-  return v.rows[0]?.body ?? null;
+  if (!decisive?.runId || decisive.revision !== revision) return null;
+  const v = await q.query<{ body: Json; package_revision: number }>("select body, package_revision from verifications where run_id = $1", [decisive.runId]);
+  const row = v.rows[0];
+  if (!row || row.package_revision !== revision) return null;
+  return row.body;
 }
 
+export type PreCheckGateMode = "claim" | "admit" | "reconcile";
+
 /**
- * Claim and completion gate. "drift" means the author bytes are no longer the ones pinned at queue.
- * "sticky" means a fail still governs and this run has not spent an override. "ok" may spend one.
+ * "drift" means the author bytes are no longer the ones pinned for this run.
+ * "sticky" means a fail still governs and this run has no override use.
+ * "unpinned" means a running check has no record of the bytes it was dispatched against.
+ * Claim and reconcile may see an unused override and still return "ok"; neither spends it.
+ * Admit requires a checker_recheck_uses row already stored for this run.
  */
 export async function preCheckClaimGate(
   c: Tx,
   packageId: string,
   revision: number,
   runId: string,
-  claimed?: string | null,
-): Promise<"ok" | "drift" | "sticky"> {
+  claimed: string | null | undefined,
+  mode: PreCheckGateMode,
+): Promise<"ok" | "drift" | "sticky" | "unpinned"> {
   const pinned = (await c.query<{ deliverable_digest: string }>("select deliverable_digest from checker_queued_digests where run_id = $1", [runId])).rows[0]?.deliverable_digest;
   const actual = await currentDeliverable(c, packageId, revision);
   if (pinned && claimed && pinned !== claimed) return "drift";
   if (pinned && actual && pinned !== actual.digest) return "drift";
   if (claimed && actual && claimed !== actual.digest) return "drift";
+  if (mode === "admit" && !pinned) return "unpinned";
   const digestValue = pinned ?? actual?.digest;
-  if (!digestValue) return "ok";
+  if (!digestValue) return mode === "admit" ? "unpinned" : "ok";
   if (!(await hasStickyFail(c, packageId, revision, digestValue))) return "ok";
   if ((await c.query("select 1 from checker_recheck_uses where run_id = $1", [runId])).rowCount) return "ok";
+  if (mode === "admit") return "sticky";
   const override = await lockNextOverride(c, packageId, revision, digestValue);
   if (!override) return "sticky";
-  await consumeOverride(c, override.id, runId);
   return "ok";
+}
+
+/** Records the deliverable a pre-check is dispatched against, when queue time did not. */
+export async function pinDispatchedDigest(c: Tx, packageId: string, revision: number, runId: string): Promise<void> {
+  const pinned = await c.query("select 1 from checker_queued_digests where run_id = $1", [runId]);
+  if ((pinned.rowCount ?? 0) > 0) return;
+  const actual = await currentDeliverable(c, packageId, revision);
+  if (!actual) return;
+  await c.query(
+    "insert into checker_queued_digests (run_id, deliverable_digest) values ($1, $2) on conflict (run_id) do nothing",
+    [runId, actual.digest],
+  );
+}
+
+/**
+ * Spends one unused override on a check that is already running. Claim calls this only after the
+ * budget and the status transition have succeeded, in the same transaction.
+ */
+export async function consumeClaimedOverride(c: Tx, packageId: string, revision: number, runId: string): Promise<void> {
+  if ((await c.query("select 1 from checker_recheck_uses where run_id = $1", [runId])).rowCount) return;
+  const pinned = (await c.query<{ deliverable_digest: string }>("select deliverable_digest from checker_queued_digests where run_id = $1", [runId])).rows[0]?.deliverable_digest;
+  const actual = await currentDeliverable(c, packageId, revision);
+  const digestValue = pinned ?? actual?.digest;
+  if (!digestValue || !(await hasStickyFail(c, packageId, revision, digestValue))) return;
+  const override = await lockNextOverride(c, packageId, revision, digestValue);
+  if (!override) throw new Error(`pre-check ${runId} started against a sticky fail with no override`);
+  await consumeOverride(c, override.id, runId);
 }
 
 /** How many attempts the package view carries. Older ones stay on GET /checker-attempts. */
@@ -358,10 +423,11 @@ export async function reconcileLiveChecks(c: Tx, ajv: Ajv2020): Promise<number> 
       order by created_at, id`,
   );
   let stopped = 0;
+  let stoppedRunning = false;
   for (const row of rows.rows) {
     try {
-      const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id);
-      if (gate === "ok") continue;
+      const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, null, row.status === "running" ? "admit" : "reconcile");
+      if (gate === "ok" || gate === "unpinned") continue;
       const error = gate === "drift"
         ? "Stopped because the deliverable changed after this check was queued."
         : "Stopped because a fail on this deliverable still stands and this check has no signed override.";
@@ -374,15 +440,25 @@ export async function reconcileLiveChecks(c: Tx, ajv: Ajv2020): Promise<number> 
           return false;
         }
       })();
-      if (valid) await c.query("update runs set status = 'stopped', body = $2 where id = $1 and status in ('queued', 'running')", [row.id, body]);
-      else await c.query("update runs set status = 'stopped' where id = $1 and status in ('queued', 'running')", [row.id]);
+      const updated = valid
+        ? await c.query("update runs set status = 'stopped', body = $2 where id = $1 and status = $3", [row.id, body, row.status])
+        : await c.query("update runs set status = 'stopped' where id = $1 and status = $2", [row.id, row.status]);
+      if ((updated.rowCount ?? 0) === 0) continue;
       await appendEvent(c, "run.stopped", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
       await recordCheckerAttempt(c, ajv, { ...row, status: "stopped", body: valid ? body : { ...body, started_at: undefined, finished_at: now() } });
+      if (row.status === "running") {
+        await scramRunEnded(c, row.id);
+        stoppedRunning = true;
+      }
       stopped += 1;
     } catch (error) {
       console.error(`[control-rod] checker reconcile skipped ${row.id}: ${error instanceof Error ? error.message : String(error)}`);
       if (isDatabaseError(error)) throw error;
     }
+  }
+  if (stoppedRunning) {
+    const { settleEnded } = await import("./budgets.js");
+    await settleEnded(c);
   }
   return stopped;
 }
@@ -391,9 +467,25 @@ export async function reconcileLiveChecks(c: Tx, ajv: Ajv2020): Promise<number> 
  * Records one checker attempt. A second call for the same run does nothing, so a late report
  * cannot add a second row or replace the first.
  */
+function recordedAt(value: unknown, fallback: string): string {
+  if (typeof value === "string" && !Number.isNaN(Date.parse(value))) return new Date(value).toISOString();
+  return fallback;
+}
+
+function digestValue(value: unknown): string | undefined {
+  return typeof value === "string" && /^[0-9a-f]{64}([0-9a-f]{32})?$/.test(value) ? value : undefined;
+}
+
 async function recordUnknownAttempt(c: Tx, ajv: Ajv2020, run: AttemptRun): Promise<void> {
   await c.query("select pg_advisory_xact_lock(hashtext($1))", [`checker-attempt:${run.package_id}`]);
   if ((await c.query("select 1 from checker_attempts where run_id = $1", [run.id])).rowCount) return;
+  const verification = await c.query<{ body: Json }>("select body from verifications where run_id = $1", [run.id]);
+  const verdict = verification.rows[0]?.body?.outcome as string | undefined;
+  const fromRecord = digestValue(verification.rows[0]?.body?.output?.digest?.value);
+  const faithful = (verdict === "pass" || verdict === "fail" || verdict === "inconclusive") && fromRecord !== undefined;
+  const classified = faithful
+    ? classifyCheckerOutcome("succeeded", undefined, verdict)
+    : { outcome: "error" as const, counts_as: "inconclusive" as const };
   const seq = ((await c.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from checker_attempts where package_id = $1", [run.package_id])).rows[0]?.n ?? 0) + 1;
   const at = now();
   const attempt: Json = {
@@ -405,12 +497,13 @@ async function recordUnknownAttempt(c: Tx, ajv: Ajv2020, run: AttemptRun): Promi
     round: run.round,
     seq,
     checker_runtime: checkerRuntime(run.body),
-    digest_unknown: true,
-    outcome: "error",
-    counts_as: "inconclusive",
-    started_at: at,
-    finished_at: at,
+    ...(faithful ? { deliverable_digest: { algorithm: "sha256", value: fromRecord } } : { digest_unknown: true }),
+    outcome: classified.outcome,
+    counts_as: classified.counts_as,
+    started_at: recordedAt(run.body.queued_at, at),
+    finished_at: recordedAt(run.body.finished_at, at),
     evidence: `/packages/${run.package_id}/runs/${run.id}/log`,
+    ...(faithful ? { verification_run_id: run.id } : {}),
   };
   validate(ajv, "CheckerAttempt.json", attempt);
   const ins = await c.query(
@@ -425,7 +518,7 @@ async function recordUnknownAttempt(c: Tx, ajv: Ajv2020, run: AttemptRun): Promi
     round: run.round,
     outcome: attempt.outcome,
     counts_as: attempt.counts_as,
-    digest_unknown: true,
+    ...(faithful ? { deliverable_digest: fromRecord } : { digest_unknown: true }),
     checker_runtime: attempt.checker_runtime,
     evidence: attempt.evidence,
   });
@@ -439,7 +532,7 @@ export async function recordCheckerAttempt(c: Tx, ajv: Ajv2020, run: AttemptRun)
   const verdict = verification.rows[0]?.body?.outcome as string | undefined;
   const classified = classifyCheckerOutcome(run.status, typeof run.body.error === "string" ? run.body.error : undefined, verdict);
   const captured = await c.query<{ deliverable_digest: string }>("select deliverable_digest from checker_queued_digests where run_id = $1", [run.id]);
-  const fromRecord = verification.rows[0]?.body?.output?.digest?.value;
+  const fromRecord = digestValue(verification.rows[0]?.body?.output?.digest?.value);
   // A legacy run with no captured digest and no verification digest is unknown. It is not attached to
   // whatever bytes the package holds today.
   const deliverable = captured.rows[0]?.deliverable_digest ?? (typeof fromRecord === "string" ? fromRecord : undefined);
@@ -464,8 +557,8 @@ export async function recordCheckerAttempt(c: Tx, ajv: Ajv2020, run: AttemptRun)
     ...(deliverable ? { deliverable_digest: { algorithm: "sha256", value: deliverable } } : { digest_unknown: true }),
     outcome: classified.outcome,
     counts_as: classified.counts_as,
-    started_at: String(run.body.started_at ?? run.body.queued_at ?? now()),
-    finished_at: String(run.body.finished_at ?? now()),
+    started_at: recordedAt(run.body.started_at, recordedAt(run.body.queued_at, now())),
+    finished_at: recordedAt(run.body.finished_at, now()),
     evidence: `/packages/${run.package_id}/runs/${run.id}/log`,
     ...(verification.rows[0] ? { verification_run_id: run.id } : {}),
     ...(use.rows[0] ? { recheck_override: use.rows[0].body } : {}),

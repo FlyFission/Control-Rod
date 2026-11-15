@@ -755,4 +755,216 @@ describe("sticky checker fails", () => {
     expect(refused.json().code).toBe("unsigned");
     await settleOpenRuns();
   });
+
+  it("keeps an override when a claim is held by a budget, and when startup runs before the claim", async () => {
+    const id = await releasedPackage("BUDGET");
+    await author(id, "budget bytes");
+    await check(id, { status: "succeeded", outputs: [], verification: { outcome: "fail", findings: [] } });
+    await author(id, "budget bytes");
+    expect(await claim(["codex"])).toBeNull();
+    await signOverride(id, "One check after the budget lets it start");
+    const rerun = await asOwner("POST", `/packages/${id}/checks`);
+    expect(rerun.statusCode, rerun.body).toBe(201);
+    const uses = async () => (await h.admin.query(
+      "select count(*)::int as n from checker_recheck_uses u join checker_recheck_overrides o on o.id = u.override_id where o.package_id = $1",
+      [id],
+    )).rows[0]?.n;
+    expect(await uses()).toBe(0);
+
+    await command(h.db, "migration.backfill-checker-attempts", (c) => backfillCheckerAttempts(c, loadValidator()));
+    expect(await uses()).toBe(0);
+    expect((await h.admin.query<{ status: string }>("select status from runs where id = $1", [rerun.json().id])).rows[0]?.status).toBe("queued");
+
+    const org = (await h.admin.query<{ id: string }>("select tenancy_sole_org() as id")).rows[0]?.id;
+    const payload = { scope: "organization", scope_id: org, mode: "hard-cap", limit: { value: "60", unit: "minute" }, period: "P1D" };
+    const options = await asOwner("POST", "/admin/commands/budget.set/options", { payload });
+    expect(options.statusCode, options.body).toBe(200);
+    const set = await asOwner("POST", "/admin/commands/budget.set", { payload, assertion: passkey.assert(options.json().options) });
+    expect(set.statusCode, set.body).toBe(200);
+    try {
+      expect(await claim(["codex"])).toBeNull();
+      expect(await uses()).toBe(0);
+      expect((await h.admin.query<{ status: string }>("select status from runs where id = $1", [rerun.json().id])).rows[0]?.status).toBe("queued");
+    } finally {
+      await h.admin.query("update budgets set body = jsonb_set(body, '{status}', '\"retired\"') where id = $1", [set.json().id]);
+    }
+    await settleOpenRuns();
+  });
+
+  it("does not let a running check spend an override at admission", async () => {
+    const id = await releasedPackage("STEAL");
+    await author(id, "steal bytes");
+    const job = await claimRole(id, "pre-check", ["codex"]);
+    const pinned = (await h.admin.query<{ deliverable_digest: string }>(
+      "select deliverable_digest from checker_queued_digests where run_id = $1",
+      [job.run.id],
+    )).rows[0]?.deliverable_digest;
+    const at = "2026-11-06T00:00:00.000Z";
+    await h.admin.query(
+      "insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'pre-check', 2, 'succeeded', $3)",
+      ["R-stealfail", id, {
+        schema_version: "0.1.0", id: "R-stealfail", package_id: id, package_revision: 0, role: "pre-check",
+        agent_baseline: "checker", runtime: { kind: "subscription", provider: "codex", model: "default" },
+        round: 2, status: "succeeded", queued_at: at, started_at: at, finished_at: at,
+      }],
+    );
+    await h.admin.query(
+      "insert into verifications (run_id, package_id, package_revision, round, body) values ($1, $2, 0, 2, $3)",
+      ["R-stealfail", id, {
+        schema_version: "0.1.0", package_id: id, package_revision: 0,
+        output: { path: "report.md", digest: { algorithm: "sha256", value: pinned } },
+        method: "agent-pre-check", verifier: "checker", evidence: [], findings: [], outcome: "fail",
+      }],
+    );
+    await signOverride(id, "For a later check, not this one");
+    const done = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
+      status: "succeeded", outputs: [], trace: trace(job, "codex-test-model"), verification: { outcome: "pass", findings: [] },
+    });
+    expect(done.statusCode, done.body).toBeLessThan(300);
+    expect((await h.admin.query("select 1 from verifications where run_id = $1", [job.run.id])).rowCount).toBe(0);
+    expect((await h.admin.query(
+      "select count(*)::int as n from checker_recheck_uses u join checker_recheck_overrides o on o.id = u.override_id where o.package_id = $1",
+      [id],
+    )).rows[0]?.n).toBe(0);
+    expect((await attempts(id)).find((a) => a.run_id === job.run.id)?.counts_as).toBe("inconclusive");
+    const again = await asOwner("POST", `/packages/${id}/checks`);
+    expect(again.statusCode, again.body).toBe(201);
+    await settleOpenRuns();
+  });
+
+  it("keeps a fail from a malformed legacy run that still has a valid verification", async () => {
+    const id = await releasedPackage("MALFAIL");
+    await author(id, "malformed fail");
+    const queued = (await h.admin.query<{ id: string }>(
+      "select id from runs where package_id = $1 and role = 'pre-check' and status = 'queued'",
+      [id],
+    )).rows[0];
+    const pinned = (await h.admin.query<{ deliverable_digest: string }>(
+      "select deliverable_digest from checker_queued_digests where run_id = $1",
+      [queued?.id],
+    )).rows[0]?.deliverable_digest;
+    const at = "2026-11-07T00:00:00.000Z";
+    await h.admin.query(
+      "insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'pre-check', 4, 'succeeded', $3)",
+      ["R-malfail", id, {
+        schema_version: "0.1.0", id: "R-malfail", package_id: id, package_revision: 0, role: "pre-check",
+        agent_baseline: "checker", runtime: { kind: "subscription", provider: "codex", model: "default" },
+        round: 4, status: "succeeded", queued_at: at, started_at: "not-a-date", finished_at: at,
+      }],
+    );
+    await h.admin.query(
+      "insert into verifications (run_id, package_id, package_revision, round, body) values ($1, $2, 0, 4, $3)",
+      ["R-malfail", id, {
+        schema_version: "0.1.0", package_id: id, package_revision: 0,
+        output: { path: "report.md", digest: { algorithm: "sha256", value: pinned } },
+        method: "agent-pre-check", verifier: "checker", evidence: [], findings: [], outcome: "fail",
+      }],
+    );
+    await command(h.db, "migration.backfill-checker-attempts", (c) => backfillCheckerAttempts(c, loadValidator()));
+    const listed = (await attempts(id)).find((a) => a.run_id === "R-malfail");
+    expect(listed?.outcome).toBe("fail");
+    expect(listed?.counts_as).toBe("fail");
+    expect(listed?.deliverable_digest?.value).toBe(pinned);
+    expect(listed?.digest_unknown).not.toBe(true);
+    const refused = await asOwner("POST", `/packages/${id}/checks`);
+    expect(refused.statusCode, refused.body).toBe(409);
+    expect(refused.json().code).toBe("sticky-fail");
+    await settleOpenRuns();
+  });
+
+  it("pins a pre-migration check at claim, and does not admit a running check with no pin after the bytes change", async () => {
+    const id = await releasedPackage("UNPIN");
+    await author(id, "unpin bytes");
+    const queued = (await h.admin.query<{ id: string }>(
+      "select id from runs where package_id = $1 and role = 'pre-check' and status = 'queued'",
+      [id],
+    )).rows[0];
+    await h.admin.query("alter table checker_queued_digests disable trigger checker_queued_digests_frozen");
+    await h.admin.query("delete from checker_queued_digests where run_id = $1", [queued?.id]);
+    await h.admin.query("alter table checker_queued_digests enable trigger checker_queued_digests_frozen");
+    const job = await claimRole(id, "pre-check", ["codex"]);
+    const pinned = (await h.admin.query<{ deliverable_digest: string }>(
+      "select deliverable_digest from checker_queued_digests where run_id = $1",
+      [job.run.id],
+    )).rows[0]?.deliverable_digest;
+    expect(pinned).toMatch(/^[0-9a-f]{64}$/);
+    await h.admin.query("alter table checker_queued_digests disable trigger checker_queued_digests_frozen");
+    await h.admin.query("delete from checker_queued_digests where run_id = $1", [job.run.id]);
+    await h.admin.query("alter table checker_queued_digests enable trigger checker_queued_digests_frozen");
+    await h.admin.query("update outputs set sha256 = $2, bytes = $3 where package_id = $1", [id, "e".repeat(64), Buffer.from("drifted")]);
+    const done = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
+      status: "succeeded", outputs: [], trace: trace(job, "codex-test-model"), verification: { outcome: "pass", findings: [] },
+    });
+    expect(done.statusCode, done.body).toBeLessThan(300);
+    const listed = (await attempts(id)).find((a) => a.run_id === job.run.id);
+    expect(listed?.counts_as).toBe("inconclusive");
+    expect(listed?.outcome).not.toBe("pass");
+    expect((await h.admin.query("select 1 from verifications where run_id = $1", [job.run.id])).rowCount).toBe(0);
+    await settleOpenRuns();
+  });
+
+  it("lets an overridden pass on the earlier revision clear that fail when the same bytes come back", async () => {
+    const id = await releasedPackage("CLEARED");
+    await author(id, "same bytes");
+    await check(id, { status: "succeeded", outputs: [], verification: { outcome: "fail", findings: [] } });
+    await author(id, "same bytes");
+    expect(await claim(["codex"])).toBeNull();
+    await signOverride(id, "The fail was misread");
+    expect((await asOwner("POST", `/packages/${id}/checks`)).statusCode).toBe(201);
+    await check(id, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+    expect((await decide(id, "return", 0, "One more revision of the same bytes")).statusCode).toBe(201);
+    expect((await decide(id, "release", 1)).statusCode).toBe(201);
+    await author(id, "same bytes");
+    const view = (await asOwner("GET", `/packages/${id}`)).json();
+    expect(view.package.revision).toBe(1);
+    expect(view.pre_check).toBeUndefined();
+    expect(view.check_blocked).toBeUndefined();
+    const job = await claimRole(id, "pre-check", ["codex"]);
+    expect(job.run.package_id).toBe(id);
+    await settleOpenRuns();
+  });
+
+  it("does not show an earlier revision's fail as this revision's pre-check", async () => {
+    const id = await releasedPackage("OLDFAIL");
+    await author(id, "same bytes");
+    await check(id, { status: "succeeded", outputs: [], verification: { outcome: "fail", findings: [] } });
+    expect((await decide(id, "return", 0, "Same bytes, new revision")).statusCode).toBe(201);
+    expect((await decide(id, "release", 1)).statusCode).toBe(201);
+    await author(id, "same bytes");
+    const view = (await asOwner("GET", `/packages/${id}`)).json();
+    expect(view.pre_check).toBeUndefined();
+    expect(view.check_blocked.code).toBe("sticky-fail");
+    expect(await claim(["codex"])).toBeNull();
+    await settleOpenRuns();
+  });
+
+  it("does not record a stop for a check that was claimed before the stop landed", async () => {
+    const id = await releasedPackage("CLAIMED");
+    await author(id, "already claimed");
+    const job = await claimRole(id, "pre-check", ["codex"]);
+    const returned = await decide(id, "return", 0, "Return after the check was claimed");
+    expect(returned.statusCode, returned.body).toBe(201);
+    expect((await h.admin.query<{ status: string }>("select status from runs where id = $1", [job.run.id])).rows[0]?.status).toBe("running");
+    expect((await attempts(id)).some((a) => a.run_id === job.run.id)).toBe(false);
+    const stopped = ((await asOwner("GET", "/events")).json() as { type: string; subject: string }[])
+      .filter((e) => e.type === "run.stopped" && e.subject === job.run.id);
+    expect(stopped).toEqual([]);
+    await settleOpenRuns();
+  });
+
+  it("refuses another override while the recheck that spent one is still running", async () => {
+    const id = await releasedPackage("LIVEOVR");
+    await author(id, "live override");
+    await check(id, { status: "succeeded", outputs: [], verification: { outcome: "fail", findings: [] } });
+    await author(id, "live override");
+    expect(await claim(["codex"])).toBeNull();
+    await signOverride(id, "The one check now running");
+    const rerun = await asOwner("POST", `/packages/${id}/checks`);
+    expect(rerun.statusCode, rerun.body).toBe(201);
+    await claimRole(id, "pre-check", ["codex"]);
+    const again = await asOwner("POST", `/packages/${id}/recheck-overrides/options`, { reason: "A second signature" });
+    expect(again.statusCode, again.body).toBe(409);
+    expect(again.json().code).toBe("recheck-running");
+    await settleOpenRuns();
+  });
 });

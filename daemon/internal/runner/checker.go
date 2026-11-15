@@ -877,20 +877,35 @@ func seatbeltProfile(writable, unreadable []string) string {
 }
 
 // sessionReadDenies lists real session directories the macOS profile must hide.
-// The path is not canonicalized: EvalSymlinks would follow sessions -> $HOME
-// and deny the home directory.
+// The login root is canonicalized first, so /var and /private/var are the same
+// directory. The relative name is then joined and not resolved: EvalSymlinks
+// of sessions -> $HOME would deny the home directory.
 func sessionReadDenies(root string, rels []string) []string {
 	if root == "" {
 		return nil
 	}
+	real := root
+	if c, err := canonicalPath(root); err == nil {
+		real = c
+	}
 	var out []string
 	for _, rel := range rels {
-		p := filepath.Join(root, rel)
+		p := filepath.Join(real, rel)
 		if _, err := os.Lstat(p); err == nil {
 			out = append(out, p)
 		}
 	}
 	return out
+}
+
+// requireSeatbeltQualified refuses a sandboxed checker on macOS until someone
+// has run the Seatbelt profile on a Mac and set CONTROLROD_SEATBELT_QUALIFIED=1.
+// Any other value, including an empty one, stays refused.
+func requireSeatbeltQualified() error {
+	if os.Getenv("CONTROLROD_SEATBELT_QUALIFIED") == "1" {
+		return nil
+	}
+	return errors.New("macOS checker sandbox not yet qualified")
 }
 
 // makeCheckerRunTmp creates one directory for this run under the canonical

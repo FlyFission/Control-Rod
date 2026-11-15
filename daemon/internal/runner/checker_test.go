@@ -375,6 +375,48 @@ func TestSeatbeltProfileDeniesWritesExceptScratch(t *testing.T) {
 	}
 }
 
+func TestSeatbeltIsUnqualifiedUntilTheFlagIsSet(t *testing.T) {
+	t.Setenv("CONTROLROD_SEATBELT_QUALIFIED", "")
+	if err := requireSeatbeltQualified(); err == nil || err.Error() != "macOS checker sandbox not yet qualified" {
+		t.Fatalf("default: %v", err)
+	}
+	t.Setenv("CONTROLROD_SEATBELT_QUALIFIED", "true")
+	if err := requireSeatbeltQualified(); err == nil {
+		t.Fatal("a value other than 1 qualified the sandbox")
+	}
+	t.Setenv("CONTROLROD_SEATBELT_QUALIFIED", "1")
+	if err := requireSeatbeltQualified(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSessionReadDeniesCanonicalizesTheRootOnly(t *testing.T) {
+	real := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(real, "log"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	if err := os.Symlink(home, filepath.Join(real, "sessions")); err != nil {
+		t.Fatal(err)
+	}
+	linkParent := t.TempDir()
+	link := filepath.Join(linkParent, "login")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	denies := sessionReadDenies(link, []string{"log", "sessions"})
+	got := map[string]bool{}
+	for _, p := range denies {
+		got[p] = true
+		if p == home || p == link || strings.HasPrefix(p, link+string(os.PathSeparator)) {
+			t.Fatalf("deny resolved too far: %s", p)
+		}
+	}
+	if !got[filepath.Join(real, "log")] || !got[filepath.Join(real, "sessions")] {
+		t.Fatalf("denies %v", denies)
+	}
+}
+
 func TestMacProfileHidesRealSessionDirs(t *testing.T) {
 	home := t.TempDir()
 	login := filepath.Join(home, ".codex")

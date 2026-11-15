@@ -1211,6 +1211,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		if ws.CheckerTmp != "" {
 			defer os.RemoveAll(ws.CheckerTmp)
 		}
+		if ws.Seccomp != nil {
+			defer ws.Seccomp.Close()
+		}
 		checkerReady = err == nil
 	}
 	if err == nil {

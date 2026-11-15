@@ -60,6 +60,9 @@ type Workspace struct {
 	// CheckerTmp is the macOS per-run temporary directory. The daemon removes it
 	// after the run. Linux uses the private /tmp tmpfs and does not set this.
 	CheckerTmp string
+	// Seccomp is the Unix-socket filter passed to bubblewrap. The daemon closes
+	// it after the run. It is nil when the platform has no seccomp filter.
+	Seccomp *os.File
 }
 
 // WorkspaceDir returns <root>/work/<package_id>/r<rev>/<role>-<round>-<runid>. Every segment

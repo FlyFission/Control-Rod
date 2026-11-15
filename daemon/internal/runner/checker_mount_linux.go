@@ -38,9 +38,23 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	if cmd == nil || len(cmd.Args) == 0 || ws == nil {
 		return nil, fmt.Errorf("the checker has no command to mount, so the check cannot count")
 	}
+	if err := bwrapHasSeccomp(bwrap); err != nil {
+		return nil, err
+	}
+	filter, err := seccompFilterFile()
+	if err != nil {
+		return nil, err
+	}
+	if ws.Seccomp != nil {
+		ws.Seccomp.Close()
+	}
+	ws.Seccomp = filter
+	cmd.ExtraFiles = append(cmd.ExtraFiles, filter)
+	seccompFD := 2 + len(cmd.ExtraFiles)
 	argv := append([]string{}, cmd.Args...)
 	out := []string{
 		bwrap, "--die-with-parent", "--unshare-pid", "--unshare-ipc",
+		"--seccomp", strconv.Itoa(seccompFD),
 		"--ro-bind", "/", "/",
 		"--proc", "/proc",
 		"--dev", "/dev",
@@ -107,25 +121,86 @@ func hideHostSockets(cmd *exec.Cmd, ws *Workspace) []string {
 			sockets = append(sockets, filepath.Join(home, name))
 		}
 	}
+	tried := map[string]bool{}
 	seen := map[string]bool{}
 	for _, p := range sockets {
 		p = filepath.Clean(p)
-		if p == "" || p == "." || seen[p] || !filepath.IsAbs(p) || coveredBy(p, covered) || coveredBy(p, []string{"/tmp"}) {
+		if p == "" || p == "." || tried[p] || !filepath.IsAbs(p) {
 			continue
 		}
-		seen[p] = true
-		if skipSocketHide(ws, p) {
-			continue
-		}
-		st, err := os.Lstat(p)
-		if err != nil {
-			continue
-		}
-		if st.Mode()&os.ModeSocket != 0 || st.Mode()&os.ModeSymlink != 0 {
-			out = append(out, "--ro-bind", "/dev/null", p)
+		tried[p] = true
+		for _, target := range socketMaskTargets(p) {
+			if seen[target] || coveredBy(target, covered) || coveredBy(target, []string{"/tmp"}) {
+				continue
+			}
+			seen[target] = true
+			if skipSocketHide(ws, target) {
+				continue
+			}
+			out = append(out, "--ro-bind", "/dev/null", target)
 		}
 	}
 	return out
+}
+
+// socketMaskTargets is the path bubblewrap can mount onto, plus the
+// EvalSymlinks target when the path or one of its parents is a symlink.
+// /var/run is a symlink to /run on many hosts; mounting onto
+// /var/run/docker.sock then fails with "No such file or directory". The
+// real socket is masked instead, and a symlink socket is masked at both
+// ends.
+func socketMaskTargets(path string) []string {
+	path = filepath.Clean(path)
+	if path == "" || path == "/" || path == "/dev/null" || !filepath.IsAbs(path) {
+		return nil
+	}
+	st, err := os.Lstat(path)
+	if err != nil {
+		return nil
+	}
+	if st.Mode()&os.ModeSocket == 0 && st.Mode()&os.ModeSymlink == 0 {
+		return nil
+	}
+	var out []string
+	add := func(p string) {
+		p = filepath.Clean(p)
+		if p == "" || p == "/" || p == "/dev/null" || !parentsAreReal(p) {
+			return
+		}
+		for _, have := range out {
+			if have == p {
+				return
+			}
+		}
+		tst, err := os.Lstat(p)
+		if err != nil || (tst.Mode()&os.ModeSocket == 0 && tst.Mode()&os.ModeSymlink == 0) {
+			return
+		}
+		out = append(out, p)
+	}
+	add(path)
+	if !parentsAreReal(path) || st.Mode()&os.ModeSymlink != 0 {
+		if target, err := filepath.EvalSymlinks(path); err == nil {
+			add(target)
+		}
+	}
+	return out
+}
+
+func parentsAreReal(path string) bool {
+	dir := filepath.Dir(filepath.Clean(path))
+	for dir != "/" && dir != "." {
+		st, err := os.Lstat(dir)
+		if err != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+			return false
+		}
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
+	return true
 }
 
 func realDir(path string) bool {

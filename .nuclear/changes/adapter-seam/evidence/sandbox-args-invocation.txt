@@ -1,0 +1,5 @@
+binary args: sandbox-args --runtime <claude|codex> --policy /tmp/adapter-seam-sandbox/policy.json --workspace /tmp/adapter-seam-sandbox/workspace --home /tmp/adapter-seam-sandbox/home --daemon-home /tmp/adapter-seam-sandbox/home/.controlrod
+env -i HOME=/tmp/adapter-seam-sandbox/home USER=owner LOGNAME=owner SHELL=/bin/bash PATH=/tmp/adapter-seam-bin:/usr/bin:/bin LANG=C.UTF-8 LANGUAGE=en LC_ALL=C.UTF-8 TZ=UTC TERM=xterm-256color TMPDIR=/tmp NO_COLOR=1 COLORTERM=truecolor
+PATH entry /tmp/adapter-seam-bin/codex is a copy of /bin/true (ELF). This machine has no Codex install; the copy lets sandbox-args stage an executable and print the launch. The absent-Codex result is sandbox-args-codex-absent-before.*.
+policy fixture: evidence/policy.json (sandbox_test.go testPolicy fields)
+workspace: /tmp/adapter-seam-sandbox/workspace

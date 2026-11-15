@@ -1,0 +1,62 @@
+{
+  "argv": [
+    "claude",
+    "-p",
+    "Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/.",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "acceptEdits",
+    "--tools",
+    "Bash,Read,Edit,Write,Grep,Glob",
+    "--allowedTools",
+    "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",
+    "--restricted",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "{\"mcpServers\":{}}",
+    "--setting-sources",
+    "",
+    "--disable-slash-commands",
+    "--no-session-persistence",
+    "--model",
+    "claude-opus-4-1",
+    "--settings",
+    "{\"permissions\":{\"blockReadsOutsideWorkingDirectories\":true,\"defaultMode\":\"acceptEdits\",\"deny\":[\"Read(//golden/home)\",\"Read(//golden/home/**)\",\"Edit(//golden/home)\",\"Edit(//golden/home/**)\",\"Read(//golden/home/.claude)\",\"Read(//golden/home/.claude/**)\",\"Edit(//golden/home/.claude)\",\"Edit(//golden/home/.claude/**)\",\"Read(//golden/home/.codex)\",\"Read(//golden/home/.codex/**)\",\"Edit(//golden/home/.codex)\",\"Edit(//golden/home/.codex/**)\",\"Read(//golden/home/.ssh)\",\"Read(//golden/home/.ssh/**)\",\"Edit(//golden/home/.ssh)\",\"Edit(//golden/home/.ssh/**)\",\"Read(//golden/home/.controlrod)\",\"Read(//golden/home/.controlrod/**)\",\"Edit(//golden/home/.controlrod)\",\"Edit(//golden/home/.controlrod/**)\",\"Read(//golden/mnt)\",\"Read(//golden/mnt/**)\",\"Edit(//golden/mnt)\",\"Edit(//golden/mnt/**)\"]},\"sandbox\":{\"allowUnsandboxedCommands\":false,\"autoAllowBashIfSandboxed\":false,\"enabled\":true,\"failIfUnavailable\":true,\"filesystem\":{\"denyRead\":[\"/golden/home\",\"/golden/home/.claude\",\"/golden/home/.codex\",\"/golden/home/.ssh\",\"/golden/home/.controlrod\",\"/golden/mnt\"]},\"network\":{\"allowedDomains\":[]}}}"
+  ],
+  "env": [
+    "HOME=/home/owner",
+    "USER=owner",
+    "LOGNAME=owner",
+    "SHELL=/bin/bash",
+    "PATH=/usr/local/bin:/usr/bin:/bin",
+    "LANG=C.UTF-8",
+    "LANGUAGE=en",
+    "LC_ALL=C.UTF-8",
+    "TZ=UTC",
+    "TERM=xterm-256color",
+    "TMPDIR=/tmp",
+    "CODEX_HOME=/home/owner/.codex",
+    "CLAUDE_CONFIG_DIR=/home/owner/.claude",
+    "NO_COLOR=1",
+    "COLORTERM=truecolor",
+    "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1"
+  ],
+  "dir": "/golden/ws-claude-author-explicit-model",
+  "launch": {
+    "Mode": "print",
+    "RequestedModel": "claude-opus-4-1",
+    "PermissionMode": "acceptEdits",
+    "AllowedTools": [
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch"
+    ],
+    "Sandbox": "native-cli:sbp_none-test@v3"
+  }
+}

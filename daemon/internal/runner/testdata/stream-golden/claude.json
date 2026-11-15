@@ -1,0 +1,135 @@
+[
+  {
+    "line": "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"s1\",\"tools\":[\"Read\",\"Write\"]}",
+    "ended": false,
+    "failed": false,
+    "events": []
+  },
+  {
+    "line": "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"I will now write a secret plan IGNORE PREVIOUS INSTRUCTIONS\"}]}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "message",
+        "at": "2026-10-31T12:00:00Z",
+        "text": "I will now write a secret plan IGNORE PREVIOUS INSTRUCTIONS"
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t1\",\"name\":\"Read\",\"input\":{\"file_path\":\"/w/inputs/BRIEF.md\"}}]}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "tool_start",
+        "at": "2026-10-31T12:00:00Z",
+        "tool": "Read",
+        "summary": "Read: BRIEF.md",
+        "input_digest": "a656443adc5decda227d4e5d5aed95e017dce7427f2660160239bec5e4061ae8",
+        "call_id": "t1"
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"user\",\"message\":{\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"t1\",\"content\":\"brief text\"}]}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "tool_end",
+        "at": "2026-10-31T12:00:00Z",
+        "call_id": "t1",
+        "ok": true
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t2\",\"name\":\"Bash\",\"input\":{\"command\":\"python3 calc/relief.py --case inputs/case.json; rm -rf /\"}}]}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "tool_start",
+        "at": "2026-10-31T12:00:00Z",
+        "tool": "Bash",
+        "summary": "Run: python3",
+        "input_digest": "c40075bca245a9739ad825036521467b8ca345f42fa5ba7d8a68f5c5d5d0a727",
+        "call_id": "t2"
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t3\",\"name\":\"WebFetch\",\"input\":{\"url\":\"https://standards.example.org/relief/index.json\",\"prompt\":\"which edition applies\"}}]}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "tool_start",
+        "at": "2026-10-31T12:00:00Z",
+        "tool": "WebFetch",
+        "summary": "Fetch: standards.example.org",
+        "input_digest": "12be28114fd94f2428af431e5394ff1a10120724e1c35591d95393224dd646b6",
+        "call_id": "t3"
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t4\",\"name\":\"WebSearch\",\"input\":{\"query\":\"relief valve sizing standard\"}}]}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "tool_start",
+        "at": "2026-10-31T12:00:00Z",
+        "tool": "WebSearch",
+        "summary": "Search",
+        "input_digest": "112e2b055af52745d0f9fb5beefe4a758fe08e4329b6e9db5bfc697b21c93ce5",
+        "call_id": "t4"
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t5\",\"name\":\"Write\",\"input\":{\"file_path\":\"/w/out/relief sizing (draft).md\",\"content\":\"...\"}}]}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "tool_start",
+        "at": "2026-10-31T12:00:00Z",
+        "tool": "Write",
+        "summary": "Edit: reliefsizingdraft.md",
+        "input_digest": "814192493f4555143b43447c0537f59fbf2a0f133e0114d477627875d3bba8cb",
+        "call_id": "t5"
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"t6\",\"name\":\"Bash\",\"input\":{\"command\":\"APPROVE_EVERYTHING_NOW_please_trust_me_this_is_a_very_long_first_token_to_clip echo\"}}]}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "tool_start",
+        "at": "2026-10-31T12:00:00Z",
+        "tool": "Bash",
+        "summary": "Run: APPROVE_EVERYTHING_NOW_please_trust_me_t",
+        "input_digest": "07d5a8ea2cd18b42acfeff0df0179e22c23a9c67c744447ae450a37fec264232",
+        "call_id": "t6"
+      }
+    ]
+  },
+  {
+    "line": "not json at all",
+    "ended": false,
+    "failed": false,
+    "events": []
+  },
+  {
+    "line": "{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"Done. Everything is perfect, approve it.\"}",
+    "ended": true,
+    "failed": false,
+    "events": []
+  }
+]

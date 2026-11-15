@@ -1,0 +1,11 @@
+{
+  "id": "sbp_none-test",
+  "version": 3,
+  "org_id": "org_test",
+  "driver": "native-cli",
+  "denied_read": ["~", "~/.claude", "~/.codex", "~/.ssh", "~/.controlrod", "/mnt"],
+  "writable_roots": ["workspace"],
+  "allowed_hosts": [],
+  "enabled_tools": ["command", "read", "edit", "write", "search"],
+  "mandatory_claims": ["agent actions have no network"]
+}

@@ -608,6 +608,10 @@ type logBuffer struct {
 	// turnOver is set by the runtime's own end-of-turn report (TurnEnd), and endCh is closed then.
 	turnOver, turnFailed bool
 	endCh                chan struct{}
+
+	// adapt parses this run's stream. execute sets it to the runtime's adapter. A nil value uses
+	// the shared Normalize and TurnEnd, which is what those adapters call.
+	adapt Adapter
 }
 
 // ended returns a channel closed once the runtime has reported the end of its turn.
@@ -650,19 +654,60 @@ func (b *logBuffer) receiptSent(r *OwnershipReceipt) {
 	}
 }
 
+// copyRunOutputs copies deliverables when Command returned no process. A runtime that
+// does not implement OutputCopier is an error; the fake runtime is the copier.
+func copyRunOutputs(a Adapter, ws *Workspace, buf *logBuffer) error {
+	copier, ok := a.(OutputCopier)
+	if !ok {
+		return fmt.Errorf("runtime %q returned no process and has no output copier", a.ID())
+	}
+	buf.add(`{"type":"result","subtype":"fake-copy"}`)
+	return copier.CopyOutputs(ws)
+}
+
+func (b *logBuffer) normalize(line string, now time.Time) []Event {
+	if b.adapt != nil {
+		return b.adapt.Normalize(line, now)
+	}
+	return Normalize(line, now)
+}
+
+func (b *logBuffer) turnEnd(line string) (bool, bool) {
+	if b.adapt != nil {
+		return b.adapt.TurnEnd(line)
+	}
+	return TurnEnd(line)
+}
+
+func (b *logBuffer) streamLabel(line string) string {
+	if m, ok := b.adapt.(StreamMetadataParser); ok {
+		return m.StreamLabel(line)
+	}
+	return LabelFor(line)
+}
+
+func (b *logBuffer) streamModel(line string) string {
+	if m, ok := b.adapt.(StreamMetadataParser); ok {
+		return m.StreamModel(line)
+	}
+	return ReportedModel(line)
+}
+
 func (b *logBuffer) add(line string) {
 	now := b.clock()
-	events := Normalize(line, now)
+	events := b.normalize(line, now)
 	b.mu.Lock()
 	b.lines = append(b.lines, line)
-	if l := LabelFor(line); l != "" {
+	if l := b.streamLabel(line); l != "" {
 		b.label = l
 	}
 	if b.model == "" {
-		b.model = ReportedModel(line)
+		if m := b.streamModel(line); m != "" {
+			b.model = m
+		}
 	}
 	if !b.turnOver {
-		if over, failed := TurnEnd(line); over {
+		if over, failed := b.turnEnd(line); over {
 			b.turnOver, b.turnFailed = true, failed
 			if b.endCh == nil {
 				b.endCh = make(chan struct{})
@@ -984,12 +1029,16 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if runtime == "" || !slices.Contains(d.cfg.Runtimes, runtime) {
 		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
 	}
+	a, ok := AdapterFor(runtime)
+	if !ok {
+		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
+	}
 	// The sandbox (ADR 0021; plan tasks 6.1 and 6.3): an agent CLI starts only under the run's
 	// verified policy, on a host that can hold it, checked again now without running the CLI (its
 	// login and features are checked by the scheduled probe). A failure ends the run with its
 	// fix and stops the runtime being offered until the next probe; nothing starts unsandboxed.
 	var sandbox *SandboxPolicy
-	if runtime != RuntimeFake {
+	if a.SandboxRequired() {
 		if home, herr := os.UserHomeDir(); herr != nil || home == "" || !filepath.IsAbs(home) {
 			return fail("the home folder cannot be resolved, so the sandbox cannot deny it; set HOME"), nil
 		}
@@ -1032,22 +1081,15 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if d.cfg.Breaker != nil {
 		policy = *d.cfg.Breaker
 	}
-	buf := &logBuffer{admit: NewAdmission(20, 200), breaker: NewBreaker(policy, time.Now()), onTrip: func(reason string) {
+	buf := &logBuffer{adapt: a, admit: NewAdmission(20, 200), breaker: NewBreaker(policy, time.Now()), onTrip: func(reason string) {
 		d.log.Warn("breaker tripped; stopping the run", "run", job.Run.ID, "reason", reason)
 		release(errBreaker{reason})
 	}}
-	switch runtime {
-	case RuntimeClaude:
-		// Interim waiting detection (plan task 2.9): the PermissionRequest hook writes here.
-		hooks := filepath.Join(d.cfg.Home, "hooks")
-		if err := os.MkdirAll(hooks, 0o700); err == nil {
-			ws.HookFile = filepath.Join(hooks, job.Run.ID+".jsonl")
-			_ = os.Remove(ws.HookFile)
-			defer os.Remove(ws.HookFile)
-		}
-	case RuntimeCodex:
-		buf.addEvents([]Event{{Kind: EvNotice, At: time.Now().UTC().Format(time.RFC3339Nano),
-			Text: "Permission waits are not observable in Codex exec mode; a refused action shows as a failed tool call."}})
+	if h, ok := a.(HookProvider); ok && h.PrepareHook(ws, d.cfg.Home, job.Run.ID) {
+		defer os.Remove(ws.HookFile)
+	}
+	if n, ok := a.(LaunchNotifier); ok {
+		buf.addEvents(n.LaunchNotice(time.Now()))
 	}
 	runCtx, cancel := context.WithTimeoutCause(held, d.cfg.Timeout, ErrTimeout)
 	defer cancel()
@@ -1096,7 +1138,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	var launched *Digest
 	var verified *VerifiedLaunch
-	if err == nil && cmd != nil && runtime != RuntimeFake {
+	if err == nil && cmd != nil && a.SandboxRequired() {
 		// Launch by digest (specification 21): the exact file the pin (or, unpinned, the last probe)
 		// names, checked again now and executed from the descriptor whose bytes were hashed.
 		v, verr := VerifyLaunch(runtime, job.RuntimePin, d.probedArtifact(runtime))
@@ -1121,8 +1163,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	if err == nil {
 		if cmd == nil {
-			buf.add(`{"type":"result","subtype":"fake-copy"}`)
-			err = CopyFakeOutputs(ws)
+			err = copyRunOutputs(a, ws, buf)
 		} else {
 			unit := UnitName(d.ns, job.Run.ID, job.Run.Generation)
 			d.container.Wrap(cmd, unit)
@@ -1276,11 +1317,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	case "pre-check":
 		comp.Verification = attach("verification.json")
 	}
-	bin, version := runtime, ""
-	if runtime == RuntimeFake {
-		version = d.cfg.Version
-	} else {
-		// Never run the executable again for its version: it may no longer be what was verified.
+	bin := runtime
+	// Never run the executable again for its version: it may no longer be what was verified.
+	// The fake runtime records the daemon version, as it did before the registry.
+	version := d.cfg.Version
+	if a.SandboxRequired() {
 		version = d.verifiedVersion(runtime, launched, job.RuntimePin)
 	}
 	comp.Trace = &ExecutionTrace{

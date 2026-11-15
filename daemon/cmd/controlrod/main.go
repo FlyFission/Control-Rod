@@ -121,18 +121,21 @@ func sandboxArgs(args []string) int {
 		fmt.Fprintln(os.Stderr, "no launch:", err)
 		return 1
 	}
-	if *rt == runner.RuntimeCodex {
-		// As the daemon launches it: the verified install, staged outside the home folder.
-		a, err := runner.ResolveArtifact("codex")
-		if err == nil {
-			a, err = runner.StageArtifact(a, runner.StageRoot())
+	if adapt, ok := runner.AdapterFor(runner.RuntimeFor(*rt)); ok {
+		if stager, ok := adapt.(runner.ArtifactStager); ok && stager.StagesArtifact() {
+			// As the daemon launches it: the verified install, staged outside the home folder.
+			// Binary() is the PATH name, which for this runtime equals its id.
+			a, err := runner.ResolveArtifact(adapt.Binary())
+			if err == nil {
+				a, err = runner.StageArtifact(a, runner.StageRoot())
+			}
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "stage %s: %v\n", adapt.ID(), err)
+				return 1
+			}
+			cmd.Args[0] = a.Path
+			cmd.Env = append(cmd.Env, a.Env...)
 		}
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "stage codex:", err)
-			return 1
-		}
-		cmd.Args[0] = a.Path
-		cmd.Env = append(cmd.Env, a.Env...)
 	}
 	out, _ := json.MarshalIndent(map[string]any{"argv": cmd.Args, "env": cmd.Env, "dir": cmd.Dir}, "", "  ")
 	fmt.Println(string(out))

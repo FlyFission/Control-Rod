@@ -1,0 +1,79 @@
+package runner
+
+import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+type claudeAdapter struct{ sandboxedBase }
+
+func (claudeAdapter) ID() string          { return RuntimeClaude }
+func (claudeAdapter) Binary() string      { return "claude" }
+func (claudeAdapter) DisplayName() string { return "Claude Code" }
+
+func (claudeAdapter) Providers() []string {
+	return []string{"claude", "anthropic", "claude-code"}
+}
+
+func (a claudeAdapter) Available(lookPath func(string) (string, error), _ func(string) string) bool {
+	return availableBinary(a, lookPath)
+}
+
+func (claudeAdapter) Capabilities() Capabilities {
+	return Capabilities{
+		Roles:            []string{"author", "pre-check", "intake"},
+		OutputFormat:     "stream-json",
+		ToolAllowlist:    true,
+		NativeSandbox:    "command-sandbox",
+		NetworkHostLimit: true,
+		MultiVendor:      false,
+		ConfigIsolation: []string{
+			"--restricted", "--strict-mcp-config", "--mcp-config", "--setting-sources",
+			"--disable-slash-commands", "--no-session-persistence",
+		},
+	}
+}
+
+func (a claudeAdapter) Probe(ctx context.Context, _ string, run CommandRunner) RuntimeStatus {
+	// id and binary are the same string. probeInstalled records the id and looks up the binary.
+	return probeInstalled(ctx, a.ID(), a.Binary(), run, nil)
+}
+
+func (a claudeAdapter) Command(run Run, ws *Workspace, p *SandboxPolicy, at SandboxPaths) (*exec.Cmd, error) {
+	return exec.Command(a.Binary(), ClaudeArgs(ws, RequestedModel(run), p, at)...), nil
+}
+
+func (claudeAdapter) LaunchInfo(run Run, ws *Workspace, p *SandboxPolicy) Launch {
+	l := baseLaunch(run)
+	l.PermissionMode = ClaudePermissionMode
+	l.AllowedTools = strings.Split(allowedTools(ws), ",")
+	l.Sandbox = sandboxLabel(p)
+	return l
+}
+
+func (claudeAdapter) ExtraEnv() []string { return ClaudeEnv }
+
+func (claudeAdapter) ExtraHostNeeds() []HostNeed {
+	return []HostNeed{{Program: "socat", Fix: "Install socat (on Ubuntu: `sudo apt install socat`)"}}
+}
+
+// PrepareHook records permission requests for the interim waiting detector.
+func (claudeAdapter) PrepareHook(ws *Workspace, daemonHome, runID string) bool {
+	hooks := filepath.Join(daemonHome, "hooks")
+	if err := os.MkdirAll(hooks, 0o700); err != nil {
+		return false
+	}
+	ws.HookFile = filepath.Join(hooks, runID+".jsonl")
+	_ = os.Remove(ws.HookFile)
+	return true
+}
+
+func (claudeAdapter) PreflightCLI(ctx context.Context, run CommandRunner) error {
+	if _, code, err := run(ctx, claudeAdapter{}.Binary(), "auth", "status"); err != nil || code != 0 {
+		return refuse("Claude Code is not signed in. Run `claude login`; Control Rod never signs in for you.")
+	}
+	return nil
+}

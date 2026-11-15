@@ -73,10 +73,10 @@ p {
   padding: 6px 10px;
 }
 .error {
-  color: #ffb4a0;
+  color: var(--stuck);
 }
 .ok {
-  color: #8fe3b5;
+  color: var(--done);
 }
 
 /* Buttons and fields */
@@ -105,8 +105,8 @@ p {
   font-weight: 600;
 }
 .btn.danger {
-  border-color: #5c2617;
-  color: #ffb4a0;
+  border-color: var(--stuck);
+  color: var(--stuck);
 }
 .btn:disabled {
   opacity: 0.55;
@@ -146,27 +146,32 @@ textarea {
   color: var(--text);
 }
 .tag.answered {
-  background: #123323;
-  color: #8fe3b5;
+  background: var(--surface);
+  border-color: var(--done);
+  color: var(--done);
 }
 .tag.package {
-  background: #10263a;
-  color: #9bddff;
+  background: var(--surface);
+  border-color: var(--kind-code);
+  color: var(--kind-code);
 }
 .tag.outcome-pass {
-  background: #123323;
-  color: #8fe3b5;
+  background: var(--surface);
+  border-color: var(--done);
+  color: var(--done);
 }
 .tag.outcome-fail,
 .tag.sev-critical,
 .tag.sev-major {
-  background: #3a1a12;
-  color: #ffb4a0;
+  background: var(--surface);
+  border-color: var(--stuck);
+  color: var(--stuck);
 }
 .tag.outcome-inconclusive,
 .tag.sev-minor {
-  background: #3a2c10;
-  color: #ffd58a;
+  background: var(--surface);
+  border-color: var(--changed);
+  color: var(--changed);
 }
 .small-tag {
   margin-left: 6px;
@@ -174,7 +179,7 @@ textarea {
 .badge {
   margin-left: 6px;
   background: var(--needs);
-  color: #1a1305;
+  color: var(--accent-ink);
   border-radius: 9px;
   padding: 0 7px;
   font-size: var(--fs-small);

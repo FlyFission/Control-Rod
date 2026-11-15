@@ -4,6 +4,8 @@ package runner
 
 import (
 	"encoding/base64"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -274,6 +276,112 @@ func TestUnixSocketFilterRejectsAnUnknownArch(t *testing.T) {
 	}
 }
 
+func seccompData(nr uint32, arch uint32, args [6]uint64) []byte {
+	data := make([]byte, 64)
+	binary.LittleEndian.PutUint32(data[0:4], nr)
+	binary.LittleEndian.PutUint32(data[4:8], arch)
+	for i, arg := range args {
+		binary.LittleEndian.PutUint64(data[16+8*i:16+8*i+8], arg)
+	}
+	return data
+}
+
+func evalSeccomp(t *testing.T, raw, data []byte) uint32 {
+	t.Helper()
+	pc := 0
+	var acc uint32
+	for step := 0; step < 64; step++ {
+		if pc < 0 || pc >= len(raw)/8 {
+			t.Fatalf("pc %d left the program", pc)
+		}
+		insn := raw[pc*8 : pc*8+8]
+		code := binary.LittleEndian.Uint16(insn[0:2])
+		jt, jf := insn[2], insn[3]
+		k := binary.LittleEndian.Uint32(insn[4:8])
+		switch code {
+		case bpfLdAbs:
+			off := int(k)
+			if off < 0 || off+4 > len(data) {
+				t.Fatalf("load %d", off)
+			}
+			acc = binary.LittleEndian.Uint32(data[off : off+4])
+			pc++
+		case bpfJeqK:
+			if acc == k {
+				pc += 1 + int(jt)
+			} else {
+				pc += 1 + int(jf)
+			}
+		case bpfJgeK:
+			if acc >= k {
+				pc += 1 + int(jt)
+			} else {
+				pc += 1 + int(jf)
+			}
+		case bpfAndK:
+			acc &= k
+			pc++
+		case bpfRetK:
+			return k
+		default:
+			t.Fatalf("opcode %#x", code)
+		}
+	}
+	t.Fatal("filter did not return")
+	return 0
+}
+
+func TestUnixSocketFilterDecisions(t *testing.T) {
+	const (
+		eperm = seccompRetErrno | errnoPerm
+		allow = seccompRetAllow
+		kill  = seccompRetKill
+	)
+	type spec struct {
+		archName   string
+		audit      uint32
+		socket     uint32
+		socketpair uint32
+	}
+	arches := []spec{
+		{"amd64", auditArchX86_64, sysSocketAMD64, sysSocketpairAMD64},
+		{"arm64", auditArchAarch64, sysSocketARM64, sysSocketpairARM64},
+	}
+	for _, arch := range arches {
+		raw, err := unixSocketFilter(arch.archName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check := func(name string, nr uint32, domain, typ uint64, want uint32) {
+			t.Helper()
+			var args [6]uint64
+			args[0] = domain
+			args[1] = typ
+			got := evalSeccomp(t, raw, seccompData(nr, arch.audit, args))
+			if got != want {
+				t.Errorf("%s %s nr %d domain %d type %#x: got %#x want %#x", arch.archName, name, nr, domain, typ, got, want)
+			}
+		}
+		check("x32 socket", x32SyscallBit|arch.socket, afUnix, sockStream, eperm)
+		check("io_uring_setup", sysIoUringSetup, 0, 0, eperm)
+		check("io_uring_enter", sysIoUringEnter, 0, 0, eperm)
+		check("io_uring_register", sysIoUringReg, 0, 0, eperm)
+		check("dgram pair", arch.socketpair, afUnix, sockDgram, eperm)
+		check("dgram pair with flags", arch.socketpair, afUnix, sockDgram|sockCloexec|sockNonblock, eperm)
+		check("stream pair with cloexec", arch.socketpair, afUnix, sockStream|sockCloexec, allow)
+		check("seqpacket pair", arch.socketpair, afUnix, sockSeqpacket|sockNonblock, allow)
+		check("inet socket", arch.socket, 2, sockStream, allow)
+		check("unix socket", arch.socket, afUnix, sockStream, eperm)
+		check("inet dgram pair", arch.socketpair, 2, sockDgram, allow)
+		high := uint64(sockStream) | (1 << 32)
+		check("stream pair with high type bits", arch.socketpair, afUnix, high, eperm)
+		got := evalSeccomp(t, raw, seccompData(0, 0, [6]uint64{}))
+		if got != kill {
+			t.Errorf("%s wrong arch: got %#x", arch.archName, got)
+		}
+	}
+}
+
 func TestSocketMaskFollowsASymlinkParent(t *testing.T) {
 	dir := t.TempDir()
 	run := filepath.Join(dir, "run")
@@ -440,7 +548,7 @@ func TestCheckerKeepsSocketpairAndTCP(t *testing.T) {
 	port := ln.Addr().(*net.TCPAddr).Port
 	ws, _ := prepareCheckerFixture(t)
 	cmd := exec.Command("python3", "-c", `import socket,sys
-a,b = socket.socketpair()
+a,b = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM|socket.SOCK_CLOEXEC)
 a.send(b"z")
 if b.recv(1) != b"z":
     raise SystemExit(3)
@@ -460,6 +568,109 @@ s.connect(("127.0.0.1", int(sys.argv[1])))
 	case <-got:
 	default:
 		t.Fatal("the TCP listener saw no connection")
+	}
+}
+
+func TestCheckerRejectsX32AndIoUring(t *testing.T) {
+	if _, err := exec.LookPath("bwrap"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Fatal(err)
+	}
+	ws, _ := prepareCheckerFixture(t)
+	script := `import ctypes, errno
+libc = ctypes.CDLL(None, use_errno=True)
+libc.syscall.restype = ctypes.c_long
+def call(nr):
+    ctypes.set_errno(0)
+    rc = libc.syscall(ctypes.c_long(nr), ctypes.c_long(1), ctypes.c_long(0), ctypes.c_long(0))
+    return rc, ctypes.get_errno()
+rc, err = call((1 << 30) | 41)
+if err == errno.ENOSYS:
+    raise SystemExit(3)
+if rc != -1 or err != errno.EPERM:
+    raise SystemExit(2)
+rc, err = call(425)
+if rc != -1 or err != errno.EPERM:
+    raise SystemExit(4)
+raise SystemExit(0)
+`
+	cmd := exec.Command("python3", "-c", script)
+	cmd.Dir = ws.Dir
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")}
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	err := cmd.Run()
+	if err == nil {
+		return
+	}
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 3 {
+		t.Skip("kernel returned ENOSYS for the x32 syscall")
+	}
+	t.Fatalf("x32 or io_uring was not refused: %v", err)
+}
+
+func TestCheckerRefusesADatagramSocketpair(t *testing.T) {
+	if _, err := exec.LookPath("bwrap"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := os.MkdirTemp("/var/tmp", "cr-dgram-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	path := filepath.Join(dir, "gram.sock")
+	pathLn, err := net.ListenPacket("unixgram", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pathLn.Close()
+	abstract := "\x00cr-dgram-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	absLn, err := net.ListenPacket("unixgram", abstract)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer absLn.Close()
+	ws, _ := prepareCheckerFixture(t)
+	if err := os.WriteFile(filepath.Join(ws.Scratch, "abstract-name"), []byte(abstract), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("python3", "-c", `import errno, socket, sys
+path = sys.argv[1]
+abstract = open("scratch/abstract-name","rb").read()
+try:
+    socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
+except OSError as e:
+    if e.errno != errno.EPERM:
+        raise SystemExit(4)
+else:
+    raise SystemExit(2)
+a, b = socket.socketpair(socket.AF_UNIX, socket.SOCK_SEQPACKET|socket.SOCK_CLOEXEC)
+a.send(b"q")
+if b.recv(1) != b"q":
+    raise SystemExit(5)
+raise SystemExit(0)
+`, path)
+	cmd.Dir = ws.Dir
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")}
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("datagram socketpair was not refused, or a seqpacket pair failed: %v", err)
+	}
+	buf := make([]byte, 32)
+	for _, ln := range []net.PacketConn{pathLn, absLn} {
+		_ = ln.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+		if _, _, err := ln.ReadFrom(buf); err == nil {
+			t.Fatal("a host datagram listener received a packet")
+		}
 	}
 }
 

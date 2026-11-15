@@ -10,6 +10,8 @@
 --- PASS: TestCheckerMountBlocksWritesOutsideScratch (0.01s)
 === RUN   TestUnixSocketFilterRejectsAnUnknownArch
 --- PASS: TestUnixSocketFilterRejectsAnUnknownArch (0.00s)
+=== RUN   TestUnixSocketFilterDecisions
+--- PASS: TestUnixSocketFilterDecisions (0.00s)
 === RUN   TestSocketMaskFollowsASymlinkParent
 --- PASS: TestSocketMaskFollowsASymlinkParent (0.00s)
 === RUN   TestCheckerCannotReachAHostUnixSocket
@@ -18,18 +20,24 @@
 --- PASS: TestCheckerCannotReachAnAbstractUnixSocket (0.02s)
 === RUN   TestCheckerKeepsSocketpairAndTCP
 --- PASS: TestCheckerKeepsSocketpairAndTCP (0.02s)
+=== RUN   TestCheckerRejectsX32AndIoUring
+--- PASS: TestCheckerRejectsX32AndIoUring (0.01s)
+=== RUN   TestCheckerRefusesADatagramSocketpair
+--- PASS: TestCheckerRefusesADatagramSocketpair (0.12s)
 === RUN   TestCheckerProcDoesNotReachHostProcesses
 --- PASS: TestCheckerProcDoesNotReachHostProcesses (0.01s)
 === RUN   TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath
 --- PASS: TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath (0.00s)
 === RUN   TestCheckerCannotRewriteLoginInstructions
 === RUN   TestCheckerCannotRewriteLoginInstructions/001
-=== RUN   TestCheckerCannotRewriteLoginInstructions/cr-login-3469475485
+=== RUN   TestCheckerCannotRewriteLoginInstructions/cr-login-2690854702
 --- PASS: TestCheckerCannotRewriteLoginInstructions (0.03s)
     --- PASS: TestCheckerCannotRewriteLoginInstructions/001 (0.02s)
-    --- PASS: TestCheckerCannotRewriteLoginInstructions/cr-login-3469475485 (0.01s)
+    --- PASS: TestCheckerCannotRewriteLoginInstructions/cr-login-2690854702 (0.01s)
 === RUN   TestCheckerSessionSymlinkDoesNotGrantHomeWrites
 --- PASS: TestCheckerSessionSymlinkDoesNotGrantHomeWrites (0.00s)
+=== RUN   TestPreparedCheckerThroughTheMount
+--- PASS: TestPreparedCheckerThroughTheMount (0.01s)
 === RUN   TestCheckerStagesInstructionsOutOfDiscovery
 --- PASS: TestCheckerStagesInstructionsOutOfDiscovery (0.00s)
 === RUN   TestCheckerBlockedNoticeIsAPolicyEvent
@@ -39,7 +47,7 @@
 === RUN   TestCheckerWriteOutsideScratchOrDeliverablesVoids
 === RUN   TestCheckerWriteOutsideScratchOrDeliverablesVoids/outside_scratch
 === RUN   TestCheckerWriteOutsideScratchOrDeliverablesVoids/deliverables
---- PASS: TestCheckerWriteOutsideScratchOrDeliverablesVoids (0.01s)
+--- PASS: TestCheckerWriteOutsideScratchOrDeliverablesVoids (0.00s)
     --- PASS: TestCheckerWriteOutsideScratchOrDeliverablesVoids/outside_scratch (0.00s)
     --- PASS: TestCheckerWriteOutsideScratchOrDeliverablesVoids/deliverables (0.00s)
 === RUN   TestCheckerTamperedDeliverableHashVoids
@@ -65,4 +73,4 @@
 === RUN   TestCheckerRejectsFilenamesThatCouldRewriteTheBrief
 --- PASS: TestCheckerRejectsFilenamesThatCouldRewriteTheBrief (0.00s)
 PASS
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.481s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.617s

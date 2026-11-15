@@ -1,0 +1,23 @@
+ M daemon/internal/runner/artifact.go
+ M daemon/internal/runner/daemon.go
+ M daemon/internal/runner/runtime.go
+ M daemon/internal/runner/testdata/launch-golden/claude-pre-check.json
+ M daemon/internal/runner/testdata/launch-golden/codex-pre-check.json
+ M daemon/internal/runner/workspace.go
+ M daemon/internal/wire/decode.go
+ M docs/daemon.md
+ M packs/general/roles/pre-check.md
+ M scripts/generate-runner-schemas.mjs
+?? .nuclear/changes/checker-workspace/
+?? daemon/internal/runner/checker.go
+?? daemon/internal/runner/checker_linux_test.go
+?? daemon/internal/runner/checker_mount_darwin.go
+?? daemon/internal/runner/checker_mount_linux.go
+?? daemon/internal/runner/checker_mount_other.go
+?? daemon/internal/runner/checker_test.go
+?? daemon/internal/wire/schemas/Coupling.json
+?? daemon/internal/wire/schemas/CouplingProfile.json
+?? daemon/internal/wire/schemas/Custody.json
+?? daemon/internal/wire/schemas/EvidenceItem.json
+?? daemon/internal/wire/schemas/PreCheckIndependence.json
+?? daemon/internal/wire/schemas/VerificationRecord.json

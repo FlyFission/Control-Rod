@@ -27,6 +27,9 @@ var safeSegment = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 var ErrUnsafePath = errors.New("unsafe input path")
 
 // Workspace is one job's directory: inputs/ from the control plane, out/ for deliverables.
+// A checker workspace (Checker set) is different: Dir is a clean working directory, Deliverables
+// is the tree mounted read-only at inputs/deliverables, and Scratch is the only directory the
+// checker may write.
 type Workspace struct {
 	Dir    string
 	Inputs string
@@ -34,6 +37,12 @@ type Workspace struct {
 	// HookFile, when set, is where a Claude Code PermissionRequest hook appends what it saw
 	// (interim waiting detection, plan task 2.9). It lives outside the workspace.
 	HookFile string
+	// Checker selects the pre-check workspace and the checker launch flags.
+	Checker bool
+	// Deliverables is the host path of the deliverable tree. It is not the working directory.
+	Deliverables string
+	// Scratch is the checker's write directory, inside Dir.
+	Scratch string
 }
 
 // WorkspaceDir returns <root>/work/<package_id>/r<rev>/<role>-<round>-<runid>. Every segment

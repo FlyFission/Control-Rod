@@ -1,0 +1,11 @@
+ daemon/internal/runner/artifact.go                 | 58 ++++++++++++++++++-
+ daemon/internal/runner/daemon.go                   | 67 +++++++++++++++++++++-
+ daemon/internal/runner/runtime.go                  | 38 ++++++++++--
+ .../testdata/launch-golden/claude-pre-check.json   |  6 +-
+ .../testdata/launch-golden/codex-pre-check.json    |  2 +-
+ daemon/internal/runner/workspace.go                |  9 +++
+ daemon/internal/wire/decode.go                     | 26 ++++++++-
+ docs/daemon.md                                     | 10 +++-
+ packs/general/roles/pre-check.md                   |  4 +-
+ scripts/generate-runner-schemas.mjs                |  2 +-
+ 10 files changed, 205 insertions(+), 17 deletions(-)

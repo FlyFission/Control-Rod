@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -508,6 +510,19 @@ var confirmWait = 10 * time.Second
 // then is the lease released. Elsewhere it does nothing (the documented limit for launch by
 // verified path).
 func (l *VerifiedLaunch) Confirm(pid int) error {
+	return l.confirm(func(info os.FileInfo) bool { return processRuns(pid, info) })
+}
+
+// ConfirmSandbox is Confirm for a checker whose outer process is bubblewrap.
+// The sandboxed child, not bubblewrap, executes the verified runtime. Author
+// launches do not use this.
+func (l *VerifiedLaunch) ConfirmSandbox(pid int) error {
+	return l.confirm(func(info os.FileInfo) bool {
+		return processRuns(pid, info) || childRuns(pid, info)
+	})
+}
+
+func (l *VerifiedLaunch) confirm(seen func(os.FileInfo) bool) error {
 	if l == nil || l.File == nil || runtime.GOOS != "linux" {
 		return nil
 	}
@@ -517,8 +532,7 @@ func (l *VerifiedLaunch) Confirm(pid int) error {
 	}
 	deadline := time.Now().Add(confirmWait)
 	for {
-		exe, err := os.Stat(fmt.Sprintf("/proc/%d/exe", pid))
-		if err == nil && os.SameFile(exe, info) {
+		if seen(info) {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -534,4 +548,44 @@ func (l *VerifiedLaunch) Confirm(pid int) error {
 		l.leased = false
 	}
 	return nil
+}
+
+func processRuns(pid int, info os.FileInfo) bool {
+	exe, err := os.Stat(fmt.Sprintf("/proc/%d/exe", pid))
+	return err == nil && os.SameFile(exe, info)
+}
+
+func childRuns(parent int, info os.FileInfo) bool {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil || !processRuns(pid, info) {
+			continue
+		}
+		if parentOf(pid) == parent {
+			return true
+		}
+	}
+	return false
+}
+
+func parentOf(pid int) int {
+	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		return 0
+	}
+	s := string(b)
+	r := strings.LastIndexByte(s, ')')
+	if r < 0 {
+		return 0
+	}
+	fields := strings.Fields(s[r+1:])
+	if len(fields) < 2 {
+		return 0
+	}
+	ppid, _ := strconv.Atoi(fields[1])
+	return ppid
 }

@@ -1,0 +1,54 @@
+=== RUN   TestCheckerMountFailsClosedWithoutBubblewrap
+--- PASS: TestCheckerMountFailsClosedWithoutBubblewrap (0.00s)
+=== RUN   TestBubblewrapMountsDeliverablesReadOnly
+--- PASS: TestBubblewrapMountsDeliverablesReadOnly (0.00s)
+=== RUN   TestCheckerMountBindsTheVerifiedDescriptor
+--- PASS: TestCheckerMountBindsTheVerifiedDescriptor (0.00s)
+=== RUN   TestConfirmSandboxSeesTheBubblewrapChild
+--- PASS: TestConfirmSandboxSeesTheBubblewrapChild (0.32s)
+=== RUN   TestCheckerIgnoresInjectedInstructions
+--- PASS: TestCheckerIgnoresInjectedInstructions (0.00s)
+=== RUN   TestCheckerMaxTurnsMatchesTheQualificationSpike
+--- PASS: TestCheckerMaxTurnsMatchesTheQualificationSpike (0.00s)
+=== RUN   TestCheckerWriteOutsideScratchOrDeliverablesVoids
+=== RUN   TestCheckerWriteOutsideScratchOrDeliverablesVoids/outside_scratch
+=== RUN   TestCheckerWriteOutsideScratchOrDeliverablesVoids/deliverables
+--- PASS: TestCheckerWriteOutsideScratchOrDeliverablesVoids (0.00s)
+    --- PASS: TestCheckerWriteOutsideScratchOrDeliverablesVoids/outside_scratch (0.00s)
+    --- PASS: TestCheckerWriteOutsideScratchOrDeliverablesVoids/deliverables (0.00s)
+=== RUN   TestCheckerTamperedDeliverableHashVoids
+--- PASS: TestCheckerTamperedDeliverableHashVoids (0.00s)
+=== RUN   TestCheckerRejectsInvalidVerification
+--- PASS: TestCheckerRejectsInvalidVerification (0.01s)
+=== RUN   TestCheckerAcceptsAShortAndAFullRecord
+--- PASS: TestCheckerAcceptsAShortAndAFullRecord (0.00s)
+=== RUN   TestTreeDigestDoesNotFollowSymlinks
+--- PASS: TestTreeDigestDoesNotFollowSymlinks (0.00s)
+=== RUN   TestSeatbeltProfileDeniesWritesOnDeliverables
+--- PASS: TestSeatbeltProfileDeniesWritesOnDeliverables (0.00s)
+=== RUN   TestLaunchGolden
+=== RUN   TestLaunchGolden/claude-author-default-tools
+=== RUN   TestLaunchGolden/claude-author-explicit-model
+=== RUN   TestLaunchGolden/claude-pre-check
+=== RUN   TestLaunchGolden/claude-intake
+=== RUN   TestLaunchGolden/claude-author-network-hosts
+=== RUN   TestLaunchGolden/codex-author-default-tools
+=== RUN   TestLaunchGolden/codex-author-explicit-model
+=== RUN   TestLaunchGolden/codex-pre-check
+=== RUN   TestLaunchGolden/codex-intake
+=== RUN   TestLaunchGolden/codex-author-network-hosts
+--- PASS: TestLaunchGolden (0.00s)
+    --- PASS: TestLaunchGolden/claude-author-default-tools (0.00s)
+    --- PASS: TestLaunchGolden/claude-author-explicit-model (0.00s)
+    --- PASS: TestLaunchGolden/claude-pre-check (0.00s)
+    --- PASS: TestLaunchGolden/claude-intake (0.00s)
+    --- PASS: TestLaunchGolden/claude-author-network-hosts (0.00s)
+    --- PASS: TestLaunchGolden/codex-author-default-tools (0.00s)
+    --- PASS: TestLaunchGolden/codex-author-explicit-model (0.00s)
+    --- PASS: TestLaunchGolden/codex-pre-check (0.00s)
+    --- PASS: TestLaunchGolden/codex-intake (0.00s)
+    --- PASS: TestLaunchGolden/codex-author-network-hosts (0.00s)
+=== RUN   TestDaemonRunsAFakeJobEndToEnd
+--- PASS: TestDaemonRunsAFakeJobEndToEnd (0.02s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.384s

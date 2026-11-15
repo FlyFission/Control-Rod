@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from 
 import { fileURLToPath } from "node:url";
 const source = fileURLToPath(new URL("../spec/generated/json-schema/", import.meta.url));
 const target = fileURLToPath(new URL("../daemon/internal/wire/schemas/", import.meta.url));
-const roots = ["Job.json", "CompletionReceipt.json", "LogReply.json"];
+const roots = ["Job.json", "CompletionReceipt.json", "LogReply.json", "VerificationRecord.json"];
 const files = new Map();
 function visit(file) {
   if (!/^[A-Za-z][A-Za-z0-9]*\.json$/.test(file)) throw new Error(`Unsupported schema reference: ${file}`);

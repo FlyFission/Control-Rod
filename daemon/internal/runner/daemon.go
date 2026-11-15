@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -1067,13 +1068,20 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		d.log.Warn("no contact with the control plane for a whole lease; stopping the run", "run", job.Run.ID)
 		release(errOutOfContact)
 	})
-	ws, err := Prepare(d.cfg.Home, job)
+	ws, err := prepareWorkspace(d.cfg.Home, job, a)
 	if err != nil {
 		return fail(err.Error()), nil
 	}
 	_, inArts, err := Collect(ws.Inputs, MaxOutputTotal, 1<<40)
 	if err != nil {
 		return fail("read inputs: " + err.Error()), nil
+	}
+	if ws.Checker {
+		arts, aerr := deliverableArtifacts(ws.Deliverables)
+		if aerr != nil {
+			return fail("the deliverable tree could not be hashed, so the check cannot count: " + aerr.Error()), nil
+		}
+		inArts = append(inArts, arts...)
 	}
 	d.log.Info("run started", "run", job.Run.ID, "role", job.Run.Role, "runtime", runtime, "workspace", ws.Dir)
 
@@ -1161,6 +1169,30 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			launched = &verified.Digest
 		}
 	}
+	var (
+		deliverableBefore string
+		cwdBefore         map[string]string
+		checkerReady      bool
+	)
+	if err == nil && ws.Checker {
+		var herr error
+		deliverableBefore, herr = TreeDigest(ws.Deliverables)
+		if herr != nil {
+			err = fmt.Errorf("the deliverable tree could not be hashed, so the check cannot count: %w", herr)
+		}
+		if err == nil {
+			cwdBefore, herr = snapWorkspace(ws.Dir)
+			if herr != nil {
+				err = fmt.Errorf("the checker workspace could not be hashed, so the check cannot count: %w", herr)
+			}
+		}
+		if err == nil && cmd != nil {
+			if merr := applyCheckerMount(cmd, ws); merr != nil {
+				err = merr
+			}
+		}
+		checkerReady = err == nil
+	}
 	if err == nil {
 		if cmd == nil {
 			err = copyRunOutputs(a, ws, buf)
@@ -1203,7 +1235,12 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 						return &r, perr
 					}
 					// Fail closed: a run not proven to execute the verified bytes is stopped whole.
-					if cerr := verified.Confirm(pid); cerr != nil {
+					// A checker is bubblewrap around that binary; the child is what must match.
+					confirm := verified.Confirm
+					if ws.Checker {
+						confirm = verified.ConfirmSandbox
+					}
+					if cerr := confirm(pid); cerr != nil {
 						return &r, cerr
 					}
 					buf.setReceipt(r.Wire())
@@ -1316,6 +1353,32 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		comp.Package = attach("package.json")
 	case "pre-check":
 		comp.Verification = attach("verification.json")
+	}
+	if checkerReady {
+		result := settleChecker(ws, deliverableBefore, cwdBefore, time.Now())
+		comp.Events = append(comp.Events, result.Events...)
+		if !result.Counts || comp.Status != "succeeded" {
+			comp.Verification = nil
+			if comp.Status == "succeeded" {
+				comp.Status = "failed"
+			}
+			if result.Error != "" {
+				if comp.Error != "" {
+					comp.Error += "; "
+				}
+				comp.Error += result.Error
+			}
+		} else {
+			comp.Verification = result.Verification
+			comp.Outputs = []NamedFile{{
+				Name:          "verification.json",
+				ContentBase64: base64.StdEncoding.EncodeToString(result.Verification),
+			}}
+			outArts = []Artifact{{
+				Path:   "verification.json",
+				Digest: Digest{Algorithm: "sha256", Value: sha256Hex(result.Verification)},
+			}}
+		}
 	}
 	bin := runtime
 	// Never run the executable again for its version: it may no longer be what was verified.

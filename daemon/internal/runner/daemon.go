@@ -1357,6 +1357,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	case "pre-check":
 		comp.Verification = attach("verification.json")
 	}
+	if ws.Checker && !checkerReady {
+		comp.Events = append(comp.Events, checkerBlockedNotice(err, time.Now()))
+	}
 	if checkerReady {
 		result := settleChecker(ws, deliverableBefore, cwdBefore, time.Now())
 		comp.Events = append(comp.Events, result.Events...)

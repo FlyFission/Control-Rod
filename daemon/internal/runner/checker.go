@@ -592,6 +592,17 @@ func policyEvent(now time.Time, text string) Event {
 	return Event{Kind: EvNotice, At: now.UTC().Format(time.RFC3339Nano), Text: clipText("Policy: " + text)}
 }
 
+// checkerBlockedNotice is the policy event for a checker that never started:
+// the mount was missing, or the tree could not be hashed. Settlement does not
+// run in that case, so the notice is recorded on the completion directly.
+func checkerBlockedNotice(err error, now time.Time) Event {
+	text := "the check cannot count"
+	if err != nil && err.Error() != "" {
+		text = err.Error()
+	}
+	return policyEvent(now, text)
+}
+
 // validateCheckerVerification accepts the checker's two-field file or a full
 // VerificationRecord. Duplicate keys, null arrays, and wrong types are refused.
 // wrote_files is not a checker-supplied outcome.

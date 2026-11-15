@@ -168,6 +168,13 @@ func hasArgPair(args []string, a, b string) bool {
 	return false
 }
 
+func TestCheckerBlockedNoticeIsAPolicyEvent(t *testing.T) {
+	ev := checkerBlockedNotice(fmt.Errorf("bubblewrap is not installed, so the check cannot count"), time.Now())
+	if ev.Kind != EvNotice || !strings.HasPrefix(ev.Text, "Policy:") || !strings.Contains(ev.Text, "cannot count") {
+		t.Fatalf("%+v", ev)
+	}
+}
+
 func TestCheckerMaxTurnsMatchesTheQualificationSpike(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join("..", "..", "..", "spikes", "runtime-confinement", "launch_qualification.py"))
 	if err != nil {

@@ -13,6 +13,34 @@ import (
 	"time"
 )
 
+func TestVerifiedRuntimeMayBeAGrandchild(t *testing.T) {
+	cmd := exec.Command("/bin/sh", "-c", "sh -c 'sleep 30'")
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+	})
+	f, err := os.Open("/bin/sleep")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if childRuns(cmd.Process.Pid, st) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("the verified executable was not found below the outer process")
+}
+
 func TestCheckerMountFailsClosedWithoutBubblewrap(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	ws, _ := prepareCheckerFixture(t)

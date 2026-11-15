@@ -513,9 +513,10 @@ func (l *VerifiedLaunch) Confirm(pid int) error {
 	return l.confirm(func(info os.FileInfo) bool { return processRuns(pid, info) })
 }
 
-// ConfirmSandbox is Confirm for a checker whose outer process is bubblewrap.
-// The sandboxed child, not bubblewrap, executes the verified runtime. Author
-// launches do not use this.
+// ConfirmSandbox is Confirm for a checker. Bubblewrap, and systemd-run when
+// cgroup containment wraps that, stay above the verified runtime. Any
+// descendant of the started pid may be that runtime. Author launches do not
+// use this.
 func (l *VerifiedLaunch) ConfirmSandbox(pid int) error {
 	return l.confirm(func(info os.FileInfo) bool {
 		return processRuns(pid, info) || childRuns(pid, info)
@@ -555,21 +556,41 @@ func processRuns(pid int, info os.FileInfo) bool {
 	return err == nil && os.SameFile(exe, info)
 }
 
-func childRuns(parent int, info os.FileInfo) bool {
+func childRuns(root int, info os.FileInfo) bool {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return false
 	}
 	for _, e := range entries {
 		pid, err := strconv.Atoi(e.Name())
-		if err != nil || !processRuns(pid, info) {
+		if err != nil || pid == root || !processRuns(pid, info) {
 			continue
 		}
-		if parentOf(pid) == parent {
+		if descendedFrom(pid, root) {
 			return true
 		}
 	}
 	return false
+}
+
+// descendedFrom reports whether pid is root or a descendant of root. A checker
+// launched under systemd-run and bubblewrap is two processes below the pid
+// Start returns, until systemd-run execs into bubblewrap.
+func descendedFrom(pid, root int) bool {
+	for range 8 {
+		if pid == root {
+			return true
+		}
+		if pid <= 1 {
+			return false
+		}
+		next := parentOf(pid)
+		if next == 0 || next == pid {
+			return false
+		}
+		pid = next
+	}
+	return pid == root
 }
 
 func parentOf(pid int) int {

@@ -8,12 +8,13 @@ import {
   CLI_ECOSYSTEMS,
   ecosystemById,
   isIndependentCustody,
+  reasoningLevelsFor,
+  resolveReasoningForModel,
   type AgentRuntimeSelection,
   type CliEcosystemId,
   type ReasoningLevel,
 } from "../lib/runtimes.js";
 import {
-  buildClarifyingQuestions,
   inferScopeHints,
   loadWorkDefaults,
   resetWorkDefaults,
@@ -65,8 +66,6 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const [pinnedFields, setPinnedFields] = useState(false);
 
   const [objective, setObjective] = useState("");
-  const [showClarify, setShowClarify] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,7 +86,6 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setRepoStrategy(saved.repoStrategy);
     setPreparedPath(null);
     setPinnedFields(false);
-    setAnswers({});
     setDefaultsNotice(null);
   }, [mode]);
 
@@ -140,8 +138,6 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     mutationFn: (body: string) => api.capture({ text: body, source: "web", lane }),
     onSuccess: () => {
       setObjective("");
-      setAnswers({});
-      setShowClarify(false);
       setPinnedFields(false);
       setError(null);
       void qc.invalidateQueries({ queryKey: ["captures"] });
@@ -214,7 +210,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       preparedPath ? `[workspace:${preparedPath}]` : null,
       `[stage:${stage}]`,
       `[purpose:${purpose}]`,
-      `[discipline:${discipline}]`,
+      discipline && discipline !== "Unspecified" ? `[discipline:${discipline}]` : null,
       `[grade:${grade}]`,
       `[author:${author.ecosystem}/${author.model}@${author.reasoning}]`,
       `[checker:${checker.ecosystem}/${checker.model}@${checker.reasoning}]`,
@@ -222,21 +218,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       .filter(Boolean)
       .join(" ");
 
-    const clarificationLines = Object.entries(answers).map(
-      ([qId, ans]) => `- ${qId}: ${ans}`,
-    );
-    const body =
-      clarificationLines.length > 0
-        ? `${header}\n\n${trimmed}\n\nClarifications:\n${clarificationLines.join("\n")}`
-        : `${header}\n\n${trimmed}`;
+    const body = `${header}\n\n${trimmed}`;
 
     send.mutate(body);
   }
 
-  const questions = useMemo(
-    () => buildClarifyingQuestions(mode, objective, discipline, stage),
-    [mode, objective, discipline, stage],
-  );
   const independent = isIndependentCustody(author, checker);
 
   return (
@@ -297,7 +283,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
 
         <div className="cr-defaults-bar">
           <div className="cr-defaults-summary">
-            <span className="tag">{discipline}</span>
+            {discipline !== "Unspecified" && <span className="tag">{discipline}</span>}
             <span className="tag">{stage}</span>
             <span className="tag">{purpose}</span>
             <span className="tag">Lane: {lane}</span>
@@ -312,98 +298,155 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
           )}
         </div>
 
-        {detailLevel === "advanced" && (
-          <>
-            <fieldset className="cr-custody-fieldset">
-              <legend className="small">GitHub Repository &amp; Local Working Location</legend>
-              <div className="cr-form-grid">
+        <fieldset className="cr-custody-fieldset">
+          <legend className="small">Repository &amp; Local Workspace</legend>
+          <div className="cr-form-grid">
+            <label className="field">
+              <span>Repository (GitHub or Local)</span>
+              <select
+                aria-label="Repository"
+                value={repo}
+                onChange={(e) => {
+                  setRepo(e.target.value);
+                  setPreparedPath(null);
+                }}
+              >
+                <option value="">No repository (general capture)</option>
+                {(reposQuery.data?.local ?? []).length > 0 && (
+                  <optgroup label={`Local clones (${activeWorkspaceRoot || "projects"})`}>
+                    {reposQuery.data!.local.map((r) => (
+                      <option key={`local-${r.name}`} value={r.name}>
+                        {r.name} ({r.branch}{r.dirty ? " · dirty" : ""})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {(reposQuery.data?.github ?? []).length > 0 && (
+                  <optgroup label="GitHub repositories">
+                    {reposQuery.data!.github.map((g) => (
+                      <option key={`gh-${g.name_with_owner}`} value={g.name_with_owner}>
+                        {g.name_with_owner} ({g.default_branch}{g.is_private ? " · private" : ""})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </label>
+            {repo && (
+              <label className="field">
+                <span>Outfall strategy</span>
+                <select
+                  aria-label="Outfall strategy"
+                  value={repoStrategy}
+                  onChange={(e) => {
+                    setRepoStrategy(e.target.value as RepoOutfallStrategy);
+                    setPreparedPath(null);
+                  }}
+                >
+                  <option value="worktree">New git worktree (Recommended)</option>
+                  <option value="fresh-clone">Fresh local clone</option>
+                  <option value="branch">New branch in local clone</option>
+                </select>
+              </label>
+            )}
+          </div>
+          {detailLevel === "advanced" && (
+            <div className="cr-form-grid" style={{ marginTop: 8 }}>
+              <label className="field">
+                <span>Default working location</span>
+                <input
+                  type="text"
+                  value={workspaceRoot}
+                  onChange={(e) => setWorkspaceRoot(e.target.value)}
+                  placeholder={reposQuery.data?.workspace_root || "~/projects"}
+                />
+              </label>
+              {repo && (
                 <label className="field">
-                  <span>Repository (GitHub or Local)</span>
-                  <select
-                    aria-label="Repository"
-                    value={repo}
-                    onChange={(e) => {
-                      setRepo(e.target.value);
-                      setPreparedPath(null);
-                    }}
-                  >
-                    <option value="">No repository (general capture)</option>
-                    {(reposQuery.data?.local ?? []).length > 0 && (
-                      <optgroup label={`Local clones (${activeWorkspaceRoot || "projects"})`}>
-                        {reposQuery.data!.local.map((r) => (
-                          <option key={`local-${r.name}`} value={r.name}>
-                            {r.name} ({r.branch}{r.dirty ? " · dirty" : ""})
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {(reposQuery.data?.github ?? []).length > 0 && (
-                      <optgroup label="GitHub repositories">
-                        {reposQuery.data!.github.map((g) => (
-                          <option key={`gh-${g.name_with_owner}`} value={g.name_with_owner}>
-                            {g.name_with_owner} ({g.default_branch}{g.is_private ? " · private" : ""})
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Default working location</span>
+                  <span>Branch name</span>
                   <input
                     type="text"
-                    value={workspaceRoot}
-                    onChange={(e) => setWorkspaceRoot(e.target.value)}
-                    placeholder={reposQuery.data?.workspace_root || "~/projects"}
+                    value={branch}
+                    onChange={(e) => setBranch(e.target.value)}
+                    placeholder={suggestBranchName(objective)}
                   />
                 </label>
-              </div>
-              {repo && (
-                <div className="cr-form-grid" style={{ marginTop: 8 }}>
-                  <label className="field">
-                    <span>Outfall strategy</span>
-                    <select
-                      aria-label="Outfall strategy"
-                      value={repoStrategy}
-                      onChange={(e) => {
-                        setRepoStrategy(e.target.value as RepoOutfallStrategy);
-                        setPreparedPath(null);
-                      }}
-                    >
-                      <option value="worktree">New git worktree (Recommended)</option>
-                      <option value="fresh-clone">Fresh local clone</option>
-                      <option value="branch">New branch in local clone</option>
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Branch name</span>
-                    <input
-                      type="text"
-                      value={branch}
-                      onChange={(e) => setBranch(e.target.value)}
-                      placeholder={suggestBranchName(objective)}
-                    />
-                  </label>
-                </div>
               )}
-              {repo && (
-                <div className="cr-clarify-bar" style={{ marginTop: 8 }}>
-                  <button
-                    type="button"
-                    className="btn small"
-                    disabled={materialize.isPending}
-                    onClick={() => materialize.mutate()}
-                  >
-                    {materialize.isPending ? "Preparing workspace…" : "Prepare local workspace"}
-                  </button>
-                  {preparedPath && (
-                    <span className="mono small ok" role="status">
-                      Ready: {preparedPath}
-                    </span>
-                  )}
-                </div>
+            </div>
+          )}
+          {repo && (
+            <div className="cr-clarify-bar" style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn small"
+                disabled={materialize.isPending}
+                onClick={() => materialize.mutate()}
+              >
+                {materialize.isPending ? "Preparing workspace…" : "Prepare local workspace"}
+              </button>
+              {preparedPath && (
+                <span className="mono small ok" role="status">
+                  Ready: {preparedPath}
+                </span>
               )}
-            </fieldset>
+            </div>
+          )}
+        </fieldset>
+
+        <div className="cr-form-grid">
+          <label className="field">
+            <span>Discipline / Area</span>
+            <select
+              value={discipline}
+              onChange={(e) => {
+                setPinnedFields(true);
+                setDiscipline(e.target.value);
+              }}
+            >
+              {copy.disciplines.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>{mode === "capital-projects" ? "Project Stage / Gate" : "Change Type"}</span>
+            <select
+              value={stage}
+              onChange={(e) => {
+                setPinnedFields(true);
+                setStage(e.target.value);
+              }}
+            >
+              {copy.projectStages.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="cr-form-row-inline">
+          <LanePicker id="new-work-lane" value={lane} onChange={setLane} />
+          <label className="field" style={{ marginBottom: 0 }}>
+            <span>Grade</span>
+            <select
+              value={grade}
+              onChange={(e) => {
+                setPinnedFields(true);
+                setGrade(e.target.value as "general-service" | "safety");
+              }}
+            >
+              <option value="general-service">General service</option>
+              <option value={copy.specialGrade.value}>{copy.specialGrade.label}</option>
+            </select>
+          </label>
+        </div>
+
+        {detailLevel === "advanced" && (
+          <>
             <div className="cr-form-grid">
               <label className="field">
                 <span>Project / Workstream</span>
@@ -413,22 +456,6 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                   onChange={(e) => setProject(e.target.value)}
                   placeholder={copy.projectPlaceholder}
                 />
-              </label>
-              <label className="field">
-                <span>{mode === "capital-projects" ? "Project Stage / Gate" : "Change Type"}</span>
-                <select
-                  value={stage}
-                  onChange={(e) => {
-                    setPinnedFields(true);
-                    setStage(e.target.value);
-                  }}
-                >
-                  {copy.projectStages.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
               </label>
               <label className="field">
                 <span>{mode === "capital-projects" ? "Issue Purpose" : "Review Target"}</span>
@@ -446,39 +473,6 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                   ))}
                 </select>
               </label>
-              <label className="field">
-                <span>Discipline / Area</span>
-                <select
-                  value={discipline}
-                  onChange={(e) => {
-                    setPinnedFields(true);
-                    setDiscipline(e.target.value);
-                  }}
-                >
-                  {copy.disciplines.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="cr-form-row-inline">
-              <LanePicker id="new-work-lane" value={lane} onChange={setLane} />
-              <label className="field" style={{ marginBottom: 0 }}>
-                <span>Grade</span>
-                <select
-                  value={grade}
-                  onChange={(e) => {
-                    setPinnedFields(true);
-                    setGrade(e.target.value as "general-service" | "safety");
-                  }}
-                >
-                  <option value="general-service">General service</option>
-                  <option value={copy.specialGrade.value}>{copy.specialGrade.label}</option>
-                </select>
-              </label>
             </div>
 
             <fieldset className="cr-custody-fieldset">
@@ -489,7 +483,13 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                   idPrefix="author"
                   value={author}
                   onChangeEcosystem={(id) => updateRuntime(setAuthor, id)}
-                  onChangeModel={(m) => setAuthor((prev) => ({ ...prev, model: m }))}
+                  onChangeModel={(m) =>
+                    setAuthor((prev) => ({
+                      ...prev,
+                      model: m,
+                      reasoning: resolveReasoningForModel(prev.ecosystem, m, prev.reasoning),
+                    }))
+                  }
                   onChangeReasoning={(r) => setAuthor((prev) => ({ ...prev, reasoning: r }))}
                 />
                 <RuntimePickerCard
@@ -497,7 +497,13 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                   idPrefix="checker"
                   value={checker}
                   onChangeEcosystem={(id) => updateRuntime(setChecker, id)}
-                  onChangeModel={(m) => setChecker((prev) => ({ ...prev, model: m }))}
+                  onChangeModel={(m) =>
+                    setChecker((prev) => ({
+                      ...prev,
+                      model: m,
+                      reasoning: resolveReasoningForModel(prev.ecosystem, m, prev.reasoning),
+                    }))
+                  }
                   onChangeReasoning={(r) => setChecker((prev) => ({ ...prev, reasoning: r }))}
                 />
               </div>
@@ -511,64 +517,25 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                   : `O6 Notice: Author and Checker share the ${ecosystemById(author.ecosystem).cliCommand} CLI — independent runtime or owner override required before acceptance.`}
               </p>
             </fieldset>
+
+            <div className="cr-clarify-bar">
+              <span className="small muted">Defaults are saved per mode in this browser.</span>
+              <div className="cr-defaults-actions">
+                <button type="button" className="btn small" onClick={handleSaveDefaults}>
+                  Save as my defaults
+                </button>
+                <button type="button" className="btn small" onClick={handleResetDefaults}>
+                  Reset
+                </button>
+              </div>
+            </div>
           </>
         )}
-
-        <div className="cr-clarify-bar">
-          <button
-            type="button"
-            className="btn small"
-            aria-expanded={showClarify}
-            onClick={() => setShowClarify((v) => !v)}
-          >
-            {showClarify ? "Hide clarifying questions" : "Clarify scope (3 quick questions)"}
-          </button>
-          <div className="cr-defaults-actions">
-            <button type="button" className="btn small" onClick={handleSaveDefaults}>
-              Save as my defaults
-            </button>
-            {detailLevel === "advanced" && (
-              <button type="button" className="btn small" onClick={handleResetDefaults}>
-                Reset
-              </button>
-            )}
-          </div>
-        </div>
 
         {defaultsNotice && (
           <p className="small ok" role="status" style={{ margin: 0 }}>
             {defaultsNotice}
           </p>
-        )}
-
-        {showClarify && (
-          <section className="cr-clarify-panel" aria-label="Clarifying questions">
-            {questions.map((q, idx) => (
-              <div key={q.id} className="cr-q-card">
-                <div className="cr-q-prompt">
-                  {idx + 1}. {q.prompt}
-                </div>
-                <div className="cr-q-options" role="group" aria-label={q.prompt}>
-                  {q.options.map((opt) => {
-                    const selected = answers[q.id] === opt;
-                    return (
-                      <button
-                        key={opt}
-                        type="button"
-                        className="cr-q-opt"
-                        aria-pressed={selected}
-                        onClick={() =>
-                          setAnswers((prev) => ({ ...prev, [q.id]: opt }))
-                        }
-                      >
-                        {opt}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </section>
         )}
 
         {error && (
@@ -606,6 +573,7 @@ function RuntimePickerCard({
   onChangeReasoning: (reasoning: ReasoningLevel) => void;
 }) {
   const eco = ecosystemById(value.ecosystem);
+  const reasoningLevels = reasoningLevelsFor(value.ecosystem, value.model);
   return (
     <div className="cr-runtime-card">
       <div className="cr-runtime-title">{title}</div>
@@ -640,7 +608,7 @@ function RuntimePickerCard({
       <div className="field" style={{ marginBottom: 0 }}>
         <span>Reasoning effort</span>
         <div className="cr-reason-group" role="group" aria-label={`${title} reasoning level`}>
-          {eco.reasoningLevels.map((r) => (
+          {reasoningLevels.map((r) => (
             <button
               key={r}
               type="button"

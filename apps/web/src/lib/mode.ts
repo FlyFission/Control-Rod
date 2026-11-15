@@ -75,8 +75,9 @@ export const MODE_COPY: Record<EngineeringMode, ModeCopy> = {
     newCta: "New change",
     modalTitle: "New change request",
     projectPlaceholder: "e.g., control-rod / auth-kernel",
-    objectiveLabel: "Change scope & test criteria",
-    objectivePlaceholder: "Describe the patch, invariant, or regression test required…",
+    objectiveLabel: "Scope & acceptance criteria",
+    objectivePlaceholder:
+      "Describe what you are building end-to-end — goals, architecture, deliverables, constraints, and how completion is verified…",
     columns: {
       ready: "Ready",
       in_work: "Implementing",
@@ -96,6 +97,7 @@ export const MODE_COPY: Record<EngineeringMode, ModeCopy> = {
     custodyRoles: ["1. Author (Agent)", "2. Reviewer (fresh ctx)", "3. Maintainer"],
     specialGrade: { value: "safety", label: "High-risk / security" },
     projectStages: [
+      "General / Ad-hoc",
       "Spike / RFC",
       "Feature",
       "Bugfix",
@@ -110,7 +112,7 @@ export const MODE_COPY: Record<EngineeringMode, ModeCopy> = {
       "Hotfix Patch",
       "Release Tag",
     ],
-    disciplines: ["Backend", "Frontend", "Infra / Sandbox", "Security", "API / Spec"],
+    disciplines: ["Unspecified", "Backend", "Frontend", "Infra / Sandbox", "Security", "API / Spec"],
   },
   "capital-projects": {
     id: "capital-projects",
@@ -156,6 +158,6 @@ export const MODE_COPY: Record<EngineeringMode, ModeCopy> = {
       "For Information Only (FIO)",
       "As-Built / Record",
     ],
-    disciplines: ["Process", "Mechanical", "Electrical", "I&C", "Civil / Structural", "Piping"],
+    disciplines: ["Unspecified", "Process", "Mechanical", "Electrical", "I&C", "Civil / Structural", "Piping"],
   },
 };

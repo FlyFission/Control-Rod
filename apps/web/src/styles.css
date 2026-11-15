@@ -141,8 +141,9 @@ textarea {
   font-family: var(--mono);
   padding: 2px 7px;
   border-radius: 6px;
-  background: #16212d;
-  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  color: var(--text);
 }
 .tag.answered {
   background: #123323;

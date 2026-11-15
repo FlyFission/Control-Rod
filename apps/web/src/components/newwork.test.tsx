@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
@@ -77,26 +77,28 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await user.click(screen.getByRole("button", { name: /\+ New deliverable/i }));
     expect(screen.getByRole("heading", { name: "New engineering deliverable" })).toBeTruthy();
 
-    // Starts in Simple mode: advanced fields are hidden
+    // Starts in Simple mode: bare minimum viable controls are visible, advanced-only fields are hidden
     expect(screen.getByRole("button", { name: "Simple" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.queryByLabelText("Project Stage / Gate")).toBeNull();
+    expect(screen.getByLabelText("Repository")).toBeTruthy();
+    expect(screen.getByLabelText("Discipline / Area")).toBeTruthy();
+    expect(screen.getByLabelText("Project Stage / Gate")).toBeTruthy();
+    expect(screen.getByLabelText("Data lane")).toBeTruthy();
+    expect(screen.getByLabelText("Grade")).toBeTruthy();
+    expect(screen.queryByLabelText("Issue Purpose")).toBeNull();
+    expect(screen.queryByLabelText("Default working location")).toBeNull();
 
     // Typing a safety-critical process scope auto-infers discipline, stage, and grade
     await user.type(screen.getByLabelText("Design basis & acceptance criteria"), "Verify ASME relief valve orifice sizing.");
     expect(screen.getByText(/Auto-matched: Safety-critical process scope detected/i)).toBeTruthy();
 
-    // Open 4-choice clarifying questions and pick an option
-    await user.click(screen.getByRole("button", { name: /Clarify scope/i }));
-    const opt = screen.getByRole("button", { name: /Applicable ASME \/ API \/ NFPA \/ NEC code/i });
-    await user.click(opt);
-    expect(opt.getAttribute("aria-pressed")).toBe("true");
-
-    // Switch to Advanced mode and inspect Project Stage, Issue Purpose, CLI ecosystems
-    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    // Pick repository and prepare local workspace right from Simple or Advanced mode
     const repoSelect = await screen.findByLabelText("Repository");
     await user.selectOptions(repoSelect, "FlyFission/Control-Rod");
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod/i)).toBeTruthy();
+
+    // Switch to Advanced mode and inspect Issue Purpose, CLI ecosystems, and Save defaults
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
 
     const stageSelect = screen.getByLabelText("Project Stage / Gate") as HTMLSelectElement;
     expect(stageSelect.value).toBe("Detailed Design (60%)");
@@ -131,7 +133,49 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(capturedBody!.text).toContain("[purpose:Issue for Permit (IFP)]");
     expect(capturedBody!.text).toContain("[author:agy/argon@high]");
     expect(capturedBody!.text).toContain("[checker:codex/sol-6.1@medium]");
-    expect(capturedBody!.text).toContain("Clarifications:");
-    expect(capturedBody!.text).toContain("Applicable ASME / API / NFPA / NEC code");
+  });
+
+  it("pairs reasoning effort levels to the selected CLI ecosystem and model", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
+      ),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
+
+    const cliSelects = screen.getAllByLabelText("CLI Ecosystem");
+    const authorCli = cliSelects[0] as HTMLSelectElement;
+    const optionValues = Array.from(authorCli.options).map((o) => o.value);
+    expect(optionValues).not.toContain("gemini");
+    expect(optionValues).toContain("agy");
+    expect(optionValues).toContain("opencode");
+    expect(optionValues).toContain("grok");
+
+    // OpenCode starts with default model and default reasoning
+    await user.selectOptions(authorCli, "opencode");
+    const modelSelects = screen.getAllByLabelText("Model");
+    expect((modelSelects[0] as HTMLSelectElement).value).toBe("default");
+    const authorReasonGroup = screen.getByRole("group", { name: /1\. Author \(Agent\) reasoning level/i });
+    expect(authorReasonGroup.textContent).toBe("default");
+
+    // Codex sol-6.1 supports xhigh, whereas Codex o3 drops xhigh and falls back to medium
+    await user.selectOptions(authorCli, "codex");
+    const xhighBtn = within(authorReasonGroup).getByRole("button", { name: "xhigh" });
+    await user.click(xhighBtn);
+    expect(xhighBtn.getAttribute("aria-pressed")).toBe("true");
+
+    await user.selectOptions(modelSelects[0]!, "o3");
+    expect(within(authorReasonGroup).queryByRole("button", { name: "xhigh" })).toBeNull();
+    const authorMed = within(authorReasonGroup).getByRole("button", { name: "medium" });
+    expect(authorMed.getAttribute("aria-pressed")).toBe("true");
   });
 });

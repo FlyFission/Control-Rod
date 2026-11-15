@@ -170,13 +170,20 @@ func TestAuthOfDiscardsStatusOutput(t *testing.T) {
 	}
 }
 
-func TestMissingCLIIsReportedWithoutAStatus(t *testing.T) {
+func TestUnprobedAdapterIsOmitted(t *testing.T) {
 	r := SubscriptionFromStatuses([]RuntimeStatus{
 		{Runtime: RuntimeClaude, Ready: true, Version: "2.1.0 (Claude Code)", Artifact: &RuntimeArtifact{Path: "/opt/claude"}},
 	}, "darwin", func(string) string { return "1" })
-	codex := r.Probes[1]
-	if codex.Installed || codex.Auth != authUnknown || codex.AuthNote != noteNotInstalled || codex.Path != "" {
-		t.Fatalf("missing codex %+v", codex)
+	if len(r.Probes) != 1 || r.Probes[0].ID != RuntimeClaude {
+		t.Fatalf("probes %+v", r.Probes)
+	}
+	raw := ReportJSON(r)
+	if strings.Contains(raw, `"id":"codex"`) || strings.Contains(raw, noteNotInstalled) || strings.Contains(raw, "not installed") {
+		t.Fatalf("an unprobed CLI was reported as not installed: %s", raw)
+	}
+	none := SubscriptionFromStatuses(nil, "linux", nil)
+	if len(none.Probes) != 0 {
+		t.Fatalf("no statuses still produced probes: %+v", none.Probes)
 	}
 	if !r.Probes[0].Roles[0].Qualified || r.Probes[0].Roles[1].Qualified {
 		t.Fatalf("darwin with the seatbelt record: %+v", r.Probes[0].Roles)

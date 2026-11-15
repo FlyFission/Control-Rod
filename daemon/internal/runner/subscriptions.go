@@ -210,17 +210,13 @@ func publicText(line string) string {
 	return line
 }
 
-func probeFromStatus(a Adapter, st *RuntimeStatus, platform string, seatbelt bool) SubscriptionProbe {
+func probeFromStatus(a Adapter, st RuntimeStatus, platform string, seatbelt bool) SubscriptionProbe {
 	p := SubscriptionProbe{
 		ID:           a.ID(),
 		DisplayName:  a.DisplayName(),
 		VendorFamily: familyOf(a),
 		Auth:         authUnknown,
 		Roles:        roleQualifications(a.ID(), platform, seatbelt),
-	}
-	if st == nil {
-		p.AuthNote = noteNotInstalled
-		return p
 	}
 	executed := st.Artifact != nil || st.Version != ""
 	p.Installed = executed || strings.Contains(st.Reason, "is installed")
@@ -236,7 +232,7 @@ func probeFromStatus(a Adapter, st *RuntimeStatus, platform string, seatbelt boo
 		}
 		return p
 	}
-	p.Auth, p.AuthNote = authFromStatus(a, *st)
+	p.Auth, p.AuthNote = authFromStatus(a, st)
 	return p
 }
 
@@ -302,8 +298,9 @@ func checkerModels() []SubscriptionChecker {
 }
 
 // SubscriptionFromStatuses builds the settings report from probes the daemon
-// already ran. A registered provider CLI with no status was not installed.
-// The fake runtime and an API-key-only CLI are left out.
+// already ran. A registered provider CLI with no status was not probed. The
+// row is omitted. The report does not call that CLI not installed. The fake
+// runtime and an API-key-only CLI are left out.
 func SubscriptionFromStatuses(statuses []RuntimeStatus, platform string, getenv func(string) string) SubscriptionReport {
 	seatbelt := seatbeltQualified(getenv)
 	byID := map[string]RuntimeStatus{}
@@ -316,11 +313,10 @@ func SubscriptionFromStatuses(statuses []RuntimeStatus, platform string, getenv 
 			continue
 		}
 		st, ok := byID[a.ID()]
-		if ok {
-			probes = append(probes, probeFromStatus(a, &st, platform, seatbelt))
+		if !ok {
 			continue
 		}
-		probes = append(probes, probeFromStatus(a, nil, platform, seatbelt))
+		probes = append(probes, probeFromStatus(a, st, platform, seatbelt))
 	}
 	return SubscriptionReport{
 		Platform:  platform,

@@ -13,22 +13,21 @@ import (
 func checkerLinksDeliverables() bool { return false }
 
 // checkerMountArgv runs the checker under bubblewrap. The filesystem is read-only.
+// --unshare-pid and --proc /proc replace the host /proc, so /proc/<host-pid>/root
+// and /proc/<host-pid>/fd are not a path back to a writable host mount.
 // Writable exceptions, each justified in the change record:
 //   - scratch, the only checker output
-//   - a tmpfs on /tmp (and on TMPDIR when that is a different directory), so a
-//     write never reaches the host temporary directory
-//   - the CLI login-state directories (~/.claude or CLAUDE_CONFIG_DIR, ~/.codex
-//     or CODEX_HOME) when they already exist, so a real-home login can refresh
-//     its own session without the rest of HOME being writable
+//   - a tmpfs on /tmp, so a write never reaches the host temporary directory;
+//     the child TMPDIR is /tmp inside that tmpfs
+//   - the active CLI's credential file, when it already exists, and empty
+//     session or log directories (see loginWritableFiles and loginWritableDirs)
 //   - /dev via --dev, so /dev/null and the tty devices work
 //
-// The deliverable tree is ro-bound at inputs/deliverables and again at its host
-// path. A workspace or runtime that lives under a tmpfs path is ro-bound back
-// after the tmpfs, then scratch is bound writable on top.
-//
-// When the command is a verified launch, Args[0] is /proc/self/fd/N. The
-// descriptor is bind-mounted onto VerifiedPath, which the daemon passes in. The
-// path is not read from /proc/self/fd, because that read can report " (deleted)".
+// After the tmpfs, the staged Codex tree (StageRoot) is read-only again, and so
+// is any workspace that lived under /tmp. The deliverable directory is read-only.
+// A verified launch's descriptor is mounted onto VerifiedPath. An empty
+// VerifiedPath is left alone unless the command is already a /proc/self/fd path,
+// which cannot be mounted and fails closed.
 func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	bwrap, err := exec.LookPath("bwrap")
 	if err != nil {
@@ -37,24 +36,23 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	if cmd == nil || len(cmd.Args) == 0 || ws == nil {
 		return nil, fmt.Errorf("the checker has no command to mount, so the check cannot count")
 	}
-	dest := filepath.Join(ws.Dir, "inputs", "deliverables")
 	argv := append([]string{}, cmd.Args...)
-	out := []string{bwrap, "--die-with-parent", "--ro-bind", "/", "/", "--dev", "/dev"}
-	temps := tmpfsPaths()
-	for _, t := range temps {
-		out = append(out, "--tmpfs", t)
+	out := []string{
+		bwrap, "--die-with-parent", "--unshare-pid",
+		"--ro-bind", "/", "/",
+		"--proc", "/proc",
+		"--dev", "/dev",
+		"--tmpfs", "/tmp",
 	}
-	for _, p := range restoreUnderTmpfs(ws, temps) {
+	if st, err := os.Stat(StageRoot()); err == nil && st.IsDir() {
+		out = append(out, "--ro-bind", StageRoot(), StageRoot())
+	}
+	for _, p := range restoreUnderTmpfs(ws, []string{"/tmp"}) {
 		out = append(out, "--ro-bind", p, p)
 	}
 	out = append(out, "--bind", ws.Scratch, ws.Scratch)
-	for _, d := range loginStateDirs() {
-		out = append(out, "--bind", d, d)
-	}
-	out = append(out, "--ro-bind", ws.Deliverables, dest)
-	if filepath.Clean(ws.Deliverables) != filepath.Clean(dest) {
-		out = append(out, "--ro-bind", ws.Deliverables, ws.Deliverables)
-	}
+	out = append(out, loginMounts(ws.CheckerRuntime)...)
+	out = append(out, "--ro-bind", ws.Deliverables, ws.Deliverables)
 	if fd, ok := procSelfFD(argv[0]); ok {
 		if ws.VerifiedPath == "" {
 			return nil, fmt.Errorf("the verified executable path is missing, so the check cannot count")
@@ -62,29 +60,46 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 		out = append(out, "--ro-bind-fd", fd, ws.VerifiedPath)
 		argv[0] = ws.VerifiedPath
 	}
+	setCheckerTmpEnv(cmd, "/tmp")
 	out = append(out, "--chdir", ws.Dir, "--")
 	return append(out, argv...), nil
 }
 
-func tmpfsPaths() []string {
-	out := []string{"/tmp"}
-	t := os.Getenv("TMPDIR")
-	if t == "" || !filepath.IsAbs(t) {
-		return out
+// loginMounts grants writes only inside the active runtime's login directory.
+// Instruction and settings paths are then mounted read-only over that, when they exist.
+func loginMounts(runtime string) []string {
+	root := loginRoot(runtime)
+	if root == "" {
+		return nil
 	}
-	c, err := canonicalPath(t)
-	if err != nil {
-		return out
+	var out []string
+	for _, rel := range loginWritableFiles(runtime) {
+		p := filepath.Join(root, rel)
+		if st, err := os.Lstat(p); err == nil && st.Mode().IsRegular() {
+			out = append(out, "--bind", p, p)
+		}
 	}
-	if c != "/tmp" && c != "/private/tmp" && filepath.Clean(t) != "/tmp" {
-		out = append(out, t)
+	for _, rel := range loginWritableDirs(runtime) {
+		p := filepath.Join(root, rel)
+		if st, err := os.Lstat(p); err == nil && st.IsDir() {
+			out = append(out, "--bind", p, p)
+		} else if err != nil && os.IsNotExist(err) {
+			out = append(out, "--dir", p)
+		}
+	}
+	for _, name := range protectedLoginNames {
+		p := filepath.Join(root, name)
+		if _, err := os.Lstat(p); err == nil {
+			out = append(out, "--ro-bind", p, p)
+		}
 	}
 	return out
 }
 
 // restoreUnderTmpfs lists directories that must stay visible and read-only after
-// /tmp (or TMPDIR) is replaced with a tmpfs: the workspace or its parent, the
-// deliverable tree, and the verified executable's directory.
+// /tmp is replaced with a tmpfs: the workspace or its parent, the deliverable
+// tree, and the verified executable's directory. The staged Codex tree is
+// restored separately as StageRoot.
 func restoreUnderTmpfs(ws *Workspace, temps []string) []string {
 	var out []string
 	add := func(p string) {
@@ -111,6 +126,10 @@ func restoreUnderTmpfs(ws *Workspace, temps []string) []string {
 	}
 	return out
 }
+
+// tmpfsPaths remains for tests that still name the temporary roots. The mount
+// itself always uses /tmp; the child's TMPDIR is set to that private tmpfs.
+func tmpfsPaths() []string { return []string{"/tmp"} }
 
 func coveredBy(path string, roots []string) bool {
 	path = filepath.Clean(path)

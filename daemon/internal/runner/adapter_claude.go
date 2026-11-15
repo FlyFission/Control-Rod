@@ -10,6 +10,17 @@ import (
 
 type claudeAdapter struct{ sandboxedBase }
 
+func (claudeAdapter) LoginDir(home string, getenv func(string) string) string {
+	if v := getenv("CLAUDE_CONFIG_DIR"); v != "" {
+		return v
+	}
+	return filepath.Join(home, ".claude")
+}
+
+func (claudeAdapter) LoginWritableFiles() []string { return []string{".credentials.json"} }
+
+func (claudeAdapter) LoginWritableDirs() []string { return []string{"projects", "debug", "todos"} }
+
 func (claudeAdapter) ID() string          { return RuntimeClaude }
 func (claudeAdapter) Binary() string      { return "claude" }
 func (claudeAdapter) DisplayName() string { return "Claude Code" }

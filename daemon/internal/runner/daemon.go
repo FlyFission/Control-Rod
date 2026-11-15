@@ -1077,11 +1077,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		return fail("read inputs: " + err.Error()), nil
 	}
 	if ws.Checker {
-		arts, aerr := deliverableArtifacts(ws.Deliverables)
-		if aerr != nil {
-			return fail("the deliverable tree could not be hashed, so the check cannot count: " + aerr.Error()), nil
+		inArts, err = checkerInputArts(inArts, ws)
+		if err != nil {
+			return fail("the deliverable tree could not be hashed, so the check cannot count: " + err.Error()), nil
 		}
-		inArts = append(inArts, arts...)
 	}
 	d.log.Info("run started", "run", job.Run.ID, "role", job.Run.Role, "runtime", runtime, "workspace", ws.Dir)
 
@@ -1093,7 +1092,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		d.log.Warn("breaker tripped; stopping the run", "run", job.Run.ID, "reason", reason)
 		release(errBreaker{reason})
 	}}
-	if h, ok := a.(HookProvider); ok && h.PrepareHook(ws, d.cfg.Home, job.Run.ID) {
+	// A checker's permission hook would write outside scratch, and the mount
+	// would block it. Checkers do not use the hook.
+	if h, ok := a.(HookProvider); ok && !ws.Checker && h.PrepareHook(ws, d.cfg.Home, job.Run.ID) {
 		defer os.Remove(ws.HookFile)
 	}
 	if n, ok := a.(LaunchNotifier); ok {
@@ -1188,6 +1189,16 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		}
 		if err == nil && verified != nil {
 			ws.VerifiedPath = verified.Path
+		}
+		if err == nil {
+			ws.CheckerRuntime = a.ID()
+			ws.LoginRoot = loginRoot(a.ID())
+			sum, herr := hashProtected(ws.LoginRoot)
+			if herr != nil {
+				err = fmt.Errorf("the login directory could not be hashed, so the check cannot count: %w", herr)
+			} else {
+				ws.LoginDigest = sum
+			}
 		}
 		if err == nil && cmd != nil {
 			if merr := applyCheckerMount(cmd, ws); merr != nil {

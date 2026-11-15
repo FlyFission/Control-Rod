@@ -201,7 +201,11 @@ func TestCheckerMountBlocksWritesOutsideScratch(t *testing.T) {
 	}
 	homeFile := filepath.Join(home, fmt.Sprintf("checker-escape-%d", os.Getpid()))
 	tmpFile := filepath.Join("/tmp", fmt.Sprintf("checker-escape-%d", os.Getpid()))
-	sibFile := filepath.Join(ws.Deliverables, "escape.txt")
+	sibDir := filepath.Join(filepath.Dir(ws.Dir), "side")
+	if err := os.MkdirAll(sibDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	sibFile := filepath.Join(sibDir, "escape.txt")
 	t.Cleanup(func() {
 		_ = os.Remove(homeFile)
 		_ = os.Remove(tmpFile)
@@ -250,6 +254,142 @@ echo x > "$SIB_FILE"; echo SIB:$? > scratch/sib
 	if _, err := os.ReadFile(filepath.Join(ws.Scratch, "verification.json")); err != nil {
 		t.Fatal("scratch was not writable")
 	}
+}
+
+func TestCheckerProcDoesNotReachHostProcesses(t *testing.T) {
+	if _, err := exec.LookPath("bwrap"); err != nil {
+		t.Fatal(err)
+	}
+	ws, _ := prepareCheckerFixture(t)
+	marker := filepath.Join("/tmp", fmt.Sprintf("controlrod-proc-marker-%d", os.Getpid()))
+	if err := os.WriteFile(marker, []byte("host-marker\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(marker) })
+	// A fresh pid namespace has no host pid. /proc/<host-pid>/root and
+	// /proc/<host-pid>/fd used to reach a writable host mount.
+	script := fmt.Sprintf(`found=0
+if [ -e /proc/%d/root ] || [ -e /proc/%d/fd ]; then found=1; fi
+for d in /proc/[0-9]*; do
+  if grep -q host-marker "$d/root%s" 2>/dev/null; then found=1; fi
+done
+echo "$found" > scratch/status
+`, os.Getpid(), os.Getpid(), marker)
+	cmd := exec.Command("/bin/sh", "-c", script)
+	cmd.Dir = ws.Dir
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+	status, err := os.ReadFile(filepath.Join(ws.Scratch, "status"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(string(status)) != "0" {
+		t.Fatal("a /proc/<pid>/root or fd path reached the host marker")
+	}
+}
+
+func TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath(t *testing.T) {
+	if err := os.MkdirAll(StageRoot(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	ws, _ := prepareCheckerFixture(t)
+	argv, err := checkerMountArgv(exec.Command("/bin/true"), ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(argv, "\n")
+	if !strings.Contains(joined, "--unshare-pid") || !strings.Contains(joined, "--proc\n/proc") {
+		t.Fatalf("pid namespace or fresh procfs missing: %q", argv)
+	}
+	if !strings.Contains(joined, "--ro-bind\n"+StageRoot()+"\n"+StageRoot()) {
+		t.Fatalf("staged runtime root was not mounted read-only: %q", argv)
+	}
+	if strings.Contains(joined, "--ro-bind-fd") {
+		t.Fatal("an empty verified path still bound a descriptor")
+	}
+	fdCmd := exec.Command("/proc/self/fd/3")
+	if _, err := checkerMountArgv(fdCmd, ws); err == nil {
+		t.Fatal("a descriptor command with no verified path was mounted")
+	}
+}
+
+func TestCheckerCannotRewriteLoginInstructions(t *testing.T) {
+	if _, err := exec.LookPath("bwrap"); err != nil {
+		t.Fatal(err)
+	}
+	claudeDir := t.TempDir()
+	codexDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("do not change\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(claudeDir, "projects"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(codexDir, "config.toml"), []byte("sandbox_mode = \"read-only\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(codexDir, "AGENTS.md"), []byte("do not change\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CLAUDE_CONFIG_DIR", claudeDir)
+	t.Setenv("CODEX_HOME", codexDir)
+	ws, _ := prepareCheckerFixture(t)
+	ws.CheckerRuntime = RuntimeClaude
+	ws.LoginRoot = claudeDir
+	before, err := hashProtected(claudeDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws.LoginDigest = before
+	script := `echo pwn > "$CLAUDE_CONFIG_DIR/settings.json"; echo C:$? > scratch/c
+echo pwn > "$CLAUDE_CONFIG_DIR/CLAUDE.md"; echo M:$? > scratch/m
+echo pwn > "$CODEX_HOME/config.toml"; echo X:$? > scratch/x
+echo pwn > "$CODEX_HOME/AGENTS.md"; echo A:$? > scratch/a
+echo session > "$CLAUDE_CONFIG_DIR/projects/session.txt"; echo P:$? > scratch/p
+printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
+	cmd := exec.Command("/bin/sh", "-c", script)
+	cmd.Dir = ws.Dir
+	cmd.Env = append(os.Environ(), "CLAUDE_CONFIG_DIR="+claudeDir, "CODEX_HOME="+codexDir)
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"c", "m", "x", "a"} {
+		b, err := os.ReadFile(filepath.Join(ws.Scratch, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.TrimSpace(string(b)) == name[:1]+":0" || strings.HasSuffix(strings.TrimSpace(string(b)), ":0") {
+			t.Fatalf("%s write succeeded: %s", name, b)
+		}
+	}
+	got, err := os.ReadFile(filepath.Join(claudeDir, "settings.json"))
+	if err != nil || string(got) != "{}\n" {
+		t.Fatalf("claude settings changed: %q", got)
+	}
+	session, err := os.ReadFile(filepath.Join(claudeDir, "projects", "session.txt"))
+	if err != nil || string(session) != "session\n" {
+		t.Fatalf("session directory was not writable: %q %v", session, err)
+	}
+	tree, cwd := checkerBaseline(t, ws)
+	res := settleChecker(ws, tree, cwd, time.Now())
+	if !res.Counts {
+		t.Fatal(res.Error)
+	}
+	if err := os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("changed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	res = settleChecker(ws, tree, cwd, time.Now())
+	assertVoid(t, res, "login instructions")
 }
 
 func TestPreparedCheckerThroughTheMount(t *testing.T) {

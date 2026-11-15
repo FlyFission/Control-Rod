@@ -46,6 +46,13 @@ type Workspace struct {
 	// VerifiedPath is the host path of the verified executable. The checker mount
 	// uses this path instead of reading /proc/self/fd, which can report " (deleted)".
 	VerifiedPath string
+	// CheckerRuntime is claude or codex for a sandboxed pre-check. Only that
+	// CLI's login directory is given any write.
+	CheckerRuntime string
+	// LoginRoot is that directory when it exists. LoginDigest is the hash of
+	// its instruction and settings paths, taken before the process starts.
+	LoginRoot   string
+	LoginDigest string
 }
 
 // WorkspaceDir returns <root>/work/<package_id>/r<rev>/<role>-<round>-<runid>. Every segment

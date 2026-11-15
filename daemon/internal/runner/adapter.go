@@ -84,6 +84,16 @@ type OutputCopier interface {
 	CopyOutputs(ws *Workspace) error
 }
 
+// loginKeeper names the credential file and the session directories a checker may
+// write inside this CLI's login directory. Instruction and settings names stay
+// read-only. The credential file is the one LoginLocations already names.
+// The session directory names were not remeasured against a live CLI.
+type loginKeeper interface {
+	LoginDir(home string, getenv func(string) string) string
+	LoginWritableFiles() []string
+	LoginWritableDirs() []string
+}
+
 // ExtraEnvProvider adds variables after Command has chosen AgentEnv or ChildEnv.
 // Command drops provider provenance keys (*_BASE_URL, *_MODEL, *_TOKEN, *_API_KEY)
 // from this list before the process sees them.

@@ -49,10 +49,14 @@ type Workspace struct {
 	// CheckerRuntime is claude or codex for a sandboxed pre-check. Only that
 	// CLI's login directory is given any write.
 	CheckerRuntime string
-	// LoginRoot is that directory when it exists. LoginDigest is the hash of
-	// its instruction and settings paths, taken before the process starts.
+	// LoginRoot is that directory even when it does not exist yet. LoginDigest is
+	// the hash of its instruction and settings paths, taken before the process
+	// starts. An absent directory is part of the hash, so creating it voids the check.
 	LoginRoot   string
 	LoginDigest string
+	// LoginDisposable is the per-run directory mounted over session paths.
+	// It is not the real login directory, and the daemon removes it after the run.
+	LoginDisposable string
 }
 
 // WorkspaceDir returns <root>/work/<package_id>/r<rev>/<role>-<round>-<runid>. Every segment

@@ -19,7 +19,15 @@ func (claudeAdapter) LoginDir(home string, getenv func(string) string) string {
 
 func (claudeAdapter) LoginWritableFiles() []string { return []string{".credentials.json"} }
 
-func (claudeAdapter) LoginWritableDirs() []string { return []string{"projects", "debug", "todos"} }
+func (claudeAdapter) LoginSessionDirs() []string { return []string{"projects", "debug", "todos"} }
+
+// CheckerEnv disables auto memory for this process. Claude Code's documented
+// variable is CLAUDE_CODE_DISABLE_AUTO_MEMORY=1: when it is set, Claude does not
+// create or load auto memory files (projects/<project>/memory/). It was not
+// remeasured against a Claude Code binary here.
+func (claudeAdapter) CheckerEnv() []string {
+	return []string{"CLAUDE_CODE_DISABLE_AUTO_MEMORY=1"}
+}
 
 func (claudeAdapter) ID() string          { return RuntimeClaude }
 func (claudeAdapter) Binary() string      { return "claude" }

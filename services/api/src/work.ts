@@ -738,15 +738,25 @@ function roleToolText(cfg: WorkConfig, run: Json, pkgBody: Json | undefined): st
 
 // preparedCheckerOutputPaths is where a prepared pre-check writes, and the
 // output names a checker: reference must use after the daemon uploads the file.
-// The fake runtime still writes under out/. A sandboxed checker writes under scratch/.
-// Both uploads are stored as verification.json and criterion-results.json.
-export function preparedCheckerOutputPaths(runtime: string): { verdict: string; criterion: string; verdictRef: string; criterionRef: string } {
+// The fake runtime still writes under out/, including separate evidence files.
+// A sandboxed checker writes the verdict under scratch/ and evidence under
+// scratch/evidence/, which the daemon uploads as evidence/<relative name>.
+export function preparedCheckerOutputPaths(runtime: string): {
+  verdict: string;
+  criterion: string;
+  verdictRef: string;
+  criterionRef: string;
+  evidence: string;
+} {
   const scratch = runtime !== "fake";
   return {
     verdict: scratch ? "scratch/verification.json" : "out/verification.json",
     criterion: scratch ? "scratch/criterion-results.json" : "out/criterion-results.json",
     verdictRef: "checker:verification.json",
     criterionRef: "checker:criterion-results.json",
+    evidence: scratch
+      ? "Retain check evidence as files under scratch/evidence/ and reference each as checker:evidence/<relative file name>."
+      : "Retain actual check evidence as separate out/ files and reference it as checker:<relative file name>.",
   };
 }
 
@@ -796,7 +806,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   if(run.preparation_manifest_digest && run.role==="pre-check") {
     inputs.push(...criterionResultSchemaInputs(cfg.root));
     const paths = preparedCheckerOutputPaths(runtime);
-    extra.push(`## Controlled criterion results\n\nWrite ${paths.criterion} using inputs/schemas/CriterionResultSubmission.json. Use the exact package, revision and manifest digest from inputs/PREPARATION.json. Record every current criterion and mapped check once. Reference retained evidence only as ${paths.criterionRef} or ${paths.verdictRef}, which are the output names Control Rod keeps. Write no other file. Claim JSON is not decisive evidence. Open/deferred checks must be reported honestly; required checks cannot be waived at acceptance. Also write ${paths.verdict} with the ordinary outcome and findings.`);
+    extra.push(`## Controlled criterion results\n\nWrite ${paths.criterion} using inputs/schemas/CriterionResultSubmission.json. Use the exact package, revision and manifest digest from inputs/PREPARATION.json. Record every current criterion and mapped check once. ${paths.evidence} Do not reference ${paths.verdictRef} or ${paths.criterionRef} as decisive evidence. Claim JSON is not decisive evidence. Open/deferred checks must be reported honestly; required checks cannot be waived at acceptance. Also write ${paths.verdict} with the ordinary outcome and findings.`);
   }
   let findings: Json[] | undefined;
   if (run.role === "pre-check") {

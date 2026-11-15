@@ -19,8 +19,9 @@ func checkerLinksDeliverables() bool { return false }
 //   - scratch, the only checker output
 //   - a tmpfs on /tmp, so a write never reaches the host temporary directory;
 //     the child TMPDIR is /tmp inside that tmpfs
-//   - the active CLI's credential file, when it already exists, and empty
-//     session or log directories (see loginWritableFiles and loginWritableDirs)
+//   - the active CLI's credential file, when it is a regular file inside the
+//     login directory, and empty per-run directories mounted over the real
+//     session directories (planCheckerLogin)
 //   - /dev via --dev, so /dev/null and the tty devices work
 //
 // After the tmpfs, the staged Codex tree (StageRoot) is read-only again, and so
@@ -51,7 +52,11 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 		out = append(out, "--ro-bind", p, p)
 	}
 	out = append(out, "--bind", ws.Scratch, ws.Scratch)
-	out = append(out, loginMounts(ws.CheckerRuntime)...)
+	login, err := planCheckerLogin(ws)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, loginMounts(login)...)
 	out = append(out, "--ro-bind", ws.Deliverables, ws.Deliverables)
 	if fd, ok := procSelfFD(argv[0]); ok {
 		if ws.VerifiedPath == "" {
@@ -65,33 +70,25 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	return append(out, argv...), nil
 }
 
-// loginMounts grants writes only inside the active runtime's login directory.
-// Instruction and settings paths are then mounted read-only over that, when they exist.
-func loginMounts(runtime string) []string {
-	root := loginRoot(runtime)
-	if root == "" {
+// loginMounts keeps the real login directory read-only, including when it lives
+// under /tmp and the tmpfs would otherwise hide it or expose a writable copy.
+// The credential file is then bound writable. Each session directory that is a
+// real directory is covered by an empty per-run directory. Missing session
+// directories are not created on the host. A symlink is not a mount point.
+func loginMounts(plan loginPlan) []string {
+	if plan.Root == "" {
 		return nil
 	}
-	var out []string
-	for _, rel := range loginWritableFiles(runtime) {
-		p := filepath.Join(root, rel)
-		if st, err := os.Lstat(p); err == nil && st.Mode().IsRegular() {
-			out = append(out, "--bind", p, p)
-		}
+	st, err := os.Lstat(plan.Root)
+	if err != nil || st.Mode()&os.ModeSymlink != 0 || !st.IsDir() {
+		return nil
 	}
-	for _, rel := range loginWritableDirs(runtime) {
-		p := filepath.Join(root, rel)
-		if st, err := os.Lstat(p); err == nil && st.IsDir() {
-			out = append(out, "--bind", p, p)
-		} else if err != nil && os.IsNotExist(err) {
-			out = append(out, "--dir", p)
-		}
+	out := []string{"--ro-bind", plan.Root, plan.Root}
+	if plan.Credential != "" {
+		out = append(out, "--bind", plan.Credential, plan.Credential)
 	}
-	for _, name := range protectedLoginNames {
-		p := filepath.Join(root, name)
-		if _, err := os.Lstat(p); err == nil {
-			out = append(out, "--ro-bind", p, p)
-		}
+	for _, o := range plan.Overlays {
+		out = append(out, "--bind", o.Host, o.Dest)
 	}
 	return out
 }

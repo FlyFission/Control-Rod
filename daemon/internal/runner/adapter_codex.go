@@ -32,7 +32,7 @@ func (codexAdapter) LoginDir(home string, getenv func(string) string) string {
 
 func (codexAdapter) LoginWritableFiles() []string { return []string{"auth.json"} }
 
-func (codexAdapter) LoginWritableDirs() []string { return []string{"sessions", "log"} }
+func (codexAdapter) LoginSessionDirs() []string { return []string{"sessions", "log"} }
 
 func (codexAdapter) ID() string          { return RuntimeCodex }
 func (codexAdapter) Binary() string      { return "codex" }

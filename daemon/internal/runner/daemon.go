@@ -1205,6 +1205,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				err = merr
 			}
 		}
+		if ws.LoginDisposable != "" {
+			defer os.RemoveAll(ws.LoginDisposable)
+		}
 		checkerReady = err == nil
 	}
 	if err == nil {
@@ -1405,6 +1408,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					Digest: Digest{Algorithm: "sha256", Value: sha256Hex(result.Criterion)},
 				})
 			}
+			comp.Outputs = append(comp.Outputs, result.Evidence...)
+			outArts = append(outArts, result.EvidenceArts...)
 		}
 	}
 	bin := runtime

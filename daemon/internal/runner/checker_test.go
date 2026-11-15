@@ -140,6 +140,12 @@ func TestCheckerStagesInstructionsOutOfDiscovery(t *testing.T) {
 			if !hasArgPair(cmd.Args, "--disallowedTools", "mcp__*,Agent") || !hasArgPair(cmd.Args, "--max-turns", checkerMaxTurns) {
 				t.Errorf("claude checker flags: %q", cmd.Args)
 			}
+			if !slices.Contains(cmd.Env, "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1") {
+				t.Errorf("claude checker did not disable auto memory: %q", cmd.Env)
+			}
+			if !strings.Contains(strings.Join(cmd.Args, "\n"), `"autoMemoryEnabled":false`) {
+				t.Errorf("claude checker settings did not disable auto memory: %q", cmd.Args)
+			}
 			for _, banned := range []string{"--fallback-model", "--safe-mode"} {
 				if slices.Contains(cmd.Args, banned) {
 					t.Errorf("claude checker passes %s", banned)
@@ -165,6 +171,9 @@ func TestCheckerStagesInstructionsOutOfDiscovery(t *testing.T) {
 	}
 	if slices.Contains(acmd.Args, "--disallowedTools") || slices.Contains(acmd.Args, CheckerPrompt) || slices.Contains(acmd.Args, "--max-turns") {
 		t.Fatalf("author launch gained checker flags: %q", acmd.Args)
+	}
+	if slices.Contains(acmd.Env, "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1") || strings.Contains(strings.Join(acmd.Args, "\n"), "autoMemoryEnabled") {
+		t.Fatal("author launch disabled auto memory")
 	}
 }
 
@@ -446,6 +455,51 @@ func TestDeliverableArtifactsAreNotDuplicated(t *testing.T) {
 		if a.Path == "deliverables/report.md" && a.Digest.Value != sha256Hex(raw) {
 			t.Fatalf("deliverable digest %s is not the raw SHA-256 %s", a.Digest.Value, sha256Hex(raw))
 		}
+	}
+}
+
+func TestAbsentLoginDirectoryIsPartOfTheHash(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "missing")
+	first, err := hashProtected(dir)
+	if err != nil || first == "" {
+		t.Fatal(err)
+	}
+	second, err := hashProtected(dir)
+	if err != nil || second != first {
+		t.Fatalf("absent hash %s %s %v", first, second, err)
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	appeared, err := hashProtected(dir)
+	if err != nil || appeared == first {
+		t.Fatal("creating the login directory did not change the hash")
+	}
+	settings := filepath.Join(dir, "settings.json")
+	if err := os.WriteFile(settings, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	withFile, err := hashProtected(dir)
+	if err != nil || withFile == appeared {
+		t.Fatal("a new settings file did not change the hash")
+	}
+	if err := os.Chmod(settings, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	changed, err := hashProtected(dir)
+	if err != nil || changed == withFile {
+		t.Fatal("the file mode did not change the hash")
+	}
+	f, err := os.Create(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(MaxOutputFile + 1); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if _, err := hashProtected(dir); err == nil {
+		t.Fatal("a settings file over the output cap was hashed")
 	}
 }
 

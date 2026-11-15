@@ -84,14 +84,20 @@ type OutputCopier interface {
 	CopyOutputs(ws *Workspace) error
 }
 
-// loginKeeper names the credential file and the session directories a checker may
-// write inside this CLI's login directory. Instruction and settings names stay
-// read-only. The credential file is the one LoginLocations already names.
-// The session directory names were not remeasured against a live CLI.
+// loginKeeper names this CLI's login directory, the credential file a checker may
+// refresh, and the session directories that must not be the real ones. A checker
+// gets an empty per-run directory mounted over each session directory. The
+// credential file is the one LoginLocations already names. The session directory
+// names were not remeasured against a live CLI.
 type loginKeeper interface {
 	LoginDir(home string, getenv func(string) string) string
 	LoginWritableFiles() []string
-	LoginWritableDirs() []string
+	LoginSessionDirs() []string
+}
+
+// checkerEnv is set only for a sandboxed pre-check. Author launches do not receive it.
+type checkerEnv interface {
+	CheckerEnv() []string
 }
 
 // ExtraEnvProvider adds variables after Command has chosen AgentEnv or ChildEnv.

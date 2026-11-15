@@ -3,6 +3,7 @@
 package runner
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -321,15 +322,35 @@ func TestCheckerCannotRewriteLoginInstructions(t *testing.T) {
 	if _, err := exec.LookPath("bwrap"); err != nil {
 		t.Fatal(err)
 	}
-	claudeDir := t.TempDir()
-	codexDir := t.TempDir()
+	outside, err := os.MkdirTemp("/var/tmp", "cr-login-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(outside) })
+	for _, parent := range []string{t.TempDir(), outside} {
+		t.Run(filepath.Base(parent), func(t *testing.T) {
+			assertLoginWritesStayOffTheHost(t, parent)
+		})
+	}
+}
+
+func assertLoginWritesStayOffTheHost(t *testing.T, parent string) {
+	t.Helper()
+	claudeDir := filepath.Join(parent, "claude")
+	codexDir := filepath.Join(parent, "codex")
+	if err := os.MkdirAll(filepath.Join(claudeDir, "projects", "other", "memory"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(codexDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(claudeDir, "projects", "other", "memory", "MEMORY.md"), []byte("keep\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("do not change\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(claudeDir, "projects"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(codexDir, "config.toml"), []byte("sandbox_mode = \"read-only\"\n"), 0o600); err != nil {
@@ -348,11 +369,15 @@ func TestCheckerCannotRewriteLoginInstructions(t *testing.T) {
 		t.Fatal(err)
 	}
 	ws.LoginDigest = before
-	script := `echo pwn > "$CLAUDE_CONFIG_DIR/settings.json"; echo C:$? > scratch/c
-echo pwn > "$CLAUDE_CONFIG_DIR/CLAUDE.md"; echo M:$? > scratch/m
+	script := `mkdir -p "$CLAUDE_CONFIG_DIR/projects/other/memory"
+echo pwn > "$CLAUDE_CONFIG_DIR/projects/other/memory/MEMORY.md"; echo M:$? > scratch/m
+echo new > "$CLAUDE_CONFIG_DIR/projects/other/memory/new.md"
+echo pwn > "$CLAUDE_CONFIG_DIR/settings.json"; echo C:$? > scratch/c
+echo pwn > "$CLAUDE_CONFIG_DIR/CLAUDE.md"; echo D:$? > scratch/d
+echo pwn > "$CLAUDE_CONFIG_DIR/CLAUDE.local.md"; echo L:$? > scratch/l
+mkdir "$CLAUDE_CONFIG_DIR/hooks"; echo H:$? > scratch/h
 echo pwn > "$CODEX_HOME/config.toml"; echo X:$? > scratch/x
 echo pwn > "$CODEX_HOME/AGENTS.md"; echo A:$? > scratch/a
-echo session > "$CLAUDE_CONFIG_DIR/projects/session.txt"; echo P:$? > scratch/p
 printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
 	cmd := exec.Command("/bin/sh", "-c", script)
 	cmd.Dir = ws.Dir
@@ -360,36 +385,101 @@ printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
 	if err := applyCheckerMount(cmd, ws); err != nil {
 		t.Fatal(err)
 	}
+	argv := strings.Join(cmd.Args, "\n")
+	if !strings.Contains(argv, "--ro-bind\n"+claudeDir+"\n"+claudeDir) {
+		t.Fatalf("login root was not mounted read-only: %q", cmd.Args)
+	}
+	if strings.Contains(argv, "--dir\n") || strings.Contains(argv, "--bind\n"+filepath.Join(claudeDir, "projects")+"\n") {
+		t.Fatalf("real projects directory is writable: %q", cmd.Args)
+	}
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"c", "m", "x", "a"} {
+	for _, name := range []string{"c", "d", "l", "h", "x", "a"} {
 		b, err := os.ReadFile(filepath.Join(ws.Scratch, name))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if strings.TrimSpace(string(b)) == name[:1]+":0" || strings.HasSuffix(strings.TrimSpace(string(b)), ":0") {
+		if strings.HasSuffix(strings.TrimSpace(string(b)), ":0") {
 			t.Fatalf("%s write succeeded: %s", name, b)
 		}
+	}
+	mem, err := os.ReadFile(filepath.Join(claudeDir, "projects", "other", "memory", "MEMORY.md"))
+	if err != nil || string(mem) != "keep\n" {
+		t.Fatalf("project memory changed: %q %v", mem, err)
+	}
+	if _, err := os.Lstat(filepath.Join(claudeDir, "projects", "other", "memory", "new.md")); !os.IsNotExist(err) {
+		t.Fatalf("new memory file landed on the host: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(claudeDir, "CLAUDE.local.md")); !os.IsNotExist(err) {
+		t.Fatalf("absent CLAUDE.local.md was created: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(claudeDir, "hooks")); !os.IsNotExist(err) {
+		t.Fatalf("absent hooks directory was created: %v", err)
 	}
 	got, err := os.ReadFile(filepath.Join(claudeDir, "settings.json"))
 	if err != nil || string(got) != "{}\n" {
 		t.Fatalf("claude settings changed: %q", got)
-	}
-	session, err := os.ReadFile(filepath.Join(claudeDir, "projects", "session.txt"))
-	if err != nil || string(session) != "session\n" {
-		t.Fatalf("session directory was not writable: %q %v", session, err)
 	}
 	tree, cwd := checkerBaseline(t, ws)
 	res := settleChecker(ws, tree, cwd, time.Now())
 	if !res.Counts {
 		t.Fatal(res.Error)
 	}
-	if err := os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte("changed\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(claudeDir, "CLAUDE.local.md"), []byte("planted\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	res = settleChecker(ws, tree, cwd, time.Now())
 	assertVoid(t, res, "login instructions")
+}
+
+func TestCheckerSessionSymlinkDoesNotGrantHomeWrites(t *testing.T) {
+	if _, err := exec.LookPath("bwrap"); err != nil {
+		t.Fatal(err)
+	}
+	home := t.TempDir()
+	codexDir := filepath.Join(home, ".codex")
+	if err := os.MkdirAll(codexDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(home, filepath.Join(codexDir, "sessions")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CODEX_HOME", codexDir)
+	ws, _ := prepareCheckerFixture(t)
+	ws.CheckerRuntime = RuntimeCodex
+	plan, err := planCheckerLogin(ws)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, o := range plan.Overlays {
+		if o.Dest == filepath.Join(codexDir, "sessions") {
+			t.Fatal("a symlinked session directory was mounted")
+		}
+	}
+	paths, err := checkerSeatbeltPaths(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range paths {
+		if p == home || strings.HasPrefix(p, home+string(os.PathSeparator)) && !strings.HasPrefix(p, codexDir+string(os.PathSeparator)) {
+			t.Fatalf("seatbelt would allow %s", p)
+		}
+	}
+	script := `echo pwn > "$CODEX_HOME/sessions/pwned"; echo S:$? > scratch/s
+printf '%s' '{"outcome":"pass","findings":[]}' > scratch/verification.json`
+	cmd := exec.Command("/bin/sh", "-c", script)
+	cmd.Dir = ws.Dir
+	cmd.Env = append(os.Environ(), "CODEX_HOME="+codexDir)
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(home, "pwned")); !os.IsNotExist(err) {
+		t.Fatalf("symlink granted a write in the home directory: %v", err)
+	}
 }
 
 func TestPreparedCheckerThroughTheMount(t *testing.T) {
@@ -399,7 +489,7 @@ func TestPreparedCheckerThroughTheMount(t *testing.T) {
 	ws, _ := prepareCheckerFixture(t)
 	before, cwd := checkerBaseline(t, ws)
 	criterion := `{"package_id":"WP-0007","package_revision":2,"release_manifest_digest":{"algorithm":"sha256","value":"` + strings.Repeat("ab", 32) + `"},"results":[{"criterion_id":"C1","outcome":"pass","check_results":[{"check_id":"K1","outcome":"pass","evidence_refs":[]}],"finding_refs":[]}]}`
-	script := "printf '%s' '" + `{"outcome":"pass","findings":[]}` + "' > scratch/verification.json; printf '%s' '" + criterion + "' > scratch/criterion-results.json"
+	script := "mkdir -p scratch/evidence; printf '%s' 'Independent review log' > scratch/evidence/checks.md; printf '%s' '" + `{"outcome":"pass","findings":[]}` + "' > scratch/verification.json; printf '%s' '" + criterion + "' > scratch/criterion-results.json"
 	cmd := exec.Command("/bin/sh", "-c", script)
 	cmd.Dir = ws.Dir
 	if err := applyCheckerMount(cmd, ws); err != nil {
@@ -417,5 +507,12 @@ func TestPreparedCheckerThroughTheMount(t *testing.T) {
 	}
 	if string(res.Criterion) != criterion {
 		t.Fatalf("criterion %s", res.Criterion)
+	}
+	if len(res.Evidence) != 1 || res.Evidence[0].Name != "evidence/checks.md" {
+		t.Fatalf("evidence %+v", res.Evidence)
+	}
+	raw, err := base64.StdEncoding.DecodeString(res.Evidence[0].ContentBase64)
+	if err != nil || string(raw) != "Independent review log" {
+		t.Fatalf("evidence bytes %q %v", raw, err)
 	}
 }

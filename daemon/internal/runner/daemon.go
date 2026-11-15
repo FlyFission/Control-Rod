@@ -1208,6 +1208,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		if ws.LoginDisposable != "" {
 			defer os.RemoveAll(ws.LoginDisposable)
 		}
+		if ws.CheckerTmp != "" {
+			defer os.RemoveAll(ws.CheckerTmp)
+		}
 		checkerReady = err == nil
 	}
 	if err == nil {

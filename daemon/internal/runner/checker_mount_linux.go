@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -39,12 +40,13 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	}
 	argv := append([]string{}, cmd.Args...)
 	out := []string{
-		bwrap, "--die-with-parent", "--unshare-pid",
+		bwrap, "--die-with-parent", "--unshare-pid", "--unshare-ipc",
 		"--ro-bind", "/", "/",
 		"--proc", "/proc",
 		"--dev", "/dev",
 		"--tmpfs", "/tmp",
 	}
+	out = append(out, hideHostSockets(cmd, ws)...)
 	if st, err := os.Stat(StageRoot()); err == nil && st.IsDir() {
 		out = append(out, "--ro-bind", StageRoot(), StageRoot())
 	}
@@ -68,6 +70,126 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	setCheckerTmpEnv(cmd, "/tmp")
 	out = append(out, "--chdir", ws.Dir, "--")
 	return append(out, argv...), nil
+}
+
+// hideHostSockets covers host Unix sockets the checker could connect() to
+// through the read-only root. Network stays available: the CLIs need HTTPS.
+// --unshare-ipc does not hide filesystem sockets. A tmpfs replaces a runtime
+// directory. A socket file is replaced with /dev/null. Paths already under a
+// tmpfs are left alone, because mounting onto a path the tmpfs removed fails.
+func hideHostSockets(cmd *exec.Cmd, ws *Workspace) []string {
+	var dirs []string
+	if d := filepath.Join("/run/user", strconv.Itoa(os.Getuid())); realDir(d) {
+		dirs = append(dirs, d)
+	}
+	if xdg := envAny(cmd, "XDG_RUNTIME_DIR"); realDir(xdg) && !coveredBy(xdg, dirs) && !coveredBy(xdg, []string{"/tmp"}) {
+		dirs = append(dirs, xdg)
+	}
+	if d := "/run/dbus"; realDir(d) {
+		dirs = append(dirs, d)
+	}
+	var out []string
+	var covered []string
+	for _, d := range dirs {
+		if skipSocketHide(ws, d) {
+			continue
+		}
+		out = append(out, "--tmpfs", d)
+		covered = append(covered, d)
+	}
+	var sockets []string
+	for _, p := range []string{"/run/docker.sock", "/var/run/docker.sock", "/run/dbus/system_bus_socket", "/var/run/dbus/system_bus_socket"} {
+		sockets = append(sockets, p)
+	}
+	sockets = append(sockets, envAll(cmd, "SSH_AUTH_SOCK")...)
+	for _, home := range gpgHomes(cmd) {
+		for _, name := range []string{"S.gpg-agent", "S.gpg-agent.extra", "S.gpg-agent.ssh", "S.gpg-agent.browser"} {
+			sockets = append(sockets, filepath.Join(home, name))
+		}
+	}
+	seen := map[string]bool{}
+	for _, p := range sockets {
+		p = filepath.Clean(p)
+		if p == "" || p == "." || seen[p] || !filepath.IsAbs(p) || coveredBy(p, covered) || coveredBy(p, []string{"/tmp"}) {
+			continue
+		}
+		seen[p] = true
+		if skipSocketHide(ws, p) {
+			continue
+		}
+		st, err := os.Lstat(p)
+		if err != nil {
+			continue
+		}
+		if st.Mode()&os.ModeSocket != 0 || st.Mode()&os.ModeSymlink != 0 {
+			out = append(out, "--ro-bind", "/dev/null", p)
+		}
+	}
+	return out
+}
+
+func realDir(path string) bool {
+	st, err := os.Lstat(path)
+	return err == nil && st.IsDir() && st.Mode()&os.ModeSymlink == 0
+}
+
+func skipSocketHide(ws *Workspace, path string) bool {
+	if ws == nil || path == "" || path == "/" {
+		return path == "/"
+	}
+	for _, keep := range []string{ws.Dir, ws.Scratch, ws.Deliverables, StageRoot()} {
+		if keep != "" && (path == keep || strings.HasPrefix(path, keep+string(os.PathSeparator)) || strings.HasPrefix(keep, path+string(os.PathSeparator))) {
+			return true
+		}
+	}
+	return false
+}
+
+func envAny(cmd *exec.Cmd, key string) string {
+	vals := envAll(cmd, key)
+	if len(vals) == 0 {
+		return ""
+	}
+	return vals[0]
+}
+
+func envAll(cmd *exec.Cmd, key string) []string {
+	var out []string
+	add := func(v string) {
+		if v == "" {
+			return
+		}
+		for _, have := range out {
+			if have == v {
+				return
+			}
+		}
+		out = append(out, v)
+	}
+	if cmd != nil && cmd.Env != nil {
+		for _, kv := range cmd.Env {
+			k, v, ok := strings.Cut(kv, "=")
+			if ok && k == key {
+				add(v)
+			}
+		}
+	}
+	add(os.Getenv(key))
+	return out
+}
+
+func gpgHomes(cmd *exec.Cmd) []string {
+	var out []string
+	if v := envAny(cmd, "GNUPGHOME"); v != "" {
+		out = append(out, v)
+	}
+	if v := os.Getenv("GNUPGHOME"); v != "" && (len(out) == 0 || out[0] != v) {
+		out = append(out, v)
+	}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		out = append(out, filepath.Join(home, ".gnupg"))
+	}
+	return out
 }
 
 // loginMounts keeps the real login directory read-only, including when it lives

@@ -4,21 +4,20 @@ package runner
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 )
 
 func checkerLinksDeliverables() bool { return false }
 
-// checkerMountArgv runs the checker under Seatbelt. The profile denies every
-// file write except the canonical scratch directory, a per-run directory under
-// the canonical temporary directory (not all of /tmp), the credential file when
-// it is a real file inside the login directory, and the disposable session
-// directories. The real session directories are not writable, so a symlink
-// such as sessions -> $HOME cannot grant writes to the home directory. Every
-// path is canonicalized first so /tmp and /var match /private/tmp and
-// /private/var. Deliverables live in the working directory as a real directory.
+// checkerMountArgv runs the checker under Seatbelt. Seatbelt cannot mount a
+// directory over another path, so the disposable session directories used on
+// Linux are not write targets here. The profile denies reads of the real
+// session directories instead. Claude is already started with
+// --no-session-persistence and Codex with --ephemeral. There is no documented
+// variable that moves only projects, debug, todos, sessions, or log while
+// leaving the credential file in the real login directory. CLAUDE_CONFIG_DIR
+// and CODEX_HOME move the credential file as well, so they are not pointed at
+// the disposable directory. Every allowed write path is canonicalized first.
 func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	if cmd == nil || len(cmd.Args) == 0 || ws == nil {
 		return nil, fmt.Errorf("the checker has no command to mount, so the check cannot count")
@@ -31,7 +30,7 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot canonicalize the scratch directory (%v), so the check cannot count", err)
 	}
-	runTmp, err := checkerRunTmp(ws)
+	runTmp, err := makeCheckerRunTmp(ws)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create the checker temporary directory (%v), so the check cannot count", err)
 	}
@@ -48,19 +47,6 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 		return nil, fmt.Errorf("cannot canonicalize the deliverable tree (%v), so the check cannot count", err)
 	}
 	setCheckerTmpEnv(cmd, runTmp)
-	return append([]string{bin, "-p", seatbeltProfile(writable)}, cmd.Args...), nil
-}
-
-// checkerRunTmp is one directory for this run under the canonical temporary
-// directory. It is not the whole of /tmp.
-func checkerRunTmp(ws *Workspace) (string, error) {
-	base, err := canonicalPath(os.TempDir())
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(base, "controlrod-checker-tmp", filepath.Base(ws.Dir))
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", err
-	}
-	return canonicalPath(dir)
+	denies := sessionReadDenies(plan.Root, loginSessionDirs(ws.CheckerRuntime))
+	return append([]string{bin, "-p", seatbeltProfile(writable, denies)}, cmd.Args...), nil
 }

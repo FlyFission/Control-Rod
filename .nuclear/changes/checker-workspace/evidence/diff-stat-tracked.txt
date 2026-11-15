@@ -1,27 +1,27 @@
  .nuclear/changes/checker-workspace/basis.md        |   52 +
  .nuclear/changes/checker-workspace/plan.md         |   22 +
- .nuclear/changes/checker-workspace/risk.md         |   35 +
+ .nuclear/changes/checker-workspace/risk.md         |   37 +
  .nuclear/changes/checker-workspace/ship.md         |   23 +
- .nuclear/changes/checker-workspace/trace.md        |   30 +
- .nuclear/changes/checker-workspace/verification.md |   66 ++
+ .nuclear/changes/checker-workspace/trace.md        |   31 +
+ .nuclear/changes/checker-workspace/verification.md |   68 ++
  daemon/internal/runner/adapter.go                  |   16 +
  daemon/internal/runner/adapter_claude.go           |   19 +
  daemon/internal/runner/adapter_codex.go            |   12 +
  daemon/internal/runner/artifact.go                 |   79 +-
- daemon/internal/runner/checker.go                  | 1162 ++++++++++++++++++++
+ daemon/internal/runner/checker.go                  | 1230 ++++++++++++++++++++
  daemon/internal/runner/checker_file.schema.json    |   24 +
- daemon/internal/runner/checker_linux_test.go       |  518 +++++++++
- daemon/internal/runner/checker_mount_darwin.go     |   66 ++
- daemon/internal/runner/checker_mount_linux.go      |  167 +++
+ daemon/internal/runner/checker_linux_test.go       |  581 +++++++++
+ daemon/internal/runner/checker_mount_darwin.go     |   52 +
+ daemon/internal/runner/checker_mount_linux.go      |  289 +++++
  daemon/internal/runner/checker_mount_other.go      |   14 +
- daemon/internal/runner/checker_test.go             |  610 ++++++++++
- daemon/internal/runner/daemon.go                   |  101 +-
+ daemon/internal/runner/checker_test.go             |  755 ++++++++++++
+ daemon/internal/runner/daemon.go                   |  104 +-
  daemon/internal/runner/login_other.go              |    7 +
  daemon/internal/runner/login_unix.go               |   16 +
  daemon/internal/runner/runtime.go                  |   62 +-
  .../testdata/launch-golden/claude-pre-check.json   |   11 +-
  .../testdata/launch-golden/codex-pre-check.json    |    2 +-
- daemon/internal/runner/workspace.go                |   23 +
+ daemon/internal/runner/workspace.go                |   26 +
  daemon/internal/wire/decode.go                     |   72 +-
  daemon/internal/wire/schemas/CheckResult.json      |   46 +
  daemon/internal/wire/schemas/Coupling.json         |   12 +
@@ -38,4 +38,4 @@
  services/api/src/work.ts                           |   27 +-
  .../api/test/prepared-checker-evidence.test.ts     |   90 ++
  services/api/test/prepared-checker-paths.test.ts   |   25 +
- 40 files changed, 3718 insertions(+), 22 deletions(-)
+ 40 files changed, 4113 insertions(+), 22 deletions(-)

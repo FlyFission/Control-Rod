@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -352,20 +353,164 @@ func TestTreeDigestDoesNotFollowSymlinks(t *testing.T) {
 
 func TestSeatbeltProfileDeniesWritesExceptScratch(t *testing.T) {
 	scratch := "/private/tmp/checker/scratch"
-	profile := seatbeltProfile([]string{scratch})
+	profile := seatbeltProfile([]string{scratch}, nil)
 	if !strings.Contains(profile, "(deny file-write*)") || !strings.Contains(profile, `(subpath "`+scratch+`")`) {
 		t.Fatalf("profile %s", profile)
 	}
 	if strings.Contains(profile, "(deny default)") {
 		t.Fatal("profile denies process and read, which the login needs")
 	}
+	if !strings.Contains(profile, "(deny network-outbound\n    (remote unix-socket))") {
+		t.Fatal("profile still allows outbound Unix sockets")
+	}
+	if strings.Contains(profile, "mach-lookup") {
+		t.Fatal("profile denies mach-lookup; that was not shown to be safe")
+	}
 	if strings.Contains(profile, "(allow file-write*\n    (subpath \"/Users\"))") || strings.Contains(profile, "subpath \"/\"") {
 		t.Fatal("profile allows writes outside scratch")
 	}
-	quoted := seatbeltProfile([]string{`/tmp/quote"here`})
+	quoted := seatbeltProfile([]string{`/tmp/quote"here`}, nil)
 	if !strings.Contains(quoted, `"/tmp/quote\"here"`) {
 		t.Fatalf("profile did not escape the path: %s", quoted)
 	}
+}
+
+func TestMacProfileHidesRealSessionDirs(t *testing.T) {
+	home := t.TempDir()
+	login := filepath.Join(home, ".codex")
+	if err := os.MkdirAll(login, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(home, filepath.Join(login, "sessions")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(login, "log"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	denies := sessionReadDenies(login, []string{"sessions", "log", "missing"})
+	if len(denies) != 2 {
+		t.Fatalf("denies %v", denies)
+	}
+	for _, p := range denies {
+		if p == home {
+			t.Fatal("session deny followed the symlink into the home directory")
+		}
+	}
+	profile := seatbeltProfile(nil, denies)
+	session := filepath.Join(login, "sessions")
+	if !strings.Contains(profile, "(deny file-read*\n    (subpath \""+session+"\"))") {
+		t.Fatalf("profile does not hide the real session directory: %s", profile)
+	}
+	if strings.Contains(profile, "(subpath \""+home+"\")") {
+		t.Fatal("profile denies the symlink target")
+	}
+	if !slices.Contains(ClaudeIsolationArgs(), "--no-session-persistence") {
+		t.Fatal("claude has no --no-session-persistence")
+	}
+}
+
+func TestLoginOverlayIsPerRun(t *testing.T) {
+	parent := t.TempDir()
+	residue := filepath.Join(parent, "login-overlay")
+	if err := os.MkdirAll(filepath.Join(residue, "projects"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(residue, "projects", "old"), []byte("residue"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	login := filepath.Join(parent, "claude")
+	if err := os.MkdirAll(filepath.Join(login, "projects"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CLAUDE_CONFIG_DIR", login)
+	plans := make([]loginPlan, 2)
+	for i := range plans {
+		dir := filepath.Join(parent, fmt.Sprintf("run-%d", i))
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		ws := &Workspace{Dir: dir, CheckerRuntime: RuntimeClaude}
+		var err error
+		plans[i], err = planCheckerLogin(ws)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if plans[0].Disposable == "" || plans[0].Disposable == plans[1].Disposable || plans[0].Disposable == residue {
+		t.Fatalf("disposables %q %q", plans[0].Disposable, plans[1].Disposable)
+	}
+	if _, err := os.ReadFile(filepath.Join(residue, "projects", "old")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(plans[0].Disposable, "projects", "old")); !os.IsNotExist(err) {
+		t.Fatal("pre-existing residue was reused")
+	}
+	const n = 8
+	var wg sync.WaitGroup
+	got := make([]string, n)
+	errc := make(chan error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			dir := filepath.Join(parent, fmt.Sprintf("conc-%d", i))
+			if err := os.MkdirAll(dir, 0o700); err != nil {
+				errc <- err
+				return
+			}
+			ws := &Workspace{Dir: dir, CheckerRuntime: RuntimeClaude}
+			plan, err := planCheckerLogin(ws)
+			if err != nil {
+				errc <- err
+				return
+			}
+			got[i] = plan.Disposable
+		}(i)
+	}
+	wg.Wait()
+	close(errc)
+	for err := range errc {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, d := range got {
+		if d == "" || d == residue || seen[d] {
+			t.Fatalf("concurrent disposable %q", d)
+		}
+		seen[d] = true
+	}
+	if err := os.RemoveAll(plans[0].Disposable); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(plans[1].Disposable); err != nil {
+		t.Fatal("removing one run removed the other")
+	}
+	if _, err := os.Stat(filepath.Join(residue, "projects", "old")); err != nil {
+		t.Fatal("removing one run removed the residue")
+	}
+}
+
+func TestCheckerRunTmpIsRemovedAlone(t *testing.T) {
+	ws1 := &Workspace{}
+	ws2 := &Workspace{}
+	a, err := makeCheckerRunTmp(ws1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := makeCheckerRunTmp(ws2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a == b || ws1.CheckerTmp != a || ws2.CheckerTmp != b {
+		t.Fatalf("%s %s", a, b)
+	}
+	if err := os.RemoveAll(ws1.CheckerTmp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(ws2.CheckerTmp); err != nil {
+		t.Fatal("removing one temporary directory removed the other")
+	}
+	os.RemoveAll(ws2.CheckerTmp)
 }
 
 func TestCanonicalPathResolvesTheAncestorSymlink(t *testing.T) {

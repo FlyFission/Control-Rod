@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -254,6 +255,68 @@ echo x > "$SIB_FILE"; echo SIB:$? > scratch/sib
 	}
 	if _, err := os.ReadFile(filepath.Join(ws.Scratch, "verification.json")); err != nil {
 		t.Fatal("scratch was not writable")
+	}
+}
+
+func TestCheckerCannotReachAHostUnixSocket(t *testing.T) {
+	if _, err := exec.LookPath("bwrap"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := os.MkdirTemp("/var/tmp", "cr-sock-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	sock := filepath.Join(dir, "agent.sock")
+	ln, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	contacted := make(chan struct{}, 1)
+	go func() {
+		c, err := ln.Accept()
+		if err == nil {
+			_ = c.Close()
+			contacted <- struct{}{}
+		}
+	}()
+	ws, _ := prepareCheckerFixture(t)
+	cmd := exec.Command("python3", "-c", `import socket,sys
+s=socket.socket(socket.AF_UNIX)
+s.settimeout(2)
+try:
+    s.connect(sys.argv[1])
+except Exception:
+    sys.exit(0)
+sys.exit(2)
+`, sock)
+	cmd.Dir = ws.Dir
+	cmd.Env = append(os.Environ(), "SSH_AUTH_SOCK="+sock, "DBUS_SESSION_BUS_ADDRESS=unix:path="+sock, "DOCKER_HOST=unix://"+sock)
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("checker reached the host socket: %v", err)
+	}
+	select {
+	case <-contacted:
+		t.Fatal("the host socket accepted a connection from the checker")
+	default:
+	}
+	for _, kv := range cmd.Env {
+		for _, key := range []string{"SSH_AUTH_SOCK=", "DBUS_SESSION_BUS_ADDRESS=", "DOCKER_HOST="} {
+			if strings.HasPrefix(kv, key) {
+				t.Fatalf("checker environment kept %s", kv)
+			}
+		}
+	}
+	joined := strings.Join(cmd.Args, "\n")
+	if !strings.Contains(joined, "--unshare-ipc") || !strings.Contains(joined, "--ro-bind\n/dev/null\n"+sock) {
+		t.Fatalf("socket was not hidden: %q", cmd.Args)
 	}
 }
 

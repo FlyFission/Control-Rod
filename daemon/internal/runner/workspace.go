@@ -54,9 +54,12 @@ type Workspace struct {
 	// starts. An absent directory is part of the hash, so creating it voids the check.
 	LoginRoot   string
 	LoginDigest string
-	// LoginDisposable is the per-run directory mounted over session paths.
-	// It is not the real login directory, and the daemon removes it after the run.
+	// LoginDisposable is this run's directory mounted over session paths on Linux.
+	// It is not the real login directory, and the daemon removes only this directory.
 	LoginDisposable string
+	// CheckerTmp is the macOS per-run temporary directory. The daemon removes it
+	// after the run. Linux uses the private /tmp tmpfs and does not set this.
+	CheckerTmp string
 }
 
 // WorkspaceDir returns <root>/work/<package_id>/r<rev>/<role>-<round>-<runid>. Every segment

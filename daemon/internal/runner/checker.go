@@ -63,12 +63,34 @@ func isReservedInstruction(name string) bool {
 	return reservedInstructionNames[strings.ToLower(name)]
 }
 
+// checkerSocketEnv are pointers to host Unix sockets. A checker does not receive
+// them. AgentEnv already omits them for a CLI; the mount drops them again so a
+// process started with the daemon's environment does not keep them either.
+var checkerSocketEnv = []string{
+	"DBUS_SESSION_BUS_ADDRESS", "DBUS_SYSTEM_BUS_ADDRESS",
+	"SSH_AUTH_SOCK", "SSH_AGENT_PID",
+	"DOCKER_HOST", "DOCKER_CONTEXT",
+	"GPG_AGENT_INFO", "GNUPGHOME",
+}
+
 func setCheckerTmpEnv(cmd *exec.Cmd, dir string) {
 	env := cmd.Env
 	if env == nil {
 		env = os.Environ()
 	}
-	cmd.Env = withEnv(env, "TMPDIR="+dir)
+	drop := map[string]bool{}
+	for _, k := range checkerSocketEnv {
+		drop[k] = true
+	}
+	kept := make([]string, 0, len(env))
+	for _, kv := range env {
+		k, _, _ := strings.Cut(kv, "=")
+		if drop[k] {
+			continue
+		}
+		kept = append(kept, kv)
+	}
+	cmd.Env = withEnv(kept, "TMPDIR="+dir)
 }
 
 // prepareWorkspace builds a checker workspace for a sandboxed pre-check and the
@@ -832,18 +854,61 @@ func walkJSON(dec *json.Decoder) error {
 
 // seatbeltProfile allows the process to read and to run, and denies every file
 // write except the paths it is given. Those are the canonical scratch directory,
-// one per-run directory under the canonical temporary directory, the credential
-// file when it is a real file inside the login directory, and the disposable
-// session directories. The real session directories are not writable. Paths must
-// already be canonical (filepath.EvalSymlinks), so /tmp and /var are
-// /private/tmp and /private/var on macOS.
-func seatbeltProfile(writable []string) string {
+// one per-run directory under the canonical temporary directory, and the
+// credential file when it is a real file inside the login directory. unreadable
+// paths are the real session directories: Seatbelt cannot mount another
+// directory over them, so the checker may neither read nor write them.
+// Unix-domain sockets are denied. A blanket mach-lookup deny is not applied:
+// the process needs the bootstrap server, and no narrower set was shown to be
+// safe without running on a Mac. Paths must already be canonical where a write
+// is allowed. Read denies use the path the process would open, not a symlink
+// target, so a session symlink is not turned into a deny of the home directory.
+func seatbeltProfile(writable, unreadable []string) string {
 	var b strings.Builder
 	b.WriteString("(version 1)\n(allow default)\n(deny file-write*)\n")
+	b.WriteString("(deny network-outbound\n    (remote unix-socket))\n")
+	for _, p := range unreadable {
+		b.WriteString("(deny file-read*\n    (subpath " + sbplString(p) + "))\n")
+	}
 	for _, p := range writable {
 		b.WriteString("(allow file-write*\n    (subpath " + sbplString(p) + "))\n")
 	}
 	return b.String()
+}
+
+// sessionReadDenies lists real session directories the macOS profile must hide.
+// The path is not canonicalized: EvalSymlinks would follow sessions -> $HOME
+// and deny the home directory.
+func sessionReadDenies(root string, rels []string) []string {
+	if root == "" {
+		return nil
+	}
+	var out []string
+	for _, rel := range rels {
+		p := filepath.Join(root, rel)
+		if _, err := os.Lstat(p); err == nil {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// makeCheckerRunTmp creates one directory for this run under the canonical
+// temporary directory. It is not the whole of /tmp, and it is not shared with
+// another run. The daemon removes ws.CheckerTmp after the run.
+func makeCheckerRunTmp(ws *Workspace) (string, error) {
+	base, err := canonicalPath(os.TempDir())
+	if err != nil {
+		return "", err
+	}
+	dir, err := os.MkdirTemp(base, "controlrod-checker-tmp-")
+	if err != nil {
+		return "", err
+	}
+	if ws != nil {
+		ws.CheckerTmp = dir
+	}
+	return dir, nil
 }
 
 // protectedLoginNames stay read-only inside the active CLI's login directory.
@@ -944,7 +1009,7 @@ func planCheckerLogin(ws *Workspace) (loginPlan, error) {
 			break
 		}
 	}
-	base := filepath.Join(filepath.Dir(ws.Dir), "login-overlay")
+	var base string
 	for _, rel := range loginSessionDirs(ws.CheckerRuntime) {
 		dest := filepath.Join(plan.Root, rel)
 		dst, err := os.Lstat(dest)
@@ -962,6 +1027,16 @@ func planCheckerLogin(ws *Workspace) (loginPlan, error) {
 		if err := requireContained(plan.Root, dest); err != nil {
 			return plan, err
 		}
+		if base == "" {
+			// A new directory for this run. A leftover login-overlay next to
+			// the workspace is not reused, and two runs do not share one.
+			base, err = os.MkdirTemp(filepath.Dir(ws.Dir), "login-overlay-")
+			if err != nil {
+				return plan, err
+			}
+			plan.Disposable = base
+			ws.LoginDisposable = base
+		}
 		host := filepath.Join(base, rel)
 		if err := os.MkdirAll(host, 0o700); err != nil {
 			return plan, err
@@ -970,9 +1045,7 @@ func planCheckerLogin(ws *Workspace) (loginPlan, error) {
 			return plan, err
 		}
 		plan.Overlays = append(plan.Overlays, loginOverlay{Host: host, Dest: dest})
-		plan.Disposable = base
 	}
-	ws.LoginDisposable = plan.Disposable
 	return plan, nil
 }
 
@@ -1022,19 +1095,14 @@ func assertRealDir(path string) error {
 	return nil
 }
 
-// checkerSeatbeltPaths are the only write paths Seatbelt may allow besides the
-// ones the caller already chose for scratch and the per-run temporary directory.
+// checkerSeatbeltPaths is the credential file, when it is safe to write.
+// The disposable session directories are not included: Seatbelt cannot mount
+// them over the real paths, so allowing those host paths would not redirect
+// the CLI. Linux bind-mounts them instead.
 func checkerSeatbeltPaths(plan loginPlan) ([]string, error) {
 	var out []string
 	if plan.Credential != "" {
 		c, err := canonicalPath(plan.Credential)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, c)
-	}
-	for _, o := range plan.Overlays {
-		c, err := canonicalPath(o.Host)
 		if err != nil {
 			return nil, err
 		}

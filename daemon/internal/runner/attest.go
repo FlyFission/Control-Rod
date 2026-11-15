@@ -10,7 +10,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"sort"
@@ -141,7 +144,7 @@ func CheckerAdmissionJob(job *Job, cmd *exec.Cmd, artifact *Digest) error {
 		return errors.New("a counted check has no command, so it cannot count")
 	}
 	harness := RuntimeFor(job.Run.Runtime.Provider)
-	if err := customBaseURL(cmd.Args, cmd.Env); err != nil {
+	if err := customBaseURL(harness, cmd.Args, cmd.Env); err != nil {
 		return err
 	}
 	if err := delegationDisabled(harness, cmd.Args); err != nil {
@@ -151,10 +154,7 @@ func CheckerAdmissionJob(job *Job, cmd *exec.Cmd, artifact *Digest) error {
 	if err != nil {
 		return err
 	}
-	model := RequestedModel(job.Run)
-	if model == "" {
-		model = "default"
-	}
+	model := resolvedModel(job.Run, job.RuntimePin)
 	if _, err := reg.Admit(model, harness, packageGrade(job.Package)); err != nil {
 		return err
 	}
@@ -171,44 +171,121 @@ func CheckerAdmissionJob(job *Job, cmd *exec.Cmd, artifact *Digest) error {
 	return nil
 }
 
-func customBaseURL(args, env []string) error {
+func customBaseURL(harness string, args, env []string) error {
 	for _, kv := range env {
 		k, _, ok := strings.Cut(kv, "=")
 		if !ok {
 			continue
 		}
-		up := strings.ToUpper(k)
-		if strings.HasSuffix(up, "_BASE_URL") || up == "OLLAMA_HOST" {
+		if forbiddenEnv(k) {
 			return fmt.Errorf("the check environment sets %s, so the check cannot count", k)
 		}
 	}
-	for _, tok := range configTokens(args) {
-		low := strings.ToLower(tok)
+	return scanArgs(harness, args)
+}
+
+func forbiddenEnv(key string) bool {
+	up := strings.ToUpper(key)
+	switch up {
+	case "OLLAMA_HOST", "OPENAI_API_BASE", "ANTHROPIC_BEDROCK_BASE_URL", "ANTHROPIC_VERTEX_BASE_URL",
+		"CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY":
+		return true
+	}
+	return strings.HasSuffix(up, "_BASE_URL") || strings.HasSuffix(up, "_PROXY")
+}
+
+// flagValue accepts `--name value` and `--name=value`. -c is the short form of a Codex override.
+func flagValue(args []string, i int) (value string, next int, ok bool) {
+	a := args[i]
+	if k, v, inline := strings.Cut(a, "="); inline && (strings.HasPrefix(k, "--") || k == "-c") {
+		return v, i, true
+	}
+	switch a {
+	case "-c", "--settings", "--config", "--fallback-model", "--disable", "--model", "-m", "--profile", "--disallowedTools", "--setting-sources":
+		if i+1 < len(args) {
+			return args[i+1], i + 1, true
+		}
+	}
+	return "", i, false
+}
+
+func scanArgs(harness string, args []string) error {
+	codex := false
+	if a, ok := AdapterFor(harness); ok && slices.Contains(a.Capabilities().ConfigIsolation, "--ignore-user-config") {
+		codex = true
+	}
+	for i := 0; i < len(args); i++ {
+		name := args[i]
+		if k, _, inline := strings.Cut(name, "="); inline {
+			name = k
+		}
+		if name == "--fallback-model" {
+			return errors.New("a counted check cannot pass --fallback-model")
+		}
+		if codex && (name == "--profile" || name == "-p") {
+			return errors.New("a counted Codex check cannot select a profile")
+		}
+		value, next, ok := flagValue(args, i)
+		if !ok {
+			continue
+		}
+		i = next
+		low := strings.ToLower(value)
 		if strings.Contains(low, "base_url") || strings.Contains(low, "baseurl") ||
 			strings.Contains(low, "model_provider") || strings.Contains(low, "ollama_host") ||
-			strings.Contains(low, "anthropic_base_url") || strings.Contains(low, "openai_base_url") {
+			strings.Contains(low, "openai_api_base") {
 			return errors.New("the effective config names a custom base URL, so the check cannot count")
+		}
+		if name == "--settings" || name == "--config" {
+			if err := inspectSettings(value); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func configTokens(args []string) []string {
-	var out []string
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "-c", "--settings", "--config":
-			if i+1 < len(args) {
-				i++
-				out = append(out, args[i])
+func inspectSettings(raw string) error {
+	trimmed := strings.TrimSpace(raw)
+	if !strings.HasPrefix(trimmed, "{") {
+		return errors.New("a counted check cannot take settings from a file path")
+	}
+	var v any
+	if err := json.Unmarshal([]byte(trimmed), &v); err != nil {
+		return errors.New("the checker settings are not JSON, so the check cannot count")
+	}
+	return walkSettings("", v)
+}
+
+func walkSettings(key string, v any) error {
+	lk := strings.ToLower(key)
+	if lk == "apikeyhelper" || lk == "baseurl" || lk == "base_url" || strings.Contains(lk, "model_provider") {
+		return fmt.Errorf("the checker settings set %s, so the check cannot count", key)
+	}
+	switch t := v.(type) {
+	case map[string]any:
+		for k, child := range t {
+			if strings.EqualFold(k, "env") {
+				if env, ok := child.(map[string]any); ok {
+					for ek := range env {
+						if forbiddenEnv(ek) {
+							return fmt.Errorf("the checker settings set env.%s, so the check cannot count", ek)
+						}
+					}
+				}
 			}
-		default:
-			if strings.HasPrefix(args[i], "-c") && len(args[i]) > 2 {
-				out = append(out, args[i][2:])
+			if err := walkSettings(k, child); err != nil {
+				return err
+			}
+		}
+	case []any:
+		for _, child := range t {
+			if err := walkSettings(key, child); err != nil {
+				return err
 			}
 		}
 	}
-	return out
+	return nil
 }
 
 func delegationDisabled(harness string, args []string) error {
@@ -241,15 +318,32 @@ func argPair(args []string, flag, value string) bool {
 }
 
 // ObservedModelsAllowed applies the registry to the stream's model set.
-func ObservedModelsAllowed(run Run, grade string, observed []string) error {
+func resolvedModel(run Run, pin *RuntimePin) string {
+	if m := RequestedModel(run); m != "" {
+		return m
+	}
+	if pin != nil {
+		m := strings.TrimSpace(pin.Model)
+		if m != "" && m != "default" && m != "any" {
+			return m
+		}
+	}
+	return ""
+}
+
+func checkID(run Run) string {
+	if id := strings.TrimSpace(run.AttemptID); id != "" {
+		return id
+	}
+	return fmt.Sprintf("%s:%d", run.ID, run.PackageRevision)
+}
+
+func ObservedModelsAllowed(run Run, pin *RuntimePin, grade string, observed []string) error {
 	reg, err := DefaultModels()
 	if err != nil {
 		return err
 	}
-	model := RequestedModel(run)
-	if model == "" {
-		model = "default"
-	}
+	model := resolvedModel(run, pin)
 	e, err := reg.Admit(model, RuntimeFor(run.Runtime.Provider), grade)
 	if err != nil {
 		return err
@@ -319,6 +413,10 @@ type RunAttestation struct {
 	ProbeResult           string   `json:"probe_result"`
 	WorkspaceBefore       Digest   `json:"workspace_before"`
 	WorkspaceAfter        Digest   `json:"workspace_after"`
+	RequestedModel        string   `json:"requested_model"`
+	CheckID               string   `json:"check_id"`
+	DeliverableDigest     Digest   `json:"deliverable_digest"`
+	VerificationDigest    Digest   `json:"verification_digest"`
 	KeyID                 string   `json:"key_id"`
 	Signature             string   `json:"signature"`
 }
@@ -339,6 +437,10 @@ type signedBody struct {
 	ProbeResult           string   `json:"probe_result"`
 	WorkspaceBefore       Digest   `json:"workspace_before"`
 	WorkspaceAfter        Digest   `json:"workspace_after"`
+	RequestedModel        string   `json:"requested_model"`
+	CheckID               string   `json:"check_id"`
+	DeliverableDigest     Digest   `json:"deliverable_digest"`
+	VerificationDigest    Digest   `json:"verification_digest"`
 }
 
 func (a RunAttestation) signed() signedBody {
@@ -349,6 +451,8 @@ func (a RunAttestation) signed() signedBody {
 		EndpointEnforcement: a.EndpointEnforcement, ObservedModels: uniqueSorted(a.ObservedModels),
 		Platform: a.Platform, ProbeResult: a.ProbeResult,
 		WorkspaceBefore: a.WorkspaceBefore, WorkspaceAfter: a.WorkspaceAfter,
+		RequestedModel: a.RequestedModel, CheckID: a.CheckID,
+		DeliverableDigest: a.DeliverableDigest, VerificationDigest: a.VerificationDigest,
 	}
 }
 
@@ -447,7 +551,7 @@ func digestOfHex(sum string) (Digest, error) {
 // BuildCheckerAttestation assembles and signs the statement for a check that
 // is otherwise allowed to count. The probe result is not-run until a qualified
 // in-run probe exists.
-func BuildCheckerAttestation(job *Job, cmd *exec.Cmd, artifact Digest, before, after string, observed []string) (RunAttestation, error) {
+func BuildCheckerAttestation(job *Job, cmd *exec.Cmd, artifact Digest, deliverableRoot, before, after string, observed []string, verification, criterion json.RawMessage, evidence []Artifact) (RunAttestation, error) {
 	if job == nil || cmd == nil {
 		return RunAttestation{}, errors.New("a counted check is missing its job, so it cannot count")
 	}
@@ -458,7 +562,7 @@ func BuildCheckerAttestation(job *Job, cmd *exec.Cmd, artifact Digest, before, a
 	if err != nil {
 		return RunAttestation{}, err
 	}
-	model := RequestedModel(job.Run)
+	model := resolvedModel(job.Run, job.RuntimePin)
 	e, err := reg.Admit(model, RuntimeFor(job.Run.Runtime.Provider), packageGrade(job.Package))
 	if err != nil {
 		return RunAttestation{}, err
@@ -492,12 +596,22 @@ func BuildCheckerAttestation(job *Job, cmd *exec.Cmd, artifact Digest, before, a
 	if err != nil {
 		return RunAttestation{}, err
 	}
+	delivered, err := deliverableContentDigest(deliverableRoot)
+	if err != nil {
+		return RunAttestation{}, err
+	}
+	verified, err := submissionDigest(checkID(job.Run), verification, criterion, evidence)
+	if err != nil {
+		return RunAttestation{}, err
+	}
 	body := RunAttestation{
 		SchemaVersion: attestationSchema, RunID: job.Run.ID, Nonce: nonce,
 		ArtifactDigest: artifact, PolicyDigest: policy, EffectiveConfigDigest: cfg,
 		EffectiveEndpoint: e.Hosts[0], EndpointEnforcement: EndpointNotEnforced,
 		ObservedModels: uniqueSorted(observed), Platform: runtime.GOOS, ProbeResult: ProbeNotRun,
 		WorkspaceBefore: wsBefore, WorkspaceAfter: wsAfter,
+		RequestedModel: model, CheckID: checkID(job.Run),
+		DeliverableDigest: delivered, VerificationDigest: verified,
 	}
 	priv, err := SigningKey()
 	if err != nil {
@@ -518,8 +632,8 @@ func effectiveConfigDigest(args []string) (Digest, error) {
 	return Digest{Algorithm: "sha256", Value: sum}, nil
 }
 
-// configMaterial is the generated config the digest covers, in argv order:
-// isolation flags, -c values, and the --settings payload. The prompt is not included.
+// configMaterial is the generated config the digest covers, in argv order.
+// The model flag is included. The prompt is not. Inline `--flag=value` is one entry.
 func configMaterial(args []string) []string {
 	var out []string
 	flags := map[string]bool{
@@ -527,21 +641,127 @@ func configMaterial(args []string) []string {
 		"--restricted": true, "--strict-mcp-config": true, "--disable-slash-commands": true,
 		"--no-session-persistence": true,
 	}
+	valued := map[string]bool{
+		"--setting-sources": true, "--disable": true, "--disallowedTools": true,
+		"-c": true, "--settings": true, "--config": true, "--model": true, "-m": true,
+	}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
+		name, inlineVal, inline := strings.Cut(a, "=")
+		if inline && valued[name] {
+			out = append(out, a)
+			continue
+		}
 		if flags[a] {
 			out = append(out, a)
 			continue
 		}
-		if a == "--setting-sources" || a == "--disable" || a == "--disallowedTools" || a == "-c" || a == "--settings" {
-			if i+1 < len(args) {
-				i++
-				out = append(out, a, args[i])
-			}
+		if valued[a] && i+1 < len(args) {
+			i++
+			out = append(out, a, args[i])
+			_ = inlineVal
 		}
 	}
 	if out == nil {
 		out = []string{}
 	}
 	return out
+}
+
+type namedSHA struct {
+	Name string `json:"name"`
+	SHA  string `json:"sha256"`
+}
+
+func deliverableContentDigest(root string) (Digest, error) {
+	var rows []namedSHA
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || d.Type()&os.ModeSymlink != 0 {
+			return err
+		}
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return err
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(b)
+		rows = append(rows, namedSHA{Name: filepath.ToSlash(rel), SHA: hex.EncodeToString(sum[:])})
+		return nil
+	})
+	if err != nil && !os.IsNotExist(err) {
+		return Digest{}, err
+	}
+	return canonicalNamed(rows)
+}
+
+func submissionDigest(id string, verification, criterion json.RawMessage, evidence []Artifact) (Digest, error) {
+	outcome := ""
+	findings := json.RawMessage("[]")
+	if len(bytesTrim(verification)) > 0 {
+		var parsed struct {
+			Outcome  string          `json:"outcome"`
+			Findings json.RawMessage `json:"findings"`
+		}
+		if err := json.Unmarshal(verification, &parsed); err != nil {
+			return Digest{}, err
+		}
+		outcome = parsed.Outcome
+		if len(parsed.Findings) > 0 && string(parsed.Findings) != "null" {
+			findings = parsed.Findings
+		}
+	}
+	crit := json.RawMessage("null")
+	if len(bytesTrim(criterion)) > 0 {
+		crit = criterion
+	}
+	var ev []namedSHA
+	for _, a := range evidence {
+		if a.Digest.Value == "" {
+			continue
+		}
+		ev = append(ev, namedSHA{Name: a.Path, SHA: a.Digest.Value})
+	}
+	sort.Slice(ev, func(i, j int) bool { return ev[i].Name < ev[j].Name })
+	raw, err := json.Marshal(struct {
+		CheckID   string          `json:"check_id"`
+		Criterion json.RawMessage `json:"criterion_results"`
+		Evidence  []namedSHA      `json:"evidence"`
+		Findings  json.RawMessage `json:"findings"`
+		Outcome   string          `json:"outcome"`
+	}{id, crit, nonNilNamed(ev), findings, outcome})
+	if err != nil {
+		return Digest{}, err
+	}
+	sum, err := digest.CanonicalSHA256(raw)
+	if err != nil {
+		return Digest{}, err
+	}
+	return Digest{Algorithm: "sha256", Value: sum}, nil
+}
+
+func canonicalNamed(rows []namedSHA) (Digest, error) {
+	sort.Slice(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
+	raw, err := json.Marshal(nonNilNamed(rows))
+	if err != nil {
+		return Digest{}, err
+	}
+	sum, err := digest.CanonicalSHA256(raw)
+	if err != nil {
+		return Digest{}, err
+	}
+	return Digest{Algorithm: "sha256", Value: sum}, nil
+}
+
+func nonNilNamed(rows []namedSHA) []namedSHA {
+	if rows == nil {
+		return []namedSHA{}
+	}
+	return rows
+}
+
+func bytesTrim(b json.RawMessage) json.RawMessage {
+	return json.RawMessage(strings.TrimSpace(string(b)))
 }

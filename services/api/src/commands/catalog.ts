@@ -85,6 +85,7 @@ export const COMMANDS = {
   "admin.policy-approve": entry("member", "direct", "Change policy set"),
   "admin.runtime-pin": entry("member", "direct", "Pin runtime"),
   "admin.daemon-enroll-key": entry("member", "direct", "Enroll daemon signing key"),
+  "admin.daemon-retire-key": entry("member", "direct", "Retire daemon signing key"),
   "admin.scram-pull": entry("member", "direct", "SCRAM"),
   "admin.scram-review": entry("member", "direct", "SCRAM (quarantine review)"),
   "admin.scram-restart": entry("member", "direct", "SCRAM (staged restart)"),

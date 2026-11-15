@@ -36,11 +36,21 @@ func defaultKeyCommand(name string, args []string, stdin []byte) ([]byte, int, e
 	return out, -1, err
 }
 
-// SigningKey returns the daemon's Ed25519 private key.
-// A 0600 file is used only when CONTROLROD_ALLOW_FAKE=1 and
-// CONTROLROD_TEST_ATTESTATION_KEY names that file. Otherwise the OS keychain
-// is required. A missing keychain refuses; it does not create a file.
+// SigningKey returns the daemon's existing Ed25519 private key.
+// It does not create one. A 0600 file is used only when CONTROLROD_ALLOW_FAKE=1
+// and CONTROLROD_TEST_ATTESTATION_KEY names that file. Otherwise the OS keychain
+// is required. A missing key or an unavailable keychain refuses; nothing is written.
 func SigningKey() (ed25519.PrivateKey, error) {
+	if k, err, used := testFileKey(); used {
+		return k, err
+	}
+	return lookupOSKey()
+}
+
+// InitSigningKey returns the existing key, or creates one when the keychain
+// reports that it is absent. It does not replace a key that is already there,
+// and it does not create one when the keychain is locked or unreachable.
+func InitSigningKey() (ed25519.PrivateKey, error) {
 	if k, err, used := testFileKey(); used {
 		return k, err
 	}
@@ -51,15 +61,30 @@ func SigningKey() (ed25519.PrivateKey, error) {
 	if !errors.Is(err, errKeyNotFound) {
 		return nil, err
 	}
-	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
 	}
-	_ = pub
 	if err := storeOSKey(priv); err != nil {
 		return nil, err
 	}
 	return priv, nil
+}
+
+// classifyKeychain separates "no item" from a keychain that cannot be used.
+// An empty or unrelated failure is unavailable, so a key is never invented over it.
+func classifyKeychain(code int, out []byte) error {
+	if code == 0 {
+		return nil
+	}
+	text := strings.ToLower(string(out))
+	if strings.Contains(text, "could not be found") || strings.Contains(text, "does not exist") || strings.Contains(text, "item not found") {
+		return errKeyNotFound
+	}
+	if text == "" {
+		return errKeychainUnavailable
+	}
+	return fmt.Errorf("%w: %s", errKeychainUnavailable, strings.TrimSpace(text))
 }
 
 func parseStoredKey(out []byte) (ed25519.PrivateKey, error) {

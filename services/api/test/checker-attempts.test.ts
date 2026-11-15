@@ -3,6 +3,7 @@ import { command } from "../src/commands/executor.js";
 import { backfillCheckerAttempts, STICKY_FAIL_CHANGE, STICKY_FAIL_REASON, classifyCheckerOutcome, recordCheckerAttempt } from "../src/checker-attempts.js";
 import { REASONS } from "../src/refusals.js";
 import { loadValidator } from "../src/schemas.js";
+import { type DaemonReply, sealDaemonPayload } from "./counted-check.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
 /**
@@ -28,8 +29,10 @@ const asOwner = (method: Method, url: string, payload?: unknown) =>
     headers: { cookie, ...(method === "GET" ? {} : { origin: ORIGIN }) },
     ...(payload !== undefined ? { payload: payload as object } : {}),
   });
-const asDaemon = (url: string, payload: unknown) =>
-  h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: withClaim(url, payload as Record<string, unknown>) });
+const asDaemon = async (url: string, payload: unknown): Promise<DaemonReply> => {
+  const body = await sealDaemonPayload(h.admin, url, withClaim(url, payload as Record<string, unknown>));
+  return await h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: body }) as DaemonReply;
+};
 
 interface Job {
   run: { id: string; role: string; package_id: string; round: number; generation?: number; agent_baseline: string; runtime: { provider: string; model: string } };

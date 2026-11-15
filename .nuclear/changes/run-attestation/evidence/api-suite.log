@@ -1,6 +1,9 @@
-pnpm --filter @control-rod/api test
-[test-api] PostgreSQL fixture binaries: /home/ubuntu/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+2026-11-15 review fixes, after merging main at de69082 (PR #76 and PR #77).
 
- Test Files  55 passed (55)
-      Tests  639 passed (639)
-   Duration  33.39s
+node tools/test-api.mjs
+Test Files  56 passed (56)
+Tests  678 passed (678)
+exit 0
+
+pnpm --filter @control-rod/api exec tsc --noEmit
+exit 0

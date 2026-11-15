@@ -1,8 +1,13 @@
-gofmt
-gofmt_exit:0
-vet linux
-vet_linux:0
-vet darwin
-vet_darwin:0
-vet windows
-vet_windows:0
+2026-11-15 from daemon/
+
+gofmt -w on the attestation files
+CGO_ENABLED=0 go test ./...
+ok confinement, digest, runner
+
+CGO_ENABLED=0 GOOS=linux go vet ./...
+CGO_ENABLED=0 GOOS=darwin go vet ./...
+CGO_ENABLED=0 GOOS=windows go vet ./...
+exit 0
+
+Author launch goldens and kernel/ have no diff.
+The macOS Security.framework file is build-tagged darwin && cgo and was not executed.

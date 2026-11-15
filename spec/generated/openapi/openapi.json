@@ -10176,6 +10176,12 @@
             "type": "string",
             "maxLength": 500,
             "description": "Why the attestation did or did not verify, in plain words."
+          },
+          "checker_attempt_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "The checker attempt this run will be recorded as. Assigned when a pre-check\nstarts, and the value the daemon signs as check_id."
           }
         },
         "description": "One agent session working on one package revision in one role."
@@ -10196,6 +10202,10 @@
           "probe_result",
           "workspace_before",
           "workspace_after",
+          "requested_model",
+          "check_id",
+          "deliverable_digest",
+          "verification_digest",
           "key_id",
           "signature"
         ],
@@ -10261,6 +10271,26 @@
           },
           "workspace_after": {
             "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "requested_model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The model the run asked for, after the same resolution the daemon uses."
+          },
+          "check_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "The check this statement belongs to. An attempt id when one was assigned,\notherwise `<run id>:<package revision>`."
+          },
+          "deliverable_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Canonical digest of the author deliverable names and byte digests."
+          },
+          "verification_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Canonical digest of the verification submission: outcome, findings,\ncriterion results, and evidence artifact digests."
           },
           "key_id": {
             "type": "string",

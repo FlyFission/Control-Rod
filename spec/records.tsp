@@ -428,6 +428,28 @@ model RunAttestation {
   workspace_before: Digest;
   workspace_after: Digest;
 
+  /** The model the run asked for, after the same resolution the daemon uses. */
+  @minLength(1)
+  @maxLength(200)
+  requested_model: string;
+
+  /**
+   * The check this statement belongs to. An attempt id when one was assigned,
+   * otherwise `<run id>:<package revision>`.
+   */
+  @minLength(1)
+  @maxLength(120)
+  check_id: string;
+
+  /** Canonical digest of the author deliverable names and byte digests. */
+  deliverable_digest: Digest;
+
+  /**
+   * Canonical digest of the verification submission: outcome, findings,
+   * criterion results, and evidence artifact digests.
+   */
+  verification_digest: Digest;
+
   /** Hex SHA-256 of the raw 32-byte public key. */
   @pattern("^[0-9a-f]{64}$")
   key_id: string;

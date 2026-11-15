@@ -1,48 +1,74 @@
-//go:build darwin
+//go:build darwin && cgo
 
 package runner
 
+/*
+#cgo LDFLAGS: -framework Security -framework CoreFoundation
+#include <stdlib.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+
+static OSStatus crSecCopy(CFStringRef service, CFStringRef account, CFDataRef *out) {
+	const void *keys[] = { kSecClass, kSecAttrService, kSecAttrAccount, kSecReturnData };
+	const void *vals[] = { kSecClassGenericPassword, service, account, kCFBooleanTrue };
+	CFDictionaryRef query = CFDictionaryCreate(NULL, keys, vals, 4, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	OSStatus st = SecItemCopyMatching(query, (CFTypeRef *)out);
+	CFRelease(query);
+	return st;
+}
+
+static OSStatus crSecAdd(CFStringRef service, CFStringRef account, CFDataRef secret) {
+	const void *keys[] = { kSecClass, kSecAttrService, kSecAttrAccount, kSecValueData };
+	const void *vals[] = { kSecClassGenericPassword, service, account, secret };
+	CFDictionaryRef item = CFDictionaryCreate(NULL, keys, vals, 4, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	OSStatus st = SecItemAdd(item, NULL);
+	CFRelease(item);
+	return st;
+}
+*/
+import "C"
 import (
 	"crypto/ed25519"
-	"errors"
-	"os/exec"
-	"strings"
+	"unsafe"
 )
 
+func cfString(s string) C.CFStringRef {
+	cs := C.CString(s)
+	defer C.free(unsafe.Pointer(cs))
+	return C.CFStringCreateWithCString(C.kCFAllocatorDefault, cs, C.kCFStringEncodingUTF8)
+}
+
 func lookupOSKey() (ed25519.PrivateKey, error) {
-	out, code, err := keyCommand("security", []string{
-		"find-generic-password", "-s", "controlrod-daemon-signing", "-a", "controlrod", "-w",
-	}, nil)
-	if err != nil {
-		if errors.Is(err, exec.ErrNotFound) {
-			return nil, errKeychainUnavailable
-		}
-		return nil, err
+	service := cfString("controlrod-daemon-signing")
+	account := cfString("controlrod")
+	defer C.CFRelease(C.CFTypeRef(service))
+	defer C.CFRelease(C.CFTypeRef(account))
+	var data C.CFDataRef
+	st := C.crSecCopy(service, account, &data)
+	if st == C.errSecItemNotFound {
+		return nil, errKeyNotFound
 	}
-	if code != 0 {
-		if strings.Contains(strings.ToLower(string(out)), "could not be found") {
-			return nil, errKeyNotFound
-		}
+	if st != C.errSecSuccess || data == 0 {
 		return nil, errKeychainUnavailable
 	}
-	return parseStoredKey(out)
+	defer C.CFRelease(C.CFTypeRef(data))
+	raw := C.GoBytes(unsafe.Pointer(C.CFDataGetBytePtr(data)), C.int(C.CFDataGetLength(data)))
+	return parseStoredKey(raw)
 }
 
 func storeOSKey(k ed25519.PrivateKey) error {
-	// -U updates an existing item. The secret is the argument, which the
-	// process list can see for the duration of the command. That is the
-	// security(1) interface. This path was not executed on a Mac in this change.
-	_, code, err := keyCommand("security", []string{
-		"add-generic-password", "-U", "-s", "controlrod-daemon-signing", "-a", "controlrod",
-		"-w", string(encodeStoredKey(k)),
-	}, nil)
-	if err != nil {
-		if errors.Is(err, exec.ErrNotFound) {
-			return errKeychainUnavailable
-		}
-		return err
+	secret := encodeStoredKey(k)
+	service := cfString("controlrod-daemon-signing")
+	account := cfString("controlrod")
+	defer C.CFRelease(C.CFTypeRef(service))
+	defer C.CFRelease(C.CFTypeRef(account))
+	data := C.CFDataCreate(C.kCFAllocatorDefault, (*C.UInt8)(unsafe.Pointer(&secret[0])), C.CFIndex(len(secret)))
+	defer C.CFRelease(C.CFTypeRef(data))
+	st := C.crSecAdd(service, account, data)
+	if st == C.errSecDuplicateItem {
+		return errKeychainUnavailable
 	}
-	if code != 0 {
+	if st != C.errSecSuccess {
 		return errKeychainUnavailable
 	}
 	return nil

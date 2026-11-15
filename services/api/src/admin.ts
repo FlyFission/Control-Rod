@@ -15,7 +15,7 @@ import { isLane } from "./disclosure.js";
 import { configuredClosure, covers, declassify, downstreamOf, effectiveLane, ensureMarking } from "./markings.js";
 import { teach } from "./refusals.js";
 import { pinRuntime, rollbackRuntime } from "./runtimes.js";
-import { enrollDaemonKey } from "./run-attestation.js";
+import { enrollDaemonKey, retireDaemonKey } from "./run-attestation.js";
 import { pullScram, restartAfterScram, reviewQuarantine } from "./scram.js";
 import { sealChain } from "./seals.js";
 import { checkBudget } from "./budgets.js";
@@ -635,6 +635,14 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     catalog: "admin.daemon-enroll-key", signature: "direct", need: "administrator",
     async run(c, caller, p) {
       return enrollDaemonKey(c, caller.orgId, caller.memberId, p);
+    },
+  },
+
+  "daemon.retire-key": {
+    label: "Retire a daemon signing key",
+    catalog: "admin.daemon-retire-key", signature: "direct", need: "administrator",
+    async run(c, caller, p) {
+      return retireDaemonKey(c, caller.orgId, p);
     },
   },
 

@@ -1455,6 +1455,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     ...(reserveMinutes !== null ? { reserve_minutes: reserveMinutes } : {}),
     agent_baseline: baseline,
     runtime: runtimeRef(runtime),
+    ...(row.role === "pre-check" ? { checker_attempt_id: row.body.checker_attempt_id ?? `CA-${randomUUID().slice(0, 8)}` } : {}),
     status: "running",
     started_at: now(),
     label: "Starting",
@@ -2169,27 +2170,43 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   if (body.trace) finished.trace = body.trace;
   takeReceipt(cfg, row, finished, body);
   holdIfUnproven(row, finished, body);
-  if (row.role === "pre-check" && countedProvider(row.body?.runtime?.provider)) {
+  const counting = body.verification != null || body.criterion_results !== undefined;
+  if (row.role === "pre-check" && countedProvider(row.body?.runtime?.provider) && counting) {
     const pkg = await currentPackage(c, row.package_id, true);
+    const pinned = (await c.query<{ deliverable_digest: string }>(
+      "select deliverable_digest from checker_queued_digests where run_id = $1", [runId])).rows[0]?.deliverable_digest;
+    const actual = await currentDeliverable(c, row.package_id, row.package_revision);
     const verdict = await verifyCountedAttestation(c, {
       runId,
+      packageRevision: row.package_revision,
       provider: String(row.body?.runtime?.provider ?? ""),
       model: String(row.body?.runtime?.model ?? ""),
+      pinModel: typeof row.body?.runtime_pin_model === "string" ? row.body.runtime_pin_model : undefined,
+      attemptId: typeof row.body?.checker_attempt_id === "string" ? row.body.checker_attempt_id : undefined,
       grade: pkg ? needsOf(pkg.body).grade : undefined,
       policyDigest: row.body?.sandbox_policy?.digest?.value,
+      deliverableDigest: pinned ?? actual?.digest,
       attestation: body.attestation,
+      submission: body,
+      outputs: outputs.map((o) => ({ name: o.name, bytes: o.bytes })),
     });
-    // The test harness sets this so older completions that send no attestation
-    // still count. A present attestation is always judged. Production leaves it unset.
-    const hole = verdict.code === "missing" && process.env.CONTROLROD_TEST_UNATTESTED_CHECKS === "1";
-    if (!hole) {
-      finished.attestation_verified = verdict.verified;
+    if (!verdict.verified) {
+      // A bad attestation is not a check. Drop the verdict so it cannot be
+      // admitted, including as a fail that would stick to the deliverable.
+      delete body.verification;
+      delete body.criterion_results;
+      finished.attestation_verified = false;
       finished.attestation_reason = verdict.reason.slice(0, 500);
-      if (!verdict.verified && finished.status === "succeeded") {
+      if (finished.status === "succeeded") {
         finished.status = "failed";
         finished.label = "Refused";
         finished.error = verdict.reason.slice(0, 2000);
       }
+      // recordCheckerAttempt below writes an error attempt. It does not count
+      // and it is not a sticky fail, because no verification was admitted.
+    } else {
+      finished.attestation_verified = true;
+      finished.attestation_reason = verdict.reason.slice(0, 500);
     }
   }
   validate(cfg, "Run.json", finished);

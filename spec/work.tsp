@@ -216,6 +216,14 @@ model Run {
   /** Why the attestation did or did not verify, in plain words. */
   @maxLength(500)
   attestation_reason?: string;
+
+  /**
+   * The checker attempt this run will be recorded as. Assigned when a pre-check
+   * starts, and the value the daemon signs as check_id.
+   */
+  @minLength(1)
+  @maxLength(40)
+  checker_attempt_id?: string;
 }
 
 /**

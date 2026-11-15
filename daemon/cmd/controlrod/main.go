@@ -50,7 +50,7 @@ func main() {
 }
 
 func attestationPublic() int {
-	priv, err := runner.SigningKey()
+	priv, err := runner.InitSigningKey()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return 1

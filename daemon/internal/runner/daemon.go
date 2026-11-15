@@ -1406,7 +1406,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if checkerReady {
 		result := settleChecker(ws, deliverableBefore, cwdBefore, time.Now())
 		if result.Counts && comp.Status == "succeeded" {
-			if perr := ObservedModelsAllowed(job.Run, packageGrade(job.Package), buf.observedModels()); perr != nil {
+			if perr := ObservedModelsAllowed(job.Run, job.RuntimePin, packageGrade(job.Package), buf.observedModels()); perr != nil {
 				result.Counts = false
 				result.Error = perr.Error()
 				result.Verification = nil
@@ -1417,7 +1417,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				result.Counts = false
 				result.Error = "the check has no executable digest, so it cannot count"
 				result.Verification = nil
-			} else if att, aerr := BuildCheckerAttestation(job, cmd, *launched, deliverableBefore, result.After, buf.observedModels()); aerr != nil {
+			} else if att, aerr := BuildCheckerAttestation(job, cmd, *launched, ws.Deliverables, deliverableBefore, result.After, buf.observedModels(), result.Verification, result.Criterion, result.EvidenceArts); aerr != nil {
 				result.Counts = false
 				result.Error = aerr.Error()
 				result.Verification = nil

@@ -6,11 +6,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flyfission/control-rod/daemon/internal/digest"
 )
 
 func TestHarnessFollowsDigestNotName(t *testing.T) {
@@ -70,13 +73,13 @@ func TestCheckerRefusesUnregisteredModel(t *testing.T) {
 
 func TestCheckerRefusesModelAliasAndExtraModel(t *testing.T) {
 	job := countedJob(t)
-	if err := ObservedModelsAllowed(job.Run, "", []string{"codex"}); err == nil {
+	if err := ObservedModelsAllowed(job.Run, nil, "", []string{"codex"}); err == nil {
 		t.Fatal("alias counted")
 	}
-	if err := ObservedModelsAllowed(job.Run, "", []string{"gpt-5-codex", "gpt-5-codex-mini"}); err == nil {
+	if err := ObservedModelsAllowed(job.Run, nil, "", []string{"gpt-5-codex", "gpt-5-codex-mini"}); err == nil {
 		t.Fatal("extra model counted")
 	}
-	if err := ObservedModelsAllowed(job.Run, "", []string{"gpt-5-codex"}); err != nil {
+	if err := ObservedModelsAllowed(job.Run, nil, "", []string{"gpt-5-codex"}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -224,6 +227,8 @@ func sampleAttestation() RunAttestation {
 		EffectiveEndpoint: "api.openai.com", EndpointEnforcement: EndpointNotEnforced,
 		ObservedModels: []string{"gpt-5-codex"}, Platform: "linux", ProbeResult: ProbeNotRun,
 		WorkspaceBefore: d, WorkspaceAfter: d,
+		RequestedModel: "gpt-5-codex", CheckID: "run-1:0",
+		DeliverableDigest: d, VerificationDigest: d,
 	}
 }
 
@@ -241,36 +246,41 @@ func TestAttestationVector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The vector key is generated in this test when UPDATE_ATTESTATION_VECTOR=1.
-	// The committed file is that tool output, checked on later runs.
+	quoted := sampleAttestation()
+	quoted.RequestedModel = "café \"quoted\" \\slash"
+	empty := sampleAttestation()
+	empty.ObservedModels = []string{}
+	cases := []RunAttestation{sampleAttestation(), quoted, empty}
+	// The vector is written by this test when UPDATE_ATTESTATION_VECTOR=1.
+	// Later runs recompute the hash. The TypeScript verifier reads the same file.
 	path := filepath.Join("testdata", "attestation-vector.json")
+	type stored struct {
+		Name    string     `json:"name"`
+		Payload signedBody `json:"payload"`
+		Hash    string     `json:"hash"`
+	}
 	if os.Getenv("UPDATE_ATTESTATION_VECTOR") == "1" {
-		signed, err := SignAttestation(sampleAttestation(), priv)
+		signed, err := SignAttestation(cases[0], priv)
 		if err != nil {
 			t.Fatal(err)
 		}
-		sum, err := AttestationHash(signed)
+		var out []stored
+		for i, c := range cases {
+			sum, err := AttestationHash(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out = append(out, stored{Name: []string{"ascii", "non-ascii", "empty-models"}[i], Payload: c.signed(), Hash: hex.EncodeToString(sum)})
+		}
+		raw, err := json.MarshalIndent(map[string]any{
+			"cases": out, "public_key": PublicKeyBase64(pub), "signature": signed.Signature, "key_id": signed.KeyID,
+		}, "", "  ")
 		if err != nil {
-			t.Fatal(err)
-		}
-		vec := map[string]any{
-			"payload":    signed.signed(),
-			"hash":       hex.EncodeToString(sum),
-			"public_key": PublicKeyBase64(pub),
-			"signature":  signed.Signature,
-			"key_id":     signed.KeyID,
-		}
-		raw, err := json.MarshalIndent(vec, "", "  ")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(path, append(raw, '\n'), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		t.Log("wrote", path)
 		return
 	}
 	raw, err := os.ReadFile(path)
@@ -278,30 +288,116 @@ func TestAttestationVector(t *testing.T) {
 		t.Fatal(err)
 	}
 	var vec struct {
-		Payload   signedBody `json:"payload"`
-		Hash      string     `json:"hash"`
-		PublicKey string     `json:"public_key"`
-		Signature string     `json:"signature"`
-		KeyID     string     `json:"key_id"`
+		Cases []stored `json:"cases"`
 	}
 	if err := json.Unmarshal(raw, &vec); err != nil {
 		t.Fatal(err)
 	}
-	a := RunAttestation{
-		SchemaVersion: vec.Payload.SchemaVersion, RunID: vec.Payload.RunID, Nonce: vec.Payload.Nonce,
-		ArtifactDigest: vec.Payload.ArtifactDigest, PolicyDigest: vec.Payload.PolicyDigest,
-		EffectiveConfigDigest: vec.Payload.EffectiveConfigDigest, EffectiveEndpoint: vec.Payload.EffectiveEndpoint,
-		EndpointEnforcement: vec.Payload.EndpointEnforcement, ObservedModels: vec.Payload.ObservedModels,
-		Platform: vec.Payload.Platform, ProbeResult: vec.Payload.ProbeResult,
-		WorkspaceBefore: vec.Payload.WorkspaceBefore, WorkspaceAfter: vec.Payload.WorkspaceAfter,
-		KeyID: vec.KeyID, Signature: vec.Signature,
+	if len(vec.Cases) != 3 {
+		t.Fatalf("cases %d", len(vec.Cases))
 	}
-	sum, err := AttestationHash(a)
+	for _, c := range vec.Cases {
+		a := RunAttestation{
+			SchemaVersion: c.Payload.SchemaVersion, RunID: c.Payload.RunID, Nonce: c.Payload.Nonce,
+			ArtifactDigest: c.Payload.ArtifactDigest, PolicyDigest: c.Payload.PolicyDigest,
+			EffectiveConfigDigest: c.Payload.EffectiveConfigDigest, EffectiveEndpoint: c.Payload.EffectiveEndpoint,
+			EndpointEnforcement: c.Payload.EndpointEnforcement, ObservedModels: c.Payload.ObservedModels,
+			Platform: c.Payload.Platform, ProbeResult: c.Payload.ProbeResult,
+			WorkspaceBefore: c.Payload.WorkspaceBefore, WorkspaceAfter: c.Payload.WorkspaceAfter,
+			RequestedModel: c.Payload.RequestedModel, CheckID: c.Payload.CheckID,
+			DeliverableDigest: c.Payload.DeliverableDigest, VerificationDigest: c.Payload.VerificationDigest,
+		}
+		sum, err := AttestationHash(a)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if hex.EncodeToString(sum) != c.Hash {
+			t.Fatalf("%s hash %s", c.Name, hex.EncodeToString(sum))
+		}
+	}
+	// An absent observed_models key is not the same payload as an empty array.
+	absent := cases[2].signed()
+	present, err := json.Marshal(absent)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hex.EncodeToString(sum) != vec.Hash {
-		t.Fatalf("hash %s", hex.EncodeToString(sum))
+	var generic map[string]any
+	if err := json.Unmarshal(present, &generic); err != nil {
+		t.Fatal(err)
+	}
+	delete(generic, "observed_models")
+	dropped, err := json.Marshal(generic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	with, err := digest.CanonicalSHA256(present)
+	if err != nil {
+		t.Fatal(err)
+	}
+	without, err := digest.CanonicalSHA256(dropped)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if with == without {
+		t.Fatal("dropping observed_models did not change the canonical hash")
+	}
+}
+
+func TestCountedConfigParsing(t *testing.T) {
+	job := countedJob(t)
+	sum := registerJobHarness(t, job)
+	base := mustCodexArgs(t, job)
+	artifact := &Digest{Algorithm: "sha256", Value: sum}
+	eq := append(append([]string{}, base...), `-c=model_providers.ollama.base_url="http://127.0.0.1:11434"`)
+	if err := CheckerAdmissionJob(job, fakeCmd(eq), artifact); err == nil || !strings.Contains(err.Error(), "custom base URL") {
+		t.Fatalf("--flag=value: %v", err)
+	}
+	profile := append(append([]string{}, base...), "--profile", "loose")
+	if err := CheckerAdmissionJob(job, fakeCmd(profile), artifact); err == nil || !strings.Contains(err.Error(), "profile") {
+		t.Fatalf("profile: %v", err)
+	}
+	fallback := append(append([]string{}, base...), "--fallback-model=other")
+	if err := CheckerAdmissionJob(job, fakeCmd(fallback), artifact); err == nil {
+		t.Fatal("inline fallback was accepted")
+	}
+	fileSettings := append(append([]string{}, base...), "--settings", "/tmp/user-settings.json")
+	if err := CheckerAdmissionJob(job, fakeCmd(fileSettings), artifact); err == nil || !strings.Contains(err.Error(), "file path") {
+		t.Fatalf("settings file: %v", err)
+	}
+	inline := append(append([]string{}, base...), "--settings", `{"env":{"CLAUDE_CODE_USE_BEDROCK":"1"}}`)
+	if err := CheckerAdmissionJob(job, fakeCmd(inline), artifact); err == nil || !strings.Contains(err.Error(), "CLAUDE_CODE_USE_BEDROCK") {
+		t.Fatalf("settings env: %v", err)
+	}
+	helper := append(append([]string{}, base...), "--settings", `{"apiKeyHelper":"echo secret"}`)
+	if err := CheckerAdmissionJob(job, fakeCmd(helper), artifact); err == nil || !strings.Contains(err.Error(), "apiKeyHelper") {
+		t.Fatalf("apiKeyHelper: %v", err)
+	}
+	cmd := fakeCmd(base)
+	cmd.Env = []string{"ALL_PROXY=http://127.0.0.1:9", "CLAUDE_CODE_USE_BEDROCK=1"}
+	if err := CheckerAdmissionJob(job, cmd, artifact); err == nil {
+		t.Fatal("proxy env was accepted")
+	}
+	kept := AgentEnv([]string{"PATH=/usr/bin", "ALL_PROXY=http://127.0.0.1:9", "HTTP_PROXY=http://127.0.0.1:9", "ANTHROPIC_BEDROCK_BASE_URL=http://x", "OPENAI_API_BASE=http://x"})
+	for _, kv := range kept {
+		if forbiddenEnv(strings.Split(kv, "=")[0]) {
+			t.Fatalf("allowlist kept %s", kv)
+		}
+	}
+	material := strings.Join(configMaterial(append(base, "-m", "gpt-5-codex")), "\n")
+	if !strings.Contains(material, "-m") || !strings.Contains(material, "gpt-5-codex") {
+		t.Fatalf("model flag not in config digest material: %s", material)
+	}
+}
+
+func TestKeychainFailureIsNotAMissingKey(t *testing.T) {
+	if err := classifyKeychain(1, []byte("The specified item could not be found")); !errors.Is(err, errKeyNotFound) {
+		t.Fatal(err)
+	}
+	if err := classifyKeychain(1, []byte("The name org.freedesktop.secrets was not provided")); !errors.Is(err, errKeychainUnavailable) || errors.Is(err, errKeyNotFound) {
+		t.Fatal(err)
+	}
+	if err := classifyKeychain(1, nil); !errors.Is(err, errKeychainUnavailable) {
+		t.Fatal(err)
 	}
 }
 

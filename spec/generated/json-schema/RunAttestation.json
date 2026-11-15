@@ -76,6 +76,26 @@
         "workspace_after": {
             "$ref": "Digest.json"
         },
+        "requested_model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The model the run asked for, after the same resolution the daemon uses."
+        },
+        "check_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "The check this statement belongs to. An attempt id when one was assigned,\notherwise `<run id>:<package revision>`."
+        },
+        "deliverable_digest": {
+            "$ref": "Digest.json",
+            "description": "Canonical digest of the author deliverable names and byte digests."
+        },
+        "verification_digest": {
+            "$ref": "Digest.json",
+            "description": "Canonical digest of the verification submission: outcome, findings,\ncriterion results, and evidence artifact digests."
+        },
         "key_id": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
@@ -102,6 +122,10 @@
         "probe_result",
         "workspace_before",
         "workspace_after",
+        "requested_model",
+        "check_id",
+        "deliverable_digest",
+        "verification_digest",
         "key_id",
         "signature"
     ],

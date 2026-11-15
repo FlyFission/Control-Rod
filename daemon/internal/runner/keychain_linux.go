@@ -17,12 +17,13 @@ func lookupOSKey() (ed25519.PrivateKey, error) {
 		return nil, err
 	}
 	if code != 0 {
-		return nil, errKeyNotFound
+		return nil, classifyKeychain(code, out)
 	}
 	return parseStoredKey(out)
 }
 
 func storeOSKey(k ed25519.PrivateKey) error {
+	// The secret is the process stdin. It is not an argument.
 	_, code, err := keyCommand("secret-tool", []string{
 		"store", "--label=Control Rod daemon signing key",
 		"service", "controlrod-daemon-signing", "username", "controlrod",

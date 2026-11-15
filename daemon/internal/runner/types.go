@@ -32,6 +32,9 @@ type Run struct {
 	Round           int        `json:"round"`
 	// Generation is which attempt this is at its package revision, role and round (from 1).
 	Generation int `json:"generation,omitempty"`
+	// AttemptID is the checker attempt id when one was assigned. Otherwise the
+	// attestation uses run id and package revision.
+	AttemptID string `json:"checker_attempt_id,omitempty"`
 	// SandboxPolicy is the policy version the control plane recorded on the run (plan task 6.1).
 	SandboxPolicy *PolicyRef `json:"sandbox_policy,omitempty"`
 }

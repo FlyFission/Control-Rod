@@ -2,7 +2,8 @@ import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { judgeAttestation, loadModelRegistry, setModelRegistryForTest, type AttestationFacts } from "../src/run-attestation.js";
+import { tx } from "../src/db/index.js";
+import { judgeAttestation, loadModelRegistry, rememberNonce, setModelRegistryForTest, signedPayload, type AttestationFacts } from "../src/run-attestation.js";
 import { digest } from "../src/kernel.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, signIn, startHarness } from "./harness.js";
 
@@ -15,7 +16,7 @@ function rawPublic(key: ReturnType<typeof generateKeyPairSync>["publicKey"]): Bu
 }
 
 function signAttestation(body: Record<string, unknown>, privateKey: ReturnType<typeof generateKeyPairSync>["privateKey"], publicKey: Buffer) {
-  const hash = Buffer.from(digest(body), "hex");
+  const hash = Buffer.from(digest(signedPayload(body)), "hex");
   const signature = sign(null, hash, privateKey).toString("base64");
   return {
     ...body,
@@ -39,6 +40,10 @@ function baseBody(over: Record<string, unknown> = {}) {
     probe_result: "not-run",
     workspace_before: { algorithm: "sha256", value: HEX },
     workspace_after: { algorithm: "sha256", value: HEX },
+    requested_model: "gpt-5-codex",
+    check_id: "run-1:0",
+    deliverable_digest: { algorithm: "sha256", value: HEX },
+    verification_digest: { algorithm: "sha256", value: HEX },
     ...over,
   };
 }
@@ -51,18 +56,23 @@ function facts(attestation: unknown, over: Partial<AttestationFacts> = {}): Atte
     runId: "run-1",
     provider: "openai",
     model: "gpt-5-codex",
+    checkId: "run-1:0",
     policyDigest: HEX,
+    deliverableDigest: HEX,
+    verificationDigest: HEX,
     attestation: signed,
     publicKey: raw,
     harness: "codex",
-    nonceOwner: null,
     ...over,
   };
 }
 
 describe("attestation bytes", () => {
-  it("matches the Go vector", () => {
-    expect(digest(vector.payload)).toBe(vector.hash);
+  it("matches the Go vectors, including a non-ascii model and an empty model list", () => {
+    expect(vector.cases.map((c: { name: string }) => c.name)).toEqual(["ascii", "non-ascii", "empty-models"]);
+    for (const c of vector.cases as { name: string; payload: unknown; hash: string }[]) {
+      expect(digest(c.payload), c.name).toBe(c.hash);
+    }
   });
 });
 
@@ -105,8 +115,8 @@ describe("spoofed checks", () => {
     expect(judgeAttestation(facts(baseBody(), { harness: "claude" })).code).toBe("harness-mismatch");
   });
 
-  it("refuses a replayed nonce", () => {
-    expect(judgeAttestation(facts(baseBody(), { nonceOwner: "run-1" })).code).toBe("replay");
+  it("refuses a retired key before it looks at the signature", () => {
+    expect(judgeAttestation(facts(baseBody(), { keyRetired: true, publicKey: null })).code).toBe("retired");
   });
 
   it("refuses a local model on Safety or Material", () => {
@@ -114,7 +124,7 @@ describe("spoofed checks", () => {
       models: [{ id: "local-ollama", harness: "codex", names: ["local-ollama"], hosts: ["127.0.0.1:11434"], deciding: false, local: true }],
     });
     try {
-      const body = baseBody({ effective_endpoint: "127.0.0.1:11434", observed_models: ["local-ollama"] });
+      const body = baseBody({ effective_endpoint: "127.0.0.1:11434", observed_models: ["local-ollama"], requested_model: "local-ollama" });
       expect(judgeAttestation(facts(body, { model: "local-ollama", grade: "safety" })).code).toBe("not-deciding");
       expect(judgeAttestation(facts(body, { model: "local-ollama", grade: "material" })).code).toBe("not-deciding");
     } finally {
@@ -133,16 +143,12 @@ describe("enrollment", () => {
   let h: Harness;
   let cookie: string;
   const key = new VirtualAuthenticator();
-  const previous = process.env.CONTROLROD_TEST_UNATTESTED_CHECKS;
 
   beforeAll(async () => {
-    process.env.CONTROLROD_TEST_UNATTESTED_CHECKS = "0";
     h = await startHarness();
     cookie = await signIn(h.app, key);
   }, 120_000);
   afterAll(async () => {
-    if (previous === undefined) delete process.env.CONTROLROD_TEST_UNATTESTED_CHECKS;
-    else process.env.CONTROLROD_TEST_UNATTESTED_CHECKS = previous;
     await h?.stop();
   });
 
@@ -209,5 +215,48 @@ describe("enrollment", () => {
     expect(run.body.attestation_reason).toMatch(/no attestation/);
     const verifications = (await h.db.query("select 1 from verifications where run_id = $1", [check!.run.id])).rowCount;
     expect(verifications).toBe(0);
+    const attempt = (await h.db.query<{ body: { id: string; outcome: string; counts_as: string; verification_run_id?: string } }>(
+      "select body from checker_attempts where run_id = $1", [check!.run.id])).rows[0]?.body;
+    expect(attempt?.id).toMatch(/^CA-[0-9a-f]{8}$/);
+    expect(attempt?.outcome).toBe("error");
+    expect(attempt?.counts_as).toBe("inconclusive");
+    expect(attempt?.verification_run_id).toBeUndefined();
+    const sticky = (await h.db.query(
+      "select 1 from checker_attempts where package_id = $1 and body->>'counts_as' = 'fail'",
+      [run.body.package_id])).rowCount;
+    expect(sticky).toBe(0);
+  });
+
+  it("retires a key so its signatures stop counting", async () => {
+    const row = (await h.db.query<{ key_id: string }>("select key_id from daemon_signing_keys where status = 'active' limit 1")).rows[0];
+    expect(row?.key_id).toBeTruthy();
+    const payload = { key_id: row!.key_id };
+    const options = await post("/admin/commands/daemon.retire-key/options", { payload });
+    expect(options.statusCode, options.body).toBe(200);
+    const retired = await post("/admin/commands/daemon.retire-key", { payload, assertion: key.assert(options.json().options) });
+    expect(retired.statusCode, retired.body).toBe(200);
+    expect(retired.json().status).toBe("retired");
+    const againOptions = await post("/admin/commands/daemon.retire-key/options", { payload });
+    expect(againOptions.statusCode, againOptions.body).toBe(200);
+    const again = await post("/admin/commands/daemon.retire-key", { payload, assertion: key.assert(againOptions.json().options) });
+    expect(again.statusCode).toBe(404);
+  });
+
+  it("treats the same nonce and payload as a retry, and any other reuse as a replay", async () => {
+    const org = (await h.db.query<{ id: string }>("select tenancy_sole_org() as id")).rows[0]!.id;
+    const run = (await h.db.query<{ id: string }>("select id from runs limit 1")).rows[0]!.id;
+    const { publicKey } = generateKeyPairSync("ed25519");
+    const raw = rawPublic(publicKey);
+    const keyId = createHash("sha256").update(raw).digest("hex");
+    await h.admin.query(
+      "insert into daemon_signing_keys (org_id, key_id, public_key, status, enrolled_by) values ($1, $2, $3, 'active', 'test')",
+      [org, keyId, raw.toString("base64")],
+    );
+    const nonce = "ab".repeat(32);
+    const claim = (hash: string) => tx(h.admin, (c) => rememberNonce(c, { orgId: org, keyId, nonce, runId: run, payloadHash: hash }));
+    const first = await Promise.all([claim(HEX), claim(HEX)]);
+    expect(first.sort()).toEqual(["same", "stored"]);
+    expect(await claim(HEX)).toBe("same");
+    expect(await claim("cd".repeat(32))).toBe("replay");
   });
 });

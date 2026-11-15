@@ -88,11 +88,6 @@ export interface Harness {
 export async function startHarness(
   given: Pick<AppOptions,"guidedPreparation"|"preparedRelease"|"preparationSources"|"preparationRepositories"|"preparationLanes"|"streamReplayMax"> & { root?: string; trustAnchors?: string[] } = {},
 ): Promise<Harness> {
-  // Older Claude and Codex completions in this suite send no attestation.
-  // A present attestation is still verified. Production must leave this unset.
-  if (process.env.CONTROLROD_TEST_UNATTESTED_CHECKS === undefined) {
-    process.env.CONTROLROD_TEST_UNATTESTED_CHECKS = "1";
-  }
   const { trustAnchors, ...rest } = given;
   const options = { ...rest, root: rest.root ?? repoRoot };
   const external = process.env.TEST_DATABASE_URL;

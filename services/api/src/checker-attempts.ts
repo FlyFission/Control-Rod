@@ -60,6 +60,13 @@ export function classifyCheckerOutcome(
   return { outcome: "error", counts_as: "inconclusive" };
 }
 
+/** The id assigned when the pre-check started, or a new one for a run recorded before that. */
+function attemptIdentity(run: { id: string; body: Json }): string {
+  const assigned = String(run.body?.checker_attempt_id ?? "");
+  if (/^CA-[0-9a-f]{8}$/.test(assigned)) return assigned;
+  return `CA-${randomUUID().slice(0, 8)}`;
+}
+
 function checkerRuntime(run: Json): string {
   const p = String(run?.runtime?.provider ?? "").trim().toLowerCase();
   if (!p || p === "any") return "unassigned";
@@ -499,7 +506,7 @@ async function recordUnknownAttempt(c: Tx, ajv: Ajv2020, run: AttemptRun): Promi
   const at = now();
   const attempt: Json = {
     schema_version: "0.1.0",
-    id: `CA-${randomUUID().slice(0, 8)}`,
+    id: attemptIdentity(run),
     package_id: run.package_id,
     package_revision: run.package_revision,
     run_id: run.id,
@@ -555,7 +562,7 @@ export async function recordCheckerAttempt(c: Tx, ajv: Ajv2020, run: AttemptRun)
   const seq = ((await c.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from checker_attempts where package_id = $1", [run.package_id])).rows[0]?.n ?? 0) + 1;
   const attempt: Json = {
     schema_version: "0.1.0",
-    id: `CA-${randomUUID().slice(0, 8)}`,
+    id: attemptIdentity(run),
     package_id: run.package_id,
     package_revision: run.package_revision,
     run_id: run.id,

@@ -195,6 +195,12 @@
             "type": "string",
             "maxLength": 500,
             "description": "Why the attestation did or did not verify, in plain words."
+        },
+        "checker_attempt_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "The checker attempt this run will be recorded as. Assigned when a pre-check\nstarts, and the value the daemon signs as check_id."
         }
     },
     "required": [

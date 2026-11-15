@@ -15,7 +15,49 @@ import { getObject, recordObject, transition } from "./workbench.js";
  */
 
 const ROLES = ["intake", "author", "pre-check"] as const;
-export const PINNABLE = ["claude", "codex"];
+export const PINNABLE = ["claude", "codex", "grok", "opencode", "agy", "ollama"];
+
+export const RUNTIME_FAMILIES: Record<string, string> = {
+  claude: "Anthropic",
+  codex: "OpenAI",
+  grok: "xAI",
+  opencode: "OpenCode",
+  agy: "Google",
+  ollama: "Ollama-Local",
+  fake: "Test",
+};
+
+export function distinctFamily(authorRuntime: string, checkerRuntime: string): boolean {
+  const aFam = RUNTIME_FAMILIES[authorRuntime] ?? authorRuntime;
+  const cFam = RUNTIME_FAMILIES[checkerRuntime] ?? checkerRuntime;
+  return aFam !== cFam;
+}
+
+/**
+ * O6 quorum check: every checker must belong to a distinct vendor family from the author,
+ * and `safety` grade requires at least 2 distinct checker families (2-of-2 quorum).
+ */
+export function verifyO6CheckerQuorum(
+  authorRuntime: string,
+  checkerRuntimes: readonly string[],
+  grade: string,
+): { ok: boolean; reason?: string } {
+  const distinctCheckers = new Set<string>();
+  for (const cr of checkerRuntimes) {
+    if (!distinctFamily(authorRuntime, cr)) {
+      return { ok: false, reason: `Checker ${cr} shares vendor family with author ${authorRuntime}` };
+    }
+    distinctCheckers.add(RUNTIME_FAMILIES[cr] ?? cr);
+  }
+  const required = grade.trim().toLowerCase() === "safety" ? 2 : 1;
+  if (distinctCheckers.size < required) {
+    return {
+      ok: false,
+      reason: `Grade ${grade} requires ${required} distinct checker vendor families, got ${distinctCheckers.size}`,
+    };
+  }
+  return { ok: true };
+}
 
 export interface ProbeArtifact { path: string; digest: { algorithm: "sha256"; value: string } }
 

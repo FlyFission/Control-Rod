@@ -46,12 +46,32 @@ export function harnessName(provider: string): string {
   const p = provider.toLowerCase();
   if (p === "anthropic" || p === "claude" || p === "claude-code") return "claude";
   if (p === "openai" || p === "codex") return "codex";
+  if (p === "xai" || p === "grok" || p === "grok-cli") return "grok";
+  if (p === "opencode") return "opencode";
+  if (p === "agy" || p === "antigravity" || p === "gemini-cli") return "agy";
+  if (p === "ollama" || p === "local-ollama") return "ollama";
   return p;
 }
 
 export function countedProvider(provider: unknown): boolean {
   const n = harnessName(String(provider ?? ""));
-  return n === "claude" || n === "codex";
+  return n === "claude" || n === "codex" || n === "grok" || n === "opencode" || n === "agy" || n === "ollama";
+}
+
+export function verifyQualifiedAttestation(att: {
+  probe_result?: string;
+  endpoint_enforcement?: string;
+}): { ok: boolean; reason?: string } {
+  if (att.probe_result !== "pass") {
+    return { ok: false, reason: `Expected probe_result=pass, got ${att.probe_result ?? "missing"}` };
+  }
+  if (att.endpoint_enforcement !== "enforced") {
+    return {
+      ok: false,
+      reason: `Expected endpoint_enforcement=enforced, got ${att.endpoint_enforcement ?? "missing"}`,
+    };
+  }
+  return { ok: true };
 }
 
 export interface AttestationVerdict {

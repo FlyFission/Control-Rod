@@ -26,10 +26,10 @@ var runtimeNamePattern = regexp.MustCompile(`case\s+Runtime(Claude|Codex|Fake)\b
 
 func TestRegistry(t *testing.T) {
 	regs := RegisteredAdapters()
-	if len(regs) != 3 {
+	wantOrder := []string{RuntimeClaude, RuntimeCodex, RuntimeGrok, RuntimeOpenCode, RuntimeAgy, RuntimeOllama, RuntimeFake}
+	if len(regs) != len(wantOrder) {
 		t.Fatalf("registry %d", len(regs))
 	}
-	wantOrder := []string{RuntimeClaude, RuntimeCodex, RuntimeFake}
 	seen := map[string]bool{}
 	var ids []string
 	for _, a := range regs {
@@ -54,7 +54,7 @@ func TestRegistry(t *testing.T) {
 	if !slices.Equal(ids, wantOrder) {
 		t.Fatalf("order %v", ids)
 	}
-	if _, ok := AdapterFor("grok"); ok {
+	if _, ok := AdapterFor("nonexistent-cli"); ok {
 		t.Fatal("unregistered id resolved")
 	}
 

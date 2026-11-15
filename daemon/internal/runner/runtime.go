@@ -34,9 +34,13 @@ const DefaultClaudeTools = "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"
 
 // Runtime names.
 const (
-	RuntimeClaude = "claude"
-	RuntimeCodex  = "codex"
-	RuntimeFake   = "fake"
+	RuntimeClaude   = "claude"
+	RuntimeCodex    = "codex"
+	RuntimeGrok     = "grok"
+	RuntimeOpenCode = "opencode"
+	RuntimeAgy      = "agy"
+	RuntimeOllama   = "ollama"
+	RuntimeFake     = "fake"
 )
 
 // RuntimeFor maps a run's provider to a runtime name.

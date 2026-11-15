@@ -127,7 +127,15 @@ func (sandboxedBase) SandboxRequired() bool { return true }
 
 // registry is the runtime list, in the order Detect offers them. It is not exported: callers
 // use RegisteredAdapters, which returns a copy.
-var registry = []Adapter{claudeAdapter{}, codexAdapter{}, fakeAdapter{}}
+var registry = []Adapter{
+	claudeAdapter{},
+	codexAdapter{},
+	grokAdapter{},
+	opencodeAdapter{},
+	agyAdapter{},
+	ollamaAdapter{},
+	fakeAdapter{},
+}
 
 // RegisteredAdapters returns a copy of the registry. Mutating the slice does not change it.
 func RegisteredAdapters() []Adapter {

@@ -152,6 +152,7 @@ export function useLiveEvents(enabled: boolean): void {
         "actions",
         "admin",
         "runtimes",
+        "subscriptions",
         "roster",
         "usage",
         "run-events",

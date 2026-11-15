@@ -21,7 +21,7 @@ func TestClaimRejectsInvalidRawWireBeforeStartingWork(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, body) }))
 			defer srv.Close()
-			if job, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 0); err == nil {
+			if job, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 0, nil); err == nil {
 				t.Fatalf("admitted invalid job: %+v", job)
 			}
 		})
@@ -50,7 +50,7 @@ func TestClaimAcceptsCompleteGeneratedContract(t *testing.T) {
 	body := `{"run":{"schema_version":"0.1.0","id":"x","package_id":"p","package_revision":0,"role":"author","agent_baseline":"a","runtime":{"kind":"local","provider":"fake","model":"default"},"round":1,"status":"running","queued_at":"2026-10-23T00:00:00Z"},"inputs":[],"claim":{"token":"t","lease_expires_at":"2026-10-23T00:00:00Z","heartbeat_seconds":30}}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, body) }))
 	defer srv.Close()
-	if _, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 0); err != nil {
+	if _, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 0, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -82,14 +82,14 @@ func TestClaimReportsTheRunCeiling(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer srv.Close()
-	if _, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 45*time.Minute+12*time.Second+300*time.Millisecond); err != ErrNoWork {
+	if _, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 45*time.Minute+12*time.Second+300*time.Millisecond, nil); err != ErrNoWork {
 		t.Fatalf("claim: %v", err)
 	}
 	if got["run_ceiling_seconds"] != float64(2713) {
 		t.Fatalf("run_ceiling_seconds = %v, want 2713", got["run_ceiling_seconds"])
 	}
 	got = nil
-	if _, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 0); err != ErrNoWork {
+	if _, err := NewClient(srv.URL, "token").Claim(context.Background(), []string{"fake"}, nil, 0, nil); err != ErrNoWork {
 		t.Fatalf("claim: %v", err)
 	}
 	if _, ok := got["run_ceiling_seconds"]; ok {

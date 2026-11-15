@@ -622,6 +622,100 @@ op runtimes(): {
   pins: RuntimePin[];
 };
 
+/**
+ * Settings > Subscriptions. The daemon's probe of registered provider CLIs.
+ * Control Rod does not accept or return a token.
+ */
+@route("/subscriptions")
+@get
+op subscriptions(): SubscriptionView;
+
+/** One registered provider CLI, as the daemon probed it. */
+@extension("unevaluatedProperties", false)
+model SubscriptionProbe {
+  id: string;
+  display_name: string;
+  vendor_family?: string;
+  installed: boolean;
+
+  @maxLength(4096)
+  path?: string;
+
+  @maxLength(200)
+  observed_version?: string;
+
+  /** From the CLI's own status command, or unknown when it has none. */
+  auth: "signed-in" | "signed-out" | "unknown";
+
+  @maxLength(200)
+  auth_note?: string;
+
+  roles: SubscriptionRole[];
+}
+
+@extension("unevaluatedProperties", false)
+model SubscriptionRole {
+  role: "author" | "checker";
+  qualified: boolean;
+
+  @maxLength(300)
+  reason: string;
+}
+
+/** One model in the daemon's checker registry. Not a live probe. */
+@extension("unevaluatedProperties", false)
+model SubscriptionChecker {
+  id: string;
+  harness: string;
+  vendor_family?: string;
+  deciding: boolean;
+  local: boolean;
+  hosts: string[];
+}
+
+/** How many checkers a grade needs. Safety is 2, from different vendor families; every other grade is 1. */
+@extension("unevaluatedProperties", false)
+model SubscriptionTier {
+  grade: "safety" | "material" | "general-service";
+
+  @minValue(1)
+  @maxValue(2)
+  required: int32;
+
+  rule: string;
+}
+
+/** A pin joined to the version string the passing probe recorded. Checker is the pre-check role. */
+@extension("unevaluatedProperties", false)
+model SubscriptionPin {
+  runtime: string;
+  role: "author" | "checker";
+  version?: string;
+  digest: Digest;
+}
+
+@extension("unevaluatedProperties", false)
+model SubscriptionView {
+  /** False until a daemon has reported. Probes are empty then, and none are invented. */
+  reported: boolean;
+  reported_at?: utcDateTime;
+  platform?: string;
+  probes: SubscriptionProbe[];
+  checkers: SubscriptionChecker[];
+  tiers: SubscriptionTier[];
+  local_rule: string;
+  pins: SubscriptionPin[];
+}
+
+/** The claim payload. The same probe models the settings page returns. */
+@extension("unevaluatedProperties", false)
+model SubscriptionReport {
+  platform?: string;
+  probes?: SubscriptionProbe[];
+  checkers?: SubscriptionChecker[];
+  local_rule?: string;
+};
+
 /** One run role on the Roster: what it does, who has run it, and its pins. */
 model RosterRole {
   role: RunRole;
@@ -1127,6 +1221,9 @@ namespace Runner {
     runtimes: string[];
 
     runtime_status?: RuntimeStatus[];
+
+    /** Provider CLI probes for Settings. Output of a status command is not included. */
+    subscription_report?: ControlRod.Api.SubscriptionReport;
 
     /** The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations. */
     @minValue(1) run_ceiling_seconds?: int32;

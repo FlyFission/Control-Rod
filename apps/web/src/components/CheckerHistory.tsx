@@ -1,5 +1,6 @@
 import type { PackageView } from "../api/types.js";
 import { shortDigest, time } from "../lib/format.js";
+import { VendorBadge } from "./VendorBadge.js";
 
 type Attempt = NonNullable<PackageView["checker_attempts"]>[number];
 type Override = NonNullable<PackageView["recheck_overrides"]>[number];
@@ -68,7 +69,7 @@ function AttemptLine({ attempt }: { attempt: Attempt }) {
       <span className={`tag outcome-${tone}`}>{attempt.outcome}</span>{" "}
       <span className="muted small">counts as {attempt.counts_as}</span>
       <p className="small">
-        {attempt.checker_runtime}
+        {attempt.checker_runtime} <VendorBadge provider={attempt.checker_runtime} />
         {attempt.reported_model ? ` · model ${attempt.reported_model}` : " · model not reported"}
         {" · "}round {attempt.round}
         {" · "}

@@ -1,0 +1,9 @@
+
+ RUN  v5.1.0 /agent/repos/Control-Rod/apps/web
+
+
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+   Start at  17:54:14
+   Duration  863ms (environment 42%, tests 24%, setup 17%, import 12%, transform 5%, worker 1%)
+

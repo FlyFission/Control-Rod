@@ -29,9 +29,19 @@ func (claudeAdapter) CheckerEnv() []string {
 	return []string{"CLAUDE_CODE_DISABLE_AUTO_MEMORY=1"}
 }
 
-func (claudeAdapter) ID() string          { return RuntimeClaude }
-func (claudeAdapter) Binary() string      { return "claude" }
-func (claudeAdapter) DisplayName() string { return "Claude Code" }
+func (claudeAdapter) ID() string                  { return RuntimeClaude }
+func (claudeAdapter) Binary() string              { return "claude" }
+func (claudeAdapter) DisplayName() string         { return "Claude Code" }
+func (claudeAdapter) Family() string              { return "Anthropic" }
+func (claudeAdapter) AuthorLaunchQualified() bool { return true }
+func (claudeAdapter) ListOnSubscriptions() bool   { return true }
+
+// AuthStatusArgs is Claude Code's own status command. Preflight already runs it.
+func (claudeAdapter) AuthStatusArgs() []string { return []string{"auth", "status"} }
+
+// ConfirmAuthCommand reports that this adapter's status command is the one
+// Preflight runs. It does not parse help text.
+func (claudeAdapter) ConfirmAuthCommand(func(args ...string) (string, int, error)) bool { return true }
 
 func (claudeAdapter) Providers() []string {
 	return []string{"claude", "anthropic", "claude-code"}

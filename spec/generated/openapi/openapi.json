@@ -5139,6 +5139,10 @@
                       "$ref": "#/components/schemas/Runner.RuntimeStatus"
                     }
                   },
+                  "subscription_report": {
+                    "$ref": "#/components/schemas/SubscriptionReport",
+                    "description": "Provider CLI probes for Settings. Output of a status command is not included."
+                  },
                   "run_ceiling_seconds": {
                     "type": "integer",
                     "format": "int32",
@@ -6151,6 +6155,25 @@
                       "$ref": "#/components/schemas/ApiError"
                     }
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions": {
+      "get": {
+        "operationId": "subscriptions",
+        "description": "Settings > Subscriptions. The daemon's probe of registered provider CLIs.\nControl Rod does not accept or return a token.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionView"
                 }
               }
             }
@@ -12119,6 +12142,246 @@
           }
         },
         "description": "One seal as verification found it."
+      },
+      "SubscriptionChecker": {
+        "type": "object",
+        "required": [
+          "id",
+          "harness",
+          "deciding",
+          "local",
+          "hosts"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "harness": {
+            "type": "string"
+          },
+          "vendor_family": {
+            "type": "string"
+          },
+          "deciding": {
+            "type": "boolean"
+          },
+          "local": {
+            "type": "boolean"
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "One model in the daemon's checker registry. Not a live probe."
+      },
+      "SubscriptionPin": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "role",
+          "digest"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "author",
+              "checker"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        },
+        "description": "A pin joined to the version string the passing probe recorded. Checker is the pre-check role."
+      },
+      "SubscriptionProbe": {
+        "type": "object",
+        "required": [
+          "id",
+          "display_name",
+          "installed",
+          "auth",
+          "roles"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "vendor_family": {
+            "type": "string"
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "observed_version": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "auth": {
+            "type": "string",
+            "enum": [
+              "signed-in",
+              "signed-out",
+              "unknown"
+            ],
+            "description": "From the CLI's own status command, or unknown when it has none."
+          },
+          "auth_note": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionRole"
+            }
+          }
+        },
+        "description": "One registered provider CLI, as the daemon probed it."
+      },
+      "SubscriptionReport": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "probes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionProbe"
+            }
+          },
+          "checkers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionChecker"
+            }
+          },
+          "local_rule": {
+            "type": "string"
+          }
+        },
+        "description": "The claim payload. The same probe models the settings page returns."
+      },
+      "SubscriptionRole": {
+        "type": "object",
+        "required": [
+          "role",
+          "qualified",
+          "reason"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "author",
+              "checker"
+            ]
+          },
+          "qualified": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "SubscriptionTier": {
+        "type": "object",
+        "required": [
+          "grade",
+          "required",
+          "rule"
+        ],
+        "properties": {
+          "grade": {
+            "type": "string",
+            "enum": [
+              "safety",
+              "material",
+              "general-service"
+            ]
+          },
+          "required": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "rule": {
+            "type": "string"
+          }
+        },
+        "description": "How many checkers a grade needs. Safety is 2, from different vendor families; every other grade is 1."
+      },
+      "SubscriptionView": {
+        "type": "object",
+        "required": [
+          "reported",
+          "probes",
+          "checkers",
+          "tiers",
+          "local_rule",
+          "pins"
+        ],
+        "properties": {
+          "reported": {
+            "type": "boolean",
+            "description": "False until a daemon has reported. Probes are empty then, and none are invented."
+          },
+          "reported_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "probes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionProbe"
+            }
+          },
+          "checkers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionChecker"
+            }
+          },
+          "tiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionTier"
+            }
+          },
+          "local_rule": {
+            "type": "string"
+          },
+          "pins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionPin"
+            }
+          }
+        }
       }
     }
   },

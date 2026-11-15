@@ -34,6 +34,7 @@ Design specifications and implementation plans live in [`superpowers/specs/`](su
 - [Platform buildout specification](superpowers/specs/2026-10-23-platform-buildout-design.md)
 - [Workbench ontology specification](superpowers/specs/2026-10-29-workbench-ontology-design.md), which maps each of its sections to the Platform Plan in its [alignment table](superpowers/specs/2026-10-29-workbench-ontology-design.md#2-platform-plan-alignment)
 - [Guided preparation](superpowers/specs/2026-10-22-guided-preparation-design.md)
+- [Multi-provider agents design plan](plan/multi-provider-design-plan.md) and the [handoff](plan/HANDOFF.md) for the work that follows it
 
 ### Overlay themes
 

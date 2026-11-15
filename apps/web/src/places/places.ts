@@ -20,4 +20,5 @@ export const PLACES: Place[] = [
   { to: "/usage", label: "Usage", purpose: "Whether the work is earning its place" },
   { to: "/records", label: "Records", purpose: "The event chain and its verification" },
   { to: "/policies", label: "Policies", purpose: "Floors in force, members and administration" },
+  { to: "/settings/subscriptions", label: "Subscriptions", purpose: "Which provider CLIs are installed, signed in and qualified" },
 ];

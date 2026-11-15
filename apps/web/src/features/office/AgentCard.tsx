@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { api } from "../../api/client.js";
 import type { ActionDescriptor, AgentFigure, PackageView } from "../../api/types.js";
 import { STATE_INFO, StateMark } from "../../components/StateMark.js";
+import { VendorBadge } from "../../components/VendorBadge.js";
 import { COLUMNS, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, verificationRead } from "../../lib/board.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../../lib/format.js";
 import { REGION } from "./layout.js";
@@ -149,7 +150,14 @@ function Glance({ f, view, actions, verified, failed }: { f: AgentFigure; view: 
       </dd>
       <dt>Checker</dt>
       <dd>
-        {checker ? `${checker.agent_baseline} on ${checker.runtime.provider}, ${CHECKER_STATUS[checker.status] ?? checker.status}` : "No pre-check run is recorded"}
+        {checker ? (
+          <>
+            {checker.agent_baseline} on {checker.runtime.provider} <VendorBadge provider={checker.runtime.provider} />
+            {`, ${CHECKER_STATUS[checker.status] ?? checker.status}`}
+          </>
+        ) : (
+          "No pre-check run is recorded"
+        )}
         {view.pre_check ? `; recorded pre-check outcome: ${view.pre_check.outcome}` : ""}
       </dd>
       {independence && (
@@ -276,6 +284,7 @@ function Reach({ f, view }: { f: AgentFigure; view: PackageView | undefined }) {
     <div className="office-reach">
       <p className="small">
         Lane: {f.data_lane}. {run ? `Runtime: ${run.runtime.provider}${run.runtime.model && run.runtime.model !== "any" ? ` ${run.runtime.model}` : ""}.` : ""}
+        {run && <VendorBadge provider={run.runtime.provider} />}
       </p>
       {provider && provider !== "any" && (
         <p className="small">

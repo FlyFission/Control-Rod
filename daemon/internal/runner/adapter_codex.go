@@ -34,9 +34,22 @@ func (codexAdapter) LoginWritableFiles() []string { return []string{"auth.json"}
 
 func (codexAdapter) LoginSessionDirs() []string { return []string{"sessions", "log"} }
 
-func (codexAdapter) ID() string          { return RuntimeCodex }
-func (codexAdapter) Binary() string      { return "codex" }
-func (codexAdapter) DisplayName() string { return "Codex" }
+func (codexAdapter) ID() string                  { return RuntimeCodex }
+func (codexAdapter) Binary() string              { return "codex" }
+func (codexAdapter) DisplayName() string         { return "Codex" }
+func (codexAdapter) Family() string              { return "OpenAI" }
+func (codexAdapter) AuthorLaunchQualified() bool { return true }
+func (codexAdapter) ListOnSubscriptions() bool   { return true }
+
+// AuthStatusArgs is Codex's own login status command.
+func (codexAdapter) AuthStatusArgs() []string { return []string{"login", "status"} }
+
+// ConfirmAuthCommand is true only when `codex login --help` lists `status`.
+// A Codex build without that subcommand is reported as auth unknown.
+func (codexAdapter) ConfirmAuthCommand(call func(args ...string) (string, int, error)) bool {
+	help, code, err := call("login", "--help")
+	return err == nil && code == 0 && hasSubcommand(help, "status")
+}
 
 func (codexAdapter) Providers() []string { return []string{"codex", "openai"} }
 

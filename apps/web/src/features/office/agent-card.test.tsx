@@ -77,7 +77,9 @@ describe("agent card", () => {
     // Freshness only as established, and the sources it does not compare are named.
     expect(within(card).getByText(/^Input WP-0002 changed since the preparation pinned it\. Documents and other sources are not compared here\.$/)).toBeTruthy();
     // The checker with its run's status, and the recorded pre-check's outcome.
-    expect(within(card).getByText("checker-claude on claude, finished; recorded pre-check outcome: fail")).toBeTruthy();
+    expect(card.textContent).toContain("checker-claude on claude");
+    expect(card.textContent).toContain("Vendor family Anthropic");
+    expect(card.textContent).toContain("recorded pre-check outcome: fail");
     // No budget applies to this figure, and the card says so rather than showing zero.
     expect(within(card).getByText("No budget applies to this agent's work.")).toBeTruthy();
     expect(within(card).getByText("No due date is recorded for this package.")).toBeTruthy();

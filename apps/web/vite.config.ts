@@ -34,6 +34,7 @@ const apiPaths = [
   "/records",
   "/runs",
   "/runtimes",
+  "/subscriptions",
   "/scrams",
   "/usage",
 ];

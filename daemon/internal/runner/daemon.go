@@ -118,8 +118,9 @@ type Daemon struct {
 	// quit ends when Run is asked to stop; completion retries stop waiting then.
 	quit context.Context
 
-	probeMu sync.Mutex
-	status  []RuntimeStatus
+	probeMu       sync.Mutex
+	status        []RuntimeStatus
+	subscriptions *SubscriptionReport
 
 	activeMu    sync.Mutex
 	active      map[string]bool
@@ -261,7 +262,7 @@ claim:
 		}
 		status := d.runtimeStatus()
 		claimSent := time.Now()
-		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling())
+		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport())
 		if job != nil {
 			job.claimSent = claimSent
 		}
@@ -347,12 +348,14 @@ func (d *Daemon) probe(ctx context.Context) {
 		}
 		next = append(next, st)
 	}
+	report := SubscriptionFromStatuses(next, CurrentPlatform(), os.Getenv)
 	d.probeMu.Lock()
 	prev := map[string]bool{}
 	for _, s := range d.status {
 		prev[s.Runtime] = s.Ready
 	}
 	d.status = next
+	d.subscriptions = &report
 	d.probeMu.Unlock()
 	for _, s := range next {
 		was, seen := prev[s.Runtime]
@@ -422,6 +425,19 @@ func (d *Daemon) runtimeStatus() []RuntimeStatus {
 	d.probeMu.Lock()
 	defer d.probeMu.Unlock()
 	return append([]RuntimeStatus(nil), d.status...)
+}
+
+// subscriptionReport is the last subscription probe, or nil before the first probe.
+func (d *Daemon) subscriptionReport() *SubscriptionReport {
+	d.probeMu.Lock()
+	defer d.probeMu.Unlock()
+	if d.subscriptions == nil {
+		return nil
+	}
+	cp := *d.subscriptions
+	cp.Probes = append([]SubscriptionProbe(nil), d.subscriptions.Probes...)
+	cp.Checkers = append([]SubscriptionChecker(nil), d.subscriptions.Checkers...)
+	return &cp
 }
 
 // outboxLoop sends completions left from an earlier run at once, then retries any still

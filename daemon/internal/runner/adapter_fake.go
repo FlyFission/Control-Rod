@@ -9,9 +9,10 @@ import (
 
 type fakeAdapter struct{ streamBase }
 
-func (fakeAdapter) ID() string          { return RuntimeFake }
-func (fakeAdapter) Binary() string      { return "bash" }
-func (fakeAdapter) DisplayName() string { return "fake" }
+func (fakeAdapter) ID() string                { return RuntimeFake }
+func (fakeAdapter) Binary() string            { return "bash" }
+func (fakeAdapter) DisplayName() string       { return "fake" }
+func (fakeAdapter) ListOnSubscriptions() bool { return false }
 
 func (fakeAdapter) Providers() []string { return []string{"fake"} }
 

@@ -30,6 +30,7 @@ import { activeScramsFor, scramPreview, scramView } from "./scram.js";
 import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
+import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
 import { chainHead, inclusionProof, verifyRecords } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
@@ -629,6 +630,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.get("/runtimes", async (req) => {
     return runtimeStatus(db, (await callerFor(db, await person(req))).orgId);
   });
+  /** Provider CLIs the daemon probed. Read-only. No token is accepted or returned. */
+  app.get("/subscriptions", async (req) => {
+    return subscriptionView(db, (await callerFor(db, await person(req))).orgId);
+  });
   app.get("/runs", async (req) => {
     await person(req);
     return activeRuns(db);
@@ -730,11 +735,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
     // left out even if it is also listed.
     const status = await recordRuntimeStatus(db, req.body?.runtime_status);
+    if (req.body?.subscription_report !== undefined) await recordSubscriptionReport(db, req.body.subscription_report);
     const notReady = new Set(status.filter((s) => !s.ready).map((s) => s.runtime));
     const artifacts = new Map(status.filter((s) => s.artifact).map((s) => [s.runtime, s.artifact!.digest.value]));
     const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])

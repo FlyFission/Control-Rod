@@ -1081,6 +1081,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Settings > Subscriptions. The daemon's probe of registered provider CLIs.
+         *     Control Rod does not accept or return a token.
+         */
+        get: operations["subscriptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/usage": {
         parameters: {
             query?: never;
@@ -3066,6 +3086,72 @@ export interface components {
              * @enum {string}
              */
             result: "valid" | "head-mismatch" | "head-missing" | "unrecorded" | "subject-mismatch" | "key-unknown" | "not-enrolled" | "key-changed" | "key-revoked" | "signature-invalid" | "chain-broken-before-head";
+        };
+        /** @description One model in the daemon's checker registry. Not a live probe. */
+        SubscriptionChecker: {
+            id: string;
+            harness: string;
+            vendor_family?: string;
+            deciding: boolean;
+            local: boolean;
+            hosts: string[];
+        };
+        /** @description A pin joined to the version string the passing probe recorded. Checker is the pre-check role. */
+        SubscriptionPin: {
+            runtime: string;
+            /** @enum {string} */
+            role: "author" | "checker";
+            version?: string;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
+        };
+        /** @description One registered provider CLI, as the daemon probed it. */
+        SubscriptionProbe: {
+            id: string;
+            display_name: string;
+            vendor_family?: string;
+            installed: boolean;
+            path?: string;
+            observed_version?: string;
+            /**
+             * @description From the CLI's own status command, or unknown when it has none.
+             * @enum {string}
+             */
+            auth: "signed-in" | "signed-out" | "unknown";
+            auth_note?: string;
+            roles: components["schemas"]["SubscriptionRole"][];
+        };
+        /** @description The claim payload. The same probe models the settings page returns. */
+        SubscriptionReport: {
+            platform?: string;
+            probes?: components["schemas"]["SubscriptionProbe"][];
+            checkers?: components["schemas"]["SubscriptionChecker"][];
+            local_rule?: string;
+        };
+        SubscriptionRole: {
+            /** @enum {string} */
+            role: "author" | "checker";
+            qualified: boolean;
+            reason: string;
+        };
+        /** @description How many checkers a grade needs. Safety is 2, from different vendor families; every other grade is 1. */
+        SubscriptionTier: {
+            /** @enum {string} */
+            grade: "safety" | "material" | "general-service";
+            /** Format: int32 */
+            required: number;
+            rule: string;
+        };
+        SubscriptionView: {
+            /** @description False until a daemon has reported. Probes are empty then, and none are invented. */
+            reported: boolean;
+            /** Format: date-time */
+            reported_at?: string;
+            platform?: string;
+            probes: components["schemas"]["SubscriptionProbe"][];
+            checkers: components["schemas"]["SubscriptionChecker"][];
+            tiers: components["schemas"]["SubscriptionTier"][];
+            local_rule: string;
+            pins: components["schemas"]["SubscriptionPin"][];
         };
     };
     responses: never;
@@ -6780,6 +6866,8 @@ export interface operations {
                     /** @description Runtimes ready for work. The control plane picks only from these. */
                     runtimes: string[];
                     runtime_status?: components["schemas"]["Runner.RuntimeStatus"][];
+                    /** @description Provider CLI probes for Settings. Output of a status command is not included. */
+                    subscription_report?: components["schemas"]["SubscriptionReport"];
                     /**
                      * Format: int32
                      * @description The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations.
@@ -7469,6 +7557,26 @@ export interface operations {
                             lifted: boolean;
                         }[];
                     } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    subscriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionView"];
                 };
             };
         };

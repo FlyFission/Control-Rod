@@ -4,7 +4,6 @@ import type { Db, Tx } from "./db/index.js";
 import { type Actor, appendEvent } from "./events.js";
 import { digest } from "./kernel.js";
 import { Refusal } from "./refusal.js";
-import { scramRunEnded } from "./scram.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
 type Json = any;
@@ -415,7 +414,11 @@ export async function backfillCheckerAttempts(c: Tx, ajv: Ajv2020): Promise<numb
   return copied;
 }
 
-/** Stops a queued or running pre-check that would be refused at claim: drifted bytes, or a governing fail with no override use. */
+/**
+ * Queued pre-checks that would be refused at claim stop at once. A running one is asked to stop,
+ * the same way the owner asks: it stays running, with its reservation, until the daemon completes
+ * or the lost-run sweep finds it gone. Its result is not admitted.
+ */
 export async function reconcileLiveChecks(c: Tx, ajv: Ajv2020): Promise<number> {
   const rows = await c.query<AttemptRun>(
     `select id, package_id, package_revision, role, round, status, body from runs
@@ -423,11 +426,25 @@ export async function reconcileLiveChecks(c: Tx, ajv: Ajv2020): Promise<number> 
       order by created_at, id`,
   );
   let stopped = 0;
-  let stoppedRunning = false;
   for (const row of rows.rows) {
     try {
       const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, null, row.status === "running" ? "admit" : "reconcile");
       if (gate === "ok" || gate === "unpinned") continue;
+      if (row.status === "running") {
+        if (row.body?.stop_requested_at) continue;
+        const body = { ...row.body, stop_requested_at: now(), stop_requested_by: "control-plane", label: "Stopping" };
+        try {
+          validate(ajv, "Run.json", body);
+        } catch (error) {
+          console.error(`[control-rod] checker reconcile could not ask ${row.id} to stop: ${error instanceof Error ? error.message : String(error)}`);
+          continue;
+        }
+        const updated = await c.query("update runs set body = $2 where id = $1 and status = 'running'", [row.id, body]);
+        if ((updated.rowCount ?? 0) === 0) continue;
+        await appendEvent(c, "run.stop-requested", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
+        stopped += 1;
+        continue;
+      }
       const error = gate === "drift"
         ? "Stopped because the deliverable changed after this check was queued."
         : "Stopped because a fail on this deliverable still stands and this check has no signed override.";
@@ -441,24 +458,16 @@ export async function reconcileLiveChecks(c: Tx, ajv: Ajv2020): Promise<number> 
         }
       })();
       const updated = valid
-        ? await c.query("update runs set status = 'stopped', body = $2 where id = $1 and status = $3", [row.id, body, row.status])
-        : await c.query("update runs set status = 'stopped' where id = $1 and status = $2", [row.id, row.status]);
+        ? await c.query("update runs set status = 'stopped', body = $2 where id = $1 and status = 'queued'", [row.id, body])
+        : await c.query("update runs set status = 'stopped' where id = $1 and status = 'queued'", [row.id]);
       if ((updated.rowCount ?? 0) === 0) continue;
       await appendEvent(c, "run.stopped", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round });
       await recordCheckerAttempt(c, ajv, { ...row, status: "stopped", body: valid ? body : { ...body, started_at: undefined, finished_at: now() } });
-      if (row.status === "running") {
-        await scramRunEnded(c, row.id);
-        stoppedRunning = true;
-      }
       stopped += 1;
     } catch (error) {
       console.error(`[control-rod] checker reconcile skipped ${row.id}: ${error instanceof Error ? error.message : String(error)}`);
       if (isDatabaseError(error)) throw error;
     }
-  }
-  if (stoppedRunning) {
-    const { settleEnded } = await import("./budgets.js");
-    await settleEnded(c);
   }
   return stopped;
 }

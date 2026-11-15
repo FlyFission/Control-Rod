@@ -2093,7 +2093,11 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   requireLegacyRun(row);
   // A run SCRAM stopped reports into quarantine: retained privately with its digests, never applied.
   if (row.body.scram_id || (await scramHolding(c, await runSubject(c, row)))) throw new Refusal(409, "scram-quarantined", `SCRAM ${String(row.body.scram_id)} stopped this run; what it reported is quarantined for review`);
-  if(row.body.stop_requested_at && (body.status==="succeeded" || row.body.preparation_manifest_digest)) throw new Refusal(409,"stopped","The owner stopped this run; its output cannot advance the package");
+  // A pre-check that was asked to stop still reports. Its pass is not admitted; the report and the
+  // inconclusive attempt are. Every other role's success is refused, as before.
+  if (row.body.stop_requested_at && (body.status === "succeeded" || row.body.preparation_manifest_digest) && !(row.role === "pre-check" && body.status === "succeeded")) {
+    throw new Refusal(409, "stopped", "The owner stopped this run; its output cannot advance the package");
+  }
   if(row.role!=="intake") {
     const pkg=await currentPackage(c,row.package_id,true);
     if(row.body.preparation_manifest_digest && (!pkg || pkg.revision!==row.package_revision)) throw new Refusal(409,"preparation-stale","Run belongs to a superseded preparation basis");
@@ -2143,14 +2147,16 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   if (row.role === "pre-check" && finished.status === "succeeded") {
     const claimed = typeof body.verification?.output?.digest?.value === "string" ? body.verification.output.digest.value : null;
     const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, claimed, "admit");
-    if (gate !== "ok") {
+    if (gate !== "ok" || row.body.stop_requested_at) {
       finished.status = "failed";
       finished.label = "Not admitted";
       finished.error = gate === "drift"
         ? "The deliverable changed after this check was queued, so the result was not admitted."
         : gate === "unpinned"
           ? "The deliverable this check was dispatched against was not recorded, so a pass or fail was not admitted."
-          : "A fail on this deliverable still stands, and this check had no signed override, so the result was not admitted.";
+          : gate === "sticky"
+            ? "A fail on this deliverable still stands, and this check had no signed override, so the result was not admitted."
+            : "This check was stopped before its result was admitted.";
       validate(cfg, "Run.json", finished);
     }
   }

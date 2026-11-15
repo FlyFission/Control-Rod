@@ -967,4 +967,81 @@ describe("sticky checker fails", () => {
     expect(again.json().code).toBe("recheck-running");
     await settleOpenRuns();
   });
+
+  it("asks a running checker to stop on restart and keeps its reservation until the daemon finishes", async () => {
+    const id = await releasedPackage("WINDDOWN");
+    await author(id, "still running");
+    await h.admin.query(
+      `update runs set body = body || '{"reserve_minutes":"1.00"}'::jsonb
+        where status <> 'queued' and body ? 'started_at' and not body ? 'reserve_minutes'`,
+    );
+    const org = (await h.admin.query<{ id: string }>("select tenancy_sole_org() as id")).rows[0]?.id;
+    const payload = { scope: "organization", scope_id: org, mode: "hard-cap", limit: { value: "600", unit: "minute" }, period: "P1D" };
+    const options = await asOwner("POST", "/admin/commands/budget.set/options", { payload });
+    expect(options.statusCode, options.body).toBe(200);
+    const set = await asOwner("POST", "/admin/commands/budget.set", { payload, assertion: passkey.assert(options.json().options) });
+    expect(set.statusCode, set.body).toBe(200);
+    try {
+      const claimed = await asDaemon("/runner/claim", { runtimes: ["codex"], run_ceiling_seconds: 60 });
+      expect(claimed.statusCode, claimed.body).toBe(200);
+      const job = claimed.json() as Job;
+      expect(job.run.role).toBe("pre-check");
+      claims.set(job.run.id, job.claim.token);
+      const reserved = async () => (await h.admin.query<{ status: string }>(
+        "select body->>'status' as status from budget_reservations where run_id = $1",
+        [job.run.id],
+      )).rows.map((row) => row.status);
+      expect(await reserved()).toEqual(["reserved"]);
+      const pinned = (await h.admin.query<{ deliverable_digest: string }>(
+        "select deliverable_digest from checker_queued_digests where run_id = $1",
+        [job.run.id],
+      )).rows[0]?.deliverable_digest;
+      const at = "2026-11-08T00:00:00.000Z";
+      await h.admin.query(
+        "insert into runs (id, package_id, package_revision, role, round, status, body) values ($1, $2, 0, 'pre-check', 2, 'succeeded', $3)",
+        ["R-windfail", id, {
+          schema_version: "0.1.0", id: "R-windfail", package_id: id, package_revision: 0, role: "pre-check",
+          agent_baseline: "checker", runtime: { kind: "subscription", provider: "codex", model: "default" },
+          round: 2, status: "succeeded", queued_at: at, started_at: at, finished_at: at,
+        }],
+      );
+      await h.admin.query(
+        "insert into verifications (run_id, package_id, package_revision, round, body) values ($1, $2, 0, 2, $3)",
+        ["R-windfail", id, {
+          schema_version: "0.1.0", package_id: id, package_revision: 0,
+          output: { path: "report.md", digest: { algorithm: "sha256", value: pinned } },
+          method: "agent-pre-check", verifier: "checker", evidence: [], findings: [], outcome: "fail",
+        }],
+      );
+      await command(h.db, "migration.backfill-checker-attempts", (c) => backfillCheckerAttempts(c, loadValidator()));
+      const live = (await h.admin.query<{ status: string; body: { stop_requested_at?: string } }>(
+        "select status, body from runs where id = $1",
+        [job.run.id],
+      )).rows[0];
+      expect(live?.status).toBe("running");
+      expect(live?.body.stop_requested_at).toBeTruthy();
+      expect(await reserved()).toEqual(["reserved"]);
+      expect((await attempts(id)).some((a) => a.run_id === job.run.id)).toBe(false);
+      const log = await asDaemon(`/runner/runs/${job.run.id}/log`, { lines: ["still checking"] });
+      expect(log.statusCode, log.body).toBe(200);
+      expect(log.json().stop).toBe(true);
+      const done = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
+        status: "succeeded",
+        outputs: [{ name: "notes.txt", content_base64: b64("what the checker wrote") }],
+        trace: trace(job, "codex-test-model"),
+        verification: { outcome: "pass", findings: [] },
+      });
+      expect(done.statusCode, done.body).toBeLessThan(300);
+      const listed = (await attempts(id)).find((a) => a.run_id === job.run.id);
+      expect(listed?.counts_as).toBe("inconclusive");
+      expect(listed?.outcome).not.toBe("pass");
+      expect((await h.admin.query("select 1 from verifications where run_id = $1", [job.run.id])).rowCount).toBe(0);
+      expect((await h.admin.query<{ log: string[] }>("select log from runs where id = $1", [job.run.id])).rows[0]?.log).toContain("still checking");
+      expect((await h.admin.query("select 1 from outputs where run_id = $1 and name = 'notes.txt'", [job.run.id])).rowCount).toBe(1);
+      expect(await reserved()).toEqual(["reserved"]);
+    } finally {
+      await h.admin.query("update budgets set body = jsonb_set(body, '{status}', '\"retired\"') where id = $1", [set.json().id]);
+    }
+    await settleOpenRuns();
+  });
 });

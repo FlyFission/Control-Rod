@@ -206,6 +206,16 @@ model Run {
    * no such signal, so a refused action shows only as a failed tool call.
    */
   permission_waits?: "observed" | "not-observable";
+
+  /**
+   * Whether the server verified the daemon's attestation for this run.
+   * The kernel does not read this until a later milestone.
+   */
+  attestation_verified?: boolean;
+
+  /** Why the attestation did or did not verify, in plain words. */
+  @maxLength(500)
+  attestation_reason?: string;
 }
 
 /**

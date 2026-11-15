@@ -1,0 +1,8 @@
+gofmt
+gofmt_exit:0
+vet linux
+vet_linux:0
+vet darwin
+vet_darwin:0
+vet windows
+vet_windows:0

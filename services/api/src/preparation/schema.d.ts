@@ -2227,6 +2227,42 @@ export interface components {
              * @enum {string}
              */
             permission_waits?: "observed" | "not-observable";
+            /**
+             * @description Whether the server verified the daemon's attestation for this run.
+             *     The kernel does not read this until a later milestone.
+             */
+            attestation_verified?: boolean;
+            /** @description Why the attestation did or did not verify, in plain words. */
+            attestation_reason?: string;
+        };
+        /**
+         * @description What the daemon signs for one counted pre-check (ADR 0022). The signature is Ed25519 over the
+         *     SHA-256 of the RFC 8785 form of every field except `signature` and `key_id`.
+         */
+        "ControlRod.Records.RunAttestation": {
+            /** @enum {string} */
+            schema_version: "0.1.0";
+            run_id: string;
+            /** @description 32 bytes, hex. Unique for the signing key. */
+            nonce: string;
+            artifact_digest: components["schemas"]["ControlRod.Records.Digest"];
+            policy_digest: components["schemas"]["ControlRod.Records.Digest"];
+            effective_config_digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** @description The registry host, or the endpoint the effective config named. */
+            effective_endpoint: string;
+            /** @enum {string} */
+            endpoint_enforcement: "endpoint not enforced" | "enforced";
+            /** @description Every model name in the stream, sorted. */
+            observed_models: string[];
+            platform: string;
+            /** @enum {string} */
+            probe_result: "pass" | "fail" | "not-run";
+            workspace_before: components["schemas"]["ControlRod.Records.Digest"];
+            workspace_after: components["schemas"]["ControlRod.Records.Digest"];
+            /** @description Hex SHA-256 of the raw 32-byte public key. */
+            key_id: string;
+            /** @description Standard base64 of the 64-byte Ed25519 signature. */
+            signature: string;
         };
         /** @enum {string} */
         "ControlRod.Records.RunRole": "intake" | "author" | "pre-check" | "requirements-preparer" | "technical-preparer";
@@ -2380,6 +2416,11 @@ export interface components {
             outcome: "pass" | "fail" | "inconclusive";
             /** @description Whether the checker ran on a runtime other than the author's, and any owner override. */
             independence?: components["schemas"]["ControlRod.Records.PreCheckIndependence"];
+            /**
+             * @description Set by the server after it checks the daemon's attestation. The kernel does not read this.
+             *     Absent means the run was not a counted vendor check.
+             */
+            attestation_verified?: boolean;
         };
         /** @description The only unit of work an agent may start. */
         "ControlRod.Records.WorkPackage": {
@@ -2655,6 +2696,8 @@ export interface components {
             outputs: components["schemas"]["Runner.NamedFile"][];
             package?: components["schemas"]["ControlRod.Records.WorkPackage"];
             verification?: components["schemas"]["ControlRod.Records.VerificationRecord"];
+            /** @description The daemon's signed statement for a counted pre-check. Absent for other runs. */
+            attestation?: components["schemas"]["ControlRod.Records.RunAttestation"];
             criterion_results?: components["schemas"]["ControlRod.Preparation.CriterionResultSubmission"];
             /** @description The run's spawn receipt, so it is on record even if no log post carried it. */
             receipt?: components["schemas"]["ControlRod.Records.OwnershipReceipt"];

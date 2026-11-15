@@ -1,0 +1,38 @@
+{
+  "hash": "9be4b53aaaaa98877958b09cb07a487c03cfc314ff6e8e7572e8afd300fb11f2",
+  "key_id": "a6021b8008fb16faf018ae2671680bee226090bb2f2b303e47bc17438f2e51ba",
+  "payload": {
+    "schema_version": "0.1.0",
+    "run_id": "run-1",
+    "nonce": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+    "artifact_digest": {
+      "algorithm": "sha256",
+      "value": "abababababababababababababababababababababababababababababababab"
+    },
+    "policy_digest": {
+      "algorithm": "sha256",
+      "value": "abababababababababababababababababababababababababababababababab"
+    },
+    "effective_config_digest": {
+      "algorithm": "sha256",
+      "value": "abababababababababababababababababababababababababababababababab"
+    },
+    "effective_endpoint": "api.openai.com",
+    "endpoint_enforcement": "endpoint not enforced",
+    "observed_models": [
+      "gpt-5-codex"
+    ],
+    "platform": "linux",
+    "probe_result": "not-run",
+    "workspace_before": {
+      "algorithm": "sha256",
+      "value": "abababababababababababababababababababababababababababababababab"
+    },
+    "workspace_after": {
+      "algorithm": "sha256",
+      "value": "abababababababababababababababababababababababababababababababab"
+    }
+  },
+  "public_key": "v7jHBH6n1n98O5C97RqaldwE3tDQtoQ0VlSHQp+A1Bo=",
+  "signature": "3jZZ0sxck7h7driL6vbx0/hHEmlLvcLKqLTrWk2PIU9ArMRAXYgrd2D3FlWFbTzyCwy04cvFWoGhQXGT8J7GBA=="
+}

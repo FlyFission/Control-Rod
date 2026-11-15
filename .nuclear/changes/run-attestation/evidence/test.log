@@ -1,0 +1,7 @@
+?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	0.240s
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.004s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	14.252s
+?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
+?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]
+EXIT:0

@@ -47,6 +47,10 @@
         "verification": {
             "$ref": "VerificationRecord.json"
         },
+        "attestation": {
+            "$ref": "RunAttestation.json",
+            "description": "The daemon's signed statement for a counted pre-check. Absent for other runs."
+        },
         "criterion_results": {
             "$ref": "CriterionResultSubmission.json"
         },

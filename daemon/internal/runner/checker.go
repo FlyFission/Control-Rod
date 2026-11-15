@@ -598,6 +598,8 @@ type checkerResult struct {
 	EvidenceArts []Artifact
 	Events       []Event
 	Error        string
+	// After is the deliverable tree digest once hashing succeeded.
+	After string
 }
 
 func settleChecker(ws *Workspace, before string, cwdBefore map[string]string, now time.Time) checkerResult {
@@ -682,7 +684,7 @@ func settleChecker(ws *Workspace, before string, cwdBefore map[string]string, no
 	if void {
 		return checkerResult{Events: events, Error: strings.Join(reasons, "; ")}
 	}
-	res := checkerResult{Counts: true, Verification: append(json.RawMessage(nil), raw...), Evidence: evidence, EvidenceArts: evidenceArts, Events: events}
+	res := checkerResult{Counts: true, After: after, Verification: append(json.RawMessage(nil), raw...), Evidence: evidence, EvidenceArts: evidenceArts, Events: events}
 	if criterion != nil {
 		res.Criterion = append(json.RawMessage(nil), criterion...)
 	}

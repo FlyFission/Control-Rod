@@ -21,6 +21,7 @@ import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
+import { countedProvider, verifyCountedAttestation } from "./run-attestation.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- records are validated JSON */
@@ -1868,6 +1869,29 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   if (body.trace) finished.trace = body.trace;
   takeReceipt(cfg, row, finished, body);
   holdIfUnproven(row, finished, body);
+  if (row.role === "pre-check" && countedProvider(row.body?.runtime?.provider)) {
+    const pkg = await currentPackage(c, row.package_id, true);
+    const verdict = await verifyCountedAttestation(c, {
+      runId,
+      provider: String(row.body?.runtime?.provider ?? ""),
+      model: String(row.body?.runtime?.model ?? ""),
+      grade: pkg ? needsOf(pkg.body).grade : undefined,
+      policyDigest: row.body?.sandbox_policy?.digest?.value,
+      attestation: body.attestation,
+    });
+    // The test harness sets this so older completions that send no attestation
+    // still count. A present attestation is always judged. Production leaves it unset.
+    const hole = verdict.code === "missing" && process.env.CONTROLROD_TEST_UNATTESTED_CHECKS === "1";
+    if (!hole) {
+      finished.attestation_verified = verdict.verified;
+      finished.attestation_reason = verdict.reason.slice(0, 500);
+      if (!verdict.verified && finished.status === "succeeded") {
+        finished.status = "failed";
+        finished.label = "Refused";
+        finished.error = verdict.reason.slice(0, 2000);
+      }
+    }
+  }
   validate(cfg, "Run.json", finished);
   // Events the last log post could not deliver arrive with the completion.
   if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
@@ -2125,6 +2149,7 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       ...(sharedRuntime && override ? { owner_override: override } : {}),
     },
   };
+  if (row.body.attestation_verified === true) record.attestation_verified = true;
   const admitted=preparation?await prepareCriterionResults(c,cfg,row,record,body,outputs,sharedRuntime):null;
   if(admitted) record.evidence=admitted.evidence;
   validate(cfg, "VerificationRecord.json", record);

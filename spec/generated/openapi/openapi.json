@@ -9529,9 +9529,114 @@
               "not-observable"
             ],
             "description": "Whether this run can show that it needs a person's permission (plan task 2.9). observed: a\nClaude Code PermissionRequest hook reports each request. not-observable: Codex exec mode gives\nno such signal, so a refused action shows only as a failed tool call."
+          },
+          "attestation_verified": {
+            "type": "boolean",
+            "description": "Whether the server verified the daemon's attestation for this run.\nThe kernel does not read this until a later milestone."
+          },
+          "attestation_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Why the attestation did or did not verify, in plain words."
           }
         },
         "description": "One agent session working on one package revision in one role."
+      },
+      "ControlRod.Records.RunAttestation": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "run_id",
+          "nonce",
+          "artifact_digest",
+          "policy_digest",
+          "effective_config_digest",
+          "effective_endpoint",
+          "endpoint_enforcement",
+          "observed_models",
+          "platform",
+          "probe_result",
+          "workspace_before",
+          "workspace_after",
+          "key_id",
+          "signature"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "32 bytes, hex. Unique for the signing key."
+          },
+          "artifact_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "policy_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "effective_config_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "effective_endpoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "The registry host, or the endpoint the effective config named."
+          },
+          "endpoint_enforcement": {
+            "type": "string",
+            "enum": [
+              "endpoint not enforced",
+              "enforced"
+            ]
+          },
+          "observed_models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every model name in the stream, sorted."
+          },
+          "platform": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "probe_result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "not-run"
+            ]
+          },
+          "workspace_before": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "workspace_after": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "key_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Hex SHA-256 of the raw 32-byte public key."
+          },
+          "signature": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Standard base64 of the 64-byte Ed25519 signature."
+          }
+        },
+        "description": "What the daemon signs for one counted pre-check (ADR 0022). The signature is Ed25519 over the\nSHA-256 of the RFC 8785 form of every field except `signature` and `key_id`."
       },
       "ControlRod.Records.RunRole": {
         "type": "string",
@@ -10056,6 +10161,10 @@
           "independence": {
             "$ref": "#/components/schemas/ControlRod.Records.PreCheckIndependence",
             "description": "Whether the checker ran on a runtime other than the author's, and any owner override."
+          },
+          "attestation_verified": {
+            "type": "boolean",
+            "description": "Set by the server after it checks the daemon's attestation. The kernel does not read this.\nAbsent means the run was not a counted vendor check."
           }
         },
         "description": "Evidence that a result met its criteria. Inconclusive never counts as a pass."
@@ -10917,6 +11026,10 @@
           },
           "verification": {
             "$ref": "#/components/schemas/ControlRod.Records.VerificationRecord"
+          },
+          "attestation": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunAttestation",
+            "description": "The daemon's signed statement for a counted pre-check. Absent for other runs."
           },
           "criterion_results": {
             "$ref": "#/components/schemas/ControlRod.Preparation.CriterionResultSubmission"

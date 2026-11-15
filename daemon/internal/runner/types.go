@@ -114,6 +114,8 @@ type Completion struct {
 	Outputs        []NamedFile     `json:"outputs"`
 	Package        json.RawMessage `json:"package,omitempty"`
 	Verification   json.RawMessage `json:"verification,omitempty"`
+	// Attestation is the daemon's signed statement for a counted pre-check.
+	Attestation *RunAttestation `json:"attestation,omitempty"`
 	// Receipt is the run's spawn receipt, so the control plane has it even if no log carried it.
 	Receipt *OwnershipReceipt `json:"receipt,omitempty"`
 	// Containment says what proves the run's processes ended: "cgroup" (its scope is empty),

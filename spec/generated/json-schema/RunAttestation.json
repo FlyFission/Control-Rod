@@ -1,0 +1,110 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "RunAttestation.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "run_id": {
+            "type": "string"
+        },
+        "nonce": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "32 bytes, hex. Unique for the signing key."
+        },
+        "artifact_digest": {
+            "$ref": "Digest.json"
+        },
+        "policy_digest": {
+            "$ref": "Digest.json"
+        },
+        "effective_config_digest": {
+            "$ref": "Digest.json"
+        },
+        "effective_endpoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "The registry host, or the endpoint the effective config named."
+        },
+        "endpoint_enforcement": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "endpoint not enforced"
+                },
+                {
+                    "type": "string",
+                    "const": "enforced"
+                }
+            ]
+        },
+        "observed_models": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Every model name in the stream, sorted."
+        },
+        "platform": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+        },
+        "probe_result": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "pass"
+                },
+                {
+                    "type": "string",
+                    "const": "fail"
+                },
+                {
+                    "type": "string",
+                    "const": "not-run"
+                }
+            ]
+        },
+        "workspace_before": {
+            "$ref": "Digest.json"
+        },
+        "workspace_after": {
+            "$ref": "Digest.json"
+        },
+        "key_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Hex SHA-256 of the raw 32-byte public key."
+        },
+        "signature": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Standard base64 of the 64-byte Ed25519 signature."
+        }
+    },
+    "required": [
+        "schema_version",
+        "run_id",
+        "nonce",
+        "artifact_digest",
+        "policy_digest",
+        "effective_config_digest",
+        "effective_endpoint",
+        "endpoint_enforcement",
+        "observed_models",
+        "platform",
+        "probe_result",
+        "workspace_before",
+        "workspace_after",
+        "key_id",
+        "signature"
+    ],
+    "description": "What the daemon signs for one counted pre-check (ADR 0022). The signature is Ed25519 over the\nSHA-256 of the RFC 8785 form of every field except `signature` and `key_id`.",
+    "unevaluatedProperties": false
+}

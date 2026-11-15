@@ -1113,6 +1113,10 @@ namespace Runner {
     outputs: NamedFile[];
     `package`?: WorkPackage;
     verification?: VerificationRecord;
+
+    /** The daemon's signed statement for a counted pre-check. Absent for other runs. */
+    attestation?: RunAttestation;
+
     criterion_results?: ControlRod.Preparation.CriterionResultSubmission;
 
     /** The run's spawn receipt, so it is on record even if no log post carried it. */

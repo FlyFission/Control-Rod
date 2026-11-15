@@ -1,0 +1,6 @@
+pnpm --filter @control-rod/api test
+[test-api] PostgreSQL fixture binaries: /home/ubuntu/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ Test Files  55 passed (55)
+      Tests  639 passed (639)
+   Duration  33.39s

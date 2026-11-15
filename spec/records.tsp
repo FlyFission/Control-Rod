@@ -375,6 +375,12 @@ model VerificationRecord {
 
   /** Whether the checker ran on a runtime other than the author's, and any owner override. */
   independence?: PreCheckIndependence;
+
+  /**
+   * Set by the server after it checks the daemon's attestation. The kernel does not read this.
+   * Absent means the run was not a counted vendor check.
+   */
+  attestation_verified?: boolean;
 }
 
 /** Runtime identity of author and checker, and whether they could be the same. */
@@ -384,4 +390,76 @@ model PreCheckIndependence {
   author_runtime: RuntimeRef;
   checker_runtime: RuntimeRef;
   owner_override?: OwnerOverride;
+}
+
+/**
+ * What the daemon signs for one counted pre-check (ADR 0022). The signature is Ed25519 over the
+ * SHA-256 of the RFC 8785 form of every field except `signature` and `key_id`.
+ */
+@extension("unevaluatedProperties", false)
+model RunAttestation {
+  schema_version: "0.1.0";
+  run_id: string;
+
+  /** 32 bytes, hex. Unique for the signing key. */
+  @pattern("^[0-9a-f]{64}$")
+  nonce: string;
+
+  artifact_digest: Digest;
+  policy_digest: Digest;
+  effective_config_digest: Digest;
+
+  /** The registry host, or the endpoint the effective config named. */
+  @minLength(1)
+  @maxLength(300)
+  effective_endpoint: string;
+
+  endpoint_enforcement: "endpoint not enforced" | "enforced";
+
+  /** Every model name in the stream, sorted. */
+  observed_models: string[];
+
+  @minLength(1)
+  @maxLength(32)
+  platform: string;
+
+  probe_result: "pass" | "fail" | "not-run";
+
+  workspace_before: Digest;
+  workspace_after: Digest;
+
+  /**
+   * The model the run asked for, after the same resolution the daemon uses.
+   * Optional on the wire. A counted check still has to carry it.
+   */
+  @minLength(1)
+  @maxLength(200)
+  requested_model?: string;
+
+  /**
+   * The check this statement belongs to. An attempt id when one was assigned,
+   * otherwise `<run id>:<package revision>`. Optional on the wire. A counted
+   * check still has to carry it.
+   */
+  @minLength(1)
+  @maxLength(120)
+  check_id?: string;
+
+  /** Canonical digest of the author deliverable names and byte digests. Optional on the wire. */
+  deliverable_digest?: Digest;
+
+  /**
+   * Canonical digest of the verification submission: outcome, findings,
+   * criterion results, and evidence artifact digests. Optional on the wire.
+   */
+  verification_digest?: Digest;
+
+  /** Hex SHA-256 of the raw 32-byte public key. */
+  @pattern("^[0-9a-f]{64}$")
+  key_id: string;
+
+  /** Standard base64 of the 64-byte Ed25519 signature. */
+  @minLength(1)
+  @maxLength(200)
+  signature: string;
 }

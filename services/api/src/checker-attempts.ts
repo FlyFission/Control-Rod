@@ -38,7 +38,8 @@ function validate(ajv: Ajv2020, schema: string, value: unknown): void {
 
 /** Digest of author deliverables: name and sha256, in name order. The same value a verification records. */
 export function deliverableDigest(outputs: { name: string; sha256: string }[]): string {
-  return digest(outputs.map((o) => ({ name: o.name, sha256: o.sha256 })));
+  const rows = [...outputs].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  return digest(rows.map((o) => ({ name: o.name, sha256: o.sha256 })));
 }
 
 /**
@@ -58,6 +59,13 @@ export function classifyCheckerOutcome(
   if (text.includes("timeout")) return { outcome: "timeout", counts_as: "inconclusive" };
   if (/quota|rate limit|rate-limit|too many requests|\b429\b/.test(text)) return { outcome: "quota", counts_as: "inconclusive" };
   return { outcome: "error", counts_as: "inconclusive" };
+}
+
+/** The id assigned when the pre-check started, or a new one for a run recorded before that. */
+function attemptIdentity(run: { id: string; body: Json }): string {
+  const assigned = String(run.body?.checker_attempt_id ?? "");
+  if (/^CA-[0-9a-f]{8}$/.test(assigned)) return assigned;
+  return `CA-${randomUUID().slice(0, 8)}`;
 }
 
 function checkerRuntime(run: Json): string {
@@ -499,7 +507,7 @@ async function recordUnknownAttempt(c: Tx, ajv: Ajv2020, run: AttemptRun): Promi
   const at = now();
   const attempt: Json = {
     schema_version: "0.1.0",
-    id: `CA-${randomUUID().slice(0, 8)}`,
+    id: attemptIdentity(run),
     package_id: run.package_id,
     package_revision: run.package_revision,
     run_id: run.id,
@@ -555,7 +563,7 @@ export async function recordCheckerAttempt(c: Tx, ajv: Ajv2020, run: AttemptRun)
   const seq = ((await c.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from checker_attempts where package_id = $1", [run.package_id])).rows[0]?.n ?? 0) + 1;
   const attempt: Json = {
     schema_version: "0.1.0",
-    id: `CA-${randomUUID().slice(0, 8)}`,
+    id: attemptIdentity(run),
     package_id: run.package_id,
     package_revision: run.package_revision,
     run_id: run.id,

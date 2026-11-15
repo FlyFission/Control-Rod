@@ -1,0 +1,20 @@
+{
+  "models": [
+    {
+      "id": "claude-sonnet-4-5",
+      "harness": "claude",
+      "names": ["claude-sonnet-4-5"],
+      "hosts": ["api.anthropic.com"],
+      "deciding": true,
+      "local": false
+    },
+    {
+      "id": "gpt-5-codex",
+      "harness": "codex",
+      "names": ["gpt-5-codex"],
+      "hosts": ["api.openai.com"],
+      "deciding": true,
+      "local": false
+    }
+  ]
+}

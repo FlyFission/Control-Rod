@@ -40,6 +40,8 @@ type RuntimePin struct {
 	Runtime string `json:"runtime"`
 	Digest  Digest `json:"digest"`
 	Version string `json:"version,omitempty"`
+	// Model is used when the run itself names no model. Absent on pins recorded today.
+	Model string `json:"model,omitempty"`
 }
 
 // maxArtifactBytes bounds the files a probe will hash (each, and a tree in total).

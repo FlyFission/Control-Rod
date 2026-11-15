@@ -23,6 +23,7 @@ import { WORKBENCH_LINKS_SQL } from "./migrations/019-workbench-links.js";
 import { CHECKER_ATTEMPTS_SQL } from "./migrations/020-checker-attempts.js";
 import { CHECKER_QUEUED_DIGESTS_SQL } from "./migrations/021-checker-queued-digests.js";
 import { CHECKER_NO_TRUNCATE_SQL } from "./migrations/022-checker-no-truncate.js";
+import { RUN_ATTESTATION_SQL } from "./migrations/023-run-attestation.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
@@ -47,6 +48,7 @@ export const MIGRATIONS = [
   { version: "020-checker-attempts", sql: CHECKER_ATTEMPTS_SQL },
   { version: "021-checker-queued-digests", sql: CHECKER_QUEUED_DIGESTS_SQL },
   { version: "022-checker-no-truncate", sql: CHECKER_NO_TRUNCATE_SQL },
+  { version: "023-run-attestation", sql: RUN_ATTESTATION_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

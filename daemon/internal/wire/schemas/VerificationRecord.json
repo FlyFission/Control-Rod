@@ -80,6 +80,10 @@
         "independence": {
             "$ref": "PreCheckIndependence.json",
             "description": "Whether the checker ran on a runtime other than the author's, and any owner override."
+        },
+        "attestation_verified": {
+            "type": "boolean",
+            "description": "Set by the server after it checks the daemon's attestation. The kernel does not read this.\nAbsent means the run was not a counted vendor check."
         }
     },
     "required": [

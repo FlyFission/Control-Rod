@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { type DaemonReply, sealDaemonPayload } from "./counted-check.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders, rootWithFixturePacks, signIn, startHarness, withClaim } from "./harness.js";
 
 /** Run custody, launch inputs and serving: what the daemon and the owner see around a run. */
@@ -28,8 +29,10 @@ const asOwner = (method: Method, url: string, payload?: unknown) =>
     headers: { cookie, ...(method === "GET" ? {} : { origin: ORIGIN }) },
     ...(payload !== undefined ? { payload: payload as object } : {}),
   });
-const asDaemon = (url: string, payload: unknown) =>
-  h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: withClaim(url, payload as Record<string, unknown>) });
+const asDaemon = async (url: string, payload: unknown): Promise<DaemonReply> => {
+  const body = await sealDaemonPayload(h.admin, url, withClaim(url, payload as Record<string, unknown>));
+  return await h.app.inject({ method: "POST", url, headers: daemonHeaders, payload: body }) as DaemonReply;
+};
 
 interface Job {
   run: { id: string; role: string; package_id: string; round: number; agent_baseline: string; runtime: { provider: string; model: string } };

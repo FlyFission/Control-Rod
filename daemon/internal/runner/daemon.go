@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -594,6 +595,7 @@ type logBuffer struct {
 	events  []Event
 	label   string
 	model   string
+	models  map[string]struct{}
 	dirty   bool
 	receipt *OwnershipReceipt
 
@@ -702,10 +704,14 @@ func (b *logBuffer) add(line string) {
 	if l := b.streamLabel(line); l != "" {
 		b.label = l
 	}
-	if b.model == "" {
-		if m := b.streamModel(line); m != "" {
+	if m := b.streamModel(line); m != "" {
+		if b.model == "" {
 			b.model = m
 		}
+		if b.models == nil {
+			b.models = map[string]struct{}{}
+		}
+		b.models[m] = struct{}{}
 	}
 	if !b.turnOver {
 		if over, failed := b.turnEnd(line); over {
@@ -770,6 +776,18 @@ func (b *logBuffer) reportedModel() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.model
+}
+
+// observedModels is every model name the stream reported, in sorted order.
+func (b *logBuffer) observedModels() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make([]string, 0, len(b.models))
+	for m := range b.models {
+		out = append(out, m)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // The API records at most 500 lines per request. Keep a byte budget as well so a
@@ -1201,6 +1219,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			}
 		}
 		if err == nil && cmd != nil {
+			if aerr := CheckerAdmissionJob(job, cmd, launched); aerr != nil {
+				err = aerr
+			}
+		}
+		if err == nil && cmd != nil {
 			if merr := applyCheckerMount(cmd, ws); merr != nil {
 				err = merr
 			}
@@ -1382,6 +1405,26 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	if checkerReady {
 		result := settleChecker(ws, deliverableBefore, cwdBefore, time.Now())
+		if result.Counts && comp.Status == "succeeded" {
+			if perr := ObservedModelsAllowed(job.Run, job.RuntimePin, packageGrade(job.Package), buf.observedModels()); perr != nil {
+				result.Counts = false
+				result.Error = perr.Error()
+				result.Verification = nil
+			}
+		}
+		if result.Counts && comp.Status == "succeeded" {
+			if launched == nil {
+				result.Counts = false
+				result.Error = "the check has no executable digest, so it cannot count"
+				result.Verification = nil
+			} else if att, aerr := BuildCheckerAttestation(job, cmd, *launched, ws.Deliverables, deliverableBefore, result.After, buf.observedModels(), result.Verification, result.Criterion, result.EvidenceArts); aerr != nil {
+				result.Counts = false
+				result.Error = aerr.Error()
+				result.Verification = nil
+			} else {
+				comp.Attestation = &att
+			}
+		}
 		comp.Events = append(comp.Events, result.Events...)
 		if !result.Counts || comp.Status != "succeeded" {
 			comp.Verification = nil

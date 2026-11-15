@@ -3,6 +3,7 @@
 //	controlrod version
 //	controlrod daemon [--parallel N] [--timeout 45m]
 //	controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR [--home DIR] [--daemon-home DIR]
+//	controlrod attestation-public
 //
 // The daemon claims jobs from the control plane, runs an agent runtime in a per-job workspace
 // and reports outputs with an execution trace. It never makes a decision.
@@ -10,6 +11,7 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -25,7 +27,7 @@ import (
 	"github.com/flyfission/control-rod/daemon/internal/version"
 )
 
-const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR"
+const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR | controlrod attestation-public"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -39,10 +41,23 @@ func main() {
 		os.Exit(daemon(os.Args[2:]))
 	case "sandbox-args":
 		os.Exit(sandboxArgs(os.Args[2:]))
+	case "attestation-public":
+		os.Exit(attestationPublic())
 	default:
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)
 	}
+}
+
+func attestationPublic() int {
+	priv, err := runner.InitSigningKey()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return 1
+	}
+	pub := priv.Public().(ed25519.PublicKey)
+	fmt.Printf("key_id %s\npublic_key %s\n", runner.PublicKeyID(pub), runner.PublicKeyBase64(pub))
+	return 0
 }
 
 func daemon(args []string) int {

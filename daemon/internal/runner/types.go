@@ -32,6 +32,9 @@ type Run struct {
 	Round           int        `json:"round"`
 	// Generation is which attempt this is at its package revision, role and round (from 1).
 	Generation int `json:"generation,omitempty"`
+	// AttemptID is the checker attempt id when one was assigned. Otherwise the
+	// attestation uses run id and package revision.
+	AttemptID string `json:"checker_attempt_id,omitempty"`
 	// SandboxPolicy is the policy version the control plane recorded on the run (plan task 6.1).
 	SandboxPolicy *PolicyRef `json:"sandbox_policy,omitempty"`
 }
@@ -114,6 +117,8 @@ type Completion struct {
 	Outputs        []NamedFile     `json:"outputs"`
 	Package        json.RawMessage `json:"package,omitempty"`
 	Verification   json.RawMessage `json:"verification,omitempty"`
+	// Attestation is the daemon's signed statement for a counted pre-check.
+	Attestation *RunAttestation `json:"attestation,omitempty"`
 	// Receipt is the run's spawn receipt, so the control plane has it even if no log carried it.
 	Receipt *OwnershipReceipt `json:"receipt,omitempty"`
 	// Containment says what proves the run's processes ended: "cgroup" (its scope is empty),

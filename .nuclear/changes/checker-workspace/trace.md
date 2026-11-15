@@ -9,7 +9,7 @@
 | T-05 | A missing mount, a hash that cannot be computed, or a schema failure cannot pass. | `TestCheckerMountFailsClosedWithoutBubblewrap`, `TestCheckerRejectsInvalidVerification`, `settleChecker` error paths | implemented with this change |
 | T-06 | Author launch bytes are unchanged. Pre-check goldens change only for the checker prompt and the Claude checker flags. The fake pre-check end-to-end test still passes. | `TestLaunchGolden`, `TestDaemonRunsAFakeJobEndToEnd`; `git diff` of `testdata/launch-golden/` | implemented with this change |
 | T-07 | `HOME` stays the real home. Provider tokens are not in the child environment. The verified child, not bubblewrap, is confirmed. | `TestCheckerIgnoresInjectedInstructions`, `TestCheckerMountBindsTheVerifiedDescriptor`, `TestConfirmSandboxSeesTheBubblewrapChild` | implemented with this change |
-| T-08 | Seatbelt denies `file-write*` on the deliverable path and does not deny the rest of the filesystem. The profile was not executed on macOS. | `TestSeatbeltProfileDeniesWritesOnDeliverables` | implemented as a profile check; macOS execution not done |
+| T-08 | Seatbelt denies every `file-write*` except canonical scratch and the CLI login-state directories. Paths are canonicalized. The profile was not executed on macOS. Darwin tests compile. | `TestSeatbeltProfileDeniesWritesExceptScratch`, `TestCanonicalPathResolvesTheAncestorSymlink`, `GOOS=darwin go test -c` | implemented as a profile check; macOS execution not done |
 | T-09 | No protected surface changes. `spec/` is not edited. `wrote_files` is not a schema or kernel outcome. | `git diff --stat` against `cursor/adapter-seam-55eb` | checked with this change |
 
 ## Required links

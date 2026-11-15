@@ -1,0 +1,24 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CheckerFile.json",
+    "type": "object",
+    "properties": {
+        "outcome": {
+            "enum": ["pass", "fail", "inconclusive"]
+        },
+        "findings": {
+            "type": "array",
+            "items": {
+                "$ref": "Finding.json"
+            }
+        },
+        "evidence": {
+            "type": "array",
+            "items": {
+                "$ref": "EvidenceItem.json"
+            }
+        }
+    },
+    "required": ["outcome", "findings"],
+    "unevaluatedProperties": false
+}

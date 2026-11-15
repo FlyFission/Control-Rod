@@ -43,6 +43,9 @@ type Workspace struct {
 	Deliverables string
 	// Scratch is the checker's write directory, inside Dir.
 	Scratch string
+	// VerifiedPath is the host path of the verified executable. The checker mount
+	// uses this path instead of reading /proc/self/fd, which can report " (deleted)".
+	VerifiedPath string
 }
 
 // WorkspaceDir returns <root>/work/<package_id>/r<rev>/<role>-<round>-<runid>. Every segment

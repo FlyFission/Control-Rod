@@ -6,6 +6,10 @@
 --- PASS: TestCheckerMountBindsTheVerifiedDescriptor (0.00s)
 === RUN   TestConfirmSandboxSeesTheBubblewrapChild
 --- PASS: TestConfirmSandboxSeesTheBubblewrapChild (0.32s)
+=== RUN   TestCheckerMountBlocksWritesOutsideScratch
+--- PASS: TestCheckerMountBlocksWritesOutsideScratch (0.00s)
+=== RUN   TestPreparedCheckerThroughTheMount
+--- PASS: TestPreparedCheckerThroughTheMount (0.01s)
 === RUN   TestCheckerIgnoresInjectedInstructions
 --- PASS: TestCheckerIgnoresInjectedInstructions (0.00s)
 === RUN   TestCheckerMaxTurnsMatchesTheQualificationSpike
@@ -19,13 +23,21 @@
 === RUN   TestCheckerTamperedDeliverableHashVoids
 --- PASS: TestCheckerTamperedDeliverableHashVoids (0.00s)
 === RUN   TestCheckerRejectsInvalidVerification
---- PASS: TestCheckerRejectsInvalidVerification (0.01s)
+--- PASS: TestCheckerRejectsInvalidVerification (0.02s)
 === RUN   TestCheckerAcceptsAShortAndAFullRecord
 --- PASS: TestCheckerAcceptsAShortAndAFullRecord (0.00s)
 === RUN   TestTreeDigestDoesNotFollowSymlinks
 --- PASS: TestTreeDigestDoesNotFollowSymlinks (0.00s)
-=== RUN   TestSeatbeltProfileDeniesWritesOnDeliverables
---- PASS: TestSeatbeltProfileDeniesWritesOnDeliverables (0.00s)
+=== RUN   TestSeatbeltProfileDeniesWritesExceptScratch
+--- PASS: TestSeatbeltProfileDeniesWritesExceptScratch (0.00s)
+=== RUN   TestCanonicalPathResolvesTheAncestorSymlink
+--- PASS: TestCanonicalPathResolvesTheAncestorSymlink (0.00s)
+=== RUN   TestCheckerRelocatesAwayFromInstructionAncestors
+--- PASS: TestCheckerRelocatesAwayFromInstructionAncestors (0.00s)
+=== RUN   TestDeliverableArtifactsAreNotDuplicated
+--- PASS: TestDeliverableArtifactsAreNotDuplicated (0.00s)
+=== RUN   TestTreeDigestLengthPrefixDoesNotCollide
+--- PASS: TestTreeDigestLengthPrefixDoesNotCollide (0.00s)
 === RUN   TestLaunchGolden
 === RUN   TestLaunchGolden/claude-author-default-tools
 === RUN   TestLaunchGolden/claude-author-explicit-model
@@ -49,6 +61,6 @@
     --- PASS: TestLaunchGolden/codex-intake (0.00s)
     --- PASS: TestLaunchGolden/codex-author-network-hosts (0.00s)
 === RUN   TestDaemonRunsAFakeJobEndToEnd
---- PASS: TestDaemonRunsAFakeJobEndToEnd (0.02s)
+--- PASS: TestDaemonRunsAFakeJobEndToEnd (0.03s)
 PASS
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.384s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.412s

@@ -1186,6 +1186,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				err = fmt.Errorf("the checker workspace could not be hashed, so the check cannot count: %w", herr)
 			}
 		}
+		if err == nil && verified != nil {
+			ws.VerifiedPath = verified.Path
+		}
 		if err == nil && cmd != nil {
 			if merr := applyCheckerMount(cmd, ws); merr != nil {
 				err = merr
@@ -1378,6 +1381,16 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				Path:   "verification.json",
 				Digest: Digest{Algorithm: "sha256", Value: sha256Hex(result.Verification)},
 			}}
+			if len(result.Criterion) > 0 {
+				comp.Outputs = append(comp.Outputs, NamedFile{
+					Name:          "criterion-results.json",
+					ContentBase64: base64.StdEncoding.EncodeToString(result.Criterion),
+				})
+				outArts = append(outArts, Artifact{
+					Path:   "criterion-results.json",
+					Digest: Digest{Algorithm: "sha256", Value: sha256Hex(result.Criterion)},
+				})
+			}
 		}
 	}
 	bin := runtime

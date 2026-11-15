@@ -11,17 +11,21 @@ Evidence status: **pass** for the local checks below (E-01 to E-05). **Open** fo
 | E-05 | pass | From `daemon/`: `gofmt -l .` prints nothing. `go vet ./...` exits 0 for linux, `GOOS=darwin`, and `GOOS=windows`. `go test -count=1 ./...` exits 0. | `evidence/gofmt.log`, `evidence/vet.log`, `evidence/test.log` |
 | E-06 | open | Owner review of the pull request, which depends on #76. | Not executed |
 
+## Review fixes
+
+Codex and agy requested changes on the first commit. The mount is now `--ro-bind / /` plus the writable exceptions named in `docs/daemon.md`. Writes to `HOME`, the deliverable sibling, and the host `/tmp` are covered by `TestCheckerMountBlocksWritesOutsideScratch`. Seatbelt paths are canonicalized and the profile denies every `file-write*` except scratch and the login-state directories. The tree hash length-prefixes each field; `TestTreeDigestLengthPrefixDoesNotCollide` shows the old NUL encoding collides and the new digest does not. Reserved instruction names are withheld from the mount and listed in the brief, and the discovery walk goes to `/`. A prepared checker may write `scratch/criterion-results.json`; `TestPreparedCheckerThroughTheMount` runs that write under bubblewrap. Short verification files are checked against `checker_file.schema.json` after duplicate keys are rejected. File bytes are streamed, with the existing 20 MB and 100 MB caps and an entry cap of `MaxOutputTotal/4096`. The verified path is `VerifiedLaunch.Path`, not a `/proc/self/fd` read.
+
 ## What was not qualified
 
-- macOS Seatbelt. `sandbox-exec` was not run. The profile text is what `TestSeatbeltProfileDeniesWritesOnDeliverables` checks.
+- macOS Seatbelt execution. `sandbox-exec` was not run. `TestSeatbeltProfileDeniesWritesExceptScratch` checks the profile text, and `GOOS=darwin go test -c` compiles the darwin tests.
 - A real Claude Code or Codex binary. CI does not have them. The tests assert argv, the working directory, and a shell under bubblewrap.
 - Claude `--safe-mode` with `-p`. It is not passed, because it was not shown to keep an OAuth or keychain login headless.
-- `--setting-sources ""` still does not block `CLAUDE.md` or auto-memory. The clean working directory is the control for project files. User-level memory under the real `HOME` is unchanged.
-- A prepared checker's `out/criterion-results.json`. That write is outside scratch, so this daemon voids it. The control plane still asks for the file. No spec or kernel change: `wrote_files` is the completion error and a policy notice, not a `VerificationRecord` outcome.
+- A flag that suppresses user-level `~/.claude/CLAUDE.md` and `~/.codex` `AGENTS.md` while keeping the login. `--setting-sources` does not. The upward walk no longer passes those directories when the working directory is relocated.
+- An evidence file other than `scratch/verification.json` and `scratch/criterion-results.json`. No spec or kernel change: `wrote_files` is the completion error and a policy notice, not a `VerificationRecord` outcome.
 
 ## Spec
 
-`spec/` is not edited. The daemon embeds the existing `VerificationRecord.json`, `Finding.json` and `EvidenceItem.json` by regenerating `daemon/internal/wire/schemas/` from `scripts/generate-runner-schemas.mjs`. Those files are copies of the generated schemas, not a contract change.
+`spec/` is not edited. The daemon embeds the existing `VerificationRecord.json`, `Finding.json`, `EvidenceItem.json`, and `CriterionResultSubmission.json` by regenerating `daemon/internal/wire/schemas/` from `scripts/generate-runner-schemas.mjs`. The short checker file schema lives in `daemon/internal/runner/checker_file.schema.json` and is not a contract change.
 
 ## Evidence custody and coupling
 

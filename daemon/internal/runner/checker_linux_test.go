@@ -81,14 +81,18 @@ func TestCheckerMountBindsTheVerifiedDescriptor(t *testing.T) {
 		t.Fatal(err)
 	}
 	ws, _ := prepareCheckerFixture(t)
+	ws.VerifiedPath = "/opt/controlrod/verified-sleep"
 	cmd := exec.Command("/proc/self/fd/3", "-p", CheckerPrompt)
 	cmd.ExtraFiles = []*os.File{f}
 	argv, err := checkerMountArgv(cmd, ws)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hasArgPair(argv, "--ro-bind-fd", "3") || !slices.Contains(argv, link) {
-		t.Fatalf("verified descriptor was not mounted: %q", argv)
+	if !hasArgPair(argv, "--ro-bind-fd", "3") || !slices.Contains(argv, ws.VerifiedPath) {
+		t.Fatalf("verified descriptor was not mounted at the given path: %q", argv)
+	}
+	if slices.Contains(argv, link) && link != ws.VerifiedPath {
+		t.Fatal("mount used /proc/self/fd instead of VerifiedPath")
 	}
 	inner := argv[len(argv)-1]
 	if inner == "/proc/self/fd/3" {
@@ -106,6 +110,7 @@ func TestConfirmSandboxSeesTheBubblewrapChild(t *testing.T) {
 	}
 	defer f.Close()
 	ws, _ := prepareCheckerFixture(t)
+	ws.VerifiedPath = "/bin/sleep"
 	cmd := exec.Command("/proc/self/fd/3", "30")
 	cmd.ExtraFiles = []*os.File{f}
 	if err := applyCheckerMount(cmd, ws); err != nil {
@@ -127,5 +132,95 @@ func TestConfirmSandboxSeesTheBubblewrapChild(t *testing.T) {
 	t.Cleanup(func() { confirmWait = old })
 	if err := v.Confirm(cmd.Process.Pid); err == nil {
 		t.Fatal("bubblewrap itself was accepted as the verified runtime")
+	}
+}
+
+func TestCheckerMountBlocksWritesOutsideScratch(t *testing.T) {
+	if _, err := exec.LookPath("bwrap"); err != nil {
+		t.Fatal(err)
+	}
+	ws, _ := prepareCheckerFixture(t)
+	home := os.Getenv("HOME")
+	if home == "" {
+		t.Fatal("HOME is empty")
+	}
+	homeFile := filepath.Join(home, fmt.Sprintf("checker-escape-%d", os.Getpid()))
+	tmpFile := filepath.Join("/tmp", fmt.Sprintf("checker-escape-%d", os.Getpid()))
+	sibFile := filepath.Join(ws.Deliverables, "escape.txt")
+	t.Cleanup(func() {
+		_ = os.Remove(homeFile)
+		_ = os.Remove(tmpFile)
+		_ = os.Remove(sibFile)
+	})
+	before, err := os.ReadFile(filepath.Join(ws.Deliverables, "report.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := `echo ok > scratch/verification.json
+echo x > "$HOME_FILE"; echo HOME:$? > scratch/home
+echo x > "$TMP_FILE"; echo TMP:$? > scratch/tmp
+echo x > "$SIB_FILE"; echo SIB:$? > scratch/sib
+`
+	cmd := exec.Command("/bin/sh", "-c", script)
+	cmd.Dir = ws.Dir
+	cmd.Env = append(os.Environ(), "HOME_FILE="+homeFile, "TMP_FILE="+tmpFile, "SIB_FILE="+sibFile)
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(homeFile); !os.IsNotExist(err) {
+		t.Fatalf("write to HOME landed on the host: %v", err)
+	}
+	if _, err := os.Stat(tmpFile); !os.IsNotExist(err) {
+		t.Fatalf("write to /tmp landed on the host: %v", err)
+	}
+	if _, err := os.Stat(sibFile); !os.IsNotExist(err) {
+		t.Fatalf("write to the deliverable sibling landed: %v", err)
+	}
+	after, err := os.ReadFile(filepath.Join(ws.Deliverables, "report.md"))
+	if err != nil || string(after) != string(before) {
+		t.Fatalf("deliverable bytes changed: %q", after)
+	}
+	for _, name := range []string{"home", "sib"} {
+		b, err := os.ReadFile(filepath.Join(ws.Scratch, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), ":2") && !strings.Contains(string(b), ":1") {
+			t.Fatalf("%s write was not blocked: %s", name, b)
+		}
+	}
+	if _, err := os.ReadFile(filepath.Join(ws.Scratch, "verification.json")); err != nil {
+		t.Fatal("scratch was not writable")
+	}
+}
+
+func TestPreparedCheckerThroughTheMount(t *testing.T) {
+	if _, err := exec.LookPath("bwrap"); err != nil {
+		t.Fatal(err)
+	}
+	ws, _ := prepareCheckerFixture(t)
+	before, cwd := checkerBaseline(t, ws)
+	criterion := `{"package_id":"WP-0007","package_revision":2,"release_manifest_digest":{"algorithm":"sha256","value":"` + strings.Repeat("ab", 32) + `"},"results":[{"criterion_id":"C1","outcome":"pass","check_results":[{"check_id":"K1","outcome":"pass","evidence_refs":[]}],"finding_refs":[]}]}`
+	script := "printf '%s' '" + `{"outcome":"pass","findings":[]}` + "' > scratch/verification.json; printf '%s' '" + criterion + "' > scratch/criterion-results.json"
+	cmd := exec.Command("/bin/sh", "-c", script)
+	cmd.Dir = ws.Dir
+	if err := applyCheckerMount(cmd, ws); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("mount launch: %v", err)
+	}
+	res := settleChecker(ws, before, cwd, time.Now())
+	if !res.Counts {
+		t.Fatal(res.Error)
+	}
+	if string(res.Verification) != `{"outcome":"pass","findings":[]}` {
+		t.Fatalf("verification %s", res.Verification)
+	}
+	if string(res.Criterion) != criterion {
+		t.Fatalf("criterion %s", res.Criterion)
 	}
 }

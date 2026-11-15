@@ -781,7 +781,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   if(run.preparation_manifest_digest)extra.push("PACKAGE.json is the immutable package body reviewed at release; the server owns current run and lifecycle status.");
   if(run.preparation_manifest_digest && run.role==="pre-check") {
     inputs.push(...criterionResultSchemaInputs(cfg.root));
-    extra.push("## Controlled criterion results\n\nWrite out/criterion-results.json using inputs/schemas/CriterionResultSubmission.json. Use the exact package, revision and manifest digest from inputs/PREPARATION.json. Record every current criterion and mapped check once. Retain actual check evidence as separate out/ files and reference it as checker:<relative file name>. Claim JSON is not decisive evidence. Open/deferred checks must be reported honestly; required checks cannot be waived at acceptance. Also write the ordinary verification.json outcome and findings.");
+    extra.push("## Controlled criterion results\n\nWrite scratch/criterion-results.json using inputs/schemas/CriterionResultSubmission.json. Use the exact package, revision and manifest digest from inputs/PREPARATION.json. Record every current criterion and mapped check once. Reference retained evidence as checker:<relative file name> only when that file is scratch/criterion-results.json or scratch/verification.json; write no other file. Claim JSON is not decisive evidence. Open/deferred checks must be reported honestly; required checks cannot be waived at acceptance. Also write scratch/verification.json with the ordinary outcome and findings.");
   }
   let findings: Json[] | undefined;
   if (run.role === "pre-check") {

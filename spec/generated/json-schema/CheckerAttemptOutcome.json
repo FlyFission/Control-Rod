@@ -1,0 +1,15 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CheckerAttemptOutcome.json",
+    "type": "string",
+    "enum": [
+        "pass",
+        "fail",
+        "inconclusive",
+        "timeout",
+        "error",
+        "quota",
+        "cancelled"
+    ],
+    "description": "What one checker attempt counts as. A checker may report pass, fail or inconclusive.\nTimeout, error, quota and cancelled are recorded as themselves and count as inconclusive:\nthey are never a pass, and they never erase a fail already recorded for the same deliverable."
+}

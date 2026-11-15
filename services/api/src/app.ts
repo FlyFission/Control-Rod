@@ -51,6 +51,11 @@ import {
   overrideChallenge,
   overrideIndependence,
   overrideSubject,
+  checkerAttempts,
+  recheckChallenge,
+  recheckSubject,
+  recordRecheckOverride,
+  requestCheck,
   packageActions,
   packageLane,
   packageOutput,
@@ -488,6 +493,49 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       return overrideIndependence(db, cfg, user, req.params.id, req.params.runId, reason, signed);
     },
   );
+  app.get<{ Params: { id: string }; Querystring: { limit?: string; before?: string } }>("/packages/:id/checker-attempts", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    await requireOwnPackage(db, caller.orgId, req.params.id);
+    return checkerAttempts(db, req.params.id, req.query);
+  });
+  app.post<{ Params: { id: string } }>("/packages/:id/checks", async (req, reply) => {
+    const caller = await callerFor(db, await person(req));
+    await requireOwnPackage(db, caller.orgId, req.params.id);
+    return reply.code(201).send(await requestCheck(db, cfg, req.params.id));
+  });
+  app.post<{ Params: { id: string }; Body: { reason?: string } }>("/packages/:id/recheck-overrides/options", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    await requireOwnPackage(db, caller.orgId, req.params.id);
+    const s = await recheckSubject(db, req.params.id, req.body?.reason, caller.userName);
+    const nonce = randomBytes(16).toString("hex");
+    const options = await assertionOptions(
+      db,
+      auth,
+      "recheck-override",
+      { package_id: req.params.id, revision: s.revision, reason: s.reason, subject_digest: s.digest, deliverable_digest: s.deliverable },
+      recheckChallenge(s.digest, s.revision, s.deliverable, nonce),
+      caller.userName,
+    );
+    return {
+      subject_digest: { algorithm: "sha256", value: s.digest },
+      deliverable_digest: { algorithm: "sha256", value: s.deliverable },
+      options,
+    };
+  });
+  app.post<{ Params: { id: string }; Body: { reason?: string; assertion?: Record<string, unknown> } }>("/packages/:id/recheck-overrides", async (req) => {
+    const user = await person(req);
+    const caller = await callerFor(db, user);
+    await requireOwnPackage(db, caller.orgId, req.params.id);
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
+    if (req.body?.assertion) {
+      const ok = await assertionVerify(db, auth, "recheck-override", req.body.assertion as never);
+      if (ok && ok.user === user && ok.data.package_id === req.params.id && ok.data.reason === reason) {
+        signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
+      }
+    }
+    return recordRecheckOverride(db, cfg, user, req.params.id, reason, signed);
+  });
   /* ---- reconcile an unknown outcome (specification 22) ---- */
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>("/packages/:id/runs/:runId/reconcile/options", async (req) => {
     const issuedTo = await person(req);

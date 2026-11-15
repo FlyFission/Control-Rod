@@ -1,0 +1,114 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CheckerAttempt.json",
+    "type": "object",
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "0.1.0"
+        },
+        "id": {
+            "type": "string"
+        },
+        "package_id": {
+            "type": "string"
+        },
+        "package_revision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+        },
+        "run_id": {
+            "type": "string"
+        },
+        "round": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "checker_runtime": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "The checker runtime the daemon assigned. \"unassigned\" when the run never started."
+        },
+        "reported_model": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The model the runtime said it used. Absent when it did not say."
+        },
+        "seq": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647,
+            "description": "Place in the package's attempt history. Older attempts are read with before set to this value."
+        },
+        "deliverable_digest": {
+            "$ref": "Digest.json",
+            "description": "Digest of the author deliverables this attempt checked, names and digests in name order.\nAbsent when digest_unknown is set: the bytes were not captured, and the attempt is not\nattached to the deliverable the package holds now."
+        },
+        "digest_unknown": {
+            "type": "boolean",
+            "const": true,
+            "description": "The bytes this attempt checked were not captured. It does not stick to today's deliverable."
+        },
+        "outcome": {
+            "$ref": "CheckerAttemptOutcome.json"
+        },
+        "counts_as": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "pass"
+                },
+                {
+                    "type": "string",
+                    "const": "fail"
+                },
+                {
+                    "type": "string",
+                    "const": "inconclusive"
+                }
+            ],
+            "description": "pass and fail stand. inconclusive, timeout, error, quota and cancelled count as inconclusive."
+        },
+        "started_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "finished_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Where to read the evidence: the run log, which holds the trace, the error and the outputs.\nWhen a verification was admitted, verification_run_id names that record too."
+        },
+        "verification_run_id": {
+            "type": "string",
+            "description": "Set when a verification record was admitted for this attempt."
+        },
+        "recheck_override": {
+            "$ref": "OwnerOverride.json",
+            "description": "The signed override that allowed this attempt after a fail on the same digest."
+        }
+    },
+    "required": [
+        "schema_version",
+        "id",
+        "package_id",
+        "package_revision",
+        "run_id",
+        "round",
+        "checker_runtime",
+        "outcome",
+        "counts_as",
+        "started_at",
+        "finished_at",
+        "evidence"
+    ],
+    "description": "One checker attempt on one deliverable digest. Append-only: a later attempt is a new row.\nAdded in API 0.1; existing records are unchanged.",
+    "unevaluatedProperties": false
+}

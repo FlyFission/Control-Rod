@@ -1,3 +1,5 @@
+=== RUN   TestVerifiedRuntimeMayBeAGrandchild
+--- PASS: TestVerifiedRuntimeMayBeAGrandchild (0.02s)
 === RUN   TestCheckerMountFailsClosedWithoutBubblewrap
 --- PASS: TestCheckerMountFailsClosedWithoutBubblewrap (0.00s)
 === RUN   TestBubblewrapMountsDeliverablesReadOnly
@@ -30,10 +32,10 @@
 --- PASS: TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath (0.00s)
 === RUN   TestCheckerCannotRewriteLoginInstructions
 === RUN   TestCheckerCannotRewriteLoginInstructions/001
-=== RUN   TestCheckerCannotRewriteLoginInstructions/cr-login-2690854702
+=== RUN   TestCheckerCannotRewriteLoginInstructions/cr-login-4155645164
 --- PASS: TestCheckerCannotRewriteLoginInstructions (0.03s)
     --- PASS: TestCheckerCannotRewriteLoginInstructions/001 (0.02s)
-    --- PASS: TestCheckerCannotRewriteLoginInstructions/cr-login-2690854702 (0.01s)
+    --- PASS: TestCheckerCannotRewriteLoginInstructions/cr-login-4155645164 (0.01s)
 === RUN   TestCheckerSessionSymlinkDoesNotGrantHomeWrites
 --- PASS: TestCheckerSessionSymlinkDoesNotGrantHomeWrites (0.00s)
 === RUN   TestPreparedCheckerThroughTheMount
@@ -68,9 +70,12 @@
 --- PASS: TestLoginOverlayIsPerRun (0.00s)
 === RUN   TestCheckerRunTmpIsRemovedAlone
 --- PASS: TestCheckerRunTmpIsRemovedAlone (0.00s)
+=== RUN   TestCheckerNeverStartsUnderTheDaemonHome
+--- PASS: TestCheckerNeverStartsUnderTheDaemonHome (0.00s)
 === RUN   TestCheckerRelocatesAwayFromInstructionAncestors
 --- PASS: TestCheckerRelocatesAwayFromInstructionAncestors (0.00s)
 === RUN   TestCheckerRejectsFilenamesThatCouldRewriteTheBrief
 --- PASS: TestCheckerRejectsFilenamesThatCouldRewriteTheBrief (0.00s)
 PASS
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.617s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.628s
+EXIT:0

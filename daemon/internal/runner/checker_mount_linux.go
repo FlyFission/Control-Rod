@@ -67,7 +67,14 @@ func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
 	for _, p := range restoreUnderTmpfs(ws, []string{"/tmp"}) {
 		out = append(out, "--ro-bind", p, p)
 	}
-	out = append(out, "--bind", ws.Scratch, ws.Scratch)
+	files, evidence, err := checkerWriteTargets(ws)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range files {
+		out = append(out, "--bind", p, p)
+	}
+	out = append(out, "--bind", evidence, evidence)
 	login, err := planCheckerLogin(ws)
 	if err != nil {
 		return nil, err

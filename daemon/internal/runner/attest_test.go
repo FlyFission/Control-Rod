@@ -421,13 +421,32 @@ func TestCountedConfigParsing(t *testing.T) {
 			t.Fatalf("allowlist kept %s", kv)
 		}
 	}
-	material := strings.Join(configMaterial(append(base, "-m", "gpt-5-codex")), "\n")
-	if !strings.Contains(material, "-m") || !strings.Contains(material, "gpt-5-codex") {
-		t.Fatalf("model flag not in config digest material: %s", material)
+	material, err := configMaterial("codex", append(base, "-m", "gpt-5-codex"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	attachedModel := strings.Join(configMaterial(append(base, "-mgpt-5-codex")), "\n")
-	if !strings.Contains(attachedModel, "-m\ngpt-5-codex") {
+	joined := strings.Join(material, "\n")
+	if !strings.Contains(joined, "-m") || !strings.Contains(joined, "gpt-5-codex") {
+		t.Fatalf("model flag not in config digest material: %s", joined)
+	}
+	attachedModel, err := configMaterial("codex", append(base, "-mgpt-5-codex"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(attachedModel, "\n"), "-m\ngpt-5-codex") {
 		t.Fatalf("attached model flag: %s", attachedModel)
+	}
+	for _, args := range [][]string{{"-m", "gpt-5-codex"}, {"-mgpt-5-codex"}, {"--model", "gpt-5-codex"}, {"--model=gpt-5-codex"}} {
+		got, err := argvModel("codex", args)
+		if err != nil || got != "gpt-5-codex" {
+			t.Fatalf("argv model %q: %v %q", args, err, got)
+		}
+	}
+	if _, err := modelForCheck(job.Run, nil, "codex", []string{"-mother"}); err == nil {
+		t.Fatal("attached -m naming another model was accepted")
+	}
+	if got, err := modelForCheck(job.Run, nil, "codex", []string{"--model=gpt-5-codex"}); err != nil || got != "gpt-5-codex" {
+		t.Fatalf("requested model: %v %q", err, got)
 	}
 	provider := append(append([]string{}, base...), `-cmodel_provider="ollama"`)
 	if err := CheckerAdmissionJob(job, fakeCmd(provider), artifact); err == nil || !strings.Contains(err.Error(), "custom base URL") {
@@ -443,6 +462,44 @@ func TestCountedConfigParsing(t *testing.T) {
 	}
 	if err := scanArgs("claude", []string{"-pThe prompt"}); err != nil {
 		t.Fatalf("claude -p is the print prompt: %v", err)
+	}
+	prompt := []string{"-p", "Review the base_url validation"}
+	if err := scanArgs("claude", prompt); err != nil {
+		t.Fatalf("claude prompt: %v", err)
+	}
+	promptMaterial, err := configMaterial("claude", prompt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(promptMaterial, "\n"), "base_url") || strings.Contains(strings.Join(promptMaterial, "\n"), "-p") {
+		t.Fatalf("prompt leaked into config material: %q", promptMaterial)
+	}
+	settings := []string{"-p", "--settings", "/tmp/user-settings.json"}
+	if err := scanArgs("claude", settings); err == nil || !strings.Contains(err.Error(), "file path") {
+		t.Fatalf("claude -p then settings file: %v", err)
+	}
+	fallbackAfterPrint := []string{"-p", "--fallback-model", "x"}
+	if err := scanArgs("claude", fallbackAfterPrint); err == nil || !strings.Contains(err.Error(), "--fallback-model") {
+		t.Fatalf("claude -p then fallback: %v", err)
+	}
+	if err := scanArgs("codex", []string{"--profile=foo"}); err == nil || !strings.Contains(err.Error(), "profile") {
+		t.Fatalf("codex --profile=foo: %v", err)
+	}
+	if err := scanArgs("claude", []string{"--settings", "--fallback-model"}); err == nil {
+		t.Fatal("a valued flag consumed the next flag")
+	}
+	ws := &Workspace{Dir: t.TempDir(), Checker: true}
+	policy := &SandboxPolicy{ID: "p", Version: 1, Driver: "native-cli", EnabledTools: []string{"command", "read", "edit", "write", "search"}}
+	claude := ClaudeArgs(ws, "claude-sonnet-4-5", policy, SandboxPaths{})
+	if err := scanArgs("claude", claude); err != nil {
+		t.Fatalf("real claude argv: %v", err)
+	}
+	claudeMaterial, err := configMaterial("claude", claude)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.Join(claudeMaterial, "\n"), "BRIEF.md") {
+		t.Fatal("claude prompt is in the config digest")
 	}
 }
 

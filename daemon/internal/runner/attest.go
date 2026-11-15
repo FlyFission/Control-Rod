@@ -155,7 +155,10 @@ func CheckerAdmissionJob(job *Job, cmd *exec.Cmd, artifact *Digest) error {
 	if err != nil {
 		return err
 	}
-	model := resolvedModel(job.Run, job.RuntimePin)
+	model, err := modelForCheck(job.Run, job.RuntimePin, harness, cmd.Args)
+	if err != nil {
+		return err
+	}
 	if _, err := reg.Admit(model, harness, packageGrade(job.Package)); err != nil {
 		return err
 	}
@@ -201,55 +204,91 @@ func shortAttached(a string) (name, value string, ok bool) {
 		if a == flag || !strings.HasPrefix(a, flag) || len(a) == len(flag) {
 			continue
 		}
-		rest := a[len(flag):]
-		rest = strings.TrimPrefix(rest, "=")
+		rest := strings.TrimPrefix(a[len(flag):], "=")
 		return flag, rest, true
 	}
 	return "", "", false
 }
 
-// flagValue accepts a separate value, --name=value, and an attached short option.
-func flagValue(args []string, i int) (name, value string, next int, ok bool) {
-	a := args[i]
-	if n, v, attached := shortAttached(a); attached {
-		return n, v, i, true
+func codexHarness(harness string) bool {
+	a, ok := AdapterFor(harness)
+	return ok && slices.Contains(a.Capabilities().ConfigIsolation, "--ignore-user-config")
+}
+
+// looksLikeFlag is a following argv token that is itself a flag, not a value.
+func looksLikeFlag(token string) bool {
+	return len(token) > 1 && strings.HasPrefix(token, "-")
+}
+
+func valuedFlag(name string) bool {
+	switch name {
+	case "-c", "-m", "--settings", "--config", "--fallback-model", "--disable", "--model", "--disallowedTools", "--setting-sources":
+		return true
 	}
-	if k, v, inline := strings.Cut(a, "="); inline && strings.HasPrefix(k, "--") {
-		return k, v, i, true
-	}
-	switch a {
-	case "-c", "-m", "-p", "--settings", "--config", "--fallback-model", "--disable", "--model", "--profile", "--disallowedTools", "--setting-sources":
-		if i+1 < len(args) {
-			return a, args[i+1], i + 1, true
+	return false
+}
+
+// walkCountedArgs visits each flag. Claude -p and --print are boolean, so the
+// prompt stays out of the value scan. A valued flag refuses a following token
+// that is itself a flag instead of treating it as the value.
+func walkCountedArgs(harness string, args []string, fn func(name, value string) error) error {
+	codex := codexHarness(harness)
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if n, v, attached := shortAttached(a); attached {
+			if err := acceptFlag(codex, n, v, true, fn); err != nil {
+				return err
+			}
+			continue
+		}
+		if k, v, inline := strings.Cut(a, "="); inline && (strings.HasPrefix(k, "--") || k == "-c" || k == "-m" || k == "-p") {
+			if err := acceptFlag(codex, k, v, true, fn); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := acceptFlag(codex, a, "", false, fn); err != nil {
+			return err
+		}
+		if !valuedFlag(a) || (codex && (a == "-p" || a == "--profile")) || (!codex && (a == "-p" || a == "--print")) {
+			continue
+		}
+		if i+1 >= len(args) || looksLikeFlag(args[i+1]) {
+			return fmt.Errorf("%s was given another flag as its value, so the check cannot count", a)
+		}
+		i++
+		if err := fn(a, args[i]); err != nil {
+			return err
 		}
 	}
-	return "", "", i, false
+	return nil
+}
+
+func acceptFlag(codex bool, name, value string, hasValue bool, fn func(name, value string) error) error {
+	if name == "--fallback-model" {
+		return errors.New("a counted check cannot pass --fallback-model")
+	}
+	if codex && (name == "-p" || name == "--profile") {
+		return errors.New("a counted Codex check cannot select a profile")
+	}
+	// Claude -p and --print are the print switch. The prompt is not config.
+	if !codex && (name == "-p" || name == "--print") {
+		return nil
+	}
+	if !hasValue {
+		if valuedFlag(name) {
+			return nil
+		}
+		return fn(name, "")
+	}
+	if looksLikeFlag(value) {
+		return fmt.Errorf("%s was given another flag as its value, so the check cannot count", name)
+	}
+	return fn(name, value)
 }
 
 func scanArgs(harness string, args []string) error {
-	codex := false
-	if a, ok := AdapterFor(harness); ok && slices.Contains(a.Capabilities().ConfigIsolation, "--ignore-user-config") {
-		codex = true
-	}
-	for i := 0; i < len(args); i++ {
-		name, value, next, ok := flagValue(args, i)
-		if !ok {
-			name = args[i]
-			if k, _, inline := strings.Cut(name, "="); inline {
-				name = k
-			}
-		} else {
-			i = next
-		}
-		if name == "--fallback-model" {
-			return errors.New("a counted check cannot pass --fallback-model")
-		}
-		if codex && (name == "--profile" || name == "-p") {
-			return errors.New("a counted Codex check cannot select a profile")
-		}
-		if !ok {
-			continue
-		}
+	return walkCountedArgs(harness, args, func(name, value string) error {
 		low := strings.ToLower(value)
 		if strings.Contains(low, "base_url") || strings.Contains(low, "baseurl") ||
 			strings.Contains(low, "model_provider") || strings.Contains(low, "ollama_host") ||
@@ -257,12 +296,22 @@ func scanArgs(harness string, args []string) error {
 			return errors.New("the effective config names a custom base URL, so the check cannot count")
 		}
 		if name == "--settings" || name == "--config" {
-			if err := inspectSettings(value); err != nil {
-				return err
-			}
+			return inspectSettings(value)
 		}
-	}
-	return nil
+		return nil
+	})
+}
+
+// argvModel is the model named by -m or --model, including -mX and --model=X.
+func argvModel(harness string, args []string) (string, error) {
+	var found string
+	err := walkCountedArgs(harness, args, func(name, value string) error {
+		if name == "-m" || name == "--model" {
+			found = value
+		}
+		return nil
+	})
+	return found, err
 }
 
 func inspectSettings(raw string) error {
@@ -338,6 +387,24 @@ func argPair(args []string, flag, value string) bool {
 }
 
 // ObservedModelsAllowed applies the registry to the stream's model set.
+// modelForCheck is the model the attestation names. An attached -mX or
+// --model=X is the same model as the separate-argument form. It has to be
+// the model the run resolved to.
+func modelForCheck(run Run, pin *RuntimePin, harness string, args []string) (string, error) {
+	fromArgs, err := argvModel(harness, args)
+	if err != nil {
+		return "", err
+	}
+	want := resolvedModel(run, pin)
+	if fromArgs != "" && want != "" && fromArgs != want {
+		return "", errors.New("the command names a different model than this run, so the check cannot count")
+	}
+	if want == "" {
+		return fromArgs, nil
+	}
+	return want, nil
+}
+
 func resolvedModel(run Run, pin *RuntimePin) string {
 	if m := RequestedModel(run); m != "" {
 		return m
@@ -582,7 +649,10 @@ func BuildCheckerAttestation(job *Job, cmd *exec.Cmd, artifact Digest, deliverab
 	if err != nil {
 		return RunAttestation{}, err
 	}
-	model := resolvedModel(job.Run, job.RuntimePin)
+	model, err := modelForCheck(job.Run, job.RuntimePin, RuntimeFor(job.Run.Runtime.Provider), cmd.Args)
+	if err != nil {
+		return RunAttestation{}, err
+	}
 	e, err := reg.Admit(model, RuntimeFor(job.Run.Runtime.Provider), packageGrade(job.Package))
 	if err != nil {
 		return RunAttestation{}, err
@@ -597,7 +667,7 @@ func BuildCheckerAttestation(job *Job, cmd *exec.Cmd, artifact Digest, deliverab
 	if err != nil || job.SandboxPolicyDigest.Algorithm != "sha256" {
 		return RunAttestation{}, errors.New("the sandbox policy digest is not sha256, so the check cannot count")
 	}
-	cfg, err := effectiveConfigDigest(cmd.Args)
+	cfg, err := effectiveConfigDigest(RuntimeFor(job.Run.Runtime.Provider), cmd.Args)
 	if err != nil {
 		return RunAttestation{}, err
 	}
@@ -640,8 +710,12 @@ func BuildCheckerAttestation(job *Job, cmd *exec.Cmd, artifact Digest, deliverab
 	return SignAttestation(body, priv)
 }
 
-func effectiveConfigDigest(args []string) (Digest, error) {
-	raw, err := json.Marshal(configMaterial(args))
+func effectiveConfigDigest(harness string, args []string) (Digest, error) {
+	material, err := configMaterial(harness, args)
+	if err != nil {
+		return Digest{}, err
+	}
+	raw, err := json.Marshal(material)
 	if err != nil {
 		return Digest{}, err
 	}
@@ -653,42 +727,31 @@ func effectiveConfigDigest(args []string) (Digest, error) {
 }
 
 // configMaterial is the generated config the digest covers, in argv order.
-// The model flag is included. The prompt is not. Inline `--flag=value` is one entry.
-func configMaterial(args []string) []string {
-	var out []string
-	flags := map[string]bool{
+// The model flag is included, in every form. The prompt is not.
+func configMaterial(harness string, args []string) ([]string, error) {
+	boolFlags := map[string]bool{
 		"--ignore-user-config": true, "--ignore-rules": true, "--ephemeral": true,
 		"--restricted": true, "--strict-mcp-config": true, "--disable-slash-commands": true,
 		"--no-session-persistence": true,
 	}
 	valued := map[string]bool{
 		"--setting-sources": true, "--disable": true, "--disallowedTools": true,
-		"-c": true, "-m": true, "-p": true, "--settings": true, "--config": true, "--model": true, "--profile": true,
+		"-c": true, "-m": true, "--settings": true, "--config": true, "--model": true,
 	}
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		if n, v, attached := shortAttached(a); attached && valued[n] {
-			out = append(out, n, v)
-			continue
+	var out []string
+	err := walkCountedArgs(harness, args, func(name, value string) error {
+		if boolFlags[name] && value == "" {
+			out = append(out, name)
 		}
-		name, inlineVal, inline := strings.Cut(a, "=")
-		if inline && valued[name] {
-			out = append(out, name, inlineVal)
-			continue
+		if valued[name] && value != "" {
+			out = append(out, name, value)
 		}
-		if flags[a] {
-			out = append(out, a)
-			continue
-		}
-		if valued[a] && i+1 < len(args) {
-			i++
-			out = append(out, a, args[i])
-		}
-	}
+		return nil
+	})
 	if out == nil {
 		out = []string{}
 	}
-	return out
+	return out, err
 }
 
 type namedSHA struct {

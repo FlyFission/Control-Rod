@@ -16,3 +16,5 @@ The macOS Security.framework file is build-tagged darwin && cgo and was not exec
 CGO_ENABLED=0 go test -count=1 ./... passed.
 CGO_ENABLED=0 go vet for linux, darwin, and windows passed.
 Author launch goldens were not edited.
+
+2026-11-15 round 3: Claude -p is boolean. Codex profile forms are refused. -mX and --model=X resolve to the same model. go test of the config parser passed, then the full daemon suite.

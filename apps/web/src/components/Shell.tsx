@@ -68,7 +68,8 @@ export function Shell({ session, children }: { session: Session; children: React
           target.tagName === "TEXTAREA" ||
           target.tagName === "SELECT" ||
           target.isContentEditable);
-      if (!inField && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-quick") !== null;
+      if (!inField && !hasBoardQuickAdd && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         setNewWorkOpen(true);
       }

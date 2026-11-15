@@ -146,7 +146,7 @@ export function BoardView() {
           <div className="bd-empty-copy">
             <h2>{mode === "capital-projects" ? "No engineering deliverables yet" : "No software changes in flight yet"}</h2>
             <p className="small muted">
-              Add your first card with {copy.newCta} or on the Packages page. When its intake drafts a package, the package appears here in Ready.
+              Add your first card with {copy.newCta}, the "+ Add a card" field in Ready, or on the Packages page. Classify its data lane, and an intake agent drafts a package into Ready.
             </p>
             <div className="bd-empty-steps">
               <span>1. Capture ({copy.newCta})</span>
@@ -159,7 +159,7 @@ export function BoardView() {
             <button
               type="button"
               className="btn primary"
-              onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }))}
+              onClick={() => document.querySelector<HTMLButtonElement>(".places-cta")?.click()}
             >
               + {copy.newCta} <kbd>C</kbd>
             </button>

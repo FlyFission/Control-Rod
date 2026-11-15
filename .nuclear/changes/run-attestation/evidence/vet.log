@@ -11,3 +11,8 @@ exit 0
 
 Author launch goldens and kernel/ have no diff.
 The macOS Security.framework file is build-tagged darwin && cgo and was not executed.
+
+2026-11-15 round 2, after merging main at e539a35 (PR #78):
+CGO_ENABLED=0 go test -count=1 ./... passed.
+CGO_ENABLED=0 go vet for linux, darwin, and windows passed.
+Author launch goldens were not edited.

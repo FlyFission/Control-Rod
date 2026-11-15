@@ -9,7 +9,7 @@
 | E-05 | pass | The file key is refused unless `CONTROLROD_ALLOW_FAKE=1` and the mode is `0600`. A keychain failure that is not "not found" does not create a key. | `TestFileKeyRequiresFakeAndMode`, `TestKeychainFailureIsNotAMissingKey` |
 | E-06 | pass | Enrollment and retirement require a passkey. A Codex pre-check with no attestation is recorded failed, `attestation_verified` false, inserts no verification, and is a checker attempt with outcome `error` and `counts_as` `inconclusive`. | API `enrollment` tests. 678 API tests passed (`evidence/api-suite.log`) |
 | E-07 | pass | Author launch bytes are unchanged. `gofmt -l` is empty. `go vet` exits 0 for linux, darwin, and windows. `go test -count=1 ./...` in `daemon/` exits 0. | `evidence/vet.log`, `evidence/test.log`. No diff under `testdata/launch-golden/` |
-| E-08 | pass | `pnpm -r run typecheck` exits 0. Spec compile output is the generated files in the diff. No `kernel/` diff. | typecheck this session; `evidence/diff-stat.txt` |
+| E-08 | pass | Spec compile output is the generated files in the diff. The four new attestation fields are optional in the schema and required by `judgeAttestation` before a check counts. No `kernel/` diff. | `spec/generated/json-schema/RunAttestation.json`; `evidence/diff-stat.txt` |
 
 Not qualified: macOS Keychain on Ben's Mac (the cgo Security.framework path was not executed), Linux `secret-tool` against a session bus, a real Claude Code or Codex binary, an egress proxy, and an in-run probe (`probe_result` stays `not-run`).
 

@@ -48,6 +48,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
   const qc = useQueryClient();
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
+  const firstScope = useRef<HTMLInputElement>(null);
   const admin = useQuery({ queryKey: ["admin"], queryFn: () => api.admin() });
   const [scope, setScope] = useState<"organization" | "project">("organization");
   const [project, setProject] = useState("");
@@ -94,6 +95,9 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
     if (!d) return;
     if (typeof d.showModal === "function") d.showModal();
     else d.setAttribute("open", "");
+    // A dialog takes focus when it opens. Focus is moved here, once the dialog is open, because
+    // React's autoFocus runs before showModal, while the dialog is still closed.
+    firstScope.current?.focus();
     return () => {
       if (typeof d.close === "function") d.close();
     };
@@ -140,8 +144,7 @@ function ScramDialog({ passkeys, presenting, patienceMs, onClose }: { passkeys: 
       <fieldset disabled={frozen}>
         <legend>Scope</legend>
         <label className="office-choice">
-          {/* A dialog takes focus when it opens. */}
-          <input type="radio" name="scram-scope" autoFocus checked={scope === "organization"} onChange={() => setScope("organization")} /> The whole organization
+          <input ref={firstScope} type="radio" name="scram-scope" checked={scope === "organization"} onChange={() => setScope("organization")} /> The whole organization
         </label>
         <label className="office-choice">
           <input type="radio" name="scram-scope" checked={scope === "project"} onChange={() => setScope("project")} /> One project

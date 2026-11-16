@@ -3,7 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { type Db, tx } from "./db/index.js";
+import { command } from "./commands/executor.js";
+import type { Db } from "./db/index.js";
 import { appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { HOST_GIT_ARGS, type WorkspaceMode, createCheckpoint, hostGitEnv } from "./repos.js";
@@ -193,7 +194,7 @@ export function outfallRoutes(
       signerId,
       status: body.status,
     });
-    await tx(db, (c) =>
+    await command(db, "outfall.verdict", (c) =>
       appendEvent(c, "outfall.verdict", v.id, { kind: "human", id: signerId }, { verdict: v }),
     );
     return { ok: true, verdict: v };
@@ -221,7 +222,7 @@ export function outfallRoutes(
       target: body.target ?? "",
       authorizerId,
     });
-    await tx(db, (txc) =>
+    await command(db, "outfall.clearance", (txc) =>
       appendEvent(txc, "outfall.clearance", c.id, { kind: "human", id: authorizerId }, { clearance: c }),
     );
     return { ok: true, clearance: c };
@@ -245,7 +246,7 @@ export function outfallRoutes(
       externalRef: body.external_ref ?? "",
       artifactDigest: body.artifact_digest ?? "",
     });
-    await tx(db, (txc) =>
+    await command(db, "outfall.application", (txc) =>
       appendEvent(txc, "outfall.application", rec.id, { kind: "human", id: actorId }, { record: rec }),
     );
     return { ok: true, record: rec };

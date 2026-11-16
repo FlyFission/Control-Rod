@@ -250,9 +250,10 @@ pub fn decide(req: &Request) -> Outcome {
                 refuse(ReasonCode::NotIndependent)
             }
             (Some(_), Some(_), Some(author), Some(checker)) => {
-                if req.safety_quorum_met == Some(false) || req.attestation_verified == Some(false) {
-                    refuse(ReasonCode::NotIndependent)
-                } else if author.may_be_same(checker) && !req.owner_override_verified {
+                if req.safety_quorum_met == Some(false)
+                    || req.attestation_verified == Some(false)
+                    || (author.may_be_same(checker) && !req.owner_override_verified)
+                {
                     refuse(ReasonCode::NotIndependent)
                 } else {
                     allow(S::InVerification)

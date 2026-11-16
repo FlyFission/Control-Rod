@@ -1,5 +1,5 @@
 // Files ride inside a capture as fenced blocks the control plane extracts into stored files:
-//   ```attachment name="parcel.kml" encoding="base64"
+//   ```attachment name="field-notes.txt" encoding="base64"
 //   PD94bWwg...
 //   ```
 

@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process dock",
       "art": {
-        "path": "/office-themes/creature-dispatch/process.030ed17a4e04.svg",
-        "sha256": "030ed17a4e04fc55bfe62e0485aa2e1896158231a0d0aa4d7e6fd3a8fee11d5e",
-        "bytes": 4285,
+        "path": "/office-themes/creature-dispatch/process.313fb8fe0959.svg",
+        "sha256": "313fb8fe09598548acf15e1adb7fdb3cdee3e896857bea911b4c29501e94aa94",
+        "bytes": 4371,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical dock",
       "art": {
-        "path": "/office-themes/creature-dispatch/mechanical.7d23d3699dd2.svg",
-        "sha256": "7d23d3699dd2105dbade8e4f8acdba08c806db6051a87ea768d513bee6951698",
-        "bytes": 4285,
+        "path": "/office-themes/creature-dispatch/mechanical.7b3f95248676.svg",
+        "sha256": "7b3f9524867609b22883d630c12d7f6e74c333fdb336b985cee9f25a2cc218de",
+        "bytes": 4371,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical dock",
       "art": {
-        "path": "/office-themes/creature-dispatch/electrical.450da97e3902.svg",
-        "sha256": "450da97e3902b4bf69ff56f321da7b4ac2ba13c2cba6a4d7977159bb1c495f58",
-        "bytes": 4285,
+        "path": "/office-themes/creature-dispatch/electrical.f127368dbec1.svg",
+        "sha256": "f127368dbec12bb30ac6c4bdade539061a9f3b7c30cb40590c7aa8c2fd2ee69b",
+        "bytes": 4371,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil dock",
       "art": {
-        "path": "/office-themes/creature-dispatch/civil.d6a43f72aeec.svg",
-        "sha256": "d6a43f72aeec8f577ce1159544ef3ccb55357781903f11faa2eb7564d08abbd1",
-        "bytes": 4285,
+        "path": "/office-themes/creature-dispatch/civil.b39bd51918e1.svg",
+        "sha256": "b39bd51918e1d8d8a4be551347abf3417d492b543271152c96fb4e2611e55360",
+        "bytes": 4371,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance dock",
       "art": {
-        "path": "/office-themes/creature-dispatch/assurance.e652fb2c8503.svg",
-        "sha256": "e652fb2c8503c308c1d199b1d4e3038a6012fc717de7b57a9eff31e8ca70dd83",
-        "bytes": 4285,
+        "path": "/office-themes/creature-dispatch/assurance.d56c369acfdc.svg",
+        "sha256": "d56c369acfdcc8c7fff56eb564820336a42a22f7363044adbffc34fe9732b1e4",
+        "bytes": 4371,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls dock",
       "art": {
-        "path": "/office-themes/creature-dispatch/project-controls.8d6c6e88156f.svg",
-        "sha256": "8d6c6e88156feb32b8334f6c0918525cedf7840127217e628da583701178b58c",
-        "bytes": 4285,
+        "path": "/office-themes/creature-dispatch/project-controls.f76f0026f974.svg",
+        "sha256": "f76f0026f97459e3da2ffdef07150e9de7037c4049853bcefa1c5f9cbfe53e93",
+        "bytes": 4371,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Sorting huddle",
       "art": {
-        "path": "/office-themes/creature-dispatch/review.9f20c8bf311d.svg",
-        "sha256": "9f20c8bf311dec36803d1af948a818c950452fd74ad4442694274ef807db83bd",
-        "bytes": 4672,
+        "path": "/office-themes/creature-dispatch/review.5d412a4a8a16.svg",
+        "sha256": "5d412a4a8a1624a103ede705420c072a65e6a447d0f66a3c2d6773ab6e8079b7",
+        "bytes": 4758,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Dispatch desk",
       "art": {
-        "path": "/office-themes/creature-dispatch/interface.2b9e87e09885.svg",
-        "sha256": "2b9e87e09885f042fe0712ac0a209415c14459fe381a6d2afa79a0c6e90c9a6d",
-        "bytes": 4106,
+        "path": "/office-themes/creature-dispatch/interface.150aecbd57da.svg",
+        "sha256": "150aecbd57da83acf5a3affb9028cd81c2de080e64595076266ea3dac896697b",
+        "bytes": 4192,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Inspection counter",
       "art": {
-        "path": "/office-themes/creature-dispatch/verification.ff430044e908.svg",
-        "sha256": "ff430044e9081b95818e96e0f4bc0b00214c782e63c2d045613ce6be3e771d98",
-        "bytes": 4680,
+        "path": "/office-themes/creature-dispatch/verification.c7da3f7a432c.svg",
+        "sha256": "c7da3f7a432cc608dd856dd011d3ec8a7e6689d8395bd78659698fb5482da4dc",
+        "bytes": 4766,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Supervisor window",
       "art": {
-        "path": "/office-themes/creature-dispatch/your-office.86f7ea53c84e.svg",
-        "sha256": "86f7ea53c84eab26a23eec6fe69620c8994a29b01aa8a780b03d8f187a990c86",
-        "bytes": 5092,
+        "path": "/office-themes/creature-dispatch/your-office.40c2c5850201.svg",
+        "sha256": "40c2c58502019e8088d2d357066149b2e9e0ae663542e4b81de287c8d5da7ed0",
+        "bytes": 5178,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Parcel archive",
       "art": {
-        "path": "/office-themes/creature-dispatch/document-control.7e560737c6a9.svg",
-        "sha256": "7e560737c6a9a2eb6a2fef5f790e1daea836701c00bbc61cfa37c4a3bd03fe26",
-        "bytes": 4920,
+        "path": "/office-themes/creature-dispatch/document-control.fdd3280dbca4.svg",
+        "sha256": "fdd3280dbca4eaa00345c974782d2979758b6e94db19250091f30b87f1de44d9",
+        "bytes": 5006,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Waiting platform",
       "art": {
-        "path": "/office-themes/creature-dispatch/bench.bb42314f5c6e.svg",
-        "sha256": "bb42314f5c6e04651705d0538463cde9d4d046a3b6bfeb54722710d308ec5065",
-        "bytes": 4108,
+        "path": "/office-themes/creature-dispatch/bench.3253cb5f641d.svg",
+        "sha256": "3253cb5f641d3bd03efada825422b3ae802587c1ae9be2ab8375386c38982601",
+        "bytes": 4194,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Holding crate",
       "art": {
-        "path": "/office-themes/creature-dispatch/quarantine.548abc221fb6.svg",
-        "sha256": "548abc221fb602800e8fa9d71af6496be6284accd90117e3085c27393166bb40",
-        "bytes": 5930,
+        "path": "/office-themes/creature-dispatch/quarantine.a87d21f5ca03.svg",
+        "sha256": "a87d21f5ca0319242c67dc9bfa72e000c2a505b6798a4bca100138dcf000c355",
+        "bytes": 6016,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/creature-dispatch/body-0.aefa0a667c04.svg",
-      "sha256": "aefa0a667c04d5f3e4cfbf17c0abce24b1d7965e29efd8a5c24883914dcd5563",
-      "bytes": 1138,
+      "path": "/office-themes/creature-dispatch/body-0.0094de477f0b.svg",
+      "sha256": "0094de477f0b4ac57ea922078ad7d5922cbb21d1ed401183b046c4e17d39391f",
+      "bytes": 1170,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/creature-dispatch/body-1.fe3684c47660.svg",
-      "sha256": "fe3684c47660f843e147b805a60205fc8671b9d66cc32d4cee94aa68e4b07dd3",
-      "bytes": 1217,
+      "path": "/office-themes/creature-dispatch/body-1.3ff30a31bc10.svg",
+      "sha256": "3ff30a31bc10ac01ced441614fe622e16cf3af500467e9d566fd39b635bc6b54",
+      "bytes": 1013,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/creature-dispatch/body-2.30b4cd42c685.svg",
-      "sha256": "30b4cd42c6853e9d31a8562c8eea44bb8c0580fac6cb68dd10916d15fd383f82",
-      "bytes": 1135,
+      "path": "/office-themes/creature-dispatch/body-2.98bfcf0465b0.svg",
+      "sha256": "98bfcf0465b0a64d35df027a246f906ed8fd0f54c5078a3fcb84f8657c3808f8",
+      "bytes": 942,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/creature-dispatch/body-3.01e701103633.svg",
-      "sha256": "01e701103633002824c2647aca115d820d747d849d1c6de7493f4517a4b9c891",
-      "bytes": 1138,
+      "path": "/office-themes/creature-dispatch/body-3.d6a522309d69.svg",
+      "sha256": "d6a522309d69269555a4e0f826fed4da686807d231b49d26c5590401f5da66fa",
+      "bytes": 852,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/creature-dispatch/body-4.2f658a3fd5df.svg",
-      "sha256": "2f658a3fd5dfed94f0e55d41ae653504c4751bc16be82f2d487b9fcac49b18bc",
-      "bytes": 1182,
+      "path": "/office-themes/creature-dispatch/body-4.94b1a2fa9a18.svg",
+      "sha256": "94b1a2fa9a18be7defd4b28b9c248469e952d2acbb2b18af437010e29101a535",
+      "bytes": 958,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/creature-dispatch/body-5.eeaa05261803.svg",
-      "sha256": "eeaa05261803ff46031d6573a5d4d69c5e1d5e4518dc36e7b7c2aa2190b8696a",
-      "bytes": 1161,
+      "path": "/office-themes/creature-dispatch/body-5.48573164c4dd.svg",
+      "sha256": "48573164c4dde0db340a5775c978ae332ec070791d62195711c6dc6db24c9a3b",
+      "bytes": 1046,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

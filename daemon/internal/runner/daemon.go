@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -116,8 +118,9 @@ type Daemon struct {
 	// quit ends when Run is asked to stop; completion retries stop waiting then.
 	quit context.Context
 
-	probeMu sync.Mutex
-	status  []RuntimeStatus
+	probeMu       sync.Mutex
+	status        []RuntimeStatus
+	subscriptions *SubscriptionReport
 
 	activeMu    sync.Mutex
 	active      map[string]bool
@@ -259,7 +262,7 @@ claim:
 		}
 		status := d.runtimeStatus()
 		claimSent := time.Now()
-		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling())
+		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport())
 		if job != nil {
 			job.claimSent = claimSent
 		}
@@ -345,12 +348,14 @@ func (d *Daemon) probe(ctx context.Context) {
 		}
 		next = append(next, st)
 	}
+	report := SubscriptionFromStatuses(next, CurrentPlatform(), os.Getenv)
 	d.probeMu.Lock()
 	prev := map[string]bool{}
 	for _, s := range d.status {
 		prev[s.Runtime] = s.Ready
 	}
 	d.status = next
+	d.subscriptions = &report
 	d.probeMu.Unlock()
 	for _, s := range next {
 		was, seen := prev[s.Runtime]
@@ -420,6 +425,19 @@ func (d *Daemon) runtimeStatus() []RuntimeStatus {
 	d.probeMu.Lock()
 	defer d.probeMu.Unlock()
 	return append([]RuntimeStatus(nil), d.status...)
+}
+
+// subscriptionReport is the last subscription probe, or nil before the first probe.
+func (d *Daemon) subscriptionReport() *SubscriptionReport {
+	d.probeMu.Lock()
+	defer d.probeMu.Unlock()
+	if d.subscriptions == nil {
+		return nil
+	}
+	cp := *d.subscriptions
+	cp.Probes = append([]SubscriptionProbe(nil), d.subscriptions.Probes...)
+	cp.Checkers = append([]SubscriptionChecker(nil), d.subscriptions.Checkers...)
+	return &cp
 }
 
 // outboxLoop sends completions left from an earlier run at once, then retries any still
@@ -593,6 +611,7 @@ type logBuffer struct {
 	events  []Event
 	label   string
 	model   string
+	models  map[string]struct{}
 	dirty   bool
 	receipt *OwnershipReceipt
 
@@ -608,6 +627,10 @@ type logBuffer struct {
 	// turnOver is set by the runtime's own end-of-turn report (TurnEnd), and endCh is closed then.
 	turnOver, turnFailed bool
 	endCh                chan struct{}
+
+	// adapt parses this run's stream. execute sets it to the runtime's adapter. A nil value uses
+	// the shared Normalize and TurnEnd, which is what those adapters call.
+	adapt Adapter
 }
 
 // ended returns a channel closed once the runtime has reported the end of its turn.
@@ -650,19 +673,64 @@ func (b *logBuffer) receiptSent(r *OwnershipReceipt) {
 	}
 }
 
+// copyRunOutputs copies deliverables when Command returned no process. A runtime that
+// does not implement OutputCopier is an error; the fake runtime is the copier.
+func copyRunOutputs(a Adapter, ws *Workspace, buf *logBuffer) error {
+	copier, ok := a.(OutputCopier)
+	if !ok {
+		return fmt.Errorf("runtime %q returned no process and has no output copier", a.ID())
+	}
+	buf.add(`{"type":"result","subtype":"fake-copy"}`)
+	return copier.CopyOutputs(ws)
+}
+
+func (b *logBuffer) normalize(line string, now time.Time) []Event {
+	if b.adapt != nil {
+		return b.adapt.Normalize(line, now)
+	}
+	return Normalize(line, now)
+}
+
+func (b *logBuffer) turnEnd(line string) (bool, bool) {
+	if b.adapt != nil {
+		return b.adapt.TurnEnd(line)
+	}
+	return TurnEnd(line)
+}
+
+func (b *logBuffer) streamLabel(line string) string {
+	if m, ok := b.adapt.(StreamMetadataParser); ok {
+		return m.StreamLabel(line)
+	}
+	return LabelFor(line)
+}
+
+func (b *logBuffer) streamModel(line string) string {
+	if m, ok := b.adapt.(StreamMetadataParser); ok {
+		return m.StreamModel(line)
+	}
+	return ReportedModel(line)
+}
+
 func (b *logBuffer) add(line string) {
 	now := b.clock()
-	events := Normalize(line, now)
+	events := b.normalize(line, now)
 	b.mu.Lock()
 	b.lines = append(b.lines, line)
-	if l := LabelFor(line); l != "" {
+	if l := b.streamLabel(line); l != "" {
 		b.label = l
 	}
-	if b.model == "" {
-		b.model = ReportedModel(line)
+	if m := b.streamModel(line); m != "" {
+		if b.model == "" {
+			b.model = m
+		}
+		if b.models == nil {
+			b.models = map[string]struct{}{}
+		}
+		b.models[m] = struct{}{}
 	}
 	if !b.turnOver {
-		if over, failed := TurnEnd(line); over {
+		if over, failed := b.turnEnd(line); over {
 			b.turnOver, b.turnFailed = true, failed
 			if b.endCh == nil {
 				b.endCh = make(chan struct{})
@@ -724,6 +792,18 @@ func (b *logBuffer) reportedModel() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.model
+}
+
+// observedModels is every model name the stream reported, in sorted order.
+func (b *logBuffer) observedModels() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make([]string, 0, len(b.models))
+	for m := range b.models {
+		out = append(out, m)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // The API records at most 500 lines per request. Keep a byte budget as well so a
@@ -984,12 +1064,16 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if runtime == "" || !slices.Contains(d.cfg.Runtimes, runtime) {
 		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
 	}
+	a, ok := AdapterFor(runtime)
+	if !ok {
+		return fail(fmt.Sprintf("runtime %q is not available on this machine", job.Run.Runtime.Provider)), nil
+	}
 	// The sandbox (ADR 0021; plan tasks 6.1 and 6.3): an agent CLI starts only under the run's
 	// verified policy, on a host that can hold it, checked again now without running the CLI (its
 	// login and features are checked by the scheduled probe). A failure ends the run with its
 	// fix and stops the runtime being offered until the next probe; nothing starts unsandboxed.
 	var sandbox *SandboxPolicy
-	if runtime != RuntimeFake {
+	if a.SandboxRequired() {
 		if home, herr := os.UserHomeDir(); herr != nil || home == "" || !filepath.IsAbs(home) {
 			return fail("the home folder cannot be resolved, so the sandbox cannot deny it; set HOME"), nil
 		}
@@ -1018,7 +1102,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		d.log.Warn("no contact with the control plane for a whole lease; stopping the run", "run", job.Run.ID)
 		release(errOutOfContact)
 	})
-	ws, err := Prepare(d.cfg.Home, job)
+	ws, err := prepareWorkspace(d.cfg.Home, job, a)
 	if err != nil {
 		return fail(err.Error()), nil
 	}
@@ -1026,28 +1110,29 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if err != nil {
 		return fail("read inputs: " + err.Error()), nil
 	}
+	if ws.Checker {
+		inArts, err = checkerInputArts(inArts, ws)
+		if err != nil {
+			return fail("the deliverable tree could not be hashed, so the check cannot count: " + err.Error()), nil
+		}
+	}
 	d.log.Info("run started", "run", job.Run.ID, "role", job.Run.Role, "runtime", runtime, "workspace", ws.Dir)
 
 	policy := DefaultBreakerPolicy
 	if d.cfg.Breaker != nil {
 		policy = *d.cfg.Breaker
 	}
-	buf := &logBuffer{admit: NewAdmission(20, 200), breaker: NewBreaker(policy, time.Now()), onTrip: func(reason string) {
+	buf := &logBuffer{adapt: a, admit: NewAdmission(20, 200), breaker: NewBreaker(policy, time.Now()), onTrip: func(reason string) {
 		d.log.Warn("breaker tripped; stopping the run", "run", job.Run.ID, "reason", reason)
 		release(errBreaker{reason})
 	}}
-	switch runtime {
-	case RuntimeClaude:
-		// Interim waiting detection (plan task 2.9): the PermissionRequest hook writes here.
-		hooks := filepath.Join(d.cfg.Home, "hooks")
-		if err := os.MkdirAll(hooks, 0o700); err == nil {
-			ws.HookFile = filepath.Join(hooks, job.Run.ID+".jsonl")
-			_ = os.Remove(ws.HookFile)
-			defer os.Remove(ws.HookFile)
-		}
-	case RuntimeCodex:
-		buf.addEvents([]Event{{Kind: EvNotice, At: time.Now().UTC().Format(time.RFC3339Nano),
-			Text: "Permission waits are not observable in Codex exec mode; a refused action shows as a failed tool call."}})
+	// A checker's permission hook would write outside scratch, and the mount
+	// would block it. Checkers do not use the hook.
+	if h, ok := a.(HookProvider); ok && !ws.Checker && h.PrepareHook(ws, d.cfg.Home, job.Run.ID) {
+		defer os.Remove(ws.HookFile)
+	}
+	if n, ok := a.(LaunchNotifier); ok {
+		buf.addEvents(n.LaunchNotice(time.Now()))
 	}
 	runCtx, cancel := context.WithTimeoutCause(held, d.cfg.Timeout, ErrTimeout)
 	defer cancel()
@@ -1096,7 +1181,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	var launched *Digest
 	var verified *VerifiedLaunch
-	if err == nil && cmd != nil && runtime != RuntimeFake {
+	if err == nil && cmd != nil && a.SandboxRequired() {
 		// Launch by digest (specification 21): the exact file the pin (or, unpinned, the last probe)
 		// names, checked again now and executed from the descriptor whose bytes were hashed.
 		v, verr := VerifyLaunch(runtime, job.RuntimePin, d.probedArtifact(runtime))
@@ -1119,10 +1204,60 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			launched = &verified.Digest
 		}
 	}
+	var (
+		deliverableBefore string
+		cwdBefore         map[string]string
+		checkerReady      bool
+	)
+	if err == nil && ws.Checker {
+		var herr error
+		deliverableBefore, herr = TreeDigest(ws.Deliverables)
+		if herr != nil {
+			err = fmt.Errorf("the deliverable tree could not be hashed, so the check cannot count: %w", herr)
+		}
+		if err == nil {
+			cwdBefore, herr = snapWorkspace(ws.Dir)
+			if herr != nil {
+				err = fmt.Errorf("the checker workspace could not be hashed, so the check cannot count: %w", herr)
+			}
+		}
+		if err == nil && verified != nil {
+			ws.VerifiedPath = verified.Path
+		}
+		if err == nil {
+			ws.CheckerRuntime = a.ID()
+			ws.LoginRoot = loginRoot(a.ID())
+			sum, herr := hashProtected(ws.LoginRoot)
+			if herr != nil {
+				err = fmt.Errorf("the login directory could not be hashed, so the check cannot count: %w", herr)
+			} else {
+				ws.LoginDigest = sum
+			}
+		}
+		if err == nil && cmd != nil {
+			if aerr := CheckerAdmissionJob(job, cmd, launched); aerr != nil {
+				err = aerr
+			}
+		}
+		if err == nil && cmd != nil {
+			if merr := applyCheckerMount(cmd, ws); merr != nil {
+				err = merr
+			}
+		}
+		if ws.LoginDisposable != "" {
+			defer os.RemoveAll(ws.LoginDisposable)
+		}
+		if ws.CheckerTmp != "" {
+			defer os.RemoveAll(ws.CheckerTmp)
+		}
+		if ws.Seccomp != nil {
+			defer ws.Seccomp.Close()
+		}
+		checkerReady = err == nil
+	}
 	if err == nil {
 		if cmd == nil {
-			buf.add(`{"type":"result","subtype":"fake-copy"}`)
-			err = CopyFakeOutputs(ws)
+			err = copyRunOutputs(a, ws, buf)
 		} else {
 			unit := UnitName(d.ns, job.Run.ID, job.Run.Generation)
 			d.container.Wrap(cmd, unit)
@@ -1162,7 +1297,12 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 						return &r, perr
 					}
 					// Fail closed: a run not proven to execute the verified bytes is stopped whole.
-					if cerr := verified.Confirm(pid); cerr != nil {
+					// A checker is bubblewrap around that binary; the child is what must match.
+					confirm := verified.Confirm
+					if ws.Checker {
+						confirm = verified.ConfirmSandbox
+					}
+					if cerr := confirm(pid); cerr != nil {
 						return &r, cerr
 					}
 					buf.setReceipt(r.Wire())
@@ -1276,11 +1416,72 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	case "pre-check":
 		comp.Verification = attach("verification.json")
 	}
-	bin, version := runtime, ""
-	if runtime == RuntimeFake {
-		version = d.cfg.Version
-	} else {
-		// Never run the executable again for its version: it may no longer be what was verified.
+	if ws.Checker && !checkerReady {
+		comp.Events = append(comp.Events, checkerBlockedNotice(err, time.Now()))
+	}
+	if checkerReady {
+		result := settleChecker(ws, deliverableBefore, cwdBefore, time.Now())
+		if result.Counts && comp.Status == "succeeded" {
+			if perr := ObservedModelsAllowed(job.Run, job.RuntimePin, packageGrade(job.Package), buf.observedModels()); perr != nil {
+				result.Counts = false
+				result.Error = perr.Error()
+				result.Verification = nil
+			}
+		}
+		if result.Counts && comp.Status == "succeeded" {
+			if launched == nil {
+				result.Counts = false
+				result.Error = "the check has no executable digest, so it cannot count"
+				result.Verification = nil
+			} else if att, aerr := BuildCheckerAttestation(job, cmd, *launched, ws.Deliverables, deliverableBefore, result.After, buf.observedModels(), result.Verification, result.Criterion, result.EvidenceArts); aerr != nil {
+				result.Counts = false
+				result.Error = aerr.Error()
+				result.Verification = nil
+			} else {
+				comp.Attestation = &att
+			}
+		}
+		comp.Events = append(comp.Events, result.Events...)
+		if !result.Counts || comp.Status != "succeeded" {
+			comp.Verification = nil
+			if comp.Status == "succeeded" {
+				comp.Status = "failed"
+			}
+			if result.Error != "" {
+				if comp.Error != "" {
+					comp.Error += "; "
+				}
+				comp.Error += result.Error
+			}
+		} else {
+			comp.Verification = result.Verification
+			comp.Outputs = []NamedFile{{
+				Name:          "verification.json",
+				ContentBase64: base64.StdEncoding.EncodeToString(result.Verification),
+			}}
+			outArts = []Artifact{{
+				Path:   "verification.json",
+				Digest: Digest{Algorithm: "sha256", Value: sha256Hex(result.Verification)},
+			}}
+			if len(result.Criterion) > 0 {
+				comp.Outputs = append(comp.Outputs, NamedFile{
+					Name:          "criterion-results.json",
+					ContentBase64: base64.StdEncoding.EncodeToString(result.Criterion),
+				})
+				outArts = append(outArts, Artifact{
+					Path:   "criterion-results.json",
+					Digest: Digest{Algorithm: "sha256", Value: sha256Hex(result.Criterion)},
+				})
+			}
+			comp.Outputs = append(comp.Outputs, result.Evidence...)
+			outArts = append(outArts, result.EvidenceArts...)
+		}
+	}
+	bin := runtime
+	// Never run the executable again for its version: it may no longer be what was verified.
+	// The fake runtime records the daemon version, as it did before the registry.
+	version := d.cfg.Version
+	if a.SandboxRequired() {
 		version = d.verifiedVersion(runtime, launched, job.RuntimePin)
 	}
 	comp.Trace = &ExecutionTrace{

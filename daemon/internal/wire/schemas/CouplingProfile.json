@@ -1,0 +1,30 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "CouplingProfile.json",
+    "type": "object",
+    "properties": {
+        "actor": {
+            "$ref": "Coupling.json"
+        },
+        "context": {
+            "$ref": "Coupling.json"
+        },
+        "mechanism": {
+            "$ref": "Coupling.json"
+        },
+        "authority": {
+            "$ref": "Coupling.json"
+        },
+        "resource": {
+            "$ref": "Coupling.json"
+        }
+    },
+    "required": [
+        "actor",
+        "context",
+        "mechanism",
+        "authority",
+        "resource"
+    ],
+    "unevaluatedProperties": false
+}

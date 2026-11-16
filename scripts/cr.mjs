@@ -12,8 +12,6 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const home = process.env.CONTROLROD_HOME ?? join(homedir(), ".controlrod");
 const bin = join(home, "bin");
 const port = Number(process.env.CONTROLROD_PORT ?? 7300);
-const drawing tool_COMMIT = "e4214f7180d041d1a88fbb1885317648d0e8bc4b";
-const sitePack = join(root, "packs", "capital-projects", "example-package");
 
 const which = (cmd) => {
   const r = spawnSync(platform() === "win32" ? "where" : "which", [cmd], { encoding: "utf8" });
@@ -30,7 +28,6 @@ const run = (cmd, args, opts = {}) => {
     process.exit(r.status ?? 1);
   }
 };
-const drawing tool = () => process.env.drawing tool_CLI ?? (existsSync(join(bin, "drawing tool-cli")) ? join(bin, "drawing tool-cli") : which("drawing tool-cli"));
 
 /**
  * The bundled PostgreSQL is a prebuilt binary. On Linux it links against system libraries (ICU in
@@ -83,7 +80,6 @@ function doctor() {
     ["uv (Python tools)", version("uv"), true],
     ["claude (Claude Code, your login)", which("claude") && version("claude"), false],
     ["codex (optional, for an independent pre-check runtime)", which("codex") && version("codex"), false],
-    ["drawing tool-cli (drawings)", drawing tool() && version(drawing tool()), false],
   ];
   let ok = true;
   for (const [name, found, required] of rows) {
@@ -92,7 +88,6 @@ function doctor() {
   }
   if (!databaseOk()) ok = false;
   if (!which("claude")) console.log("\nInstall Claude Code and sign in so agents can run on your subscription.");
-  if (!drawing tool()) console.log("\nDrawings need drawing tool: run `pnpm cr setup-drawing tool` (needs Rust; builds the pinned version).");
   if (!which("codex")) {
     console.log(
       "\nWithout Codex, every pre-check waits for an independent runtime. It never runs on the author's runtime on its own." +
@@ -127,17 +122,6 @@ function setup() {
     run("pnpm", ["--filter", "@control-rod/api", "build"]);
   }
   run("go", ["build", "-o", join(bin, "controlrod"), "./cmd/controlrod"], { cwd: join(root, "daemon") });
-  if (existsSync(join(sitePack, "pyproject.toml"))) run("uv", ["sync", "--quiet"], { cwd: sitePack });
-}
-
-function setupdrawing tool() {
-  const src = join(home, "src", "drawing tool");
-  if (!existsSync(src)) run("git", ["clone", "https://github.com/storytold/drawing tool", src]);
-  run("git", ["-C", src, "fetch", "--depth", "1", "origin", drawing tool_COMMIT]);
-  run("git", ["-C", src, "checkout", "--quiet", drawing tool_COMMIT]);
-  run("cargo", ["build", "--release", "-p", "drawing tool-cli"], { cwd: src });
-  run("cp", [join(src, "target", "release", "drawing tool-cli"), join(bin, "drawing tool-cli")]);
-  console.log(`drawing tool ${drawing tool_COMMIT.slice(0, 7)} installed in ${bin}`);
 }
 
 async function waitForHealth() {
@@ -168,10 +152,7 @@ async function start() {
     env.CONTROLROD_ORIGIN = `https://${host}`;
     env.CONTROLROD_RP_ID ??= host;
   }
-  const cc = drawing tool();
-  if (cc) env.drawing tool_CLI = cc;
-  const venvBin = join(sitePack, ".venv", "bin");
-  env.PATH = [bin, existsSync(venvBin) ? venvBin : null, env.PATH].filter(Boolean).join(delimiter);
+  env.PATH = [bin, env.PATH].filter(Boolean).join(delimiter);
 
   const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], { env, stdio: "inherit" });
   await waitForHealth();
@@ -196,9 +177,8 @@ async function start() {
 const cmd = process.argv[2] ?? "start";
 if (cmd === "doctor") process.exit(doctor() ? 0 : 1);
 else if (cmd === "setup") setup();
-else if (cmd === "setup-drawing tool") setupdrawing tool();
 else if (cmd === "start") await start();
 else {
-  console.log("Usage: pnpm cr [doctor|setup|setup-drawing tool|start]");
+  console.log("Usage: pnpm cr [doctor|setup|start]");
   process.exit(2);
 }

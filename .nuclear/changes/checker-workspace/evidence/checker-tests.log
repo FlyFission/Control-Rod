@@ -1,0 +1,81 @@
+=== RUN   TestVerifiedRuntimeMayBeAGrandchild
+--- PASS: TestVerifiedRuntimeMayBeAGrandchild (0.02s)
+=== RUN   TestCheckerMountFailsClosedWithoutBubblewrap
+--- PASS: TestCheckerMountFailsClosedWithoutBubblewrap (0.00s)
+=== RUN   TestBubblewrapMountsDeliverablesReadOnly
+--- PASS: TestBubblewrapMountsDeliverablesReadOnly (0.01s)
+=== RUN   TestCheckerMountBindsTheVerifiedDescriptor
+--- PASS: TestCheckerMountBindsTheVerifiedDescriptor (0.00s)
+=== RUN   TestConfirmSandboxSeesTheBubblewrapChild
+--- PASS: TestConfirmSandboxSeesTheBubblewrapChild (0.32s)
+=== RUN   TestCheckerMountBlocksWritesOutsideScratch
+--- PASS: TestCheckerMountBlocksWritesOutsideScratch (0.01s)
+=== RUN   TestUnixSocketFilterRejectsAnUnknownArch
+--- PASS: TestUnixSocketFilterRejectsAnUnknownArch (0.00s)
+=== RUN   TestUnixSocketFilterDecisions
+--- PASS: TestUnixSocketFilterDecisions (0.00s)
+=== RUN   TestSocketMaskFollowsASymlinkParent
+--- PASS: TestSocketMaskFollowsASymlinkParent (0.00s)
+=== RUN   TestCheckerCannotReachAHostUnixSocket
+--- PASS: TestCheckerCannotReachAHostUnixSocket (0.02s)
+=== RUN   TestCheckerCannotReachAnAbstractUnixSocket
+--- PASS: TestCheckerCannotReachAnAbstractUnixSocket (0.02s)
+=== RUN   TestCheckerKeepsSocketpairAndTCP
+--- PASS: TestCheckerKeepsSocketpairAndTCP (0.02s)
+=== RUN   TestCheckerRejectsX32AndIoUring
+--- PASS: TestCheckerRejectsX32AndIoUring (0.01s)
+=== RUN   TestCheckerRefusesADatagramSocketpair
+--- PASS: TestCheckerRefusesADatagramSocketpair (0.12s)
+=== RUN   TestCheckerProcDoesNotReachHostProcesses
+--- PASS: TestCheckerProcDoesNotReachHostProcesses (0.01s)
+=== RUN   TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath
+--- PASS: TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath (0.00s)
+=== RUN   TestCheckerCannotRewriteLoginInstructions
+=== RUN   TestCheckerCannotRewriteLoginInstructions/001
+=== RUN   TestCheckerCannotRewriteLoginInstructions/cr-login-4155645164
+--- PASS: TestCheckerCannotRewriteLoginInstructions (0.03s)
+    --- PASS: TestCheckerCannotRewriteLoginInstructions/001 (0.02s)
+    --- PASS: TestCheckerCannotRewriteLoginInstructions/cr-login-4155645164 (0.01s)
+=== RUN   TestCheckerSessionSymlinkDoesNotGrantHomeWrites
+--- PASS: TestCheckerSessionSymlinkDoesNotGrantHomeWrites (0.00s)
+=== RUN   TestPreparedCheckerThroughTheMount
+--- PASS: TestPreparedCheckerThroughTheMount (0.01s)
+=== RUN   TestCheckerStagesInstructionsOutOfDiscovery
+--- PASS: TestCheckerStagesInstructionsOutOfDiscovery (0.00s)
+=== RUN   TestCheckerBlockedNoticeIsAPolicyEvent
+--- PASS: TestCheckerBlockedNoticeIsAPolicyEvent (0.00s)
+=== RUN   TestCheckerMaxTurnsMatchesTheQualificationSpike
+--- PASS: TestCheckerMaxTurnsMatchesTheQualificationSpike (0.00s)
+=== RUN   TestCheckerWriteOutsideScratchOrDeliverablesVoids
+=== RUN   TestCheckerWriteOutsideScratchOrDeliverablesVoids/outside_scratch
+=== RUN   TestCheckerWriteOutsideScratchOrDeliverablesVoids/deliverables
+--- PASS: TestCheckerWriteOutsideScratchOrDeliverablesVoids (0.00s)
+    --- PASS: TestCheckerWriteOutsideScratchOrDeliverablesVoids/outside_scratch (0.00s)
+    --- PASS: TestCheckerWriteOutsideScratchOrDeliverablesVoids/deliverables (0.00s)
+=== RUN   TestCheckerTamperedDeliverableHashVoids
+--- PASS: TestCheckerTamperedDeliverableHashVoids (0.00s)
+=== RUN   TestCheckerRejectsInvalidVerification
+--- PASS: TestCheckerRejectsInvalidVerification (0.02s)
+=== RUN   TestCheckerAcceptsAShortAndAFullRecord
+--- PASS: TestCheckerAcceptsAShortAndAFullRecord (0.00s)
+=== RUN   TestSeatbeltProfileDeniesWritesExceptScratch
+--- PASS: TestSeatbeltProfileDeniesWritesExceptScratch (0.00s)
+=== RUN   TestSeatbeltIsUnqualifiedUntilTheFlagIsSet
+--- PASS: TestSeatbeltIsUnqualifiedUntilTheFlagIsSet (0.00s)
+=== RUN   TestSessionReadDeniesCanonicalizesTheRootOnly
+--- PASS: TestSessionReadDeniesCanonicalizesTheRootOnly (0.00s)
+=== RUN   TestMacProfileHidesRealSessionDirs
+--- PASS: TestMacProfileHidesRealSessionDirs (0.00s)
+=== RUN   TestLoginOverlayIsPerRun
+--- PASS: TestLoginOverlayIsPerRun (0.00s)
+=== RUN   TestCheckerRunTmpIsRemovedAlone
+--- PASS: TestCheckerRunTmpIsRemovedAlone (0.00s)
+=== RUN   TestCheckerNeverStartsUnderTheDaemonHome
+--- PASS: TestCheckerNeverStartsUnderTheDaemonHome (0.00s)
+=== RUN   TestCheckerRelocatesAwayFromInstructionAncestors
+--- PASS: TestCheckerRelocatesAwayFromInstructionAncestors (0.00s)
+=== RUN   TestCheckerRejectsFilenamesThatCouldRewriteTheBrief
+--- PASS: TestCheckerRejectsFilenamesThatCouldRewriteTheBrief (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.628s
+EXIT:0

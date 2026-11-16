@@ -21,8 +21,7 @@ export function DecisionBar({ view, passkeys = browserPasskeys }: { view: Packag
   const pkg = view.package;
   // The server's actions with the acceptance rule applied (ruling 16), the same rule the board uses.
   const actions = useOfferedActions(pkg);
-  const role = pkg.agent_assignment[0]?.role;
-  const label = (k: DecisionKind) => decisionLabel(k, role);
+  const label = (k: DecisionKind) => decisionLabel(k);
   const [pending, setPending] = useState<DecisionKind | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);

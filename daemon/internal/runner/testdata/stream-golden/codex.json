@@ -1,0 +1,87 @@
+[
+  {
+    "line": "{\"type\":\"thread.started\",\"thread_id\":\"t\"}",
+    "ended": false,
+    "failed": false,
+    "events": []
+  },
+  {
+    "line": "{\"type\":\"item.started\",\"item\":{\"id\":\"i1\",\"type\":\"command_execution\",\"command\":\"python3 calc.py --x 1\",\"status\":\"in_progress\"}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "tool_start",
+        "at": "2026-10-31T12:00:00Z",
+        "tool": "command",
+        "summary": "Run: python3",
+        "input_digest": "956d17d9df48c77200ee9a1ef9d90fa52f8a57a419c0579798c464c69a297c08",
+        "call_id": "i1"
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"item.completed\",\"item\":{\"id\":\"i1\",\"type\":\"command_execution\",\"command\":\"python3 calc.py --x 1\",\"exit_code\":2,\"status\":\"failed\"}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "tool_end",
+        "at": "2026-10-31T12:00:00Z",
+        "tool": "command",
+        "call_id": "i1",
+        "ok": false
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"item.completed\",\"item\":{\"id\":\"i2\",\"type\":\"file_change\",\"changes\":[{\"path\":\"out/report.md\",\"kind\":\"add\"}]}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "file_change",
+        "at": "2026-10-31T12:00:00Z",
+        "path": "out/report.md"
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"item.completed\",\"item\":{\"id\":\"i3\",\"type\":\"agent_message\",\"text\":\"Done.\"}}",
+    "ended": false,
+    "failed": false,
+    "events": [
+      {
+        "kind": "message",
+        "at": "2026-10-31T12:00:00Z",
+        "text": "Done."
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":100,\"cached_input_tokens\":40,\"output_tokens\":9}}",
+    "ended": true,
+    "failed": false,
+    "events": [
+      {
+        "kind": "usage",
+        "at": "2026-10-31T12:00:00Z",
+        "input_tokens": 100,
+        "output_tokens": 9,
+        "cached_tokens": 40
+      }
+    ]
+  },
+  {
+    "line": "{\"type\":\"turn.failed\",\"error\":{\"message\":\"rate limited\"}}",
+    "ended": true,
+    "failed": true,
+    "events": [
+      {
+        "kind": "error",
+        "at": "2026-10-31T12:00:00Z",
+        "text": "rate limited"
+      }
+    ]
+  }
+]

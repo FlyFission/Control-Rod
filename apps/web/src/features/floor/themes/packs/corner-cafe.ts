@@ -6,7 +6,8 @@ export default {
   "title": "The Coffee House Crew",
   "description": "Good coffee, good company, everything shipped by Friday.",
   "moodTags": [
-    "Adventure"
+    "Cozy",
+    "Domestic"
   ],
   "availability": "development",
   "tokens": {
@@ -19,9 +20,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/corner-cafe/scene.848a79f95e15.svg",
-      "sha256": "848a79f95e15eeffe3f32d2aa6d0b6397128c0cdd440f033e8dd1ab27d94038a",
-      "bytes": 27350,
+      "path": "/floor-themes/corner-cafe/scene.796d683d85be.svg",
+      "sha256": "796d683d85beaade56929dd6d14c5de9dcb4b8fc9065cd6ca3c45f71a78373b4",
+      "bytes": 10908,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +30,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/corner-cafe/thumbnail.c824c12872cd.svg",
-      "sha256": "c824c12872cdb29de869cc667f041b71923e68ee88194824d8d85006060b282f",
-      "bytes": 34104,
+      "path": "/floor-themes/corner-cafe/thumbnail.a03044c89b13.svg",
+      "sha256": "a03044c89b134f6aa20d274ec2586a64be58dc0efecff21af7c4870711aa9e18",
+      "bytes": 16627,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +41,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/corner-cafe/character-0.aa4fc095d9cc.svg",
-        "sha256": "aa4fc095d9ccbc786729522f5ee1c5a9a4f7bc0a7ea9f42a7ee860d95a09d748",
-        "bytes": 1191,
+        "path": "/floor-themes/corner-cafe/character-0.da03b254acbf.svg",
+        "sha256": "da03b254acbf1c3fa89406d4ce508e7c74ba566403c8c1c9d7080af16d3ee946",
+        "bytes": 928,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +51,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/corner-cafe/character-1.6dec0302a07d.svg",
-        "sha256": "6dec0302a07d8cd698ca94f6104f3ba9bfc39aead5bf430764644b366d081112",
-        "bytes": 1011,
+        "path": "/floor-themes/corner-cafe/character-1.286a2d579420.svg",
+        "sha256": "286a2d5794202014caae872ffff1b89fd7091c41e57485bfcb13f8567212385a",
+        "bytes": 1034,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +61,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/corner-cafe/character-2.de7f7a1fac6b.svg",
-        "sha256": "de7f7a1fac6bf0bf28bfef374b245912349b2c39875de050deff0da017f1e8b5",
-        "bytes": 1198,
+        "path": "/floor-themes/corner-cafe/character-2.3e4f9a121fd0.svg",
+        "sha256": "3e4f9a121fd0330f5c616ab904456fda9aa7c09f7dfd3ee58b720bbafedbe087",
+        "bytes": 955,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +71,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/corner-cafe/character-3.6a6d18479993.svg",
-        "sha256": "6a6d184799932a35f8cc16ed9b8b04b4c10b0e9ca1aef35b9f04f0a99d998451",
-        "bytes": 1058,
+        "path": "/floor-themes/corner-cafe/character-3.d7e1c138e938.svg",
+        "sha256": "d7e1c138e9382a5b495673ca05bc92c1476ce918eac87ba2220c7f7528492fc5",
+        "bytes": 889,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +81,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/corner-cafe/character-4.4063186b329a.svg",
-        "sha256": "4063186b329abb52193e6932cc5ccda595ed97bc75fc85b1b369ce7616b11062",
-        "bytes": 1148,
+        "path": "/floor-themes/corner-cafe/character-4.6eb3bd782c8d.svg",
+        "sha256": "6eb3bd782c8dc1112ceb5ebc8e7e3aa2c4a6b2e2b440d4c6589b6ecc8865caa1",
+        "bytes": 884,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +91,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/corner-cafe/character-5.a97ceaea0174.svg",
-        "sha256": "a97ceaea01744c89e46920cf77ba15d4dbdf1d7fdc9ce9fe2a415bb107608631",
-        "bytes": 1044,
+        "path": "/floor-themes/corner-cafe/character-5.02402f016713.svg",
+        "sha256": "02402f0167133eff5b516104bc250bb6dff469d10ff2d052e9385b55b0aa4f6d",
+        "bytes": 925,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

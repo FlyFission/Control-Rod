@@ -24,6 +24,7 @@ import { Registers } from "./pages/Registers.js";
 import { Roster } from "./pages/Roster.js";
 import { SignIn } from "./pages/SignIn.js";
 import { Usage } from "./pages/Usage.js";
+import { Subscriptions } from "./pages/Subscriptions.js";
 
 /**
  * Decides between the sign-in page and the app from the session query. Exported so tests can drive
@@ -83,6 +84,7 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/usage", component: Usage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/records", component: Records }),
   createRoute({ getParentRoute: () => rootRoute, path: "/policies", component: Policies }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/settings/subscriptions", component: Subscriptions }),
 ];
 
 const packageRoute = createRoute({

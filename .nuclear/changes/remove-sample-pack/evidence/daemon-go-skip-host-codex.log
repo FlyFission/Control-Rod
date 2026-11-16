@@ -1,0 +1,9 @@
+# tree: remove-example-package at f5ecc39 (merged with origin/main 8a9679e), 2026-11-06T21:20:47Z
+$ go test ./... -skip TestInstalledCodexLeavesOnlyQualifiedFeatures -count=1
+?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	0.604s
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.003s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	18.815s
+?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
+?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]
+exit 0

@@ -22,13 +22,13 @@ Control Rod keeps the freedom and moves the final say. **You can work however yo
 | Run Claude Code, Codex or both, on your own subscriptions | Check its own work. The checker runs separately and never sees the author's transcript. |
 | Stop a run, send work back with notes, or override a rule *on the record*, with a reason | Edit its own acceptance criteria, policies or tests |
 | Change what "done" means for a task, as long as you re-sign it | Type up a number and have it believed. Values have to come from a tool run that left evidence. |
-| Set it up for software changes or for engineering deliverables like a example package | Get an answer without a reason. When the system refuses something, it says why. |
+| Set it up for software changes or for engineering deliverables like a calculation package or a scope of work | Get an answer without a reason. When the system refuses something, it says why. |
 
 The deciding logic is a small Rust program (the *kernel*) that agents never touch. Evidence is captured by the system while the work happens, not written up afterward by the agent. We keep a [catalog of every known way around a control](tests/redteam/catalog.yaml); each one is meant to become a test that keeps failing, and some are still pending.
 
 ## How it feels
 
-1. **Say what you want.** "Fix the login redirect." "Site a facility for this project," with a file attached.
+1. **Say what you want.** "Fix the login redirect." "Draft a scope of work from these field notes," with a file attached.
 2. **It becomes a task with a definition of done.** An intake agent either answers you or drafts one or more work packages, each with clear acceptance criteria. You read them, edit them, and release them with your passkey.
 3. **Agents do the work.** You can watch from the board or the office view. Each run starts inside the sandbox policy recorded for it, and is stopped with one click if it goes sideways.
 4. **A different agent checks it.** It doesn't get the author's chain of thought, only the result and the evidence.
@@ -84,7 +84,7 @@ The repo is built under its own discipline: each change gets a short record unde
 | `kernel/` | The Rust kernel that decides every state change |
 | `daemon/` | The Go daemon that runs agents and collects evidence |
 | `spec/` | The contracts everything else is generated from |
-| `packs/` | Domain packs: example package and drawings, plus the general-purpose agent roles |
+| `packs/` | Domain packs: the general-purpose agent roles and the software pack |
 | `docs/` | Guides, decisions, specs and plans, starting at [docs/README.md](docs/README.md) |
 | `policies/`, `connectors/`, `runtimes/`, `deploy/` | Placeholders for what's planned |
 

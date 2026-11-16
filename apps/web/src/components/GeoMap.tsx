@@ -20,7 +20,7 @@ export default function GeoMap({ data }: { data: unknown }) {
     }).addTo(map);
     const bounds = layer.getBounds();
     if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });
-    else map.setView([34.0, -81.0], 7);
+    else map.setView([20, 0], 2);
     return () => {
       map.remove();
     };

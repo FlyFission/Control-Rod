@@ -95,7 +95,7 @@ func TestDeniedExpandsHomeAndAlwaysAddsTheDaemonHome(t *testing.T) {
 func TestClaudeSettingsConfineReadsAndKeepTheWorkspaceOpen(t *testing.T) {
 	ws := &Workspace{Dir: "/home/u/.controlrod/work/WP-1/r0/author-1-r1"}
 	p := testPolicy()
-	p.AllowedHosts = []string{"geo.dot.gov"}
+	p.AllowedHosts = []string{"docs.example.org"}
 	var s struct {
 		Sandbox struct {
 			Enabled, FailIfUnavailable, AllowUnsandboxedCommands, AutoAllowBashIfSandboxed bool
@@ -127,7 +127,7 @@ func TestClaudeSettingsConfineReadsAndKeepTheWorkspaceOpen(t *testing.T) {
 			t.Errorf("%s not denied: %q %q", d, s.Sandbox.Filesystem.DenyRead, s.Permissions.Deny)
 		}
 	}
-	if !slices.Equal(s.Sandbox.Network.AllowedDomains, []string{"geo.dot.gov"}) {
+	if !slices.Equal(s.Sandbox.Network.AllowedDomains, []string{"docs.example.org"}) {
 		t.Errorf("network %q", s.Sandbox.Network.AllowedDomains)
 	}
 	// No hooks unless the run records permission requests.

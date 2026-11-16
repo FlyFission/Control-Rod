@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/clockwork-observatory/scene.4d57ca87ec3c.svg",
-      "sha256": "4d57ca87ec3c70b86b48dedd589cc75a840b7acdd8a723b51f01ce0a17a31e20",
-      "bytes": 14390,
+      "path": "/floor-themes/clockwork-observatory/scene.ec234c06a4cc.svg",
+      "sha256": "ec234c06a4cc73de5a095544c270c46858c31f6ba9f3b37edccdfaecc88068d3",
+      "bytes": 14809,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/clockwork-observatory/thumbnail.a9def1640ef7.svg",
-      "sha256": "a9def1640ef7ce586531d8ecac7d60006aa1c544eaa21908261f343840b3c24b",
-      "bytes": 22346,
+      "path": "/floor-themes/clockwork-observatory/thumbnail.d358c37a6814.svg",
+      "sha256": "d358c37a68144e56dd02b5e374530d80725f3ba57658ea43a1e869305bdd6014",
+      "bytes": 19702,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/clockwork-observatory/character-0.ae2752ba6cef.svg",
-        "sha256": "ae2752ba6cefb4e773bbbe7fa1465ec47e1057a725e331ffe1459ec08f8f3c0f",
-        "bytes": 1304,
+        "path": "/floor-themes/clockwork-observatory/character-0.68745971f9f7.svg",
+        "sha256": "68745971f9f74572bff7ca476b6f37c30a7bbe66522730507b5aa7fa4cc50b47",
+        "bytes": 822,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/clockwork-observatory/character-1.89c9d951bf63.svg",
-        "sha256": "89c9d951bf63575aedd560bc83f9663abfb3172da317ea1b106a112ed82c0f01",
-        "bytes": 1308,
+        "path": "/floor-themes/clockwork-observatory/character-1.ba582be9a94d.svg",
+        "sha256": "ba582be9a94d17b56787da618a29536288c8ac638932b4543e707a5ff629c2cb",
+        "bytes": 818,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/clockwork-observatory/character-2.ec8ceb1057e5.svg",
-        "sha256": "ec8ceb1057e56ecda71b8ac8202d0722ec9c2b95c73bf3ff8e6b3bf64e1a01dd",
-        "bytes": 1288,
+        "path": "/floor-themes/clockwork-observatory/character-2.235930812bd3.svg",
+        "sha256": "235930812bd32cd544b27b96c58f1f9e08ad77b6332ea601572d8247d3fe3436",
+        "bytes": 736,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/clockwork-observatory/character-3.ecbeffd628f7.svg",
-        "sha256": "ecbeffd628f795fb87f3ba6f3327f3fe22bcab8133b6f5477833b197e3ac21bb",
-        "bytes": 1313,
+        "path": "/floor-themes/clockwork-observatory/character-3.db86c6818fc8.svg",
+        "sha256": "db86c6818fc8567b08532a2f8c3f183578f0062ecc7e36d923d8981218151317",
+        "bytes": 800,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/clockwork-observatory/character-4.df24e3952088.svg",
-        "sha256": "df24e39520880af9c1e81fc61b19d1273a77ca986ab670f2422b08fdb67f5fb4",
-        "bytes": 1338,
+        "path": "/floor-themes/clockwork-observatory/character-4.4953d49da4cb.svg",
+        "sha256": "4953d49da4cbb1033a212473cfc732505e95cefcd9b38033fa258b333f66334a",
+        "bytes": 853,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/clockwork-observatory/character-5.474e8c62fb85.svg",
-        "sha256": "474e8c62fb851ddb5a3e2fa5a89ed19d061a07888a49cb3702b92fef05f6009f",
-        "bytes": 1301,
+        "path": "/floor-themes/clockwork-observatory/character-5.0b20f7bcd375.svg",
+        "sha256": "0b20f7bcd375d40845db660c03c57e24877496706017b03d6a7940e11d79c037",
+        "bytes": 760,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

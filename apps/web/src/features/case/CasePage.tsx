@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client.js";
 import type { ActionDescriptor, DecisionKind, PackageView, Run, VerificationRecord, WorkPackage } from "../../api/types.js";
 import { decisionLabel } from "../../lib/decide.js";
+import { CheckerHistory } from "../../components/CheckerHistory.js";
 import { DecisionBar } from "../../components/DecisionBar.js";
 import { useOfferedActions } from "../../lib/offered.js";
 import { StateMark } from "../../components/StateMark.js";
@@ -325,6 +326,7 @@ function Checked({ pkg, view, p }: { pkg: WorkPackage; view: PackageView; p: Pre
   return (
     <>
       <PreCheckFloor record={record} compact={p.checked === "compact"} />
+      <CheckerHistory blocked={view.check_blocked} warning={view.check_warning} attempts={view.checker_attempts} overrides={view.recheck_overrides} />
       {record !== undefined && p.checked !== "compact" && (
         <>
           <h3>Findings</h3>
@@ -482,7 +484,6 @@ function SignStrip({ view }: { view: PackageView }) {
   const offered = useOfferedActions(view.package);
   const loading = offered.isLoading;
   const failed = offered.isError;
-  const role = view.package.agent_assignment[0]?.role;
   const decisions = (offered.data ?? []).filter((a) => ["release", "accept", "accept-with-findings", "return", "reject"].includes(a.command));
   const allowed = decisions.filter((a) => a.allowed);
   const first = decisions.find((a) => !a.allowed);
@@ -495,7 +496,7 @@ function SignStrip({ view }: { view: PackageView }) {
           : failed
             ? "What you may sign could not be checked"
             : allowed.length > 0
-              ? `You may ${allowed.map((a) => decisionLabel(a.command as DecisionKind, role).toLowerCase()).join(", ")}`
+              ? `You may ${allowed.map((a) => decisionLabel(a.command as DecisionKind).toLowerCase()).join(", ")}`
               : (first?.reason ?? "No decision is open on this revision")}
       </span>
       <a href="#sign" className="btn primary small">

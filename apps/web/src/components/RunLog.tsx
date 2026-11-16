@@ -6,6 +6,7 @@ import { isVisible } from "../lib/live.js";
 import { type Passkeys, browserPasskeys, signOverride, signReconcile } from "../lib/decide.js";
 import { time } from "../lib/format.js";
 import { StateMark, type StateKind } from "./StateMark.js";
+import { VendorBadge } from "./VendorBadge.js";
 
 export function runState(run: Run): StateKind {
   switch (run.status) {
@@ -173,6 +174,7 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packag
         <span>round {run.round}</span>
         <span className="muted small">{runStatusText(run)}</span>
         <span className="muted small mono">{run.runtime.provider}</span>
+        <VendorBadge provider={run.runtime.provider} />
       </summary>
       <div className="run-body">
         <p className="muted small">

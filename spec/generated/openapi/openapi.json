@@ -1549,6 +1549,208 @@
         }
       }
     },
+    "/packages/{id}/checker-attempts": {
+      "get": {
+        "operationId": "Packages_checkerAttempts",
+        "description": "Checker attempts for this package, oldest first. limit keeps the latest ones (1 to 100).\nbefore, a seq, returns the page older than that attempt.\nTimeout, error, quota and cancelled attempts are in the list and count as inconclusive.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "explode": false
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 1
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ControlRod.Records.CheckerAttempt"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/checks": {
+      "post": {
+        "operationId": "Packages_requestCheck",
+        "description": "Ask for a check of the current author deliverables. 201 when a check is queued.\n409 check-active when one is already queued or running.\n409 sticky-fail when a check of that digest has already failed and no signed recheck override\nis waiting to be used.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The request has succeeded and a new resource has been created as a result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/decisions": {
       "post": {
         "operationId": "Packages_decide",
@@ -3175,6 +3377,234 @@
         }
       }
     },
+    "/packages/{id}/recheck-overrides": {
+      "post": {
+        "operationId": "Packages_recordRecheckOverride",
+        "description": "Step 2: the signed override. It authorizes one check of the deliverable digest the owner was\nshown. Recorded with the reason and the assertion. A later check needs another signature.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlRod.Records.RecheckOverride"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "assertion": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "required": [
+                  "reason",
+                  "assertion"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/recheck-overrides/options": {
+      "post": {
+        "operationId": "Packages_recheckOverrideOptions",
+        "description": "Step 1 of the owner's override to check a failed deliverable again. The digest covers the\npackage, the revision, the deliverable digest, the act \"recheck-override\" and the reason.\nThe same passkey ceremony as the independence override.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subject_digest": {
+                      "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                    },
+                    "deliverable_digest": {
+                      "$ref": "#/components/schemas/ControlRod.Records.Digest"
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "subject_digest",
+                    "deliverable_digest",
+                    "options"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Packages.OverrideRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/packages/{id}/runs/{runId}/events": {
       "get": {
         "operationId": "Packages_runEvents",
@@ -4709,6 +5139,10 @@
                       "$ref": "#/components/schemas/Runner.RuntimeStatus"
                     }
                   },
+                  "subscription_report": {
+                    "$ref": "#/components/schemas/SubscriptionReport",
+                    "description": "Provider CLI probes for Settings. Output of a status command is not included."
+                  },
                   "run_ceiling_seconds": {
                     "type": "integer",
                     "format": "int32",
@@ -5721,6 +6155,25 @@
                       "$ref": "#/components/schemas/ApiError"
                     }
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions": {
+      "get": {
+        "operationId": "subscriptions",
+        "description": "Settings > Subscriptions. The daemon's probe of registered provider CLIs.\nControl Rod does not accept or return a token.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionView"
                 }
               }
             }
@@ -8180,6 +8633,184 @@
           "withdrawn"
         ]
       },
+      "ControlRod.Records.CheckBlocked": {
+        "type": "object",
+        "required": [
+          "code",
+          "reason",
+          "change",
+          "deliverable_digest"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "sticky-fail"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "change": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "deliverable_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        },
+        "description": "A fail on the current deliverable digest is sticky: another check is refused until the\ndeliverable changes or the owner signs an override. The words are what the API and the page show."
+      },
+      "ControlRod.Records.CheckWarning": {
+        "type": "object",
+        "required": [
+          "code",
+          "reason",
+          "count"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "repeated-inconclusive"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 3
+          }
+        },
+        "description": "Several checks of this digest were inconclusive. Another check is still allowed.\nThe page warns; it does not refuse the check."
+      },
+      "ControlRod.Records.CheckerAttempt": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "id",
+          "package_id",
+          "package_revision",
+          "run_id",
+          "round",
+          "checker_runtime",
+          "outcome",
+          "counts_as",
+          "started_at",
+          "finished_at",
+          "evidence"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "round": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "checker_runtime": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "The checker runtime the daemon assigned. \"unassigned\" when the run never started."
+          },
+          "reported_model": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The model the runtime said it used. Absent when it did not say."
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "description": "Place in the package's attempt history. Older attempts are read with before set to this value."
+          },
+          "deliverable_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Digest of the author deliverables this attempt checked, names and digests in name order.\nAbsent when digest_unknown is set: the bytes were not captured, and the attempt is not\nattached to the deliverable the package holds now."
+          },
+          "digest_unknown": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "The bytes this attempt checked were not captured. It does not stick to today's deliverable."
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckerAttemptOutcome"
+          },
+          "counts_as": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "inconclusive"
+            ],
+            "description": "pass and fail stand. inconclusive, timeout, error, quota and cancelled count as inconclusive."
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Where to read the evidence: the run log, which holds the trace, the error and the outputs.\nWhen a verification was admitted, verification_run_id names that record too."
+          },
+          "verification_run_id": {
+            "type": "string",
+            "description": "Set when a verification record was admitted for this attempt."
+          },
+          "recheck_override": {
+            "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride",
+            "description": "The signed override that allowed this attempt after a fail on the same digest."
+          }
+        },
+        "description": "One checker attempt on one deliverable digest. Append-only: a later attempt is a new row.\nAdded in API 0.1; existing records are unchanged."
+      },
+      "ControlRod.Records.CheckerAttemptOutcome": {
+        "type": "string",
+        "enum": [
+          "pass",
+          "fail",
+          "inconclusive",
+          "timeout",
+          "error",
+          "quota",
+          "cancelled"
+        ],
+        "description": "What one checker attempt counts as. A checker may report pass, fail or inconclusive.\nTimeout, error, quota and cancelled are recorded as themselves and count as inconclusive:\nthey are never a pass, and they never erase a fail already recorded for the same deliverable."
+      },
       "ControlRod.Records.CodeOrStandard": {
         "type": "object",
         "required": [
@@ -9292,6 +9923,36 @@
         },
         "description": "A person's signed review of one run SCRAM stopped, whose output was quarantined. (A)"
       },
+      "ControlRod.Records.RecheckOverride": {
+        "type": "object",
+        "required": [
+          "id",
+          "package_id",
+          "package_revision",
+          "deliverable_digest",
+          "override"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "package_id": {
+            "type": "string"
+          },
+          "package_revision": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "deliverable_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "override": {
+            "$ref": "#/components/schemas/ControlRod.Records.OwnerOverride"
+          }
+        },
+        "description": "One signed override allowing a single re-check of a deliverable that already failed."
+      },
       "ControlRod.Records.Reconciliation": {
         "type": "object",
         "required": [
@@ -9529,9 +10190,140 @@
               "not-observable"
             ],
             "description": "Whether this run can show that it needs a person's permission (plan task 2.9). observed: a\nClaude Code PermissionRequest hook reports each request. not-observable: Codex exec mode gives\nno such signal, so a refused action shows only as a failed tool call."
+          },
+          "attestation_verified": {
+            "type": "boolean",
+            "description": "Whether the server verified the daemon's attestation for this run.\nThe kernel does not read this until a later milestone."
+          },
+          "attestation_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Why the attestation did or did not verify, in plain words."
+          },
+          "checker_attempt_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "The checker attempt this run will be recorded as. Assigned when a pre-check\nstarts, and the value the daemon signs as check_id."
           }
         },
         "description": "One agent session working on one package revision in one role."
+      },
+      "ControlRod.Records.RunAttestation": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "run_id",
+          "nonce",
+          "artifact_digest",
+          "policy_digest",
+          "effective_config_digest",
+          "effective_endpoint",
+          "endpoint_enforcement",
+          "observed_models",
+          "platform",
+          "probe_result",
+          "workspace_before",
+          "workspace_after",
+          "key_id",
+          "signature"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "32 bytes, hex. Unique for the signing key."
+          },
+          "artifact_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "policy_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "effective_config_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "effective_endpoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "The registry host, or the endpoint the effective config named."
+          },
+          "endpoint_enforcement": {
+            "type": "string",
+            "enum": [
+              "endpoint not enforced",
+              "enforced"
+            ]
+          },
+          "observed_models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Every model name in the stream, sorted."
+          },
+          "platform": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "probe_result": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "not-run"
+            ]
+          },
+          "workspace_before": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "workspace_after": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          },
+          "requested_model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "The model the run asked for, after the same resolution the daemon uses.\nOptional on the wire. A counted check still has to carry it."
+          },
+          "check_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "The check this statement belongs to. An attempt id when one was assigned,\notherwise `<run id>:<package revision>`. Optional on the wire. A counted\ncheck still has to carry it."
+          },
+          "deliverable_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Canonical digest of the author deliverable names and byte digests. Optional on the wire."
+          },
+          "verification_digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest",
+            "description": "Canonical digest of the verification submission: outcome, findings,\ncriterion results, and evidence artifact digests. Optional on the wire."
+          },
+          "key_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Hex SHA-256 of the raw 32-byte public key."
+          },
+          "signature": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Standard base64 of the 64-byte Ed25519 signature."
+          }
+        },
+        "description": "What the daemon signs for one counted pre-check (ADR 0022). The signature is Ed25519 over the\nSHA-256 of the RFC 8785 form of every field except `signature` and `key_id`."
       },
       "ControlRod.Records.RunRole": {
         "type": "string",
@@ -10056,6 +10848,10 @@
           "independence": {
             "$ref": "#/components/schemas/ControlRod.Records.PreCheckIndependence",
             "description": "Whether the checker ran on a runtime other than the author's, and any owner override."
+          },
+          "attestation_verified": {
+            "type": "boolean",
+            "description": "Set by the server after it checks the daemon's attestation. The kernel does not read this.\nAbsent means the run was not a counted vendor check."
           }
         },
         "description": "Evidence that a result met its criteria. Inconclusive never counts as a pass."
@@ -10491,6 +11287,28 @@
           "pre_check": {
             "$ref": "#/components/schemas/ControlRod.Records.VerificationRecord"
           },
+          "checker_attempts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.CheckerAttempt"
+            },
+            "description": "The latest checker attempts for this package, oldest of that page first, including inconclusive,\ntimeout, error, quota and cancelled. At most 50. Older attempts are on GET /checker-attempts."
+          },
+          "recheck_overrides": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ControlRod.Records.RecheckOverride"
+            },
+            "description": "Signed overrides that allow one more check of a deliverable a check had already failed."
+          },
+          "check_blocked": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckBlocked",
+            "description": "Set when the governing decisive outcome for the current deliverable is fail.\nAbsent after an in-scope overridden recheck passes, when the digest changed, or when an\nunused override is waiting."
+          },
+          "check_warning": {
+            "$ref": "#/components/schemas/ControlRod.Records.CheckWarning",
+            "description": "Set when several checks of the current digest were inconclusive. A warning only:\nanother check is still allowed."
+          },
           "decisions": {
             "type": "array",
             "items": {
@@ -10918,6 +11736,10 @@
           "verification": {
             "$ref": "#/components/schemas/ControlRod.Records.VerificationRecord"
           },
+          "attestation": {
+            "$ref": "#/components/schemas/ControlRod.Records.RunAttestation",
+            "description": "The daemon's signed statement for a counted pre-check. Absent for other runs."
+          },
           "criterion_results": {
             "$ref": "#/components/schemas/ControlRod.Preparation.CriterionResultSubmission"
           },
@@ -11320,6 +12142,246 @@
           }
         },
         "description": "One seal as verification found it."
+      },
+      "SubscriptionChecker": {
+        "type": "object",
+        "required": [
+          "id",
+          "harness",
+          "deciding",
+          "local",
+          "hosts"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "harness": {
+            "type": "string"
+          },
+          "vendor_family": {
+            "type": "string"
+          },
+          "deciding": {
+            "type": "boolean"
+          },
+          "local": {
+            "type": "boolean"
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "One model in the daemon's checker registry. Not a live probe."
+      },
+      "SubscriptionPin": {
+        "type": "object",
+        "required": [
+          "runtime",
+          "role",
+          "digest"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "author",
+              "checker"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/ControlRod.Records.Digest"
+          }
+        },
+        "description": "A pin joined to the version string the passing probe recorded. Checker is the pre-check role."
+      },
+      "SubscriptionProbe": {
+        "type": "object",
+        "required": [
+          "id",
+          "display_name",
+          "installed",
+          "auth",
+          "roles"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "vendor_family": {
+            "type": "string"
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "observed_version": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "auth": {
+            "type": "string",
+            "enum": [
+              "signed-in",
+              "signed-out",
+              "unknown"
+            ],
+            "description": "From the CLI's own status command, or unknown when it has none."
+          },
+          "auth_note": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionRole"
+            }
+          }
+        },
+        "description": "One registered provider CLI, as the daemon probed it."
+      },
+      "SubscriptionReport": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "probes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionProbe"
+            }
+          },
+          "checkers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionChecker"
+            }
+          },
+          "local_rule": {
+            "type": "string"
+          }
+        },
+        "description": "The claim payload. The same probe models the settings page returns."
+      },
+      "SubscriptionRole": {
+        "type": "object",
+        "required": [
+          "role",
+          "qualified",
+          "reason"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "author",
+              "checker"
+            ]
+          },
+          "qualified": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "SubscriptionTier": {
+        "type": "object",
+        "required": [
+          "grade",
+          "required",
+          "rule"
+        ],
+        "properties": {
+          "grade": {
+            "type": "string",
+            "enum": [
+              "safety",
+              "material",
+              "general-service"
+            ]
+          },
+          "required": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "rule": {
+            "type": "string"
+          }
+        },
+        "description": "How many checkers a grade needs. Safety is 2, from different vendor families; every other grade is 1."
+      },
+      "SubscriptionView": {
+        "type": "object",
+        "required": [
+          "reported",
+          "probes",
+          "checkers",
+          "tiers",
+          "local_rule",
+          "pins"
+        ],
+        "properties": {
+          "reported": {
+            "type": "boolean",
+            "description": "False until a daemon has reported. Probes are empty then, and none are invented."
+          },
+          "reported_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "probes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionProbe"
+            }
+          },
+          "checkers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionChecker"
+            }
+          },
+          "tiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionTier"
+            }
+          },
+          "local_rule": {
+            "type": "string"
+          },
+          "pins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionPin"
+            }
+          }
+        }
       }
     }
   },

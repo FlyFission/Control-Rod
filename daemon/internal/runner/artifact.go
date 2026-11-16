@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -38,6 +40,8 @@ type RuntimePin struct {
 	Runtime string `json:"runtime"`
 	Digest  Digest `json:"digest"`
 	Version string `json:"version,omitempty"`
+	// Model is used when the run itself names no model. Absent on pins recorded today.
+	Model string `json:"model,omitempty"`
 }
 
 // maxArtifactBytes bounds the files a probe will hash (each, and a tree in total).
@@ -357,9 +361,6 @@ func StageRoot() string {
 	return filepath.Join(tmp, fmt.Sprintf("controlrod-runtimes-%d", os.Getuid()))
 }
 
-// stagedRuntimes are the runtimes launched from a staged copy.
-var stagedRuntimes = map[string]bool{RuntimeCodex: true}
-
 // ErrArtifactMismatch means the executable on disk is not the one the run may launch.
 var ErrArtifactMismatch = errors.New("runtime artifact mismatch")
 
@@ -392,11 +393,19 @@ func (l *VerifiedLaunch) Close() {
 // first and its digest computed from that open file, so the bytes checked are the bytes that run.
 // A mismatch fails closed with a sentence a person can act on.
 func VerifyLaunch(runtimeName string, pin *RuntimePin, probed *RuntimeArtifact) (*VerifiedLaunch, error) {
-	got, err := resolveArtifact(runtimeName)
+	// runtimeName is the registry id. The PATH lookup uses Binary() when this id is registered;
+	// for Claude and Codex that name equals the id.
+	binary := runtimeName
+	var stager ArtifactStager
+	if a, ok := AdapterFor(runtimeName); ok {
+		binary = a.Binary()
+		stager, _ = a.(ArtifactStager)
+	}
+	got, err := resolveArtifact(binary)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s cannot be found or read: %v", ErrArtifactMismatch, runtimeName, err)
 	}
-	if stagedRuntimes[runtimeName] {
+	if stager != nil && stager.StagesArtifact() {
 		// Launched from its staged copy, checked below exactly as the install would be.
 		if got, err = StageArtifact(got, StageRoot()); err != nil {
 			return nil, fmt.Errorf("%w: %s cannot be staged outside the home folder: %v", ErrArtifactMismatch, runtimeName, err)
@@ -503,6 +512,20 @@ var confirmWait = 10 * time.Second
 // then is the lease released. Elsewhere it does nothing (the documented limit for launch by
 // verified path).
 func (l *VerifiedLaunch) Confirm(pid int) error {
+	return l.confirm(func(info os.FileInfo) bool { return processRuns(pid, info) })
+}
+
+// ConfirmSandbox is Confirm for a checker. Bubblewrap, and systemd-run when
+// cgroup containment wraps that, stay above the verified runtime. Any
+// descendant of the started pid may be that runtime. Author launches do not
+// use this.
+func (l *VerifiedLaunch) ConfirmSandbox(pid int) error {
+	return l.confirm(func(info os.FileInfo) bool {
+		return processRuns(pid, info) || childRuns(pid, info)
+	})
+}
+
+func (l *VerifiedLaunch) confirm(seen func(os.FileInfo) bool) error {
 	if l == nil || l.File == nil || runtime.GOOS != "linux" {
 		return nil
 	}
@@ -512,8 +535,7 @@ func (l *VerifiedLaunch) Confirm(pid int) error {
 	}
 	deadline := time.Now().Add(confirmWait)
 	for {
-		exe, err := os.Stat(fmt.Sprintf("/proc/%d/exe", pid))
-		if err == nil && os.SameFile(exe, info) {
+		if seen(info) {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -529,4 +551,64 @@ func (l *VerifiedLaunch) Confirm(pid int) error {
 		l.leased = false
 	}
 	return nil
+}
+
+func processRuns(pid int, info os.FileInfo) bool {
+	exe, err := os.Stat(fmt.Sprintf("/proc/%d/exe", pid))
+	return err == nil && os.SameFile(exe, info)
+}
+
+func childRuns(root int, info os.FileInfo) bool {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil || pid == root || !processRuns(pid, info) {
+			continue
+		}
+		if descendedFrom(pid, root) {
+			return true
+		}
+	}
+	return false
+}
+
+// descendedFrom reports whether pid is root or a descendant of root. A checker
+// launched under systemd-run and bubblewrap is two processes below the pid
+// Start returns, until systemd-run execs into bubblewrap.
+func descendedFrom(pid, root int) bool {
+	for range 8 {
+		if pid == root {
+			return true
+		}
+		if pid <= 1 {
+			return false
+		}
+		next := parentOf(pid)
+		if next == 0 || next == pid {
+			return false
+		}
+		pid = next
+	}
+	return pid == root
+}
+
+func parentOf(pid int) int {
+	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		return 0
+	}
+	s := string(b)
+	r := strings.LastIndexByte(s, ')')
+	if r < 0 {
+		return 0
+	}
+	fields := strings.Fields(s[r+1:])
+	if len(fields) < 2 {
+		return 0
+	}
+	ppid, _ := strconv.Atoi(fields[1])
+	return ppid
 }

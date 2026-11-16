@@ -8,6 +8,7 @@ import {
   ORIGIN,
   daemonHeaders,
 } from "./harness.js";
+import { sealCountedCheck } from "./counted-check.js";
 import { packageFixture } from "./preparation-fixtures.js";
 import { preparationContent } from "../src/preparation/store.js";
 import type { AppOptions } from "../src/app.js";
@@ -126,24 +127,27 @@ export async function preparedHarness(options: Partial<AppOptions> = {}) {
       headers: daemonHeaders,
       payload: { runtimes },
     });
-  const complete = (job: any, extra: Record<string, unknown> = {}) =>
-    h.app.inject({
+  const complete = async (job: any, extra: Record<string, unknown> = {}) => {
+    const payload = {
+      claim_token: job.claim.token,
+      idempotency_key: `completion-${job.run.id}`,
+      status: "succeeded",
+      outputs: [
+        {
+          name: "report.md",
+          content_base64: Buffer.from("Controlled report").toString("base64"),
+        },
+      ],
+      ...extra,
+    };
+    const body = await sealCountedCheck(h.admin, job.run.id, payload);
+    return await h.app.inject({
       method: "POST",
       url: `/runner/runs/${job.run.id}/complete`,
       headers: daemonHeaders,
-      payload: {
-        claim_token: job.claim.token,
-        idempotency_key: `completion-${job.run.id}`,
-        status: "succeeded",
-        outputs: [
-          {
-            name: "report.md",
-            content_base64: Buffer.from("Controlled report").toString("base64"),
-          },
-        ],
-        ...extra,
-      },
-    });
+      payload: body,
+    }) as { statusCode: number; body: string; json: <T = any>() => T };
+  };
   const adminQuery = (sql: string, values?: unknown[]) =>
     tx(h.admin, (c) => c.query(sql, values));
   return {

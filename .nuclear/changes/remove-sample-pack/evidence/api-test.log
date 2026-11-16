@@ -1,0 +1,19 @@
+# tree: remove-example-package at f5ecc39 (merged with origin/main 8a9679e), 2026-11-06T21:19:46Z
+$ pnpm -C services/api test
+
+> @control-rod/api@0.0.0 test /home/flyfission/worktrees/control-rod-sanitize/services/api
+> node ../../tools/test-api.mjs
+
+[test-api] PostgreSQL fixture binaries: /home/flyfission/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.1.0 /home/flyfission/worktrees/control-rod-sanitize/services/api
+
+[control-rod] the database dropped an idle reader connection (terminating connection due to administrator command); a new one opens on next use
+[control-rod] the database dropped an idle writer connection (terminating connection due to administrator command); a new one opens on next use
+
+ Test Files  52 passed (52)
+      Tests  623 passed (623)
+   Start at  16:19:47
+   Duration  38.12s (tests 92%, import 6%, transform 1%)
+
+exit 0

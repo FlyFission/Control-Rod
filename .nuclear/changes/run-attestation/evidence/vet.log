@@ -1,0 +1,20 @@
+2026-11-15 from daemon/
+
+gofmt -w on the attestation files
+CGO_ENABLED=0 go test ./...
+ok confinement, digest, runner
+
+CGO_ENABLED=0 GOOS=linux go vet ./...
+CGO_ENABLED=0 GOOS=darwin go vet ./...
+CGO_ENABLED=0 GOOS=windows go vet ./...
+exit 0
+
+Author launch goldens and kernel/ have no diff.
+The macOS Security.framework file is build-tagged darwin && cgo and was not executed.
+
+2026-11-15 round 2, after merging main at e539a35 (PR #78):
+CGO_ENABLED=0 go test -count=1 ./... passed.
+CGO_ENABLED=0 go vet for linux, darwin, and windows passed.
+Author launch goldens were not edited.
+
+2026-11-15 round 3: Claude -p is boolean. Codex profile forms are refused. -mX and --model=X resolve to the same model. go test of the config parser passed, then the full daemon suite.

@@ -1,0 +1,7 @@
+{"type":"thread.started","thread_id":"t"}
+{"type":"item.started","item":{"id":"i1","type":"command_execution","command":"python3 calc.py --x 1","status":"in_progress"}}
+{"type":"item.completed","item":{"id":"i1","type":"command_execution","command":"python3 calc.py --x 1","exit_code":2,"status":"failed"}}
+{"type":"item.completed","item":{"id":"i2","type":"file_change","changes":[{"path":"out/report.md","kind":"add"}]}}
+{"type":"item.completed","item":{"id":"i3","type":"agent_message","text":"Done."}}
+{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":40,"output_tokens":9}}
+{"type":"turn.failed","error":{"message":"rate limited"}}

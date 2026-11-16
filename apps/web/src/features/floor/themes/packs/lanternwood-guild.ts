@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/lanternwood-guild/scene.5258cca6ae3e.svg",
-      "sha256": "5258cca6ae3e1f53a6e5c71e664f5383fde7cf5f7cc2357be1fe48893527328c",
-      "bytes": 10601,
+      "path": "/floor-themes/lanternwood-guild/scene.180bb86bbc2a.svg",
+      "sha256": "180bb86bbc2a402fbefa36a45f06e61fdb05937517b1c4570c302aeeb77a95f4",
+      "bytes": 21582,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/lanternwood-guild/thumbnail.72eb9ce42a10.svg",
-      "sha256": "72eb9ce42a1026ee3d734078e847f667aa65ef3535df5e949e11fee6b4c3c88d",
-      "bytes": 17105,
+      "path": "/floor-themes/lanternwood-guild/thumbnail.6dc5aeed29aa.svg",
+      "sha256": "6dc5aeed29aaa9c0aaba7825fa1e44ad6de96f8f81ee94025147e2adbd0862f5",
+      "bytes": 26461,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/lanternwood-guild/character-0.58e5014502bc.svg",
-        "sha256": "58e5014502bc0985b191e335a20a93dd8f4e6ee64118e518b310c4b6c4242112",
-        "bytes": 1113,
+        "path": "/floor-themes/lanternwood-guild/character-0.dd5ea31ab4d1.svg",
+        "sha256": "dd5ea31ab4d1114e4c5d6fd40b5d8b2368cd24873c7437ca667fec6f5ec7879a",
+        "bytes": 787,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-1.8f6ac616d5ba.svg",
-        "sha256": "8f6ac616d5ba0f980e46929ae82c1ef7102c88630d0c2cfa31d004c51b5ede30",
-        "bytes": 901,
+        "path": "/floor-themes/lanternwood-guild/character-1.6820ee27e6c0.svg",
+        "sha256": "6820ee27e6c0620862e4a2394dcb292f00c5a1dc26b229938e4c5cf77c4b5f7e",
+        "bytes": 844,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-2.4e8bfa91db53.svg",
-        "sha256": "4e8bfa91db531e8f80dbae5c54a0a47da79eaf8628000be1be64224b1e2c6055",
-        "bytes": 900,
+        "path": "/floor-themes/lanternwood-guild/character-2.eda3d081e3b4.svg",
+        "sha256": "eda3d081e3b49af3c76f37fcfaa675864acc37f7a839ff6f84cdbe385e817311",
+        "bytes": 788,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-3.fc445ab0b422.svg",
-        "sha256": "fc445ab0b4225326b0daacd4879f83f09dbb381a31e456873bfe7ae5f6619a48",
-        "bytes": 926,
+        "path": "/floor-themes/lanternwood-guild/character-3.361b88169a90.svg",
+        "sha256": "361b88169a906df6b22c9189e16ef8b9a27a7b596e208a1f179441cb211b60ed",
+        "bytes": 786,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-4.f882a7beebbd.svg",
-        "sha256": "f882a7beebbd376496ed2e692d638d10e4bc8a6f5149fea99bb87662fdbfb922",
-        "bytes": 1387,
+        "path": "/floor-themes/lanternwood-guild/character-4.822551b09fa5.svg",
+        "sha256": "822551b09fa59c1a8ae208788c9b569f953318fd7d8496df973cb5851b9015b0",
+        "bytes": 785,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/lanternwood-guild/character-5.59fbc18ab722.svg",
-        "sha256": "59fbc18ab7221cd603140710933366be1f637b738d8cb67e18cba91355204c66",
-        "bytes": 1173,
+        "path": "/floor-themes/lanternwood-guild/character-5.ef6ed987f77c.svg",
+        "sha256": "ef6ed987f77c49df1efa2c2a665c2b72fc82ef06ce53ca19a3edcbeb81ae75f2",
+        "bytes": 785,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

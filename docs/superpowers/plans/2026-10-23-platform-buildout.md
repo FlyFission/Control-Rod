@@ -209,7 +209,7 @@ Raw parsing before object conversion; closed runner schemas; immutable history/t
 
 **Interfaces:** pilot + domain contracts → validated reports/calculations/drawings.
 
-**Files:** example-package/drawing packs, tool adapters, reports, SDK, artifact checks (subplans required).
+**Files:** Domain packs, tool adapters, reports, SDK, artifact checks (subplans required).
 
 1. Subprograms in order: pinned tool fetch/atomic publication, authoritative feed adapters, report renderer, calculation SDK, controlled PDF review. Before each, write a bounded interface spec and data/provenance fixtures; never invent engineering inputs. Human signs domain acceptance.
 2. Run the focused test before implementation and record the expected failure. Implement the smallest complete behavior; regenerate contracts where applicable.

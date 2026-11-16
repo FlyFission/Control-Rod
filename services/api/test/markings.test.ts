@@ -38,7 +38,7 @@ async function intake(captureId: string, dataLane: string): Promise<string> {
   expect(job.run.package_id).toBe(captureId);
   claims.set(job.run.id, job.claim.token);
   const draft = {
-    schema_version: "0.1.0", id: "LOADS", revision: 0, title: "Loads", project: "BM-TEST", mode: "capital-projects", status: "draft",
+    schema_version: "0.1.0", id: "LOADS", revision: 0, title: "Loads", project: "PRJ-TEST", mode: "capital-projects", status: "draft",
     rigor_mode: "standard", data_lane: dataLane, objective: "Compute loads", deliverables: [{ id: "LOADS-D1", type: "report", format: ["md"] }],
     design_inputs: [], agent_assignment: [{ role: "general-author", agent_baseline: "author", baseline_revision: 0 }],
     acceptance_criteria: ["The report exists"],

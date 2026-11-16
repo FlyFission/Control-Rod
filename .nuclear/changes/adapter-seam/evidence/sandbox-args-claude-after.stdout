@@ -1,0 +1,43 @@
+{
+  "argv": [
+    "claude",
+    "-p",
+    "Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/.",
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    "acceptEdits",
+    "--tools",
+    "Bash,Read,Edit,Write,Grep,Glob",
+    "--allowedTools",
+    "Read,Write,Edit,Glob,Grep,WebSearch,WebFetch",
+    "--restricted",
+    "--strict-mcp-config",
+    "--mcp-config",
+    "{\"mcpServers\":{}}",
+    "--setting-sources",
+    "",
+    "--disable-slash-commands",
+    "--no-session-persistence",
+    "--settings",
+    "{\"permissions\":{\"blockReadsOutsideWorkingDirectories\":true,\"defaultMode\":\"acceptEdits\",\"deny\":[\"Read(//tmp/adapter-seam-sandbox/home)\",\"Read(//tmp/adapter-seam-sandbox/home/**)\",\"Edit(//tmp/adapter-seam-sandbox/home)\",\"Edit(//tmp/adapter-seam-sandbox/home/**)\",\"Read(//tmp/adapter-seam-sandbox/home/.claude)\",\"Read(//tmp/adapter-seam-sandbox/home/.claude/**)\",\"Edit(//tmp/adapter-seam-sandbox/home/.claude)\",\"Edit(//tmp/adapter-seam-sandbox/home/.claude/**)\",\"Read(//tmp/adapter-seam-sandbox/home/.codex)\",\"Read(//tmp/adapter-seam-sandbox/home/.codex/**)\",\"Edit(//tmp/adapter-seam-sandbox/home/.codex)\",\"Edit(//tmp/adapter-seam-sandbox/home/.codex/**)\",\"Read(//tmp/adapter-seam-sandbox/home/.ssh)\",\"Read(//tmp/adapter-seam-sandbox/home/.ssh/**)\",\"Edit(//tmp/adapter-seam-sandbox/home/.ssh)\",\"Edit(//tmp/adapter-seam-sandbox/home/.ssh/**)\",\"Read(//tmp/adapter-seam-sandbox/home/.controlrod)\",\"Read(//tmp/adapter-seam-sandbox/home/.controlrod/**)\",\"Edit(//tmp/adapter-seam-sandbox/home/.controlrod)\",\"Edit(//tmp/adapter-seam-sandbox/home/.controlrod/**)\",\"Read(//mnt)\",\"Read(//mnt/**)\",\"Edit(//mnt)\",\"Edit(//mnt/**)\"]},\"sandbox\":{\"allowUnsandboxedCommands\":false,\"autoAllowBashIfSandboxed\":false,\"enabled\":true,\"failIfUnavailable\":true,\"filesystem\":{\"denyRead\":[\"/tmp/adapter-seam-sandbox/home\",\"/tmp/adapter-seam-sandbox/home/.claude\",\"/tmp/adapter-seam-sandbox/home/.codex\",\"/tmp/adapter-seam-sandbox/home/.ssh\",\"/tmp/adapter-seam-sandbox/home/.controlrod\",\"/mnt\"]},\"network\":{\"allowedDomains\":[]}}}"
+  ],
+  "dir": "/tmp/adapter-seam-sandbox/workspace",
+  "env": [
+    "HOME=/tmp/adapter-seam-sandbox/home",
+    "USER=owner",
+    "LOGNAME=owner",
+    "SHELL=/bin/bash",
+    "PATH=/tmp/adapter-seam-bin:/usr/bin:/bin",
+    "LANG=C.UTF-8",
+    "LANGUAGE=en",
+    "LC_ALL=C.UTF-8",
+    "TZ=UTC",
+    "TERM=xterm-256color",
+    "TMPDIR=/tmp",
+    "NO_COLOR=1",
+    "COLORTERM=truecolor",
+    "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1"
+  ]
+}

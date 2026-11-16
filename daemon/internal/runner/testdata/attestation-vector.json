@@ -1,0 +1,151 @@
+{
+  "cases": [
+    {
+      "name": "ascii",
+      "payload": {
+        "schema_version": "0.1.0",
+        "run_id": "run-1",
+        "nonce": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "artifact_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "policy_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "effective_config_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "effective_endpoint": "api.openai.com",
+        "endpoint_enforcement": "endpoint not enforced",
+        "observed_models": [
+          "gpt-5-codex"
+        ],
+        "platform": "linux",
+        "probe_result": "not-run",
+        "workspace_before": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "workspace_after": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "requested_model": "gpt-5-codex",
+        "check_id": "run-1:0",
+        "deliverable_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "verification_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        }
+      },
+      "hash": "7c45228efac6e40c7f853bb9b48f285d48f1e38fc6fb02d07397a1787c18f75e"
+    },
+    {
+      "name": "non-ascii",
+      "payload": {
+        "schema_version": "0.1.0",
+        "run_id": "run-1",
+        "nonce": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "artifact_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "policy_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "effective_config_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "effective_endpoint": "api.openai.com",
+        "endpoint_enforcement": "endpoint not enforced",
+        "observed_models": [
+          "gpt-5-codex"
+        ],
+        "platform": "linux",
+        "probe_result": "not-run",
+        "workspace_before": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "workspace_after": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "requested_model": "café \"quoted\" \\slash",
+        "check_id": "run-1:0",
+        "deliverable_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "verification_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        }
+      },
+      "hash": "27b57780becf2583e3440ce2f837f6bfc5c0740e7cc7a483d326aa9fec638b16"
+    },
+    {
+      "name": "empty-models",
+      "payload": {
+        "schema_version": "0.1.0",
+        "run_id": "run-1",
+        "nonce": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "artifact_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "policy_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "effective_config_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "effective_endpoint": "api.openai.com",
+        "endpoint_enforcement": "endpoint not enforced",
+        "observed_models": [],
+        "platform": "linux",
+        "probe_result": "not-run",
+        "workspace_before": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "workspace_after": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "requested_model": "gpt-5-codex",
+        "check_id": "run-1:0",
+        "deliverable_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        },
+        "verification_digest": {
+          "algorithm": "sha256",
+          "value": "abababababababababababababababababababababababababababababababab"
+        }
+      },
+      "hash": "6b097912fc9f1a2e8c4474dc8c5a36695d5bb59f787d302b1bcb065cb122e098"
+    }
+  ],
+  "key_id": "ed7226cb05341e34e0e2016a9382bd917879594659bf678f761ff03ce55ee940",
+  "order": {
+    "keys_hash": "48c5d098713870a7b88be7fc0ffc0a79e912d20f80ea8a4a5604426f49add103",
+    "names": [
+      "😀.md",
+      "￿.md"
+    ],
+    "names_hash": "9638d3603884ee29d57553068bd533f70631eafa65c71e1068962f8f2a818ba8"
+  },
+  "public_key": "oETs+/WNDp1oDTeFbl7I0SW0AZ2geyypr7Qd371uL4s=",
+  "signature": "cWuFOziobVD/3JQI2jANVEoCG8W4zeu0eBprarG4bssFVUS9hMSM4YK72DFbydXx0xvqhgD/RmKVY214eew9DA=="
+}

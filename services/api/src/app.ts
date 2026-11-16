@@ -30,6 +30,7 @@ import { activeScramsFor, scramPreview, scramView } from "./scram.js";
 import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
+import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
 import { chainHead, inclusionProof, verifyRecords } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
@@ -51,6 +52,11 @@ import {
   overrideChallenge,
   overrideIndependence,
   overrideSubject,
+  checkerAttempts,
+  recheckChallenge,
+  recheckSubject,
+  recordRecheckOverride,
+  requestCheck,
   packageActions,
   packageLane,
   packageOutput,
@@ -488,6 +494,49 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       return overrideIndependence(db, cfg, user, req.params.id, req.params.runId, reason, signed);
     },
   );
+  app.get<{ Params: { id: string }; Querystring: { limit?: string; before?: string } }>("/packages/:id/checker-attempts", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    await requireOwnPackage(db, caller.orgId, req.params.id);
+    return checkerAttempts(db, req.params.id, req.query);
+  });
+  app.post<{ Params: { id: string } }>("/packages/:id/checks", async (req, reply) => {
+    const caller = await callerFor(db, await person(req));
+    await requireOwnPackage(db, caller.orgId, req.params.id);
+    return reply.code(201).send(await requestCheck(db, cfg, req.params.id));
+  });
+  app.post<{ Params: { id: string }; Body: { reason?: string } }>("/packages/:id/recheck-overrides/options", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    await requireOwnPackage(db, caller.orgId, req.params.id);
+    const s = await recheckSubject(db, req.params.id, req.body?.reason, caller.userName);
+    const nonce = randomBytes(16).toString("hex");
+    const options = await assertionOptions(
+      db,
+      auth,
+      "recheck-override",
+      { package_id: req.params.id, revision: s.revision, reason: s.reason, subject_digest: s.digest, deliverable_digest: s.deliverable },
+      recheckChallenge(s.digest, s.revision, s.deliverable, nonce),
+      caller.userName,
+    );
+    return {
+      subject_digest: { algorithm: "sha256", value: s.digest },
+      deliverable_digest: { algorithm: "sha256", value: s.deliverable },
+      options,
+    };
+  });
+  app.post<{ Params: { id: string }; Body: { reason?: string; assertion?: Record<string, unknown> } }>("/packages/:id/recheck-overrides", async (req) => {
+    const user = await person(req);
+    const caller = await callerFor(db, user);
+    await requireOwnPackage(db, caller.orgId, req.params.id);
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
+    if (req.body?.assertion) {
+      const ok = await assertionVerify(db, auth, "recheck-override", req.body.assertion as never);
+      if (ok && ok.user === user && ok.data.package_id === req.params.id && ok.data.reason === reason) {
+        signed = { subject_digest: String(ok.data.subject_digest), assertion: req.body.assertion };
+      }
+    }
+    return recordRecheckOverride(db, cfg, user, req.params.id, reason, signed);
+  });
   /* ---- reconcile an unknown outcome (specification 22) ---- */
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>("/packages/:id/runs/:runId/reconcile/options", async (req) => {
     const issuedTo = await person(req);
@@ -580,6 +629,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   app.get("/runtimes", async (req) => {
     return runtimeStatus(db, (await callerFor(db, await person(req))).orgId);
+  });
+  /** Provider CLIs the daemon probed. Read-only. No token is accepted or returned. */
+  app.get("/subscriptions", async (req) => {
+    return subscriptionView(db, (await callerFor(db, await person(req))).orgId);
   });
   app.get("/runs", async (req) => {
     await person(req);
@@ -682,11 +735,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   /* ---- runner ---- */
-  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown } }>("/runner/claim", async (req, reply) => {
+  app.post<{ Body: { runtimes?: string[]; runtime_status?: unknown; run_ceiling_seconds?: unknown; subscription_report?: unknown } }>("/runner/claim", async (req, reply) => {
     daemon(req);
     // Only runtimes the daemon's probe found ready are picked; a runtime reported not ready is
     // left out even if it is also listed.
     const status = await recordRuntimeStatus(db, req.body?.runtime_status);
+    if (req.body?.subscription_report !== undefined) await recordSubscriptionReport(db, req.body.subscription_report);
     const notReady = new Set(status.filter((s) => !s.ready).map((s) => s.runtime));
     const artifacts = new Map(status.filter((s) => s.artifact).map((s) => [s.runtime, s.artifact!.digest.value]));
     const runtimes = (Array.isArray(req.body?.runtimes) ? req.body.runtimes : [])

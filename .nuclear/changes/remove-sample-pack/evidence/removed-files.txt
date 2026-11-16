@@ -1,0 +1,61 @@
+# Files removed by this change, against origin/main 8a9679e
+D	.nuclear/changes/drawing-engine-drawing tool/basis.md
+D	.nuclear/changes/drawing-engine-drawing tool/plan.md
+D	.nuclear/changes/drawing-engine-drawing tool/review-followup.md
+D	.nuclear/changes/drawing-engine-drawing tool/risk.md
+D	.nuclear/changes/drawing-engine-drawing tool/ship.md
+D	.nuclear/changes/drawing-engine-drawing tool/trace.md
+D	.nuclear/changes/drawing-engine-drawing tool/verification.md
+D	.nuclear/changes/mvp-example-package/basis.md
+D	.nuclear/changes/mvp-example-package/plan.md
+D	.nuclear/changes/mvp-example-package/review-followup.md
+D	.nuclear/changes/mvp-example-package/risk.md
+D	.nuclear/changes/mvp-example-package/ship.md
+D	.nuclear/changes/mvp-example-package/trace.md
+D	.nuclear/changes/mvp-example-package/verification.md
+D	packs/capital-projects/README.md
+D	packs/capital-projects/drawings/README.md
+D	packs/capital-projects/drawings/examples/fdn-200-001.record.json
+D	packs/capital-projects/drawings/render_sheet.py
+D	packs/capital-projects/drawings/sheet-ansi-d.json
+D	packs/capital-projects/example-package/README.md
+D	packs/capital-projects/example-package/examples/plan-meta.example.json
+D	packs/capital-projects/example-package/examples/program.example.json
+D	packs/capital-projects/example-package/pyproject.toml
+D	packs/capital-projects/example-package/roles/intake.md
+D	packs/capital-projects/example-package/roles/site-charter.md
+D	packs/capital-projects/example-package/roles/site-constraints.md
+D	packs/capital-projects/example-package/roles/site-constraints.tools.md
+D	packs/capital-projects/example-package/roles/site-next-stage.md
+D	packs/capital-projects/example-package/roles/site-parcel.md
+D	packs/capital-projects/example-package/roles/site-parcel.tools.md
+D	packs/capital-projects/example-package/roles/site-plan-pre-check.md
+D	packs/capital-projects/example-package/roles/site-plan.md
+D	packs/capital-projects/example-package/roles/site-pre-check.md
+D	packs/capital-projects/example-package/src/cr_example/__init__.py
+D	packs/capital-projects/example-package/src/cr_example/check.py
+D	packs/capital-projects/example-package/src/cr_example/cli.py
+D	packs/capital-projects/example-package/src/cr_example/constraints.py
+D	packs/capital-projects/example-package/src/cr_example/data/county_registry.yaml
+D	packs/capital-projects/example-package/src/cr_example/fetch.py
+D	packs/capital-projects/example-package/src/cr_example/geo.py
+D	packs/capital-projects/example-package/src/cr_example/layout.py
+D	packs/capital-projects/example-package/src/cr_example/parcel.py
+D	packs/capital-projects/example-package/src/cr_example/plan.py
+D	packs/capital-projects/example-package/src/cr_example/plat.py
+D	packs/capital-projects/example-package/src/cr_example/sources.py
+D	packs/capital-projects/example-package/templates/basis-of-design.md
+D	packs/capital-projects/example-package/templates/charter.md
+D	packs/capital-projects/example-package/templates/next-stage-plan.md
+D	packs/capital-projects/example-package/tests/__init__.py
+D	packs/capital-projects/example-package/tests/conftest.py
+D	packs/capital-projects/example-package/tests/test_briefs.py
+D	packs/capital-projects/example-package/tests/test_constraints.py
+D	packs/capital-projects/example-package/tests/test_e2e.py
+D	packs/capital-projects/example-package/tests/test_layout_check.py
+D	packs/capital-projects/example-package/tests/test_parcel.py
+D	packs/capital-projects/example-package/tests/test_plat.py
+D	packs/capital-projects/example-package/typicals/facility-example.json
+D	packs/capital-projects/example-package/uv.lock
+D	tests/conformance/cad/run.py
+D	tests/conformance/cad/test_record.py

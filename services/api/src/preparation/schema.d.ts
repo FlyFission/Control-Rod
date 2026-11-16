@@ -370,6 +370,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/checker-attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Checker attempts for this package, oldest first. limit keeps the latest ones (1 to 100).
+         *     before, a seq, returns the page older than that attempt.
+         *     Timeout, error, quota and cancelled attempts are in the list and count as inconclusive.
+         */
+        get: operations["Packages_checkerAttempts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packages/{id}/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Ask for a check of the current author deliverables. 201 when a check is queued.
+         *     409 check-active when one is already queued or running.
+         *     409 sticky-fail when a check of that digest has already failed and no signed recheck override
+         *     is waiting to be used.
+         */
+        post: operations["Packages_requestCheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/decisions": {
         parameters: {
             query?: never;
@@ -567,6 +610,47 @@ export interface paths {
         get: operations["packageProof"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packages/{id}/recheck-overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Step 2: the signed override. It authorizes one check of the deliverable digest the owner was
+         *     shown. Recorded with the reason and the assertion. A later check needs another signature.
+         */
+        post: operations["Packages_recordRecheckOverride"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packages/{id}/recheck-overrides/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Step 1 of the owner's override to check a failed deliverable again. The digest covers the
+         *     package, the revision, the deliverable digest, the act "recheck-override" and the reason.
+         *     The same passkey ceremony as the independence override.
+         */
+        post: operations["Packages_recheckOverrideOptions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -989,6 +1073,26 @@ export interface paths {
         };
         /** @description A SCRAM, the runs it stopped with their quarantine and reviews, and its restarts. */
         get: operations["scram"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Settings > Subscriptions. The daemon's probe of registered provider CLIs.
+         *     Control Rod does not accept or return a token.
+         */
+        get: operations["subscriptions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1711,6 +1815,89 @@ export interface components {
         "ControlRod.Records.ChangeRequestKind": "lane-lowering" | "declassification" | "policy-change" | "authenticator-policy";
         /** @enum {string} */
         "ControlRod.Records.ChangeRequestStatus": "proposed" | "approved" | "rejected" | "withdrawn";
+        /**
+         * @description A fail on the current deliverable digest is sticky: another check is refused until the
+         *     deliverable changes or the owner signs an override. The words are what the API and the page show.
+         */
+        "ControlRod.Records.CheckBlocked": {
+            /** @enum {string} */
+            code: "sticky-fail";
+            reason: string;
+            change: string;
+            deliverable_digest: components["schemas"]["ControlRod.Records.Digest"];
+        };
+        /**
+         * @description Several checks of this digest were inconclusive. Another check is still allowed.
+         *     The page warns; it does not refuse the check.
+         */
+        "ControlRod.Records.CheckWarning": {
+            /** @enum {string} */
+            code: "repeated-inconclusive";
+            reason: string;
+            /** Format: int32 */
+            count: number;
+        };
+        /**
+         * @description One checker attempt on one deliverable digest. Append-only: a later attempt is a new row.
+         *     Added in API 0.1; existing records are unchanged.
+         */
+        "ControlRod.Records.CheckerAttempt": {
+            /** @enum {string} */
+            schema_version: "0.1.0";
+            id: string;
+            package_id: string;
+            /** Format: int32 */
+            package_revision: number;
+            run_id: string;
+            /** Format: int32 */
+            round: number;
+            /** @description The checker runtime the daemon assigned. "unassigned" when the run never started. */
+            checker_runtime: string;
+            /** @description The model the runtime said it used. Absent when it did not say. */
+            reported_model?: string;
+            /**
+             * Format: int32
+             * @description Place in the package's attempt history. Older attempts are read with before set to this value.
+             */
+            seq?: number;
+            /**
+             * @description Digest of the author deliverables this attempt checked, names and digests in name order.
+             *     Absent when digest_unknown is set: the bytes were not captured, and the attempt is not
+             *     attached to the deliverable the package holds now.
+             */
+            deliverable_digest?: components["schemas"]["ControlRod.Records.Digest"];
+            /**
+             * @description The bytes this attempt checked were not captured. It does not stick to today's deliverable.
+             * @enum {boolean}
+             */
+            digest_unknown?: true;
+            outcome: components["schemas"]["ControlRod.Records.CheckerAttemptOutcome"];
+            /**
+             * @description pass and fail stand. inconclusive, timeout, error, quota and cancelled count as inconclusive.
+             * @enum {string}
+             */
+            counts_as: "pass" | "fail" | "inconclusive";
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            finished_at: string;
+            /**
+             * @description Where to read the evidence: the run log, which holds the trace, the error and the outputs.
+             *     When a verification was admitted, verification_run_id names that record too.
+             */
+            evidence: string;
+            /** @description Set when a verification record was admitted for this attempt. */
+            verification_run_id?: string;
+            /** @description The signed override that allowed this attempt after a fail on the same digest. */
+            recheck_override?: components["schemas"]["ControlRod.Records.OwnerOverride"];
+        };
+        /**
+         * @description What one checker attempt counts as. A checker may report pass, fail or inconclusive.
+         *     Timeout, error, quota and cancelled are recorded as themselves and count as inconclusive:
+         *     they are never a pass, and they never erase a fail already recorded for the same deliverable.
+         * @enum {string}
+         */
+        "ControlRod.Records.CheckerAttemptOutcome": "pass" | "fail" | "inconclusive" | "timeout" | "error" | "quota" | "cancelled";
         "ControlRod.Records.CodeOrStandard": {
             code: string;
             edition: string;
@@ -2093,6 +2280,15 @@ export interface components {
             reason: string;
             assertion: components["schemas"]["ControlRod.Records.PasskeyAssertion"];
         };
+        /** @description One signed override allowing a single re-check of a deliverable that already failed. */
+        "ControlRod.Records.RecheckOverride": {
+            id: string;
+            package_id: string;
+            /** Format: int32 */
+            package_revision: number;
+            deliverable_digest: components["schemas"]["ControlRod.Records.Digest"];
+            override: components["schemas"]["ControlRod.Records.OwnerOverride"];
+        };
         /** @description How an unknown outcome was settled. */
         "ControlRod.Records.Reconciliation": {
             /**
@@ -2227,6 +2423,65 @@ export interface components {
              * @enum {string}
              */
             permission_waits?: "observed" | "not-observable";
+            /**
+             * @description Whether the server verified the daemon's attestation for this run.
+             *     The kernel does not read this until a later milestone.
+             */
+            attestation_verified?: boolean;
+            /** @description Why the attestation did or did not verify, in plain words. */
+            attestation_reason?: string;
+            /**
+             * @description The checker attempt this run will be recorded as. Assigned when a pre-check
+             *     starts, and the value the daemon signs as check_id.
+             */
+            checker_attempt_id?: string;
+        };
+        /**
+         * @description What the daemon signs for one counted pre-check (ADR 0022). The signature is Ed25519 over the
+         *     SHA-256 of the RFC 8785 form of every field except `signature` and `key_id`.
+         */
+        "ControlRod.Records.RunAttestation": {
+            /** @enum {string} */
+            schema_version: "0.1.0";
+            run_id: string;
+            /** @description 32 bytes, hex. Unique for the signing key. */
+            nonce: string;
+            artifact_digest: components["schemas"]["ControlRod.Records.Digest"];
+            policy_digest: components["schemas"]["ControlRod.Records.Digest"];
+            effective_config_digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** @description The registry host, or the endpoint the effective config named. */
+            effective_endpoint: string;
+            /** @enum {string} */
+            endpoint_enforcement: "endpoint not enforced" | "enforced";
+            /** @description Every model name in the stream, sorted. */
+            observed_models: string[];
+            platform: string;
+            /** @enum {string} */
+            probe_result: "pass" | "fail" | "not-run";
+            workspace_before: components["schemas"]["ControlRod.Records.Digest"];
+            workspace_after: components["schemas"]["ControlRod.Records.Digest"];
+            /**
+             * @description The model the run asked for, after the same resolution the daemon uses.
+             *     Optional on the wire. A counted check still has to carry it.
+             */
+            requested_model?: string;
+            /**
+             * @description The check this statement belongs to. An attempt id when one was assigned,
+             *     otherwise `<run id>:<package revision>`. Optional on the wire. A counted
+             *     check still has to carry it.
+             */
+            check_id?: string;
+            /** @description Canonical digest of the author deliverable names and byte digests. Optional on the wire. */
+            deliverable_digest?: components["schemas"]["ControlRod.Records.Digest"];
+            /**
+             * @description Canonical digest of the verification submission: outcome, findings,
+             *     criterion results, and evidence artifact digests. Optional on the wire.
+             */
+            verification_digest?: components["schemas"]["ControlRod.Records.Digest"];
+            /** @description Hex SHA-256 of the raw 32-byte public key. */
+            key_id: string;
+            /** @description Standard base64 of the 64-byte Ed25519 signature. */
+            signature: string;
         };
         /** @enum {string} */
         "ControlRod.Records.RunRole": "intake" | "author" | "pre-check" | "requirements-preparer" | "technical-preparer";
@@ -2380,6 +2635,11 @@ export interface components {
             outcome: "pass" | "fail" | "inconclusive";
             /** @description Whether the checker ran on a runtime other than the author's, and any owner override. */
             independence?: components["schemas"]["ControlRod.Records.PreCheckIndependence"];
+            /**
+             * @description Set by the server after it checks the daemon's attestation. The kernel does not read this.
+             *     Absent means the run was not a counted vendor check.
+             */
+            attestation_verified?: boolean;
         };
         /** @description The only unit of work an agent may start. */
         "ControlRod.Records.WorkPackage": {
@@ -2514,6 +2774,24 @@ export interface components {
             runs: components["schemas"]["ControlRod.Records.Run"][];
             outputs: components["schemas"]["ControlRod.Records.Artifact"][];
             pre_check?: components["schemas"]["ControlRod.Records.VerificationRecord"];
+            /**
+             * @description The latest checker attempts for this package, oldest of that page first, including inconclusive,
+             *     timeout, error, quota and cancelled. At most 50. Older attempts are on GET /checker-attempts.
+             */
+            checker_attempts?: components["schemas"]["ControlRod.Records.CheckerAttempt"][];
+            /** @description Signed overrides that allow one more check of a deliverable a check had already failed. */
+            recheck_overrides?: components["schemas"]["ControlRod.Records.RecheckOverride"][];
+            /**
+             * @description Set when the governing decisive outcome for the current deliverable is fail.
+             *     Absent after an in-scope overridden recheck passes, when the digest changed, or when an
+             *     unused override is waiting.
+             */
+            check_blocked?: components["schemas"]["ControlRod.Records.CheckBlocked"];
+            /**
+             * @description Set when several checks of the current digest were inconclusive. A warning only:
+             *     another check is still allowed.
+             */
+            check_warning?: components["schemas"]["ControlRod.Records.CheckWarning"];
             decisions: components["schemas"]["ControlRod.Records.Decision"][];
             /** @description Digest a decision on this revision must be bound to. */
             subject_digest: components["schemas"]["ControlRod.Records.Digest"];
@@ -2655,6 +2933,8 @@ export interface components {
             outputs: components["schemas"]["Runner.NamedFile"][];
             package?: components["schemas"]["ControlRod.Records.WorkPackage"];
             verification?: components["schemas"]["ControlRod.Records.VerificationRecord"];
+            /** @description The daemon's signed statement for a counted pre-check. Absent for other runs. */
+            attestation?: components["schemas"]["ControlRod.Records.RunAttestation"];
             criterion_results?: components["schemas"]["ControlRod.Preparation.CriterionResultSubmission"];
             /** @description The run's spawn receipt, so it is on record even if no log post carried it. */
             receipt?: components["schemas"]["ControlRod.Records.OwnershipReceipt"];
@@ -2806,6 +3086,72 @@ export interface components {
              * @enum {string}
              */
             result: "valid" | "head-mismatch" | "head-missing" | "unrecorded" | "subject-mismatch" | "key-unknown" | "not-enrolled" | "key-changed" | "key-revoked" | "signature-invalid" | "chain-broken-before-head";
+        };
+        /** @description One model in the daemon's checker registry. Not a live probe. */
+        SubscriptionChecker: {
+            id: string;
+            harness: string;
+            vendor_family?: string;
+            deciding: boolean;
+            local: boolean;
+            hosts: string[];
+        };
+        /** @description A pin joined to the version string the passing probe recorded. Checker is the pre-check role. */
+        SubscriptionPin: {
+            runtime: string;
+            /** @enum {string} */
+            role: "author" | "checker";
+            version?: string;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
+        };
+        /** @description One registered provider CLI, as the daemon probed it. */
+        SubscriptionProbe: {
+            id: string;
+            display_name: string;
+            vendor_family?: string;
+            installed: boolean;
+            path?: string;
+            observed_version?: string;
+            /**
+             * @description From the CLI's own status command, or unknown when it has none.
+             * @enum {string}
+             */
+            auth: "signed-in" | "signed-out" | "unknown";
+            auth_note?: string;
+            roles: components["schemas"]["SubscriptionRole"][];
+        };
+        /** @description The claim payload. The same probe models the settings page returns. */
+        SubscriptionReport: {
+            platform?: string;
+            probes?: components["schemas"]["SubscriptionProbe"][];
+            checkers?: components["schemas"]["SubscriptionChecker"][];
+            local_rule?: string;
+        };
+        SubscriptionRole: {
+            /** @enum {string} */
+            role: "author" | "checker";
+            qualified: boolean;
+            reason: string;
+        };
+        /** @description How many checkers a grade needs. Safety is 2, from different vendor families; every other grade is 1. */
+        SubscriptionTier: {
+            /** @enum {string} */
+            grade: "safety" | "material" | "general-service";
+            /** Format: int32 */
+            required: number;
+            rule: string;
+        };
+        SubscriptionView: {
+            /** @description False until a daemon has reported. Probes are empty then, and none are invented. */
+            reported: boolean;
+            /** Format: date-time */
+            reported_at?: string;
+            platform?: string;
+            probes: components["schemas"]["SubscriptionProbe"][];
+            checkers: components["schemas"]["SubscriptionChecker"][];
+            tiers: components["schemas"]["SubscriptionTier"][];
+            local_rule: string;
+            pins: components["schemas"]["SubscriptionPin"][];
         };
     };
     responses: never;
@@ -3965,6 +4311,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActionDescriptor"][];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_checkerAttempts: {
+        parameters: {
+            query?: {
+                limit?: number;
+                before?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Records.CheckerAttempt"][];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_requestCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded and a new resource has been created as a result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Records.Run"];
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */
@@ -5229,6 +5730,177 @@ export interface operations {
             };
         };
     };
+    Packages_recordRecheckOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                    assertion: {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Records.RecheckOverride"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_recheckOverrideOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Packages.OverrideRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        subject_digest: components["schemas"]["ControlRod.Records.Digest"];
+                        deliverable_digest: components["schemas"]["ControlRod.Records.Digest"];
+                        options: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Packages_runEvents: {
         parameters: {
             query?: {
@@ -6194,6 +6866,8 @@ export interface operations {
                     /** @description Runtimes ready for work. The control plane picks only from these. */
                     runtimes: string[];
                     runtime_status?: components["schemas"]["Runner.RuntimeStatus"][];
+                    /** @description Provider CLI probes for Settings. Output of a status command is not included. */
+                    subscription_report?: components["schemas"]["SubscriptionReport"];
                     /**
                      * Format: int32
                      * @description The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations.
@@ -6883,6 +7557,26 @@ export interface operations {
                             lifted: boolean;
                         }[];
                     } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    subscriptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionView"];
                 };
             };
         };

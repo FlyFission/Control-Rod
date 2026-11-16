@@ -1,0 +1,6 @@
+--- runtime name switches outside adapter files ---
+--- remaining runtime constant uses outside adapter files and tests ---
+daemon/internal/runner/runtime.go:28:	RuntimeClaude = "claude"
+daemon/internal/runner/runtime.go:29:	RuntimeCodex  = "codex"
+daemon/internal/runner/runtime.go:30:	RuntimeFake   = "fake"
+--- existing assertion files (empty means unchanged) ---

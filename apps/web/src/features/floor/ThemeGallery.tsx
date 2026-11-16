@@ -4,6 +4,12 @@ import {
   getThemeEntry,
   RELEASE_RECORDS,
 } from "./themes/registry.js";
+
+const MOODS = [
+  "All",
+  ...Array.from(new Set(THEME_CATALOG.flatMap((e) => e.moodTags))).sort(),
+] as const;
+
 export function ThemeGallery({
   activeId,
   onActivate,
@@ -19,6 +25,8 @@ export function ThemeGallery({
 }) {
   const dialog = useRef<HTMLDivElement>(null);
   const [preview, setPreview] = useState<string>();
+  const [mood, setMood] = useState<(typeof MOODS)[number]>("All");
+
   useEffect(() => {
     const restore = document.activeElement as HTMLElement | null;
     dialog.current?.querySelector<HTMLButtonElement>("button")?.focus();
@@ -29,7 +37,12 @@ export function ThemeGallery({
       restore?.focus();
     };
   }, []);
-  const entries = [getThemeEntry("plain")!, ...THEME_CATALOG];
+
+  const allEntries = [getThemeEntry("plain")!, ...THEME_CATALOG];
+  const entries = mood === "All"
+    ? allEntries
+    : allEntries.filter((e) => e.id === "plain" || e.moodTags.includes(mood));
+
   return (
     <div
       className="floor-gallery-shade"
@@ -81,6 +94,27 @@ export function ThemeGallery({
             ×
           </button>
         </div>
+
+        <div className="floor-gallery-filters" role="group" aria-label="Filter by mood">
+          {MOODS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={mood === m}
+              aria-controls="theme-gallery-grid"
+              className={`floor-mood-tab ${mood === m ? "is-selected" : ""}`}
+              onClick={() => setMood(m)}
+            >
+              {m}
+              {m !== "All" && (
+                <span className="floor-mood-count">
+                  {THEME_CATALOG.filter((e) => e.moodTags.includes(m)).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
         {allowDrafts && (
           <p className="floor-draft-notice">
             Original artwork · local draft evaluation. Public release review is
@@ -92,7 +126,7 @@ export function ThemeGallery({
             {error}
           </p>
         )}
-        <div className="floor-gallery-grid">
+        <div id="theme-gallery-grid" className="floor-gallery-grid">
           {entries.map((e, i) => (
             <article
               key={e.id}
@@ -121,6 +155,13 @@ export function ThemeGallery({
                 <span className="floor-theme-number">
                   {String(i).padStart(2, "0")}
                 </span>
+                {e.palette.length > 0 && (
+                  <div className="floor-theme-swatches" aria-label="Palette colors">
+                    {e.palette.map((c) => (
+                      <span key={c} style={{ background: c }} title={c} />
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="floor-theme-copy">
                 <div className="floor-theme-title">
@@ -170,6 +211,18 @@ export function ThemeGallery({
                 <div className="floor-preview" role="status">
                   <strong>Preview: sample activity</strong>
                   <p>{e.description}</p>
+                  {e.stationLabels && (
+                    <div className="floor-preview-stations">
+                      <span className="floor-preview-heading">Stations:</span>
+                      <p>{Object.values(e.stationLabels).join(" · ")}</p>
+                    </div>
+                  )}
+                  {e.signature && e.signature !== "none" && (
+                    <div className="floor-preview-sig">
+                      <span className="floor-preview-heading">Submission signature:</span>{" "}
+                      <code>{e.signature}</code>
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="floor-btn"

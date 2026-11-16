@@ -19,9 +19,9 @@ export default {
   },
   "assets": {
     "scene": {
-      "path": "/floor-themes/meadow-post/scene.08e8bf2973fb.svg",
-      "sha256": "08e8bf2973fb6f0a639ff576736ed44fa04aed43cfd36114d9e318a0083bacec",
-      "bytes": 9376,
+      "path": "/floor-themes/meadow-post/scene.a67919bfba7a.svg",
+      "sha256": "a67919bfba7ae4cf083af56708bd48604d58ca88a674cff9ec266cd419ee598a",
+      "bytes": 10374,
       "width": 1000,
       "height": 600,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -29,9 +29,9 @@ export default {
       "licenseNoticeId": "Apache-2.0"
     },
     "thumbnail": {
-      "path": "/floor-themes/meadow-post/thumbnail.537b91ee384c.svg",
-      "sha256": "537b91ee384cad5c7729ba6b297f7bb0b5db9bdb090916aa685e2083505825d3",
-      "bytes": 16615,
+      "path": "/floor-themes/meadow-post/thumbnail.9f628f17fffd.svg",
+      "sha256": "9f628f17fffd38b569ee6e97d3cddf851cc043d85a9697382226176274053226",
+      "bytes": 16279,
       "width": 800,
       "height": 480,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -40,9 +40,9 @@ export default {
     },
     "characters": [
       {
-        "path": "/floor-themes/meadow-post/character-0.238a311febe0.svg",
-        "sha256": "238a311febe0a5f2fbbebab131c2c5e3b3af9b2a2bcf864d0d5b41decd6beadd",
-        "bytes": 1232,
+        "path": "/floor-themes/meadow-post/character-0.eaa4c4c158e3.svg",
+        "sha256": "eaa4c4c158e35fdfc2988e3ea8c0865bba13ad6614317e2298020f30fd7d6be5",
+        "bytes": 998,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -50,9 +50,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/meadow-post/character-1.3313dd4adae8.svg",
-        "sha256": "3313dd4adae8d3bedd9029890f781278b317d3948a439a8bc16e2c985e7abcb0",
-        "bytes": 1159,
+        "path": "/floor-themes/meadow-post/character-1.14c5d04573cb.svg",
+        "sha256": "14c5d04573cb547ac78fb6b877360982f30b58c6a81ba5bbdd9cca07e32faf52",
+        "bytes": 933,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -60,9 +60,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/meadow-post/character-2.609e67da8cc6.svg",
-        "sha256": "609e67da8cc639c6bf6d184fc4600af4b10c17f256fdbd74ca41a2d735a220e3",
-        "bytes": 1156,
+        "path": "/floor-themes/meadow-post/character-2.aab522d4ddc1.svg",
+        "sha256": "aab522d4ddc129316b38220028bbfaa5cd5bce2c840f84eb90768c2c52765bdb",
+        "bytes": 881,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -70,9 +70,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/meadow-post/character-3.e7fbac49c8d7.svg",
-        "sha256": "e7fbac49c8d7fa7bb6742c0052e58dcc500083dee5a9b5f611ef26b19cef1141",
-        "bytes": 1197,
+        "path": "/floor-themes/meadow-post/character-3.ff5d577a2dd4.svg",
+        "sha256": "ff5d577a2dd4fdb8305621bb2da9f34ed7ea400b8e7c36b5ce6cab513a249e2d",
+        "bytes": 1086,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -80,9 +80,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/meadow-post/character-4.05e0d59fccc9.svg",
-        "sha256": "05e0d59fccc9b566e7f676d090254cd39bdd7dc83e3656353aaea790d80ae4b0",
-        "bytes": 1218,
+        "path": "/floor-themes/meadow-post/character-4.1bf9dd417bc9.svg",
+        "sha256": "1bf9dd417bc9e8842a8926f7f519672c03891ba71c6e973617ac693502bb4838",
+        "bytes": 960,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -90,9 +90,9 @@ export default {
         "licenseNoticeId": "Apache-2.0"
       },
       {
-        "path": "/floor-themes/meadow-post/character-5.5fcefa3b045c.svg",
-        "sha256": "5fcefa3b045cae769c968924e02a1cda8cdf57ebdf79091c25e01ffb47a1720c",
-        "bytes": 1173,
+        "path": "/floor-themes/meadow-post/character-5.7cbd2f1dd44a.svg",
+        "sha256": "7cbd2f1dd44ab44155d72f81e3fa685a6f77c9b13a1bf267be34b17e0aa2de48",
+        "bytes": 943,
         "width": 128,
         "height": 128,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",

@@ -40,7 +40,7 @@ func TestAgentLaunchesRefuseWithoutASandboxPolicy(t *testing.T) {
 }
 
 func TestCodexLaunchCarriesThePermissionProfileAndNeverASandboxMode(t *testing.T) {
-	ws := workspaceWithTools(t, "Read\nWrite\nBash(cr-example:*)\n")
+	ws := workspaceWithTools(t, "Read\nWrite\nBash(python3:*)\n")
 	run := testRun("run-c", "author")
 	run.Runtime = RuntimeRef{Kind: "subscription", Provider: "openai", Model: "gpt-5-codex"}
 	cmd, err := Command(RuntimeCodex, run, ws, testPolicy(), testPaths(ws))
@@ -70,14 +70,14 @@ func TestCodexLaunchCarriesThePermissionProfileAndNeverASandboxMode(t *testing.T
 	}
 	// Codex cannot limit network to hosts, so a policy with hosts never starts it.
 	p := testPolicy()
-	p.AllowedHosts = []string{"geo.dot.gov"}
+	p.AllowedHosts = []string{"docs.example.org"}
 	if _, err := Command(RuntimeCodex, run, ws, p, testPaths(ws)); err == nil {
 		t.Fatal("codex started under a host-limited network policy")
 	}
 }
 
 func TestClaudeLaunchIsolatesTheRunAndKeepsTheDirectiveOutOfTheToolList(t *testing.T) {
-	ws := workspaceWithTools(t, "network: geo.dot.gov\nRead\nWrite\nBash(cr-example:*)\n")
+	ws := workspaceWithTools(t, "network: docs.example.org\nRead\nWrite\nBash(python3:*)\n")
 	run := testRun("run-cl", "author")
 	run.Runtime = RuntimeRef{Kind: "subscription", Provider: "claude", Model: "claude-opus-4-1"}
 	cmd, err := Command(RuntimeClaude, run, ws, testPolicy(), testPaths(ws))
@@ -85,7 +85,7 @@ func TestClaudeLaunchIsolatesTheRunAndKeepsTheDirectiveOutOfTheToolList(t *testi
 		t.Fatal(err)
 	}
 	head := []string{"claude", "-p", Prompt, "--output-format", "stream-json", "--verbose", "--permission-mode", "acceptEdits",
-		"--tools", "Bash,Read,Edit,Write,Grep,Glob", "--allowedTools", "Read,Write,Bash(cr-example:*)",
+		"--tools", "Bash,Read,Edit,Write,Grep,Glob", "--allowedTools", "Read,Write,Bash(python3:*)",
 		"--restricted", "--strict-mcp-config", "--mcp-config", `{"mcpServers":{}}`, "--setting-sources", "", "--disable-slash-commands",
 		"--no-session-persistence", "--model", "claude-opus-4-1", "--settings"}
 	if !slices.Equal(cmd.Args[:len(head)], head) || len(cmd.Args) != len(head)+1 {
@@ -116,7 +116,7 @@ func TestReportedModelReadsOnlyTheRuntimesOwnFields(t *testing.T) {
 }
 
 func TestLaunchForDescribesWhatCommandRuns(t *testing.T) {
-	ws := workspaceWithTools(t, "network: geo.dot.gov\nRead\n")
+	ws := workspaceWithTools(t, "network: docs.example.org\nRead\n")
 	run := testRun("run-l", "author")
 	run.Runtime = RuntimeRef{Kind: "subscription", Provider: "codex", Model: "default"}
 	if l := LaunchFor(RuntimeCodex, run, ws, testPolicy()); l.Mode != "print" || l.Sandbox != "native-cli:sbp_none-test@v3" || l.RequestedModel != "default" {

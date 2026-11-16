@@ -49,7 +49,7 @@ Kandev solves many workbench problems Control Rod faces, but it is AGPL-3.0 and 
 | The notes contain no copied wording. | Readers' brief forbids it; the builder rewrote all prose. | The independent wording check finds a match. | Ben Huffer |
 | Observations in note E come from Kandev 0.97.0 driven by a stand-in agent with no model; streaming, timing and output quality may differ with real agents. | Note file E, section 0 and coverage list. | A later observation with a real provider, or a Kandev release that changes the behaviour. | Ben Huffer |
 | `codex exec` is read-only by default and refuses to run outside a Git repository without a flag. | OpenAI non-interactive docs, fetched 2026-10-22. | A Codex release that changes defaults, or Ben's own Codex config. | Ben Huffer |
-| Line numbers match commit `87d0f79` on `mvp/example-package`. | Read in this session. | Any later commit to the cited files. | Ben Huffer |
+| Line numbers match commit `87d0f79` on the MVP branch. | Read in this session. | Any later commit to the cited files. | Ben Huffer |
 
 ## Grounding status
 
@@ -57,7 +57,7 @@ Kandev solves many workbench problems Control Rod faces, but it is AGPL-3.0 and 
 |---|---|---|
 | Kandev behaviour (documented) | Note files A to D (2026-10-22) | pass |
 | Kandev behaviour (as run) | Note file E: Kandev 0.97.0 run unmodified with a stand-in agent (2026-10-22) | pass, within the coverage E lists |
-| Our code | `mvp/example-package` at `87d0f79` | pass |
+| Our code | MVP branch at `87d0f79` | pass |
 | Codex defaults | OpenAI non-interactive mode docs | pass |
 | License facts | Readers' report | gap (lawyer to confirm) |
 | No copied wording | Independent check, rerun after E was folded in | pass after fixes (E-006); rerun clean (E-007) |

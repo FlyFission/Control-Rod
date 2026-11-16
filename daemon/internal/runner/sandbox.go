@@ -506,10 +506,21 @@ func HostNeeds(rt string) []HostNeed {
 		return nil
 	}
 	needs := []HostNeed{{Program: "bwrap", Fix: "Install bubblewrap (on Ubuntu: `sudo apt install bubblewrap`)"}}
-	if rt == RuntimeClaude {
-		needs = append(needs, HostNeed{Program: "socat", Fix: "Install socat (on Ubuntu: `sudo apt install socat`)"})
+	if a, ok := AdapterFor(rt); ok {
+		if h, ok := a.(HostNeeder); ok {
+			needs = append(needs, h.ExtraHostNeeds()...)
+		}
 	}
 	return needs
+}
+
+func hostLabel(rt string) string {
+	if a, ok := AdapterFor(rt); ok {
+		if name := a.DisplayName(); name != "" {
+			return name
+		}
+	}
+	return rt
 }
 
 // platformCheck is QualifiedPlatform; tests replace it to exercise the rest of the preflight anywhere.
@@ -543,22 +554,15 @@ func Preflight(ctx context.Context, rt string, run CommandRunner, lookPath func(
 	// holding the daemon's start.
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
-	switch rt {
-	case RuntimeClaude:
-		if _, code, err := run(ctx, "claude", "auth", "status"); err != nil || code != 0 {
-			return refuse("Claude Code is not signed in. Run `claude login`; Control Rod never signs in for you.")
-		}
-	case RuntimeCodex:
-		if _, code, err := run(ctx, "codex", "login", "status"); err != nil || code != 0 {
-			return refuse("Codex is not signed in. Run `codex login`; Control Rod never signs in for you.")
-		}
-		list, err := codexFeatures(ctx)
-		if err != nil {
-			return refuse("Codex did not list its features (%v), so Control Rod cannot tell what an agent could reach. Reinstall the pinned Codex.", err)
-		}
-		if extra := unqualifiedCodexFeatures(list); len(extra) > 0 {
-			return refuse("This Codex version turns on %s, which Control Rod has not qualified. Pin a qualified Codex version.", strings.Join(extra, ", "))
-		}
+	a, ok := AdapterFor(rt)
+	if !ok {
+		return nil
+	}
+	if c, ok := a.(codexFeaturePreflight); ok {
+		return c.withFeatures(codexFeatures).PreflightCLI(ctx, run)
+	}
+	if p, ok := a.(CLIPreflight); ok {
+		return p.PreflightCLI(ctx, run)
 	}
 	return nil
 }
@@ -566,7 +570,7 @@ func Preflight(ctx context.Context, rt string, run CommandRunner, lookPath func(
 // PreflightHost checks what the sandbox needs without running the CLI: the programs it needs are on
 // the agent's PATH, and for Codex no managed configuration sets sandbox_mode.
 func PreflightHost(rt string, lookPath func(string) (string, error), managedCodexConfig []string) error {
-	if rt == RuntimeFake {
+	if a, ok := AdapterFor(rt); ok && !a.SandboxRequired() {
 		return nil
 	}
 	if err := platformCheck(); err != nil {
@@ -574,28 +578,28 @@ func PreflightHost(rt string, lookPath func(string) (string, error), managedCode
 	}
 	for _, need := range HostNeeds(rt) {
 		if _, err := lookPath(need.Program); err != nil {
-			return refuse("%s's sandbox needs %s, which is not installed here. %s.", cliName(rt), need.Program, need.Fix)
+			return refuse("%s's sandbox needs %s, which is not installed here. %s.", hostLabel(rt), need.Program, need.Fix)
 		}
 	}
-	if rt == RuntimeCodex {
-		for _, f := range managedCodexConfig {
-			key, err := managedWidening(f)
-			if err != nil {
-				return refuse("%s cannot be read as TOML (%v), so Control Rod cannot tell whether it loosens the sandbox. Fix or remove it.", f, err)
-			}
-			if key != "" {
-				return refuse("%s sets %s, which can loosen the sandbox of every Codex run and which a run cannot override. Remove it.", f, key)
-			}
+	if a, ok := AdapterFor(rt); ok {
+		if c, ok := a.(ManagedConfigChecker); ok {
+			return c.CheckManagedConfig(managedCodexConfig)
 		}
 	}
 	return nil
 }
 
-func cliName(rt string) string {
-	if rt == RuntimeClaude {
-		return "Claude Code"
+func managedConfigRefusal(files []string) error {
+	for _, f := range files {
+		key, err := managedWidening(f)
+		if err != nil {
+			return refuse("%s cannot be read as TOML (%v), so Control Rod cannot tell whether it loosens the sandbox. Fix or remove it.", f, err)
+		}
+		if key != "" {
+			return refuse("%s sets %s, which can loosen the sandbox of every Codex run and which a run cannot override. Remove it.", f, key)
+		}
 	}
-	return "Codex"
+	return nil
 }
 
 // ManagedCodexConfig lists where an administrator's Codex configuration can set sandbox_mode outside
@@ -708,8 +712,8 @@ func CodexEffectiveFeatures(ctx context.Context) (string, error) {
 	for _, f := range CodexDisabledFeatures {
 		args = append(args, "--disable", f)
 	}
-	// The very executable the probe identified and runs launch, found on the agent PATH.
-	a, err := resolveArtifact(RuntimeCodex)
+	// Binary() is the PATH name. For Codex it is the same string as the runtime id.
+	a, err := resolveArtifact(codexAdapter{}.Binary())
 	if err != nil {
 		return "", err
 	}

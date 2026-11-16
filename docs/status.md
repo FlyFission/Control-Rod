@@ -15,7 +15,6 @@ This page is a map, not a ledger. The evidence for each item is in its change re
 | Sandboxes | One recorded sandbox policy per run; native CLI sandbox launch with a preflight and no unsandboxed fallback | [ADR 0021](adr/0021-native-cli-sandboxes.md) |
 | Web app | Inbox, packages, criteria editing, the office view with fifteen themes, roster, records, spend, policies and administration | `apps/web/`, [office-view/](office-view/), [overlay-themes/](overlay-themes/) |
 | Guided preparation | Rough request to confirmed requirements to pinned release to criterion-based acceptance | [guided-preparation.md](guided-preparation.md) |
-| example package pack | Parcel, constraints, charter, site plan and next-stage plan with a drawing tool plan sheet | `packs/capital-projects/` |
 | Quality gates | In CI: typecheck and tests for TypeScript, Rust, Go and Python, contract-drift check, licence gate, SBOM, change-record validation. In `tools/`, run by hand: originality, public-claims and offline-asset checks | `.github/workflows/ci.yml`, `tools/` |
 
 ## What is stubbed or planned

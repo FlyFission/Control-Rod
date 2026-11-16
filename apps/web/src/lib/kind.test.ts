@@ -7,7 +7,7 @@ describe("kindsOf", () => {
     expect(kindsOf(pkg({ deliverables: [{ id: "D1", type: " Patch ", format: ["diff"] }] }))).toEqual(["code"]);
   });
   it("treats any other deliverable as a document", () => {
-    expect(kindsOf(pkg({ deliverables: [{ id: "D1", type: "concept site plan", format: ["pdf"] }] }))).toEqual(["doc"]);
+    expect(kindsOf(pkg({ deliverables: [{ id: "D1", type: "scope of work", format: ["pdf"] }] }))).toEqual(["doc"]);
   });
   it("shows both for a mixed package, code first", () => {
     expect(

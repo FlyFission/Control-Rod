@@ -55,7 +55,7 @@ it("reads code from a code deliverable type, case and spacing ignored", () => {
   expect(kindsOf(pkg({ deliverables: [{ id: "D1", type: " Patch " }] }))).toEqual(["code"]);
 });
 it("treats any other deliverable as a document", () => {
-  expect(kindsOf(pkg({ deliverables: [{ id: "D1", type: "concept site plan" }] }))).toEqual(["doc"]);
+  expect(kindsOf(pkg({ deliverables: [{ id: "D1", type: "scope of work" }] }))).toEqual(["doc"]);
 });
 it("shows both for a mixed package, code first", () => {
   expect(kindsOf(pkg({ deliverables: [{ id: "D1", type: "report" }, { id: "D2", type: "code" }] }))).toEqual(["code", "doc"]);

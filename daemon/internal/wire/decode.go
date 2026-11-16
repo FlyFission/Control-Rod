@@ -45,7 +45,11 @@ func load() {
 		}
 	}
 	compiled = make(map[string]*jsonschema.Schema)
-	for _, name := range []string{"Job.json", "LogReply.json", "CompletionReceipt.json"} {
+	for _, name := range []string{
+		"Job.json", "LogReply.json", "CompletionReceipt.json",
+		"VerificationRecord.json", "Finding.json", "EvidenceItem.json",
+		"CriterionResultSubmission.json",
+	} {
 		s, err := c.Compile("https://controlrod.test/" + name)
 		if err != nil {
 			compileErr = err
@@ -53,6 +57,72 @@ func load() {
 		}
 		compiled[name] = s
 	}
+}
+
+// ValidateSchema checks doc against schemaBody, which may refer to the embedded
+// runner schemas by file name. schemaBody is not a control-plane response, so it
+// is not required to be canonical JSON.
+func ValidateSchema(schemaBody []byte, schemaName string, doc []byte) error {
+	once.Do(load)
+	if compileErr != nil {
+		return fmt.Errorf("wire schemas: %w", compileErr)
+	}
+	c := jsonschema.NewCompiler()
+	c.AssertFormat()
+	entries, err := schemas.ReadDir("schemas")
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		raw, err := schemas.ReadFile("schemas/" + e.Name())
+		if err != nil {
+			return err
+		}
+		parsed, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
+		if err != nil {
+			return err
+		}
+		if err = c.AddResource("https://controlrod.test/"+e.Name(), parsed); err != nil {
+			return err
+		}
+	}
+	parsed, err := jsonschema.UnmarshalJSON(bytes.NewReader(schemaBody))
+	if err != nil {
+		return err
+	}
+	if err = c.AddResource("https://controlrod.test/"+schemaName, parsed); err != nil {
+		return err
+	}
+	s, err := c.Compile("https://controlrod.test/" + schemaName)
+	if err != nil {
+		return err
+	}
+	instance, err := jsonschema.UnmarshalJSON(bytes.NewReader(doc))
+	if err != nil {
+		return err
+	}
+	return s.Validate(instance)
+}
+
+// Validate checks raw JSON against an embedded schema. It does not require the
+// canonical JSON profile Decode requires of control-plane responses.
+func Validate(name string, raw []byte) error {
+	once.Do(load)
+	if compileErr != nil {
+		return fmt.Errorf("wire schemas: %w", compileErr)
+	}
+	s, ok := compiled[name]
+	if !ok {
+		return fmt.Errorf("unknown wire schema %q", name)
+	}
+	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	if err = s.Validate(doc); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Decode refuses over-budget bodies, ambiguous JSON and schema-invalid complete records.

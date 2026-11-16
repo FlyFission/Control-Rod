@@ -1,0 +1,7 @@
+# origin/main 36eeb73, unchanged checkout, same host (codex codex-cli 0.167.0)
+--- FAIL: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.28s)
+    sandbox_test.go:304: the installed Codex leaves unqualified features on: [deferred_tool_world_state]
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.289s
+FAIL
+exit 1

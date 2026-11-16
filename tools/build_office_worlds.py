@@ -164,6 +164,7 @@ def region_svg(world, index, region, band, palette):
     body += f'<rect x="1" y="1" width="{w - 2}" height="{h - 2}" rx="{rounding}" fill="none" stroke="{art.mix(d, .45)}" stroke-width="2"/>'
     # A quiet band under the name plate, in the world's own tone.
     body += f'<rect x="2" y="2" width="{w - 4}" height="{band - 4}" rx="{max(rounding - 2, 2)}" fill="{art.mix(a, .22)}" opacity=".6"/>'
+    body += f'<line x1="8" y1="{band - 2}" x2="{w - 8}" y2="{band - 2}" stroke="{art.mix(d, .35)}" stroke-width="1" opacity=".4"/>'
     body += texture(world, w, h, band, palette, rng)
     body += furniture(region, w, h, palette, grad)
     # The world's vignette, at half size in the name band's far corner.

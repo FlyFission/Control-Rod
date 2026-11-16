@@ -19,9 +19,9 @@ const theme: OfficeThemeV1 = {
     "process": {
       "label": "Process garden",
       "art": {
-        "path": "/office-themes/meadow-post/process.dc58af7357af.svg",
-        "sha256": "dc58af7357afa1d43bc8ca20d3398647b68ed231a9dc80e3f95e8e01d166dd85",
-        "bytes": 2046,
+        "path": "/office-themes/meadow-post/process.bcf16f45f476.svg",
+        "sha256": "bcf16f45f476656a3a3bd3a921e45429e8c0efddcfba4e1edb1ff013737917be",
+        "bytes": 2132,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -32,9 +32,9 @@ const theme: OfficeThemeV1 = {
     "mechanical": {
       "label": "Mechanical garden",
       "art": {
-        "path": "/office-themes/meadow-post/mechanical.58c39a29db2b.svg",
-        "sha256": "58c39a29db2b21afa06d5c74abaf068d3c44c116d39c068a7f402e7116c97766",
-        "bytes": 2048,
+        "path": "/office-themes/meadow-post/mechanical.6362f54be3ab.svg",
+        "sha256": "6362f54be3abfaa51cd804b6bfa00b9c127b098d61942aba726e8f76b6d932d8",
+        "bytes": 2134,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -45,9 +45,9 @@ const theme: OfficeThemeV1 = {
     "electrical": {
       "label": "Electrical garden",
       "art": {
-        "path": "/office-themes/meadow-post/electrical.cbed7e87bc29.svg",
-        "sha256": "cbed7e87bc2985247879e7f788401343299e7aafdfc1f6e9652de12a656775f8",
-        "bytes": 2048,
+        "path": "/office-themes/meadow-post/electrical.b6839f293bb9.svg",
+        "sha256": "b6839f293bb9bca2b6e8b1b4be69fb21a6a2ff0f3726a734e8bc41b1b6b06d9f",
+        "bytes": 2134,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -58,9 +58,9 @@ const theme: OfficeThemeV1 = {
     "civil": {
       "label": "Civil garden",
       "art": {
-        "path": "/office-themes/meadow-post/civil.dcb722803ca0.svg",
-        "sha256": "dcb722803ca005aa6642c68984ae93983c119b7c60aaffd18cd9f7435ac7682e",
-        "bytes": 2047,
+        "path": "/office-themes/meadow-post/civil.e1dcf45bdb3f.svg",
+        "sha256": "e1dcf45bdb3fd99976ce9535fb95a808bce4fa50b87d7993bd78c2ca856b3224",
+        "bytes": 2133,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -71,9 +71,9 @@ const theme: OfficeThemeV1 = {
     "assurance": {
       "label": "Assurance garden",
       "art": {
-        "path": "/office-themes/meadow-post/assurance.4ec79e50866a.svg",
-        "sha256": "4ec79e50866a53367c7e5653b3aa02a388a8ad64c6c5ba7d737992fad171d5de",
-        "bytes": 2049,
+        "path": "/office-themes/meadow-post/assurance.6a6a311e062b.svg",
+        "sha256": "6a6a311e062b1c83b34ff247626e6ffe210d0641802cdbbf8e3301a4a8d659c2",
+        "bytes": 2135,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -84,9 +84,9 @@ const theme: OfficeThemeV1 = {
     "project-controls": {
       "label": "Controls garden",
       "art": {
-        "path": "/office-themes/meadow-post/project-controls.5c0527177ddb.svg",
-        "sha256": "5c0527177ddbbc433ae3c8ac5bda0098fd3f629a1a3c4e7e164ef9c4f6f30faf",
-        "bytes": 2046,
+        "path": "/office-themes/meadow-post/project-controls.a8b458cbd2ab.svg",
+        "sha256": "a8b458cbd2ab74d93e8d9b470452f419c23308945c3705e56be7dd3f038124b9",
+        "bytes": 2132,
         "width": 189,
         "height": 220,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -97,9 +97,9 @@ const theme: OfficeThemeV1 = {
     "review": {
       "label": "Village green",
       "art": {
-        "path": "/office-themes/meadow-post/review.56a2060e6452.svg",
-        "sha256": "56a2060e6452b93ef49dc530c7ad249788d3d9880f1eddab23ba98f6813dea45",
-        "bytes": 1676,
+        "path": "/office-themes/meadow-post/review.f4db60ad3df0.svg",
+        "sha256": "f4db60ad3df029e6341db4161f00646bcac708a5a140998e6e89adfd5d4ae8cb",
+        "bytes": 1762,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -110,9 +110,9 @@ const theme: OfficeThemeV1 = {
     "interface": {
       "label": "Village desk",
       "art": {
-        "path": "/office-themes/meadow-post/interface.d6d96d64d81c.svg",
-        "sha256": "d6d96d64d81cde29d7fdd646996274831734b55d05d998b84c4ceb2b0339ea9f",
-        "bytes": 1685,
+        "path": "/office-themes/meadow-post/interface.e422f0af6139.svg",
+        "sha256": "e422f0af61398d42056499ad32451daa818ec4ed8070d226ca18dc3a3ed632d5",
+        "bytes": 1771,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -123,9 +123,9 @@ const theme: OfficeThemeV1 = {
     "verification": {
       "label": "Reading garden",
       "art": {
-        "path": "/office-themes/meadow-post/verification.f70ea7a44c2f.svg",
-        "sha256": "f70ea7a44c2f718a1d47e4cbe7a04d1c57bb9ef1cc728f53ec73a84d1151e6eb",
-        "bytes": 1684,
+        "path": "/office-themes/meadow-post/verification.327e6e0f3343.svg",
+        "sha256": "327e6e0f33436b81c37c0cb290a013b9004754e68536cc1c2e8fc6ebfd6c7a69",
+        "bytes": 1770,
         "width": 170,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -136,9 +136,9 @@ const theme: OfficeThemeV1 = {
     "your-office": {
       "label": "Postmaster desk",
       "art": {
-        "path": "/office-themes/meadow-post/your-office.9d8b1ec7329d.svg",
-        "sha256": "9d8b1ec7329d3152e89335b23103e7be0a7c3d53aeb2d59440f65e7eabe397b6",
-        "bytes": 1638,
+        "path": "/office-themes/meadow-post/your-office.e47822373c04.svg",
+        "sha256": "e47822373c04c7a28a36125af9a87a05b9331a4d2036f136bbd4efd5141d3986",
+        "bytes": 1724,
         "width": 210,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -149,9 +149,9 @@ const theme: OfficeThemeV1 = {
     "document-control": {
       "label": "Post archive",
       "art": {
-        "path": "/office-themes/meadow-post/document-control.a75213a11839.svg",
-        "sha256": "a75213a118399248e9d34f60686aca4fd167760479b8f3910262cf6dd633724a",
-        "bytes": 1923,
+        "path": "/office-themes/meadow-post/document-control.889eb00c47ba.svg",
+        "sha256": "889eb00c47ba092c91e1528f66cbc9579e118a9eb6bfcf3d323c612aea92f962",
+        "bytes": 2009,
         "width": 160,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -162,9 +162,9 @@ const theme: OfficeThemeV1 = {
     "bench": {
       "label": "Picnic nook",
       "art": {
-        "path": "/office-themes/meadow-post/bench.b5939f555af6.svg",
-        "sha256": "b5939f555af65def1ddea83e52dda7bafee24d7297ee6d40c933311f9675dd4d",
-        "bytes": 1688,
+        "path": "/office-themes/meadow-post/bench.dba0b5530cfa.svg",
+        "sha256": "dba0b5530cfa6f1a89c76bba63fb829ba1bbe49667bb5781bdcf78d301d84ec1",
+        "bytes": 1774,
         "width": 150,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -175,9 +175,9 @@ const theme: OfficeThemeV1 = {
     "quarantine": {
       "label": "Locked shed",
       "art": {
-        "path": "/office-themes/meadow-post/quarantine.f414a0c4e627.svg",
-        "sha256": "f414a0c4e6275a5a228bdbfb0a7bb0e5825016681e44da2a2924941e21d79706",
-        "bytes": 3392,
+        "path": "/office-themes/meadow-post/quarantine.05382c10354b.svg",
+        "sha256": "05382c10354bb3b541c6b524c2759901b7b5db7d69c6345b25d22bc63c78adcb",
+        "bytes": 3478,
         "width": 140,
         "height": 300,
         "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -188,9 +188,9 @@ const theme: OfficeThemeV1 = {
   },
   "bodies": [
     {
-      "path": "/office-themes/meadow-post/body-0.620167e15e9e.svg",
-      "sha256": "620167e15e9ec264975937913336d28088ad36344bbf2061eb018f4b0796d980",
-      "bytes": 1257,
+      "path": "/office-themes/meadow-post/body-0.8973599c1e25.svg",
+      "sha256": "8973599c1e257829e857447068304c5f18aa4bddc562597bd4cb15b536bee18f",
+      "bytes": 1023,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -198,9 +198,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/meadow-post/body-1.8fe3b6e71142.svg",
-      "sha256": "8fe3b6e7114237a983b6a9c65e6c5cbc954718deaad6b7cb38186fac59288678",
-      "bytes": 1184,
+      "path": "/office-themes/meadow-post/body-1.2766b87cf304.svg",
+      "sha256": "2766b87cf3049ae6f615ca6b139242d5cb096f911a76665bbe123f3f1932fecd",
+      "bytes": 958,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -208,9 +208,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/meadow-post/body-2.7ef068b60c96.svg",
-      "sha256": "7ef068b60c9644ea5f4f61b47dc990a23957389b9507088d3120b9cac08dbcc9",
-      "bytes": 1181,
+      "path": "/office-themes/meadow-post/body-2.63935630b958.svg",
+      "sha256": "63935630b95862bbcf61ecf76e5e3bab58719707b3278393e7272ef226fc3d57",
+      "bytes": 906,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -218,9 +218,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/meadow-post/body-3.13308ef8efc4.svg",
-      "sha256": "13308ef8efc4993e13e6e172f0f7d9fb5009a63519ecaf06c1ab67b5bb5d2a67",
-      "bytes": 1222,
+      "path": "/office-themes/meadow-post/body-3.82848717f05e.svg",
+      "sha256": "82848717f05ee2bdee1fd31e4645937c9ff2885ec11419b521c147662e43ec7e",
+      "bytes": 1111,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -228,9 +228,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/meadow-post/body-4.58ee95bef1db.svg",
-      "sha256": "58ee95bef1db27d3bd94642b955ee95143701201a4b7f14bd1aaff4c2c301a79",
-      "bytes": 1243,
+      "path": "/office-themes/meadow-post/body-4.429b47bc2993.svg",
+      "sha256": "429b47bc29935ab921bb09b6a337f87633d656fefdfc948538cb2de683e8d628",
+      "bytes": 985,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",
@@ -238,9 +238,9 @@ const theme: OfficeThemeV1 = {
       "licenseNoticeId": "Apache-2.0"
     },
     {
-      "path": "/office-themes/meadow-post/body-5.f6df679c1f5a.svg",
-      "sha256": "f6df679c1f5aa7c6b4c2cf2f181e1bf7d2e816b5464915791fe4f3dbb110ecee",
-      "bytes": 1198,
+      "path": "/office-themes/meadow-post/body-5.30b594c836ac.svg",
+      "sha256": "30b594c836ac3f69bdd6028cc35a2aa59b502677b418e8a786c54a16d9d026e9",
+      "bytes": 968,
       "width": 64,
       "height": 64,
       "creator": "Original procedural vector illustration (Codex, Claude Code)",

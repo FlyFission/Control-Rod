@@ -1,10 +1,10 @@
 # Domain deliverables implementation plan
 
-**Spec:** [Controlled domain deliverables](../specs/2026-10-23-domain-deliverables-design.md). Status: proposed, not executed. Dependency: owner pilot decision and named domain/tool/source authorities. Keep each task in its own change record/commit; use RED → GREEN → fresh artifact review.
+**Spec:** [Controlled domain deliverables](../specs/2026-10-23-domain-deliverables-design.md). Status: proposed, not executed. Dependency: owner pilot decision and named domain/tool/source authorities. Keep each task in its own change record/commit; use RED → GREEN → fresh artifact review. On 2026-11-06 the drawing engine and the domain pack this plan first named were removed; the tasks below name no shipped pack.
 
 ## Task 1: approved tool manifests and offline cache
 
-Files: proposed `spec/domain-tools.tsp`, `sdk/python/src/controlrod/tools.py`, `tests/conformance/tools/`, tool-manifest fixtures and drawing/example-package launcher integration.
+Files: proposed `spec/domain-tools.tsp`, `sdk/python/src/controlrod/tools.py`, `tests/conformance/tools/`, tool-manifest fixtures and the launcher integration for a pack's tools.
 
 Interface: `resolve_tool(manifest, cache, offline) -> VerifiedTool(path, binary_digest, version, protocol)`; `acquire_tool` accepts only manifest URLs/platform hashes and stages downloads before cache publication. No shell interpolation or PATH fallback after a pinned tool is requested.
 
@@ -12,7 +12,7 @@ Write failures for corrupt archive/binary, version/protocol mismatch, unsafe arc
 
 ## Task 2: generation-level drawing publication
 
-Files: `packs/capital-projects/drawings/render_sheet.py`, example-package drawing caller, generated artifact contract, `tests/conformance/cad/` and publication failure fixtures.
+Files: the renderer of a future drawing pack (none ships today), generated artifact contract and publication failure fixtures.
 
 Interface: `publish_generation(staging, manifest, destination) -> ArtifactGenerationRef`. Consume the manifest through one atomic current-generation pointer. Specify the compatibility adapter for existing flat-path callers before changing them.
 
@@ -20,9 +20,9 @@ Write failures at each format save, manifest verification and final publication 
 
 ## Task 3: authoritative source adapters
 
-Files: `packs/capital-projects/example-package/src/cr_example/` source adapters and tests, fixtures with acquisition metadata and license refs, source contract.
+Files: source adapters and tests in the pack that needs them, fixtures with acquisition metadata and license refs, source contract.
 
-Interface: `query_source(SourceQuery) -> SourceResult | Hold`, with explicit CRS/units, page completeness and provenance. Implement county/parcel, substation and soil adapters separately after endpoint/authority selection.
+Interface: `query_source(SourceQuery) -> SourceResult | Hold`, with explicit CRS/units, page completeness and provenance. Implement each source family's adapter separately after endpoint/authority selection.
 
 First write failures for missing authority, bad schema/CRS, partial pagination, out-of-area data, unlicensed source, unavailable network/offline data and changed revision. Record raw source digests and tool-derived values; verify representative real records with the domain owner. Commit one adapter at a time; never turn a source hold into a plausible result.
 

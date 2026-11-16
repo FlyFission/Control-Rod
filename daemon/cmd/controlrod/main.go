@@ -3,6 +3,7 @@
 //	controlrod version
 //	controlrod daemon [--parallel N] [--timeout 45m]
 //	controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR [--home DIR] [--daemon-home DIR]
+//	controlrod attestation-public
 //
 // The daemon claims jobs from the control plane, runs an agent runtime in a per-job workspace
 // and reports outputs with an execution trace. It never makes a decision.
@@ -10,6 +11,7 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -25,7 +27,7 @@ import (
 	"github.com/flyfission/control-rod/daemon/internal/version"
 )
 
-const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR"
+const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR | controlrod attestation-public"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -39,10 +41,23 @@ func main() {
 		os.Exit(daemon(os.Args[2:]))
 	case "sandbox-args":
 		os.Exit(sandboxArgs(os.Args[2:]))
+	case "attestation-public":
+		os.Exit(attestationPublic())
 	default:
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)
 	}
+}
+
+func attestationPublic() int {
+	priv, err := runner.InitSigningKey()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		return 1
+	}
+	pub := priv.Public().(ed25519.PublicKey)
+	fmt.Printf("key_id %s\npublic_key %s\n", runner.PublicKeyID(pub), runner.PublicKeyBase64(pub))
+	return 0
 }
 
 func daemon(args []string) int {
@@ -121,18 +136,21 @@ func sandboxArgs(args []string) int {
 		fmt.Fprintln(os.Stderr, "no launch:", err)
 		return 1
 	}
-	if *rt == runner.RuntimeCodex {
-		// As the daemon launches it: the verified install, staged outside the home folder.
-		a, err := runner.ResolveArtifact("codex")
-		if err == nil {
-			a, err = runner.StageArtifact(a, runner.StageRoot())
+	if adapt, ok := runner.AdapterFor(runner.RuntimeFor(*rt)); ok {
+		if stager, ok := adapt.(runner.ArtifactStager); ok && stager.StagesArtifact() {
+			// As the daemon launches it: the verified install, staged outside the home folder.
+			// Binary() is the PATH name, which for this runtime equals its id.
+			a, err := runner.ResolveArtifact(adapt.Binary())
+			if err == nil {
+				a, err = runner.StageArtifact(a, runner.StageRoot())
+			}
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "stage %s: %v\n", adapt.ID(), err)
+				return 1
+			}
+			cmd.Args[0] = a.Path
+			cmd.Env = append(cmd.Env, a.Env...)
 		}
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "stage codex:", err)
-			return 1
-		}
-		cmd.Args[0] = a.Path
-		cmd.Env = append(cmd.Env, a.Env...)
 	}
 	out, _ := json.MarshalIndent(map[string]any{"argv": cmd.Args, "env": cmd.Env, "dir": cmd.Dir}, "", "  ")
 	fmt.Println(string(out))

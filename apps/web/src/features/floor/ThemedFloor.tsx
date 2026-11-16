@@ -341,7 +341,10 @@ export function ThemedFloor() {
       page={page}
       onPageChange={setPage}
       visible={visible}
-      allowDrafts={import.meta.env.VITE_FLOOR_THEME_DRAFTS === "true"}
+      allowDrafts={
+        import.meta.env.DEV ||
+        import.meta.env.VITE_FLOOR_THEME_DRAFTS === "true"
+      }
       onOpen={(e) => {
         void navigate({
           to: "/packages/$id",

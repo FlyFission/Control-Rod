@@ -1,0 +1,13 @@
+[test-api] PostgreSQL fixture binaries: /home/ubuntu/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.1.0 /agent/repos/Control-Rod/services/api
+
+[control-rod] the database dropped an idle reader connection (terminating connection due to administrator command); a new one opens on next use
+[control-rod] the database dropped an idle writer connection (terminating connection due to administrator command); a new one opens on next use
+
+ Test Files  53 passed (53)
+      Tests  660 passed (660)
+   Start at  02:04:38
+   Duration  39.72s (tests 86%, import 13%, transform 1%)
+
+EXIT:0

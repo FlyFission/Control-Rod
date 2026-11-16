@@ -1,0 +1,12 @@
+# tree: remove-example-package at f5ecc39 (merged with origin/main 8a9679e), 2026-11-06T21:21:07Z
+$ pnpm -r run typecheck
+Scope: 3 of 4 workspace projects
+apps/web typecheck$ pnpm gen:api && tsc -p tsconfig.json --noEmit
+apps/web typecheck: > @control-rod/web@0.0.0 gen:api /home/flyfission/worktrees/control-rod-sanitize/apps/web
+apps/web typecheck: > openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+apps/web typecheck: ✨ openapi-typescript 7.13.0
+apps/web typecheck: 🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [226.1ms]
+apps/web typecheck: Done
+services/api typecheck$ tsc -p tsconfig.json --noEmit
+services/api typecheck: Done
+exit 0

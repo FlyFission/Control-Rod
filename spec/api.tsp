@@ -152,6 +152,29 @@ model PackageView {
   runs: Run[];
   outputs: Artifact[];
   pre_check?: VerificationRecord;
+
+  /**
+   * The latest checker attempts for this package, oldest of that page first, including inconclusive,
+   * timeout, error, quota and cancelled. At most 50. Older attempts are on GET /checker-attempts.
+   */
+  checker_attempts?: ControlRod.Records.CheckerAttempt[];
+
+  /** Signed overrides that allow one more check of a deliverable a check had already failed. */
+  recheck_overrides?: ControlRod.Records.RecheckOverride[];
+
+  /**
+   * Set when the governing decisive outcome for the current deliverable is fail.
+   * Absent after an in-scope overridden recheck passes, when the digest changed, or when an
+   * unused override is waiting.
+   */
+  check_blocked?: ControlRod.Records.CheckBlocked;
+
+  /**
+   * Set when several checks of the current digest were inconclusive. A warning only:
+   * another check is still allowed.
+   */
+  check_warning?: ControlRod.Records.CheckWarning;
+
   decisions: Decision[];
 
   /** Digest a decision on this revision must be bound to. */
@@ -296,6 +319,52 @@ namespace Packages {
 
     outcome: "pass" | "fail" | "inconclusive";
   }
+
+  /**
+   * Checker attempts for this package, oldest first. limit keeps the latest ones (1 to 100).
+   * before, a seq, returns the page older than that attempt.
+   * Timeout, error, quota and cancelled attempts are in the list and count as inconclusive.
+   */
+  @route("/{id}/checker-attempts") @get op checkerAttempts(
+    @path id: string,
+    @query @minValue(1) @maxValue(100) limit?: int32,
+    @query @minValue(1) before?: int32,
+  ): ControlRod.Records.CheckerAttempt[] | Refused;
+
+  /**
+   * Ask for a check of the current author deliverables. 201 when a check is queued.
+   * 409 check-active when one is already queued or running.
+   * 409 sticky-fail when a check of that digest has already failed and no signed recheck override
+   * is waiting to be used.
+   */
+  @route("/{id}/checks") @post op requestCheck(@path id: string): {
+    @statusCode _: 201;
+    @body run: Run;
+  } | Refused;
+
+  /**
+   * Step 1 of the owner's override to check a failed deliverable again. The digest covers the
+   * package, the revision, the deliverable digest, the act "recheck-override" and the reason.
+   * The same passkey ceremony as the independence override.
+   */
+  @route("/{id}/recheck-overrides/options")
+  @post
+  op recheckOverrideOptions(@path id: string, @body body: OverrideRequest): {
+    subject_digest: Digest;
+    deliverable_digest: Digest;
+    options: Record<unknown>;
+  } | Refused;
+
+  /**
+   * Step 2: the signed override. It authorizes one check of the deliverable digest the owner was
+   * shown. Recorded with the reason and the assertion. A later check needs another signature.
+   */
+  @route("/{id}/recheck-overrides")
+  @post
+  op recordRecheckOverride(@path id: string, @body body: {
+    ...OverrideRequest;
+    assertion: Record<unknown>;
+  }): ControlRod.Records.RecheckOverride | Refused;
 
   /** Every person verification recorded for this package, for every revision, oldest first. */
   @route("/{id}/person-verifications") @get op personVerifications(@path id: string): PersonVerificationEntry[] | Refused;
@@ -551,6 +620,100 @@ op runtimes(): {
 
   /** The active pins, per runtime and role. */
   pins: RuntimePin[];
+};
+
+/**
+ * Settings > Subscriptions. The daemon's probe of registered provider CLIs.
+ * Control Rod does not accept or return a token.
+ */
+@route("/subscriptions")
+@get
+op subscriptions(): SubscriptionView;
+
+/** One registered provider CLI, as the daemon probed it. */
+@extension("unevaluatedProperties", false)
+model SubscriptionProbe {
+  id: string;
+  display_name: string;
+  vendor_family?: string;
+  installed: boolean;
+
+  @maxLength(4096)
+  path?: string;
+
+  @maxLength(200)
+  observed_version?: string;
+
+  /** From the CLI's own status command, or unknown when it has none. */
+  auth: "signed-in" | "signed-out" | "unknown";
+
+  @maxLength(200)
+  auth_note?: string;
+
+  roles: SubscriptionRole[];
+}
+
+@extension("unevaluatedProperties", false)
+model SubscriptionRole {
+  role: "author" | "checker";
+  qualified: boolean;
+
+  @maxLength(300)
+  reason: string;
+}
+
+/** One model in the daemon's checker registry. Not a live probe. */
+@extension("unevaluatedProperties", false)
+model SubscriptionChecker {
+  id: string;
+  harness: string;
+  vendor_family?: string;
+  deciding: boolean;
+  local: boolean;
+  hosts: string[];
+}
+
+/** How many checkers a grade needs. Safety is 2, from different vendor families; every other grade is 1. */
+@extension("unevaluatedProperties", false)
+model SubscriptionTier {
+  grade: "safety" | "material" | "general-service";
+
+  @minValue(1)
+  @maxValue(2)
+  required: int32;
+
+  rule: string;
+}
+
+/** A pin joined to the version string the passing probe recorded. Checker is the pre-check role. */
+@extension("unevaluatedProperties", false)
+model SubscriptionPin {
+  runtime: string;
+  role: "author" | "checker";
+  version?: string;
+  digest: Digest;
+}
+
+@extension("unevaluatedProperties", false)
+model SubscriptionView {
+  /** False until a daemon has reported. Probes are empty then, and none are invented. */
+  reported: boolean;
+  reported_at?: utcDateTime;
+  platform?: string;
+  probes: SubscriptionProbe[];
+  checkers: SubscriptionChecker[];
+  tiers: SubscriptionTier[];
+  local_rule: string;
+  pins: SubscriptionPin[];
+}
+
+/** The claim payload. The same probe models the settings page returns. */
+@extension("unevaluatedProperties", false)
+model SubscriptionReport {
+  platform?: string;
+  probes?: SubscriptionProbe[];
+  checkers?: SubscriptionChecker[];
+  local_rule?: string;
 };
 
 /** One run role on the Roster: what it does, who has run it, and its pins. */
@@ -1059,6 +1222,9 @@ namespace Runner {
 
     runtime_status?: RuntimeStatus[];
 
+    /** Provider CLI probes for Settings. Output of a status command is not included. */
+    subscription_report?: ControlRod.Api.SubscriptionReport;
+
     /** The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations. */
     @minValue(1) run_ceiling_seconds?: int32;
   }): Job | {
@@ -1113,6 +1279,10 @@ namespace Runner {
     outputs: NamedFile[];
     `package`?: WorkPackage;
     verification?: VerificationRecord;
+
+    /** The daemon's signed statement for a counted pre-check. Absent for other runs. */
+    attestation?: RunAttestation;
+
     criterion_results?: ControlRod.Preparation.CriterionResultSubmission;
 
     /** The run's spawn receipt, so it is on record even if no log post carried it. */

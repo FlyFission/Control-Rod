@@ -1205,8 +1205,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		}
 	}
 	if err == nil && cmd != nil && !ws.Checker && os.Getenv("CONTROLROD_EGRESS_FILTER") == "1" {
-		hosts := []string{"127.0.0.1:11434", "localhost:11434"}
-		if sandbox != nil && len(sandbox.AllowedHosts) > 0 {
+		var hosts []string
+		if sandbox != nil {
+			// Respect AllowedHosts literally: empty slice means deny all outbound CONNECT.
 			hosts = make([]string, 0, len(sandbox.AllowedHosts))
 			for _, h := range sandbox.AllowedHosts {
 				if !strings.Contains(h, ":") {
@@ -1215,6 +1216,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					hosts = append(hosts, h)
 				}
 			}
+		} else {
+			hosts = []string{"127.0.0.1:11434", "localhost:11434"}
 		}
 		if ef, eferr := StartEgressFilter(hosts); eferr != nil {
 			err = fmt.Errorf("start author egress filter: %w", eferr)

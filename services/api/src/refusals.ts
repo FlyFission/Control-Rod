@@ -201,9 +201,14 @@ export const REASONS: Record<string, Reason> = {
   "worktree-not-found": r("The worktree directory was not found.", "Verify the worktree_path and retry."),
   "git-failed": r("The host Git operation failed.", "Read the Git error detail and retry."),
   "invalid-verdict": r("A verdict requires package_id, freeze_digest, and signer_id.", "Provide all required verdict fields."),
+  "invalid-status": r("Verdict status must be 'accepted' or 'rejected'.", "Pass status as 'accepted' or 'rejected'."),
+  "invalid-mode": r("Delivery mode must be 'software' or 'capital-projects'.", "Pass mode as 'software' or 'capital-projects'."),
   "invalid-clearance": r("Clearance requires target and authorizer_id.", "Provide a valid target and retry."),
   "invalid-application": r("Application requires external_ref and artifact_digest.", "Provide external_ref and artifact_digest."),
+  "verdict-not-found": r("The referenced outfall verdict was not found.", "Record a verdict first."),
   "verdict-not-accepted": r("Outfall clearance cannot be issued for a rejected verdict.", "Submit an accepted verdict before issuing clearance."),
+  "clearance-not-found": r("The referenced outfall clearance was not found.", "Issue clearance before recording application."),
+  "forbidden-authority": r("Your active qualification does not include outfall decision authority.", "Ask an administrator with authority to sign or grant the required authority."),
 
   // The server itself.
   error: r("Something went wrong on the server.", "The cause is in the server log; try again once it is fixed."),

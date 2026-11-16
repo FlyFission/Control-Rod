@@ -311,7 +311,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
 
   preparationRoutes(app, db, cfg, person, auth);
   repoRoutes(app, person);
-  outfallRoutes(app, person);
+  outfallRoutes(app, db, person);
   grantRoutes(app,db,cfg,person);
 
   /* ---- captures ---- */

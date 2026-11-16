@@ -3,6 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { type Db, tx } from "./db/index.js";
+import { appendEvent } from "./events.js";
 import { Refusal } from "./refusal.js";
 import { HOST_GIT_ARGS, type WorkspaceMode, createCheckpoint, hostGitEnv } from "./repos.js";
 
@@ -170,56 +172,71 @@ export function recordApplication(opts: {
 
 /**
  * Governed Outfall HTTP routes (Stage 1 Verdict -> Stage 2 Clearance -> Stage 3 Application).
+ * Durable across restarts via immutable records appended to the Postgres `events` chain.
  */
 export function outfallRoutes(
   app: FastifyInstance,
+  db: Db,
   person: (req: FastifyRequest) => Promise<string>,
 ): void {
-  const verdicts = new Map<string, OutfallVerdict>();
-  const clearances = new Map<string, OutfallClearance>();
-  const records: ControlledRecord[] = [];
-
   app.post<{
-    Body: { package_id?: string; freeze_digest?: string; status?: "accepted" | "rejected" };
+    Body: { package_id?: string; freeze_digest?: string; status?: string };
   }>("/outfall/verdict", async (req) => {
     const signerId = await person(req);
     const body = req.body ?? {};
+    if (body.status !== "accepted" && body.status !== "rejected") {
+      throw new Refusal(400, "invalid-status", "status must be 'accepted' or 'rejected'.");
+    }
     const v = recordVerdict({
       packageId: body.package_id ?? "",
       freezeDigest: body.freeze_digest ?? "",
       signerId,
-      status: body.status === "rejected" ? "rejected" : "accepted",
+      status: body.status,
     });
-    verdicts.set(v.id, v);
+    await tx(db, (c) =>
+      appendEvent(c, "outfall.verdict", v.id, { kind: "human", id: signerId }, { verdict: v }),
+    );
     return { ok: true, verdict: v };
   });
 
   app.post<{
-    Body: { verdict_id?: string; mode?: WorkspaceMode; target?: string };
+    Body: { verdict_id?: string; mode?: string; target?: string };
   }>("/outfall/clearance", async (req) => {
     const authorizerId = await person(req);
     const body = req.body ?? {};
-    const verdict = verdicts.get(body.verdict_id ?? "");
+    if (body.mode !== "software" && body.mode !== "capital-projects") {
+      throw new Refusal(400, "invalid-mode", "mode must be 'software' or 'capital-projects'.");
+    }
+    const verdictRow = await db.query<{ verdict: OutfallVerdict }>(
+      "select body->'data'->'verdict' as verdict from events where body->>'type' = 'outfall.verdict' and body->>'subject' = $1 limit 1",
+      [body.verdict_id ?? ""],
+    );
+    const verdict = verdictRow.rows[0]?.verdict;
     if (!verdict) {
       throw new Refusal(404, "verdict-not-found", `Verdict not found: ${body.verdict_id ?? ""}`);
     }
-    const mode: WorkspaceMode = body.mode === "capital-projects" ? "capital-projects" : "software";
     const c = issueClearance({
       verdict,
-      mode,
+      mode: body.mode,
       target: body.target ?? "",
       authorizerId,
     });
-    clearances.set(c.id, c);
+    await tx(db, (txc) =>
+      appendEvent(txc, "outfall.clearance", c.id, { kind: "human", id: authorizerId }, { clearance: c }),
+    );
     return { ok: true, clearance: c };
   });
 
   app.post<{
     Body: { clearance_id?: string; external_ref?: string; artifact_digest?: string };
   }>("/outfall/apply", async (req) => {
-    await person(req);
+    const actorId = await person(req);
     const body = req.body ?? {};
-    const clearance = clearances.get(body.clearance_id ?? "");
+    const clrRow = await db.query<{ clearance: OutfallClearance }>(
+      "select body->'data'->'clearance' as clearance from events where body->>'type' = 'outfall.clearance' and body->>'subject' = $1 limit 1",
+      [body.clearance_id ?? ""],
+    );
+    const clearance = clrRow.rows[0]?.clearance;
     if (!clearance) {
       throw new Refusal(404, "clearance-not-found", `Clearance not found: ${body.clearance_id ?? ""}`);
     }
@@ -228,12 +245,17 @@ export function outfallRoutes(
       externalRef: body.external_ref ?? "",
       artifactDigest: body.artifact_digest ?? "",
     });
-    records.unshift(rec);
+    await tx(db, (txc) =>
+      appendEvent(txc, "outfall.application", rec.id, { kind: "human", id: actorId }, { record: rec }),
+    );
     return { ok: true, record: rec };
   });
 
   app.get("/outfall/records", async (req) => {
     await person(req);
-    return { records };
+    const r = await db.query<{ record: ControlledRecord }>(
+      "select body->'data'->'record' as record from events where body->>'type' = 'outfall.application' order by seq desc limit 200",
+    );
+    return { records: r.rows.map((x) => x.record) };
   });
 }

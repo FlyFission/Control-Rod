@@ -3,7 +3,9 @@
 Three checks:
 1. Every register row is complete, names a permissive license and a full
    commit, points at an existing local path, and has retained license
-   evidence under third_party/licenses/<owner>__<repo>/.
+   evidence under third_party/licenses/<owner>__<repo>/. A code row also
+   names, in its Local changes cell, the port's provenance file
+   (docs/third-party/port-provenance.md), which must exist and list the file.
 2. Every tracked file carrying a provenance marker has a register row.
 3. With --donors DIR, repository code is compared with pinned donor
    checkouts by runs of normalized lines; overlaps in unregistered files are
@@ -27,6 +29,7 @@ PERMISSIVE = {"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC"}
 FONT_LICENSES = {"OFL-1.1"}
 FONT_SUFFIXES = (".woff2", ".woff", ".ttf", ".otf")
 COLUMNS = ["Local path", "Upstream repository", "Commit", "Upstream path", "License", "Notice retained", "Local changes"]
+PROVENANCE = re.compile(r"[\w./-]*provenance\.md")
 MARKER = re.compile(r"\b(?:Ported from|Adapted from|Translated from|Derived from|SPDX-FileCopyrightText)\b")
 CODE_SUFFIXES = {".ts", ".tsx", ".js", ".mjs", ".go", ".rs", ".py"}
 SKIP_PARTS = {"node_modules", "generated", "dist", ".git"}
@@ -69,7 +72,22 @@ def check_rows(header: list[str], rows: list[dict[str, str]], root: Path = ROOT)
         evidence = root / "third_party" / "licenses" / repo.replace("/", "__")
         if not any(evidence.glob("LICENSE*")):
             problems.append(f"{where}: no retained license under third_party/licenses/{repo.replace('/', '__')}/")
+        if Path(local).suffix in CODE_SUFFIXES:
+            problems.extend(provenance_problems(where, local, row.get("Local changes", ""), root))
     return problems
+
+
+def provenance_problems(where: str, local: str, changes: str, root: Path = ROOT) -> list[str]:
+    """A ported code file needs a provenance table (docs/third-party/port-provenance.md)."""
+    match = PROVENANCE.search(changes)
+    if not match:
+        return [f"{where}: Local changes must name the port's provenance.md (docs/third-party/port-provenance.md)"]
+    provenance = root / match.group(0)
+    if not provenance.is_file():
+        return [f"{where}: provenance file {match.group(0)} does not exist"]
+    if local not in provenance.read_text(encoding="utf-8"):
+        return [f"{where}: provenance file {match.group(0)} has no row for this file"]
+    return []
 
 
 def tracked_files(root: Path = ROOT) -> list[Path]:

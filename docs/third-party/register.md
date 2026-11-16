@@ -7,9 +7,10 @@ Rules:
 - Only MIT, Apache-2.0, BSD or ISC sources, pinned to a full commit, with the effective license checked at file and folder level. Font files may also use the SIL Open Font License 1.1, the standard license for web fonts.
 - The upstream license text, any NOTICE file and the exact upstream path inventory are retained under `third_party/licenses/<owner>__<repo>/` before the first ported line.
 - Apache-2.0 ports keep applicable notices, carry over upstream NOTICE attribution and mark modified files.
+- Each ported code file is also listed in the port's provenance file, `.nuclear/changes/<slug>/provenance.md`, named in its Local changes cell. [port-provenance.md](port-provenance.md) gives the outline.
 - A file that carries a provenance marker (`Ported from`, `Adapted from`, `Translated from`, `Derived from`, `SPDX-FileCopyrightText`) must have a row here.
 
-`python3 tools/check_register.py` enforces the table and the markers. `python3 tools/check_register.py --donors <dir>` also compares repository code with pinned donor checkouts and reports undeclared overlap for review; a port that strips its marker and avoids literal overlap can still escape it, so review remains responsible.
+`python3 tools/check_register.py` enforces the table, the provenance files and the markers. `python3 tools/check_register.py --donors <dir>` also compares repository code with pinned donor checkouts and reports undeclared overlap for review; a port that strips its marker and avoids literal overlap can still escape it, so review remains responsible.
 
 ## Register
 

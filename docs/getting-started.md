@@ -58,6 +58,7 @@ These mirror the CI jobs in [`.github/workflows/ci.yml`](../.github/workflows/ci
 | Go (daemon) | In `daemon/`: `gofmt -l .` (must print nothing), `go vet ./...`, `go test ./...` |
 | Python (SDK) | In `sdk/python/`: `uv sync --locked`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q` |
 | Licences | `node tools/license-gate.mjs` |
+| Agent guide | `python3 tools/check_agents_map.py` when you change `AGENTS.md` or `CLAUDE.md`. Not yet in CI. If the guide must grow, re-record its budget with `--record` in the same change |
 | Change records | `uv run --with pyyaml python tools/check_redteam.py`, and validate your record with `tools/ng.py` from the pinned [nuclear-grade-context-engineering](https://github.com/FlyFission/nuclear-grade-context-engineering) checkout (CI shows the exact command) |
 
 The API tests use a real PostgreSQL 17 and nothing is mocked; [test-database.md](test-database.md) explains how the harness finds or builds one. Run them through `pnpm --filter @control-rod/api test`, not by calling `vitest` directly.

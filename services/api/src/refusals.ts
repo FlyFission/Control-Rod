@@ -186,6 +186,14 @@ export const REASONS: Record<string, Reason> = {
   "grant-busy": r("The authority did not acknowledge in time.", "Retry the same request."),
   "grant-database-version": r("Controller grants need PostgreSQL 17 or newer.", "Upgrade PostgreSQL to version 17 or newer."),
 
+  // Workspace repositories & governed outfall.
+  "invalid-repo": r("The repository name is not valid.", "Use owner/name for GitHub or a safe local folder name."),
+  "invalid-branch": r("The branch name is not valid.", "Choose a valid Git branch name without '..' or trailing slashes."),
+  "invalid-workspace-root": r("The workspace root must stay inside the user's home directory.", "Choose a folder inside your home directory."),
+  "repo-not-found": r("The local repository directory does not exist.", "Clone or materialize the repository first."),
+  "workspace-exists": r("A workspace or worktree already exists at that target path.", "Choose another branch name or remove the existing worktree."),
+  "git-failed": r("The host Git operation failed.", "Read the Git error detail and retry."),
+
   // The server itself.
   error: r("Something went wrong on the server.", "The cause is in the server log; try again once it is fixed."),
 };

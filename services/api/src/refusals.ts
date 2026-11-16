@@ -200,6 +200,10 @@ export const REASONS: Record<string, Reason> = {
   "worktree-dirty": r("The worktree has uncommitted changes.", "Commit, capture a checkpoint, or pass force=true."),
   "worktree-not-found": r("The worktree directory was not found.", "Verify the worktree_path and retry."),
   "git-failed": r("The host Git operation failed.", "Read the Git error detail and retry."),
+  "invalid-verdict": r("A verdict requires package_id, freeze_digest, and signer_id.", "Provide all required verdict fields."),
+  "invalid-clearance": r("Clearance requires target and authorizer_id.", "Provide a valid target and retry."),
+  "invalid-application": r("Application requires external_ref and artifact_digest.", "Provide external_ref and artifact_digest."),
+  "verdict-not-accepted": r("Outfall clearance cannot be issued for a rejected verdict.", "Submit an accepted verdict before issuing clearance."),
 
   // The server itself.
   error: r("Something went wrong on the server.", "The cause is in the server log; try again once it is fixed."),

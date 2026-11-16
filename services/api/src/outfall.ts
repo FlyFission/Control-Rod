@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { callerFor } from "./admin.js";
 import { command } from "./commands/executor.js";
 import type { Db } from "./db/index.js";
 import { appendEvent } from "./events.js";
@@ -21,6 +22,7 @@ export interface FreezeResult {
 
 export interface OutfallVerdict {
   id: string;
+  org_id?: string;
   package_id: string;
   freeze_digest: string;
   signer_id: string;
@@ -30,6 +32,7 @@ export interface OutfallVerdict {
 
 export interface OutfallClearance {
   id: string;
+  org_id?: string;
   verdict_id: string;
   package_id: string;
   freeze_digest: string;
@@ -41,6 +44,7 @@ export interface OutfallClearance {
 
 export interface ControlledRecord {
   id: string;
+  org_id?: string;
   package_id: string;
   mode: WorkspaceMode;
   freeze_digest: string;
@@ -184,16 +188,20 @@ export function outfallRoutes(
     Body: { package_id?: string; freeze_digest?: string; status?: string };
   }>("/outfall/verdict", async (req) => {
     const signerId = await person(req);
+    const caller = await callerFor(db, signerId);
     const body = req.body ?? {};
     if (body.status !== "accepted" && body.status !== "rejected") {
       throw new Refusal(400, "invalid-status", "status must be 'accepted' or 'rejected'.");
     }
-    const v = recordVerdict({
-      packageId: body.package_id ?? "",
-      freezeDigest: body.freeze_digest ?? "",
-      signerId,
-      status: body.status,
-    });
+    const v: OutfallVerdict = {
+      ...recordVerdict({
+        packageId: body.package_id ?? "",
+        freezeDigest: body.freeze_digest ?? "",
+        signerId,
+        status: body.status,
+      }),
+      org_id: caller.orgId,
+    };
     await command(db, "outfall.verdict", (c) =>
       appendEvent(c, "outfall.verdict", v.id, { kind: "human", id: signerId }, { verdict: v }),
     );
@@ -204,24 +212,28 @@ export function outfallRoutes(
     Body: { verdict_id?: string; mode?: string; target?: string };
   }>("/outfall/clearance", async (req) => {
     const authorizerId = await person(req);
+    const caller = await callerFor(db, authorizerId);
     const body = req.body ?? {};
     if (body.mode !== "software" && body.mode !== "capital-projects") {
       throw new Refusal(400, "invalid-mode", "mode must be 'software' or 'capital-projects'.");
     }
     const verdictRow = await db.query<{ verdict: OutfallVerdict }>(
-      "select body->'data'->'verdict' as verdict from events where body->>'type' = 'outfall.verdict' and body->>'subject' = $1 limit 1",
-      [body.verdict_id ?? ""],
+      "select body->'data'->'verdict' as verdict from events where body->>'type' = 'outfall.verdict' and body->>'subject' = $1 and body->'data'->'verdict'->>'org_id' = $2 limit 1",
+      [body.verdict_id ?? "", caller.orgId],
     );
     const verdict = verdictRow.rows[0]?.verdict;
     if (!verdict) {
       throw new Refusal(404, "verdict-not-found", `Verdict not found: ${body.verdict_id ?? ""}`);
     }
-    const c = issueClearance({
-      verdict,
-      mode: body.mode,
-      target: body.target ?? "",
-      authorizerId,
-    });
+    const c: OutfallClearance = {
+      ...issueClearance({
+        verdict,
+        mode: body.mode,
+        target: body.target ?? "",
+        authorizerId,
+      }),
+      org_id: caller.orgId,
+    };
     await command(db, "outfall.clearance", (txc) =>
       appendEvent(txc, "outfall.clearance", c.id, { kind: "human", id: authorizerId }, { clearance: c }),
     );
@@ -232,20 +244,24 @@ export function outfallRoutes(
     Body: { clearance_id?: string; external_ref?: string; artifact_digest?: string };
   }>("/outfall/apply", async (req) => {
     const actorId = await person(req);
+    const caller = await callerFor(db, actorId);
     const body = req.body ?? {};
     const clrRow = await db.query<{ clearance: OutfallClearance }>(
-      "select body->'data'->'clearance' as clearance from events where body->>'type' = 'outfall.clearance' and body->>'subject' = $1 limit 1",
-      [body.clearance_id ?? ""],
+      "select body->'data'->'clearance' as clearance from events where body->>'type' = 'outfall.clearance' and body->>'subject' = $1 and body->'data'->'clearance'->>'org_id' = $2 limit 1",
+      [body.clearance_id ?? "", caller.orgId],
     );
     const clearance = clrRow.rows[0]?.clearance;
     if (!clearance) {
       throw new Refusal(404, "clearance-not-found", `Clearance not found: ${body.clearance_id ?? ""}`);
     }
-    const rec = recordApplication({
-      clearance,
-      externalRef: body.external_ref ?? "",
-      artifactDigest: body.artifact_digest ?? "",
-    });
+    const rec: ControlledRecord = {
+      ...recordApplication({
+        clearance,
+        externalRef: body.external_ref ?? "",
+        artifactDigest: body.artifact_digest ?? "",
+      }),
+      org_id: caller.orgId,
+    };
     await command(db, "outfall.application", (txc) =>
       appendEvent(txc, "outfall.application", rec.id, { kind: "human", id: actorId }, { record: rec }),
     );
@@ -253,9 +269,10 @@ export function outfallRoutes(
   });
 
   app.get("/outfall/records", async (req) => {
-    await person(req);
+    const caller = await callerFor(db, await person(req));
     const r = await db.query<{ record: ControlledRecord }>(
-      "select body->'data'->'record' as record from events where body->>'type' = 'outfall.application' order by seq desc limit 200",
+      "select body->'data'->'record' as record from events where body->>'type' = 'outfall.application' and body->'data'->'record'->>'org_id' = $1 order by seq desc limit 200",
+      [caller.orgId],
     );
     return { records: r.rows.map((x) => x.record) };
   });

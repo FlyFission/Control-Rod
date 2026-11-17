@@ -1,10 +1,21 @@
 # Control Rod
 
-**A workspace where you and your AI agents get real work done, and the agents don't get to say when it's done.**
+**Agents can't mark their own homework.**
 
-You hand over a task. Agents you already use (Claude Code, Codex) do the work. A different agent checks it. Then *you* look at the result and sign off. Until you do, nothing counts as finished, no matter how confident the agent sounds.
+[![CI](https://github.com/FlyFission/Control-Rod/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/FlyFission/Control-Rod/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-lightgrey)](LICENSE)
+[![Status: pre-alpha](https://img.shields.io/badge/status-pre--alpha-lightgrey)](docs/status.md)
 
-It runs on your own machine, in your browser. There's a board for your work, an office view where you can watch agents at their desks, and a record of who did, checked and approved everything.
+Control Rod is a workspace on your own machine where AI agents you already use (Claude Code, Codex) do real work, and the agent that did the work never gets the final say. A different agent checks the result without seeing how the author got there. Then *you* look at it and sign off. Until you do, nothing counts as finished, no matter how confident the agent sounds.
+
+It runs in your browser. There's a board for your work, an office view where you can watch agents at their desks, and a record of who did, checked and approved everything.
+
+### Where it runs today
+
+| | Windows (WSL2) | Linux | macOS |
+| --- | --- | --- | --- |
+| The app: board, office view, records, preparing and releasing work | Yes | Yes | Expected to work, not yet verified |
+| Agents doing the work inside their sandbox | Yes | Waiting on sandbox qualification | Waiting on sandbox qualification |
 
 > **Pre-alpha.** It works end to end on one machine for one person, and we're building it in the open. Expect rough edges. [What works today, and what doesn't](docs/status.md).
 
@@ -14,7 +25,7 @@ Most agent tools make it easy to start an agent and watch it go. That part is fu
 
 For a side project, fine. For work where a confident mistake is expensive (production code, engineering calculations, drawings) it isn't.
 
-Control Rod keeps the freedom and moves the final say. **You can work however you like. Agents can't mark their own homework.**
+Control Rod keeps the freedom and moves the final say. **You can work however you like, and the final say stays with you.**
 
 | You can | An agent can't |
 | --- | --- |
@@ -42,7 +53,7 @@ The deciding logic is a small Rust program (the *kernel*) that agents never touc
 
 Or, with Docker and VS Code, choose **Reopen in Container**. When it finishes setting up, run `pnpm cr start` in its terminal and the app opens in your browser. A Codespace is good for trying the app and for building it; see [the devcontainer notes](docs/getting-started.md#dev-container-and-codespaces) for what doesn't work there yet.
 
-**On your own machine:** you need [Node 22+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and [uv](https://docs.astral.sh/uv/getting-started/installation/). To run real agents, install [Claude Code](https://claude.com/claude-code) and sign in. Codex is optional. [mise](https://mise.jdx.dev) can install everything above at the pinned versions: run `mise install`.
+**On your own machine:** you need [Node 22+](https://nodejs.org), [pnpm](https://pnpm.io/installation), [Go](https://go.dev/dl/) and [uv](https://docs.astral.sh/uv/getting-started/installation/). To run real agents, install [Claude Code](https://claude.com/claude-code) and sign in. [Codex](https://github.com/openai/codex) is optional, and it's what lets checks run on their own: without it, each independent check waits for you to sign an override, because a second Claude model doesn't count as independent. Use an ordinary user account, since the bundled database won't run as root. [mise](https://mise.jdx.dev) can install everything above at the pinned versions: run `mise install`.
 
 ```sh
 git clone https://github.com/FlyFission/Control-Rod.git

@@ -1,8 +1,10 @@
 name: readme-shots
 
 # Takes the README tour's app screenshots from a release build against recorded sample fixtures
-# (apps/web/e2e/readme-shots.spec.ts) and keeps them as a build artifact. It reads the repository
-# and writes nothing back.
+# (apps/web/e2e/readme-shots.spec.ts). On a pull request from this repository, when the spec or this
+# workflow changes, it commits the pictures to docs/assets/readme/app/ on the pull request's own
+# branch; run by hand, it only keeps them as an artifact. A push made with the workflow's token
+# starts no further workflow runs, so it cannot loop.
 on:
   workflow_dispatch:
   pull_request:
@@ -16,8 +18,13 @@ permissions:
 jobs:
   shots:
     runs-on: ubuntu-latest
+    permissions:
+      # Only to commit the pictures to a same-repository pull request's branch.
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref || github.ref }}
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @control-rod/spec run build
@@ -34,3 +41,16 @@ jobs:
           path: ${{ runner.temp }}/readme-shots
           if-no-files-found: error
           retention-days: 14
+      - name: Commit the pictures to the pull request's branch
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          SHOTS: ${{ runner.temp }}/readme-shots
+        run: |
+          git checkout -- .
+          mkdir -p docs/assets/readme/app
+          cp "$SHOTS"/*.png docs/assets/readme/app/
+          git add docs/assets/readme/app
+          if git diff --cached --quiet; then echo "No change to the pictures."; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -s -m "docs(readme): refresh app screenshots from the readme-shots workflow"
+          git push origin "HEAD:${{ github.head_ref }}"

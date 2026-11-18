@@ -4874,6 +4874,182 @@
         }
       }
     },
+    "/repos": {
+      "get": {
+        "operationId": "Repos_list",
+        "parameters": [
+          {
+            "name": "workspace_root",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repos.ReposResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/repos/materialize": {
+      "post": {
+        "operationId": "Repos_materialize",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repos.MaterializeRepoResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Repos.MaterializeRepoRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/roster": {
       "get": {
         "operationId": "roster",
@@ -11608,6 +11784,162 @@
           }
         },
         "description": "A Member's current qualification as the forms show it: no license numbers and no reasons."
+      },
+      "Repos.GithubRepoInfo": {
+        "type": "object",
+        "required": [
+          "name_with_owner",
+          "default_branch",
+          "is_private",
+          "url",
+          "updated_at"
+        ],
+        "properties": {
+          "name_with_owner": {
+            "type": "string"
+          },
+          "default_branch": {
+            "type": "string"
+          },
+          "is_private": {
+            "type": "boolean"
+          },
+          "url": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        }
+      },
+      "Repos.LocalRepoInfo": {
+        "type": "object",
+        "required": [
+          "name",
+          "path",
+          "branch",
+          "remote_url",
+          "dirty"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "remote_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dirty": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Repos.MaterializeRepoRequest": {
+        "type": "object",
+        "required": [
+          "repo",
+          "branch"
+        ],
+        "properties": {
+          "repo": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "base_branch": {
+            "type": "string"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/Repos.MaterializeStrategy"
+          },
+          "workspace_root": {
+            "type": "string"
+          }
+        }
+      },
+      "Repos.MaterializeRepoResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "strategy",
+          "repo",
+          "branch",
+          "local_path"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/Repos.MaterializeStrategy"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "local_path": {
+            "type": "string"
+          }
+        }
+      },
+      "Repos.MaterializeStrategy": {
+        "type": "string",
+        "enum": [
+          "worktree",
+          "fresh-clone",
+          "branch"
+        ]
+      },
+      "Repos.ReposResponse": {
+        "type": "object",
+        "required": [
+          "workspace_root",
+          "local",
+          "github",
+          "github_error"
+        ],
+        "properties": {
+          "workspace_root": {
+            "type": "string"
+          },
+          "local": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Repos.LocalRepoInfo"
+            }
+          },
+          "github": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Repos.GithubRepoInfo"
+            }
+          },
+          "github_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       },
       "RosterRole": {
         "type": "object",

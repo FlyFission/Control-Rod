@@ -24,7 +24,22 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   SubscriptionView,
   Session,
   WorkPackage,
+  LocalRepoInfo,
+  GithubRepoInfo,
+  ReposResponse,
+  MaterializeStrategy,
+  MaterializeRepoRequest,
+  MaterializeRepoResult,
 } from "./types.js";
+
+export type {
+  LocalRepoInfo,
+  GithubRepoInfo,
+  ReposResponse,
+  MaterializeStrategy,
+  MaterializeRepoRequest,
+  MaterializeRepoResult,
+};
 
 export class ApiError extends Error {
   constructor(
@@ -200,46 +215,10 @@ export const api = {
       "GET",
       workspaceRoot ? `/repos?workspace_root=${encodeURIComponent(workspaceRoot)}` : "/repos",
     ),
-  materializeRepo: (body: {
-    repo: string;
-    branch: string;
-    base_branch?: string;
-    strategy: "worktree" | "fresh-clone" | "branch";
-    workspace_root?: string;
-  }) => call<MaterializeRepoResult>("POST", "/repos/materialize", body),
+  materializeRepo: (body: MaterializeRepoRequest) =>
+    call<MaterializeRepoResult>("POST", "/repos/materialize", body),
   /** The event stream; `after` resumes after that event id (the server replays what was missed). */
   streamUrl: (after?: string) => url(after ? `/events/stream?after=${encodeURIComponent(after)}` : "/events/stream"),
 };
-
-export interface LocalRepoInfo {
-  name: string;
-  path: string;
-  branch: string;
-  remote_url: string | null;
-  dirty: boolean;
-}
-
-export interface GithubRepoInfo {
-  name_with_owner: string;
-  default_branch: string;
-  is_private: boolean;
-  url: string;
-  updated_at: string;
-}
-
-export interface ReposResponse {
-  workspace_root: string;
-  local: LocalRepoInfo[];
-  github: GithubRepoInfo[];
-  github_error: string | null;
-}
-
-export interface MaterializeRepoResult {
-  ok: boolean;
-  strategy: "worktree" | "fresh-clone" | "branch";
-  repo: string;
-  branch: string;
-  local_path: string;
-}
 
 export type Api = typeof api;

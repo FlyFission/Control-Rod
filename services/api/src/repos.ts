@@ -735,11 +735,37 @@ function hashFileSha256(filePath: string): string {
   return hash.digest("hex");
 }
 
+function hasCleanRealAncestors(
+  rootDir: string,
+  relPath: string,
+  cache?: Map<string, boolean>,
+): boolean {
+  const parts = relPath.split("/").filter(Boolean);
+  if (parts.length <= 1) return true;
+  let relAcc = "";
+  let absAcc = rootDir;
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    const seg = parts[i]!;
+    relAcc = relAcc ? `${relAcc}/${seg}` : seg;
+    absAcc = join(absAcc, seg);
+    const cached = cache?.get(relAcc);
+    if (cached !== undefined) {
+      if (!cached) return false;
+      continue;
+    }
+    const ok = pathExistsAny(absAcc) && !lstatSync(absAcc).isSymbolicLink() && lstatSync(absAcc).isDirectory();
+    cache?.set(relAcc, ok);
+    if (!ok) return false;
+  }
+  return true;
+}
+
 async function isUnchangedHydratedLfsFile(
   repoDir: string,
   relPath: string,
   workspaceRoot: string,
 ): Promise<boolean> {
+  if (!hasCleanRealAncestors(repoDir, relPath)) return false;
   const fullPath = join(repoDir, relPath);
   if (!pathExistsAny(fullPath)) return false;
   const st = lstatSync(fullPath);
@@ -750,6 +776,20 @@ async function isUnchangedHydratedLfsFile(
     workspaceRoot,
   }).catch(() => "");
   if (!/: filter: lfs$/.test(attrOut.trim())) return false;
+
+  const filemodeOut = await git(["config", "--get", "core.filemode"], {
+    cwd: repoDir,
+    workspaceRoot,
+  }).catch(() => "true");
+  if (filemodeOut.trim().toLowerCase() !== "false") {
+    const lsOut = await git(["ls-files", "-s", "--", relPath], {
+      cwd: repoDir,
+      workspaceRoot,
+    }).catch(() => "");
+    const indexedMode = lsOut.split(/\s+/)[0];
+    const wtMode = (st.mode & 0o100) !== 0 ? "100755" : "100644";
+    if (!indexedMode || indexedMode !== wtMode) return false;
+  }
 
   const indexBlob = await gitWithBytes(["cat-file", "blob", `:${relPath}`], {
     cwd: repoDir,
@@ -1102,6 +1142,7 @@ async function stageRawWorkingTreeBlobs(
     tracked.set(relPath, { tag, mode, oid, stage });
   }
 
+  const ancestorCache = new Map<string, boolean>();
   const deletedPaths: Buffer[] = [];
   const regularCandidates: Array<{ mode: string; prevOid: string | null; prevStage: string | null; relPath: string }> =
     [];
@@ -1112,7 +1153,7 @@ async function stageRawWorkingTreeBlobs(
     if (entry.tag === "S" || entry.tag === "s") continue;
     if (entry.mode === "160000") continue;
     const fullPath = join(repoDir, relPath);
-    if (!pathExistsAny(fullPath)) {
+    if (!hasCleanRealAncestors(repoDir, relPath, ancestorCache) || !pathExistsAny(fullPath)) {
       deletedPaths.push(Buffer.from(relPath, "utf8"));
       continue;
     }
@@ -1141,6 +1182,7 @@ async function stageRawWorkingTreeBlobs(
   for (const rec of splitNullRecords(untrackedRaw)) {
     const relPath = rec.toString("utf8");
     if (!relPath || relPath.endsWith("/") || tracked.has(relPath)) continue;
+    if (!hasCleanRealAncestors(repoDir, relPath, ancestorCache)) continue;
     const fullPath = join(repoDir, relPath);
     if (!pathExistsAny(fullPath)) continue;
     const st = lstatSync(fullPath);

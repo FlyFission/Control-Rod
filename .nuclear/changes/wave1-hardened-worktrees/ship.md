@@ -16,7 +16,7 @@ Monitoring after merge: watch `POST /repos/materialize`, `POST /repos/checkpoint
 
 ## Exit criteria
 
-TypeSpec drift is zero, API (59 files / 726 tests) and Web (45 files / 624 tests, plus 40 office contract build tests) suites pass post-edit, `daemon` `gofmt`/`go vet`/`TestHostGit*`/`confinement`/`digest` pass, Python governance and `ng.py validate --strict-custody` (23 packets) pass, open limits and local `codex-cli 0.169.0` findings are disclosed, and PR `#83` holds for owner `/spec/` CODEOWNERS review and merge.
+TypeSpec drift is zero, API (59 files / 727 tests) and Web (45 files / 624 tests, plus 40 office contract build tests) suites pass post-edit, `daemon` `gofmt`/`go vet`/`TestHostGit*`/`confinement`/`digest` pass, Python governance and `ng.py validate --strict-custody` (23 packets) pass, open limits and local `codex-cli 0.169.0` findings are disclosed, and PR `#83` holds for owner `/spec/` CODEOWNERS review and merge.
 
 ## Source-lineage note
 

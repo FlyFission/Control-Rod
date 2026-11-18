@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -464,6 +465,34 @@ describe("repos Wave 1 hardening", () => {
     expect(treePaths).not.toContain("dir/child");
   });
 
+  it("createCheckpoint refuses to traverse symlinked ancestors when staging tracked paths", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    mkdirSync(join(repoDir, "dir"), { recursive: true });
+    writeFileSync(join(repoDir, "dir", "secret"), "inside-repo\n");
+    writeFileSync(join(repoDir, ".gitignore"), "dir/\n");
+    execFileSync("git", ["add", ".gitignore"], { cwd: repoDir });
+    execFileSync("git", ["add", "-f", "dir/secret"], { cwd: repoDir });
+    execFileSync("git", ["commit", "-m", "track dir/secret and ignore dir"], { cwd: repoDir });
+
+    const outsideDir = mkdtempSync(join(tmpdir(), "cr-outside-secret-"));
+    try {
+      writeFileSync(join(outsideDir, "secret"), "LEAKED-EXTERNAL-SECRET\n");
+      rmSync(join(repoDir, "dir"), { recursive: true, force: true });
+      symlinkSync(outsideDir, join(repoDir, "dir"));
+
+      const cp = await createCheckpoint({ repoDir, label: "symlink-ancestor", workspaceRoot });
+      const treePaths = execFileSync("git", ["ls-tree", "-r", "--name-only", cp.commit_sha], {
+        cwd: repoDir,
+        encoding: "utf8",
+      })
+        .trim()
+        .split("\n");
+      expect(treePaths).not.toContain("dir/secret");
+    } finally {
+      rmSync(outsideDir, { recursive: true, force: true });
+    }
+  });
+
   it("preserves clean-status semantics for hydrated LFS files while flagging actual LFS modifications", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     const payload = Buffer.from("hydrated-lfs-binary-payload-bytes");
@@ -526,6 +555,29 @@ describe("repos Wave 1 hardening", () => {
         payload: { worktree_path: wtPath, repo_path: repoDir, workspace_root: workspaceRoot },
       });
       expect(rmCleanRes.statusCode).toBe(200);
+
+      // Chmod on hydrated LFS file with matching bytes -> core.filemode=true makes it dirty
+      const wtRes3 = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/lfs-chmod-wt",
+          strategy: "worktree",
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(wtRes3.statusCode).toBe(200);
+      const wtPath3 = wtRes3.json().local_path as string;
+      writeFileSync(join(wtPath3, "asset.bin"), payload);
+      chmodSync(join(wtPath3, "asset.bin"), 0o755);
+      const rmChmodRes = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { worktree_path: wtPath3, repo_path: repoDir, workspace_root: workspaceRoot },
+      });
+      expect(rmChmodRes.statusCode).toBe(409);
+      expect(rmChmodRes.json().code).toBe("worktree-dirty");
 
       // Re-create worktree and mutate asset.bin -> non-force removal refuses 409 worktree-dirty
       const wtRes2 = await app.inject({

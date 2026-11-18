@@ -173,6 +173,92 @@ class WorkflowTimeoutTests(unittest.TestCase):
         )
         self.assertEqual(timeout_findings(text), [])
 
+    def test_nested_multiline_quoted_scalar_cannot_spoof_uses(self):
+        untimed = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    env:\n"
+            '      MSG: "hello\n'
+            '    uses: fake/reusable"\n'
+        )
+        findings = timeout_findings(untimed)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("no timeout-minutes", findings[0])
+
+        timed = untimed + "    timeout-minutes: 10\n"
+        self.assertEqual(timeout_findings(timed), [])
+
+    def test_nested_sequence_multiline_quoted_scalar_cannot_spoof_uses(self):
+        untimed_step = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            '      - run: "hello\n'
+            '    uses: fake/reusable"\n'
+        )
+        findings = timeout_findings(untimed_step)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("no timeout-minutes", findings[0])
+
+        untimed_needs = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    needs:\n"
+            '    - "hello\n'
+            '    uses: fake/reusable"\n'
+        )
+        findings = timeout_findings(untimed_needs)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("no timeout-minutes", findings[0])
+
+    def test_multiline_closing_quote_trailing_text_and_comment(self):
+        bad = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            '    name: "line1\n'
+            '    line2" extra-token\n'
+            "    timeout-minutes: 10\n"
+        )
+        findings = timeout_findings(bad)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("trailing text after closing quote", findings[0])
+
+        good = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            '    name: "line1\n'
+            '    line2" # trailing comment\n'
+            "    timeout-minutes: 10\n"
+        )
+        self.assertEqual(timeout_findings(good), [])
+
+    def test_needs_sequence_accepted_and_stray_sequence_after_scalar_rejected(self):
+        good = (
+            "jobs:\n"
+            "  build:\n"
+            "    needs:\n"
+            "    - build\n"
+            "    runs-on: ubuntu-latest\n"
+            "    timeout-minutes: 10\n"
+        )
+        self.assertEqual(timeout_findings(good), [])
+
+        bad = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: x\n"
+            "    - item\n"
+            "    timeout-minutes: 10\n"
+        )
+        findings = timeout_findings(bad)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("unsupported job key", findings[0])
+
 
 if __name__ == "__main__":
     unittest.main()

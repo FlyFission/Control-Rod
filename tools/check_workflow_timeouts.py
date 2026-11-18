@@ -30,6 +30,7 @@ TOP_LEVEL_KEY = re.compile(r"^[A-Za-z0-9_'\"-]+\s*:")
 JOB_HEADER = re.compile(r"^  ([A-Za-z0-9_-]+):\s*(#.*)?$")
 BLOCK_SCALAR = re.compile(r"^[|>][+-]?[0-9]*[+-]?(\s+#.*)?$")
 JOB_KV = re.compile(r"^( +)([A-Za-z0-9_-]+):(?:\s+(.*))?$")
+NESTED_KV = re.compile(r"^[^:#][^:]*:(?:\s+(.*))?$")
 DOC_MARKER = re.compile(r"^(---|\.\.\.)(\s.*)?$")
 
 
@@ -68,53 +69,90 @@ def _parse_scalar_value(raw: str | None) -> tuple[str, str | None]:
     return value, None
 
 
-def timeout_findings(text: str) -> list[str]:
-    """Return one message per problem in one workflow file's text; empty means clean."""
-    lines = text.splitlines()
-    findings: list[str] = []
+def _parse_nested_line(line: str) -> tuple[str, str | None]:
+    """Return (scalar_or_block, unclosed_quote) for a nested mapping line or sequence item."""
+    text = line.lstrip(" ")
+    while text == "-" or text.startswith("- "):
+        text = text[1:].lstrip(" ")
+    if not text or text.startswith("#"):
+        return "", None
+    if text[0] in ('"', "'"):
+        end = _find_closing_quote(text, text[0], start=1)
+        if end is None:
+            return text, text[0]
+        after = text[end + 1 :].lstrip(" ")
+        if after.startswith(":") and (len(after) == 1 or after[1] in (" ", "\t")):
+            return _parse_scalar_value(after[1:])
+        return text[: end + 1], None
+    kv = NESTED_KV.match(text)
+    if kv:
+        return _parse_scalar_value(kv.group(1))
+    if BLOCK_SCALAR.match(text):
+        return text, None
+    return "", None
 
-    start: int | None = None
+
+def _find_jobs_start(lines: list[str]) -> tuple[int | None, str | None]:
+    """Return (jobs_header_index, error_message) from lines preceding `jobs:`."""
     saw_content_before_doc = False
     doc_markers_before_jobs = 0
     for i, line in enumerate(lines):
         if DOC_MARKER.match(line):
             doc_markers_before_jobs += 1
             if line.startswith("...") or doc_markers_before_jobs > 1 or saw_content_before_doc:
-                return ["multi-document YAML is not supported"]
+                return None, "multi-document YAML is not supported"
             continue
         if not line.strip() or line.lstrip(" ").startswith("#"):
             continue
         if "\t" in line[: len(line) - len(line.lstrip(" \t"))]:
-            return ["tab indentation is not supported"]
+            return None, "tab indentation is not supported"
         if JOBS_HEADER.match(line):
-            start = i
-            break
+            return i, None
         saw_content_before_doc = True
+    return None, "no `jobs:` block found"
 
-    if start is None:
-        return ["no `jobs:` block found"]
 
-    if sum(1 for line in lines if JOBS_HEADER.match(line)) > 1:
-        findings.append("more than one `jobs:` block; only the first would be read")
-
+def _scan_job_lines(lines: list[str], findings: list[str]) -> dict[str, dict[str, str]]:
+    """Parse lines inside `jobs:` into `{job_name: {key: value}}`, appending parse findings."""
     jobs: dict[str, dict[str, str]] = {}
     current_job: str | None = None
     current: dict[str, str] | None = None
     job_indent: int | None = None
     skip_until_indent: int | None = None
-    skip_allow_seq = False
     in_quoted: str | None = None
     bad_job = False
     allow_job_seq = False
 
-    for line in lines[start + 1 :]:
+    def reset_job(mark_bad: bool) -> None:
+        nonlocal current_job, current, job_indent, bad_job, allow_job_seq
+        current_job = None
+        current = None
+        job_indent = None
+        bad_job = mark_bad
+        allow_job_seq = False
+
+    def track_nested(line_text: str, line_indent: int) -> None:
+        nonlocal in_quoted, skip_until_indent
+        val, unclosed = _parse_nested_line(line_text)
+        if unclosed is not None:
+            in_quoted = unclosed
+        elif BLOCK_SCALAR.match(val):
+            skip_until_indent = line_indent
+
+    for line in lines:
         if DOC_MARKER.match(line):
             findings.append("multi-document YAML is not supported")
             break
 
         if in_quoted is not None:
-            if _find_closing_quote(line, in_quoted) is not None:
+            end = _find_closing_quote(line, in_quoted)
+            if end is not None:
                 in_quoted = None
+                rest = line[end + 1 :].strip()
+                if rest and not rest.startswith("#"):
+                    findings.append(
+                        f"{current_job or 'workflow'}: trailing text after closing quote: {rest!r}"
+                    )
             continue
 
         if not line.strip():
@@ -124,26 +162,14 @@ def timeout_findings(text: str) -> list[str]:
         tab_prefix = leading_ws[: skip_until_indent + 1] if skip_until_indent is not None else leading_ws
         if "\t" in tab_prefix:
             findings.append("tab indentation is not supported")
-            current_job = None
-            current = None
-            job_indent = None
-            bad_job = True
+            reset_job(mark_bad=True)
             continue
 
         indent = len(leading_ws)
         if skip_until_indent is not None:
-            if line.lstrip(" ").startswith("#"):
-                if not skip_allow_seq and indent <= skip_until_indent:
-                    skip_until_indent = None
-                continue
             if indent > skip_until_indent:
                 continue
-            if skip_allow_seq and indent == skip_until_indent and (
-                line.lstrip(" ") == "-" or line.lstrip(" ").startswith("- ")
-            ):
-                continue
             skip_until_indent = None
-            skip_allow_seq = False
 
         if line.lstrip(" ").startswith("#"):
             continue
@@ -161,29 +187,21 @@ def timeout_findings(text: str) -> list[str]:
                 name = header.group(1)
                 if name in jobs:
                     findings.append(f"{name}: duplicate job name")
-                    current_job = name
                     current = {}
                 else:
-                    current_job = name
                     current = {}
                     jobs[name] = current
-                bad_job = False
+                current_job = name
                 job_indent = None
+                bad_job = False
             else:
                 findings.append(f"unsupported job declaration: {line.strip()!r}")
-                current_job = None
-                current = None
-                job_indent = None
-                bad_job = True
+                reset_job(mark_bad=True)
             continue
 
         if indent == 1:
-            allow_job_seq = False
             findings.append(f"unsupported job declaration: {line.strip()!r}")
-            current_job = None
-            current = None
-            job_indent = None
-            bad_job = True
+            reset_job(mark_bad=True)
             continue
 
         # indent >= 3
@@ -200,32 +218,23 @@ def timeout_findings(text: str) -> list[str]:
             findings.append(
                 f"{current_job}: inconsistent indentation or unsupported job declaration: {line.strip()!r}"
             )
-            current_job = None
-            current = None
-            job_indent = None
-            bad_job = True
-            allow_job_seq = False
+            reset_job(mark_bad=True)
             continue
 
         if indent > job_indent:
-            kv = JOB_KV.match(line)
-            if kv:
-                val, unclosed = _parse_scalar_value(kv.group(3))
-                if unclosed is not None:
-                    in_quoted = unclosed
-                elif BLOCK_SCALAR.match(val):
-                    skip_until_indent = indent
-                    skip_allow_seq = False
+            track_nested(line, indent)
             continue
 
         # indent == job_indent
-        if allow_job_seq and (line.lstrip(" ") == "-" or line.lstrip(" ").startswith("- ")):
+        stripped = line.lstrip(" ")
+        if allow_job_seq and (stripped == "-" or stripped.startswith("- ")):
+            track_nested(line, indent)
             continue
         allow_job_seq = False
 
         kv = JOB_KV.match(line)
         if not kv:
-            findings.append(f"{current_job}: unsupported job key: {line.strip()!r}")
+            findings.append(f"{current_job}: unsupported job key: {stripped!r}")
             continue
 
         key = kv.group(2)
@@ -233,21 +242,19 @@ def timeout_findings(text: str) -> list[str]:
         current[key] = val
         if unclosed is not None:
             in_quoted = unclosed
-        elif key == "steps":
-            skip_until_indent = indent
-            skip_allow_seq = True
         elif BLOCK_SCALAR.match(val):
             skip_until_indent = indent
-            skip_allow_seq = False
         elif val == "":
             allow_job_seq = True
 
     if in_quoted is not None:
         findings.append("unterminated quoted scalar")
+    return jobs
 
-    if not jobs and not findings:
-        return ["`jobs:` block has no jobs this check recognises"]
 
+def _check_jobs(jobs: dict[str, dict[str, str]]) -> list[str]:
+    """Validate parsed job dictionaries and return timeout/key findings."""
+    findings: list[str] = []
     for name, keys in jobs.items():
         if "runs-on" in keys and "uses" in keys:
             findings.append(f"{name}: has both runs-on and uses")
@@ -264,6 +271,25 @@ def timeout_findings(text: str) -> list[str]:
             findings.append(f"{name}: timeout-minutes must be a plain integer, found '{value}'")
         elif not 1 <= int(value) <= MAX_TIMEOUT_MINUTES:
             findings.append(f"{name}: timeout-minutes {value} is outside 1..{MAX_TIMEOUT_MINUTES}")
+    return findings
+
+
+def timeout_findings(text: str) -> list[str]:
+    """Return one message per problem in one workflow file's text; empty means clean."""
+    lines = text.splitlines()
+    start, error = _find_jobs_start(lines)
+    if error is not None or start is None:
+        return [error or "no `jobs:` block found"]
+
+    findings: list[str] = []
+    if sum(1 for line in lines if JOBS_HEADER.match(line)) > 1:
+        findings.append("more than one `jobs:` block; only the first would be read")
+
+    jobs = _scan_job_lines(lines[start + 1 :], findings)
+    if not jobs and not findings:
+        return ["`jobs:` block has no jobs this check recognises"]
+
+    findings.extend(_check_jobs(jobs))
     return findings
 
 

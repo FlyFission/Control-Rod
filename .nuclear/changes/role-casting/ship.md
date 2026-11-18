@@ -1,15 +1,16 @@
 # Ship: role casting design spec
 
-Release decision: **design spec and proposed ADR for owner review; no implementation authorized by this record.**
+Release decision: **ship with named risk, documentation only (2026-11-18).** The owner authorized the merge after the GitHub Codex and Copilot reviews. No implementation is authorized by this record; each milestone opens its own.
 
-- **Proposed:** merge the spec, ADR 0023 as Proposed, the pattern note and this packet as documentation only.
-- **Not claimed:** any implemented behavior; that any model is better than another at any duty (the spec's model suggestions are hypotheses for trials); that casting makes checks independent; that any Capital Projects role is ready; that the spec has had an independent review; that the revised spec has been reviewed by anyone.
-- **Reviewed:** the spec commit `2a9c46bd`, once, by Codex (gpt-6.2-sol), agy (Gemini 4 Hydrogen (High), from the CLI log) and Grok Build (grok-4.7-build), from one brief the authoring side wrote. All three returned FLAWED AS WRITTEN: 15, 9 and 9 findings. None was rejected in full; four were partly accepted (three with a part rejected on repository evidence, one with a part deferred to C-1); everything accepted was fixed (`evidence/05-review-dispositions.md`). Grok read the repository; Codex and agy saw only the prompt.
-- **Still open:** a second review round on the revised spec (proposal: the same three CLIs on the fix commit's diff, with a brief that asks whether each disposition holds); a person review; owner decisions C-1 to C-9, of which C-1 now has three options, C-5 is split, and C-9 is new.
-- **Owner decisions requested:**
-  1. Approve the spec and ADR 0023, or return them with changes.
-  2. Decisions C-1 to C-9 and D-1, D-2, D-3 and D-6 are recorded (spec section 15, 2026-11-18). Still to answer: the C-7 discipline, D-4 (canary evidence bar) and D-5 (who seeds canaries), all before C4 or C8 starts.
-  3. Say whether to run a second cross-vendor round on the revised spec before approval, and whether to add a person review.
+- **Shipped:** the spec, ADR 0023 as **Proposed**, the pattern note and this packet.
+- **Owner decisions recorded:** C-1 to C-9 and D-1, D-2, D-3 and D-6 (spec section 15), from the owner's acceptance in conversation, not a signed artifact (verification E-08).
+- **Reviewed:** the spec commit `2a9c46bd`, once, by Codex CLI (gpt-6.2-sol), agy (Gemini 4 Hydrogen (High), from the CLI log) and Grok Build (grok-4.7-build), from one brief the authoring side wrote; all three returned FLAWED AS WRITTEN (15, 9 and 9 findings), dispositioned in `evidence/05-review-dispositions.md`. Then the GitHub Copilot reviewer (CP-1 to CP-8) and the GitHub Codex reviewer (GC-1, GC-2) on the revised spec, every finding fixed; the Codex reviewer found no issues on `673d1ec`, and every review thread is resolved. CI is green.
+- **Named risks carried into the build:**
+  1. The revised spec has had no second cross-vendor round with a full brief; the GitHub reviewers read diffs only. Proposal: run one before C1 starts.
+  2. No person has reviewed the spec.
+  3. Open decisions: the C-7 discipline, D-4 (canary evidence bar) and D-5 (who seeds canaries). C4 and C8 cannot start until they are answered.
+  4. ADR 0023 is Proposed; accepting it is C0, an owner act.
+- **Not claimed:** any implemented behavior; that any model is better than another at any duty (the spec's model suggestions are hypotheses for trials); that casting makes checks independent; that any Capital Projects role is ready; that the spec has had an independent review.
 
 Rollback: revert the commit. Documentation only; no code, schema or wire change.
 

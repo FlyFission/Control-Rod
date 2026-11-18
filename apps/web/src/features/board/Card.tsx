@@ -47,15 +47,17 @@ export type CardProps = {
   onRetry?: () => void;
   /** A read behind the card has not succeeded since the latest stream drop: its line is last known. */
   lastKnown?: boolean;
+  /** Whether this card is currently open in the Board Review Drawer. */
+  selected?: boolean;
 };
 
 /** A board card: the small fixed core of spec 6.2. No drag; the title opens the package. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
   return (
-    <article aria-labelledby={titleId} className="bd-card" data-kind={kinds[0]} data-column={column} data-tone={stream === "live" && !lastKnown ? next.tone : "unknown"}>
+    <article aria-labelledby={titleId} className={selected ? "bd-card selected" : "bd-card"} data-kind={kinds[0]} data-column={column} data-tone={stream === "live" && !lastKnown ? next.tone : "unknown"}>
       <div className="bd-kinds">
         {kinds.map((k) => (
           <span key={k} className="bd-kind" data-kind={k}>

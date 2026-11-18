@@ -155,3 +155,10 @@ export interface InboxView {
   digest: { head: number; lines: DigestLine[] };
 }
 export type NormalizedEvent = S["ControlRod.Records.NormalizedEvent"];
+export type LocalRepoInfo = S["Repos.LocalRepoInfo"];
+export type GithubRepoInfo = S["Repos.GithubRepoInfo"];
+export type ReposResponse = S["Repos.ReposResponse"];
+export type MaterializeStrategy = S["Repos.MaterializeStrategy"];
+export type MaterializeRepoRequest = S["Repos.MaterializeRepoRequest"];
+export type MaterializeRepoResult = S["Repos.MaterializeRepoResult"];
+

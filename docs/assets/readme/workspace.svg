@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" width="960" height="300" role="img" aria-labelledby="t d">
+  <title id="t">What the Control Rod workspace holds</title>
+  <desc id="d">You bring a rough request, files and your own Claude Code and Codex subscriptions. Control Rod organizes them into work packages with a definition of done, agent roles for intake, authoring and checking, and either software changes or engineering deliverables. You see a board of every task, an office view of who is working, and a full record with spend and policies.</desc>
+  <style>
+    text { font-family: Inter, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #e8f0f8; font-size: 14px; }
+    .label { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; letter-spacing: .06em; fill: #94a3b8; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#57626f"/>
+    </marker>
+  </defs>
+  <rect width="960" height="300" rx="14" fill="#0a0a0c"/>
+
+  <g transform="translate(24 28)">
+    <text x="4" y="12" class="label">YOU BRING</text>
+    <g transform="translate(0 28)"><rect width="272" height="56" rx="8" fill="#141416" stroke="#2f2f30"/><text x="16" y="34">A rough request in plain words</text></g>
+    <g transform="translate(0 96)"><rect width="272" height="56" rx="8" fill="#141416" stroke="#2f2f30"/><text x="16" y="34">Files, field notes, a repo</text></g>
+    <g transform="translate(0 164)"><rect width="272" height="56" rx="8" fill="#141416" stroke="#2f2f30"/><text x="16" y="34">Your own Claude Code and Codex</text></g>
+  </g>
+  <path d="M302 148 H330" stroke="#57626f" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <g transform="translate(344 28)">
+    <text x="4" y="12" class="label">IT ORGANIZES</text>
+    <g transform="translate(0 28)"><rect width="272" height="56" rx="8" fill="#141416" stroke="#057e86"/><text x="16" y="34">Work with a definition of done</text></g>
+    <g transform="translate(0 96)"><rect width="272" height="56" rx="8" fill="#141416" stroke="#057e86"/><text x="16" y="34">Roles: intake, author, checker</text></g>
+    <g transform="translate(0 164)"><rect width="272" height="56" rx="8" fill="#141416" stroke="#057e86"/><text x="16" y="25">Software changes, or calculation</text><text x="16" y="44">packages and scopes of work</text></g>
+  </g>
+  <path d="M622 148 H650" stroke="#57626f" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <g transform="translate(664 28)">
+    <text x="4" y="12" class="label">YOU SEE</text>
+    <g transform="translate(0 28)"><rect width="272" height="56" rx="8" fill="#141416" stroke="#2f2f30"/><text x="16" y="34">A board of every task</text></g>
+    <g transform="translate(0 96)"><rect width="272" height="56" rx="8" fill="#141416" stroke="#2f2f30"/><text x="16" y="34">An office of agents at work</text></g>
+    <g transform="translate(0 164)"><rect width="272" height="56" rx="8" fill="#141416" stroke="#2f2f30"/><text x="16" y="34">Records, spend and policies</text></g>
+  </g>
+
+  <text x="480" y="280" text-anchor="middle" style="fill:#94a3b8;font-size:13px">Your records stay on your machine. Agents run on your own subscriptions.</text>
+</svg>

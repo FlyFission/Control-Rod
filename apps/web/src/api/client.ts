@@ -24,7 +24,22 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   SubscriptionView,
   Session,
   WorkPackage,
+  LocalRepoInfo,
+  GithubRepoInfo,
+  ReposResponse,
+  MaterializeStrategy,
+  MaterializeRepoRequest,
+  MaterializeRepoResult,
 } from "./types.js";
+
+export type {
+  LocalRepoInfo,
+  GithubRepoInfo,
+  ReposResponse,
+  MaterializeStrategy,
+  MaterializeRepoRequest,
+  MaterializeRepoResult,
+};
 
 export class ApiError extends Error {
   constructor(
@@ -195,6 +210,13 @@ export const api = {
   recordsHead: () => call<{ head: ChainHead | null }>("GET", "/records/head"),
   personVerifications: (id: string) => call<PersonVerificationEntry[]>("GET", `/packages/${enc(id)}/person-verifications`),
   packageProof: (id: string) => call<PackageProof>("GET", `/packages/${enc(id)}/proof`),
+  repos: (workspaceRoot?: string) =>
+    call<ReposResponse>(
+      "GET",
+      workspaceRoot ? `/repos?workspace_root=${encodeURIComponent(workspaceRoot)}` : "/repos",
+    ),
+  materializeRepo: (body: MaterializeRepoRequest) =>
+    call<MaterializeRepoResult>("POST", "/repos/materialize", body),
   /** The event stream; `after` resumes after that event id (the server replays what was missed). */
   streamUrl: (after?: string) => url(after ? `/events/stream?after=${encodeURIComponent(after)}` : "/events/stream"),
 };

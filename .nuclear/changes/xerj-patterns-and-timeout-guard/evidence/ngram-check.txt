@@ -1,0 +1,9 @@
+Comparison of new text with the 8 XERJ files read (commit 34bf35b), lower-cased word 6-grams (2026-11-06):
+docs/patterns/xerj.md: 0 shared 6-grams []
+tools/check_workflow_timeouts.py: 4 shared 6-grams ['if name main sys exit main', 'import re import sys from pathlib', 'import sys from pathlib import path', 're import sys from pathlib import']
+tools/test_check_workflow_timeouts.py: 0 shared 6-grams []
+
+Refresh check (2026-11-17):
+- XERJ clone (commit 34bf35b) is not present on disk in this workspace, so the 6-gram comparison against XERJ source could not be re-run directly.
+- `git diff b45d2ba..HEAD -- docs/patterns/xerj.md docs/patterns/README.md` is empty (unchanged since the 2026-11-06 6-gram check).
+- `python3 tools/check_originality.py` exited 0: `originality check passed`.

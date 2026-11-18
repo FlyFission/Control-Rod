@@ -1329,3 +1329,55 @@ namespace PreparationGrantBroker {
 }
 @route("/packages/{packageId}/preparation-grants/{id}/revoke") @post
 op revokePreparationGrant(@path packageId: string,@path id: string): {revoked: boolean} | Refused;
+
+@route("/repos")
+namespace Repos {
+  model LocalRepoInfo {
+    name: string;
+    path: string;
+    branch: string;
+    remote_url: string | null;
+    dirty: boolean;
+  }
+
+  model GithubRepoInfo {
+    name_with_owner: string;
+    default_branch: string;
+    is_private: boolean;
+    url: string;
+    updated_at: string;
+  }
+
+  model ReposResponse {
+    workspace_root: string;
+    local: LocalRepoInfo[];
+    github: GithubRepoInfo[];
+    github_error: string | null;
+  }
+
+  enum MaterializeStrategy {
+    worktree: "worktree",
+    freshClone: "fresh-clone",
+    branch: "branch",
+  }
+
+  model MaterializeRepoRequest {
+    repo: string;
+    branch: string;
+    base_branch?: string;
+    strategy?: MaterializeStrategy;
+    workspace_root?: string;
+  }
+
+  model MaterializeRepoResult {
+    ok: boolean;
+    strategy: MaterializeStrategy;
+    repo: string;
+    branch: string;
+    local_path: string;
+  }
+
+  @get op list(@query workspace_root?: string): ReposResponse | Refused;
+  @route("/materialize") @post op materialize(@body body: MaterializeRepoRequest): MaterializeRepoResult | Refused;
+}
+

@@ -1,0 +1,11 @@
+inventory_exit=0
+public claims check passed
+public_claims_exit=0
+originality check passed
+originality_exit=0
+25 red-team cases (2 active, 23 pending)
+redteam_exit=0
+apps/web/src/lib/kind.ts: carries a provenance marker but has no register row
+services/api/src/seals.ts: carries a provenance marker but has no register row
+2 register problem(s)
+register_exit=1

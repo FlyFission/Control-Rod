@@ -1,0 +1,53 @@
+name: First run report
+description: You tried Control Rod for the first time. Tell us how it went, good or bad.
+labels: ["first run"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for trying it. A short report from a first run is one of the most useful things you can send us, even if everything worked. Rough notes are fine.
+  - type: dropdown
+    id: how
+    attributes:
+      label: How did you run it?
+      options:
+        - GitHub Codespaces
+        - Dev container (VS Code)
+        - On my own machine
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Operating system
+      description: For example Windows 11 with WSL2, macOS 15, Ubuntu 24.04.
+    validations:
+      required: true
+  - type: dropdown
+    id: got-to
+    attributes:
+      label: How far did you get?
+      options:
+        - Install or `pnpm cr doctor` stopped me
+        - The app did not start
+        - The app started, but I could not set up a passkey
+        - I could look around, but did not release any work
+        - I released work, but no agent ran
+        - An agent ran and the work was checked
+        - I accepted or sent back a result
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: Where did you get stuck or confused?
+      description: The step, the message you saw, and what you expected instead.
+  - type: textarea
+    id: liked
+    attributes:
+      label: What, if anything, made you want to keep using it?
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `pnpm cr doctor` (optional)
+      render: shell

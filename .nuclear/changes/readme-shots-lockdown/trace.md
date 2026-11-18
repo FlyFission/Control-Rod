@@ -6,7 +6,7 @@
 | RS-02 Only checked pictures are pushed, only to the pull request's branch. | Checks in the `commit` script. | `evidence/commit-step-test.txt` (E-03) | implemented; awaiting signature |
 | RS-03 No event value expanded into a script. | `HEAD_REF`, `HEAD_SHA` and `SHOTS` passed by environment. | `evidence/zizmor-before-after.txt` (E-01) | implemented; awaiting signature |
 | RS-04 Bounded jobs, pinned actions. | `timeout-minutes`, download-artifact pinned by commit. | E-02 | implemented |
-| RS-05 The workflow still produces and commits the pictures. | none | CI on this PR (E-04) | see verification |
+| RS-05 The workflow still produces and commits the pictures. | none | CI on this PR (E-04) | confirmed in CI |
 | Independent signature for the workflow | none | none | open (risk R-06) |
 
 ## Required links

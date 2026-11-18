@@ -1,13 +1,13 @@
 # Verification: lock down the README screenshot workflow
 
-Evidence status: **pass** for RS-01 to RS-04 on this host (Linux, Python 3, zizmor 1.32.0, shellcheck). **Pending** for RS-05 until this PR's own CI run finishes (E-04). **Open** for the independent signature (E-05).
+Evidence status: **pass** for RS-01 to RS-04 on this host (Linux, Python 3, zizmor 1.32.0, shellcheck) and for RS-05 in CI (E-04). **Open** for the independent signature (E-05).
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | zizmor on `main`'s workflow: template injection (high) and stored credentials (medium). On this change: no findings; the one stored credential, in `commit`, is kept on purpose for the push and suppressed with a comment. A scanner, not a proof. | `evidence/zizmor-before-after.txt` |
 | E-02 | pass | A YAML parse shows `shots` read-only, and `commit` with `contents: write`, a same-repository `if`, `needs: shots`, and no repository code. | `evidence/yaml-parse.txt` |
 | E-03 | pass | The `commit` script, taken from the workflow file, run against nine fixture artifacts and a local bare remote: valid pictures pushed once, no change makes no commit, and a shell-character name, a non-PNG, a symlink, a subfolder, an oversized file and an empty artifact are refused; a moved branch is skipped. Local git, not GitHub. | `evidence/commit-step-test.sh`, `evidence/commit-step-test.txt`, `evidence/digests.txt` |
-| E-04 | pending | This PR's own CI runs `readme-shots` (the workflow file changed): `shots` then `commit`. Recorded on the PR when it finishes. | PR CI run |
+| E-04 | pass | Run 44418382440 of `readme-shots` on head `8b6d654` (attempt 1): `shots` and `commit` both concluded `success`; `commit` accepted the artifact and pushed one picture commit, `3faa9e4`, changing only `docs/assets/readme/app/office.png`. Run 44418382259 of `ci` on the same head: all 7 jobs `success`, including `change-records`. Conclusions read from the GitHub jobs API by the agent. The runs GitHub created for the bot's commit wait for a maintainer's approval (`action_required`) and ran no job. The office picture differs from run to run, so each push here gets a new picture commit. | https://github.com/FlyFission/Control-Rod/actions/runs/44418382440 |
 | E-05 | open | Independent signature by a maintainer who did not author the change. | none yet |
 
 ## Evidence custody and coupling

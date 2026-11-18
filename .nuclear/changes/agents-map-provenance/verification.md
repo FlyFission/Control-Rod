@@ -1,6 +1,6 @@
 # Verification: agent map check and port provenance
 
-Evidence status: **pass** for the tests and the check runs (E-01, E-02), both self-checks by the authoring agent in the session container. The full `tools/check_register.py` run reports two problems. Both are present on `main` without this change: prose that contains "Derived from" in `apps/web/src/lib/kind.ts` and `services/api/src/seals.ts`. They are not caused by this change and are left for a separate fix. The check is not yet in CI.
+Evidence status: **pass** for the tests and the check runs (E-01, E-02), both self-checks by the authoring agent in the session container. The full `tools/check_register.py` run reports two problems. Both are present on `main` without this change: ordinary comments in `apps/web/src/lib/kind.ts` and `services/api/src/seals.ts` whose wording the marker scan reads as a provenance marker. They are not caused by this change and are left for a separate fix. The check is not yet in CI.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|

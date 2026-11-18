@@ -2,7 +2,7 @@
 
 Release decision: **proposed merge after review; the owner retains the merge decision.**
 
-- **Proposed:** merge the branch `claude/clever-pasteur-cqsq13` as slice M4, together with the program gap analysis record it carries.
+- **Proposed:** merge slice M4 as part of PR #82 (`feat/workspace-ui-redesign`), together with the program gap analysis record it carries.
 - **Not claimed:** that intake drafts a good package from a one-line title (intake is unchanged); that the kernel enforces person verification (D-4 is unsigned); Firefox or WebKit behavior for the new elements (Chromium only here); usability with real users (owner validation is open).
 - **Owner decisions requested:** approve or return the branch.
 

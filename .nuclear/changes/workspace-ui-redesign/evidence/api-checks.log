@@ -1,0 +1,149 @@
+
+> @control-rod/api@0.0.0 typecheck /home/flyfission/pr-reviews/Control-Rod/services/api
+> tsc -p tsconfig.json --noEmit
+
+
+> @control-rod/api@0.0.0 test /home/flyfission/pr-reviews/Control-Rod/services/api
+> node ../../tools/test-api.mjs
+
+[test-api] PostgreSQL fixture binaries: /home/flyfission/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.1.0 /home/flyfission/pr-reviews/Control-Rod/services/api
+
+ ✓ test/repos-materialize.test.ts (24 tests) 825ms
+ ✓ test/disclosure.test.ts (15 tests) 5131ms
+ ✓ test/seals.test.ts (14 tests) 5224ms
+ ✓ test/workbench.test.ts (54 tests) 5482ms
+ ✓ test/figures.test.ts (9 tests) 5768ms
+   ✓ office figures (9)
+     ✓ reads the floor in a fixed number of queries, however many agents are on it 311ms
+ ✓ test/admin.test.ts (49 tests) 7134ms
+ ✓ test/scram.test.ts (14 tests) 7466ms
+   ✓ pulling SCRAM (14)
+     ✓ stops running work, holds everything in scope, quarantines what stopped runs report, and restarts only once reviewed 363ms
+     ✓ waits for a claim already in flight, so the run it starts is stopped too 390ms
+     ✓ restarts one discipline while the rest stays stopped 321ms
+ ✓ test/preparation-grants.test.ts (19 tests) 7431ms
+   ✓ controller-owned preparation grant authority (9)
+     ✓ derives immutable input custody and grants only the existing running scoped attempt 320ms
+   ✓ grant input and payload integrity (2)
+     ✓ accepts the actual byte ceiling and rejects ambiguous encodings 356ms
+   ✓ migrations 009 and 010 preserve grant history (review R14) 630ms
+ ✓ test/budgets.test.ts (29 tests) 9222ms
+   ✓ settlement (12)
+     ✓ keeps a token report for a run that ended exactly at the event limit, and drops it past the limit 418ms
+   ✓ tracking, alerting and the Usage view (3)
+     ✓ counts reported tokens against a token budget, records a crossing once per window, and shows money as not reported 425ms
+   ✓ presenting and racing (10)
+     ✓ never shows a budget hold's spend while presenting, on any path 391ms
+ ✓ test/runs.test.ts (33 tests) 9753ms
+   ✓ launch inputs (2)
+     ✓ holds a role that needs named hosts when only Codex is offered, saying why, and dispatches it once a runtime can limit them 342ms
+   ✓ pack files and role briefs (2)
+     ✓ gives an early stage its family's pre-check and a role with its own pre-check that one 358ms
+   ✓ claim scan (1)
+     ✓ finds work queued behind more than a page of held runs 307ms
+ ✓ test/runtimes.test.ts (9 tests) 6347ms
+ ✓ test/inbox.test.ts (16 tests) 12591ms
+   ✓ since you last looked (5)
+     ✓ counts criteria as open until something shows them met, never from missing results 319ms
+   ✓ requirements confirmation (1)
+     ✓ asks the person who may confirm requirements to confirm them, binding the requirements digest 5274ms
+ ✓ test/supervision.test.ts (17 tests) 7174ms
+ ✓ test/tenancy.test.ts (20 tests) 6667ms
+   ✓ migration 009 (2)
+     ✓ backfills ownership and members without rewriting any signed body, event or digest, down and up 320ms
+ ✓ test/checker-attempts.test.ts (36 tests) 13106ms
+   ✓ sticky checker fails (35)
+     ✓ refuses a re-run on the same digest and shows why 412ms
+     ✓ spends a signed override on one recheck, and a timeout does not hide the fail 328ms
+     ✓ keeps quota and inconclusive attempts on the record under the fail 452ms
+     ✓ does not let one package's fail stick to a new package with the same bytes 343ms
+     ✓ refuses a long reason, a second unused override, a replayed assertion, a swapped reason, and a deliverable that changed before signing 325ms
+     ✓ keeps an override when a claim is held by a budget, and when startup runs before the claim 370ms
+     ✓ lets an overridden pass on the earlier revision clear that fail when the same bytes come back 419ms
+ ✓ test/evidence.test.ts (54 tests) 106ms
+ ✓ test/person-verification.test.ts (16 tests) 5807ms
+ ✓ test/markings.test.ts (18 tests) 6145ms
+ ✓ test/run-attestation.test.ts (15 tests) 5813ms
+ ✓ test/app.test.ts (16 tests) 7098ms
+   ✓ a dependent engineering job runs end to end under the floors (7)
+     ✓ releases both, but holds the scope of work until the survey is accepted 312ms
+   ✓ migrations 009 and 010 over real signed history (review R14) (1)
+     ✓ reverse and reapply without changing any legacy row, signed decision or event 368ms
+ ✓ test/preparation-recovery.test.ts (1 test) 7968ms
+   ✓ real PostgreSQL backup and restore rehearsal (CONTROLROD_TEST_PG_BIN) (1)
+     ✓ restores controlled records, signatures, evidence and event chain and refuses unaware legacy writes 5123ms
+ ✓ test/dependencies.test.ts (6 tests) 6385ms
+ ✓ test/preparation-store.test.ts (8 tests) 7074ms
+ ✓ test/run-events.test.ts (6 tests) 6037ms
+ ✓ test/preparation-basis.test.ts (7 tests) 6973ms
+   ✓ prepared execution basis barriers (7)
+     ✓ claims a released run with immutable basis bytes and denies a changed package basis before claim 427ms
+ ✓ test/preparation-results.test.ts (13 tests) 8486ms
+   ✓ typed criterion verification admission (13)
+     ✓ binds complete results to the actual verification record and admits signed acceptance with retained checker evidence 427ms
+     ✓ does not let an author supply checker results and blocks acceptance after basis changes 329ms
+     ✓ keeps a passing verification's criterion results when a later check of the same round is inconclusive 482ms
+     ✓ never waives an unexecuted required check, but permits a reasoned exception after completed failed checks 739ms
+ ✓ test/authority.test.ts (6 tests) 5340ms
+ ✓ test/stream.test.ts (7 tests) 5181ms
+ ✓ test/preparation-confirm.test.ts (7 tests) 10748ms
+ ✓ test/command-boundary.test.ts (33 tests) 19106ms
+   ✓ review round 2 (7)
+     ✓ SEC-07: administrator issued logins open a database without provisioning 312ms
+ ✓ test/attestation.test.ts (8 tests) 10880ms
+ ✓ test/preparation.test.ts (9 tests) 141ms
+ ✓ test/preparation-api.test.ts (4 tests) 5531ms
+ ✓ test/preparation-release.test.ts (3 tests) 5296ms
+ ✓ test/refusals.test.ts (6 tests) 5237ms
+ ✓ test/subscriptions.test.ts (3 tests) 5035ms
+ ✓ test/preparation-review-integrity.test.ts (4 tests) 6328ms
+   ✓ final-review controlled input and output regressions (4)
+     ✓ refuses confirmation when a declared dependency has no complete basis pin 439ms
+     ✓ refreshes exact declared dependency bytes into a signed basis and refuses a newer revision at claim 373ms
+     ✓ dispatches retained pinned dependency bytes instead of live dependency output lookup 353ms
+ ✓ test/preparation-walkthrough.test.ts (2 tests) 7273ms
+   ✓ rehearses requirements, release, independent-role results and acceptance for a known JSON bugfix 571ms
+   ✓ migrations 009 and 010 preserve the full preparation history (review R14) 354ms
+ ✓ test/criterion-pass.test.ts (13 tests) 5ms
+ ✓ test/draft-cas.test.ts (6 tests) 9334ms
+ ✓ test/preparation-role-boundary.test.ts (5 tests) 9332ms
+ ✓ test/json-boundary.test.ts (33 tests) 50ms
+ ✓ test/sandbox.test.ts (4 tests) 11787ms
+ ✓ test/preparation-config.test.ts (7 tests) 8ms
+ ✓ test/migration-lock.test.ts (1 test) 3ms
+ ✓ test/prepared-checker-paths.test.ts (1 test) 3ms
+ ✓ test/preparation-pilot.test.ts (2 tests) 12227ms
+   ✓ manual pilot compatibility and missing-input holds (2)
+     ✓ refuses pre-protocol writers on every enrolled lifecycle table but permits legacy draft writes 360ms
+ ✓ test/session-revoke.test.ts (3 tests) 13283ms
+ ✓ test/preparation-grant-concurrency.test.ts (7 tests) 23772ms
+   ✓ grant concurrency and final database deadlines (6)
+     ✓ rolls back an audit-blocked finalization and releases its package lock 1127ms
+     ✓ enforces a deferred deadline after ordinary begin checks 2117ms
+     ✓ enforces a deferred deadline after ordinary first-finalize checks 2073ms
+     ✓ enforces a deferred deadline after ordinary completed-replay checks 2058ms
+     ✓ bounds lifetime acknowledgments and does not renew the budget on retry 950ms
+   ✓ bounds the whole authority transaction and relinquishes its row locks 5157ms
+ ✓ test/figures-race.test.ts (1 test) 14079ms
+[control-rod] the database dropped an idle reader connection (terminating connection due to administrator command); a new one opens on next use
+[control-rod] the database dropped an idle writer connection (terminating connection due to administrator command); a new one opens on next use
+ ✓ test/prepared-checker-evidence.test.ts (2 tests) 14900ms
+   ✓ prepared checker evidence (2)
+     ✓ lets a fake prepared check keep a separate out/ evidence file 439ms
+     ✓ lets a sandboxed prepared check keep evidence uploaded from scratch/evidence/ 332ms
+ ✓ test/bootstrap.test.ts (1 test) 14553ms
+ ✓ test/static.test.ts (3 tests) 14673ms
+ ✓ test/restore-grants.test.ts (1 test) 13835ms
+ ✓ test/founding.test.ts (1 test) 11316ms
+ ✓ test/pool-resilience.test.ts (2 tests) 11616ms
+ ✓ test/preparation-grant-storage.test.ts (1 test) 9553ms
+ ✓ test/database-deadline.test.ts (1 test) 9346ms
+
+ Test Files  58 passed (58)
+      Tests  705 passed (705)
+   Start at  22:00:24
+   Duration  48.54s (tests 95%, import 4%, transform 1%)
+
+EXIT:0

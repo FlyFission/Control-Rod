@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -656,5 +656,124 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-work-package/i)).toBeTruthy();
+  });
+
+  it("isolates in-flight /captures success when modal is closed and reopened", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+
+    let resolveCapture!: (val: Response) => void;
+    const capturePromise = new Promise<Response>((res) => {
+      resolveCapture = res;
+    });
+    const capturedPayload: { text?: string; lane?: string } = {};
+
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
+      ),
+      http.post("*/captures", async ({ request }) => {
+        Object.assign(capturedPayload, (await request.json()) as { text?: string; lane?: string });
+        return capturePromise;
+      }),
+    );
+
+    const { qc } = await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const invalidateSpy = vi.spyOn(qc, "invalidateQueries");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    const objectiveBox = screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement;
+    await user.type(objectiveBox, "First pending objective");
+    await user.click(screen.getByRole("button", { name: "Capture change" }));
+
+    expect(screen.getByRole("button", { name: "Capturing…" })).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Capturing…" }) as HTMLButtonElement).disabled).toBe(true);
+
+    // Close modal while capture is in flight, then reopen and start typing a new objective
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+
+    // Reopened modal's submit button must NOT be stuck disabled
+    const submitBtn = screen.getByRole("button", { name: "Capture change" }) as HTMLButtonElement;
+    expect(submitBtn.disabled).toBe(false);
+
+    const reopenedBox = screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement;
+    await user.clear(reopenedBox);
+    await user.type(reopenedBox, "Brand new objective");
+
+    // First capture succeeds now
+    resolveCapture(
+      HttpResponse.json({
+        id: "cap-slow-ok",
+        received_at: "2026-11-15T12:00:00Z",
+        lane: capturedPayload.lane ?? "internal",
+        source: "web",
+        text: capturedPayload.text ?? "",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["captures"] });
+    });
+
+    // Reopened modal stays open, new objective is preserved, and no stale error is shown
+    const dialog = document.querySelector("dialog.cr-modal");
+    expect(dialog?.hasAttribute("open")).toBe(true);
+    expect((screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement).value).toBe("Brand new objective");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("isolates in-flight /captures error when modal is closed and reopened", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+
+    let resolveCapture!: (val: Response) => void;
+    const capturePromise = new Promise<Response>((res) => {
+      resolveCapture = res;
+    });
+
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
+      ),
+      http.post("*/captures", async () => capturePromise),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Failing objective");
+    await user.click(screen.getByRole("button", { name: "Capture change" }));
+    expect(screen.getByRole("button", { name: "Capturing…" })).toBeTruthy();
+
+    // Close via Esc while capture is in flight, then reopen and enter a fresh objective
+    await user.click(screen.getByRole("button", { name: "Esc" }));
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+
+    const submitBtn = screen.getByRole("button", { name: "Capture change" }) as HTMLButtonElement;
+    expect(submitBtn.disabled).toBe(false);
+
+    const reopenedBox = screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement;
+    await user.clear(reopenedBox);
+    await user.type(reopenedBox, "Recovered objective");
+
+    // First capture fails now
+    resolveCapture(HttpResponse.json({ code: "capture_err", message: "Capture failed on server" }, { status: 500 }));
+
+    // Give React Query a tick to settle the mutation error
+    await new Promise((r) => setTimeout(r, 20));
+
+    // Reopened modal stays open, objective preserved, and no stale error alert appears
+    const dialog = document.querySelector("dialog.cr-modal");
+    expect(dialog?.hasAttribute("open")).toBe(true);
+    expect((screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement).value).toBe("Recovered objective");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect((screen.getByRole("button", { name: "Capture change" }) as HTMLButtonElement).disabled).toBe(false);
   });
 });

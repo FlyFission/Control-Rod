@@ -89,12 +89,14 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const [preparedPath, setPreparedPath] = useState<string | null>(null);
   const [preparedBranch, setPreparedBranch] = useState<string | null>(null);
   const [pendingPrepareSeq, setPendingPrepareSeq] = useState<number | null>(null);
+  const [pendingCaptureSession, setPendingCaptureSession] = useState<number | null>(null);
   const [pinnedFields, setPinnedFields] = useState(false);
 
   const [objective, setObjective] = useState("");
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const prepareSeqRef = useRef(0);
+  const modalSessionRef = useRef(0);
   const prevModeRef = useRef(mode);
 
   function invalidatePrepared() {
@@ -211,6 +213,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       }
     }
     if (!open) {
+      modalSessionRef.current += 1;
+      setPendingCaptureSession(null);
       invalidatePrepared();
       setError(null);
       setDefaultsNotice(null);
@@ -218,18 +222,28 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   }, [open]);
 
   const send = useMutation({
-    mutationFn: (body: string) => api.capture({ text: body, source: "web", lane }),
-    onSuccess: () => {
+    mutationFn: ({ body, lane: submittedLane }: { body: string; lane: DataLane; session: number }) =>
+      api.capture({ text: body, source: "web", lane: submittedLane }),
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["captures"] });
+      if (vars.session !== modalSessionRef.current) return;
       setObjective("");
       setBranch("");
       invalidatePrepared();
       setPinnedFields(false);
       setDefaultsNotice(null);
       setError(null);
-      void qc.invalidateQueries({ queryKey: ["captures"] });
       onClose();
     },
-    onError: (e) => setError(explain(e, "Could not capture work.")),
+    onError: (e, vars) => {
+      if (vars.session !== modalSessionRef.current) return;
+      setError(explain(e, "Could not capture work."));
+    },
+    onSettled: (_data, _err, vars) => {
+      if (vars.session === modalSessionRef.current) {
+        setPendingCaptureSession(null);
+      }
+    },
   });
 
   function updateRuntimeSelection(role: "author" | "checker", patch: RuntimeSelectionPatch) {
@@ -280,6 +294,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (pendingCaptureSession !== null) return;
     const trimmed = objective.trim();
     if (!trimmed) {
       setError("Enter an objective or scope before capturing.");
@@ -304,12 +319,14 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       .join(" ");
 
     const body = `${header}\n\n${trimmed}`;
-
-    send.mutate(body);
+    const session = modalSessionRef.current;
+    setPendingCaptureSession(session);
+    send.mutate({ body, lane, session });
   }
 
   const independent = isIndependentCustody(author, checker);
   const isPreparing = pendingPrepareSeq !== null;
+  const isCapturing = pendingCaptureSession !== null;
 
   return (
     <dialog
@@ -653,8 +670,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
           <button type="button" className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn primary" disabled={send.isPending}>
-            {send.isPending ? "Capturing…" : `Capture ${copy.shortLabel === "Software" ? "change" : "deliverable"}`}
+          <button type="submit" className="btn primary" disabled={isCapturing}>
+            {isCapturing ? "Capturing…" : `Capture ${copy.shortLabel === "Software" ? "change" : "deliverable"}`}
           </button>
         </div>
       </form>

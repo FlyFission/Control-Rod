@@ -36,7 +36,7 @@ const DECISION_WORDS: Record<string, string> = {
  */
 export function Inbox() {
   const mode = useMode();
-  const [selectedPkgId, setSelectedPkgId] = useState<string | null>(null);
+  const [selectedPkgId, setSelectedPkgId] = useState<string | null | undefined>(undefined);
   const session = useQuery({ queryKey: ["session"], queryFn: api.session });
   const user = session.data?.user ?? undefined;
   const cursorKey = lastSeenKey(user);
@@ -63,7 +63,24 @@ export function Inbox() {
     rerender((n) => n + 1);
   }
 
-  const activePkgId = selectedPkgId ?? view?.items.find((i) => i.package_id !== undefined)?.package_id ?? null;
+  // Clear explicit selection if that package leaves the inbox (e.g. after completion or refresh).
+  const selectedMissing =
+    typeof selectedPkgId === "string" &&
+    view !== undefined &&
+    !view.items.some((i) => i.package_id === selectedPkgId);
+
+  useEffect(() => {
+    if (selectedMissing) {
+      setSelectedPkgId(null);
+    }
+  }, [selectedMissing]);
+
+  const activePkgId =
+    selectedMissing
+      ? null
+      : selectedPkgId === undefined
+        ? (view?.items.find((i) => i.package_id !== undefined)?.package_id ?? null)
+        : selectedPkgId;
 
   return (
     <div className={activePkgId ? "place inbox inbox-has-drawer" : "place inbox"}>

@@ -4,8 +4,8 @@
       "/opt/node22/bin/node",
       "/home/user/Control-Rod/apps/web/node_modules/@playwright/test/cli.js",
       "test",
-      "e2e/build-isolation.spec.ts",
-      "--project=chromium"
+      "e2e/readme-shots.spec.ts",
+      "--list"
     ],
     "configFile": "/home/user/Control-Rod/apps/web/playwright.config.ts",
     "rootDir": "/home/user/Control-Rod/apps/web/e2e",
@@ -18,18 +18,14 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {
-      "actualWorkers": 1
-    },
+    "metadata": {},
     "preserveOutput": "always",
     "projects": [
       {
         "outputDir": "/home/user/Control-Rod/apps/web/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "chromium",
         "name": "chromium",
         "testDir": "/home/user/Control-Rod/apps/web/e2e",
@@ -43,9 +39,7 @@
         "outputDir": "/home/user/Control-Rod/apps/web/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "firefox",
         "name": "firefox",
         "testDir": "/home/user/Control-Rod/apps/web/e2e",
@@ -59,9 +53,7 @@
         "outputDir": "/home/user/Control-Rod/apps/web/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "id": "webkit",
         "name": "webkit",
         "testDir": "/home/user/Control-Rod/apps/web/e2e",
@@ -79,9 +71,7 @@
         "outputDir": "/home/user/Control-Rod/apps/web/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {
-          "actualWorkers": 1
-        },
+        "metadata": {},
         "name": "chromium",
         "testDir": "/home/user/Control-Rod/apps/web/e2e",
         "snapshotDir": "/home/user/Control-Rod/apps/web/e2e",
@@ -100,6 +90,58 @@
         "dependencies": [],
         "ignoreSnapshots": false,
         "__projectId": "chromium"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/user/Control-Rod/apps/web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "name": "firefox",
+        "testDir": "/home/user/Control-Rod/apps/web/e2e",
+        "snapshotDir": "/home/user/Control-Rod/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "baseURL": "http://127.0.0.1:4173",
+          "viewport": {
+            "width": 1440,
+            "height": 1100
+          },
+          "trace": "retain-on-failure",
+          "browserName": "firefox"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "firefox"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/user/Control-Rod/apps/web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "name": "webkit",
+        "testDir": "/home/user/Control-Rod/apps/web/e2e",
+        "snapshotDir": "/home/user/Control-Rod/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 60000,
+        "use": {
+          "baseURL": "http://127.0.0.1:4173",
+          "viewport": {
+            "width": 1440,
+            "height": 1100
+          },
+          "trace": "retain-on-failure",
+          "browserName": "webkit"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "webkit"
       }
     ],
     "quiet": false,
@@ -138,131 +180,58 @@
   },
   "suites": [
     {
-      "title": "build-isolation.spec.ts",
-      "file": "build-isolation.spec.ts",
+      "title": "readme-shots.spec.ts",
+      "file": "readme-shots.spec.ts",
       "column": 0,
       "line": 0,
-      "specs": [],
-      "suites": [
+      "specs": [
         {
-          "title": "build output isolation",
-          "file": "build-isolation.spec.ts",
-          "line": 24,
-          "column": 6,
-          "specs": [
+          "title": "readme shots",
+          "ok": true,
+          "tags": [],
+          "tests": [
             {
-              "title": "a release build into a reused directory carries nothing from an earlier draft build",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 180000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1783,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-11-18T16:50:13.646Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "c7bc5fbdfe741889fa95-c3cc875f79487544f267",
-              "file": "build-isolation.spec.ts",
-              "line": 28,
-              "column": 3
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [],
+              "status": "skipped"
             },
             {
-              "title": "a release build copies only the files an office theme declares, and refuses a tampered one",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 180000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1680,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-11-18T16:50:15.477Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "c7bc5fbdfe741889fa95-b265a50bfc0b360dde24",
-              "file": "build-isolation.spec.ts",
-              "line": 53,
-              "column": 3
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "firefox",
+              "projectName": "firefox",
+              "results": [],
+              "status": "skipped"
             },
             {
-              "title": "a build refuses a non-empty directory it did not create",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 180000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 491,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-11-18T16:50:17.176Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "c7bc5fbdfe741889fa95-fd7b16dba39d39212bba",
-              "file": "build-isolation.spec.ts",
-              "line": 75,
-              "column": 3
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "webkit",
+              "projectName": "webkit",
+              "results": [],
+              "status": "skipped"
             }
-          ]
+          ],
+          "id": "105a059839b0803b1456-d6ed743fc2cf8c13d59c",
+          "file": "readme-shots.spec.ts",
+          "line": 114,
+          "column": 1
         }
       ]
     }
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-18T16:50:00.378Z",
-    "duration": 17324.471999999998,
-    "expected": 3,
-    "skipped": 0,
+    "startTime": "2026-11-18T17:09:30.751Z",
+    "duration": 149.78499999999997,
+    "expected": 0,
+    "skipped": 3,
     "unexpected": 0,
     "flaky": 0
   }

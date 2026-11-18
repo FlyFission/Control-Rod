@@ -8,8 +8,8 @@
 import { test } from "@playwright/test";
 const json = (b: unknown) => ({ status: 200, contentType: "application/json", body: JSON.stringify(b) });
 const pkgs = [
-  { schema_version: "0.1.0", id: "WP-0007", revision: 1, title: "Pump skid P-101 datasheet", project: "plant-a", mode: "capital-projects", status: "in-verification", rigor_mode: "standard", data_lane: "internal", objective: "x", deliverables: [{ id: "D1", type: "pump datasheet", format: ["pdf"] }], design_inputs: [], agent_assignment: [], acceptance_criteria: ["a"], discipline: "mechanical" },
-  { schema_version: "0.1.0", id: "WP-0008", revision: 0, title: "Cable tray routing, Area 2", project: "plant-a", mode: "capital-projects", status: "draft", rigor_mode: "quick", data_lane: "internal", objective: "x", deliverables: [{ id: "D1", type: "routing plan" }], design_inputs: [], agent_assignment: [], acceptance_criteria: ["a"], discipline: "electrical" },
+  { schema_version: "0.1.0", id: "WP-0007", revision: 1, title: "Pump skid P-101 datasheet", project: "plant-a", mode: "capital-projects", status: "in-verification", rigor_mode: "standard", data_lane: "internal", objective: "Prepare the datasheet for pump skid P-101.", deliverables: [{ id: "D1", type: "pump datasheet", format: ["pdf"] }], design_inputs: [], agent_assignment: [], acceptance_criteria: ["a"], discipline: "mechanical" },
+  { schema_version: "0.1.0", id: "WP-0008", revision: 0, title: "Cable tray routing, Area 2", project: "plant-a", mode: "capital-projects", status: "draft", rigor_mode: "quick", data_lane: "internal", objective: "Prepare the datasheet for pump skid P-101.", deliverables: [{ id: "D1", type: "routing plan" }], design_inputs: [], agent_assignment: [], acceptance_criteria: ["a"], discipline: "electrical" },
 ];
 const admin = { me: { userName: "ben", memberId: "m", orgId: "o" }, bootstrap: false, qualification: null, members: [{ id: "m", org_id: "o", user_name: "ben", display_name: "Ben Huffer", status: "active" }], projects: [], policy: null, hardware_formats_in_force: ["packed", "fido-u2f", "tpm"], themes: [], commands: [],
   floors: [{ code: "not-human", sentence: "Only a person may take this action; an agent or a daemon never decides.", change: "Nothing changes this." }],
@@ -96,7 +96,7 @@ const figs = () => {
   const t = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
   const f = (id: string, pkg: string, title: string, role: string, state: string, place: string, cause: string, extra: Record<string, unknown> = {}) => ({
     id, package_id: pkg, package_revision: 1, title, role, state, cause, since: t(1), place,
-    marks: { gate: false, safety: false }, gate_stage: "in-work", data_lane: "internal", run_status: "running", href: { to: "/packages/$id", id: pkg, hash: "runs" }, ...extra });
+    marks: { gate: false, safety: false }, gate_stage: "in-work", data_lane: "internal", run_status: "running", href: { to: "/packages/$id", id: pkg, hash: "runs" }, cause_key: `run:${id}`, ...extra });
   return { figures: [
     f("R-1", "WP-0007", "Pump skid P-101 datasheet", "author", "needs", "your-office", "Pre-check passed. Review and accept.", { gate_stage: "accept", marks: { gate: true, safety: false } }),
     f("R-2", "WP-0008", "Cable tray routing, Area 2", "author", "working", "electrical", "Routing cable tray in Area 2"),
@@ -119,16 +119,32 @@ test("readme shots", async ({ page, browserName }) => {
     window.localStorage.setItem("controlrod.office.theme.ben", "corner-cafe");
   });
   await page.route("**/office/figures*", (r) => r.fulfill(json(figs())));
+  await page.route("**/scrams*", (r) => (r.request().headers()["accept"] ?? "").includes("text/html") ? r.fallback() : r.fulfill(json({ scrams: [] })));
+  // The inbox opens its drawer on the first package, so it lists only the sample package that has a full view.
+  await page.route("**/inbox*", (r) => (r.request().headers()["accept"] ?? "").includes("text/html") ? r.fallback() : r.fulfill(json({
+    items: [{ kind: "accept", package_id: "WP-0007", package_revision: 1, title: "Pump skid P-101 datasheet", detail: "Pre-check passed. Review and accept.", since: new Date(Date.now() - 3600e3 * 3).toISOString(), risk: { rank: 41, label: "Standard gate" }, binds: "Signing binds revision 1 of WP-0007: 1 output and its pre-check (pass, 1 finding) (sha256:ab12cd34ef56).", subject_digest: { algorithm: "sha256", value: "ab12cd34ef56".padEnd(64, "0") }, decisions: ["accept", "accept-with-findings", "return", "reject"], href: { to: "/packages/$id", id: "WP-0007", hash: "decide" } }],
+    waiting_on_others: [],
+    digest: { head: 120, lines: [
+      { topic: "changes", text: "3 packages changed: 2 drafted, 1 with new output.", count: 3 },
+      { topic: "signatures", text: "1 decision signed: 1 released.", count: 1 },
+      { topic: "disputes", text: "No disputes are open.", count: 0 },
+      { topic: "spend", text: "No spend recorded.", count: 0 },
+    ] } })));
   await page.goto("/office");
   await page.waitForTimeout(2500);
   await page.screenshot({ path: `${OUT}/office.png` });
   await page.goto("/packages/WP-0007/case");
   await page.waitForTimeout(2000);
   await page.screenshot({ path: `${OUT}/case-top.png` });
-  await page.screenshot({ path: `${OUT}/case-full.png`, fullPage: true });
+  await page.getByRole("button", { name: "Go to Sign" }).click().catch(() => undefined);
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${OUT}/case-sign.png` });
   await page.goto("/inbox");
   await page.waitForTimeout(2000);
   await page.screenshot({ path: `${OUT}/inbox.png` });
+  await page.goto("/board");
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${OUT}/board.png` });
   await page.goto("/packages");
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${OUT}/packages.png` });

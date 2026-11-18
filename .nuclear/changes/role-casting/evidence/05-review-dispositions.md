@@ -88,3 +88,10 @@ An automated review of the revised spec, triggered when the pull request was mar
 | CP-4 | medium | Row selection for two-dimensional matches is undefined, and duplicate rows are not rejected. | **Accepted.** Precedence is now exact grade and lane, exact grade with `any` lane, `any` grade with exact lane, then `any` and `any`; duplicate rows are refused at signing; no match holds the run. | Spec 8 field table | Spec 8 (Which row applies) |
 
 All four were checked against the repository by the authoring side; no reviewer has confirmed the fixes.
+
+## GitHub Codex review of `0fd4c8e` (owner decisions commit)
+
+| ID | Sev. | Finding (short) | Disposition | Evidence checked | Where fixed |
+|---|---|---|---|---|---|
+| GC-1 | P2 | D-1 and D-2 change today's claim and pin behavior without exempting version zero, contradicting C2's parity guarantee. | **Accepted.** Verified: `pickChecker` chooses from the claiming daemon's own offer, so a Claude-only daemon can claim a pre-check of a Codex-authored deliverable today, and `pinnedOffer` drops a mismatched runtime rather than holding. D-3 changes today's recheck routing the same way. D-1 to D-3 now take effect with the first sheet other than version zero; C2 stays pure parity, and C3's acceptance tests the three rules. The decisions themselves are unchanged; only their start point is stated. | `services/api/src/work.ts` (claim loop, `pickChecker`, `pinnedOffer`) | Spec 8, 13, 15; ADR conditions; `trace.md` RC-9 |
+

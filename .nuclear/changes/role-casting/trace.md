@@ -10,7 +10,7 @@
 | RC-6 Casting never overrides separation (by lineage), tier floors (from the registry) or the local-model rule; review panel seats stay as confirmed. | C2, C6 | Sheet listing a non-separate checker first: that candidate refused at claim | designed, not implemented |
 | RC-7 Specialists compose between runs, never as subagents. | C3 and flows | Subagent use in `observed_models` makes provenance unknown | designed, not implemented |
 | RC-8 Capital Projects roles drive tools; parameters by reference to controlled inputs; numbers trace to tool runs or cited sources; methods never chosen by a model. | C8 | Per role, deliverable numbers traced to tool outputs | designed, not implemented |
-| RC-9 For check and refute roles, a pin mismatch holds; the claiming machine cannot choose the checker; a recheck goes to the checker that failed it (D-1 to D-3). | C2 | Pin mismatch on a checker runtime holds the run; a daemon missing a higher-ranked candidate cannot claim; a recheck after a fail is offered only to the failing checker | designed, not implemented |
+| RC-9 Under any sheet other than version zero, for check and refute roles, a pin mismatch holds; the claiming machine cannot choose the checker; a recheck goes to the checker that failed it (D-1 to D-3). | C3 | Pin mismatch on a checker runtime holds the run; a daemon missing a higher-ranked candidate cannot claim; a recheck after a fail is offered only to the failing checker | designed, not implemented |
 | Owner decisions C-1 to C-9 and D-1 to D-6 (spec section 15) | C0 | none | recorded 2026-11-18; open: C-7's discipline, D-4, D-5, and ADR 0023 acceptance |
 
 Requirement IDs RC-1 to RC-9 summarise ADR 0023 decisions 1 to 5 and conditions.

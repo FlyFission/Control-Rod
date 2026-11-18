@@ -31,7 +31,7 @@ The multi-provider plan cut an editable strengths matrix and any learning loop, 
 - Trial runs are their own job kind: they cannot claim or move a package, check a deliverable or count toward a quorum. Hidden tests and answer keys never enter the candidate's workspace.
 - Review panel seats remain the recipients the person confirmed; a sheet may only propose defaults before confirmation.
 - Consults are separate print-mode runs queued from a signed flow; the asking run has ended before their output exists.
-- For check and refute roles, a pin or installed-version mismatch holds the run (D-1); a daemon claims only if it offers every candidate ranked above the one it would run (D-2); a recheck after a fail goes to the checker that recorded it unless it lost qualification or the owner signs a reason (D-3).
+- From the first sheet other than version zero (version zero keeps today's claim behavior, for parity), for check and refute roles a pin or installed-version mismatch holds the run (D-1); a daemon claims only if it offers every candidate ranked above the one it would run (D-2); a recheck after a fail goes to the checker that recorded it unless it lost qualification or the owner signs a reason (D-3).
 - The signed M9 list is the checker baseline; reorders and additions need canary results meeting the D-4 bar.
 - Engineering tools run only in a Control Rod tool runner between one-shot rounds, never inside the agent's sandbox for counted work (C-9).
 

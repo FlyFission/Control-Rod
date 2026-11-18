@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { Refusal } from "./refusal.js";
@@ -141,7 +141,10 @@ export function defaultWorkspaceRoot(): string {
  * Ensures user-supplied `workspace_root` (and `CONTROLROD_WORKSPACE_ROOT`, which must point to a
  * non-dot folder inside `$HOME`) stays strictly within a non-dot directory under `$HOME`.
  */
-export function resolveSafeWorkspaceRoot(requested?: string): string {
+export function resolveSafeWorkspaceRoot(requested?: unknown): string {
+  if (requested !== undefined && typeof requested !== "string") {
+    throw new Refusal(400, "invalid-workspace-root", "Workspace root must be a string.");
+  }
   const home = realpathSync(homedir());
   const raw = requested?.trim();
   const expanded = raw ? raw.replace(/^~(?=\/|$)/, home) : defaultWorkspaceRoot();
@@ -161,6 +164,16 @@ export function resolveSafeWorkspaceRoot(requested?: string): string {
   return candidate;
 }
 
+function normalizeGithubOwnerRepoPath(rawPath: string): string | null {
+  const parts = rawPath.split("/");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+  const owner = parts[0];
+  const name = parts[1].replace(/\.git$/i, "");
+  if (!owner || !name) return null;
+  const normalized = `${owner}/${name}`;
+  return isSafeRepoIdentifier(normalized) ? normalized.toLowerCase() : null;
+}
+
 /** Parses a strict GitHub HTTPS/SSH/SCP remote URL into lowercase `owner/name`, or `null`. */
 export function parseGithubOwnerRepoFromUrl(rawUrl: string): string | null {
   const trimmed = rawUrl.trim();
@@ -170,13 +183,7 @@ export function parseGithubOwnerRepoFromUrl(rawUrl: string): string | null {
   if (scpMatch) {
     const rawPath = scpMatch[2]!;
     if (rawPath.startsWith("/")) return null;
-    const parts = rawPath.split("/");
-    if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
-    const owner = parts[0];
-    const name = parts[1].replace(/\.git$/i, "");
-    if (!owner || !name) return null;
-    const normalized = `${owner}/${name}`;
-    return isSafeRepoIdentifier(normalized) ? normalized.toLowerCase() : null;
+    return normalizeGithubOwnerRepoPath(rawPath.replace(/\/+$/, ""));
   }
 
   let parsed: URL;
@@ -190,13 +197,7 @@ export function parseGithubOwnerRepoFromUrl(rawUrl: string): string | null {
   if (host !== "github.com" && host !== "ssh.github.com") return null;
   if (parsed.search || parsed.hash) return null;
 
-  const parts = parsed.pathname.replace(/^\//, "").split("/");
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
-  const owner = parts[0];
-  const name = parts[1].replace(/\.git$/i, "");
-  if (!owner || !name) return null;
-  const normalized = `${owner}/${name}`;
-  return isSafeRepoIdentifier(normalized) ? normalized.toLowerCase() : null;
+  return normalizeGithubOwnerRepoPath(parsed.pathname.replace(/^\/+|\/+$/g, ""));
 }
 
 export function hostGitEnv(ceilingDir?: string): NodeJS.ProcessEnv {
@@ -207,7 +208,7 @@ export function hostGitEnv(ceilingDir?: string): NodeJS.ProcessEnv {
     env[key] = value;
   }
   env.GIT_TERMINAL_PROMPT = "0";
-  env.GIT_CEILING_DIRECTORIES = ceilingDir ?? dirname(defaultWorkspaceRoot());
+  env.GIT_CEILING_DIRECTORIES = ceilingDir ?? defaultWorkspaceRoot();
   return env;
 }
 
@@ -242,7 +243,7 @@ async function git(
   timeout = 25_000,
   workspaceRoot?: string,
 ): Promise<string> {
-  const ceilingDir = workspaceRoot ? dirname(workspaceRoot) : dirname(defaultWorkspaceRoot());
+  const ceilingDir = workspaceRoot ?? defaultWorkspaceRoot();
   const { stdout } = await execFileAsync("git", [...HOST_GIT_ARGS, ...args], {
     ...(cwd ? { cwd } : {}),
     timeout,
@@ -296,6 +297,13 @@ function validateExistingRepoDir(baseCloneDir: string, workspaceRoot: string, is
     if (!isContainedIn(baseCloneDir, targetGitDir) && !isContainedIn(workspaceRoot, targetGitDir)) {
       throw new Refusal(400, "invalid-workspace-root", "Repository .git gitdir target escapes the workspace.");
     }
+    if (!existsSync(targetGitDir) || !statSync(targetGitDir).isDirectory()) {
+      throw new Refusal(
+        400,
+        "invalid-workspace-root",
+        `Repository .git gitdir target must be an existing directory: ${targetGitDir}`,
+      );
+    }
     return;
   }
   if (!dotGitStat.isDirectory()) {
@@ -311,7 +319,11 @@ async function scanLocalRepos(root: string): Promise<LocalRepoInfo[]> {
   for (const entry of entries) {
     if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
     const full = join(root, entry.name);
-    if (!pathExistsAny(join(full, ".git"))) continue;
+    try {
+      validateExistingRepoDir(full, root, false);
+    } catch {
+      continue;
+    }
     try {
       const [branch, remote, statusOut] = await Promise.all([
         git(["rev-parse", "--abbrev-ref", "HEAD"], full, undefined, root).catch(() => "HEAD"),
@@ -374,12 +386,12 @@ export function repoRoutes(
   app: FastifyInstance,
   person: (req: FastifyRequest) => Promise<string>,
 ): void {
-  app.get<{ Querystring: { workspace_root?: string } }>("/repos", async (req) => {
+  app.get<{ Querystring: { workspace_root?: unknown } }>("/repos", async (req) => {
     await person(req);
     const workspaceRoot = resolveSafeWorkspaceRoot(req.query.workspace_root);
     const [local, ghResult] = await Promise.all([
       scanLocalRepos(workspaceRoot),
-      listGithubRepos(dirname(workspaceRoot)),
+      listGithubRepos(workspaceRoot),
     ]);
     return {
       workspace_root: workspaceRoot,
@@ -433,7 +445,12 @@ export function repoRoutes(
     if (pathExistsAny(workspaceRoot) && !lstatSync(workspaceRoot).isDirectory()) {
       throw new Refusal(400, "invalid-workspace-root", `Workspace root is not a directory: ${workspaceRoot}`);
     }
-    mkdirSync(workspaceRoot, { recursive: true });
+    try {
+      mkdirSync(workspaceRoot, { recursive: true });
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Refusal(400, "invalid-workspace-root", `Cannot create workspace root directory ${workspaceRoot}: ${detail}`);
+    }
 
     const isGithub = SAFE_OWNER_REPO.test(repo);
     const repoName = isGithub ? repo.split("/")[1]!.replace(/\.git$/i, "") : repo;
@@ -466,7 +483,7 @@ export function repoRoutes(
       if (!isGithub) {
         throw new Refusal(404, "repo-not-found", `Local repository not found at ${baseCloneDir}`);
       }
-      await gh(["repo", "clone", repo, baseCloneDir], 60_000, [], dirname(workspaceRoot));
+      await gh(["repo", "clone", repo, baseCloneDir], 60_000, [], workspaceRoot);
     };
 
     try {
@@ -479,7 +496,7 @@ export function repoRoutes(
           throw new Refusal(400, "invalid-workspace-root", "Target path must stay inside workspace root.");
         }
         if (isGithub) {
-          await gh(["repo", "clone", repo, targetDir], 60_000, [], dirname(workspaceRoot));
+          await gh(["repo", "clone", repo, targetDir], 60_000, [], workspaceRoot);
         } else {
           if (!pathExistsAny(baseCloneDir)) {
             throw new Refusal(404, "repo-not-found", `Local repository not found at ${baseCloneDir}`);

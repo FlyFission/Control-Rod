@@ -1,0 +1,9 @@
+# PyYAML (libyaml CSafeLoader) parse of the edited .github/workflows/ci.yml
+typescript      timeout-minutes=20    runs-on=ubuntu-latest steps=6
+rust            timeout-minutes=30    runs-on=ubuntu-latest steps=6
+go              timeout-minutes=15    runs-on=ubuntu-latest steps=5
+python          timeout-minutes=15    runs-on=ubuntu-latest steps=6
+licenses        timeout-minutes=15    runs-on=ubuntu-latest steps=6
+change-records  timeout-minutes=10    runs-on=ubuntu-latest steps=6
+sbom            timeout-minutes=10    runs-on=ubuntu-latest steps=2
+change-records last step: {'name': 'Every workflow job has a bounded timeout', 'run': 'python3 tools/check_workflow_timeouts.py'}

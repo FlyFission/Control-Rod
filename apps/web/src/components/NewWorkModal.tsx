@@ -32,6 +32,23 @@ function suggestBranchName(text: string): string {
   return slug ? `cr/${slug}` : "cr/work-package";
 }
 
+const STRATEGY_NOTE: Record<RepoOutfallStrategy, string> = {
+  worktree:
+    "Selected strategy (worktree) prepares the local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2.",
+  "fresh-clone":
+    "Selected strategy (fresh-clone) prepares a fresh local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2.",
+  branch:
+    "Selected strategy (branch in base clone) prepares the local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2.",
+};
+
+interface PrepareSnapshot {
+  seq: number;
+  repo: string;
+  repoStrategy: RepoOutfallStrategy;
+  workspaceRoot: string;
+  branch: string;
+}
+
 interface NewWorkModalProps {
   open: boolean;
   mode: EngineeringMode;
@@ -41,7 +58,7 @@ interface NewWorkModalProps {
 /**
  * Mode-aware creation modal ("New change" in Software Mode, "New deliverable" in Capital Projects Mode).
  * Supports Simple vs. Advanced detail levels, saveable per-mode defaults, scope-based auto-inference,
- * independent Author/Checker CLI+model+reasoning selection, and 4-choice clarifying questions.
+ * and Author/Checker CLI+model+reasoning selection.
  */
 export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const copy = MODE_COPY[mode];
@@ -63,11 +80,19 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const [repoStrategy, setRepoStrategy] = useState<RepoOutfallStrategy>(initialDefaults.repoStrategy);
   const [branch, setBranch] = useState("");
   const [preparedPath, setPreparedPath] = useState<string | null>(null);
+  const [preparedBranch, setPreparedBranch] = useState<string | null>(null);
   const [pinnedFields, setPinnedFields] = useState(false);
 
   const [objective, setObjective] = useState("");
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const prepareSeqRef = useRef(0);
+
+  function invalidatePrepared() {
+    prepareSeqRef.current += 1;
+    setPreparedPath(null);
+    setPreparedBranch(null);
+  }
 
   // Load saved defaults whenever Engineering Mode toggles.
   useEffect(() => {
@@ -84,7 +109,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setWorkspaceRoot(saved.workspaceRoot);
     setRepo(saved.repo);
     setRepoStrategy(saved.repoStrategy);
-    setPreparedPath(null);
+    setBranch("");
+    invalidatePrepared();
     setPinnedFields(false);
     setDefaultsNotice(null);
   }, [mode]);
@@ -97,21 +123,48 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
 
   const activeWorkspaceRoot = workspaceRoot || reposQuery.data?.workspace_root || "";
   const effectiveBranch = branch.trim() || suggestBranchName(objective);
+  const latestPrepareInputsRef = useRef({
+    repo,
+    repoStrategy,
+    workspaceRoot: activeWorkspaceRoot,
+  });
+  latestPrepareInputsRef.current = {
+    repo,
+    repoStrategy,
+    workspaceRoot: activeWorkspaceRoot,
+  };
+
+  function isCurrentPrepare(snapshot: PrepareSnapshot): boolean {
+    const current = latestPrepareInputsRef.current;
+    return (
+      snapshot.seq === prepareSeqRef.current &&
+      current.repo === snapshot.repo &&
+      current.repoStrategy === snapshot.repoStrategy &&
+      current.workspaceRoot === snapshot.workspaceRoot
+    );
+  }
 
   const materialize = useMutation({
-    mutationFn: () =>
-      api.materializeRepo({
-        repo,
-        branch: effectiveBranch,
-        strategy: repoStrategy,
-        ...(activeWorkspaceRoot ? { workspace_root: activeWorkspaceRoot } : {}),
-      }),
-    onSuccess: (res) => {
+    mutationFn: async (snapshot: PrepareSnapshot) => {
+      const res = await api.materializeRepo({
+        repo: snapshot.repo,
+        branch: snapshot.branch,
+        strategy: snapshot.repoStrategy,
+        ...(snapshot.workspaceRoot ? { workspace_root: snapshot.workspaceRoot } : {}),
+      });
+      return { res, snapshot };
+    },
+    onSuccess: ({ res, snapshot }) => {
+      if (!isCurrentPrepare(snapshot)) return;
       setPreparedPath(res.local_path);
+      setPreparedBranch(res.branch || snapshot.branch);
       setError(null);
       void qc.invalidateQueries({ queryKey: ["repos"] });
     },
-    onError: (e) => setError(explain(e, "Could not prepare local workspace.")),
+    onError: (e, snapshot) => {
+      if (!isCurrentPrepare(snapshot)) return;
+      setError(explain(e, "Could not prepare local workspace."));
+    },
   });
 
   // Auto-infer discipline, stage, purpose, and grade from scope text unless user pinned manually.
@@ -138,6 +191,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     mutationFn: (body: string) => api.capture({ text: body, source: "web", lane }),
     onSuccess: () => {
       setObjective("");
+      setBranch("");
+      invalidatePrepared();
       setPinnedFields(false);
       setError(null);
       void qc.invalidateQueries({ queryKey: ["captures"] });
@@ -151,6 +206,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     ecosystemId: CliEcosystemId,
   ) {
     const eco = ecosystemById(ecosystemId);
+    if (!eco.runnable) return;
     setter({
       ecosystem: eco.id,
       model: eco.defaultModel,
@@ -189,7 +245,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setWorkspaceRoot(base.workspaceRoot);
     setRepo(base.repo);
     setRepoStrategy(base.repoStrategy);
-    setPreparedPath(null);
+    setBranch("");
+    invalidatePrepared();
     setPinnedFields(false);
     setDefaultsNotice(`Reset ${copy.label} defaults.`);
   }
@@ -201,11 +258,12 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       setError("Enter an objective or scope before capturing.");
       return;
     }
+    const submittedBranch = preparedBranch ?? effectiveBranch;
     const header = [
       `[mode:${mode}]`,
       project.trim() ? `[project:${project.trim()}]` : null,
       repo ? `[repo:${repo}]` : null,
-      repo ? `[branch:${effectiveBranch}]` : null,
+      repo ? `[branch:${submittedBranch}]` : null,
       repo ? `[outfall:${repoStrategy}]` : null,
       preparedPath ? `[workspace:${preparedPath}]` : null,
       `[stage:${stage}]`,
@@ -242,7 +300,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
             {copy.modalTitle}
           </h2>
           <p className="small muted" style={{ margin: 0 }}>
-            {copy.label} mode · Start brief and expand with defaults or 4-choice clarifications.
+            {copy.label} mode · Start brief and expand with saved defaults or Advanced options.
           </p>
         </div>
         <div className="cr-modal-head-actions">
@@ -308,7 +366,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                 value={repo}
                 onChange={(e) => {
                   setRepo(e.target.value);
-                  setPreparedPath(null);
+                  invalidatePrepared();
                 }}
               >
                 <option value="">No repository (general capture)</option>
@@ -340,7 +398,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                   value={repoStrategy}
                   onChange={(e) => {
                     setRepoStrategy(e.target.value as RepoOutfallStrategy);
-                    setPreparedPath(null);
+                    invalidatePrepared();
                   }}
                 >
                   <option value="worktree">New git worktree (Recommended)</option>
@@ -350,6 +408,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
               </label>
             )}
           </div>
+          {reposQuery.data?.github_error && (
+            <p role="alert" className="error" style={{ marginTop: 8, marginBottom: 0 }}>
+              GitHub repositories unavailable: {reposQuery.data.github_error}
+            </p>
+          )}
           {detailLevel === "advanced" && (
             <div className="cr-form-grid" style={{ marginTop: 8 }}>
               <label className="field">
@@ -357,7 +420,10 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                 <input
                   type="text"
                   value={workspaceRoot}
-                  onChange={(e) => setWorkspaceRoot(e.target.value)}
+                  onChange={(e) => {
+                    setWorkspaceRoot(e.target.value);
+                    invalidatePrepared();
+                  }}
                   placeholder={reposQuery.data?.workspace_root || "~/projects"}
                 />
               </label>
@@ -367,7 +433,10 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                   <input
                     type="text"
                     value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
+                    onChange={(e) => {
+                      setBranch(e.target.value);
+                      invalidatePrepared();
+                    }}
                     placeholder={suggestBranchName(objective)}
                   />
                 </label>
@@ -380,7 +449,16 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                 type="button"
                 className="btn small"
                 disabled={materialize.isPending}
-                onClick={() => materialize.mutate()}
+                onClick={() => {
+                  const seq = ++prepareSeqRef.current;
+                  materialize.mutate({
+                    seq,
+                    repo,
+                    repoStrategy,
+                    workspaceRoot: activeWorkspaceRoot,
+                    branch: effectiveBranch,
+                  });
+                }}
               >
                 {materialize.isPending ? "Preparing workspace…" : "Prepare local workspace"}
               </button>
@@ -391,6 +469,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
               )}
             </div>
           )}
+          <p className="small muted" style={{ margin: "8px 0 0" }}>
+            {repo
+              ? STRATEGY_NOTE[repoStrategy]
+              : "Preparing a repository creates the local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2."}
+          </p>
         </fieldset>
 
         <div className="cr-form-grid">
@@ -513,7 +596,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                 style={{ margin: "8px 0 0" }}
               >
                 {independent
-                  ? `O6 Custody OK: ${ecosystemById(author.ecosystem).cliCommand} prepares, independent ${ecosystemById(checker.ecosystem).cliCommand} verifies.`
+                  ? `Distinct ecosystems (baselines checked at run time): ${ecosystemById(author.ecosystem).cliCommand} prepares, ${ecosystemById(checker.ecosystem).cliCommand} verifies.`
                   : `O6 Notice: Author and Checker share the ${ecosystemById(author.ecosystem).cliCommand} CLI — independent runtime or owner override required before acceptance.`}
               </p>
             </fieldset>
@@ -585,8 +668,8 @@ function RuntimePickerCard({
           onChange={(e) => onChangeEcosystem(e.target.value as CliEcosystemId)}
         >
           {CLI_ECOSYSTEMS.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label} ({c.cliCommand})
+            <option key={c.id} value={c.id} disabled={!c.runnable}>
+              {c.label} ({c.cliCommand}){c.runnable ? "" : " — Not yet runnable"}
             </option>
           ))}
         </select>

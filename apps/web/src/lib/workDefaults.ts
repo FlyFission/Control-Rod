@@ -1,7 +1,9 @@
 import { MODE_COPY, type EngineeringMode } from "./mode.js";
 import {
+  CLI_ECOSYSTEMS,
   defaultAuthorSelection,
   defaultCheckerSelection,
+  resolveReasoningForModel,
   type AgentRuntimeSelection,
 } from "./runtimes.js";
 import type { DataLane } from "../api/types.js";
@@ -45,6 +47,23 @@ export function factoryDefaults(mode: EngineeringMode): WorkDefaults {
   };
 }
 
+/** Validates a persisted runtime selection against currently runnable ecosystems, models, and reasoning levels. */
+function sanitizeSelection(
+  sel: Partial<AgentRuntimeSelection> | undefined,
+  fallback: AgentRuntimeSelection,
+): AgentRuntimeSelection {
+  if (!sel?.ecosystem) return fallback;
+  const eco = CLI_ECOSYSTEMS.find((c) => c.id === sel.ecosystem);
+  if (!eco || !eco.runnable) return fallback;
+  const model = sel.model && eco.models.includes(sel.model) ? sel.model : eco.defaultModel;
+  const reasoning = resolveReasoningForModel(eco.id, model, sel.reasoning);
+  return {
+    ecosystem: eco.id,
+    model,
+    reasoning,
+  };
+}
+
 export function loadWorkDefaults(mode: EngineeringMode): WorkDefaults {
   const base = factoryDefaults(mode);
   const raw = readString(`${STORAGE_PREFIX}${mode}`);
@@ -54,8 +73,8 @@ export function loadWorkDefaults(mode: EngineeringMode): WorkDefaults {
     return {
       ...base,
       ...parsed,
-      author: parsed.author?.ecosystem ? parsed.author : base.author,
-      checker: parsed.checker?.ecosystem ? parsed.checker : base.checker,
+      author: sanitizeSelection(parsed.author, base.author),
+      checker: sanitizeSelection(parsed.checker, base.checker),
       detailLevel: parsed.detailLevel === "advanced" ? "advanced" : "simple",
     };
   } catch {
@@ -167,91 +186,4 @@ export function inferScopeHints(mode: EngineeringMode, text: string): InferredHi
     };
   }
   return {};
-}
-
-export interface ClarifyingQuestion {
-  id: string;
-  prompt: string;
-  options: readonly [string, string, string, string];
-}
-
-/**
- * Generates 3 targeted 4-option multiple-choice questions to expand a short scope
- * into unambiguous execution & verification criteria.
- */
-export function buildClarifyingQuestions(
-  mode: EngineeringMode,
-  text: string,
-  discipline: string,
-  stage: string,
-): ClarifyingQuestion[] {
-  const shortTopic = text.trim().slice(0, 48) || (mode === "software" ? "this change" : "this deliverable");
-
-  if (mode === "software") {
-    return [
-      {
-        id: "verification",
-        prompt: `How should the checker verify "${shortTopic}" (${discipline})?`,
-        options: [
-          "Unit + integration tests without mocks (Recommended)",
-          "End-to-end Playwright flow + accessibility check",
-          "Typecheck, lint, and static contract check only",
-          "Reproduce bug first, then prove regression test passes",
-        ],
-      },
-      {
-        id: "blast_radius",
-        prompt: `What is the blast radius and rollback posture for this ${stage}?`,
-        options: [
-          "Isolated module — directly revertible (Recommended)",
-          "Cross-service or API schema change (needs compatibility check)",
-          "Database migration (requires forward + rollback plan)",
-          "Security / auth / sandbox boundary (requires O6 independent check)",
-        ],
-      },
-      {
-        id: "confinement",
-        prompt: "What runtime environment & network posture should the agent use?",
-        options: [
-          "Local sandbox, no external egress (Recommended)",
-          "CI runner with pinned package registry only",
-          "Read-only research & plan first (no file writes)",
-          "Full local dev harness against localhost daemon",
-        ],
-      },
-    ];
-  }
-
-  return [
-    {
-      id: "code_basis",
-      prompt: `Which governing basis applies to "${shortTopic}" (${discipline})?`,
-      options: [
-        "Applicable ASME / API / NFPA / NEC code + project spec (Recommended)",
-        "Client / owner design basis memorandum only",
-        "Preliminary vendor datasheet (mark unverified inputs as holds)",
-        "For information / conceptual screening only",
-      ],
-    },
-    {
-      id: "maturity_gate",
-      prompt: `What completeness level is expected for ${stage}?`,
-      options: [
-        "All assumptions & hold points explicitly listed (Recommended)",
-        "Preliminary sizing & equipment count (±20–30%)",
-        "Inter-discipline squad check ready (inputs frozen)",
-        "Final stamped / IFC-ready calculation & datasheet package",
-      ],
-    },
-    {
-      id: "custody_level",
-      prompt: "What verification rigor & sign-off is required before issue?",
-      options: [
-        "Independent O6 checker (different CLI) + owner passkey (Recommended)",
-        "Same-discipline senior peer review + passkey",
-        "Automated pre-check & unit consistency check only",
-        "Hold at Checker Review pending vendor certified data",
-      ],
-    },
-  ];
 }

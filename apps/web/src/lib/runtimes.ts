@@ -28,6 +28,7 @@ export interface CliEcosystem {
   id: CliEcosystemId;
   label: string;
   cliCommand: string;
+  readonly runnable: boolean;
   models: readonly string[];
   reasoningLevels: readonly ReasoningLevel[];
   modelReasoningLevels?: Readonly<Record<string, readonly ReasoningLevel[]>>;
@@ -41,6 +42,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "claude",
     label: "Claude Code",
     cliCommand: "claude",
+    runnable: true,
     models: ["claude-sonnet-4-5", "claude-opus-4-1", "claude-haiku-4-5"],
     reasoningLevels: ["low", "medium", "high", "max"],
     modelReasoningLevels: {
@@ -58,6 +60,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "codex",
     label: "Codex CLI",
     cliCommand: "codex",
+    runnable: true,
     models: ["sol-6.1", "gpt-5.4", "o3", "o4-mini"],
     reasoningLevels: ["low", "medium", "high", "xhigh"],
     modelReasoningLevels: {
@@ -73,6 +76,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "agy",
     label: "Antigravity CLI (AGY)",
     cliCommand: "agy",
+    runnable: false,
     models: ["argon", "gemini-2.5-pro", "gemini-2.5-flash"],
     reasoningLevels: ["low", "medium", "high", "max"],
     modelReasoningLevels: {
@@ -91,6 +95,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "opencode",
     label: "OpenCode",
     cliCommand: "opencode",
+    runnable: false,
     models: ["default", "claude-sonnet-4-5", "gpt-5.4", "deepseek-r1"],
     reasoningLevels: ["default", "low", "medium", "high"],
     modelReasoningLevels: {
@@ -111,6 +116,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "grok",
     label: "Grok CLI",
     cliCommand: "grok",
+    runnable: false,
     models: ["grok-code-fast-1", "grok-4", "grok-3"],
     reasoningLevels: ["low", "medium", "high"],
     modelReasoningLevels: {
@@ -125,6 +131,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "cursor",
     label: "Cursor Agent",
     cliCommand: "cursor-agent",
+    runnable: false,
     models: ["auto", "claude-sonnet-4-5", "gpt-5.4"],
     reasoningLevels: ["default", "low", "medium", "high"],
     modelReasoningLevels: {
@@ -143,6 +150,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "copilot",
     label: "GitHub Copilot CLI",
     cliCommand: "copilot",
+    runnable: false,
     models: ["claude-sonnet-4-5", "gpt-5.4", "gemini-2.5-pro"],
     reasoningLevels: ["low", "medium", "high"],
     modelReasoningLevels: {
@@ -157,6 +165,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "aider",
     label: "Aider",
     cliCommand: "aider",
+    runnable: false,
     models: ["default", "claude-sonnet-4-5", "deepseek-chat", "o3"],
     reasoningLevels: ["default", "low", "medium", "high"],
     modelReasoningLevels: {
@@ -177,6 +186,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "cline",
     label: "Cline CLI",
     cliCommand: "cline",
+    runnable: false,
     models: ["default", "claude-sonnet-4-5", "deepseek-r1"],
     reasoningLevels: ["default", "low", "medium", "high"],
     modelReasoningLevels: {
@@ -195,6 +205,7 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     id: "ollama",
     label: "Ollama Local",
     cliCommand: "ollama",
+    runnable: false,
     models: ["qwen2.5-coder:32b", "deepseek-r1:32b", "llama3.3:70b"],
     reasoningLevels: ["off", "low", "medium", "high"],
     modelReasoningLevels: {
@@ -269,7 +280,7 @@ export function defaultCheckerSelection(): AgentRuntimeSelection {
   };
 }
 
-/** O6 independence rule: verifier runtime should be independent of the originator runtime. */
+/** Preliminary UI check: distinct ecosystems selected (baselines and overrides are enforced at run time). */
 export function isIndependentCustody(author: AgentRuntimeSelection, checker: AgentRuntimeSelection): boolean {
   return author.ecosystem !== checker.ecosystem;
 }

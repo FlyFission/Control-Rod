@@ -366,7 +366,7 @@ func ClaudeIsolationArgs() []string {
 // else is refused by the preflight until it is qualified.
 var CodexDisabledFeatures = []string{
 	"apps", "browser_use", "browser_use_external", "browser_use_full_cdp_access",
-	"computer_use", "daemon_auto_start", "goals", "guardian_approval", "hooks", "image_generation",
+	"computer_use", "daemon_auto_start", "deferred_tool_world_state", "goals", "guardian_approval", "hooks", "image_generation",
 	"in_app_browser", "in_app_local_automation", "memories", "multi_agent", "plugin_discovery_prefetch",
 	"plugin_sharing", "plugins", "remote_plugin", "shell_snapshot", "skill_mcp_dependency_install",
 	"skill_search", "tool_call_mcp_elicitation", "tool_suggest", "view_image", "workspace_dependencies",

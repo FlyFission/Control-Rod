@@ -45,6 +45,7 @@ function api(s: Setup) {
     http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })),
     http.get("*/packages", () => HttpResponse.json(s.packages)),
     http.get("*/office", () => HttpResponse.json([])),
+    http.get("*/captures", () => HttpResponse.json([])),
     http.get("*/admin", () => HttpResponse.json({ members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }], registry: { qualifications: [] } })),
     http.get("*/packages/:id/actions", ({ params }) => HttpResponse.json(s.actions?.[String(params["id"])] ?? [])),
     http.get("*/packages/:id/person-verifications", () => HttpResponse.json([])),
@@ -73,8 +74,8 @@ describe("BoardView", () => {
     api({ packages: [pkg({ id: "WP-1" })] });
     await renderPage(<Page />);
     const regions = await screen.findAllByRole("region");
-    expect(regions.map((r) => document.getElementById(r.getAttribute("aria-labelledby")!)!.textContent)).toEqual(["Ready", "Drafting", "Agent check", "Person verifies", "Needs signature", "Accepted"]);
-    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Ready", "Drafting", "Agent check", "Person verifies", "Needs signature", "Accepted"]);
+    expect(regions.map((r) => document.getElementById(r.getAttribute("aria-labelledby")!)!.textContent)).toEqual(["Ready", "Implementing", "CI / Agent check", "Peer review", "Needs signature", "Accepted"]);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Ready", "Implementing", "CI / Agent check", "Peer review", "Needs signature", "Accepted"]);
   });
 
   it("labels each card by its title and keeps the counts out of a live region", async () => {
@@ -113,11 +114,14 @@ describe("BoardView", () => {
     expect(within(card).queryByText("Independent check")).toBeNull();
   });
 
-  it("opens the package from the title button", async () => {
+  it("opens the non-obscuring review drawer from the title button and links to the full case", async () => {
     api({ packages: [pkg({ id: "WP-1", title: "Open me" })] });
     const { router } = await renderPage(<Page />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Open me" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-1" });
+    expect(drawer).toBeTruthy();
+    await user.click(within(drawer).getByRole("link", { name: /Full case/i }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/packages/WP-1"));
   });
 
@@ -362,7 +366,8 @@ describe("BoardView", () => {
     api({ packages: [] });
     await renderPage(<Page />);
     expect(await screen.findByText(/Add your first card/)).toBeTruthy();
-    expect(screen.getByText(/When its intake drafts a package, the package appears here in Ready\./)).toBeTruthy();
+    expect(screen.getByText(/an intake agent drafts a package/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "+ Add a card" })).toBeTruthy();
   });
 
   it("counts what needs you and the agents running", async () => {
@@ -410,9 +415,9 @@ describe("BoardView", () => {
     expect(await screen.findByText(/Could not read person verifications/)).toBeTruthy();
     expect(screen.queryByText(/Needs a second qualified person/)).toBeNull();
     expect(screen.queryByText("Waiting on a person verification")).toBeNull();
-    // Ruling 11: the card sits in Person verifies, never in Needs signature, while the step is unknown.
+    // Ruling 11: the card sits in Person verifies (Peer review in Software mode), never in Needs signature, while the step is unknown.
     const region = screen.getByText("Relief valve sizing").closest("section")!;
-    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Person verifies");
+    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Peer review");
   });
 
   it("moves a card back to Person verifies and offers no Accept when a refresh of its covering pass fails", async () => {
@@ -432,7 +437,7 @@ describe("BoardView", () => {
     await act(async () => void (await qc.refetchQueries({ queryKey: ["person-verifications"] })));
     await waitFor(() => expect(next()).toContain("Could not read person verifications"));
     const region = screen.getByText("Relief valve sizing").closest("section")!;
-    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Person verifies");
+    expect(document.getElementById(region.getAttribute("aria-labelledby")!)!.textContent).toBe("Peer review");
   });
 
   it("says it cannot tell who can verify when the session cannot be read", async () => {
@@ -491,5 +496,107 @@ describe("BoardView", () => {
     await waitFor(() => expect(within(card).getByText(/Accept/)).toBeTruthy());
     expect(screen.queryByText(/status unknown since/i)).toBeNull();
     expect(card.textContent).not.toMatch(/[▲✕✓]/);
+  });
+
+  it("resets DecisionBar state in BoardReviewDrawer when switching packages", async () => {
+    const ret: ActionDescriptor = { command: "return", label: "Return", allowed: true, signature: "direct" };
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "First card", status: "in-verification" }),
+        pkg({ id: "WP-2", title: "Second card", status: "in-verification" }),
+      ],
+      actions: { "WP-1": [ret], "WP-2": [ret] },
+    });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "First card" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-1" });
+    await user.click(await within(drawer).findByRole("button", { name: "Return with direction" }));
+    const textarea = within(drawer).getByLabelText(/Direction for the next revision/);
+    await user.type(textarea, "Fix valve");
+    expect((textarea as HTMLTextAreaElement).value).toBe("Fix valve");
+
+    await user.click(screen.getByRole("button", { name: "Second card" }));
+    const drawer2 = await screen.findByRole("complementary", { name: "Review WP-2" });
+    await within(drawer2).findByRole("button", { name: "Return with direction" });
+    expect(within(drawer2).queryByLabelText(/Direction for the next revision/)).toBeNull();
+  });
+
+  it("navigates package card title buttons with J and K while skipping non-button CaptureCard titles", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "Package One" }),
+        pkg({ id: "WP-2", title: "Package Two" }),
+      ],
+    });
+    server.use(
+      http.get("*/captures", () =>
+        HttpResponse.json([
+          { schema_version: "0.1.0", id: "C-1", text: "Unclassified capture", source: "web", created_at: "2026-11-08T10:00:00Z" },
+        ]),
+      ),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await screen.findByText("Unclassified capture");
+    const firstBtn = await screen.findByRole("button", { name: "Package One" });
+    const secondBtn = await screen.findByRole("button", { name: "Package Two" });
+
+    await user.keyboard("j");
+    expect(document.activeElement).toBe(firstBtn);
+    await user.keyboard("j");
+    expect(document.activeElement).toBe(secondBtn);
+    await user.keyboard("k");
+    expect(document.activeElement).toBe(firstBtn);
+  });
+
+  it("stays loading while captures are pending even after packages arrive", async () => {
+    api({ packages: [] });
+    let releasePackages!: () => void;
+    let releaseCaptures!: () => void;
+    const packagesGate = new Promise<void>((r) => (releasePackages = r));
+    const capturesGate = new Promise<void>((r) => (releaseCaptures = r));
+    let packagesResolved = false;
+    server.use(
+      http.get("*/packages", async () => {
+        await packagesGate;
+        packagesResolved = true;
+        return HttpResponse.json([]);
+      }),
+      http.get("*/captures", async () => {
+        await capturesGate;
+        return HttpResponse.json([
+          { schema_version: "0.1.0", id: "C-1", text: "Pending capture", source: "web", created_at: "2026-11-08T10:00:00Z" },
+        ]);
+      }),
+    );
+    await renderPage(<Page />);
+    await act(async () => releasePackages());
+    await waitFor(() => expect(packagesResolved).toBe(true));
+    // Packages finished with [], captures is still pending: Loading must stay and empty state must not flash.
+    expect(screen.getByText("Loading")).toBeTruthy();
+    expect(screen.queryByText(/Add your first card/)).toBeNull();
+
+    await act(async () => releaseCaptures());
+    expect(await screen.findByText("Pending capture")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
+  });
+
+  it("shows package error alerts even while captures are still pending", async () => {
+    api({ packages: [] });
+    let releaseCaptures!: () => void;
+    const capturesGate = new Promise<void>((r) => (releaseCaptures = r));
+    server.use(
+      http.get("*/packages", () => HttpResponse.json({ code: "boom" }, { status: 500 })),
+      http.get("*/captures", async () => {
+        await capturesGate;
+        return HttpResponse.json([]);
+      }),
+    );
+    await renderPage(<Page />);
+    expect(await screen.findByText(/Could not load the work on this board/)).toBeTruthy();
+    expect(screen.getByText("Loading")).toBeTruthy();
+    await act(async () => releaseCaptures());
+    await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
   });
 });

@@ -1,6 +1,6 @@
 # Plan: bounded timeouts for every CI job
 
-1. Collect per-job wall time for six recent successful runs of `ci.yml` on `main` into `evidence/job-times.input.csv`; compute the table with `evidence/job-times.py` and record digests in `evidence/digests.txt`.
+1. Collect per-job wall time for seven recent successful runs of `ci.yml` (six on `main`, then this PR's own run once it finished) into `evidence/job-times.input.csv`; compute the table with `evidence/job-times.py` and record digests in `evidence/digests.txt`.
 2. Choose the caps as a proposal for the signer: `typescript` 20, `rust` 30, `go` 15, `python` 15, `licenses` 15, `change-records` 10, `sbom` 10 minutes. These are the values drafted in PR #69's proposal; they are policy, not derived.
 3. Edit `.github/workflows/ci.yml` in its own commit: one `timeout-minutes` line after each `runs-on`, and one step in `change-records` running `python3 tools/check_workflow_timeouts.py`. Nothing else.
 4. Check the edit three ways and keep the outputs: the checker (7 findings before, 0 after), a real YAML parse, and the shape of the diff.

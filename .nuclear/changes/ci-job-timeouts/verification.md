@@ -1,14 +1,14 @@
 # Verification: bounded timeouts for every CI job
 
-Evidence status: **pass** for CT-01, CT-02 (by the checker), CT-03 and CT-04 on this host (Linux, Python 3.13). **Open** for the CI run on this PR (E-05) until it finishes, and for the independent signature.
+Evidence status: **pass** for CT-01, CT-02 (by the checker), CT-03 and CT-04 on this host (Linux, Python 3.13). CT-02 is also confirmed in CI (E-05). **Open** only for the independent signature (E-06).
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | The checker reports 7 uncapped jobs on `main`'s `ci.yml` (exit 1) and none on the edited file (exit 0). The checker is a hand scanner, so E-02 backs it. | `evidence/checker-before-after.txt` |
 | E-02 | pass | A real YAML parse (libyaml) of the edited file shows all seven jobs with the intended integer caps and the new last step in `change-records`. | `evidence/yaml-parse.txt` |
-| E-03 | pass | Job wall time over 6 runs and 42 job timings, 2026-11-15 to 2026-11-18. Slowest job `typescript`, 152 s. Every cap is at least 7.9 times the worst time. Inputs transcribed by the agent from the GitHub jobs API (no `gh`), with job IDs. Caps are inputs to the script, not outputs. | `evidence/job-times.input.csv`, `evidence/job-times.py`, `evidence/job-times.txt`, `evidence/digests.txt` |
+| E-03 | pass | Job wall time over 7 runs and 49 job timings, 2026-11-15 to 2026-11-18: six on `main` and this PR's own run. Slowest job `typescript`, 154 s. Every cap is at least 7.8 times the worst time. Inputs transcribed by the agent from the GitHub jobs API (no `gh`), with job IDs. Caps are inputs to the script, not outputs. | `evidence/job-times.input.csv`, `evidence/job-times.py`, `evidence/job-times.txt`, `evidence/digests.txt` |
 | E-04 | pass | The diff adds 9 lines and removes none; the added lines are the seven caps, one step name and one command. | `evidence/diff-shape.txt`, `evidence/ci-timeouts.diff` |
-| E-05 | open | CI on this PR runs the new step and every capped job. Fill in the run and result before signing. | the PR's CI run |
+| E-05 | pass | CI run 44319665384 on this PR's head `8798753` (workflow `ci`, attempt 1): all 7 jobs concluded `success`. In `change-records`, step 7 "Every workflow job has a bounded timeout" ran `python3 tools/check_workflow_timeouts.py` and succeeded, with the capped workflow in force. Step and job conclusions were read from the GitHub jobs API (transcribed by the agent); the run page shows the same. This is the PR's own workflow checking itself, and it is one run. | https://github.com/FlyFission/Control-Rod/actions/runs/44319665384 |
 | E-06 | open | Independent signature by a maintainer who did not author the change. | none yet |
 
 ## Evidence custody and coupling

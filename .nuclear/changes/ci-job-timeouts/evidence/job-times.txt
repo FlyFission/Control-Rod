@@ -1,11 +1,11 @@
-Control Rod CI per-job wall time, 6 runs, 42 job timings
+Control Rod CI per-job wall time, 7 runs, 49 job timings
 (started_at to completed_at of each check run, so it includes runner setup)
 
 job             runs  min s  median s  max s  cap min  cap / max
-typescript         6    108       134    152       20       7.9x
-go                 6     49        59     62       15      14.5x
-rust               6     29        35     38       30      47.4x
-licenses           6     25        27     36       15      25.0x
-python             6     20        22     29       15      31.0x
-sbom               6     12        14     23       10      26.1x
-change-records     6     20        21     23       10      26.1x
+typescript         7    108       140    154       20       7.8x
+go                 7     49        60     63       15      14.3x
+rust               7     29        35     38       30      47.4x
+licenses           7     25        29     36       15      25.0x
+python             7     20        23     29       15      31.0x
+change-records     7     20        21     25       10      24.0x
+sbom               7     12        15     23       10      26.1x

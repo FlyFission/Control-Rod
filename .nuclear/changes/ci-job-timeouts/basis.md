@@ -16,14 +16,14 @@ None of the seven jobs in `.github/workflows/ci.yml` sets `timeout-minutes` (che
 |---|---|
 | A hung job ends within minutes. | Every job carries an integer `timeout-minutes`; `evidence/yaml-parse.txt`, `evidence/checker-before-after.txt`. |
 | A later job added without a timeout fails CI. | The new `change-records` step, red on the original file (7 findings) and green on the edited one. |
-| A healthy run is not cancelled by a cap. | `evidence/job-times.txt`: worst of 6 runs against each cap. |
+| A healthy run is not cancelled by a cap. | `evidence/job-times.txt`: worst of 7 runs against each cap. |
 | Nothing else in the workflow changes. | `evidence/diff-shape.txt`: 9 lines added, 0 removed; no action pin, permission, trigger or env value touched. |
 
 ## Assumptions and invalidation triggers
 
 | Assumption | Basis | Invalidation trigger |
 |---|---|---|
-| Six recent successful runs on `main` represent normal job time. | `evidence/job-times.input.csv` (runs 43739430989 to 44231902244, 2026-11-15 to 2026-11-18), one a 14-package dependency bump. | A job approaching half its cap; a new heavy test suite or build. |
+| Seven recent successful runs represent normal job time. | `evidence/job-times.input.csv`: six on `main` (runs 43739430989 to 44231902244, 2026-11-15 to 2026-11-18), one of them a 14-package dependency bump, plus this PR's own run 44319665384. | A job approaching half its cap; a new heavy test suite or build. |
 | `timeout-minutes` bounds job execution only. No job here uses `environment:` or a required reviewer, so no approval wait is involved. | `ci.yml` has no `environment:` key (read 2026-11-18). | Any job given an `environment`. |
 | `python3` is on the runner's path for the new step. | The existing step runs `python -I .ng/tools/ng.py`; this PR's own CI exercises the new step before merge. | The step red on interpreter lookup. |
 | The timing inputs are accurate. | Transcribed by the agent from the GitHub Actions jobs API output (no `gh` access in this session); job IDs are in the CSV so each row can be re-read. | Any row that disagrees with the run page. |

@@ -5,12 +5,12 @@ of each check run, so it includes runner setup and tool installs. One run.
 job             seconds   proposed cap   cap / measured
 typescript      137       20 min         8.8x
 go              57        15 min         15.8x
-rust            39        30 min         46x
-licenses        23        15 min         39x
-change-records  21        10 min         29x
-python          19        15 min         47x
-sbom            10        10 min         60x
+rust            39        30 min         46.2x
+licenses        23        15 min         39.1x
+change-records  21        10 min         28.6x
+python          19        15 min         47.4x
+sbom            10        10 min         60.0x
 
 Caveats: one run, with warm tool caches (rust at 39 s is likely faster than a
-cold-cache build). The caps are the owner's to set; the smallest margin is
-typescript at about 9x.
+cold-cache build). Proposed caps are owner policy choices, not derived
+measurements; the smallest margin in this run is typescript at 8.8x.

@@ -5,5 +5,5 @@
 .github/workflows/ci.yml: licenses: no timeout-minutes (GitHub's default is 360)
 .github/workflows/ci.yml: change-records: no timeout-minutes (GitHub's default is 360)
 .github/workflows/ci.yml: sbom: no timeout-minutes (GitHub's default is 360)
-7 job(s) without a bounded timeout
+7 workflow timeout finding(s)
 exit=1

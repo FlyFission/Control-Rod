@@ -113,6 +113,7 @@ const figs = () => {
 
 test("readme shots", async ({ page, browserName }) => {
   test.skip(!OUT || browserName !== "chromium");
+  test.setTimeout(180_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.addInitScript(() => {
     window.localStorage.setItem("cr.lastSeenSeq:ben", "100");
@@ -136,7 +137,7 @@ test("readme shots", async ({ page, browserName }) => {
   await page.goto("/packages/WP-0007/case");
   await page.waitForTimeout(2000);
   await page.screenshot({ path: `${OUT}/case-top.png` });
-  await page.getByRole("button", { name: "Go to Sign" }).click().catch(() => undefined);
+  await page.getByRole("button", { name: /Go to Sign/ }).click({ timeout: 5000 }).catch(() => undefined);
   await page.waitForTimeout(1200);
   await page.screenshot({ path: `${OUT}/case-sign.png` });
   await page.goto("/inbox");

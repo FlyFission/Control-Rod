@@ -124,8 +124,8 @@ function doctor() {
   );
   if (unqualified) {
     console.log(
-      `\nOn ${unqualified} the app, the board, the office view and the records all work, and you can prepare and` +
-        "\nrelease work. The daemon will not start an agent until the sandbox has been qualified here, and it" +
+      `\nOn ${unqualified} the app, the board, the office view and the records should work, and you can prepare and` +
+        `\nrelease work${unqualified === "macOS" ? " (macOS startup has not been verified yet)" : ""}. The daemon will not start an agent until the sandbox has been qualified here, and it` +
         "\nsays why. docs/status.md shows where that stands.",
     );
   }

@@ -7,7 +7,7 @@ const theme: OfficeThemeV1 = {
   "version": "0.1.0",
   "title": "The Chocolate Factory",
   "description": "Where every package gets a candy-coated inspection.",
-  "availability": "development",
+  "availability": "released",
   "tokens": {
     "backdrop": "#1e1f2f",
     "floor": "#2a2438",
@@ -250,7 +250,7 @@ const theme: OfficeThemeV1 = {
   ],
   "motionProfile": "shared-v1",
   "accessibility": {
-    "notes": "Draft world. Scene art stays beneath opaque semantic plates; texture is sparse and low in contrast, and furniture sits under the seats, away from the name bands."
+    "notes": "Scene art stays beneath opaque semantic plates; texture is sparse and low in contrast, and furniture sits under the seats, away from the name bands."
   },
   "credits": [
     "Original procedural vector illustration (Codex, Claude Code)"

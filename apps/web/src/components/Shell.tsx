@@ -204,11 +204,12 @@ export function Shell({ session, children }: { session: Session; children: React
             <button
               type="button"
               className="btn small palette-trigger"
-              aria-label="Search or run a command"
               onClick={() => setPalette(true)}
               aria-keyshortcuts={isMac() ? "Meta+K" : "Control+K"}
             >
-              <span>Search</span>
+              <span>
+                Search<span className="sr-only"> or run a command</span>
+              </span>
               <kbd>{shortcut}</kbd>
             </button>
 

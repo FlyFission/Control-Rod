@@ -51,6 +51,16 @@ def _find_closing_quote(text: str, quote: str, start: int = 0) -> int | None:
     return None
 
 
+def _check_trailing_after_quote(line_slice: str) -> str | None:
+    """Return an error if `line_slice` has non-comment text after a closing quote."""
+    rest = line_slice.strip()
+    if not rest:
+        return None
+    if rest.startswith("#") and line_slice[0] in (" ", "\t"):
+        return None
+    return f"trailing text after closing quote: {rest!r}"
+
+
 def _parse_flow_collection(text: str) -> tuple[str, str | None]:
     """Return (value, error_message) for a flow collection starting with `[` or `{`."""
     pairs = {"[": "]", "{": "}"}
@@ -93,7 +103,7 @@ def _parse_scalar_value(raw: str | None) -> tuple[str, str | None, str | None]:
         end = _find_closing_quote(text, quote, start=1)
         if end is None:
             return text, quote, None
-        return text[: end + 1], None, None
+        return text[: end + 1], None, _check_trailing_after_quote(text[end + 1 :])
     if text[0] in ("[", "{"):
         val, flow_err = _parse_flow_collection(text)
         return val, None, flow_err
@@ -121,7 +131,7 @@ def _parse_nested_line(line: str) -> tuple[str, str | None, str | None, int]:
         if after.startswith(":") and (len(after) == 1 or after[1] in (" ", "\t")):
             val, unclosed, flow_err = _parse_scalar_value(after[1:])
             return val, unclosed, flow_err, key_indent
-        return text[: end + 1], None, None, key_indent
+        return text[: end + 1], None, _check_trailing_after_quote(text[end + 1 :]), key_indent
     if text[0] in ("[", "{"):
         val, flow_err = _parse_flow_collection(text)
         return val, None, flow_err, dash_indent
@@ -197,11 +207,9 @@ def _scan_job_lines(lines: list[str], findings: list[str]) -> dict[str, dict[str
             end = _find_closing_quote(line, in_quoted)
             if end is not None:
                 in_quoted = None
-                rest = line[end + 1 :].strip()
-                if rest and not rest.startswith("#"):
-                    findings.append(
-                        f"{current_job or 'workflow'}: trailing text after closing quote: {rest!r}"
-                    )
+                err = _check_trailing_after_quote(line[end + 1 :])
+                if err is not None:
+                    findings.append(f"{current_job or 'workflow'}: {err}")
             continue
 
         if not line.strip():

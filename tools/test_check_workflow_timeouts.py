@@ -1,5 +1,11 @@
+import contextlib
+import io
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
+import check_workflow_timeouts
 from check_workflow_timeouts import timeout_findings
 
 CLEAN = """name: ci
@@ -383,6 +389,81 @@ class WorkflowTimeoutTests(unittest.TestCase):
             "    timeout-minutes: 10\n"
         )
         self.assertEqual(timeout_findings(text), [])
+
+    def test_single_line_closing_quote_trailing_text_fails_and_comment_passes(self):
+        bad_cases = [
+            (
+                "job scalar trailing text",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n"
+                '    name: "a" extra\n    timeout-minutes: 10\n',
+            ),
+            (
+                "job scalar hash without whitespace",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n"
+                '    name: "a"#notcomment\n    timeout-minutes: 10\n',
+            ),
+            (
+                "uses trailing text",
+                'jobs:\n  reuse:\n    uses: "./w.yml" extra\n',
+            ),
+            (
+                "nested sequence trailing text",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n"
+                '    steps:\n      - "a" extra\n    timeout-minutes: 10\n',
+            ),
+        ]
+        for label, text in bad_cases:
+            with self.subTest(label=label):
+                findings = timeout_findings(text)
+                self.assertEqual(len(findings), 1)
+                self.assertIn("trailing text after closing quote", findings[0])
+
+        good = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            '    name: "a" # ok\n'
+            "    timeout-minutes: 10\n"
+        )
+        self.assertEqual(timeout_findings(good), [])
+
+    def test_malformed_and_trailing_flow_collections_fail_closed(self):
+        cases = {
+            "malformed flow collection": (
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n"
+                "    needs: [a}\n    timeout-minutes: 10\n"
+            ),
+            "trailing text after flow collection": (
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n"
+                "    needs: [a] extra\n    timeout-minutes: 10\n"
+            ),
+        }
+        for expected, text in cases.items():
+            with self.subTest(expected=expected):
+                findings = timeout_findings(text)
+                self.assertEqual(len(findings), 1)
+                self.assertIn(expected, findings[0])
+
+    def test_main_reports_finding_count_when_workflow_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_root = Path(tmp)
+            wf_dir = tmp_root / ".github" / "workflows"
+            wf_dir.mkdir(parents=True)
+            bad_wf = wf_dir / "bad.yml"
+            bad_wf.write_text("jobs:\n  build:\n    runs-on: ubuntu-latest\n", encoding="utf-8")
+
+            stdout = io.StringIO()
+            with (
+                mock.patch.object(check_workflow_timeouts, "ROOT", tmp_root),
+                mock.patch.object(check_workflow_timeouts, "workflow_files", return_value=[bad_wf]),
+                contextlib.redirect_stdout(stdout),
+            ):
+                rc = check_workflow_timeouts.main()
+
+            self.assertEqual(rc, 1)
+            output = stdout.getvalue()
+            self.assertIn(".github/workflows/bad.yml: build: no timeout-minutes", output)
+            self.assertIn("1 workflow timeout finding(s)", output)
 
 
 if __name__ == "__main__":

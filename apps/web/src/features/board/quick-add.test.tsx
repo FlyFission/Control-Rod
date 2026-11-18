@@ -9,6 +9,7 @@ import { pkg, view } from "../../test/fixtures.js";
 import type { CaptureView, WorkPackage } from "../../api/types.js";
 import { resetLiveStatus, useLiveEvents } from "../../lib/live.js";
 import { BoardView } from "./BoardView.js";
+import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
 import { inTypingContext, splitPaste } from "./QuickAdd.js";
 import { captureLine } from "./CaptureCard.js";
 import { pendingCaptures } from "./useBoardData.js";
@@ -174,6 +175,61 @@ describe("QuickAdd on the board", () => {
     await user.type(screen.getByLabelText("Card title"), "Fix login{Enter}");
     expect((await screen.findByRole("alert")).textContent).toContain("Captures are paused");
     expect((screen.getByLabelText("Card title") as HTMLInputElement).value).toBe("Fix login");
+  });
+
+  it("refuses a multi-line paste exceeding CAPTURE_LIMIT before posting on both Enter and submit", async () => {
+    const { posted } = api();
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+    const field = screen.getByLabelText("Card title");
+    await user.click(field);
+    await user.paste(`Short first line\n${"x".repeat(CAPTURE_LIMIT + 1)}`);
+
+    await user.click(screen.getByRole("button", { name: "Add 2 cards" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Too long for one card");
+    expect(posted).toHaveLength(0);
+
+    await user.keyboard("{Enter}");
+    expect((await screen.findByRole("alert")).textContent).toContain("Too long for one card");
+    expect(posted).toHaveLength(0);
+  });
+
+  it("retains only unsent lines on partial batch failure, invalidates captures, and retries without duplicates", async () => {
+    const { state, posted } = api();
+    let failSecond = true;
+    server.use(
+      http.post("*/captures", async ({ request }) => {
+        const body = (await request.json()) as { text: string; source: string };
+        if (failSecond && body.text === "Line two") {
+          return HttpResponse.json({ code: "boom", message: "Server hiccup" }, { status: 500 });
+        }
+        posted.push(body);
+        const c = capture({ id: `C-${posted.length}`, text: body.text });
+        state.captures = [...state.captures, c];
+        return HttpResponse.json(c, { status: 201 });
+      }),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+    await user.click(screen.getByLabelText("Card title"));
+    await user.paste("Line one\nLine two\nLine three");
+    await user.click(screen.getByRole("button", { name: "Add 3 cards" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Server hiccup");
+    expect((screen.getByLabelText("Card title") as HTMLInputElement).value).toBe("Line two / Line three");
+    expect(screen.getByRole("button", { name: "Add 2 cards" })).toBeTruthy();
+    // Line one succeeded and must already be visible via invalidated captures query.
+    await screen.findByText("Line one");
+    expect(posted.map((b) => (b as { text: string }).text)).toEqual(["Line one"]);
+
+    failSecond = false;
+    await user.click(screen.getByRole("button", { name: "Add 2 cards" }));
+    await waitFor(() =>
+      expect(posted.map((b) => (b as { text: string }).text)).toEqual(["Line one", "Line two", "Line three"]),
+    );
+    await waitFor(() => expect((screen.getByLabelText("Card title") as HTMLInputElement).value).toBe(""));
   });
 });
 

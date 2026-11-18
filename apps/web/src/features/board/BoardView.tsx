@@ -69,7 +69,7 @@ export function BoardView() {
       if (inField || e.metaKey || e.ctrlKey || e.altKey) return;
       const key = e.key.toLowerCase();
       if (key !== "j" && key !== "k") return;
-      const titles = Array.from(document.querySelectorAll<HTMLButtonElement>(".bd-board .bd-title"));
+      const titles = Array.from(document.querySelectorAll<HTMLButtonElement>(".bd-board button.bd-title"));
       if (titles.length === 0) return;
       e.preventDefault();
       const idx = titles.indexOf(document.activeElement as HTMLButtonElement);

@@ -202,7 +202,7 @@ export function useBoardData(): BoardData {
   return {
     cards,
     captures: pendingCaptures(capturesQ.data ?? []),
-    loading: packages.isPending,
+    loading: packages.isPending || capturesQ.isPending,
     problems,
     retry: () => {
       if (packages.isError) void packages.refetch();

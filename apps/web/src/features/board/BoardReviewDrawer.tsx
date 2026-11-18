@@ -144,7 +144,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
 
       {view && (
         <div className="bd-drawer-foot">
-          <DecisionBar view={view} />
+          <DecisionBar key={packageId} view={view} />
         </div>
       )}
     </aside>

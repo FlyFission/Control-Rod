@@ -497,4 +497,106 @@ describe("BoardView", () => {
     expect(screen.queryByText(/status unknown since/i)).toBeNull();
     expect(card.textContent).not.toMatch(/[▲✕✓]/);
   });
+
+  it("resets DecisionBar state in BoardReviewDrawer when switching packages", async () => {
+    const ret: ActionDescriptor = { command: "return", label: "Return", allowed: true, signature: "direct" };
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "First card", status: "in-verification" }),
+        pkg({ id: "WP-2", title: "Second card", status: "in-verification" }),
+      ],
+      actions: { "WP-1": [ret], "WP-2": [ret] },
+    });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "First card" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-1" });
+    await user.click(await within(drawer).findByRole("button", { name: "Return with direction" }));
+    const textarea = within(drawer).getByLabelText(/Direction for the next revision/);
+    await user.type(textarea, "Fix valve");
+    expect((textarea as HTMLTextAreaElement).value).toBe("Fix valve");
+
+    await user.click(screen.getByRole("button", { name: "Second card" }));
+    const drawer2 = await screen.findByRole("complementary", { name: "Review WP-2" });
+    await within(drawer2).findByRole("button", { name: "Return with direction" });
+    expect(within(drawer2).queryByLabelText(/Direction for the next revision/)).toBeNull();
+  });
+
+  it("navigates package card title buttons with J and K while skipping non-button CaptureCard titles", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "Package One" }),
+        pkg({ id: "WP-2", title: "Package Two" }),
+      ],
+    });
+    server.use(
+      http.get("*/captures", () =>
+        HttpResponse.json([
+          { schema_version: "0.1.0", id: "C-1", text: "Unclassified capture", source: "web", created_at: "2026-11-08T10:00:00Z" },
+        ]),
+      ),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await screen.findByText("Unclassified capture");
+    const firstBtn = await screen.findByRole("button", { name: "Package One" });
+    const secondBtn = await screen.findByRole("button", { name: "Package Two" });
+
+    await user.keyboard("j");
+    expect(document.activeElement).toBe(firstBtn);
+    await user.keyboard("j");
+    expect(document.activeElement).toBe(secondBtn);
+    await user.keyboard("k");
+    expect(document.activeElement).toBe(firstBtn);
+  });
+
+  it("stays loading while captures are pending even after packages arrive", async () => {
+    api({ packages: [] });
+    let releasePackages!: () => void;
+    let releaseCaptures!: () => void;
+    const packagesGate = new Promise<void>((r) => (releasePackages = r));
+    const capturesGate = new Promise<void>((r) => (releaseCaptures = r));
+    let packagesResolved = false;
+    server.use(
+      http.get("*/packages", async () => {
+        await packagesGate;
+        packagesResolved = true;
+        return HttpResponse.json([]);
+      }),
+      http.get("*/captures", async () => {
+        await capturesGate;
+        return HttpResponse.json([
+          { schema_version: "0.1.0", id: "C-1", text: "Pending capture", source: "web", created_at: "2026-11-08T10:00:00Z" },
+        ]);
+      }),
+    );
+    await renderPage(<Page />);
+    await act(async () => releasePackages());
+    await waitFor(() => expect(packagesResolved).toBe(true));
+    // Packages finished with [], captures is still pending: Loading must stay and empty state must not flash.
+    expect(screen.getByText("Loading")).toBeTruthy();
+    expect(screen.queryByText(/Add your first card/)).toBeNull();
+
+    await act(async () => releaseCaptures());
+    expect(await screen.findByText("Pending capture")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
+  });
+
+  it("shows package error alerts even while captures are still pending", async () => {
+    api({ packages: [] });
+    let releaseCaptures!: () => void;
+    const capturesGate = new Promise<void>((r) => (releaseCaptures = r));
+    server.use(
+      http.get("*/packages", () => HttpResponse.json({ code: "boom" }, { status: 500 })),
+      http.get("*/captures", async () => {
+        await capturesGate;
+        return HttpResponse.json([]);
+      }),
+    );
+    await renderPage(<Page />);
+    expect(await screen.findByText(/Could not load the work on this board/)).toBeTruthy();
+    expect(screen.getByText("Loading")).toBeTruthy();
+    await act(async () => releaseCaptures());
+    await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
+  });
 });

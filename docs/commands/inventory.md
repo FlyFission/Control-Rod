@@ -8,10 +8,10 @@ checks the static rules and that this catalog matches the commands executed.
 
 | Command | Principal | Signature | Specification 10.2 row | Executed in | Reached from |
 |---|---|---|---|---|---|
-| `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /admin/commands/:name/options`, `POST /auth/login/options`, `POST /auth/register/options`, `POST /auth/step-up/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/person-verifications/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/runs/:runId/override-independence/options`, `POST /packages/:id/runs/:runId/reconcile/options` |
-| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallengeFor | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence`, `POST /packages/:id/runs/:runId/reconcile` |
+| `auth.challenge-issue` | member-or-system | none | operational | `auth.ts` storeChallenge | `POST /admin/commands/:name/options`, `POST /auth/login/options`, `POST /auth/register/options`, `POST /auth/step-up/options`, `POST /packages/:id/decisions/options`, `POST /packages/:id/person-verifications/options`, `POST /packages/:id/preparation/confirm/options`, `POST /packages/:id/recheck-overrides/options`, `POST /packages/:id/runs/:runId/override-independence/options`, `POST /packages/:id/runs/:runId/reconcile/options` |
+| `auth.challenge-consume` | member-or-system | none | operational | `auth.ts` takeChallengeFor | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /auth/register/verify`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/recheck-overrides`, `POST /packages/:id/runs/:runId/override-independence`, `POST /packages/:id/runs/:runId/reconcile` |
 | `auth.register-credential` | member | none | Register authenticator credential | `auth.ts` registrationVerify | `POST /auth/register/verify` |
-| `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/runs/:runId/override-independence`, `POST /packages/:id/runs/:runId/reconcile` |
+| `auth.record-assertion` | member | none | operational | `auth.ts` assertionVerify | `POST /admin/commands/:name`, `POST /auth/login/verify`, `POST /auth/register/options`, `POST /packages/:id/decisions`, `POST /packages/:id/person-verifications`, `POST /packages/:id/preparation/confirm`, `POST /packages/:id/recheck-overrides`, `POST /packages/:id/runs/:runId/override-independence`, `POST /packages/:id/runs/:runId/reconcile` |
 | `auth.session-start` | member | none | operational | `auth.ts` startSession | `POST /auth/login/verify`, `POST /auth/register/verify` |
 | `auth.session-end` | member | none | operational | `auth.ts` endSession | `POST /auth/logout` |
 | `output.record-mismatch` | system | none | Submit output (integrity record) | `work.ts` packageOutput | `GET /packages/:id/outputs/*` |
@@ -23,10 +23,13 @@ checks the static rules and that this catalog matches the commands executed.
 | `run.requeue` | member | none | Requeue | `work.ts` requeueRun | `POST /packages/:id/runs/:runId/requeue` |
 | `run.stop` | member | none | Stop run | `work.ts` stopRun | `POST /packages/:id/runs/:runId/stop` |
 | `run.override-independence` | member | direct | Override independence | `work.ts` overrideIndependence | `POST /packages/:id/runs/:runId/override-independence` |
-| `runtime.report-status` | agent-via-daemon | none | Probe runtime | `work.ts` recordRuntimeStatus | `POST /runner/claim` |
+| `check.request` | member | none | Request checker attempt | `work.ts` requestCheck | `POST /packages/:id/checks` |
+| `check.recheck-override` | member | direct | Override a sticky checker fail | `work.ts` recordRecheckOverride | `POST /packages/:id/recheck-overrides` |
+| `runtime.report-status` | agent-via-daemon | none | Probe runtime | `subscriptions.ts` recordSubscriptionReport<br>`work.ts` recordRuntimeStatus | `POST /runner/claim` |
 | `verification.record-person` | member | direct | Record person verification | `person-verification.ts` recordPersonVerification | `POST /packages/:id/person-verifications` |
 | `preparation.confirm` | member | direct | Confirm requirements | `preparation/subjects.ts` confirmRequirements | `POST /packages/:id/preparation/confirm` |
 | `migration.backfill-tenancy` | system | none | Migration data change (ownership, members, credential records) | `db/index.ts` openDb | startup (after migrations) |
+| `migration.backfill-checker-attempts` | system | none | Migration data change (checker attempts) | `db/index.ts` openDb | startup (after migrations) |
 | `admin.org-create` | member | direct | Create organization | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.member-enroll` | member | direct | Enroll Member | `admin.ts` runAdmin | `POST /admin/commands/:name` |
 | `admin.member-invite` | member | direct | Enroll Member (new invitation) | `admin.ts` runAdmin | `POST /admin/commands/:name` |

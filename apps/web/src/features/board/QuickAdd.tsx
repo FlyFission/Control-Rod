@@ -35,6 +35,7 @@ export function QuickAdd() {
   const opener = useRef<HTMLButtonElement>(null);
   // Set by close(): the opener is not in the tree while the field is open, so it is focused after the swap.
   const returnFocus = useRef(false);
+  const batchProgress = useRef<{ titles: string[]; sent: number }>({ titles: [], sent: 0 });
 
   useEffect(() => {
     if (open) input.current?.focus();
@@ -59,24 +60,63 @@ export function QuickAdd() {
 
   const send = useMutation({
     mutationFn: async (titles: string[]) => {
+      batchProgress.current = { titles, sent: 0 };
       // Cards are posted in the order typed, one request at a time, so a failure says which one stopped.
-      for (const t of titles) await api.capture({ text: t, source: "web" });
+      for (const t of titles) {
+        await api.capture({ text: t, source: "web" });
+        batchProgress.current.sent += 1;
+      }
     },
     onSuccess: () => {
+      batchProgress.current = { titles: [], sent: 0 };
       setText("");
       setMany(null);
       setError(null);
       void qc.invalidateQueries({ queryKey: ["captures"] });
       input.current?.focus();
     },
-    onError: (e) => setError(explain(e, "Could not add the card.")),
+    onError: (e) => {
+      const { titles, sent } = batchProgress.current;
+      batchProgress.current = { titles: [], sent: 0 };
+      if (titles.length > 1) {
+        const remaining = titles.slice(sent);
+        if (sent > 0) void qc.invalidateQueries({ queryKey: ["captures"] });
+        if (remaining.length <= 1) {
+          setMany(null);
+          setText(remaining[0] ?? "");
+        } else {
+          setMany(remaining);
+          setText(remaining.join(" / "));
+        }
+      }
+      setError(explain(e, "Could not add the card."));
+    },
   });
 
   function close() {
     returnFocus.current = true;
+    batchProgress.current = { titles: [], sent: 0 };
     setOpen(false);
     setMany(null);
     setError(null);
+  }
+
+  function validateMany(titles: string[]): string | null {
+    const over = titles.find((t) => t.length > CAPTURE_LIMIT);
+    return over === undefined
+      ? null
+      : `Too long for one card (${over.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters).`;
+  }
+
+  function submitMany() {
+    if (many === null || many.length === 0 || send.isPending) return;
+    const problem = validateMany(many);
+    if (problem !== null) {
+      setError(problem);
+      return;
+    }
+    setError(null);
+    send.mutate(many);
   }
 
   function submitOne() {
@@ -86,13 +126,14 @@ export function QuickAdd() {
       setError(`Too long for one card (${title.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters).`);
       return;
     }
+    setError(null);
     send.mutate([title]);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (many !== null) send.mutate(many);
+      if (many !== null) submitMany();
       else submitOne();
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -104,6 +145,8 @@ export function QuickAdd() {
     const lines = splitPaste(e.clipboardData.getData("text"));
     if (lines.length < 2) return;
     e.preventDefault();
+    batchProgress.current = { titles: [], sent: 0 };
+    setError(null);
     setMany(lines);
     setText(lines.join(" / "));
   }
@@ -121,7 +164,7 @@ export function QuickAdd() {
       className="bd-add-form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (many !== null) send.mutate(many);
+        if (many !== null) submitMany();
         else submitOne();
       }}
     >
@@ -139,6 +182,7 @@ export function QuickAdd() {
         onChange={(e) => {
           setText(e.target.value);
           if (many !== null) setMany(null);
+          batchProgress.current = { titles: [], sent: 0 };
         }}
         onKeyDown={onKeyDown}
         onPaste={onPaste}

@@ -424,6 +424,46 @@ describe("repos Wave 1 hardening", () => {
     expect(Buffer.compare(captured, invalidRaw)).toBe(0);
   });
 
+  it("createCheckpoint handles file-to-directory and directory-to-file replacements", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    writeFileSync(join(repoDir, "input"), "file-before\n");
+    mkdirSync(join(repoDir, "dir"), { recursive: true });
+    writeFileSync(join(repoDir, "dir", "child"), "child-before\n");
+    execFileSync("git", ["add", "input", "dir/child"], { cwd: repoDir });
+    execFileSync("git", ["commit", "-m", "file and dir fixtures"], { cwd: repoDir });
+
+    rmSync(join(repoDir, "input"));
+    mkdirSync(join(repoDir, "input"), { recursive: true });
+    writeFileSync(join(repoDir, "input", "child"), "now-inside-dir\r\n");
+
+    rmSync(join(repoDir, "dir"), { recursive: true, force: true });
+    writeFileSync(join(repoDir, "dir"), "now-a-file\n");
+
+    const cp = await createCheckpoint({ repoDir, label: "replace-file-dir", workspaceRoot });
+    const childContent = execFileSync("git", ["show", `${cp.commit_sha}:input/child`], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(childContent).toBe("now-inside-dir\r\n");
+
+    const dirFileContent = execFileSync("git", ["show", `${cp.commit_sha}:dir`], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(dirFileContent).toBe("now-a-file\n");
+
+    const treePaths = execFileSync("git", ["ls-tree", "-r", "--name-only", cp.commit_sha], {
+      cwd: repoDir,
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n");
+    expect(treePaths).toContain("input/child");
+    expect(treePaths).toContain("dir");
+    expect(treePaths).not.toContain("input");
+    expect(treePaths).not.toContain("dir/child");
+  });
+
   it("preserves clean-status semantics for hydrated LFS files while flagging actual LFS modifications", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     const payload = Buffer.from("hydrated-lfs-binary-payload-bytes");

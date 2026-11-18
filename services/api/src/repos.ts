@@ -1127,6 +1127,9 @@ async function stageRawWorkingTreeBlobs(
     } else if (st.isFile()) {
       const mode = (st.mode & 0o100) !== 0 ? "100755" : "100644";
       regularCandidates.push({ mode, prevOid: entry.oid, prevStage: entry.stage, relPath });
+    } else {
+      // Tracked file was replaced by a directory (or non-file node); remove obsolete entry first.
+      deletedPaths.push(Buffer.from(relPath, "utf8"));
     }
   }
 
@@ -1199,7 +1202,7 @@ async function stageRawWorkingTreeBlobs(
   }
 
   for (let i = 0; i < cacheInfoArgs.length; i += CHUNK * 2) {
-    await git(["update-index", "--add", ...cacheInfoArgs.slice(i, i + CHUNK * 2)], {
+    await git(["update-index", "--add", "--replace", ...cacheInfoArgs.slice(i, i + CHUNK * 2)], {
       cwd: repoDir,
       workspaceRoot,
       extraEnv: indexEnv,

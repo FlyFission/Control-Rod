@@ -62,6 +62,9 @@ checks the static rules and that this catalog matches the commands executed.
 | `grant.begin-use` | agent-via-daemon | none | Grant begin use | `preparation/grants.ts` beginGrantUse | `POST /runner/preparation-grants/:id/begin` |
 | `grant.finish-use` | agent-via-daemon | none | Grant finalize use | `preparation/grants.ts` finishGrantUse | `POST /runner/preparation-grants/:id/finalize` |
 | `grant.revoke` | member-or-system | none | Grant revoke | `preparation/grants.ts` revokePreparationGrant | `POST /packages/:packageId/preparation-grants/:id/revoke` |
+| `outfall.verdict` | member | direct | Record governed outfall verdict | `outfall.ts` outfallRoutes | `POST /admin/commands/:name` |
+| `outfall.clearance` | member | direct | Issue governed outfall clearance | `outfall.ts` outfallRoutes | `POST /admin/commands/:name` |
+| `outfall.application` | member | none | Record verified outfall application | `outfall.ts` outfallRoutes | `POST /admin/commands/:name` |
 
 ## Migrations and startup
 

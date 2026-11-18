@@ -1,12 +1,16 @@
 import { execFile } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
+  closeSync,
   copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
+  readSync,
   realpathSync,
   rmSync,
   statSync,
@@ -713,6 +717,93 @@ async function validateExistingRepoDir(baseCloneDir: string, workspaceRoot: stri
   await assertSafeWorkingTree(baseCloneDir, workspaceRoot);
 }
 
+const LFS_POINTER_RE = /^version https:\/\/git-lfs\.github\.com\/spec\/v1\r?\noid sha256:([0-9a-f]{64})\r?\nsize (\d+)\r?\n?$/;
+
+function hashFileSha256(filePath: string): string {
+  const hash = createHash("sha256");
+  const fd = openSync(filePath, "r");
+  const chunk = Buffer.allocUnsafe(64 * 1024);
+  try {
+    for (;;) {
+      const n = readSync(fd, chunk, 0, chunk.length, null);
+      if (n <= 0) break;
+      hash.update(chunk.subarray(0, n));
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return hash.digest("hex");
+}
+
+async function isUnchangedHydratedLfsFile(
+  repoDir: string,
+  relPath: string,
+  workspaceRoot: string,
+): Promise<boolean> {
+  const fullPath = join(repoDir, relPath);
+  if (!pathExistsAny(fullPath)) return false;
+  const st = lstatSync(fullPath);
+  if (!st.isFile() || st.isSymbolicLink()) return false;
+
+  const attrOut = await git(["check-attr", "filter", "--", relPath], {
+    cwd: repoDir,
+    workspaceRoot,
+  }).catch(() => "");
+  if (!/: filter: lfs$/.test(attrOut.trim())) return false;
+
+  const indexBlob = await gitWithBytes(["cat-file", "blob", `:${relPath}`], {
+    cwd: repoDir,
+    workspaceRoot,
+  }).catch(() => Buffer.alloc(0));
+  if (indexBlob.length === 0 || indexBlob.length > 512) return false;
+  const match = LFS_POINTER_RE.exec(indexBlob.toString("utf8"));
+  if (!match) return false;
+  const expectedSha = match[1]!;
+  const expectedSize = Number(match[2]!);
+  if (st.size !== expectedSize) return false;
+  return hashFileSha256(fullPath) === expectedSha;
+}
+
+/**
+ * Checks working-tree dirtiness while filters are neutralized, treating hydrated
+ * Git LFS files whose size and SHA-256 still match their indexed LFS pointer as clean
+ * without invoking `git-lfs` or untrusted filter drivers on the host.
+ */
+async function inspectRepoDirtiness(
+  repoDir: string,
+  workspaceRoot: string,
+  filterEnv: Record<string, string>,
+): Promise<{ dirty: boolean; hasHydratedLfsClean: boolean }> {
+  const raw = await gitWithBytes(["status", "--porcelain=v1", "-z"], {
+    cwd: repoDir,
+    workspaceRoot,
+    extraEnv: filterEnv,
+  });
+  const records = splitNullRecords(raw);
+  if (records.length === 0) return { dirty: false, hasHydratedLfsClean: false };
+
+  let hasHydratedLfsClean = false;
+  for (let i = 0; i < records.length; i += 1) {
+    const entry = records[i]!.toString("utf8");
+    if (entry.length < 4) return { dirty: true, hasHydratedLfsClean };
+    const xy = entry.slice(0, 2);
+    const relPath = entry.slice(3);
+    if (xy[0] === "R" || xy[0] === "C") {
+      // Rename/copy porcelain-z records emit an extra source path record; always dirty.
+      return { dirty: true, hasHydratedLfsClean };
+    }
+    if (xy !== " M") {
+      return { dirty: true, hasHydratedLfsClean };
+    }
+    if (await isUnchangedHydratedLfsFile(repoDir, relPath, workspaceRoot)) {
+      hasHydratedLfsClean = true;
+      continue;
+    }
+    return { dirty: true, hasHydratedLfsClean };
+  }
+  return { dirty: false, hasHydratedLfsClean };
+}
+
 async function scanLocalRepos(root: string): Promise<LocalRepoInfo[]> {
   if (!existsSync(root)) return [];
   const entries = readdirSync(root, { withFileTypes: true });
@@ -728,17 +819,17 @@ async function scanLocalRepos(root: string): Promise<LocalRepoInfo[]> {
     }
     try {
       const filterEnv = await filterDisableEnv(full, root);
-      const [branch, remote, statusOut] = await Promise.all([
+      const [branch, remote, dirtiness] = await Promise.all([
         git(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: full, workspaceRoot: root }).catch(() => "HEAD"),
         getOriginRemoteUrl(full, root),
-        git(["status", "--porcelain"], { cwd: full, workspaceRoot: root, extraEnv: filterEnv }).catch(() => ""),
+        inspectRepoDirtiness(full, root, filterEnv).catch(() => ({ dirty: false, hasHydratedLfsClean: false })),
       ]);
       repos.push({
         name: entry.name,
         path: full,
         branch,
         remote_url: remote || null,
-        dirty: statusOut.length > 0,
+        dirty: dirtiness.dirty,
       });
     } catch {
       // Skip unreadable directories
@@ -881,6 +972,7 @@ export async function removeWorktreeSafely(opts: {
 
   let targetArg = resolvedWt;
   let filterEnv: Record<string, string> | undefined;
+  let passSingleForce = force;
 
   if (!pathExistsAny(resolvedWt)) {
     const registeredPath = await findRegisteredWorktree(resolvedRepo, resolvedWt, workspaceRoot);
@@ -894,22 +986,22 @@ export async function removeWorktreeSafely(opts: {
     }
     filterEnv = await filterDisableEnv(resolvedWt, workspaceRoot);
     if (!force) {
-      const status = await git(["status", "--porcelain"], {
-        cwd: resolvedWt,
-        workspaceRoot,
-        extraEnv: filterEnv,
-      });
-      if (status.length > 0) {
+      const { dirty, hasHydratedLfsClean } = await inspectRepoDirtiness(resolvedWt, workspaceRoot, filterEnv);
+      if (dirty) {
         throw new Refusal(
           409,
           "worktree-dirty",
           "Worktree has uncommitted changes. Commit, checkpoint, or pass force=true.",
         );
       }
+      if (hasHydratedLfsClean) {
+        // Hydrated LFS files match their indexed pointer bytes; single --force still preserves worktree locks.
+        passSingleForce = true;
+      }
     }
   }
 
-  await git(["worktree", "remove", ...(force ? ["--force"] : []), targetArg], {
+  await git(["worktree", "remove", ...(passSingleForce ? ["--force"] : []), targetArg], {
     cwd: resolvedRepo,
     workspaceRoot,
     ...(filterEnv !== undefined ? { extraEnv: filterEnv } : {}),
@@ -990,33 +1082,91 @@ async function stageRawWorkingTreeBlobs(
   workspaceRoot: string,
   indexEnv: Record<string, string>,
 ): Promise<void> {
-  const raw = await gitWithBytes(["ls-files", "-s", "-v", "-z"], {
+  const cachedRaw = await gitWithBytes(["ls-files", "-s", "-v", "-z"], {
     cwd: repoDir,
     workspaceRoot,
     extraEnv: indexEnv,
   });
-  const candidates: Array<{ mode: string; oid: string; relPath: string }> = [];
-  for (const rec of splitNullRecords(raw)) {
+  const tracked = new Map<string, { tag: string; mode: string; oid: string; stage: string }>();
+  for (const rec of splitNullRecords(cachedRaw)) {
     const line = rec.toString("utf8");
     const tabIdx = line.indexOf("\t");
     if (tabIdx < 0 || line.length < 3) continue;
     const tag = line[0]!;
-    if (tag === "S" || tag === "s") continue;
     const meta = line.slice(2, tabIdx).split(" ");
     const mode = meta[0];
     const oid = meta[1];
     const stage = meta[2];
     const relPath = line.slice(tabIdx + 1);
-    if (stage !== "0" || (mode !== "100644" && mode !== "100755") || !oid || !relPath) continue;
+    if (!mode || !oid || !stage || !relPath) continue;
+    tracked.set(relPath, { tag, mode, oid, stage });
+  }
+
+  const deletedPaths: Buffer[] = [];
+  const regularCandidates: Array<{ mode: string; prevOid: string | null; prevStage: string | null; relPath: string }> =
+    [];
+  const symlinkCandidates: Array<{ prevOid: string | null; prevStage: string | null; relPath: string; target: string }> =
+    [];
+
+  for (const [relPath, entry] of tracked) {
+    if (entry.tag === "S" || entry.tag === "s") continue;
+    if (entry.mode === "160000") continue;
     const fullPath = join(repoDir, relPath);
-    if (!pathExistsAny(fullPath) || !lstatSync(fullPath).isFile()) continue;
-    candidates.push({ mode, oid, relPath });
+    if (!pathExistsAny(fullPath)) {
+      deletedPaths.push(Buffer.from(relPath, "utf8"));
+      continue;
+    }
+    const st = lstatSync(fullPath);
+    if (st.isSymbolicLink()) {
+      symlinkCandidates.push({
+        prevOid: entry.oid,
+        prevStage: entry.stage,
+        relPath,
+        target: readlinkSync(fullPath),
+      });
+    } else if (st.isFile()) {
+      const mode = (st.mode & 0o100) !== 0 ? "100755" : "100644";
+      regularCandidates.push({ mode, prevOid: entry.oid, prevStage: entry.stage, relPath });
+    }
+  }
+
+  const untrackedRaw = await gitWithBytes(["ls-files", "--others", "--exclude-standard", "-z"], {
+    cwd: repoDir,
+    workspaceRoot,
+    extraEnv: indexEnv,
+  });
+  for (const rec of splitNullRecords(untrackedRaw)) {
+    const relPath = rec.toString("utf8");
+    if (!relPath || relPath.endsWith("/") || tracked.has(relPath)) continue;
+    const fullPath = join(repoDir, relPath);
+    if (!pathExistsAny(fullPath)) continue;
+    const st = lstatSync(fullPath);
+    if (st.isSymbolicLink()) {
+      symlinkCandidates.push({
+        prevOid: null,
+        prevStage: null,
+        relPath,
+        target: readlinkSync(fullPath),
+      });
+    } else if (st.isFile()) {
+      const mode = (st.mode & 0o100) !== 0 ? "100755" : "100644";
+      regularCandidates.push({ mode, prevOid: null, prevStage: null, relPath });
+    }
+  }
+
+  if (deletedPaths.length > 0) {
+    await gitWithBytes(["update-index", "--force-remove", "-z", "--stdin"], {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: indexEnv,
+      input: Buffer.concat(deletedPaths.map((p) => Buffer.concat([p, Buffer.from([0])]))),
+    });
   }
 
   const CHUNK = 200;
   const cacheInfoArgs: string[] = [];
-  for (let i = 0; i < candidates.length; i += CHUNK) {
-    const batch = candidates.slice(i, i + CHUNK);
+  for (let i = 0; i < regularCandidates.length; i += CHUNK) {
+    const batch = regularCandidates.slice(i, i + CHUNK);
     const out = await git(
       ["hash-object", "-w", "--no-filters", "--", ...batch.map((c) => c.relPath)],
       { cwd: repoDir, workspaceRoot, extraEnv: indexEnv },
@@ -1027,14 +1177,29 @@ async function stageRawWorkingTreeBlobs(
     }
     batch.forEach((c, idx) => {
       const rawOid = oids[idx]!.trim();
-      if (rawOid && rawOid !== c.oid) {
+      const prevMode = tracked.get(c.relPath)?.mode;
+      if (rawOid && (c.prevStage !== "0" || rawOid !== c.prevOid || prevMode !== c.mode)) {
         cacheInfoArgs.push("--cacheinfo", `${c.mode},${rawOid},${c.relPath}`);
       }
     });
   }
 
+  for (const sym of symlinkCandidates) {
+    const out = await gitWithBytes(["hash-object", "-w", "--stdin"], {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: indexEnv,
+      input: Buffer.from(sym.target, "utf8"),
+    });
+    const rawOid = out.toString("utf8").trim();
+    const prevMode = tracked.get(sym.relPath)?.mode;
+    if (rawOid && (sym.prevStage !== "0" || rawOid !== sym.prevOid || prevMode !== "120000")) {
+      cacheInfoArgs.push("--cacheinfo", `120000,${rawOid},${sym.relPath}`);
+    }
+  }
+
   for (let i = 0; i < cacheInfoArgs.length; i += CHUNK * 2) {
-    await git(["update-index", ...cacheInfoArgs.slice(i, i + CHUNK * 2)], {
+    await git(["update-index", "--add", ...cacheInfoArgs.slice(i, i + CHUNK * 2)], {
       cwd: repoDir,
       workspaceRoot,
       extraEnv: indexEnv,
@@ -1105,7 +1270,6 @@ export async function createCheckpoint(opts: {
     } else if (headSha) {
       await git(["read-tree", "HEAD"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
     }
-    await git(["add", "-A"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
     await stageRawWorkingTreeBlobs(repoDir, workspaceRoot, indexEnv);
     const treeSha = await git(["write-tree"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
     const labelSlug = safeSlug(opts.label ?? "snapshot");
@@ -1288,12 +1452,8 @@ async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
 async function materializeBranch(ctx: MaterializeContext): Promise<string> {
   await ensureBaseClone(ctx);
   const filterEnv = await filterDisableEnv(ctx.baseCloneDir, ctx.workspaceRoot);
-  const statusOut = await git(["status", "--porcelain"], {
-    cwd: ctx.baseCloneDir,
-    workspaceRoot: ctx.workspaceRoot,
-    extraEnv: filterEnv,
-  });
-  if (statusOut.length > 0) {
+  const { dirty } = await inspectRepoDirtiness(ctx.baseCloneDir, ctx.workspaceRoot, filterEnv);
+  if (dirty) {
     throw new Refusal(
       409,
       "workspace-exists",

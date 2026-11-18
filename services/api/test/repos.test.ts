@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -406,6 +407,108 @@ describe("repos Wave 1 hardening", () => {
     });
     expect(realFlags).toContain("S sparse-present.txt");
     expect(realFlags).toContain("S sparse-absent.txt");
+  });
+
+  it("createCheckpoint captures invalid working-tree-encoding raw bytes without failing", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    writeFileSync(join(repoDir, ".gitattributes"), "*.txt working-tree-encoding=UTF-16LE\n");
+    writeFileSync(join(repoDir, "encoded.txt"), Buffer.from([0x61, 0x00, 0x0a, 0x00]));
+    execFileSync("git", ["add", ".gitattributes", "encoded.txt"], { cwd: repoDir });
+    execFileSync("git", ["commit", "-m", "utf16le tracked"], { cwd: repoDir });
+
+    const invalidRaw = Buffer.from([0x01, 0x02, 0x03]);
+    writeFileSync(join(repoDir, "encoded.txt"), invalidRaw);
+
+    const cp = await createCheckpoint({ repoDir, label: "raw-invalid-utf16", workspaceRoot });
+    const captured = execFileSync("git", ["show", `${cp.commit_sha}:encoded.txt`], { cwd: repoDir });
+    expect(Buffer.compare(captured, invalidRaw)).toBe(0);
+  });
+
+  it("preserves clean-status semantics for hydrated LFS files while flagging actual LFS modifications", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    const payload = Buffer.from("hydrated-lfs-binary-payload-bytes");
+    const sha = createHash("sha256").update(payload).digest("hex");
+    const pointer = `version https://git-lfs.github.com/spec/v1\noid sha256:${sha}\nsize ${payload.length}\n`;
+    writeFileSync(join(repoDir, ".gitattributes"), "*.bin filter=lfs diff=lfs merge=lfs -text\n");
+    writeFileSync(join(repoDir, "asset.bin"), pointer);
+    execFileSync("git", ["add", ".gitattributes", "asset.bin"], { cwd: repoDir });
+    execFileSync("git", ["commit", "-m", "add lfs pointer"], { cwd: repoDir });
+
+    execFileSync("git", ["config", "filter.lfs.clean", "git-lfs clean -- %f"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.smudge", "git-lfs smudge -- %f"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.process", "git-lfs filter-process"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.required", "true"], { cwd: repoDir });
+
+    // Hydrate asset.bin with matching payload bytes (stat dirty relative to pointer blob, content clean)
+    writeFileSync(join(repoDir, "asset.bin"), payload);
+
+    await withTestApp(async (app) => {
+      const listRes = await app.inject({
+        method: "GET",
+        url: `/repos?workspace_root=${encodeURIComponent(workspaceRoot)}`,
+      });
+      expect(listRes.statusCode).toBe(200);
+      const local = (listRes.json().local as Array<{ name: string; dirty: boolean }>).find(
+        (r) => r.name === "sample-repo",
+      );
+      expect(local?.dirty).toBe(false);
+
+      const branchRes = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/lfs-hydrated-branch",
+          strategy: "branch",
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(branchRes.statusCode).toBe(200);
+
+      const wtRes = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/lfs-hydrated-wt",
+          strategy: "worktree",
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(wtRes.statusCode).toBe(200);
+      const wtPath = wtRes.json().local_path as string;
+
+      // Hydrate worktree asset.bin too -> non-force removal succeeds
+      writeFileSync(join(wtPath, "asset.bin"), payload);
+      const rmCleanRes = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { worktree_path: wtPath, repo_path: repoDir, workspace_root: workspaceRoot },
+      });
+      expect(rmCleanRes.statusCode).toBe(200);
+
+      // Re-create worktree and mutate asset.bin -> non-force removal refuses 409 worktree-dirty
+      const wtRes2 = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/lfs-modified-wt",
+          strategy: "worktree",
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(wtRes2.statusCode).toBe(200);
+      const wtPath2 = wtRes2.json().local_path as string;
+      writeFileSync(join(wtPath2, "asset.bin"), Buffer.from("mutated-lfs-content-different-len"));
+      const rmDirtyRes = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { worktree_path: wtPath2, repo_path: repoDir, workspace_root: workspaceRoot },
+      });
+      expect(rmDirtyRes.statusCode).toBe(409);
+      expect(rmDirtyRes.json().code).toBe("worktree-dirty");
+    });
   });
 
   it("createCheckpoint preserves force-staged ignored files via --git-path index in repos and worktrees", async () => {

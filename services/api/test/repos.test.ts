@@ -688,6 +688,72 @@ describe("repos Wave 1 hardening", () => {
     });
   });
 
+  it("refuses implicit --force worktree removal for initialized or diff.ignoreSubmodules=all submodules alongside hydrated LFS", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    const subSource = join(workspaceRoot, "sub-source");
+    mkdirSync(subSource, { recursive: true });
+    execFileSync("git", ["init", "-b", "main"], { cwd: subSource });
+    execFileSync("git", ["config", "user.email", "t@t.local"], { cwd: subSource });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: subSource });
+    writeFileSync(join(subSource, "lib.txt"), "v1\n");
+    execFileSync("git", ["add", "lib.txt"], { cwd: subSource });
+    execFileSync("git", ["commit", "-m", "sub v1"], { cwd: subSource });
+
+    const payload = Buffer.from("hydrated-lfs-binary-payload-bytes");
+    const sha = createHash("sha256").update(payload).digest("hex");
+    const pointer = `version https://git-lfs.github.com/spec/v1\noid sha256:${sha}\nsize ${payload.length}\n`;
+    writeFileSync(join(repoDir, ".gitattributes"), "*.bin filter=lfs diff=lfs merge=lfs -text\n");
+    writeFileSync(join(repoDir, "asset.bin"), pointer);
+    execFileSync("git", ["-c", "protocol.file.allow=always", "submodule", "add", subSource, "sub"], { cwd: repoDir });
+    execFileSync("git", ["add", ".gitattributes", "asset.bin"], { cwd: repoDir });
+    execFileSync("git", ["commit", "-m", "add lfs and sub"], { cwd: repoDir });
+
+    execFileSync("git", ["config", "filter.lfs.clean", "git-lfs clean -- %f"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.smudge", "git-lfs smudge -- %f"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.process", "git-lfs filter-process"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.required", "true"], { cwd: repoDir });
+
+    await withTestApp(async (app) => {
+      const wtRes = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/lfs-sub-guard",
+          strategy: "worktree",
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(wtRes.statusCode).toBe(200);
+      const wtPath = wtRes.json().local_path as string;
+
+      execFileSync("git", ["-c", "protocol.file.allow=always", "submodule", "update", "--init"], { cwd: wtPath });
+      writeFileSync(join(wtPath, "asset.bin"), payload);
+
+      // Clean initialized submodule + hydrated LFS must still fail non-force removal like ordinary git worktree remove.
+      const rmCleanSubRes = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { worktree_path: wtPath, repo_path: repoDir, workspace_root: workspaceRoot },
+      });
+      expect(rmCleanSubRes.statusCode).toBe(400);
+      expect(rmCleanSubRes.json().code).toBe("git-failed");
+      expect(existsSync(join(wtPath, "sub", "lib.txt"))).toBe(true);
+
+      // Dirty submodule hidden behind diff.ignoreSubmodules=all must fail with 409 worktree-dirty.
+      execFileSync("git", ["config", "diff.ignoreSubmodules", "all"], { cwd: repoDir });
+      writeFileSync(join(wtPath, "sub", "valuable.txt"), "keep-sub-file\n");
+      const rmDirtySubRes = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { worktree_path: wtPath, repo_path: repoDir, workspace_root: workspaceRoot },
+      });
+      expect(rmDirtySubRes.statusCode).toBe(409);
+      expect(rmDirtySubRes.json().code).toBe("worktree-dirty");
+      expect(existsSync(join(wtPath, "sub", "valuable.txt"))).toBe(true);
+    });
+  });
+
   it("createCheckpoint preserves force-staged ignored files via --git-path index in repos and worktrees", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     writeFileSync(join(repoDir, "forced.secret"), "keep-me\n");

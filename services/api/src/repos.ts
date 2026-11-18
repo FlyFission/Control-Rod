@@ -814,12 +814,15 @@ async function inspectRepoDirtiness(
   workspaceRoot: string,
   filterEnv: Record<string, string>,
 ): Promise<{ dirty: boolean; hasHydratedLfsClean: boolean }> {
-  // Always override status.showUntrackedFiles=no so untracked files block implicit --force removal.
-  const raw = await gitWithBytes(["status", "--porcelain=v1", "--untracked-files=normal", "-z"], {
-    cwd: repoDir,
-    workspaceRoot,
-    extraEnv: filterEnv,
-  });
+  // Always override status.showUntrackedFiles=no and diff.ignoreSubmodules=all so hidden changes still block removal.
+  const raw = await gitWithBytes(
+    ["status", "--porcelain=v1", "--untracked-files=normal", "--ignore-submodules=none", "-z"],
+    {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: filterEnv,
+    },
+  );
   const records = splitNullRecords(raw);
   if (records.length === 0) return { dirty: false, hasHydratedLfsClean: false };
 
@@ -986,6 +989,29 @@ async function findRegisteredWorktree(
   return null;
 }
 
+async function hasInitializedSubmodule(
+  repoDir: string,
+  workspaceRoot: string,
+  extraEnv?: Record<string, string>,
+): Promise<boolean> {
+  const raw = await gitWithBytes(["ls-files", "-s", "-z"], {
+    cwd: repoDir,
+    workspaceRoot,
+    ...(extraEnv !== undefined ? { extraEnv } : {}),
+  });
+  for (const rec of splitNullRecords(raw)) {
+    const line = rec.toString("utf8");
+    if (!line.startsWith("160000 ")) continue;
+    const tabIdx = line.indexOf("\t");
+    if (tabIdx < 0) continue;
+    const relPath = line.slice(tabIdx + 1);
+    if (relPath && pathExistsAny(join(repoDir, relPath, ".git"))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function removeWorktreeSafely(opts: {
   worktreePath: string;
   repoPath: string;
@@ -1035,7 +1061,7 @@ export async function removeWorktreeSafely(opts: {
           "Worktree has uncommitted changes. Commit, checkpoint, or pass force=true.",
         );
       }
-      if (hasHydratedLfsClean) {
+      if (hasHydratedLfsClean && !(await hasInitializedSubmodule(resolvedWt, workspaceRoot, filterEnv))) {
         // Hydrated LFS files match their indexed pointer bytes; single --force still preserves worktree locks.
         passSingleForce = true;
       }

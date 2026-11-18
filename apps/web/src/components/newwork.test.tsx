@@ -46,6 +46,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     mockDialogMethods();
 
     let capturedBody: { text?: string; lane?: string } | null = null;
+    const materializeRequests: Array<{ mode?: string }> = [];
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
       http.get("*/repos", () =>
@@ -57,10 +58,12 @@ describe("engineering mode toggle and NewWorkModal", () => {
         }),
       ),
       http.post("*/repos/materialize", async ({ request }) => {
-        const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch" };
+        const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch"; mode?: string };
+        materializeRequests.push(body);
         return HttpResponse.json({
           ok: true,
           strategy: body.strategy,
+          mode: body.mode,
           repo: body.repo,
           branch: body.branch,
           local_path: `/home/flyfission/projects/.worktrees/Control-Rod/${body.branch.replace(/\//g, "-")}`,
@@ -99,6 +102,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(screen.getByText(/Cycle 2/i)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod/i)).toBeTruthy();
+    expect(materializeRequests.at(-1)?.mode).toBe("capital-projects");
 
     // Switch to Advanced mode and inspect Issue Purpose, CLI ecosystems, and Save defaults
     await user.click(screen.getByRole("button", { name: "Advanced" }));
@@ -237,6 +241,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     mockDialogMethods();
 
     let capturedBody: { text?: string } | null = null;
+    const materializeRequests: Array<{ mode?: string }> = [];
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
       http.get("*/repos", () =>
@@ -248,10 +253,12 @@ describe("engineering mode toggle and NewWorkModal", () => {
         }),
       ),
       http.post("*/repos/materialize", async ({ request }) => {
-        const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch" };
+        const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch"; mode?: string };
+        materializeRequests.push(body);
         return HttpResponse.json({
           ok: true,
           strategy: body.strategy,
+          mode: body.mode,
           repo: body.repo,
           branch: body.branch,
           local_path: `/home/flyfission/projects/.worktrees/Control-Rod/${body.branch.replace(/\//g, "-")}`,
@@ -274,6 +281,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await user.selectOptions(repoSelect, "Control-Rod");
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-initial-task/i)).toBeTruthy();
+    expect(materializeRequests.at(-1)?.mode).toBe("software");
 
     // Editing objective in Simple mode preserves preparedPath and pinned branch
     await user.type(objectiveBox, " with extra details");

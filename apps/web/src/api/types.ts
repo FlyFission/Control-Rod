@@ -161,4 +161,8 @@ export type ReposResponse = S["Repos.ReposResponse"];
 export type MaterializeStrategy = S["Repos.MaterializeStrategy"];
 export type MaterializeRepoRequest = S["Repos.MaterializeRepoRequest"];
 export type MaterializeRepoResult = S["Repos.MaterializeRepoResult"];
+export type CheckpointRequest = S["Repos.CheckpointRequest"];
+export type CheckpointResult = S["Repos.CheckpointResult"];
+export type RemoveWorktreeRequest = S["Repos.RemoveWorktreeRequest"];
+export type RemoveWorktreeResult = S["Repos.RemoveWorktreeResult"];
 

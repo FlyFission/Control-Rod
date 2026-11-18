@@ -1,0 +1,6 @@
+Upstream: GoogleCloudPlatform/scion
+Commit: 8845a940763f91519d25e72cde3762d6e31df4cb
+License: Apache-2.0
+Upstream path: pkg/util/git_host.go
+Local path: daemon/internal/runner/git_host.go
+Notes: Ported HostGitArgs, HostGitNetworkArgs, and HostGitEnv; omitted scion-specific credential helper and ceiling allowlist.

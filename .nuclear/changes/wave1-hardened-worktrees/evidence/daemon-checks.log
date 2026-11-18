@@ -1,0 +1,27 @@
+gofmt: 
+go_vet_exit=0
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	(cached)
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	(cached)
+go_test_conf_digest_exit=0
+=== RUN   TestHostGitArgsNeutralizesHostExecution
+--- PASS: TestHostGitArgsNeutralizesHostExecution (0.00s)
+=== RUN   TestHostGitNetworkArgsRestrictsProtocols
+--- PASS: TestHostGitNetworkArgsRestrictsProtocols (0.00s)
+=== RUN   TestHostGitEnvStripsDangerousGitVars
+--- PASS: TestHostGitEnvStripsDangerousGitVars (0.00s)
+=== RUN   TestHostGitCommandSetsArgsAndEnv
+--- PASS: TestHostGitCommandSetsArgsAndEnv (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	(cached)
+go_test_hostgit_exit=0
+?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	(cached)
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	(cached)
+--- FAIL: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.24s)
+    sandbox_test.go:304: the installed Codex leaves unqualified features on: [code_mode_host_grpc code_mode_host_output_truncation guardian_include_additional_context incremental_tools_legacy_gcp retain_client_tool_outputs unified_image_budget untrusted_as_tool_output]
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	23.804s
+?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
+?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]
+FAIL
+go_test_all_exit=1

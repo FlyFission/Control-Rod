@@ -1,6 +1,21 @@
 import { execFile } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { homedir } from "node:os";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  closeSync,
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  readSync,
+  realpathSync,
+  rmSync,
+  statSync,
+} from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { FastifyInstance, FastifyRequest } from "fastify";
@@ -9,6 +24,9 @@ import { Refusal } from "./refusal.js";
 const execFileAsync = promisify(execFile);
 
 export type MaterializeStrategy = "worktree" | "fresh-clone" | "branch";
+export type WorkspaceMode = "software" | "capital-projects";
+
+export const CAPITAL_PROJECT_DIRS = ["calculations", "drawings", "specifications"] as const;
 
 export interface LocalRepoInfo {
   name: string;
@@ -218,6 +236,23 @@ export function defaultWorkspaceRoot(): string {
   return resolve(envRoot.replace(/^~(?=\/|$)/, home));
 }
 
+function asBodyRecord(rawBody: unknown): Record<string, unknown> {
+  if (rawBody !== null && typeof rawBody === "object" && !Array.isArray(rawBody)) {
+    return rawBody as Record<string, unknown>;
+  }
+  return {};
+}
+
+function expandHomePath(rawPath: string, home: string): string | null {
+  const trimmed = rawPath.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("~")) {
+    if (trimmed !== "~" && !trimmed.startsWith("~/")) return null;
+    return trimmed.replace(/^~(?=\/|$)/, home);
+  }
+  return trimmed;
+}
+
 /**
  * Ensures user-supplied `workspace_root` (and `CONTROLROD_WORKSPACE_ROOT`, which must point to a
  * non-dot folder inside `$HOME`) stays strictly within a non-dot directory under `$HOME`.
@@ -229,7 +264,16 @@ export function resolveSafeWorkspaceRoot(requested?: unknown): string {
   const rawHome = homedir();
   const home = canonicalPathOrResolve(rawHome);
   const raw = requested?.trim();
-  const expanded = raw ? raw.replace(/^~(?=\/|$)/, home) : defaultWorkspaceRoot();
+  let expanded: string;
+  if (raw) {
+    const homeExpanded = expandHomePath(raw, home);
+    if (!homeExpanded) {
+      throw new Refusal(400, "invalid-workspace-root", "Workspace root must stay inside your home directory.");
+    }
+    expanded = homeExpanded;
+  } else {
+    expanded = defaultWorkspaceRoot();
+  }
   const candidate = resolveWithoutSymlinks(expanded, rawHome);
   const rel = relative(home, candidate);
   if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
@@ -287,7 +331,13 @@ export function parseGithubOwnerRepoFromUrl(rawUrl: string): string | null {
  * overrides (e.g. `GIT_DIR`, `GIT_INDEX_FILE`), disabling interactive prompts, and setting
  * `GIT_CEILING_DIRECTORIES` so git never walks up into `$HOME` or `workspaceRoot`.
  */
-export function hostGitEnv(ceilingDir?: string): NodeJS.ProcessEnv {
+export function hostGitEnv(
+  ceilingDirOrExtra?: string | Record<string, string>,
+  extraEnv?: Record<string, string>,
+): NodeJS.ProcessEnv {
+  const ceilingDir = typeof ceilingDirOrExtra === "string" ? ceilingDirOrExtra : undefined;
+  const mergedExtra =
+    typeof ceilingDirOrExtra === "object" && ceilingDirOrExtra !== null ? ceilingDirOrExtra : extraEnv;
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (value === undefined) continue;
@@ -298,6 +348,22 @@ export function hostGitEnv(ceilingDir?: string): NodeJS.ProcessEnv {
   env.SSH_ASKPASS_REQUIRE = "never";
   env.GIT_TERMINAL_PROMPT = "0";
   env.GIT_CEILING_DIRECTORIES = ceilingDir ?? defaultWorkspaceRoot();
+  if (mergedExtra) {
+    for (const [k, v] of Object.entries(mergedExtra)) {
+      env[k] = v;
+    }
+  }
+  return env;
+}
+
+function pairsToGitConfigEnv(pairs: ReadonlyArray<readonly [string, string]>): Record<string, string> {
+  const env: Record<string, string> = {
+    GIT_CONFIG_COUNT: String(pairs.length),
+  };
+  pairs.forEach(([key, value], index) => {
+    env[`GIT_CONFIG_KEY_${index}`] = key;
+    env[`GIT_CONFIG_VALUE_${index}`] = value;
+  });
   return env;
 }
 
@@ -309,13 +375,65 @@ export function gitConfigEnv(
   pairs: ReadonlyArray<readonly [string, string]>,
   baseEnv: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...baseEnv };
-  env.GIT_CONFIG_COUNT = String(pairs.length);
-  pairs.forEach(([key, value], index) => {
-    env[`GIT_CONFIG_KEY_${index}`] = key;
-    env[`GIT_CONFIG_VALUE_${index}`] = value;
-  });
-  return env;
+  return { ...baseEnv, ...pairsToGitConfigEnv(pairs) };
+}
+
+const CRLF_DISABLE_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ["core.autocrlf", "false"],
+  ["core.safecrlf", "false"],
+  ["core.eol", "lf"],
+];
+
+/**
+ * Queries configured `filter.<driver>.*` entries in `repoDir` and returns transient
+ * `GIT_CONFIG_COUNT`/`KEY_i`/`VALUE_i` overrides that neutralize clean/smudge/process
+ * filters (including `required=true` and driver names with `=`). Line-ending overrides
+ * are scoped cleanly: status checks use `"none"`, checkouts use `"safecrlf-only"`, and
+ * raw-byte checkpoints use `"all"`.
+ */
+async function filterDisableEnv(
+  repoDir: string,
+  workspaceRoot?: string,
+  crlfMode: "none" | "safecrlf-only" | "all" = "none",
+): Promise<Record<string, string>> {
+  let rawKeys = "";
+  try {
+    rawKeys = await git(
+      ["config", "--name-only", "--get-regexp", "^filter\\..*\\.(clean|smudge|process|required)$"],
+      { cwd: repoDir, workspaceRoot },
+    );
+  } catch (err) {
+    // `git config --get-regexp` exits with status 1 when no keys match.
+    if ((err as { code?: unknown }).code !== 1) {
+      throw err;
+    }
+  }
+
+  const drivers = new Set<string>();
+  for (const line of rawKeys.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const match = /^(filter\..+)\.(clean|smudge|process|required)$/i.exec(trimmed);
+    if (match?.[1]) {
+      drivers.add(match[1]);
+    }
+  }
+
+  const pairs: Array<readonly [string, string]> =
+    crlfMode === "all"
+      ? [...CRLF_DISABLE_PAIRS]
+      : crlfMode === "safecrlf-only"
+        ? [["core.safecrlf", "false"]]
+        : [];
+  for (const prefix of drivers) {
+    pairs.push(
+      [`${prefix}.clean`, ""],
+      [`${prefix}.smudge`, ""],
+      [`${prefix}.process`, ""],
+      [`${prefix}.required`, "false"],
+    );
+  }
+  return pairsToGitConfigEnv(pairs);
 }
 
 function assertValidBranch(branch: string, label = "branch"): string {
@@ -334,17 +452,45 @@ interface GitOptions {
   cwd?: string | undefined;
   timeout?: number | undefined;
   workspaceRoot?: string | undefined;
+  extraEnv?: Record<string, string> | undefined;
 }
 
 async function git(args: string[], options: GitOptions = {}): Promise<string> {
-  const { cwd, timeout = 25_000, workspaceRoot } = options;
+  const { cwd, timeout = 25_000, workspaceRoot, extraEnv } = options;
   const ceilingDir = workspaceRoot ?? defaultWorkspaceRoot();
   const { stdout } = await execFileAsync("git", [...HOST_GIT_ARGS, ...args], {
     ...(cwd ? { cwd } : {}),
     timeout,
-    env: hostGitEnv(ceilingDir),
+    env: hostGitEnv(ceilingDir, extraEnv),
   });
   return stdout.trim();
+}
+
+async function gitWithBytes(args: string[], options: GitOptions & { input?: Buffer } = {}): Promise<Buffer> {
+  const { cwd, timeout = 25_000, workspaceRoot, extraEnv, input } = options;
+  const ceilingDir = workspaceRoot ?? defaultWorkspaceRoot();
+  return new Promise<Buffer>((resolvePromise, rejectPromise) => {
+    const child = execFile(
+      "git",
+      [...HOST_GIT_ARGS, ...args],
+      {
+        ...(cwd ? { cwd } : {}),
+        timeout,
+        encoding: "buffer",
+        maxBuffer: 32 * 1024 * 1024,
+        env: hostGitEnv(ceilingDir, extraEnv),
+      },
+      (err, stdout) => {
+        if (err) rejectPromise(err);
+        else resolvePromise(Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout));
+      },
+    );
+    if (input !== undefined) {
+      child.stdin?.end(input);
+    } else {
+      child.stdin?.end();
+    }
+  });
 }
 
 interface GhOptions {
@@ -571,6 +717,137 @@ async function validateExistingRepoDir(baseCloneDir: string, workspaceRoot: stri
   await assertSafeWorkingTree(baseCloneDir, workspaceRoot);
 }
 
+const LFS_POINTER_RE = /^version https:\/\/git-lfs\.github\.com\/spec\/v1\r?\noid sha256:([0-9a-f]{64})\r?\nsize (\d+)\r?\n?$/;
+
+function hashFileSha256(filePath: string): string {
+  const hash = createHash("sha256");
+  const fd = openSync(filePath, "r");
+  const chunk = Buffer.allocUnsafe(64 * 1024);
+  try {
+    for (;;) {
+      const n = readSync(fd, chunk, 0, chunk.length, null);
+      if (n <= 0) break;
+      hash.update(chunk.subarray(0, n));
+    }
+  } finally {
+    closeSync(fd);
+  }
+  return hash.digest("hex");
+}
+
+function hasCleanRealAncestors(
+  rootDir: string,
+  relPath: string,
+  cache?: Map<string, boolean>,
+): boolean {
+  const parts = relPath.split("/").filter(Boolean);
+  if (parts.length <= 1) return true;
+  let relAcc = "";
+  let absAcc = rootDir;
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    const seg = parts[i]!;
+    relAcc = relAcc ? `${relAcc}/${seg}` : seg;
+    absAcc = join(absAcc, seg);
+    const cached = cache?.get(relAcc);
+    if (cached !== undefined) {
+      if (!cached) return false;
+      continue;
+    }
+    const ok = pathExistsAny(absAcc) && !lstatSync(absAcc).isSymbolicLink() && lstatSync(absAcc).isDirectory();
+    cache?.set(relAcc, ok);
+    if (!ok) return false;
+  }
+  return true;
+}
+
+async function isUnchangedHydratedLfsFile(
+  repoDir: string,
+  relPath: string,
+  workspaceRoot: string,
+): Promise<boolean> {
+  if (!hasCleanRealAncestors(repoDir, relPath)) return false;
+  const fullPath = join(repoDir, relPath);
+  if (!pathExistsAny(fullPath)) return false;
+  const st = lstatSync(fullPath);
+  if (!st.isFile() || st.isSymbolicLink()) return false;
+
+  const attrOut = await git(["check-attr", "filter", "--", relPath], {
+    cwd: repoDir,
+    workspaceRoot,
+  }).catch(() => "");
+  if (!/: filter: lfs$/.test(attrOut.trim())) return false;
+
+  const filemodeOut = await git(["config", "--get", "core.filemode"], {
+    cwd: repoDir,
+    workspaceRoot,
+  }).catch(() => "true");
+  if (filemodeOut.trim().toLowerCase() !== "false") {
+    const lsOut = await git(["ls-files", "-s", "--", relPath], {
+      cwd: repoDir,
+      workspaceRoot,
+    }).catch(() => "");
+    const indexedMode = lsOut.split(/\s+/)[0];
+    const wtMode = (st.mode & 0o100) !== 0 ? "100755" : "100644";
+    if (!indexedMode || indexedMode !== wtMode) return false;
+  }
+
+  const indexBlob = await gitWithBytes(["cat-file", "blob", `:${relPath}`], {
+    cwd: repoDir,
+    workspaceRoot,
+  }).catch(() => Buffer.alloc(0));
+  if (indexBlob.length === 0 || indexBlob.length > 512) return false;
+  const match = LFS_POINTER_RE.exec(indexBlob.toString("utf8"));
+  if (!match) return false;
+  const expectedSha = match[1]!;
+  const expectedSize = Number(match[2]!);
+  if (st.size !== expectedSize) return false;
+  return hashFileSha256(fullPath) === expectedSha;
+}
+
+/**
+ * Checks working-tree dirtiness while filters are neutralized, treating hydrated
+ * Git LFS files whose size and SHA-256 still match their indexed LFS pointer as clean
+ * without invoking `git-lfs` or untrusted filter drivers on the host.
+ */
+async function inspectRepoDirtiness(
+  repoDir: string,
+  workspaceRoot: string,
+  filterEnv: Record<string, string>,
+): Promise<{ dirty: boolean; hasHydratedLfsClean: boolean }> {
+  // Always override status.showUntrackedFiles=no and diff.ignoreSubmodules=all so hidden changes still block removal.
+  const raw = await gitWithBytes(
+    ["status", "--porcelain=v1", "--untracked-files=normal", "--ignore-submodules=none", "-z"],
+    {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: filterEnv,
+    },
+  );
+  const records = splitNullRecords(raw);
+  if (records.length === 0) return { dirty: false, hasHydratedLfsClean: false };
+
+  let hasHydratedLfsClean = false;
+  for (let i = 0; i < records.length; i += 1) {
+    const entry = records[i]!.toString("utf8");
+    if (entry.length < 4) return { dirty: true, hasHydratedLfsClean };
+    const xy = entry.slice(0, 2);
+    const relPath = entry.slice(3);
+    if (xy[0] === "R" || xy[0] === "C") {
+      // Rename/copy porcelain-z records emit an extra source path record; always dirty.
+      return { dirty: true, hasHydratedLfsClean };
+    }
+    if (xy !== " M") {
+      return { dirty: true, hasHydratedLfsClean };
+    }
+    if (await isUnchangedHydratedLfsFile(repoDir, relPath, workspaceRoot)) {
+      hasHydratedLfsClean = true;
+      continue;
+    }
+    return { dirty: true, hasHydratedLfsClean };
+  }
+  return { dirty: false, hasHydratedLfsClean };
+}
+
 async function scanLocalRepos(root: string): Promise<LocalRepoInfo[]> {
   if (!existsSync(root)) return [];
   const entries = readdirSync(root, { withFileTypes: true });
@@ -585,17 +862,18 @@ async function scanLocalRepos(root: string): Promise<LocalRepoInfo[]> {
       continue;
     }
     try {
-      const [branch, remote, statusOut] = await Promise.all([
+      const filterEnv = await filterDisableEnv(full, root);
+      const [branch, remote, dirtiness] = await Promise.all([
         git(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: full, workspaceRoot: root }).catch(() => "HEAD"),
         getOriginRemoteUrl(full, root),
-        git(["status", "--porcelain"], { cwd: full, workspaceRoot: root }).catch(() => ""),
+        inspectRepoDirtiness(full, root, filterEnv).catch(() => ({ dirty: false, hasHydratedLfsClean: false })),
       ]);
       repos.push({
         name: entry.name,
         path: full,
         branch,
         remote_url: remote || null,
-        dirty: statusOut.length > 0,
+        dirty: dirtiness.dirty,
       });
     } catch {
       // Skip unreadable directories
@@ -640,6 +918,497 @@ async function listGithubRepos(ceilingDir?: string): Promise<{ repos: GithubRepo
   }
 }
 
+function resolveSafeRemovalTarget(
+  rawPath: string,
+  home: string,
+  workspaceRoot: string,
+): string | null {
+  const expanded = expandHomePath(rawPath, home);
+  if (!expanded) return null;
+  return resolveWithoutSymlinks(expanded, workspaceRoot);
+}
+
+/**
+ * Returns true if removing `worktreePath` (for `repoPath` inside `workspaceRoot`) is unsafe:
+ * empty, `~user` form, root/home/workspace/repo itself, uncontained `repoPath` or `worktreePath`,
+ * symlinked path component, ancestor of `repoPath`, or inside `repoPath/.git`.
+ */
+export function isDangerousWorktreeRemovalPath(
+  worktreePath: string,
+  repoPath: string,
+  workspaceRoot: string,
+): boolean {
+  const home = canonicalPathOrResolve(homedir());
+  const expandedRoot = expandHomePath(workspaceRoot, home);
+  if (!expandedRoot) return true;
+  try {
+    const resolvedRoot = resolveWithoutSymlinks(expandedRoot, homedir());
+    const resolvedWt = resolveSafeRemovalTarget(worktreePath, home, resolvedRoot);
+    const resolvedRepo = resolveSafeRemovalTarget(repoPath, home, resolvedRoot);
+    if (!resolvedWt || !resolvedRepo) return true;
+    if (
+      resolvedWt === "/" ||
+      resolvedWt === home ||
+      resolvedWt === resolvedRoot ||
+      resolvedWt === resolvedRepo
+    ) {
+      return true;
+    }
+    const repoDotGit = join(resolvedRepo, ".git");
+    if (
+      !isContainedIn(resolvedRoot, resolvedRepo) ||
+      !isContainedIn(resolvedRoot, resolvedWt) ||
+      isContainedIn(resolvedWt, resolvedRepo) ||
+      resolvedWt === repoDotGit ||
+      isContainedIn(repoDotGit, resolvedWt)
+    ) {
+      return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+async function findRegisteredWorktree(
+  resolvedRepo: string,
+  resolvedWt: string,
+  workspaceRoot: string,
+): Promise<string | null> {
+  const listOut = await git(["worktree", "list", "--porcelain"], {
+    cwd: resolvedRepo,
+    workspaceRoot,
+  });
+  for (const line of listOut.split(/\r?\n/)) {
+    if (!line.startsWith("worktree ")) continue;
+    const raw = line.slice("worktree ".length).trim();
+    if (canonicalPathOrResolve(raw) === resolvedWt) {
+      return raw;
+    }
+  }
+  return null;
+}
+
+async function hasInitializedSubmodule(
+  repoDir: string,
+  workspaceRoot: string,
+  extraEnv?: Record<string, string>,
+): Promise<boolean> {
+  const raw = await gitWithBytes(["ls-files", "-s", "-z"], {
+    cwd: repoDir,
+    workspaceRoot,
+    ...(extraEnv !== undefined ? { extraEnv } : {}),
+  });
+  for (const rec of splitNullRecords(raw)) {
+    const line = rec.toString("utf8");
+    if (!line.startsWith("160000 ")) continue;
+    const tabIdx = line.indexOf("\t");
+    if (tabIdx < 0) continue;
+    const relPath = line.slice(tabIdx + 1);
+    if (relPath && pathExistsAny(join(repoDir, relPath, ".git"))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export async function removeWorktreeSafely(opts: {
+  worktreePath: string;
+  repoPath: string;
+  workspaceRoot?: string;
+  force?: boolean;
+}): Promise<{ removed: string }> {
+  const workspaceRoot = resolveSafeWorkspaceRoot(opts.workspaceRoot);
+  if (isDangerousWorktreeRemovalPath(opts.worktreePath, opts.repoPath, workspaceRoot)) {
+    throw new Refusal(
+      400,
+      "unsafe-worktree-path",
+      `Refusing to remove protected or out-of-bounds worktree path: ${opts.worktreePath}`,
+    );
+  }
+  const home = canonicalPathOrResolve(homedir());
+  const resolvedWt = resolveSafeRemovalTarget(opts.worktreePath, home, workspaceRoot)!;
+  const resolvedRepo = resolveSafeRemovalTarget(opts.repoPath, home, workspaceRoot)!;
+  const force = opts.force === true;
+
+  if (!pathExistsAny(resolvedRepo)) {
+    throw new Refusal(404, "repo-not-found", `Repository not found at ${resolvedRepo}`);
+  }
+  resolveRepoGitDirs(resolvedRepo, workspaceRoot, false);
+  await assertSafeWorkingTree(resolvedRepo, workspaceRoot);
+
+  let targetArg = resolvedWt;
+  let filterEnv: Record<string, string> | undefined;
+  let passSingleForce = force;
+
+  if (!pathExistsAny(resolvedWt)) {
+    const registeredPath = await findRegisteredWorktree(resolvedRepo, resolvedWt, workspaceRoot);
+    if (registeredPath === null) {
+      throw new Refusal(404, "worktree-not-found", `Worktree not found: ${resolvedWt}`);
+    }
+    targetArg = registeredPath;
+  } else {
+    if (!lstatSync(resolvedWt).isDirectory()) {
+      throw new Refusal(400, "unsafe-worktree-path", `Worktree path is not a directory: ${resolvedWt}`);
+    }
+    filterEnv = await filterDisableEnv(resolvedWt, workspaceRoot);
+    if (!force) {
+      const { dirty, hasHydratedLfsClean } = await inspectRepoDirtiness(resolvedWt, workspaceRoot, filterEnv);
+      if (dirty) {
+        throw new Refusal(
+          409,
+          "worktree-dirty",
+          "Worktree has uncommitted changes. Commit, checkpoint, or pass force=true.",
+        );
+      }
+      if (hasHydratedLfsClean && !(await hasInitializedSubmodule(resolvedWt, workspaceRoot, filterEnv))) {
+        // Hydrated LFS files match their indexed pointer bytes; single --force still preserves worktree locks.
+        passSingleForce = true;
+      }
+    }
+  }
+
+  await git(["worktree", "remove", ...(passSingleForce ? ["--force"] : []), targetArg], {
+    cwd: resolvedRepo,
+    workspaceRoot,
+    ...(filterEnv !== undefined ? { extraEnv: filterEnv } : {}),
+  });
+  if ((await findRegisteredWorktree(resolvedRepo, resolvedWt, workspaceRoot)) !== null) {
+    throw new Refusal(400, "git-failed", `Worktree registration still exists after removal: ${resolvedWt}`);
+  }
+  return { removed: resolvedWt };
+}
+
+/**
+ * Captures a private git checkpoint ref (`refs/cr-checkpoints/...`) using a
+ * temporary GIT_INDEX_FILE so the workspace's real index and HEAD are untouched.
+ * Checkpoints on Git LFS repositories neutralize clean/smudge/process filters and
+ * record raw working-tree or pointer bytes without invoking external filter drivers.
+ */
+function splitNullRecords(buf: Buffer): Buffer[] {
+  const parts: Buffer[] = [];
+  let start = 0;
+  for (let i = 0; i < buf.length; i += 1) {
+    if (buf[i] === 0) {
+      if (i > start) parts.push(buf.subarray(start, i));
+      start = i + 1;
+    }
+  }
+  if (start < buf.length) parts.push(buf.subarray(start));
+  return parts;
+}
+
+async function prepareTempIndexFlags(
+  repoDir: string,
+  workspaceRoot: string,
+  indexEnv: Record<string, string>,
+): Promise<void> {
+  const raw = await gitWithBytes(["ls-files", "-v", "-z"], {
+    cwd: repoDir,
+    workspaceRoot,
+    extraEnv: indexEnv,
+  });
+  const records = splitNullRecords(raw);
+  if (records.length === 0) return;
+
+  const allPaths: Buffer[] = [];
+  const presentSkipPaths: Buffer[] = [];
+  for (const rec of records) {
+    if (rec.length < 3) continue;
+    const tag = String.fromCharCode(rec[0]!);
+    const pathBuf = rec.subarray(2);
+    allPaths.push(pathBuf);
+    if (tag === "S" || tag === "s") {
+      const relPath = pathBuf.toString("utf8");
+      if (pathExistsAny(join(repoDir, relPath))) {
+        presentSkipPaths.push(pathBuf);
+      }
+    }
+  }
+
+  if (allPaths.length > 0) {
+    await gitWithBytes(["update-index", "--no-assume-unchanged", "-z", "--stdin"], {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: indexEnv,
+      input: Buffer.concat([...allPaths.map((p) => Buffer.concat([p, Buffer.from([0])]))]),
+    });
+  }
+  if (presentSkipPaths.length > 0) {
+    await gitWithBytes(["update-index", "--no-skip-worktree", "-z", "--stdin"], {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: indexEnv,
+      input: Buffer.concat([...presentSkipPaths.map((p) => Buffer.concat([p, Buffer.from([0])]))]),
+    });
+  }
+}
+
+async function readSubmoduleHead(subDir: string, subBoundary: string): Promise<string | null> {
+  const subGit = join(subDir, ".git");
+  if (!pathExistsAny(subGit)) return null;
+  resolveRepoGitDirs(subDir, subBoundary, false);
+  try {
+    const sha = (await git(["rev-parse", "--verify", "HEAD"], { cwd: subDir, workspaceRoot: subBoundary })).trim();
+    return sha || null;
+  } catch {
+    return null;
+  }
+}
+
+async function stageRawWorkingTreeBlobs(
+  repoDir: string,
+  workspaceRoot: string,
+  indexEnv: Record<string, string>,
+): Promise<void> {
+  const cachedRaw = await gitWithBytes(["ls-files", "-s", "-v", "-z"], {
+    cwd: repoDir,
+    workspaceRoot,
+    extraEnv: indexEnv,
+  });
+  const tracked = new Map<string, { tag: string; mode: string; oid: string; stage: string }>();
+  for (const rec of splitNullRecords(cachedRaw)) {
+    const line = rec.toString("utf8");
+    const tabIdx = line.indexOf("\t");
+    if (tabIdx < 0 || line.length < 3) continue;
+    const tag = line[0]!;
+    const meta = line.slice(2, tabIdx).split(" ");
+    const mode = meta[0];
+    const oid = meta[1];
+    const stage = meta[2];
+    const relPath = line.slice(tabIdx + 1);
+    if (!mode || !oid || !stage || !relPath) continue;
+    tracked.set(relPath, { tag, mode, oid, stage });
+  }
+
+  const ancestorCache = new Map<string, boolean>();
+  const deletedPaths: Buffer[] = [];
+  const cacheInfoArgs: string[] = [];
+  const regularCandidates: Array<{ mode: string; prevOid: string | null; prevStage: string | null; relPath: string }> =
+    [];
+  const symlinkCandidates: Array<{ prevOid: string | null; prevStage: string | null; relPath: string; target: string }> =
+    [];
+
+  const subBoundary = isWithinOrEqual(workspaceRoot, repoDir) !== null ? workspaceRoot : repoDir;
+
+  for (const [relPath, entry] of tracked) {
+    if (entry.tag === "S" || entry.tag === "s") continue;
+    const fullPath = join(repoDir, relPath);
+    if (!hasCleanRealAncestors(repoDir, relPath, ancestorCache) || !pathExistsAny(fullPath)) {
+      deletedPaths.push(Buffer.from(relPath, "utf8"));
+      continue;
+    }
+    const st = lstatSync(fullPath);
+    if (entry.mode === "160000" && st.isDirectory()) {
+      const subHead = await readSubmoduleHead(fullPath, subBoundary);
+      if (subHead && (entry.stage !== "0" || subHead !== entry.oid)) {
+        cacheInfoArgs.push("--cacheinfo", `160000,${subHead},${relPath}`);
+      }
+      continue;
+    }
+    if (st.isSymbolicLink()) {
+      symlinkCandidates.push({
+        prevOid: entry.oid,
+        prevStage: entry.stage,
+        relPath,
+        target: readlinkSync(fullPath),
+      });
+    } else if (st.isFile()) {
+      const mode = (st.mode & 0o100) !== 0 ? "100755" : "100644";
+      regularCandidates.push({ mode, prevOid: entry.oid, prevStage: entry.stage, relPath });
+    } else {
+      // Tracked file was replaced by a directory (or non-file node); remove obsolete entry first.
+      deletedPaths.push(Buffer.from(relPath, "utf8"));
+    }
+  }
+
+  const untrackedRaw = await gitWithBytes(["ls-files", "--others", "--exclude-standard", "-z"], {
+    cwd: repoDir,
+    workspaceRoot,
+    extraEnv: indexEnv,
+  });
+  for (const rec of splitNullRecords(untrackedRaw)) {
+    const rawRelPath = rec.toString("utf8");
+    const isDirEntry = rawRelPath.endsWith("/");
+    const relPath = isDirEntry ? rawRelPath.slice(0, -1) : rawRelPath;
+    if (!relPath || tracked.has(relPath)) continue;
+    if (!hasCleanRealAncestors(repoDir, relPath, ancestorCache)) continue;
+    const fullPath = join(repoDir, relPath);
+    if (!pathExistsAny(fullPath)) continue;
+    const st = lstatSync(fullPath);
+    if (isDirEntry) {
+      if (st.isDirectory() && pathExistsAny(join(fullPath, ".git"))) {
+        const subHead = await readSubmoduleHead(fullPath, subBoundary);
+        if (!subHead) {
+          throw new Refusal(
+            400,
+            "git-failed",
+            `Embedded repository has no HEAD commit to checkpoint: ${relPath}`,
+          );
+        }
+        cacheInfoArgs.push("--cacheinfo", `160000,${subHead},${relPath}`);
+      }
+      continue;
+    }
+    if (st.isSymbolicLink()) {
+      symlinkCandidates.push({
+        prevOid: null,
+        prevStage: null,
+        relPath,
+        target: readlinkSync(fullPath),
+      });
+    } else if (st.isFile()) {
+      const mode = (st.mode & 0o100) !== 0 ? "100755" : "100644";
+      regularCandidates.push({ mode, prevOid: null, prevStage: null, relPath });
+    }
+  }
+
+  if (deletedPaths.length > 0) {
+    await gitWithBytes(["update-index", "--force-remove", "-z", "--stdin"], {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: indexEnv,
+      input: Buffer.concat(deletedPaths.map((p) => Buffer.concat([p, Buffer.from([0])]))),
+    });
+  }
+
+  const CHUNK = 200;
+  for (let i = 0; i < regularCandidates.length; i += CHUNK) {
+    const batch = regularCandidates.slice(i, i + CHUNK);
+    const out = await git(
+      ["hash-object", "-w", "--no-filters", "--", ...batch.map((c) => c.relPath)],
+      { cwd: repoDir, workspaceRoot, extraEnv: indexEnv },
+    );
+    const oids = out ? out.split(/\r?\n/) : [];
+    if (oids.length !== batch.length) {
+      throw new Error(`hash-object returned ${oids.length} oids for ${batch.length} paths`);
+    }
+    batch.forEach((c, idx) => {
+      const rawOid = oids[idx]!.trim();
+      const prevMode = tracked.get(c.relPath)?.mode;
+      if (rawOid && (c.prevStage !== "0" || rawOid !== c.prevOid || prevMode !== c.mode)) {
+        cacheInfoArgs.push("--cacheinfo", `${c.mode},${rawOid},${c.relPath}`);
+      }
+    });
+  }
+
+  for (const sym of symlinkCandidates) {
+    const out = await gitWithBytes(["hash-object", "-w", "--stdin"], {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: indexEnv,
+      input: Buffer.from(sym.target, "utf8"),
+    });
+    const rawOid = out.toString("utf8").trim();
+    const prevMode = tracked.get(sym.relPath)?.mode;
+    if (rawOid && (sym.prevStage !== "0" || rawOid !== sym.prevOid || prevMode !== "120000")) {
+      cacheInfoArgs.push("--cacheinfo", `120000,${rawOid},${sym.relPath}`);
+    }
+  }
+
+  for (let i = 0; i < cacheInfoArgs.length; i += CHUNK * 2) {
+    await git(["update-index", "--add", "--replace", ...cacheInfoArgs.slice(i, i + CHUNK * 2)], {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: indexEnv,
+    });
+  }
+}
+
+export async function createCheckpoint(opts: {
+  repoDir: string;
+  label?: string;
+  workspaceRoot?: string;
+}): Promise<{ ref: string; commit_sha: string; tree_sha: string }> {
+  if (opts.label !== undefined && typeof opts.label !== "string") {
+    throw new Refusal(400, "invalid", "label must be a string.");
+  }
+  const home = canonicalPathOrResolve(homedir());
+  const expandedRepo = expandHomePath(opts.repoDir, home);
+  if (!expandedRepo) {
+    throw new Refusal(400, "invalid-repo-path", "repo_path is required.");
+  }
+
+  let workspaceRoot: string;
+  let repoDir: string;
+  if (opts.workspaceRoot !== undefined) {
+    workspaceRoot = resolveSafeWorkspaceRoot(opts.workspaceRoot);
+    if (!isContainedIn(workspaceRoot, expandedRepo)) {
+      throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
+    }
+    repoDir = resolveWithoutSymlinks(expandedRepo, workspaceRoot);
+  } else {
+    workspaceRoot = defaultWorkspaceRoot();
+    repoDir = resolveWithoutSymlinks(expandedRepo);
+  }
+
+  if (!pathExistsAny(repoDir)) {
+    throw new Refusal(404, "repo-not-found", `Repository not found: ${repoDir}`);
+  }
+  resolveRepoGitDirs(repoDir, workspaceRoot, false);
+  await assertSafeWorkingTree(repoDir, workspaceRoot);
+
+  const filterEnv = await filterDisableEnv(repoDir, workspaceRoot, "all");
+  const tempIndex = join(tmpdir(), `cr-checkpoint-index-${randomUUID()}`);
+  const indexEnv: Record<string, string> = {
+    ...filterEnv,
+    GIT_INDEX_FILE: tempIndex,
+    GIT_AUTHOR_NAME: "Control-Rod Checkpoint",
+    GIT_AUTHOR_EMAIL: "checkpoint@control-rod.local",
+    GIT_COMMITTER_NAME: "Control-Rod Checkpoint",
+    GIT_COMMITTER_EMAIL: "checkpoint@control-rod.local",
+  };
+  try {
+    let headSha: string | null = null;
+    try {
+      headSha = await git(["rev-parse", "--verify", "HEAD"], { cwd: repoDir, workspaceRoot });
+    } catch {
+      headSha = null;
+    }
+    const idxPath = await git(["rev-parse", "--path-format=absolute", "--git-path", "index"], {
+      cwd: repoDir,
+      workspaceRoot,
+    });
+    if (pathExistsAny(idxPath)) {
+      if (lstatSync(idxPath).isSymbolicLink()) {
+        throw new Refusal(400, "invalid-workspace-root", `Repository index must not be a symbolic link: ${idxPath}`);
+      }
+      copyFileSync(idxPath, tempIndex);
+      await prepareTempIndexFlags(repoDir, workspaceRoot, indexEnv);
+    } else if (headSha) {
+      await git(["read-tree", "HEAD"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
+    }
+    await stageRawWorkingTreeBlobs(repoDir, workspaceRoot, indexEnv);
+    const treeSha = await git(["write-tree"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
+    const labelSlug = safeSlug(opts.label ?? "snapshot");
+    const stamp = Date.now().toString(36);
+    const ref = `refs/cr-checkpoints/${labelSlug}-${stamp}-${randomUUID()}`;
+    const commitArgs = [
+      "commit-tree",
+      treeSha,
+      ...(headSha ? ["-p", headSha] : []),
+      "-m",
+      `control-rod checkpoint: ${opts.label ?? "snapshot"}`,
+    ];
+    const commitSha = await git(commitArgs, { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
+    await git(["update-ref", ref, commitSha, ""], { cwd: repoDir, workspaceRoot });
+    return { ref, commit_sha: commitSha, tree_sha: treeSha };
+  } finally {
+    rmSync(tempIndex, { force: true });
+    rmSync(`${tempIndex}.lock`, { force: true });
+  }
+}
+
+export function scaffoldCapitalProjectDirs(targetDir: string): string[] {
+  const created: string[] = [];
+  for (const dir of CAPITAL_PROJECT_DIRS) {
+    const full = join(targetDir, dir);
+    mkdirSync(full, { recursive: true });
+    created.push(dir);
+  }
+  return created;
+}
+
 interface MaterializeContext {
   repo: string;
   repoName: string;
@@ -647,12 +1416,13 @@ interface MaterializeContext {
   branch: string;
   baseBranch: string | undefined;
   strategy: MaterializeStrategy;
+  mode: WorkspaceMode;
   workspaceRoot: string;
   baseCloneDir: string;
 }
 
 function parseMaterializeRequest(rawBody: unknown): MaterializeContext {
-  const body = (rawBody ?? {}) as Record<string, unknown>;
+  const body = asBodyRecord(rawBody);
   if (typeof body.repo !== "string") {
     throw new Refusal(400, "invalid-repo", "Specify a GitHub repo (owner/name) or local repo folder name.");
   }
@@ -673,6 +1443,9 @@ function parseMaterializeRequest(rawBody: unknown): MaterializeContext {
   ) {
     throw new Refusal(400, "invalid-strategy", "Strategy must be one of worktree, fresh-clone, or branch.");
   }
+  if (body.mode !== undefined && body.mode !== "software" && body.mode !== "capital-projects") {
+    throw new Refusal(400, "invalid", "mode must be 'software' or 'capital-projects'.");
+  }
 
   const repo = body.repo.trim();
   if (!isSafeRepoIdentifier(repo)) {
@@ -681,12 +1454,23 @@ function parseMaterializeRequest(rawBody: unknown): MaterializeContext {
   const branch = assertValidBranch(body.branch, "branch");
   const baseBranch = body.base_branch?.trim() ? assertValidBranch(body.base_branch, "base_branch") : undefined;
   const strategy: MaterializeStrategy = body.strategy ?? "worktree";
+  const mode: WorkspaceMode = body.mode ?? "software";
   const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
   const isGithub = SAFE_OWNER_REPO.test(repo);
   const repoName = isGithub ? repo.split("/")[1]!.replace(/\.git$/i, "") : repo;
   const baseCloneDir = join(workspaceRoot, repoName);
 
-  return { repo, repoName, isGithub, branch, baseBranch, strategy, workspaceRoot, baseCloneDir };
+  return {
+    repo,
+    repoName,
+    isGithub,
+    branch,
+    baseBranch,
+    strategy,
+    mode,
+    workspaceRoot,
+    baseCloneDir,
+  };
 }
 
 async function ensureBaseClone(ctx: MaterializeContext): Promise<void> {
@@ -719,7 +1503,10 @@ async function checkoutOrCreateBranch(
   workspaceRoot: string,
   options: { baseBranch?: string | undefined; worktreeTargetDir?: string | undefined } = {},
 ): Promise<void> {
-  const existing = await git(["branch", "--list", branch], { cwd: repoDir, workspaceRoot });
+  const [existing, filterEnv] = await Promise.all([
+    git(["branch", "--list", branch], { cwd: repoDir, workspaceRoot }),
+    filterDisableEnv(repoDir, workspaceRoot, "safecrlf-only"),
+  ]);
   if (options.worktreeTargetDir) {
     const args = existing
       ? ["worktree", "add", options.worktreeTargetDir, branch]
@@ -731,13 +1518,13 @@ async function checkoutOrCreateBranch(
           options.worktreeTargetDir,
           ...(options.baseBranch ? [options.baseBranch] : []),
         ];
-    await git(args, { cwd: repoDir, workspaceRoot });
+    await git(args, { cwd: repoDir, workspaceRoot, extraEnv: filterEnv });
     return;
   }
   const args = existing
     ? ["checkout", branch]
     : ["checkout", "-b", branch, ...(options.baseBranch ? [options.baseBranch] : [])];
-  await git(args, { cwd: repoDir, workspaceRoot });
+  await git(args, { cwd: repoDir, workspaceRoot, extraEnv: filterEnv });
 }
 
 async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
@@ -753,26 +1540,28 @@ async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
       throw new Refusal(404, "repo-not-found", `Local repository not found at ${ctx.baseCloneDir}`);
     }
     await validateExistingRepoDir(ctx.baseCloneDir, ctx.workspaceRoot, false);
+    const cloneFilterEnv = await filterDisableEnv(ctx.baseCloneDir, ctx.workspaceRoot, "safecrlf-only");
     await git(["clone", ctx.baseCloneDir, targetDir], {
       cwd: ctx.workspaceRoot,
       timeout: 60_000,
       workspaceRoot: ctx.workspaceRoot,
+      extraEnv: cloneFilterEnv,
     });
   }
+  const targetFilterEnv = await filterDisableEnv(targetDir, ctx.workspaceRoot, "safecrlf-only");
   await git(["checkout", "-b", ctx.branch, ...(ctx.baseBranch ? [ctx.baseBranch] : [])], {
     cwd: targetDir,
     workspaceRoot: ctx.workspaceRoot,
+    extraEnv: targetFilterEnv,
   });
   return targetDir;
 }
 
 async function materializeBranch(ctx: MaterializeContext): Promise<string> {
   await ensureBaseClone(ctx);
-  const statusOut = await git(["status", "--porcelain"], {
-    cwd: ctx.baseCloneDir,
-    workspaceRoot: ctx.workspaceRoot,
-  });
-  if (statusOut.length > 0) {
+  const filterEnv = await filterDisableEnv(ctx.baseCloneDir, ctx.workspaceRoot);
+  const { dirty } = await inspectRepoDirtiness(ctx.baseCloneDir, ctx.workspaceRoot, filterEnv);
+  if (dirty) {
     throw new Refusal(
       409,
       "workspace-exists",
@@ -806,6 +1595,16 @@ async function materializeWorktree(ctx: MaterializeContext): Promise<string> {
   return targetDir;
 }
 
+async function withGitRefusal<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof Refusal) throw err;
+    const msg = err instanceof Error ? err.message : "Git operation failed";
+    throw new Refusal(400, "git-failed", msg);
+  }
+}
+
 export function repoRoutes(
   app: FastifyInstance,
   person: (req: FastifyRequest) => Promise<string>,
@@ -833,6 +1632,7 @@ export function repoRoutes(
       base_branch?: string;
       strategy?: MaterializeStrategy;
       workspace_root?: string;
+      mode?: WorkspaceMode;
     };
   }>("/repos/materialize", async (req) => {
     await person(req);
@@ -840,18 +1640,84 @@ export function repoRoutes(
     ensureDirectorySafe(ctx.workspaceRoot, "Workspace root");
     assertContainedIn(ctx.workspaceRoot, ctx.baseCloneDir, "Repository path must stay inside workspace root.");
 
-    try {
+    return withGitRefusal(async () => {
       const localPath =
         ctx.strategy === "fresh-clone"
           ? await materializeFreshClone(ctx)
           : ctx.strategy === "branch"
             ? await materializeBranch(ctx)
             : await materializeWorktree(ctx);
-      return { ok: true, strategy: ctx.strategy, repo: ctx.repo, branch: ctx.branch, local_path: localPath };
-    } catch (err) {
-      if (err instanceof Refusal) throw err;
-      const msg = err instanceof Error ? err.message : "Git operation failed";
-      throw new Refusal(400, "git-failed", msg);
+
+      const scaffoldedDirs =
+        ctx.mode === "capital-projects" ? scaffoldCapitalProjectDirs(localPath) : [];
+
+      return {
+        ok: true,
+        strategy: ctx.strategy,
+        mode: ctx.mode,
+        repo: ctx.repo,
+        branch: ctx.branch,
+        local_path: localPath,
+        scaffolded_dirs: scaffoldedDirs,
+      };
+    });
+  });
+
+  app.post<{
+    Body: { repo_path?: string; label?: string; workspace_root?: string };
+  }>("/repos/checkpoint", async (req) => {
+    await person(req);
+    const body = asBodyRecord(req.body);
+    const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
+    if (typeof body.repo_path !== "string" || !body.repo_path.trim()) {
+      throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
     }
+    if (body.label !== undefined && typeof body.label !== "string") {
+      throw new Refusal(400, "invalid", "label must be a string.");
+    }
+    const repoPathInput = body.repo_path;
+    const labelInput = body.label;
+    return withGitRefusal(async () => {
+      const result = await createCheckpoint({
+        repoDir: repoPathInput,
+        workspaceRoot,
+        ...(labelInput !== undefined ? { label: labelInput } : {}),
+      });
+      return { ok: true, ...result };
+    });
+  });
+
+  app.post<{
+    Body: { worktree_path?: string; repo_path?: string; workspace_root?: string; force?: boolean };
+  }>("/repos/remove", async (req) => {
+    await person(req);
+    const body = asBodyRecord(req.body);
+    if (
+      typeof body.worktree_path !== "string" ||
+      typeof body.repo_path !== "string" ||
+      !body.worktree_path.trim() ||
+      !body.repo_path.trim()
+    ) {
+      throw new Refusal(400, "invalid-worktree-path", "Specify worktree_path and repo_path.");
+    }
+    if (body.force !== undefined && typeof body.force !== "boolean") {
+      throw new Refusal(400, "invalid", "force must be a boolean.");
+    }
+    const worktreePath = body.worktree_path;
+    const repoPath = body.repo_path;
+    const force = body.force === true;
+    const workspaceRootInput = body.workspace_root;
+    if (workspaceRootInput !== undefined && typeof workspaceRootInput !== "string") {
+      throw new Refusal(400, "invalid-workspace-root", "Workspace root must be a string.");
+    }
+    return withGitRefusal(async () => {
+      const result = await removeWorktreeSafely({
+        worktreePath,
+        repoPath,
+        ...(workspaceRootInput !== undefined ? { workspaceRoot: workspaceRootInput } : {}),
+        force,
+      });
+      return { ok: true, ...result };
+    });
   });
 }

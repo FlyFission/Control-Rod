@@ -640,6 +640,35 @@ class WorkflowTimeoutTests(unittest.TestCase):
         )
         self.assertEqual(timeout_findings(text), [])
 
+    def test_colon_prefixed_nested_keys_track_multiline_quotes(self):
+        cases = [
+            (
+                "env colon-prefixed key hiding timeout-minutes",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                '      :value: "first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "env colon-prefixed key hiding uses",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                '      :value: "first line\n    uses: org/repo/.github/workflows/ci.yml@main\n      last line"\n',
+            ),
+            (
+                "env double-colon key hiding timeout-minutes",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                '      :: "first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "sequence item colon-prefixed key hiding timeout-minutes",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    needs:\n"
+                '    - :value: "first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+        ]
+        for label, text in cases:
+            with self.subTest(label=label):
+                findings = timeout_findings(text)
+                self.assertEqual(len(findings), 1, findings)
+                self.assertIn("no timeout-minutes", findings[0])
+
 
 if __name__ == "__main__":
     unittest.main()

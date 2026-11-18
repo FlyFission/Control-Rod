@@ -30,7 +30,7 @@ TOP_LEVEL_KEY = re.compile(r"^[A-Za-z0-9_'\"-]+\s*:")
 JOB_HEADER = re.compile(r"^  ([A-Za-z0-9_-]+):\s*(#.*)?$")
 BLOCK_SCALAR = re.compile(r"^[|>][+-]?[0-9]*[+-]?(\s+#.*)?$")
 JOB_KV = re.compile(r"^( +)([A-Za-z0-9_-]+):(?:\s+(.*))?$")
-NESTED_KV = re.compile(r"^[^:#](?:[^:]|:(?!\s|$))*:(?:\s+(.*))?$")
+NESTED_KV = re.compile(r"^(?:[^:#]|:(?!\s|$))(?:[^:]|:(?!\s|$))*:(?:\s+(.*))?$")
 DOC_MARKER = re.compile(r"^(---|\.\.\.)(\s.*)?$")
 
 

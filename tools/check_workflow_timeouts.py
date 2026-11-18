@@ -104,7 +104,7 @@ def _parse_scalar_value(raw: str | None) -> tuple[str, str | None, str | None]:
     """Return (value, unclosed_quote, flow_error) from the text following `key:`."""
     if not raw:
         return "", None, None
-    text = raw.lstrip(" ")
+    text = raw.lstrip(" \t")
     if not text or text.startswith("#"):
         return "", None, None
     prefix_err = _unsupported_yaml_prefix(text)
@@ -129,9 +129,9 @@ def _parse_nested_line(line: str) -> tuple[str, str | None, str | None, int]:
     base_indent = len(line) - len(line.lstrip(" "))
     text = line.lstrip(" ")
     dash_indent = base_indent
-    while text == "-" or text.startswith("- "):
+    while text == "-" or text.startswith(("- ", "-\t")):
         dash_indent = len(line) - len(text)
-        text = text[1:].lstrip(" ")
+        text = text[1:].lstrip(" \t")
     key_indent = len(line) - len(text)
     if not text or text.startswith("#"):
         return "", None, None, key_indent
@@ -142,7 +142,7 @@ def _parse_nested_line(line: str) -> tuple[str, str | None, str | None, int]:
         end = _find_closing_quote(text, text[0], start=1)
         if end is None:
             return text, text[0], None, key_indent
-        after = text[end + 1 :].lstrip(" ")
+        after = text[end + 1 :].lstrip(" \t")
         if after.startswith(":") and (len(after) == 1 or after[1] in (" ", "\t")):
             val, unclosed, flow_err = _parse_scalar_value(after[1:])
             return val, unclosed, flow_err, key_indent
@@ -301,7 +301,7 @@ def _scan_job_lines(lines: list[str], findings: list[str]) -> dict[str, dict[str
 
         # indent == job_indent
         stripped = line.lstrip(" ")
-        if allow_job_seq and (stripped == "-" or stripped.startswith("- ")):
+        if allow_job_seq and (stripped == "-" or stripped.startswith(("- ", "-\t"))):
             track_nested(line)
             continue
         allow_job_seq = False

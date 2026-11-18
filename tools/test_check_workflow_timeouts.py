@@ -669,6 +669,55 @@ class WorkflowTimeoutTests(unittest.TestCase):
                 self.assertEqual(len(findings), 1, findings)
                 self.assertIn("no timeout-minutes", findings[0])
 
+    def test_tab_separators_in_nested_keys_and_sequences_track_multiline_quotes(self):
+        cases = [
+            (
+                "quoted env key with tab after colon",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                '      "MSG":\t"first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "quoted env key with tabs around colon",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                '      "MSG"\t:\t"first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "steps sequence dash-tab quoted scalar",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n"
+                '      -\t"first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "steps sequence dash-space-tab quoted scalar",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n"
+                '      - \t"first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "steps sequence dash-tab mapping with tab after colon",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n"
+                '      -\trun:\t"first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "steps sequence dash-space-tab quoted key with tab after colon",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n"
+                '      - \t"MSG":\t"first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "needs sequence dash-tab quoted scalar",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    needs:\n"
+                '    -\t"first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "needs sequence dash-space-tab quoted scalar",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    needs:\n"
+                '    - \t"first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+        ]
+        for label, text in cases:
+            with self.subTest(label=label):
+                findings = timeout_findings(text)
+                self.assertEqual(len(findings), 1, findings)
+                self.assertIn("no timeout-minutes", findings[0])
+
 
 if __name__ == "__main__":
     unittest.main()

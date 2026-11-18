@@ -493,6 +493,47 @@ describe("repos Wave 1 hardening", () => {
     }
   });
 
+  it("createCheckpoint captures the checked-out commit of tracked submodules without staging inner files", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    const subSource = join(workspaceRoot, "sub-source");
+    mkdirSync(subSource, { recursive: true });
+    execFileSync("git", ["init", "-b", "main"], { cwd: subSource });
+    execFileSync("git", ["config", "user.email", "t@t.local"], { cwd: subSource });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: subSource });
+    writeFileSync(join(subSource, "lib.txt"), "v1\n");
+    execFileSync("git", ["add", "lib.txt"], { cwd: subSource });
+    execFileSync("git", ["commit", "-m", "sub v1"], { cwd: subSource });
+    const subV1 = execFileSync("git", ["rev-parse", "HEAD"], { cwd: subSource, encoding: "utf8" }).trim();
+
+    execFileSync("git", ["-c", "protocol.file.allow=always", "submodule", "add", subSource, "sub"], { cwd: repoDir });
+    execFileSync("git", ["commit", "-m", "add submodule"], { cwd: repoDir });
+
+    const subWork = join(repoDir, "sub");
+    execFileSync("git", ["config", "user.email", "t@t.local"], { cwd: subWork });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: subWork });
+    writeFileSync(join(subWork, "lib.txt"), "v2\n");
+    execFileSync("git", ["add", "lib.txt"], { cwd: subWork });
+    execFileSync("git", ["commit", "-m", "sub v2"], { cwd: subWork });
+    const subV2 = execFileSync("git", ["rev-parse", "HEAD"], { cwd: subWork, encoding: "utf8" }).trim();
+    // Unstaged inner file inside submodule must not be staged into the superproject tree.
+    writeFileSync(join(subWork, "untracked-inner.txt"), "ignore-me\n");
+
+    expect(subV2).not.toBe(subV1);
+
+    const cp = await createCheckpoint({ repoDir, label: "submodule-head", workspaceRoot });
+    const lsTree = execFileSync("git", ["ls-tree", cp.commit_sha, "sub"], { cwd: repoDir, encoding: "utf8" }).trim();
+    expect(lsTree).toBe(`160000 commit ${subV2}\tsub`);
+    const allPaths = execFileSync("git", ["ls-tree", "-r", "--name-only", cp.commit_sha], {
+      cwd: repoDir,
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n");
+    expect(allPaths).toContain("sub");
+    expect(allPaths).not.toContain("sub/lib.txt");
+    expect(allPaths).not.toContain("sub/untracked-inner.txt");
+  });
+
   it("preserves clean-status semantics for hydrated LFS files while flagging actual LFS modifications", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     const payload = Buffer.from("hydrated-lfs-binary-payload-bytes");

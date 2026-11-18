@@ -1144,20 +1144,40 @@ async function stageRawWorkingTreeBlobs(
 
   const ancestorCache = new Map<string, boolean>();
   const deletedPaths: Buffer[] = [];
+  const cacheInfoArgs: string[] = [];
   const regularCandidates: Array<{ mode: string; prevOid: string | null; prevStage: string | null; relPath: string }> =
     [];
   const symlinkCandidates: Array<{ prevOid: string | null; prevStage: string | null; relPath: string; target: string }> =
     [];
 
+  const subBoundary = isWithinOrEqual(workspaceRoot, repoDir) !== null ? workspaceRoot : repoDir;
+
   for (const [relPath, entry] of tracked) {
     if (entry.tag === "S" || entry.tag === "s") continue;
-    if (entry.mode === "160000") continue;
     const fullPath = join(repoDir, relPath);
     if (!hasCleanRealAncestors(repoDir, relPath, ancestorCache) || !pathExistsAny(fullPath)) {
       deletedPaths.push(Buffer.from(relPath, "utf8"));
       continue;
     }
     const st = lstatSync(fullPath);
+    if (entry.mode === "160000" && st.isDirectory()) {
+      const subGit = join(fullPath, ".git");
+      if (pathExistsAny(subGit)) {
+        resolveRepoGitDirs(fullPath, subBoundary, false);
+        let subHead = "";
+        try {
+          subHead = (
+            await git(["rev-parse", "--verify", "HEAD"], { cwd: fullPath, workspaceRoot: subBoundary })
+          ).trim();
+        } catch {
+          subHead = "";
+        }
+        if (subHead && (entry.stage !== "0" || subHead !== entry.oid)) {
+          cacheInfoArgs.push("--cacheinfo", `160000,${subHead},${relPath}`);
+        }
+      }
+      continue;
+    }
     if (st.isSymbolicLink()) {
       symlinkCandidates.push({
         prevOid: entry.oid,
@@ -1209,7 +1229,6 @@ async function stageRawWorkingTreeBlobs(
   }
 
   const CHUNK = 200;
-  const cacheInfoArgs: string[] = [];
   for (let i = 0; i < regularCandidates.length; i += CHUNK) {
     const batch = regularCandidates.slice(i, i + CHUNK);
     const out = await git(

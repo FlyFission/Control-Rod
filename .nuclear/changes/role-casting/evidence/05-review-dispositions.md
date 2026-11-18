@@ -75,3 +75,16 @@ Grok read the repository (see its evidence header), so its statements about code
 **New or changed owner decisions (spec section 15).** C-1 now asks whether to amend, with three options. C-5 is split: C-5b asks whether an owner-judgement cast is allowed for check and refute roles (proposal: no, after version zero). C-8 now needs a trial-specific terms finding. C-9 is new: where CAD and solver tools run.
 
 **Not done.** No second round: the revised spec has not been reviewed by any of the three. No person review. See `verification.md`.
+
+## GitHub Copilot review on pull request 89 (head `9fd0931`, 2026-11-18)
+
+An automated review of the revised spec, triggered when the pull request was marked ready. Raw comments are on the pull request (review 5959328948). Finding IDs `CP-n` in the order posted.
+
+| ID | Sev. | Finding (short) | Disposition | Evidence checked | Where fixed |
+|---|---|---|---|---|---|
+| CP-1 | high | Version zero uses `model: default`, but the registry refuses `default`, so version-zero checks cannot both keep today's launch and count after C3. | **Accepted.** Version zero now states that its checks count only as far as they do today, and C3 replaces `default` with explicit registered ids in checker entries and the author entries they judge before counted checks rely on a sheet. | `daemon/internal/runner/attest.go` `ModelRegistry.Admit` refuses an empty, `default` or `any` model | Spec 8 (Version zero), 13 (C3); ADR conditions |
+| CP-2 | high | Production signals list sticky fails and say the report can motivate a new sheet, so a strict checker could be recast on outcomes section 2 excludes. | **Accepted.** First-pass acceptance, sticky-fail counts and dispositions are now diagnostic only for check and refute roles; the proposal script never uses them to move a checker or refuter. | Spec 2 (Permitted uses), 9 (Production signals) | Spec 9; ADR decision 4 |
+| CP-3 | high | C5 lets a version-one pre-check count before C6 enforces lineage, duty and flow separation. | **Accepted.** Until C6, a sheet other than version zero counts a check only where the deliverable's attested lineage is one author run; anything a consult, extractor, planner or test-author run fed cannot count. | Spec 10, 11, 13 (C5, C6) | Spec 13 (C5); ADR conditions |
+| CP-4 | medium | Row selection for two-dimensional matches is undefined, and duplicate rows are not rejected. | **Accepted.** Precedence is now exact grade and lane, exact grade with `any` lane, `any` grade with exact lane, then `any` and `any`; duplicate rows are refused at signing; no match holds the run. | Spec 8 field table | Spec 8 (Which row applies) |
+
+All four were checked against the repository by the authoring side; no reviewer has confirmed the fixes.

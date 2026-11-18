@@ -544,6 +544,102 @@ class WorkflowTimeoutTests(unittest.TestCase):
         )
         self.assertEqual(timeout_findings(text), [])
 
+    def test_rejects_yaml_explicit_mapping_syntax(self):
+        # Reproducer from Codex finding: explicit mapping under `env:` hides an unclosed quote.
+        explicit_env = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    env:\n"
+            "      ? MSG\n"
+            '      : "first line\n'
+            "    timeout-minutes: 10\n"
+            '      last line"\n'
+        )
+        findings = timeout_findings(explicit_env)
+        self.assertTrue(findings)
+        self.assertTrue(
+            any("unsupported YAML explicit mapping syntax" in f for f in findings),
+            findings,
+        )
+
+        bad_cases = [
+            (
+                "nested key indicator",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                "      ? k\n    timeout-minutes: 10\n",
+            ),
+            (
+                "nested value indicator",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                "      : v\n    timeout-minutes: 10\n",
+            ),
+            (
+                "nested bare key indicator",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                "      ?\n    timeout-minutes: 10\n",
+            ),
+            (
+                "nested bare value indicator",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                "      :\n    timeout-minutes: 10\n",
+            ),
+            (
+                "nested tab key indicator",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                "      ?\tk\n    timeout-minutes: 10\n",
+            ),
+            (
+                "nested tab value indicator",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                "      :\tv\n    timeout-minutes: 10\n",
+            ),
+            (
+                "nested sequence key indicator",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n"
+                "      - ? k\n    timeout-minutes: 10\n",
+            ),
+            (
+                "nested sequence value indicator",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n"
+                "      - : v\n    timeout-minutes: 10\n",
+            ),
+            (
+                "job sequence key indicator",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    needs:\n"
+                "    - ? k\n    timeout-minutes: 10\n",
+            ),
+        ]
+        for label, text in bad_cases:
+            with self.subTest(label=label):
+                findings = timeout_findings(text)
+                self.assertTrue(
+                    any("unsupported YAML explicit mapping syntax" in f for f in findings),
+                    findings,
+                )
+
+    def test_allows_question_and_colon_in_normal_values_and_scripts(self):
+        text = (
+            "jobs:\n"
+            "  build:\n"
+            '    name: "? : ok"\n'
+            "    runs-on: ubuntu-latest\n"
+            "    timeout-minutes: 10\n"
+            "    env:\n"
+            "      LITERAL_Q: ?prefixed\n"
+            "      LITERAL_C: :prefixed\n"
+            "      SCRIPT: |\n"
+            "        ? not-a-mapping\n"
+            "        : not-a-mapping\n"
+            "    steps:\n"
+            '      - run: "echo ? : ok"\n'
+            "      - run: echo ? : ok\n"
+            "      - run: |\n"
+            "          ? shell-check\n"
+            "          : shell-noop\n"
+        )
+        self.assertEqual(timeout_findings(text), [])
+
 
 if __name__ == "__main__":
     unittest.main()

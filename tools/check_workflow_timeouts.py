@@ -92,9 +92,11 @@ def _parse_flow_collection(text: str) -> tuple[str, str | None]:
 
 
 def _unsupported_yaml_prefix(text: str) -> str | None:
-    """Return an error if `text` starts with a YAML anchor, alias, or tag prefix."""
+    """Return an error if `text` starts with an unsupported YAML prefix."""
     if text[0] in ("&", "*", "!"):
         return f"unsupported YAML anchor, alias, or tag: {text!r}"
+    if text in ("?", ":") or text.startswith(("? ", "?\t", ": ", ":\t")):
+        return f"unsupported YAML explicit mapping syntax: {text!r}"
     return None
 
 

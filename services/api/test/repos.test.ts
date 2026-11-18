@@ -534,6 +534,34 @@ describe("repos Wave 1 hardening", () => {
     expect(allPaths).not.toContain("sub/untracked-inner.txt");
   });
 
+  it("createCheckpoint captures committed unstaged embedded repositories as gitlinks and refuses unborn embedded repos", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    const depDir = join(repoDir, "dependency");
+    mkdirSync(depDir, { recursive: true });
+    execFileSync("git", ["init", "-b", "main"], { cwd: depDir });
+    execFileSync("git", ["config", "user.email", "t@t.local"], { cwd: depDir });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: depDir });
+    writeFileSync(join(depDir, "mod.txt"), "embedded-v1\n");
+    execFileSync("git", ["add", "mod.txt"], { cwd: depDir });
+    execFileSync("git", ["commit", "-m", "embedded v1"], { cwd: depDir });
+    const depSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: depDir, encoding: "utf8" }).trim();
+
+    const cp = await createCheckpoint({ repoDir, label: "unstaged-embedded", workspaceRoot });
+    const lsTree = execFileSync("git", ["ls-tree", cp.commit_sha, "dependency"], {
+      cwd: repoDir,
+      encoding: "utf8",
+    }).trim();
+    expect(lsTree).toBe(`160000 commit ${depSha}\tdependency`);
+
+    const unbornDir = join(repoDir, "unborn-dep");
+    mkdirSync(unbornDir, { recursive: true });
+    execFileSync("git", ["init", "-b", "main"], { cwd: unbornDir });
+    await expect(createCheckpoint({ repoDir, label: "unborn-embedded", workspaceRoot })).rejects.toMatchObject({
+      status: 400,
+      code: "git-failed",
+    });
+  });
+
   it("preserves clean-status semantics for hydrated LFS files while flagging actual LFS modifications", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     const payload = Buffer.from("hydrated-lfs-binary-payload-bytes");

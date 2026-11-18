@@ -1144,6 +1144,18 @@ async function prepareTempIndexFlags(
   }
 }
 
+async function readSubmoduleHead(subDir: string, subBoundary: string): Promise<string | null> {
+  const subGit = join(subDir, ".git");
+  if (!pathExistsAny(subGit)) return null;
+  resolveRepoGitDirs(subDir, subBoundary, false);
+  try {
+    const sha = (await git(["rev-parse", "--verify", "HEAD"], { cwd: subDir, workspaceRoot: subBoundary })).trim();
+    return sha || null;
+  } catch {
+    return null;
+  }
+}
+
 async function stageRawWorkingTreeBlobs(
   repoDir: string,
   workspaceRoot: string,
@@ -1188,20 +1200,9 @@ async function stageRawWorkingTreeBlobs(
     }
     const st = lstatSync(fullPath);
     if (entry.mode === "160000" && st.isDirectory()) {
-      const subGit = join(fullPath, ".git");
-      if (pathExistsAny(subGit)) {
-        resolveRepoGitDirs(fullPath, subBoundary, false);
-        let subHead = "";
-        try {
-          subHead = (
-            await git(["rev-parse", "--verify", "HEAD"], { cwd: fullPath, workspaceRoot: subBoundary })
-          ).trim();
-        } catch {
-          subHead = "";
-        }
-        if (subHead && (entry.stage !== "0" || subHead !== entry.oid)) {
-          cacheInfoArgs.push("--cacheinfo", `160000,${subHead},${relPath}`);
-        }
+      const subHead = await readSubmoduleHead(fullPath, subBoundary);
+      if (subHead && (entry.stage !== "0" || subHead !== entry.oid)) {
+        cacheInfoArgs.push("--cacheinfo", `160000,${subHead},${relPath}`);
       }
       continue;
     }
@@ -1227,12 +1228,28 @@ async function stageRawWorkingTreeBlobs(
     extraEnv: indexEnv,
   });
   for (const rec of splitNullRecords(untrackedRaw)) {
-    const relPath = rec.toString("utf8");
-    if (!relPath || relPath.endsWith("/") || tracked.has(relPath)) continue;
+    const rawRelPath = rec.toString("utf8");
+    const isDirEntry = rawRelPath.endsWith("/");
+    const relPath = isDirEntry ? rawRelPath.slice(0, -1) : rawRelPath;
+    if (!relPath || tracked.has(relPath)) continue;
     if (!hasCleanRealAncestors(repoDir, relPath, ancestorCache)) continue;
     const fullPath = join(repoDir, relPath);
     if (!pathExistsAny(fullPath)) continue;
     const st = lstatSync(fullPath);
+    if (isDirEntry) {
+      if (st.isDirectory() && pathExistsAny(join(fullPath, ".git"))) {
+        const subHead = await readSubmoduleHead(fullPath, subBoundary);
+        if (!subHead) {
+          throw new Refusal(
+            400,
+            "git-failed",
+            `Embedded repository has no HEAD commit to checkpoint: ${relPath}`,
+          );
+        }
+        cacheInfoArgs.push("--cacheinfo", `160000,${subHead},${relPath}`);
+      }
+      continue;
+    }
     if (st.isSymbolicLink()) {
       symlinkCandidates.push({
         prevOid: null,

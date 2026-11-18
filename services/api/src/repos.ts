@@ -1664,11 +1664,12 @@ export function repoRoutes(
     });
   });
 
-  app.post<{
-    Body: { repo_path?: string; label?: string; workspace_root?: string };
-  }>("/repos/checkpoint", async (req) => {
-    await person(req);
-    const body = asBodyRecord(req.body);
+  function parseRepoTargetRequest(rawBody: unknown): {
+    workspaceRoot: string;
+    repoPathInput: string;
+    labelInput?: string;
+  } {
+    const body = asBodyRecord(rawBody);
     const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
     if (typeof body.repo_path !== "string" || !body.repo_path.trim()) {
       throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
@@ -1676,8 +1677,18 @@ export function repoRoutes(
     if (body.label !== undefined && typeof body.label !== "string") {
       throw new Refusal(400, "invalid", "label must be a string.");
     }
-    const repoPathInput = body.repo_path;
-    const labelInput = body.label;
+    return {
+      workspaceRoot,
+      repoPathInput: body.repo_path,
+      ...(body.label !== undefined ? { labelInput: body.label } : {}),
+    };
+  }
+
+  app.post<{
+    Body: { repo_path?: string; label?: string; workspace_root?: string };
+  }>("/repos/checkpoint", async (req) => {
+    await person(req);
+    const { workspaceRoot, repoPathInput, labelInput } = parseRepoTargetRequest(req.body);
     return withGitRefusal(async () => {
       const result = await createCheckpoint({
         repoDir: repoPathInput,
@@ -1692,17 +1703,15 @@ export function repoRoutes(
     Body: { repo_path?: string; label?: string; workspace_root?: string };
   }>("/repos/freeze", async (req) => {
     await person(req);
-    const body = req.body ?? {};
-    const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
-    const repoPath = resolve(body.repo_path ?? "");
-    if (!body.repo_path?.trim() || !isContainedIn(workspaceRoot, repoPath)) {
-      throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
-    }
-    const result = await freezeWorkspace({
-      repoDir: repoPath,
-      ...(body.label !== undefined ? { label: body.label } : {}),
+    const { workspaceRoot, repoPathInput, labelInput } = parseRepoTargetRequest(req.body);
+    return withGitRefusal(async () => {
+      const result = await freezeWorkspace({
+        repoDir: repoPathInput,
+        workspaceRoot,
+        ...(labelInput !== undefined ? { label: labelInput } : {}),
+      });
+      return { ok: true, ...result };
     });
-    return { ok: true, ...result };
   });
 
   app.post<{

@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
+import { homedir } from "node:os";
 import { promisify } from "node:util";
 import { Refusal } from "./refusal.js";
 import { HOST_GIT_ARGS, type WorkspaceMode, createCheckpoint, hostGitEnv } from "./repos.js";
@@ -55,15 +56,19 @@ export interface ControlledRecord {
 export async function freezeWorkspace(opts: {
   repoDir: string;
   label?: string;
+  workspaceRoot?: string;
 }): Promise<FreezeResult> {
   const cp = await createCheckpoint({
     repoDir: opts.repoDir,
+    ...(opts.workspaceRoot !== undefined ? { workspaceRoot: opts.workspaceRoot } : {}),
     label: opts.label ?? "freeze",
   });
+  const trimmed = opts.repoDir.trim();
+  const safeCwd = trimmed.startsWith("~") ? trimmed.replace(/^~(?=\/|$)/, homedir()) : trimmed;
   const { stdout } = await execFileAsync(
     "git",
     [...HOST_GIT_ARGS, "ls-tree", "-r", "--full-tree", cp.tree_sha],
-    { cwd: opts.repoDir, env: hostGitEnv(), timeout: 25_000 },
+    { cwd: safeCwd, env: hostGitEnv(opts.workspaceRoot), timeout: 25_000, maxBuffer: 32 * 1024 * 1024 },
   );
   const entries = stdout
     .split("\n")

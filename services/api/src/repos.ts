@@ -797,6 +797,25 @@ export function isDangerousWorktreeRemovalPath(
   }
 }
 
+async function findRegisteredWorktree(
+  resolvedRepo: string,
+  resolvedWt: string,
+  workspaceRoot: string,
+): Promise<string | null> {
+  const listOut = await git(["worktree", "list", "--porcelain"], {
+    cwd: resolvedRepo,
+    workspaceRoot,
+  });
+  for (const line of listOut.split(/\r?\n/)) {
+    if (!line.startsWith("worktree ")) continue;
+    const raw = line.slice("worktree ".length).trim();
+    if (canonicalPathOrResolve(raw) === resolvedWt) {
+      return raw;
+    }
+  }
+  return null;
+}
+
 export async function removeWorktreeSafely(opts: {
   worktreePath: string;
   repoPath: string;
@@ -822,50 +841,44 @@ export async function removeWorktreeSafely(opts: {
   resolveRepoGitDirs(resolvedRepo, workspaceRoot, false);
   await assertSafeWorkingTree(resolvedRepo, workspaceRoot);
 
+  let targetArg = resolvedWt;
+  let filterEnv: Record<string, string> | undefined;
+
   if (!pathExistsAny(resolvedWt)) {
-    const listOut = await git(["worktree", "list", "--porcelain"], {
-      cwd: resolvedRepo,
-      workspaceRoot,
-    });
-    const isRegistered = listOut
-      .split(/\r?\n/)
-      .some(
-        (line) =>
-          line.startsWith("worktree ") &&
-          canonicalPathOrResolve(line.slice("worktree ".length).trim()) === resolvedWt,
-      );
-    if (!isRegistered) {
+    const registeredPath = await findRegisteredWorktree(resolvedRepo, resolvedWt, workspaceRoot);
+    if (registeredPath === null) {
       throw new Refusal(404, "worktree-not-found", `Worktree not found: ${resolvedWt}`);
     }
-    const pruneArgs = force ? ["worktree", "remove", "--force", resolvedWt] : ["worktree", "prune"];
-    await git(pruneArgs, { cwd: resolvedRepo, workspaceRoot });
-    return { removed: resolvedWt };
-  }
-
-  if (!lstatSync(resolvedWt).isDirectory()) {
-    throw new Refusal(400, "unsafe-worktree-path", `Worktree path is not a directory: ${resolvedWt}`);
-  }
-
-  const filterEnv = await filterDisableEnv(resolvedWt, workspaceRoot);
-  if (!force) {
-    const status = await git(["status", "--porcelain"], {
-      cwd: resolvedWt,
-      workspaceRoot,
-      extraEnv: filterEnv,
-    });
-    if (status.length > 0) {
-      throw new Refusal(
-        409,
-        "worktree-dirty",
-        "Worktree has uncommitted changes. Commit, checkpoint, or pass force=true.",
-      );
+    targetArg = registeredPath;
+  } else {
+    if (!lstatSync(resolvedWt).isDirectory()) {
+      throw new Refusal(400, "unsafe-worktree-path", `Worktree path is not a directory: ${resolvedWt}`);
+    }
+    filterEnv = await filterDisableEnv(resolvedWt, workspaceRoot);
+    if (!force) {
+      const status = await git(["status", "--porcelain"], {
+        cwd: resolvedWt,
+        workspaceRoot,
+        extraEnv: filterEnv,
+      });
+      if (status.length > 0) {
+        throw new Refusal(
+          409,
+          "worktree-dirty",
+          "Worktree has uncommitted changes. Commit, checkpoint, or pass force=true.",
+        );
+      }
     }
   }
-  await git(["worktree", "remove", ...(force ? ["--force"] : []), resolvedWt], {
+
+  await git(["worktree", "remove", ...(force ? ["--force"] : []), targetArg], {
     cwd: resolvedRepo,
     workspaceRoot,
-    extraEnv: filterEnv,
+    ...(filterEnv !== undefined ? { extraEnv: filterEnv } : {}),
   });
+  if ((await findRegisteredWorktree(resolvedRepo, resolvedWt, workspaceRoot)) !== null) {
+    throw new Refusal(400, "git-failed", `Worktree registration still exists after removal: ${resolvedWt}`);
+  }
   return { removed: resolvedWt };
 }
 

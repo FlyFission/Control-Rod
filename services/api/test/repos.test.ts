@@ -430,10 +430,17 @@ describe("repos Wave 1 hardening", () => {
       }),
     ).rejects.toMatchObject({ status: 404, code: "worktree-not-found" });
 
-    // Missing-on-disk but still registered worktree is pruned cleanly
+    // Missing-on-disk target worktree removes only itself without pruning unrelated missing worktrees or bypassing locks
     const staleWt = join(workspaceRoot, ".worktrees", "sample-repo", "wt-stale");
+    const otherMissingWt = join(workspaceRoot, ".worktrees", "sample-repo", "wt-other-missing");
+    const lockedMissingWt = join(workspaceRoot, ".worktrees", "sample-repo", "wt-locked-missing");
     execFileSync("git", ["worktree", "add", "-b", "feat/wt-stale", staleWt], { cwd: repoDir });
+    execFileSync("git", ["worktree", "add", "-b", "feat/wt-other-missing", otherMissingWt], { cwd: repoDir });
+    execFileSync("git", ["worktree", "add", "-b", "feat/wt-locked-missing", lockedMissingWt], { cwd: repoDir });
+    execFileSync("git", ["worktree", "lock", lockedMissingWt], { cwd: repoDir });
     rmSync(staleWt, { recursive: true, force: true });
+    rmSync(otherMissingWt, { recursive: true, force: true });
+    rmSync(lockedMissingWt, { recursive: true, force: true });
     expect(existsSync(staleWt)).toBe(false);
 
     const pruned = await removeWorktreeSafely({
@@ -447,6 +454,34 @@ describe("repos Wave 1 hardening", () => {
       encoding: "utf8",
     });
     expect(listAfter).not.toContain(staleWt);
+    expect(listAfter).toContain(otherMissingWt);
+    expect(listAfter).toContain(lockedMissingWt);
+
+    await expect(
+      removeWorktreeSafely({
+        worktreePath: lockedMissingWt,
+        repoPath: repoDir,
+        workspaceRoot,
+        force: true,
+      }),
+    ).rejects.toThrow(/locked/i);
+
+    await withTestApp(async (app) => {
+      const lockedResp = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { repo_path: repoDir, worktree_path: lockedMissingWt, workspace_root: workspaceRoot, force: false },
+      });
+      expect(lockedResp.statusCode).toBe(400);
+      expect(lockedResp.json().code).toBe("git-failed");
+    });
+
+    const listFinal = execFileSync("git", ["worktree", "list", "--porcelain"], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(listFinal).toContain(otherMissingWt);
+    expect(listFinal).toContain(lockedMissingWt);
   });
 
   it("POST /repos/checkpoint and POST /repos/remove validate runtime types and map git failures to 400 git-failed", async () => {

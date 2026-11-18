@@ -35,6 +35,8 @@ export function QuickAdd() {
   const opener = useRef<HTMLButtonElement>(null);
   // Set by close(): the opener is not in the tree while the field is open, so it is focused after the swap.
   const returnFocus = useRef(false);
+  // Set by onSuccess/onError: the input is disabled while pending, so focus runs once React clears disabled.
+  const refocusInput = useRef(false);
   const batchProgress = useRef<{ titles: string[]; sent: number }>({ titles: [], sent: 0 });
 
   useEffect(() => {
@@ -72,8 +74,8 @@ export function QuickAdd() {
       setText("");
       setMany(null);
       setError(null);
+      refocusInput.current = true;
       void qc.invalidateQueries({ queryKey: ["captures"] });
-      input.current?.focus();
     },
     onError: (e) => {
       const { titles, sent } = batchProgress.current;
@@ -90,11 +92,20 @@ export function QuickAdd() {
         }
       }
       setError(explain(e, "Could not add the card."));
+      refocusInput.current = true;
     },
   });
 
+  useEffect(() => {
+    if (open && !send.isPending && refocusInput.current) {
+      refocusInput.current = false;
+      input.current?.focus();
+    }
+  }, [open, send.isPending]);
+
   function close() {
     returnFocus.current = true;
+    refocusInput.current = false;
     batchProgress.current = { titles: [], sent: 0 };
     setOpen(false);
     setMany(null);

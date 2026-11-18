@@ -8,8 +8,8 @@
 |---|---|---|---|
 | S1 | Many narrow agents beat one general agent carrying many skills: a mail agent beats a mail skill. | A **domain agent** per role, each with its own instructions, tools, rules, inputs, outputs and sandbox ([role casting spec](../superpowers/specs/2026-11-16-role-casting-design.md), section 4). | Adapt |
 | S2 | The harness is the unit to specify: model, system prompt, tools, sub agents, rules, hooks, effects, thread. | Our `AgentRole` and `AgentBaseline` already hold most of this. We add `duty` and a trial set, keep hooks to Control Rod-owned ones, and leave "thread" out: our runs are one-shot against a frozen revision (ADR 0020). | Adapt |
-| S3 | Agents compose recursively: a specialist consults another specialist. | Composition between runs, in the control plane (flows and consult nodes), never as a subagent inside a counted run (spec section 10). | Adapt |
-| S4 | Defining the task tightly ahead of time saves tokens. The talk reports a large saving; coverage gives no baseline, so we do not repeat the figure. | Our packages, criteria and role briefs already define the task ahead of the run; role trials (spec section 9) will measure our own usage per cast. | Already have, measure it |
+| S3 | Agents compose recursively: a specialist consults another specialist. | Composition between runs, in the control plane: flows, and consult nodes that are separate print-mode runs queued from a signed flow, never a subagent inside a counted run. A checker is separate from every node whose output reached what it checks (spec section 10). | Adapt |
+| S4 | Defining the task tightly ahead of time saves tokens. The talk reports a large saving; coverage gives no baseline, so we do not repeat the figure. | Our packages, criteria and role briefs already define the task ahead of the run; role trials (spec section 9) will show our own usage per cast where the CLI reports it, as usage, not as a score. | Already have, measure it |
 | S5 | A shared runtime and specification across vendors. | Our adapter seam is the shared runtime for CLIs we qualify. We do not adopt an outside specification. | Skip for now |
 
 ## What we leave

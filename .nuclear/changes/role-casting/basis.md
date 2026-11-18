@@ -8,7 +8,7 @@
 
 ## Mission / need
 
-The owner asked (2026-11-16) to pick the best available model for each job in Control Rod, within the agent CLIs it runs and the models they can reach, with separate job sets for software engineering and capital project engineering, prompted by a public talk on domain-specific agents. Today the author runtime is chosen by a fixed order with per-role pins (`pickRuntime`) and the checker by another fixed order (`pickChecker`), both in `services/api/src/work.ts`. There is no record of why a model holds a role and no way to compare candidates.
+The owner asked (2026-11-16) to pick the best available model for each job in Control Rod, within the agent CLIs it runs and the models they can reach, with separate job sets for software engineering and capital project engineering, prompted by a public talk on domain-specific agents. Today the author runtime is chosen by a fixed order (`pickRuntime`), with the CLI build pinned per runtime and role, and the checker by another fixed order (`pickChecker`), both in `services/api/src/work.ts`. There is no record of why a model holds a role and no way to compare candidates.
 
 ## Scope
 
@@ -22,17 +22,18 @@ In scope: the design spec, ADR 0023 as Proposed, `docs/patterns/standard-agents.
 | ADR 0015 (modes), ADR 0020 (print-mode runs), ADR 0021 (CLI login and native sandboxes) | `docs/adr/` |
 | Review panel design (seats, Stage 1 anchoring, Stage 2 refutation) | `docs/superpowers/specs/2026-11-06-review-panel-design.md` |
 | Domain deliverables (DN-01 to DN-06) | `docs/superpowers/specs/2026-10-23-domain-deliverables-design.md` |
-| Ontology roles, baselines and pins | `spec/records.tsp` (`AgentRole`, `AgentBaseline`), `spec/workbench.tsp` (`RuntimePin`), `spec/work.tsp` (`RunRole`) |
+| Ontology roles, baselines and pins | `spec/records.tsp` (`AgentBaseline`, `AgentAssignment`; `AgentRole` is named in the ontology design but is not yet a contract), `spec/workbench.tsp` (`RuntimePin`), `spec/work.tsp` (`RunRole`) |
+| Today's model flags and attestation | `daemon/internal/runner/runtime.go` (`ClaudeArgs`, `CodexArgs`), `daemon/internal/runner/attest.go` (`argvModel`) |
 | The talk that prompted the request | Public coverage only; see `docs/patterns/standard-agents.md` provenance |
 
 ## Assumptions and invalidation triggers
 
 | Assumption | Basis | Invalidation trigger |
 |---|---|---|
-| A static, signed casting sheet with reported (not applied) trial results is within the spirit of the plan's cut of a strengths matrix and learning loop. | Spec section 2. | The owner answers C-1 no; the spec then narrows to checkers only, as the plan has it. |
-| Version zero of the sheet can reproduce today's author and checker choices exactly. | `pickRuntime` and `pickChecker` in `services/api/src/work.ts` are pure orders plus the override rule. | A choice today depends on state the sheet cannot express. |
-| Model and effort can be passed per run through the existing adapters. | The adapter seam (M1) and today's model argument (ADR 0020 trace). | A qualified CLI cannot be launched with a chosen model headless. |
-| Trial scores can be produced by scripts alone for every duty except plan quality, where an owner edit distance is recorded by the owner. | Spec section 9. | A duty whose score needs a model judge. |
+| The plan's cut of a strengths matrix and learning loop can be amended to allow a static, signed casting sheet informed by trials, under the permitted uses in spec section 2. This is an amendment, not a reading inside the cut (all three reviews, 2026-11-18). | Spec section 2. | The owner answers C-1 (b) or (c); the spec then narrows as that option says. |
+| Version zero of the sheet can reproduce today's author, intake and checker choices exactly. | `pickRuntime` and `pickChecker` in `services/api/src/work.ts` are pure orders plus the override rule, applied after lane admission, runtime pins, the sandbox network filter, package status and the sticky pre-check gate, with budget holding the run afterwards. Version zero keeps all of those as they are and moves only the two orders into the sheet. | A choice today depends on state the sheet cannot express. |
+| A model can be passed per run through the existing adapters; effort cannot yet. | `ClaudeArgs` passes `--model` and `CodexArgs` passes `-m`, and `argvModel` reads only those; no adapter passes an effort setting (Grok review GK-9, verified). Effort is added per CLI only after a flag is shown to work as a counted argument. | A qualified CLI cannot be launched with a chosen model headless, or effort cannot be passed in a way attestation reads. |
+| Most trial measures can be scored by scripts over structured outputs and answer keys; the rest are labelled human-graded, graded blind and attributed, and never scored by a model. | Spec section 9 (revised after CX-9, AG-6, GK-6). | A measure that can be scored neither by a script nor by a person without a model judge. |
 | The talk's ideas are described accurately enough to borrow from. | Public listing and press coverage; the video could not be retrieved here. | A reading of the talk contradicts the pattern note. |
 
 ## Required links

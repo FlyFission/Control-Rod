@@ -3,11 +3,13 @@
 Release decision: **design spec and proposed ADR for owner review; no implementation authorized by this record.**
 
 - **Proposed:** merge the spec, ADR 0023 as Proposed, the pattern note and this packet as documentation only.
-- **Not claimed:** any implemented behavior; that any model is better than another at any duty (the spec's model suggestions are hypotheses for trials); that casting makes checks independent; that any Capital Projects role is ready; that the spec has had an independent review.
+- **Not claimed:** any implemented behavior; that any model is better than another at any duty (the spec's model suggestions are hypotheses for trials); that casting makes checks independent; that any Capital Projects role is ready; that the spec has had an independent review; that the revised spec has been reviewed by anyone.
+- **Reviewed:** the spec commit `2a9c46bd`, once, by Codex (gpt-6.2-sol), agy (Gemini 4 Hydrogen (High), from the CLI log) and Grok Build (grok-4.7-build), from one brief the authoring side wrote. All three returned FLAWED AS WRITTEN: 15, 9 and 9 findings. None was rejected in full; four were partly accepted (three with a part rejected on repository evidence, one with a part deferred to C-1); everything accepted was fixed (`evidence/05-review-dispositions.md`). Grok read the repository; Codex and agy saw only the prompt.
+- **Still open:** a second review round on the revised spec (proposal: the same three CLIs on the fix commit's diff, with a brief that asks whether each disposition holds); a person review; owner decisions C-1 to C-9, of which C-1 now has three options, C-5 is split, and C-9 is new.
 - **Owner decisions requested:**
   1. Approve the spec and ADR 0023, or return them with changes.
-  2. Answer C-1 to C-8 in spec section 15, starting with C-1 (does a signed casting sheet with reported trials fit the plan's cut of a strengths matrix and learning loop).
-  3. Say whether to run a cross-vendor review of the spec (Codex, agy, local Qwen, as for the multi-provider plan) before approval.
+  2. Answer C-1 to C-9 in spec section 15, starting with C-1 (amend the plan's cut of a strengths matrix and learning loop for every role, for non-checking roles only, or not at all).
+  3. Say whether to run a second cross-vendor round on the revised spec before approval, and whether to add a person review.
 
 Rollback: revert the commit. Documentation only; no code, schema or wire change.
 

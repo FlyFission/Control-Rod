@@ -283,7 +283,7 @@ One pull request each, after or alongside the remaining multi-provider milestone
 | Vendor claims or trial results presented as product claims ("best at CAD"). | Copy says what was measured, on which items, at which version; the public-claims check gains phrases such as "best model" and "most accurate". |
 | CLI and model churn makes a sheet stale. | Recasting path in section 9; a cast whose harness version is no longer qualified is refused at claim time, which already happens for pins. |
 | Capital Projects roles drift into choosing methods, tolerances or numbers. | Section 7: methods, alternates, references, inputs and tolerances come from a qualified domain owner; scripts take parameters by reference; a literal check; the agent drives tools only. |
-| Terms of service for unattended trial runs on subscription plans. | A trial-specific per-vendor terms finding before C4 (C-8); trials run at a volume the owner sets. The multi-provider plan's M0 findings cover headless production use, not trials. |
+| Terms of service for unattended trial runs on subscription plans. | A trial-specific per-vendor terms finding before C4 (C-8); trials run at a volume the owner sets. No vendor's terms have been read yet (multi-provider plan, terms of service check: each needs a written finding in the M0 record before that adapter is enabled), so the production finding comes first. |
 | Scope: ten milestones on top of eleven. | C0 to C3 are small and mostly no-behavior-change; Capital Projects waits on its prerequisites, one role at a time. |
 
 ## 15. Open owner decisions

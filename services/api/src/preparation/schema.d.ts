@@ -869,6 +869,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/repos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Repos_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repos/materialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Repos_materialize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/roster": {
         parameters: {
             query?: never;
@@ -2892,6 +2924,42 @@ export interface components {
             grades: string[];
             disciplines: string[];
             revoked: boolean;
+        };
+        "Repos.GithubRepoInfo": {
+            name_with_owner: string;
+            default_branch: string;
+            is_private: boolean;
+            url: string;
+            updated_at: string;
+        };
+        "Repos.LocalRepoInfo": {
+            name: string;
+            path: string;
+            branch: string;
+            remote_url: string | null;
+            dirty: boolean;
+        };
+        "Repos.MaterializeRepoRequest": {
+            repo: string;
+            branch: string;
+            base_branch?: string;
+            strategy?: components["schemas"]["Repos.MaterializeStrategy"];
+            workspace_root?: string;
+        };
+        "Repos.MaterializeRepoResult": {
+            ok: boolean;
+            strategy: components["schemas"]["Repos.MaterializeStrategy"];
+            repo: string;
+            branch: string;
+            local_path: string;
+        };
+        /** @enum {string} */
+        "Repos.MaterializeStrategy": "worktree" | "fresh-clone" | "branch";
+        "Repos.ReposResponse": {
+            workspace_root: string;
+            local: components["schemas"]["Repos.LocalRepoInfo"][];
+            github: components["schemas"]["Repos.GithubRepoInfo"][];
+            github_error: string | null;
         };
         /** @description One run role on the Roster: what it does, who has run it, and its pins. */
         RosterRole: {
@@ -6789,6 +6857,160 @@ export interface operations {
                         /** @enum {string} */
                         statement: "Local chain, not witnessed";
                     } | components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Repos_list: {
+        parameters: {
+            query?: {
+                workspace_root?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repos.ReposResponse"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Repos_materialize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Repos.MaterializeRepoRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repos.MaterializeRepoResult"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
         };

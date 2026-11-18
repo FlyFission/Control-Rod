@@ -38,6 +38,8 @@
     "--disable",
     "daemon_auto_start",
     "--disable",
+    "deferred_tool_world_state",
+    "--disable",
     "goals",
     "--disable",
     "guardian_approval",

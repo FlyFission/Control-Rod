@@ -1,0 +1,9 @@
+
+Running 3 tests using 1 worker
+
+  ✓  1 [chromium] › e2e/board-looks.spec.ts:75:3 › the board has no axe violations in look a, live, with a blocked O6 card, and with the stream unknown (1.7s)
+  ✓  2 [chromium] › e2e/board-looks.spec.ts:75:3 › the board has no axe violations in look b, live, with a blocked O6 card, and with the stream unknown (1.4s)
+  ✓  3 [chromium] › e2e/board-looks.spec.ts:75:3 › the board has no axe violations in look c, live, with a blocked O6 card, and with the stream unknown (1.5s)
+
+  3 passed (18.9s)
+exit 0

@@ -1,0 +1,12 @@
+gofmt: 
+?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	0.954s
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.007s
+--- FAIL: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.24s)
+    sandbox_test.go:304: the installed Codex leaves unqualified features on: [code_mode_host_grpc code_mode_host_output_truncation guardian_include_additional_context incremental_tools_legacy_gcp retain_client_tool_outputs unified_image_budget untrusted_as_tool_output]
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	24.221s
+?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
+?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]
+FAIL
+EXIT:1

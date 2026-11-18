@@ -18,3 +18,4 @@ Each pattern file starts with a provenance header: the source, its license, the 
 - `kandev.md`: Kandev, an open workbench for coding agents (AGPL-3.0). Decision: ADR 0019.
 - `openharness.md`: openharness, a multi-agent harness (MIT, with some GPL and AGPL parts). Plan to port a few pinned pieces; see the build plan in the file.
 - `standard-agents.md`: the case for domain-specific agents, from public coverage of a Standard Agents talk (ideas only; license of its specification unchecked). Feeds the role casting spec and ADR 0023.
+- `xerj.md`: XERJ, a local search tool for coding agents that also runs as an MCP server (Apache-2.0). Ideas on CI timeouts, claim-to-run evidence, long-job loops and output sanitization; read only part of the repo. Change record: `xerj-patterns-and-timeout-guard`.

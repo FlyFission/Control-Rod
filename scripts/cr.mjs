@@ -72,7 +72,36 @@ function databaseOk() {
   return false;
 }
 
+/**
+ * Mirrors QualifiedPlatform in daemon/internal/runner/sandbox.go: agent runs are offered only where the
+ * native sandbox launch has been qualified, which so far is WSL2. Saying so here tells someone on macOS or
+ * native Linux before setup that the app will run and agent runs will be refused. Returns the platform
+ * name when runs are not offered, or null when they are.
+ */
+function agentRunsUnavailable() {
+  if (platform() === "linux") {
+    try {
+      if (readFileSync("/proc/sys/kernel/osrelease", "utf8").toLowerCase().includes("microsoft")) return null;
+    } catch {
+      /* fall through */
+    }
+    return "native Linux";
+  }
+  if (platform() === "darwin") return "macOS";
+  return platform();
+}
+
 function doctor() {
+  // The bundled PostgreSQL refuses to run as root, and it fails with a stack trace well after setup has
+  // built everything. Catch it first, unless the caller brings their own database.
+  if (typeof process.getuid === "function" && process.getuid() === 0 && !process.env.CONTROLROD_DATABASE_URL) {
+    console.log("MISSING  ordinary user: you are running as root");
+    console.log(
+      "\nThe bundled PostgreSQL will not start as root. Run Control Rod from an ordinary user account, or set\n" +
+        "CONTROLROD_DATABASE_URL to your own PostgreSQL 17 superuser connection and run this command again.\n",
+    );
+    return false;
+  }
   const rows = [
     ["node 22+", version("node"), true],
     ["pnpm", version("pnpm"), true],
@@ -87,6 +116,19 @@ function doctor() {
     if (!found && required) ok = false;
   }
   if (!databaseOk()) ok = false;
+  const unqualified = agentRunsUnavailable();
+  console.log(
+    unqualified
+      ? `--    agent runs: not yet on ${unqualified} (the sandbox is qualified on WSL2 so far)`
+      : "ok    agent runs: sandbox qualified on this platform (WSL2)",
+  );
+  if (unqualified) {
+    console.log(
+      `\nOn ${unqualified} the app, the board, the office view and the records all work, and you can prepare and` +
+        "\nrelease work. The daemon will not start an agent until the sandbox has been qualified here, and it" +
+        "\nsays why. docs/status.md shows where that stands.",
+    );
+  }
   if (!which("claude")) console.log("\nInstall Claude Code and sign in so agents can run on your subscription.");
   if (!which("codex")) {
     console.log(

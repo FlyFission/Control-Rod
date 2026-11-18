@@ -47,6 +47,7 @@ interface PrepareSnapshot {
   seq: number;
   repo: string;
   repoStrategy: RepoOutfallStrategy;
+  mode: EngineeringMode;
   workspaceRoot: string;
   targetWorkspaceRoot: string;
   branch: string;
@@ -148,11 +149,13 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const latestPrepareInputsRef = useRef({
     repo,
     repoStrategy,
+    mode,
     workspaceRoot: trimmedWorkspaceRoot,
   });
   latestPrepareInputsRef.current = {
     repo,
     repoStrategy,
+    mode,
     workspaceRoot: trimmedWorkspaceRoot,
   };
 
@@ -162,6 +165,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       snapshot.seq === prepareSeqRef.current &&
       current.repo === snapshot.repo &&
       current.repoStrategy === snapshot.repoStrategy &&
+      current.mode === snapshot.mode &&
       current.workspaceRoot === snapshot.workspaceRoot
     );
   }
@@ -172,6 +176,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
         repo: snapshot.repo,
         branch: snapshot.branch,
         strategy: snapshot.repoStrategy,
+        mode: snapshot.mode,
         ...(snapshot.targetWorkspaceRoot ? { workspace_root: snapshot.targetWorkspaceRoot } : {}),
       });
       return { res, snapshot };
@@ -516,6 +521,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                     seq,
                     repo,
                     repoStrategy,
+                    mode,
                     workspaceRoot: trimmedWorkspaceRoot,
                     targetWorkspaceRoot: activeWorkspaceRoot,
                     branch: effectiveBranch,

@@ -1,16 +1,19 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import Fastify from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
+import { Refusal } from "../src/refusal.js";
+import { teach } from "../src/refusals.js";
 import {
   CAPITAL_PROJECT_DIRS,
   HOST_GIT_ARGS,
-  copyIgnoredArtifacts,
   createCheckpoint,
   hostGitEnv,
   isDangerousWorktreeRemovalPath,
   removeWorktreeSafely,
+  repoRoutes,
   scaffoldCapitalProjectDirs,
 } from "../src/repos.js";
 
@@ -77,26 +80,47 @@ describe("repos Wave 1 hardening", () => {
     }
   });
 
-  it("copyIgnoredArtifacts copies gitignored files but skips tracked, traversal, and symlink paths", async () => {
+  it("POST /repos/materialize does not copy gitignored secret files or return copied_artifacts", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
-    const wtDir = join(workspaceRoot, ".worktrees", "sample-repo", "wt1");
-    mkdirSync(join(workspaceRoot, ".worktrees", "sample-repo"), { recursive: true });
-    execFileSync("git", ["worktree", "add", "-b", "feat/wt1", wtDir], { cwd: repoDir });
+    writeFileSync(join(repoDir, ".env.local"), "API_MODE=dev\nSECRET_KEY=top-secret\n");
+    writeFileSync(join(repoDir, "app.secret"), "dummy\n");
 
-    writeFileSync(join(repoDir, ".env.local"), "API_MODE=dev\n");
-    writeFileSync(join(repoDir, "link.secret"), "dummy\n");
-    symlinkSync(join(repoDir, ".env.local"), join(repoDir, "sym.secret"));
+    const app = Fastify({ logger: false });
+    app.setErrorHandler((err, _req, reply) => {
+      if (err instanceof Refusal) {
+        const taught = teach(err.code);
+        return reply.code(err.status).send({ code: err.code, message: err.message, change: taught.change });
+      }
+      throw err;
+    });
+    repoRoutes(app, async () => "person-test");
 
-    const res = await copyIgnoredArtifacts(repoDir, wtDir, [
-      ".env.local",
-      "README.md",
-      "../escape",
-      "sym.secret",
-    ]);
-
-    expect(res.copied).toEqual([".env.local"]);
-    expect(res.skipped).toEqual(["README.md", "../escape", "sym.secret"]);
-    expect(readFileSync(join(wtDir, ".env.local"), "utf8")).toBe("API_MODE=dev\n");
+    try {
+      const res = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/no-secrets",
+          strategy: "worktree",
+          workspace_root: workspaceRoot,
+          mode: "capital-projects",
+          preserve_patterns: [".env.local", "app.secret"],
+        },
+      });
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.mode).toBe("capital-projects");
+      expect(body.scaffolded_dirs).toEqual([...CAPITAL_PROJECT_DIRS]);
+      expect("copied_artifacts" in body).toBe(false);
+      expect(existsSync(join(body.local_path, ".env.local"))).toBe(false);
+      expect(existsSync(join(body.local_path, "app.secret"))).toBe(false);
+      for (const dir of CAPITAL_PROJECT_DIRS) {
+        expect(existsSync(join(body.local_path, dir))).toBe(true);
+      }
+    } finally {
+      await app.close();
+    }
   });
 
   it("isDangerousWorktreeRemovalPath blocks root, home, workspaceRoot, repoPath, and ancestors", () => {

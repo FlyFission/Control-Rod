@@ -30,6 +30,10 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   MaterializeStrategy,
   MaterializeRepoRequest,
   MaterializeRepoResult,
+  CheckpointRequest,
+  CheckpointResult,
+  RemoveWorktreeRequest,
+  RemoveWorktreeResult,
 } from "./types.js";
 
 export type {
@@ -39,6 +43,10 @@ export type {
   MaterializeStrategy,
   MaterializeRepoRequest,
   MaterializeRepoResult,
+  CheckpointRequest,
+  CheckpointResult,
+  RemoveWorktreeRequest,
+  RemoveWorktreeResult,
 };
 
 export class ApiError extends Error {
@@ -217,6 +225,10 @@ export const api = {
     ),
   materializeRepo: (body: MaterializeRepoRequest) =>
     call<MaterializeRepoResult>("POST", "/repos/materialize", body),
+  checkpointRepo: (body: CheckpointRequest) =>
+    call<CheckpointResult>("POST", "/repos/checkpoint", body),
+  removeRepo: (body: RemoveWorktreeRequest) =>
+    call<RemoveWorktreeResult>("POST", "/repos/remove", body),
   /** The event stream; `after` resumes after that event id (the server replays what was missed). */
   streamUrl: (after?: string) => url(after ? `/events/stream?after=${encodeURIComponent(after)}` : "/events/stream"),
 };

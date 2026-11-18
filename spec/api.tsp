@@ -1367,17 +1367,47 @@ namespace Repos {
     base_branch?: string;
     strategy?: MaterializeStrategy;
     workspace_root?: string;
+    mode?: "software" | "capital-projects";
   }
 
   model MaterializeRepoResult {
     ok: boolean;
     strategy: MaterializeStrategy;
+    mode?: "software" | "capital-projects";
     repo: string;
     branch: string;
     local_path: string;
+    scaffolded_dirs?: string[];
+  }
+
+  model CheckpointRequest {
+    repo_path: string;
+    label?: string;
+    workspace_root?: string;
+  }
+
+  model CheckpointResult {
+    ok: boolean;
+    ref: string;
+    commit_sha: string;
+    tree_sha: string;
+  }
+
+  model RemoveWorktreeRequest {
+    worktree_path: string;
+    repo_path: string;
+    workspace_root?: string;
+    force?: boolean;
+  }
+
+  model RemoveWorktreeResult {
+    ok: boolean;
+    removed: string;
   }
 
   @get op list(@query workspace_root?: string): ReposResponse | Refused;
   @route("/materialize") @post op materialize(@body body: MaterializeRepoRequest): MaterializeRepoResult | Refused;
+  @route("/checkpoint") @post op checkpoint(@body body: CheckpointRequest): CheckpointResult | Refused;
+  @route("/remove") @post op remove(@body body: RemoveWorktreeRequest): RemoveWorktreeResult | Refused;
 }
 

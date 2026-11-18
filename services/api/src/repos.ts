@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { Refusal } from "./refusal.js";
@@ -656,56 +656,6 @@ async function listGithubRepos(ceilingDir?: string): Promise<{ repos: GithubRepo
   }
 }
 
-/**
- * Copies allowlisted gitignored files (e.g. `.env.local`) from `repoDir` into `worktreeDir`
- * without ever overwriting tracked files or following symlinks/path-traversals.
- */
-export async function copyIgnoredArtifacts(
-  repoDir: string,
-  worktreeDir: string,
-  patterns: readonly string[],
-): Promise<{ copied: string[]; skipped: string[] }> {
-  const copied: string[] = [];
-  const skipped: string[] = [];
-  for (const rawPattern of patterns) {
-    const relPath = rawPattern.trim();
-    if (!relPath || isAbsolute(relPath) || relPath.includes("..")) {
-      skipped.push(rawPattern);
-      continue;
-    }
-    const src = resolve(repoDir, relPath);
-    const dst = resolve(worktreeDir, relPath);
-    if (isWithinOrEqual(repoDir, src) === null || isWithinOrEqual(worktreeDir, dst) === null) {
-      skipped.push(relPath);
-      continue;
-    }
-    if (!pathExistsAny(src)) {
-      skipped.push(relPath);
-      continue;
-    }
-    const st = lstatSync(src);
-    if (!st.isFile() || st.isSymbolicLink()) {
-      skipped.push(relPath);
-      continue;
-    }
-    try {
-      if (!isContainedIn(repoDir, src) || !isContainedIn(worktreeDir, dst)) {
-        skipped.push(relPath);
-        continue;
-      }
-      await git(["check-ignore", "-q", relPath], { cwd: repoDir });
-    } catch {
-      // Not gitignored (e.g. tracked file) or symlink traversal — never overwrite tracked files.
-      skipped.push(relPath);
-      continue;
-    }
-    mkdirSync(dirname(dst), { recursive: true });
-    copyFileSync(src, dst);
-    copied.push(relPath);
-  }
-  return { copied, skipped };
-}
-
 export function isDangerousWorktreeRemovalPath(
   worktreePath: string,
   repoPath: string,
@@ -838,7 +788,6 @@ interface MaterializeContext {
   baseBranch: string | undefined;
   strategy: MaterializeStrategy;
   mode: WorkspaceMode;
-  preservePatterns: string[];
   workspaceRoot: string;
   baseCloneDir: string;
 }
@@ -874,9 +823,6 @@ function parseMaterializeRequest(rawBody: unknown): MaterializeContext {
   const baseBranch = body.base_branch?.trim() ? assertValidBranch(body.base_branch, "base_branch") : undefined;
   const strategy: MaterializeStrategy = body.strategy ?? "worktree";
   const mode: WorkspaceMode = body.mode === "capital-projects" ? "capital-projects" : "software";
-  const preservePatterns = Array.isArray(body.preserve_patterns)
-    ? body.preserve_patterns.filter((p): p is string => typeof p === "string")
-    : [];
   const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
   const isGithub = SAFE_OWNER_REPO.test(repo);
   const repoName = isGithub ? repo.split("/")[1]!.replace(/\.git$/i, "") : repo;
@@ -890,7 +836,6 @@ function parseMaterializeRequest(rawBody: unknown): MaterializeContext {
     baseBranch,
     strategy,
     mode,
-    preservePatterns,
     workspaceRoot,
     baseCloneDir,
   };
@@ -1041,7 +986,6 @@ export function repoRoutes(
       strategy?: MaterializeStrategy;
       workspace_root?: string;
       mode?: WorkspaceMode;
-      preserve_patterns?: string[];
     };
   }>("/repos/materialize", async (req) => {
     await person(req);
@@ -1057,11 +1001,6 @@ export function repoRoutes(
             ? await materializeBranch(ctx)
             : await materializeWorktree(ctx);
 
-      const copiedArtifacts =
-        ctx.preservePatterns.length > 0 && localPath !== ctx.baseCloneDir
-          ? await copyIgnoredArtifacts(ctx.baseCloneDir, localPath, ctx.preservePatterns)
-          : { copied: [], skipped: [] };
-
       const scaffoldedDirs =
         ctx.mode === "capital-projects" ? scaffoldCapitalProjectDirs(localPath) : [];
 
@@ -1072,7 +1011,6 @@ export function repoRoutes(
         repo: ctx.repo,
         branch: ctx.branch,
         local_path: localPath,
-        copied_artifacts: copiedArtifacts.copied,
         scaffolded_dirs: scaffoldedDirs,
       };
     } catch (err) {

@@ -885,6 +885,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/repos/checkpoint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Repos_checkpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/repos/materialize": {
         parameters: {
             query?: never;
@@ -895,6 +911,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["Repos_materialize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/repos/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["Repos_remove"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2925,6 +2957,17 @@ export interface components {
             disciplines: string[];
             revoked: boolean;
         };
+        "Repos.CheckpointRequest": {
+            repo_path: string;
+            label?: string;
+            workspace_root?: string;
+        };
+        "Repos.CheckpointResult": {
+            ok: boolean;
+            ref: string;
+            commit_sha: string;
+            tree_sha: string;
+        };
         "Repos.GithubRepoInfo": {
             name_with_owner: string;
             default_branch: string;
@@ -2945,16 +2988,31 @@ export interface components {
             base_branch?: string;
             strategy?: components["schemas"]["Repos.MaterializeStrategy"];
             workspace_root?: string;
+            /** @enum {string} */
+            mode?: "software" | "capital-projects";
         };
         "Repos.MaterializeRepoResult": {
             ok: boolean;
             strategy: components["schemas"]["Repos.MaterializeStrategy"];
+            /** @enum {string} */
+            mode?: "software" | "capital-projects";
             repo: string;
             branch: string;
             local_path: string;
+            scaffolded_dirs?: string[];
         };
         /** @enum {string} */
         "Repos.MaterializeStrategy": "worktree" | "fresh-clone" | "branch";
+        "Repos.RemoveWorktreeRequest": {
+            worktree_path: string;
+            repo_path: string;
+            workspace_root?: string;
+            force?: boolean;
+        };
+        "Repos.RemoveWorktreeResult": {
+            ok: boolean;
+            removed: string;
+        };
         "Repos.ReposResponse": {
             workspace_root: string;
             local: components["schemas"]["Repos.LocalRepoInfo"][];
@@ -6937,6 +6995,84 @@ export interface operations {
             };
         };
     };
+    Repos_checkpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Repos.CheckpointRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repos.CheckpointResult"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Repos_materialize: {
         parameters: {
             query?: never;
@@ -6957,6 +7093,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Repos.MaterializeRepoResult"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Repos_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Repos.RemoveWorktreeRequest"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repos.RemoveWorktreeResult"];
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */

@@ -362,6 +362,52 @@ describe("repos Wave 1 hardening", () => {
     expect(realFlags.startsWith("h ")).toBe(true);
   });
 
+  it("createCheckpoint captures present skip-worktree edits while preserving absent sparse entries and bypasses gitattributes EOL conversion", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    writeFileSync(join(repoDir, ".gitattributes"), "*.txt text\n");
+    writeFileSync(join(repoDir, "sparse-present.txt"), "present-orig\n");
+    writeFileSync(join(repoDir, "sparse-absent.txt"), "sparse-orig\n");
+    writeFileSync(join(repoDir, "attr-raw.txt"), "initial\n");
+    execFileSync("git", ["add", ".gitattributes", "sparse-present.txt", "sparse-absent.txt", "attr-raw.txt"], {
+      cwd: repoDir,
+    });
+    execFileSync("git", ["commit", "-m", "setup sparse and attr"], { cwd: repoDir });
+
+    execFileSync("git", ["update-index", "--skip-worktree", "sparse-present.txt", "sparse-absent.txt"], {
+      cwd: repoDir,
+    });
+    rmSync(join(repoDir, "sparse-absent.txt"));
+    writeFileSync(join(repoDir, "sparse-present.txt"), "present-edited\r\n");
+    writeFileSync(join(repoDir, "attr-raw.txt"), "raw-mixed\r\ncrlf\r\n");
+
+    const cp = await createCheckpoint({ repoDir, label: "skip-and-attr", workspaceRoot });
+
+    const presentCaptured = execFileSync("git", ["show", `${cp.commit_sha}:sparse-present.txt`], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(presentCaptured).toBe("present-edited\r\n");
+
+    const absentCaptured = execFileSync("git", ["show", `${cp.commit_sha}:sparse-absent.txt`], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(absentCaptured).toBe("sparse-orig\n");
+
+    const rawAttrCaptured = execFileSync("git", ["show", `${cp.commit_sha}:attr-raw.txt`], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(rawAttrCaptured).toBe("raw-mixed\r\ncrlf\r\n");
+
+    const realFlags = execFileSync("git", ["ls-files", "-v", "sparse-present.txt", "sparse-absent.txt"], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(realFlags).toContain("S sparse-present.txt");
+    expect(realFlags).toContain("S sparse-absent.txt");
+  });
+
   it("createCheckpoint preserves force-staged ignored files via --git-path index in repos and worktrees", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     writeFileSync(join(repoDir, "forced.secret"), "keep-me\n");

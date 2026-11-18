@@ -926,6 +926,122 @@ export async function removeWorktreeSafely(opts: {
  * Checkpoints on Git LFS repositories neutralize clean/smudge/process filters and
  * record raw working-tree or pointer bytes without invoking external filter drivers.
  */
+function splitNullRecords(buf: Buffer): Buffer[] {
+  const parts: Buffer[] = [];
+  let start = 0;
+  for (let i = 0; i < buf.length; i += 1) {
+    if (buf[i] === 0) {
+      if (i > start) parts.push(buf.subarray(start, i));
+      start = i + 1;
+    }
+  }
+  if (start < buf.length) parts.push(buf.subarray(start));
+  return parts;
+}
+
+async function prepareTempIndexFlags(
+  repoDir: string,
+  workspaceRoot: string,
+  indexEnv: Record<string, string>,
+): Promise<void> {
+  const raw = await gitWithBytes(["ls-files", "-v", "-z"], {
+    cwd: repoDir,
+    workspaceRoot,
+    extraEnv: indexEnv,
+  });
+  const records = splitNullRecords(raw);
+  if (records.length === 0) return;
+
+  const allPaths: Buffer[] = [];
+  const presentSkipPaths: Buffer[] = [];
+  for (const rec of records) {
+    if (rec.length < 3) continue;
+    const tag = String.fromCharCode(rec[0]!);
+    const pathBuf = rec.subarray(2);
+    allPaths.push(pathBuf);
+    if (tag === "S" || tag === "s") {
+      const relPath = pathBuf.toString("utf8");
+      if (pathExistsAny(join(repoDir, relPath))) {
+        presentSkipPaths.push(pathBuf);
+      }
+    }
+  }
+
+  if (allPaths.length > 0) {
+    await gitWithBytes(["update-index", "--no-assume-unchanged", "-z", "--stdin"], {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: indexEnv,
+      input: Buffer.concat([...allPaths.map((p) => Buffer.concat([p, Buffer.from([0])]))]),
+    });
+  }
+  if (presentSkipPaths.length > 0) {
+    await gitWithBytes(["update-index", "--no-skip-worktree", "-z", "--stdin"], {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: indexEnv,
+      input: Buffer.concat([...presentSkipPaths.map((p) => Buffer.concat([p, Buffer.from([0])]))]),
+    });
+  }
+}
+
+async function stageRawWorkingTreeBlobs(
+  repoDir: string,
+  workspaceRoot: string,
+  indexEnv: Record<string, string>,
+): Promise<void> {
+  const raw = await gitWithBytes(["ls-files", "-s", "-v", "-z"], {
+    cwd: repoDir,
+    workspaceRoot,
+    extraEnv: indexEnv,
+  });
+  const candidates: Array<{ mode: string; oid: string; relPath: string }> = [];
+  for (const rec of splitNullRecords(raw)) {
+    const line = rec.toString("utf8");
+    const tabIdx = line.indexOf("\t");
+    if (tabIdx < 0 || line.length < 3) continue;
+    const tag = line[0]!;
+    if (tag === "S" || tag === "s") continue;
+    const meta = line.slice(2, tabIdx).split(" ");
+    const mode = meta[0];
+    const oid = meta[1];
+    const stage = meta[2];
+    const relPath = line.slice(tabIdx + 1);
+    if (stage !== "0" || (mode !== "100644" && mode !== "100755") || !oid || !relPath) continue;
+    const fullPath = join(repoDir, relPath);
+    if (!pathExistsAny(fullPath) || !lstatSync(fullPath).isFile()) continue;
+    candidates.push({ mode, oid, relPath });
+  }
+
+  const CHUNK = 200;
+  const cacheInfoArgs: string[] = [];
+  for (let i = 0; i < candidates.length; i += CHUNK) {
+    const batch = candidates.slice(i, i + CHUNK);
+    const out = await git(
+      ["hash-object", "-w", "--no-filters", "--", ...batch.map((c) => c.relPath)],
+      { cwd: repoDir, workspaceRoot, extraEnv: indexEnv },
+    );
+    const oids = out ? out.split(/\r?\n/) : [];
+    if (oids.length !== batch.length) {
+      throw new Error(`hash-object returned ${oids.length} oids for ${batch.length} paths`);
+    }
+    batch.forEach((c, idx) => {
+      const rawOid = oids[idx]!.trim();
+      if (rawOid && rawOid !== c.oid) {
+        cacheInfoArgs.push("--cacheinfo", `${c.mode},${rawOid},${c.relPath}`);
+      }
+    });
+  }
+
+  for (let i = 0; i < cacheInfoArgs.length; i += CHUNK * 2) {
+    await git(["update-index", ...cacheInfoArgs.slice(i, i + CHUNK * 2)], {
+      cwd: repoDir,
+      workspaceRoot,
+      extraEnv: indexEnv,
+    });
+  }
+}
+
 export async function createCheckpoint(opts: {
   repoDir: string;
   label?: string;
@@ -985,23 +1101,12 @@ export async function createCheckpoint(opts: {
         throw new Refusal(400, "invalid-workspace-root", `Repository index must not be a symbolic link: ${idxPath}`);
       }
       copyFileSync(idxPath, tempIndex);
-      const trackedRaw = await gitWithBytes(["ls-files", "-z"], {
-        cwd: repoDir,
-        workspaceRoot,
-        extraEnv: indexEnv,
-      });
-      if (trackedRaw.length > 0) {
-        await gitWithBytes(["update-index", "--no-assume-unchanged", "-z", "--stdin"], {
-          cwd: repoDir,
-          workspaceRoot,
-          extraEnv: indexEnv,
-          input: trackedRaw,
-        });
-      }
+      await prepareTempIndexFlags(repoDir, workspaceRoot, indexEnv);
     } else if (headSha) {
       await git(["read-tree", "HEAD"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
     }
     await git(["add", "-A"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
+    await stageRawWorkingTreeBlobs(repoDir, workspaceRoot, indexEnv);
     const treeSha = await git(["write-tree"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
     const labelSlug = safeSlug(opts.label ?? "snapshot");
     const stamp = Date.now().toString(36);

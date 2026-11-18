@@ -208,7 +208,8 @@ export function Shell({ session, children }: { session: Session; children: React
               aria-keyshortcuts={isMac() ? "Meta+K" : "Control+K"}
             >
               <span>
-                Search<span className="sr-only"> or run a command</span>
+                Search{" "}
+                <span className="sr-only">or run a command </span>
               </span>
               <kbd>{shortcut}</kbd>
             </button>

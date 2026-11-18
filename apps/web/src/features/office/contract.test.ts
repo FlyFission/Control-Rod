@@ -37,10 +37,10 @@ describe("themes", () => {
     expect(bright.regions.review.art?.sha256).not.toBe(standard.regions.review.art?.sha256);
   });
 
-  it("passes for every theme the repository carries, the fifteen worlds included, each a development theme", async () => {
+  it("passes for every theme the repository carries, the fifteen worlds included, each a released theme", async () => {
     expect(WORLD_THEMES).toHaveLength(15);
     for (const t of OFFICE_THEMES) expect(await validateTheme(t, read, sha), t.id).toEqual([]);
-    for (const t of WORLD_THEMES) expect(t.availability, t.id).toBe("development");
+    for (const t of WORLD_THEMES) expect(t.availability, t.id).toBe("released");
   });
 
   it("refuses a theme that adds fields, moves a region, sets a semantic colour or skips a region", async () => {
@@ -116,7 +116,7 @@ describe("generated files", () => {
 describe("registry", () => {
   it("ships exactly the released themes, and the build reads the same list", () => {
     expect(releasedOfficeThemes().map((t) => t.id)).toEqual(released);
-    expect(released).toEqual(["standard-office"]);
+    expect(released).toEqual(["standard-office", ...WORLD_THEMES.map((t) => t.id)]);
     expect(new Set(OFFICE_THEMES.map((t) => t.id)).size).toBe(OFFICE_THEMES.length);
   });
 });

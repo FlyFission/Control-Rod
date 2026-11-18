@@ -231,22 +231,22 @@ describe("themes (plan task 4.9)", () => {
   });
   const art = () => [...document.querySelectorAll<HTMLImageElement>(".office-scene-art")].map((i) => i.getAttribute("src") ?? "");
 
-  it("offers no choice in an ordinary build, where only the released theme ships", async () => {
+  it("opens on the standard office in an ordinary build", async () => {
     await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
-    expect(screen.queryByRole("combobox", { name: "Theme" })).toBeNull();
     expect(art().every((src) => src.startsWith("/office-themes/standard-office/"))).toBe(true);
   });
 
-  it("in a draft build offers the fifteen worlds as drafts, switches the scene only, keeps the open card, and remembers the choice", async () => {
+  it("in an ordinary build offers the fifteen released worlds, switches the scene only, keeps the open card, and remembers the choice", async () => {
     const user = userEvent.setup();
-    const { unmount } = await renderPage(<OfficeView drafts />);
+    const { unmount } = await renderPage(<OfficeView drafts={false} />);
     await user.click(await screen.findByRole("button", { name: /^WP-0001/ }));
     const picker = screen.getByRole("combobox", { name: "Theme" });
     const options = within(picker).getAllByRole("option").map((o) => o.textContent);
     expect(options).toHaveLength(16);
     expect(options[0]).toBe("Standard Office");
-    expect(options.slice(1).every((o) => o?.endsWith(" (draft)"))).toBe(true);
+    expect(options.some((o) => o?.endsWith(" (draft)"))).toBe(false);
+    expect(options).not.toContain("Harness Bright");
     expect(options).not.toContain("Harness Bright (draft)");
     await user.selectOptions(picker, "orbital-shipyard");
     expect(art().length).toBe(13);
@@ -268,7 +268,7 @@ describe("themes (plan task 4.9)", () => {
   });
 
   it("falls back to the released theme when the remembered one is not offered in this build", async () => {
-    localStorage.setItem("controlrod.office.theme.ben", "orbital-shipyard");
+    localStorage.setItem("controlrod.office.theme.ben", "harness-bright");
     await renderPage(<OfficeView drafts={false} />);
     await screen.findByRole("button", { name: /^WP-0001/ });
     expect(art().every((src) => src.startsWith("/office-themes/standard-office/"))).toBe(true);

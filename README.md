@@ -40,7 +40,7 @@ The agent that did the work never gets the final say. A second agent checks it, 
 Watch your agents at their desks while they work. Each figure's state comes from the real run, so you can see at a glance who is working, who is being checked and what is waiting on you.
 
 1. **Open Office.** Agents sit in the room for their kind of work. When a room is full, the rest are listed beside it.
-2. **Pick a world.** The fifteen worlds are draft art for now, so the everyday build shows the plain office. To try them, build the web app with drafts on (`VITE_FLOOR_THEME_DRAFTS=true pnpm --filter @control-rod/web build`), run `pnpm cr start`, and choose one from the **Theme** menu. A world changes the look and never the facts.
+2. **Pick a world.** Choose one of fifteen worlds from the **Theme** menu, from a corner cafe to an orbital shipyard. A world changes the look and never the facts.
 3. **Switch the lens.** **Status** shows what each agent is doing; **Gate** shows whether its work is before release, in work, in pre-check or awaiting your acceptance.
 4. **Click a figure.** Its card shows the task, the checker's progress and the spend so far.
 5. **Stop everything if you need to.** **SCRAM** tells you what it will stop, asks for a reason and your passkey, then stops those runs and records it.

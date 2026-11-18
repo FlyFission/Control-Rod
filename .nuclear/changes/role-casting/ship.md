@@ -8,7 +8,7 @@ Release decision: **design spec and proposed ADR for owner review; no implementa
 - **Still open:** a second review round on the revised spec (proposal: the same three CLIs on the fix commit's diff, with a brief that asks whether each disposition holds); a person review; owner decisions C-1 to C-9, of which C-1 now has three options, C-5 is split, and C-9 is new.
 - **Owner decisions requested:**
   1. Approve the spec and ADR 0023, or return them with changes.
-  2. Answer C-1 to C-9 in spec section 15, starting with C-1 (amend the plan's cut of a strengths matrix and learning loop for every role, for non-checking roles only, or not at all).
+  2. Decisions C-1 to C-9 and D-1, D-2, D-3 and D-6 are recorded (spec section 15, 2026-11-18). Still to answer: the C-7 discipline, D-4 (canary evidence bar) and D-5 (who seeds canaries), all before C4 or C8 starts.
   3. Say whether to run a second cross-vendor round on the revised spec before approval, and whether to add a person review.
 
 Rollback: revert the commit. Documentation only; no code, schema or wire change.

@@ -7,11 +7,11 @@
 
 | Milestone | Delivers | Depends on |
 |---|---|---|
-| C0 | Owner decisions C-1 to C-9; ADR 0023 accepted or returned | none |
+| C0 | Owner decisions C-1 to C-9 and D-1 to D-6 (recorded 2026-11-18 except C-7's discipline, D-4, D-5); ADR 0023 accepted or returned | none |
 | C1 | `AgentRole` contract and role catalog as pack data, with duty | C0 |
 | C2 | Casting sheet contract and version zero reproducing today's choices; parity only | C1 |
 | C3 | Probed models and modalities; model per cast (effort once a counted flag exists); trace records sheet version; positive provenance for every run that feeds a check | C2, M4 |
-| C4 | Trial runner, separate scorer, checker canaries (trial job kind only) | C3, M9, review panel R3, trial terms finding |
+| C4 | Trial runner, separate scorer, checker canaries (trial job kind only) | C3, M9, review panel R3, trial terms finding, D-4, D-5 |
 | C4b | Originate and refute trial sets; sheet proposal script | C4, review panel R9 |
 | C5 | First software trials; owner signs sheet version one (author, intake, pre-check entries) | C4b, M6, M9, M7 or M8 |
 | C6 | Lineage, duty-based and flow-wide separation in the kernel (protected) | C5, M6 |

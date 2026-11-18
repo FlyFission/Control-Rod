@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -16,13 +17,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Refusal } from "../src/refusal.js";
 import { teach } from "../src/refusals.js";
 import {
+  defaultWorkspaceRoot,
   isContainedIn,
   isSafeRepoIdentifier,
   parseGithubOwnerRepoFromUrl,
   pathExistsAny,
-  realpathOrNearest,
   repoRoutes,
   resolveSafeWorkspaceRoot,
+  resolveWithoutSymlinks,
 } from "../src/repos.js";
 
 function gitInitRepo(dir: string, originUrl?: string): void {
@@ -56,34 +58,112 @@ function buildTestApp(): FastifyInstance {
   return app;
 }
 
+async function withTestApp<T>(fn: (app: FastifyInstance) => Promise<T>): Promise<T> {
+  const app = buildTestApp();
+  try {
+    return await fn(app);
+  } finally {
+    await app.close();
+  }
+}
+
+function installGhStub(tempHome: string, basePath: string | undefined, scriptBody?: string): string {
+  const binDir = join(tempHome, "bin");
+  mkdirSync(binDir, { recursive: true });
+  const stubGhPath = join(binDir, "gh");
+  writeFileSync(
+    stubGhPath,
+    scriptBody ??
+      `#!/usr/bin/env node
+process.stdout.write("[]\\n");
+`,
+  );
+  chmodSync(stubGhPath, 0o755);
+  process.env.PATH = `${binDir}:${basePath ?? ""}`;
+  return binDir;
+}
+
 describe("repos.ts hardening", () => {
   let tempHome: string;
-  let origHome: string | undefined;
-  let origWsRoot: string | undefined;
+  let origEnv: Map<string, string | undefined>;
   let origPath: string | undefined;
-  let origGitDir: string | undefined;
 
   beforeEach(() => {
-    origHome = process.env.HOME;
-    origWsRoot = process.env.CONTROLROD_WORKSPACE_ROOT;
+    origEnv = new Map();
+    const keysToSave = new Set<string>([
+      "HOME",
+      "CONTROLROD_WORKSPACE_ROOT",
+      "PATH",
+      "XDG_CONFIG_HOME",
+      "GH_TOKEN",
+      "GITHUB_TOKEN",
+      ...Object.keys(process.env).filter((k) => k.startsWith("GIT_")),
+    ]);
+    for (const key of keysToSave) {
+      origEnv.set(key, process.env[key]);
+    }
     origPath = process.env.PATH;
-    origGitDir = process.env.GIT_DIR;
-    tempHome = mkdtempSync(join(tmpdir(), "controlrod-repos-test-"));
-    process.env.HOME = tempHome;
+
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith("GIT_")) {
+        delete process.env[key];
+      }
+    }
     delete process.env.CONTROLROD_WORKSPACE_ROOT;
+    delete process.env.GH_TOKEN;
+    delete process.env.GITHUB_TOKEN;
+
+    tempHome = realpathSync(mkdtempSync(join(tmpdir(), "controlrod-repos-test-")));
+    const xdgConfigHome = join(tempHome, ".config");
+    mkdirSync(xdgConfigHome, { recursive: true });
+
+    process.env.HOME = tempHome;
+    process.env.XDG_CONFIG_HOME = xdgConfigHome;
+    process.env.GIT_CONFIG_GLOBAL = "/dev/null";
+    process.env.GIT_CONFIG_NOSYSTEM = "1";
+    process.env.GIT_CONFIG_SYSTEM = "/dev/null";
+
+    installGhStub(tempHome, origPath);
   });
 
   afterEach(() => {
-    if (origHome === undefined) delete process.env.HOME;
-    else process.env.HOME = origHome;
-    if (origWsRoot === undefined) delete process.env.CONTROLROD_WORKSPACE_ROOT;
-    else process.env.CONTROLROD_WORKSPACE_ROOT = origWsRoot;
-    if (origPath === undefined) delete process.env.PATH;
-    else process.env.PATH = origPath;
-    if (origGitDir === undefined) delete process.env.GIT_DIR;
-    else process.env.GIT_DIR = origGitDir;
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith("GIT_") && !origEnv.has(key)) {
+        delete process.env[key];
+      }
+    }
+    for (const [key, value] of origEnv) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
     rmSync(tempHome, { recursive: true, force: true });
   });
+
+  async function assertPlainDirIgnoresAncestorGit(ancestorDir: string, originUrl?: string): Promise<void> {
+    gitInitRepo(ancestorDir, originUrl);
+    const ws = join(tempHome, "projects");
+    const plainDir = join(ws, "plain");
+    mkdirSync(plainDir, { recursive: true });
+    writeFileSync(join(plainDir, "hello.txt"), "not a git repo\n");
+
+    await withTestApp(async (app) => {
+      const rLocalBranch = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: { repo: "plain", branch: "feat/x", strategy: "branch" },
+      });
+      expect(rLocalBranch.statusCode).toBe(404);
+      expect(rLocalBranch.json().code).toBe("repo-not-found");
+
+      const rGithubWorktree = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: { repo: "FlyFission/plain", branch: "feat/x", strategy: "worktree" },
+      });
+      expect(rGithubWorktree.statusCode).toBe(409);
+      expect(rGithubWorktree.json().code).toBe("workspace-exists");
+    });
+  }
 
   describe("isSafeRepoIdentifier", () => {
     it("rejects empty, dot segments, leading dashes, and leading dots", () => {
@@ -120,21 +200,43 @@ describe("repos.ts hardening", () => {
     });
   });
 
-  describe("realpathOrNearest, pathExistsAny, and isContainedIn", () => {
-    it("detects dangling symlinks via pathExistsAny and refuses symlinks in realpathOrNearest", () => {
+  describe("resolveWithoutSymlinks, pathExistsAny, and isContainedIn", () => {
+    it("detects dangling symlinks via pathExistsAny and refuses symlinks in resolveWithoutSymlinks", () => {
       const ws = join(tempHome, "projects");
       mkdirSync(ws, { recursive: true });
       const dangling = join(ws, "dangling");
       symlinkSync(join(ws, "nonexistent-target"), dangling);
 
       expect(pathExistsAny(dangling)).toBe(true);
-      expect(() => realpathOrNearest(dangling)).toThrowError(Refusal);
+      expect(() => resolveWithoutSymlinks(dangling)).toThrowError(Refusal);
+      expect(() => resolveWithoutSymlinks(dangling, tempHome)).toThrowError(Refusal);
 
       const realSub = join(tempHome, "real-sub");
       mkdirSync(realSub, { recursive: true });
       const linkParent = join(ws, "link-parent");
       symlinkSync(realSub, linkParent);
-      expect(() => realpathOrNearest(join(linkParent, "child"))).toThrowError(Refusal);
+      expect(() => resolveWithoutSymlinks(join(linkParent, "child"))).toThrowError(Refusal);
+      expect(() => resolveWithoutSymlinks(join(linkParent, "child"), tempHome)).toThrowError(Refusal);
+    });
+
+    it("allows symlinked ancestors above $HOME while still rejecting symlinks inside $HOME", () => {
+      const realParent = join(tempHome, "real-parent");
+      const linkParent = join(tempHome, "link-parent");
+      const realHome = join(realParent, "home");
+      mkdirSync(join(realHome, "projects"), { recursive: true });
+      symlinkSync(realParent, linkParent);
+
+      const fakeHome = join(linkParent, "home");
+      process.env.HOME = fakeHome;
+
+      expect(defaultWorkspaceRoot()).toBe(join(realHome, "projects"));
+      expect(resolveSafeWorkspaceRoot("~/projects")).toBe(join(realHome, "projects"));
+      expect(resolveWithoutSymlinks(join(fakeHome, "projects"), fakeHome)).toBe(join(realHome, "projects"));
+
+      const innerLink = join(realHome, "sym-projects");
+      symlinkSync(join(realHome, "projects"), innerLink);
+      expect(() => resolveSafeWorkspaceRoot("~/sym-projects")).toThrowError(Refusal);
+      expect(() => resolveWithoutSymlinks(join(fakeHome, "sym-projects"), fakeHome)).toThrowError(Refusal);
     });
 
     it("refuses equal paths and external paths in isContainedIn", () => {
@@ -150,7 +252,7 @@ describe("repos.ts hardening", () => {
     });
   });
 
-  describe("resolveSafeWorkspaceRoot", () => {
+  describe("resolveSafeWorkspaceRoot and defaultWorkspaceRoot", () => {
     it("rejects $HOME itself, dot directories under $HOME, and paths outside $HOME", () => {
       for (const bad of [tempHome, "~", "~/.ssh", "~/.config/gh", "~/.claude", "../outside", "/tmp"]) {
         expect(() => resolveSafeWorkspaceRoot(bad), bad).toThrowError(Refusal);
@@ -164,6 +266,13 @@ describe("repos.ts hardening", () => {
 
     it("rejects non-string workspace_root values with 400 invalid-workspace-root", () => {
       expect(() => resolveSafeWorkspaceRoot(["a", "b"])).toThrowError(Refusal);
+    });
+
+    it("falls back safely in defaultWorkspaceRoot when $HOME does not exist yet", () => {
+      const missingHome = join(tempHome, "nonexistent-home");
+      process.env.HOME = missingHome;
+      expect(defaultWorkspaceRoot()).toBe(join(missingHome, "projects"));
+      expect(resolveSafeWorkspaceRoot("~/projects")).toBe(join(missingHome, "projects"));
     });
   });
 
@@ -197,8 +306,7 @@ describe("repos.ts hardening", () => {
 
   describe("POST /repos/materialize route hardening", () => {
     it("rejects invalid strategy, dot-segments, and non-string repo/branch", async () => {
-      const app = buildTestApp();
-      try {
+      await withTestApp(async (app) => {
         const badStrategy = await app.inject({
           method: "POST",
           url: "/repos/materialize",
@@ -232,9 +340,7 @@ describe("repos.ts hardening", () => {
         });
         expect(nonStringBranch.statusCode).toBe(400);
         expect(nonStringBranch.json().code).toBe("invalid-branch");
-      } finally {
-        await app.close();
-      }
+      });
     });
 
     it("returns 409 repo-identity-mismatch when reusing baseCloneDir with wrong or missing origin", async () => {
@@ -242,8 +348,7 @@ describe("repos.ts hardening", () => {
       const baseDir = join(ws, "Control-Rod");
       gitInitRepo(baseDir, "https://github.com/someone-else/Control-Rod.git");
 
-      const app = buildTestApp();
-      try {
+      await withTestApp(async (app) => {
         const r1 = await app.inject({
           method: "POST",
           url: "/repos/materialize",
@@ -262,70 +367,21 @@ describe("repos.ts hardening", () => {
         });
         expect(r2.statusCode).toBe(409);
         expect(r2.json().code).toBe("repo-identity-mismatch");
-      } finally {
-        await app.close();
-      }
+      });
     });
 
     it("never walks up to $HOME/.git when reusing a plain non-git folder", async () => {
-      gitInitRepo(tempHome); // dotfiles repo at $HOME/.git
-      const ws = join(tempHome, "projects");
-      const plainDir = join(ws, "plain");
-      mkdirSync(plainDir, { recursive: true });
-      writeFileSync(join(plainDir, "hello.txt"), "not a git repo\n");
-
-      const app = buildTestApp();
-      try {
-        const rLocalBranch = await app.inject({
-          method: "POST",
-          url: "/repos/materialize",
-          payload: { repo: "plain", branch: "feat/x", strategy: "branch" },
-        });
-        expect(rLocalBranch.statusCode).toBe(404);
-        expect(rLocalBranch.json().code).toBe("repo-not-found");
-
-        const rGithubWorktree = await app.inject({
-          method: "POST",
-          url: "/repos/materialize",
-          payload: { repo: "FlyFission/plain", branch: "feat/x", strategy: "worktree" },
-        });
-        expect(rGithubWorktree.statusCode).toBe(409);
-        expect(rGithubWorktree.json().code).toBe("workspace-exists");
-      } finally {
-        await app.close();
-      }
+      await assertPlainDirIgnoresAncestorGit(tempHome);
     });
 
     it("never walks up to a .git placed directly inside workspaceRoot", async () => {
-      const ws = join(tempHome, "projects");
-      gitInitRepo(ws, "https://github.com/FlyFission/Control-Rod.git");
-      const plainDir = join(ws, "plain");
-      mkdirSync(plainDir, { recursive: true });
-      writeFileSync(join(plainDir, "hello.txt"), "not a git repo\n");
-
-      const app = buildTestApp();
-      try {
-        const rLocalBranch = await app.inject({
-          method: "POST",
-          url: "/repos/materialize",
-          payload: { repo: "plain", branch: "feat/x", strategy: "branch" },
-        });
-        expect(rLocalBranch.statusCode).toBe(404);
-        expect(rLocalBranch.json().code).toBe("repo-not-found");
-
-        const rGithubWorktree = await app.inject({
-          method: "POST",
-          url: "/repos/materialize",
-          payload: { repo: "FlyFission/plain", branch: "feat/x", strategy: "worktree" },
-        });
-        expect(rGithubWorktree.statusCode).toBe(409);
-        expect(rGithubWorktree.json().code).toBe("workspace-exists");
-      } finally {
-        await app.close();
-      }
+      await assertPlainDirIgnoresAncestorGit(
+        join(tempHome, "projects"),
+        "https://github.com/FlyFission/Control-Rod.git",
+      );
     });
 
-    it("fresh-clone rejects local non-git baseCloneDir and pre-existing dangling symlink at targetDir", async () => {
+    it("fresh-clone rejects local non-git baseCloneDir, pre-existing dangling symlink, and existing targetDir", async () => {
       const ws = join(tempHome, "projects");
       const plainDir = join(ws, "plain");
       mkdirSync(plainDir, { recursive: true });
@@ -334,9 +390,10 @@ describe("repos.ts hardening", () => {
       gitInitRepo(validLocal);
       const danglingTarget = join(ws, "myrepo-feat-dangling");
       symlinkSync(join(ws, "does-not-exist"), danglingTarget);
+      const existingTarget = join(ws, "myrepo-feat-exists");
+      mkdirSync(existingTarget, { recursive: true });
 
-      const app = buildTestApp();
-      try {
+      await withTestApp(async (app) => {
         const rNonGit = await app.inject({
           method: "POST",
           url: "/repos/materialize",
@@ -350,11 +407,17 @@ describe("repos.ts hardening", () => {
           url: "/repos/materialize",
           payload: { repo: "myrepo", branch: "feat/dangling", strategy: "fresh-clone" },
         });
-        expect(rDangling.statusCode).toBe(409);
-        expect(rDangling.json().code).toBe("workspace-exists");
-      } finally {
-        await app.close();
-      }
+        expect(rDangling.statusCode).toBe(400);
+        expect(rDangling.json().code).toBe("invalid-workspace-root");
+
+        const rExists = await app.inject({
+          method: "POST",
+          url: "/repos/materialize",
+          payload: { repo: "myrepo", branch: "feat/exists", strategy: "fresh-clone" },
+        });
+        expect(rExists.statusCode).toBe(409);
+        expect(rExists.json().code).toBe("workspace-exists");
+      });
     });
 
     it("branch strategy refuses dirty baseCloneDir", async () => {
@@ -363,18 +426,15 @@ describe("repos.ts hardening", () => {
       gitInitRepo(localRepo);
       writeFileSync(join(localRepo, "untracked.txt"), "dirty\n");
 
-      const app = buildTestApp();
-      try {
+      await withTestApp(async (app) => {
         const r = await app.inject({
           method: "POST",
           url: "/repos/materialize",
           payload: { repo: "dirty-repo", branch: "feat/clean", strategy: "branch" },
         });
-        expect([400, 409]).toContain(r.statusCode);
-        expect(["workspace-exists", "git-failed"]).toContain(r.json().code);
-      } finally {
-        await app.close();
-      }
+        expect(r.statusCode).toBe(409);
+        expect(r.json().code).toBe("workspace-exists");
+      });
     });
 
     it("rejects .git gitfile pointing outside workspace and strips unsafe GIT_DIR env", async () => {
@@ -387,8 +447,7 @@ describe("repos.ts hardening", () => {
 
       process.env.GIT_DIR = join(outsideGit, ".git");
 
-      const app = buildTestApp();
-      try {
+      await withTestApp(async (app) => {
         const r = await app.inject({
           method: "POST",
           url: "/repos/materialize",
@@ -396,9 +455,7 @@ describe("repos.ts hardening", () => {
         });
         expect(r.statusCode).toBe(400);
         expect(r.json().code).toBe("invalid-workspace-root");
-      } finally {
-        await app.close();
-      }
+      });
     });
 
     it("rejects .git gitfile pointing to nonexistent path or regular file inside workspaceRoot", async () => {
@@ -413,8 +470,7 @@ describe("repos.ts hardening", () => {
       writeFileSync(regularFile, "plain file\n");
       writeFileSync(join(fileTargetRepo, ".git"), `gitdir: ${regularFile}\n`);
 
-      const app = buildTestApp();
-      try {
+      await withTestApp(async (app) => {
         const rMissing = await app.inject({
           method: "POST",
           url: "/repos/materialize",
@@ -430,15 +486,18 @@ describe("repos.ts hardening", () => {
         });
         expect(rFile.statusCode).toBe(400);
         expect(rFile.json().code).toBe("invalid-workspace-root");
-      } finally {
-        await app.close();
-      }
+      });
     });
 
-    it("converts mkdirSync ENOTDIR errors on workspace_root into 400 invalid-workspace-root", async () => {
+    it("converts mkdirSync ENOTDIR errors on workspace_root and .worktrees into 400 invalid-workspace-root", async () => {
       writeFileSync(join(tempHome, "somefile"), "not a directory\n");
-      const app = buildTestApp();
-      try {
+
+      const ws = join(tempHome, "projects");
+      const localRepo = join(ws, "myrepo");
+      gitInitRepo(localRepo);
+      writeFileSync(join(ws, ".worktrees"), "not a directory\n");
+
+      await withTestApp(async (app) => {
         const res = await app.inject({
           method: "POST",
           url: "/repos/materialize",
@@ -450,20 +509,28 @@ describe("repos.ts hardening", () => {
         });
         expect(res.statusCode).toBe(400);
         expect(res.json().code).toBe("invalid-workspace-root");
-      } finally {
-        await app.close();
-      }
+
+        const wtRes = await app.inject({
+          method: "POST",
+          url: "/repos/materialize",
+          payload: {
+            repo: "myrepo",
+            branch: "feat/worktree-enotdir",
+            strategy: "worktree",
+          },
+        });
+        expect(wtRes.statusCode).toBe(400);
+        expect(wtRes.json().code).toBe("invalid-workspace-root");
+      });
     });
 
     it("gh() injects GIT_CONFIG_COUNT/KEY/VALUE env without writing core.hooksPath into .git/config", async () => {
-      const binDir = join(tempHome, "bin");
-      mkdirSync(binDir, { recursive: true });
       const envLogPath = join(tempHome, "gh-env.json");
-      const stubGhPath = join(binDir, "gh");
 
       // Stub `gh repo clone <repo> <dest>` creates a real git repo at <dest> and logs GIT_CONFIG_* env vars.
-      writeFileSync(
-        stubGhPath,
+      installGhStub(
+        tempHome,
+        origPath,
         `#!/usr/bin/env node
 const fs = require("node:fs");
 const { execFileSync } = require("node:child_process");
@@ -494,13 +561,9 @@ if (args[0] === "repo" && args[1] === "clone") {
 }
 `,
       );
-      chmodSync(stubGhPath, 0o755);
-
-      process.env.PATH = `${binDir}:${origPath ?? ""}`;
       process.env.GIT_DIR = "/tmp/should-be-stripped";
 
-      const app = buildTestApp();
-      try {
+      await withTestApp(async (app) => {
         const res = await app.inject({
           method: "POST",
           url: "/repos/materialize",
@@ -537,9 +600,7 @@ if (args[0] === "repo" && args[1] === "clone") {
 
         const gitConfig = readFileSync(join(targetDir, ".git", "config"), "utf8");
         expect(gitConfig).not.toContain("hooksPath");
-      } finally {
-        await app.close();
-      }
+      });
     });
 
     it("worktree skips fetch when local repo has no origin and surfaces fetch errors when origin fails", async () => {
@@ -550,8 +611,7 @@ if (args[0] === "repo" && args[1] === "clone") {
       const brokenOrigin = join(ws, "broken-origin");
       gitInitRepo(brokenOrigin, "file:///nonexistent/remote/repo.git");
 
-      const app = buildTestApp();
-      try {
+      await withTestApp(async (app) => {
         const okRes = await app.inject({
           method: "POST",
           url: "/repos/materialize",
@@ -567,25 +627,29 @@ if (args[0] === "repo" && args[1] === "clone") {
         });
         expect(failRes.statusCode).toBe(400);
         expect(failRes.json().code).toBe("git-failed");
-      } finally {
-        await app.close();
-      }
+      });
     });
   });
 
   describe("GET /repos route hardening", () => {
-    it("returns 400 invalid-workspace-root for repeated workspace_root query params", async () => {
-      const app = buildTestApp();
-      try {
-        const res = await app.inject({
+    it("returns 400 invalid-workspace-root for repeated workspace_root query params or regular file workspace_root", async () => {
+      writeFileSync(join(tempHome, "somefile"), "not a directory\n");
+
+      await withTestApp(async (app) => {
+        const repeatedRes = await app.inject({
           method: "GET",
           url: "/repos?workspace_root=a&workspace_root=b",
         });
-        expect(res.statusCode).toBe(400);
-        expect(res.json().code).toBe("invalid-workspace-root");
-      } finally {
-        await app.close();
-      }
+        expect(repeatedRes.statusCode).toBe(400);
+        expect(repeatedRes.json().code).toBe("invalid-workspace-root");
+
+        const fileRes = await app.inject({
+          method: "GET",
+          url: "/repos?workspace_root=~/somefile",
+        });
+        expect(fileRes.statusCode).toBe(400);
+        expect(fileRes.json().code).toBe("invalid-workspace-root");
+      });
     });
 
     it("skips local entries with symlinked .git or external/invalid gitdir targets", async () => {
@@ -608,18 +672,21 @@ if (args[0] === "repo" && args[1] === "clone") {
       mkdirSync(missingGitdirRepo, { recursive: true });
       writeFileSync(join(missingGitdirRepo, ".git"), `gitdir: ${join(ws, "does-not-exist")}\n`);
 
-      const app = buildTestApp();
-      try {
+      await withTestApp(async (app) => {
         const res = await app.inject({
           method: "GET",
           url: "/repos",
         });
         expect(res.statusCode).toBe(200);
-        const body = res.json() as { local: Array<{ name: string }> };
+        const body = res.json() as {
+          local: Array<{ name: string }>;
+          github: unknown[];
+          github_error: string | null;
+        };
         expect(body.local.map((r) => r.name)).toEqual(["valid-repo"]);
-      } finally {
-        await app.close();
-      }
+        expect(body.github).toEqual([]);
+        expect(body.github_error).toBeNull();
+      });
     });
   });
 });

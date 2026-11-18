@@ -60,6 +60,10 @@ const HOST_GIT_CONFIG_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["tag.gpgsign", "false"],
 ];
 
+/**
+ * Hardcoded git `-c` overrides passed to host `git` invocations so untrusted repository configs
+ * cannot enable hooks, fsmonitor daemons, external protocols, submodules, or commit signing.
+ */
 export const HOST_GIT_ARGS: readonly string[] = HOST_GIT_CONFIG_PAIRS.flatMap(([k, v]) => ["-c", `${k}=${v}`]);
 
 const GH_NETWORK_ALLOWLIST_PAIRS: ReadonlyArray<readonly [string, string]> = [
@@ -90,16 +94,56 @@ export function pathExistsAny(p: string): boolean {
   }
 }
 
+function canonicalPathOrResolve(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
+}
+
+function isWithinOrEqual(base: string, target: string): string | null {
+  const rel = relative(base, target);
+  if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) {
+    return rel;
+  }
+  return null;
+}
+
 /**
- * Walks every path segment from root of `resolve(targetPath)` and refuses any symlink.
- * Returns `realpathSync(abs)` when it exists on disk, or `abs` otherwise.
+ * Resolves `targetPath` without traversing symlinks. When `ceilingBase` is provided, `ceilingBase`
+ * is canonicalized first and only segments below it are checked for symlinks so symlinked system
+ * ancestors above `$HOME` or the workspace root (e.g. `/var -> /private/var`) do not cause false refusals.
  */
-export function realpathOrNearest(targetPath: string): string {
-  const abs = resolve(targetPath);
-  const { root } = parse(abs);
-  const rest = abs.slice(root.length);
-  const parts = rest ? rest.split(sep).filter(Boolean) : [];
-  let cur = root;
+export function resolveWithoutSymlinks(targetPath: string, ceilingBase?: string): string {
+  const rawTarget = resolve(targetPath);
+  let startDir: string;
+  let relToWalk: string;
+  let canonicalTarget: string;
+
+  if (ceilingBase !== undefined) {
+    const rawCeiling = resolve(ceilingBase);
+    startDir = canonicalPathOrResolve(rawCeiling);
+    const canonicalRel = isWithinOrEqual(startDir, rawTarget);
+    if (canonicalRel !== null) {
+      relToWalk = canonicalRel;
+      canonicalTarget = rawTarget;
+    } else {
+      const lexicalRel = isWithinOrEqual(rawCeiling, rawTarget);
+      if (lexicalRel === null) {
+        throw new Refusal(400, "invalid-workspace-root", `Path must stay inside ${startDir}`);
+      }
+      relToWalk = lexicalRel;
+      canonicalTarget = lexicalRel ? join(startDir, lexicalRel) : startDir;
+    }
+  } else {
+    startDir = parse(rawTarget).root;
+    relToWalk = rawTarget.slice(startDir.length);
+    canonicalTarget = rawTarget;
+  }
+
+  const parts = relToWalk ? relToWalk.split(sep).filter(Boolean) : [];
+  let cur = startDir;
 
   for (const part of parts) {
     cur = join(cur, part);
@@ -118,23 +162,57 @@ export function realpathOrNearest(targetPath: string): string {
     }
   }
 
-  return existsSync(abs) ? realpathSync(abs) : abs;
+  return existsSync(canonicalTarget) ? realpathSync(canonicalTarget) : canonicalTarget;
 }
 
 /** Returns true iff `targetPath` is strictly inside `parentDir` without traversing symlinks. */
 export function isContainedIn(parentDir: string, targetPath: string): boolean {
-  const parent = realpathOrNearest(parentDir);
-  const target = realpathOrNearest(targetPath);
+  const parent = canonicalPathOrResolve(parentDir);
+  const rawParent = resolve(parentDir);
+  const rawTarget = resolve(targetPath);
+  const inCanonical = isWithinOrEqual(parent, rawTarget);
+  const inLexical = isWithinOrEqual(rawParent, rawTarget);
+  if (!inCanonical && !inLexical) {
+    return false;
+  }
+  const target = resolveWithoutSymlinks(targetPath, parentDir);
   const rel = relative(parent, target);
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }
 
+function assertContainedIn(
+  root: string,
+  candidate: string,
+  message = "Path must stay inside workspace root.",
+): void {
+  if (!isContainedIn(root, candidate)) {
+    throw new Refusal(400, "invalid-workspace-root", message);
+  }
+}
+
+function ensureDirectorySafe(dir: string, label = "Directory"): void {
+  if (pathExistsAny(dir) && !lstatSync(dir).isDirectory()) {
+    throw new Refusal(400, "invalid-workspace-root", `${label} is not a directory: ${dir}`);
+  }
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Refusal(400, "invalid-workspace-root", `Cannot create ${label.toLowerCase()} ${dir}: ${detail}`);
+  }
+}
+
 /**
- * Default workspace root (`CONTROLROD_WORKSPACE_ROOT` or `~/projects`).
- * Note: `CONTROLROD_WORKSPACE_ROOT` must point to a non-dot folder inside `$HOME`.
+ * Default workspace root (`CONTROLROD_WORKSPACE_ROOT` or `~/projects`), resolving `$HOME`
+ * canonically when it exists so symlinked ancestors above `$HOME` do not break containment checks.
  */
 export function defaultWorkspaceRoot(): string {
-  return resolve(process.env.CONTROLROD_WORKSPACE_ROOT || join(homedir(), "projects"));
+  const home = canonicalPathOrResolve(homedir());
+  const envRoot = process.env.CONTROLROD_WORKSPACE_ROOT?.trim();
+  if (!envRoot) {
+    return join(home, "projects");
+  }
+  return resolve(envRoot.replace(/^~(?=\/|$)/, home));
 }
 
 /**
@@ -145,10 +223,11 @@ export function resolveSafeWorkspaceRoot(requested?: unknown): string {
   if (requested !== undefined && typeof requested !== "string") {
     throw new Refusal(400, "invalid-workspace-root", "Workspace root must be a string.");
   }
-  const home = realpathSync(homedir());
+  const rawHome = homedir();
+  const home = canonicalPathOrResolve(rawHome);
   const raw = requested?.trim();
   const expanded = raw ? raw.replace(/^~(?=\/|$)/, home) : defaultWorkspaceRoot();
-  const candidate = realpathOrNearest(expanded);
+  const candidate = resolveWithoutSymlinks(expanded, rawHome);
   const rel = relative(home, candidate);
   if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
     throw new Refusal(400, "invalid-workspace-root", `Workspace root must stay inside a folder under ${home}`);
@@ -200,6 +279,11 @@ export function parseGithubOwnerRepoFromUrl(rawUrl: string): string | null {
   return normalizeGithubOwnerRepoPath(parsed.pathname.replace(/^\/+|\/+$/g, ""));
 }
 
+/**
+ * Builds a sanitized environment for host `git` / `gh` calls by stripping unsafe `GIT_*`
+ * overrides (e.g. `GIT_DIR`, `GIT_INDEX_FILE`), disabling interactive prompts, and setting
+ * `GIT_CEILING_DIRECTORIES` so git never walks up into `$HOME` or `workspaceRoot`.
+ */
 export function hostGitEnv(ceilingDir?: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) {
@@ -212,6 +296,10 @@ export function hostGitEnv(ceilingDir?: string): NodeJS.ProcessEnv {
   return env;
 }
 
+/**
+ * Injects transient `GIT_CONFIG_COUNT`/`KEY_i`/`VALUE_i` environment pairs so subprocesses like
+ * `gh repo clone` inherit hardened git config without mutating the cloned repository's `.git/config`.
+ */
 export function gitConfigEnv(
   pairs: ReadonlyArray<readonly [string, string]>,
   baseEnv: NodeJS.ProcessEnv,
@@ -237,12 +325,14 @@ function safeSlug(branch: string): string {
   return branch.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64) || "work";
 }
 
-async function git(
-  args: string[],
-  cwd?: string,
-  timeout = 25_000,
-  workspaceRoot?: string,
-): Promise<string> {
+interface GitOptions {
+  cwd?: string | undefined;
+  timeout?: number | undefined;
+  workspaceRoot?: string | undefined;
+}
+
+async function git(args: string[], options: GitOptions = {}): Promise<string> {
+  const { cwd, timeout = 25_000, workspaceRoot } = options;
   const ceilingDir = workspaceRoot ?? defaultWorkspaceRoot();
   const { stdout } = await execFileAsync("git", [...HOST_GIT_ARGS, ...args], {
     ...(cwd ? { cwd } : {}),
@@ -252,12 +342,14 @@ async function git(
   return stdout.trim();
 }
 
-async function gh(
-  args: string[],
-  timeout = 10_000,
-  extraConfigPairs: ReadonlyArray<readonly [string, string]> = [],
-  ceilingDir?: string,
-): Promise<string> {
+interface GhOptions {
+  timeout?: number | undefined;
+  extraConfigPairs?: ReadonlyArray<readonly [string, string]> | undefined;
+  ceilingDir?: string | undefined;
+}
+
+async function gh(args: string[], options: GhOptions = {}): Promise<string> {
+  const { timeout = 10_000, extraConfigPairs = [], ceilingDir } = options;
   const env = gitConfigEnv(
     [...HOST_GIT_CONFIG_PAIRS, ...GH_NETWORK_ALLOWLIST_PAIRS, ...extraConfigPairs],
     hostGitEnv(ceilingDir),
@@ -266,21 +358,36 @@ async function gh(
   return stdout.trim();
 }
 
+async function getOriginRemoteUrl(cwd: string, workspaceRoot: string): Promise<string> {
+  return git(["remote", "get-url", "origin"], { cwd, workspaceRoot }).catch(() => "");
+}
+
+function assertDirectoryOrMissing(dir: string, label = "Directory"): void {
+  if (pathExistsAny(dir) && !lstatSync(dir).isDirectory()) {
+    throw new Refusal(400, "invalid-workspace-root", `${label} is not a directory: ${dir}`);
+  }
+}
+
+/**
+ * Validates that an existing repo directory is a real directory with a non-symlink `.git` directory
+ * or a `.git` gitfile whose `gitdir:` target stays inside `baseCloneDir` or `workspaceRoot`.
+ */
 function validateExistingRepoDir(baseCloneDir: string, workspaceRoot: string, isGithub: boolean): void {
-  const st = lstatSync(baseCloneDir);
-  if (!st.isDirectory()) {
+  const refuseMissingOrInvalid = (githubMessage: string): never => {
     if (!isGithub) {
       throw new Refusal(404, "repo-not-found", `Local repository not found at ${baseCloneDir}`);
     }
-    throw new Refusal(409, "workspace-exists", `Target path already exists and is not a directory: ${baseCloneDir}`);
+    throw new Refusal(409, "workspace-exists", githubMessage);
+  };
+
+  const st = lstatSync(baseCloneDir);
+  if (!st.isDirectory()) {
+    refuseMissingOrInvalid(`Target path already exists and is not a directory: ${baseCloneDir}`);
   }
 
   const dotGit = join(baseCloneDir, ".git");
   if (!pathExistsAny(dotGit)) {
-    if (!isGithub) {
-      throw new Refusal(404, "repo-not-found", `Local repository not found at ${baseCloneDir}`);
-    }
-    throw new Refusal(409, "workspace-exists", `Existing folder at ${baseCloneDir} is not a Git repository.`);
+    refuseMissingOrInvalid(`Existing folder at ${baseCloneDir} is not a Git repository.`);
   }
 
   const dotGitStat = lstatSync(dotGit);
@@ -326,9 +433,9 @@ async function scanLocalRepos(root: string): Promise<LocalRepoInfo[]> {
     }
     try {
       const [branch, remote, statusOut] = await Promise.all([
-        git(["rev-parse", "--abbrev-ref", "HEAD"], full, undefined, root).catch(() => "HEAD"),
-        git(["remote", "get-url", "origin"], full, undefined, root).catch(() => ""),
-        git(["status", "--porcelain"], full, undefined, root).catch(() => ""),
+        git(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: full, workspaceRoot: root }).catch(() => "HEAD"),
+        getOriginRemoteUrl(full, root),
+        git(["status", "--porcelain"], { cwd: full, workspaceRoot: root }).catch(() => ""),
       ]);
       repos.push({
         name: entry.name,
@@ -355,9 +462,7 @@ async function listGithubRepos(ceilingDir?: string): Promise<{ repos: GithubRepo
         "--json",
         "nameWithOwner,defaultBranchRef,isPrivate,url,updatedAt",
       ],
-      10_000,
-      [],
-      ceilingDir,
+      { ceilingDir },
     );
     const parsed = JSON.parse(raw) as Array<{
       nameWithOwner: string;
@@ -382,6 +487,172 @@ async function listGithubRepos(ceilingDir?: string): Promise<{ repos: GithubRepo
   }
 }
 
+interface MaterializeContext {
+  repo: string;
+  repoName: string;
+  isGithub: boolean;
+  branch: string;
+  baseBranch: string | undefined;
+  strategy: MaterializeStrategy;
+  workspaceRoot: string;
+  baseCloneDir: string;
+}
+
+function parseMaterializeRequest(rawBody: unknown): MaterializeContext {
+  const body = (rawBody ?? {}) as Record<string, unknown>;
+  if (typeof body.repo !== "string") {
+    throw new Refusal(400, "invalid-repo", "Specify a GitHub repo (owner/name) or local repo folder name.");
+  }
+  if (typeof body.branch !== "string") {
+    throw new Refusal(400, "invalid-branch", "Specify a valid Git branch name.");
+  }
+  if (body.base_branch !== undefined && typeof body.base_branch !== "string") {
+    throw new Refusal(400, "invalid-branch", "Base branch name must be a string.");
+  }
+  if (body.workspace_root !== undefined && typeof body.workspace_root !== "string") {
+    throw new Refusal(400, "invalid-workspace-root", "Workspace root must be a string.");
+  }
+  if (
+    body.strategy !== undefined &&
+    body.strategy !== "worktree" &&
+    body.strategy !== "fresh-clone" &&
+    body.strategy !== "branch"
+  ) {
+    throw new Refusal(400, "invalid-strategy", "Strategy must be one of worktree, fresh-clone, or branch.");
+  }
+
+  const repo = body.repo.trim();
+  if (!isSafeRepoIdentifier(repo)) {
+    throw new Refusal(400, "invalid-repo", "Specify a GitHub repo (owner/name) or local repo folder name.");
+  }
+  const branch = assertValidBranch(body.branch, "branch");
+  const baseBranch = body.base_branch?.trim() ? assertValidBranch(body.base_branch, "base_branch") : undefined;
+  const strategy: MaterializeStrategy = body.strategy ?? "worktree";
+  const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
+  const isGithub = SAFE_OWNER_REPO.test(repo);
+  const repoName = isGithub ? repo.split("/")[1]!.replace(/\.git$/i, "") : repo;
+  const baseCloneDir = join(workspaceRoot, repoName);
+
+  return { repo, repoName, isGithub, branch, baseBranch, strategy, workspaceRoot, baseCloneDir };
+}
+
+async function ensureBaseClone(ctx: MaterializeContext): Promise<void> {
+  if (pathExistsAny(ctx.baseCloneDir)) {
+    validateExistingRepoDir(ctx.baseCloneDir, ctx.workspaceRoot, ctx.isGithub);
+    if (ctx.isGithub) {
+      const expectedOwnerRepo = ctx.repo.replace(/\.git$/i, "").toLowerCase();
+      const remoteUrl = await getOriginRemoteUrl(ctx.baseCloneDir, ctx.workspaceRoot);
+      const actualOwnerRepo = parseGithubOwnerRepoFromUrl(remoteUrl);
+      if (!actualOwnerRepo || actualOwnerRepo !== expectedOwnerRepo) {
+        throw new Refusal(
+          409,
+          "repo-identity-mismatch",
+          `Existing folder at ${ctx.baseCloneDir} points to ${actualOwnerRepo ?? "a missing or non-GitHub origin"} instead of ${expectedOwnerRepo}.`,
+        );
+      }
+    }
+    return;
+  }
+
+  if (!ctx.isGithub) {
+    throw new Refusal(404, "repo-not-found", `Local repository not found at ${ctx.baseCloneDir}`);
+  }
+  await gh(["repo", "clone", ctx.repo, ctx.baseCloneDir], { timeout: 60_000, ceilingDir: ctx.workspaceRoot });
+}
+
+async function checkoutOrCreateBranch(
+  repoDir: string,
+  branch: string,
+  workspaceRoot: string,
+  options: { baseBranch?: string | undefined; worktreeTargetDir?: string | undefined } = {},
+): Promise<void> {
+  const existing = await git(["branch", "--list", branch], { cwd: repoDir, workspaceRoot });
+  if (options.worktreeTargetDir) {
+    const args = existing
+      ? ["worktree", "add", options.worktreeTargetDir, branch]
+      : [
+          "worktree",
+          "add",
+          "-b",
+          branch,
+          options.worktreeTargetDir,
+          ...(options.baseBranch ? [options.baseBranch] : []),
+        ];
+    await git(args, { cwd: repoDir, workspaceRoot });
+    return;
+  }
+  const args = existing
+    ? ["checkout", branch]
+    : ["checkout", "-b", branch, ...(options.baseBranch ? [options.baseBranch] : [])];
+  await git(args, { cwd: repoDir, workspaceRoot });
+}
+
+async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
+  const targetDir = join(ctx.workspaceRoot, `${ctx.repoName}-${safeSlug(ctx.branch)}`);
+  assertContainedIn(ctx.workspaceRoot, targetDir, "Target path must stay inside workspace root.");
+  if (pathExistsAny(targetDir)) {
+    throw new Refusal(409, "workspace-exists", `Target folder already exists: ${targetDir}`);
+  }
+  if (ctx.isGithub) {
+    await gh(["repo", "clone", ctx.repo, targetDir], { timeout: 60_000, ceilingDir: ctx.workspaceRoot });
+  } else {
+    if (!pathExistsAny(ctx.baseCloneDir)) {
+      throw new Refusal(404, "repo-not-found", `Local repository not found at ${ctx.baseCloneDir}`);
+    }
+    validateExistingRepoDir(ctx.baseCloneDir, ctx.workspaceRoot, false);
+    await git(["clone", ctx.baseCloneDir, targetDir], {
+      cwd: ctx.workspaceRoot,
+      timeout: 60_000,
+      workspaceRoot: ctx.workspaceRoot,
+    });
+  }
+  await git(["checkout", "-b", ctx.branch, ...(ctx.baseBranch ? [ctx.baseBranch] : [])], {
+    cwd: targetDir,
+    workspaceRoot: ctx.workspaceRoot,
+  });
+  return targetDir;
+}
+
+async function materializeBranch(ctx: MaterializeContext): Promise<string> {
+  await ensureBaseClone(ctx);
+  const statusOut = await git(["status", "--porcelain"], {
+    cwd: ctx.baseCloneDir,
+    workspaceRoot: ctx.workspaceRoot,
+  });
+  if (statusOut.length > 0) {
+    throw new Refusal(
+      409,
+      "workspace-exists",
+      `Repository at ${ctx.baseCloneDir} has uncommitted changes; commit or stash them before switching branches.`,
+    );
+  }
+  await checkoutOrCreateBranch(ctx.baseCloneDir, ctx.branch, ctx.workspaceRoot, { baseBranch: ctx.baseBranch });
+  return ctx.baseCloneDir;
+}
+
+async function materializeWorktree(ctx: MaterializeContext): Promise<string> {
+  await ensureBaseClone(ctx);
+  const originUrl = await getOriginRemoteUrl(ctx.baseCloneDir, ctx.workspaceRoot);
+  if (originUrl) {
+    await git(["fetch", "--prune", "origin"], { cwd: ctx.baseCloneDir, workspaceRoot: ctx.workspaceRoot });
+  }
+
+  const worktreesRoot = join(ctx.workspaceRoot, ".worktrees", ctx.repoName);
+  assertContainedIn(ctx.workspaceRoot, worktreesRoot, "Worktree directory must stay inside workspace root.");
+  const targetDir = join(worktreesRoot, safeSlug(ctx.branch));
+  assertContainedIn(ctx.workspaceRoot, targetDir, "Worktree target must stay inside workspace root.");
+  if (pathExistsAny(targetDir)) {
+    throw new Refusal(409, "workspace-exists", `Worktree already exists at ${targetDir}`);
+  }
+  ensureDirectorySafe(worktreesRoot, "Worktree directory");
+
+  await checkoutOrCreateBranch(ctx.baseCloneDir, ctx.branch, ctx.workspaceRoot, {
+    baseBranch: ctx.baseBranch,
+    worktreeTargetDir: targetDir,
+  });
+  return targetDir;
+}
+
 export function repoRoutes(
   app: FastifyInstance,
   person: (req: FastifyRequest) => Promise<string>,
@@ -389,6 +660,7 @@ export function repoRoutes(
   app.get<{ Querystring: { workspace_root?: unknown } }>("/repos", async (req) => {
     await person(req);
     const workspaceRoot = resolveSafeWorkspaceRoot(req.query.workspace_root);
+    assertDirectoryOrMissing(workspaceRoot, "Workspace root");
     const [local, ghResult] = await Promise.all([
       scanLocalRepos(workspaceRoot),
       listGithubRepos(workspaceRoot),
@@ -411,166 +683,18 @@ export function repoRoutes(
     };
   }>("/repos/materialize", async (req) => {
     await person(req);
-    const body = (req.body ?? {}) as Record<string, unknown>;
-    if (typeof body.repo !== "string") {
-      throw new Refusal(400, "invalid-repo", "Specify a GitHub repo (owner/name) or local repo folder name.");
-    }
-    if (typeof body.branch !== "string") {
-      throw new Refusal(400, "invalid-branch", "Specify a valid Git branch name.");
-    }
-    if (body.base_branch !== undefined && typeof body.base_branch !== "string") {
-      throw new Refusal(400, "invalid-branch", "Base branch name must be a string.");
-    }
-    if (body.workspace_root !== undefined && typeof body.workspace_root !== "string") {
-      throw new Refusal(400, "invalid-workspace-root", "Workspace root must be a string.");
-    }
-    if (
-      body.strategy !== undefined &&
-      body.strategy !== "worktree" &&
-      body.strategy !== "fresh-clone" &&
-      body.strategy !== "branch"
-    ) {
-      throw new Refusal(400, "invalid-strategy", "Strategy must be one of worktree, fresh-clone, or branch.");
-    }
-
-    const repo = body.repo.trim();
-    if (!isSafeRepoIdentifier(repo)) {
-      throw new Refusal(400, "invalid-repo", "Specify a GitHub repo (owner/name) or local repo folder name.");
-    }
-    const branch = assertValidBranch(body.branch, "branch");
-    const baseBranch = body.base_branch?.trim() ? assertValidBranch(body.base_branch, "base_branch") : undefined;
-    const strategy: MaterializeStrategy = body.strategy ?? "worktree";
-    const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
-
-    if (pathExistsAny(workspaceRoot) && !lstatSync(workspaceRoot).isDirectory()) {
-      throw new Refusal(400, "invalid-workspace-root", `Workspace root is not a directory: ${workspaceRoot}`);
-    }
-    try {
-      mkdirSync(workspaceRoot, { recursive: true });
-    } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
-      throw new Refusal(400, "invalid-workspace-root", `Cannot create workspace root directory ${workspaceRoot}: ${detail}`);
-    }
-
-    const isGithub = SAFE_OWNER_REPO.test(repo);
-    const repoName = isGithub ? repo.split("/")[1]!.replace(/\.git$/i, "") : repo;
-    const baseCloneDir = join(workspaceRoot, repoName);
-
-    if (!isContainedIn(workspaceRoot, baseCloneDir)) {
-      throw new Refusal(400, "invalid-workspace-root", "Repository path must stay inside workspace root.");
-    }
-
-    const ensureBaseClone = async () => {
-      if (pathExistsAny(baseCloneDir)) {
-        validateExistingRepoDir(baseCloneDir, workspaceRoot, isGithub);
-        if (isGithub) {
-          const expectedOwnerRepo = repo.replace(/\.git$/i, "").toLowerCase();
-          const remoteUrl = await git(["remote", "get-url", "origin"], baseCloneDir, undefined, workspaceRoot).catch(
-            () => "",
-          );
-          const actualOwnerRepo = parseGithubOwnerRepoFromUrl(remoteUrl);
-          if (!actualOwnerRepo || actualOwnerRepo !== expectedOwnerRepo) {
-            throw new Refusal(
-              409,
-              "repo-identity-mismatch",
-              `Existing folder at ${baseCloneDir} points to ${actualOwnerRepo ?? "a missing or non-GitHub origin"} instead of ${expectedOwnerRepo}.`,
-            );
-          }
-        }
-        return;
-      }
-
-      if (!isGithub) {
-        throw new Refusal(404, "repo-not-found", `Local repository not found at ${baseCloneDir}`);
-      }
-      await gh(["repo", "clone", repo, baseCloneDir], 60_000, [], workspaceRoot);
-    };
+    const ctx = parseMaterializeRequest(req.body);
+    ensureDirectorySafe(ctx.workspaceRoot, "Workspace root");
+    assertContainedIn(ctx.workspaceRoot, ctx.baseCloneDir, "Repository path must stay inside workspace root.");
 
     try {
-      if (strategy === "fresh-clone") {
-        const targetDir = join(workspaceRoot, `${repoName}-${safeSlug(branch)}`);
-        if (pathExistsAny(targetDir)) {
-          throw new Refusal(409, "workspace-exists", `Target folder already exists: ${targetDir}`);
-        }
-        if (!isContainedIn(workspaceRoot, targetDir)) {
-          throw new Refusal(400, "invalid-workspace-root", "Target path must stay inside workspace root.");
-        }
-        if (isGithub) {
-          await gh(["repo", "clone", repo, targetDir], 60_000, [], workspaceRoot);
-        } else {
-          if (!pathExistsAny(baseCloneDir)) {
-            throw new Refusal(404, "repo-not-found", `Local repository not found at ${baseCloneDir}`);
-          }
-          validateExistingRepoDir(baseCloneDir, workspaceRoot, false);
-          await git(["clone", baseCloneDir, targetDir], undefined, 60_000, workspaceRoot);
-        }
-        await git(
-          ["checkout", "-b", branch, ...(baseBranch ? [baseBranch] : [])],
-          targetDir,
-          undefined,
-          workspaceRoot,
-        );
-        return { ok: true, strategy, repo, branch, local_path: targetDir };
-      }
-
-      if (strategy === "branch") {
-        await ensureBaseClone();
-        const statusOut = await git(["status", "--porcelain"], baseCloneDir, undefined, workspaceRoot);
-        if (statusOut.length > 0) {
-          throw new Refusal(
-            409,
-            "workspace-exists",
-            `Repository at ${baseCloneDir} has uncommitted changes; commit or stash them before switching branches.`,
-          );
-        }
-        const existing = await git(["branch", "--list", branch], baseCloneDir, undefined, workspaceRoot);
-        if (existing) {
-          await git(["checkout", branch], baseCloneDir, undefined, workspaceRoot);
-        } else {
-          await git(
-            ["checkout", "-b", branch, ...(baseBranch ? [baseBranch] : [])],
-            baseCloneDir,
-            undefined,
-            workspaceRoot,
-          );
-        }
-        return { ok: true, strategy, repo, branch, local_path: baseCloneDir };
-      }
-
-      // Default: "worktree"
-      await ensureBaseClone();
-      const hasOrigin = await git(["remote", "get-url", "origin"], baseCloneDir, undefined, workspaceRoot)
-        .then((url) => url.length > 0)
-        .catch(() => false);
-      if (hasOrigin) {
-        await git(["fetch", "--prune", "origin"], baseCloneDir, undefined, workspaceRoot);
-      }
-
-      const worktreesRoot = join(workspaceRoot, ".worktrees", repoName);
-      if (!isContainedIn(workspaceRoot, worktreesRoot)) {
-        throw new Refusal(400, "invalid-workspace-root", "Worktree directory must stay inside workspace root.");
-      }
-      const targetDir = join(worktreesRoot, safeSlug(branch));
-      if (pathExistsAny(targetDir)) {
-        throw new Refusal(409, "workspace-exists", `Worktree already exists at ${targetDir}`);
-      }
-      if (!isContainedIn(workspaceRoot, targetDir)) {
-        throw new Refusal(400, "invalid-workspace-root", "Worktree target must stay inside workspace root.");
-      }
-      mkdirSync(worktreesRoot, { recursive: true });
-
-      const existing = await git(["branch", "--list", branch], baseCloneDir, undefined, workspaceRoot);
-      if (existing) {
-        await git(["worktree", "add", targetDir, branch], baseCloneDir, undefined, workspaceRoot);
-      } else {
-        await git(
-          ["worktree", "add", "-b", branch, targetDir, ...(baseBranch ? [baseBranch] : [])],
-          baseCloneDir,
-          undefined,
-          workspaceRoot,
-        );
-      }
-      return { ok: true, strategy, repo, branch, local_path: targetDir };
+      const localPath =
+        ctx.strategy === "fresh-clone"
+          ? await materializeFreshClone(ctx)
+          : ctx.strategy === "branch"
+            ? await materializeBranch(ctx)
+            : await materializeWorktree(ctx);
+      return { ok: true, strategy: ctx.strategy, repo: ctx.repo, branch: ctx.branch, local_path: localPath };
     } catch (err) {
       if (err instanceof Refusal) throw err;
       const msg = err instanceof Error ? err.message : "Git operation failed";

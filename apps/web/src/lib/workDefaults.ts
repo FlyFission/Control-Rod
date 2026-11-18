@@ -5,12 +5,24 @@ import {
   defaultCheckerSelection,
   resolveReasoningForModel,
   type AgentRuntimeSelection,
+  type ReasoningLevel,
 } from "./runtimes.js";
 import type { DataLane } from "../api/types.js";
 import { readString, writeString } from "./storage.js";
 
 export type ModalDetailLevel = "simple" | "advanced";
 export type RepoOutfallStrategy = "worktree" | "fresh-clone" | "branch";
+
+const VALID_DETAIL_LEVELS: readonly ModalDetailLevel[] = ["simple", "advanced"];
+const VALID_STRATEGIES: readonly RepoOutfallStrategy[] = ["worktree", "fresh-clone", "branch"];
+const VALID_LANES: readonly DataLane[] = [
+  "public",
+  "internal",
+  "proprietary",
+  "client-confidential",
+  "restricted",
+];
+const VALID_GRADES: readonly ("general-service" | "safety")[] = ["general-service", "safety"];
 
 export interface WorkDefaults {
   project: string;
@@ -49,14 +61,21 @@ export function factoryDefaults(mode: EngineeringMode): WorkDefaults {
 
 /** Validates a persisted runtime selection against currently runnable ecosystems, models, and reasoning levels. */
 function sanitizeSelection(
-  sel: Partial<AgentRuntimeSelection> | undefined,
+  sel: unknown,
   fallback: AgentRuntimeSelection,
 ): AgentRuntimeSelection {
-  if (!sel?.ecosystem) return fallback;
-  const eco = CLI_ECOSYSTEMS.find((c) => c.id === sel.ecosystem);
+  if (!sel || typeof sel !== "object" || Array.isArray(sel)) return fallback;
+  const candidate = sel as Record<string, unknown>;
+  if (typeof candidate.ecosystem !== "string") return fallback;
+  const eco = CLI_ECOSYSTEMS.find((c) => c.id === candidate.ecosystem);
   if (!eco || !eco.runnable) return fallback;
-  const model = sel.model && eco.models.includes(sel.model) ? sel.model : eco.defaultModel;
-  const reasoning = resolveReasoningForModel(eco.id, model, sel.reasoning);
+  const model =
+    typeof candidate.model === "string" && eco.models.includes(candidate.model)
+      ? candidate.model
+      : eco.defaultModel;
+  const preferredReasoning =
+    typeof candidate.reasoning === "string" ? (candidate.reasoning as ReasoningLevel) : undefined;
+  const reasoning = resolveReasoningForModel(eco.id, model, preferredReasoning);
   return {
     ecosystem: eco.id,
     model,
@@ -64,18 +83,39 @@ function sanitizeSelection(
   };
 }
 
+function pickString(val: unknown, fallback: string): string {
+  return typeof val === "string" ? val : fallback;
+}
+
+function pickEnum<T extends string>(val: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof val === "string" && (allowed as readonly string[]).includes(val)
+    ? (val as T)
+    : fallback;
+}
+
 export function loadWorkDefaults(mode: EngineeringMode): WorkDefaults {
   const base = factoryDefaults(mode);
   const raw = readString(`${STORAGE_PREFIX}${mode}`);
   if (!raw) return base;
   try {
-    const parsed = JSON.parse(raw) as Partial<WorkDefaults>;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return base;
+    }
+    const obj = parsed as Record<string, unknown>;
     return {
-      ...base,
-      ...parsed,
-      author: sanitizeSelection(parsed.author, base.author),
-      checker: sanitizeSelection(parsed.checker, base.checker),
-      detailLevel: parsed.detailLevel === "advanced" ? "advanced" : "simple",
+      project: pickString(obj.project, base.project),
+      stage: pickString(obj.stage, base.stage),
+      purpose: pickString(obj.purpose, base.purpose),
+      discipline: pickString(obj.discipline, base.discipline),
+      lane: pickEnum(obj.lane, VALID_LANES, base.lane),
+      grade: pickEnum(obj.grade, VALID_GRADES, base.grade),
+      author: sanitizeSelection(obj.author, base.author),
+      checker: sanitizeSelection(obj.checker, base.checker),
+      detailLevel: pickEnum(obj.detailLevel, VALID_DETAIL_LEVELS, base.detailLevel),
+      workspaceRoot: pickString(obj.workspaceRoot, base.workspaceRoot),
+      repo: pickString(obj.repo, base.repo),
+      repoStrategy: pickEnum(obj.repoStrategy, VALID_STRATEGIES, base.repoStrategy),
     };
   } catch {
     return base;

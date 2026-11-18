@@ -21,6 +21,7 @@ import {
   saveWorkDefaults,
   type ModalDetailLevel,
   type RepoOutfallStrategy,
+  type WorkDefaults,
 } from "../lib/workDefaults.js";
 
 function suggestBranchName(text: string): string {
@@ -46,8 +47,14 @@ interface PrepareSnapshot {
   repo: string;
   repoStrategy: RepoOutfallStrategy;
   workspaceRoot: string;
+  targetWorkspaceRoot: string;
   branch: string;
 }
+
+type RuntimeSelectionPatch =
+  | { ecosystem: CliEcosystemId }
+  | { model: string }
+  | { reasoning: ReasoningLevel };
 
 interface NewWorkModalProps {
   open: boolean;
@@ -65,7 +72,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const qc = useQueryClient();
 
-  const initialDefaults = loadWorkDefaults(mode);
+  const [initialDefaults] = useState(() => loadWorkDefaults(mode));
   const [detailLevel, setDetailLevel] = useState<ModalDetailLevel>(initialDefaults.detailLevel);
   const [project, setProject] = useState(initialDefaults.project);
   const [stage, setStage] = useState(initialDefaults.stage);
@@ -81,57 +88,69 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const [branch, setBranch] = useState("");
   const [preparedPath, setPreparedPath] = useState<string | null>(null);
   const [preparedBranch, setPreparedBranch] = useState<string | null>(null);
+  const [pendingPrepareSeq, setPendingPrepareSeq] = useState<number | null>(null);
   const [pinnedFields, setPinnedFields] = useState(false);
 
   const [objective, setObjective] = useState("");
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const prepareSeqRef = useRef(0);
+  const prevModeRef = useRef(mode);
 
   function invalidatePrepared() {
     prepareSeqRef.current += 1;
+    setPendingPrepareSeq(null);
     setPreparedPath(null);
     setPreparedBranch(null);
   }
 
-  // Load saved defaults whenever Engineering Mode toggles.
-  useEffect(() => {
-    const saved = loadWorkDefaults(mode);
-    setDetailLevel(saved.detailLevel);
-    setProject(saved.project);
-    setStage(saved.stage);
-    setPurpose(saved.purpose);
-    setDiscipline(saved.discipline);
-    setLane(saved.lane);
-    setGrade(saved.grade);
-    setAuthor(saved.author);
-    setChecker(saved.checker);
-    setWorkspaceRoot(saved.workspaceRoot);
-    setRepo(saved.repo);
-    setRepoStrategy(saved.repoStrategy);
+  function applyDefaults(defaults: WorkDefaults, includeDetailLevel = false) {
+    if (includeDetailLevel) {
+      setDetailLevel(defaults.detailLevel);
+    }
+    setProject(defaults.project);
+    setStage(defaults.stage);
+    setPurpose(defaults.purpose);
+    setDiscipline(defaults.discipline);
+    setLane(defaults.lane);
+    setGrade(defaults.grade);
+    setAuthor(defaults.author);
+    setChecker(defaults.checker);
+    setWorkspaceRoot(defaults.workspaceRoot);
+    setRepo(defaults.repo);
+    setRepoStrategy(defaults.repoStrategy);
     setBranch("");
     invalidatePrepared();
     setPinnedFields(false);
+  }
+
+  // Load saved defaults whenever Engineering Mode toggles (skip redundant mount run).
+  useEffect(() => {
+    if (prevModeRef.current === mode) return;
+    prevModeRef.current = mode;
+    applyDefaults(loadWorkDefaults(mode), true);
+    setError(null);
     setDefaultsNotice(null);
   }, [mode]);
 
+  const trimmedWorkspaceRoot = workspaceRoot.trim();
   const reposQuery = useQuery({
-    queryKey: ["repos", workspaceRoot],
-    queryFn: () => api.repos(workspaceRoot || undefined),
+    queryKey: ["repos", trimmedWorkspaceRoot],
+    queryFn: () => api.repos(trimmedWorkspaceRoot || undefined),
     enabled: open,
   });
 
-  const activeWorkspaceRoot = workspaceRoot || reposQuery.data?.workspace_root || "";
+  const activeWorkspaceRoot = trimmedWorkspaceRoot || reposQuery.data?.workspace_root || "";
   const effectiveBranch = branch.trim() || suggestBranchName(objective);
   const latestPrepareInputsRef = useRef({
     repo,
     repoStrategy,
-    workspaceRoot: activeWorkspaceRoot,
+    workspaceRoot: trimmedWorkspaceRoot,
   });
   latestPrepareInputsRef.current = {
     repo,
     repoStrategy,
-    workspaceRoot: activeWorkspaceRoot,
+    workspaceRoot: trimmedWorkspaceRoot,
   };
 
   function isCurrentPrepare(snapshot: PrepareSnapshot): boolean {
@@ -150,7 +169,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
         repo: snapshot.repo,
         branch: snapshot.branch,
         strategy: snapshot.repoStrategy,
-        ...(snapshot.workspaceRoot ? { workspace_root: snapshot.workspaceRoot } : {}),
+        ...(snapshot.targetWorkspaceRoot ? { workspace_root: snapshot.targetWorkspaceRoot } : {}),
       });
       return { res, snapshot };
     },
@@ -164,6 +183,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     onError: (e, snapshot) => {
       if (!isCurrentPrepare(snapshot)) return;
       setError(explain(e, "Could not prepare local workspace."));
+    },
+    onSettled: (_data, _err, snapshot) => {
+      if (snapshot.seq === prepareSeqRef.current) {
+        setPendingPrepareSeq(null);
+      }
     },
   });
 
@@ -179,11 +203,17 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
 
   useEffect(() => {
     const dlg = dialogRef.current;
-    if (!dlg) return;
-    if (open && !dlg.open) {
-      dlg.showModal();
-    } else if (!open && dlg.open) {
-      dlg.close();
+    if (dlg) {
+      if (open && !dlg.open) {
+        dlg.showModal();
+      } else if (!open && dlg.open) {
+        dlg.close();
+      }
+    }
+    if (!open) {
+      invalidatePrepared();
+      setError(null);
+      setDefaultsNotice(null);
     }
   }, [open]);
 
@@ -194,6 +224,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       setBranch("");
       invalidatePrepared();
       setPinnedFields(false);
+      setDefaultsNotice(null);
       setError(null);
       void qc.invalidateQueries({ queryKey: ["captures"] });
       onClose();
@@ -201,16 +232,26 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     onError: (e) => setError(explain(e, "Could not capture work.")),
   });
 
-  function updateRuntime(
-    setter: React.Dispatch<React.SetStateAction<AgentRuntimeSelection>>,
-    ecosystemId: CliEcosystemId,
-  ) {
-    const eco = ecosystemById(ecosystemId);
-    if (!eco.runnable) return;
-    setter({
-      ecosystem: eco.id,
-      model: eco.defaultModel,
-      reasoning: eco.defaultReasoning,
+  function updateRuntimeSelection(role: "author" | "checker", patch: RuntimeSelectionPatch) {
+    const setter = role === "author" ? setAuthor : setChecker;
+    setter((prev) => {
+      if ("ecosystem" in patch) {
+        const eco = ecosystemById(patch.ecosystem);
+        if (!eco.runnable) return prev;
+        return {
+          ecosystem: eco.id,
+          model: eco.defaultModel,
+          reasoning: eco.defaultReasoning,
+        };
+      }
+      if ("model" in patch) {
+        return {
+          ...prev,
+          model: patch.model,
+          reasoning: resolveReasoningForModel(prev.ecosystem, patch.model, prev.reasoning),
+        };
+      }
+      return { ...prev, reasoning: patch.reasoning };
     });
   }
 
@@ -233,21 +274,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   }
 
   function handleResetDefaults() {
-    const base = resetWorkDefaults(mode);
-    setProject(base.project);
-    setStage(base.stage);
-    setPurpose(base.purpose);
-    setDiscipline(base.discipline);
-    setLane(base.lane);
-    setGrade(base.grade);
-    setAuthor(base.author);
-    setChecker(base.checker);
-    setWorkspaceRoot(base.workspaceRoot);
-    setRepo(base.repo);
-    setRepoStrategy(base.repoStrategy);
-    setBranch("");
-    invalidatePrepared();
-    setPinnedFields(false);
+    applyDefaults(resetWorkDefaults(mode));
     setDefaultsNotice(`Reset ${copy.label} defaults.`);
   }
 
@@ -282,6 +309,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   }
 
   const independent = isIndependentCustody(author, checker);
+  const isPreparing = pendingPrepareSeq !== null;
 
   return (
     <dialog
@@ -408,6 +436,11 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
               </label>
             )}
           </div>
+          {reposQuery.isError && (
+            <p role="alert" className="error" style={{ marginTop: 8, marginBottom: 0 }}>
+              {explain(reposQuery.error, "Could not load repositories.")}
+            </p>
+          )}
           {reposQuery.data?.github_error && (
             <p role="alert" className="error" style={{ marginTop: 8, marginBottom: 0 }}>
               GitHub repositories unavailable: {reposQuery.data.github_error}
@@ -448,19 +481,24 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
               <button
                 type="button"
                 className="btn small"
-                disabled={materialize.isPending}
+                disabled={isPreparing}
                 onClick={() => {
                   const seq = ++prepareSeqRef.current;
+                  setPendingPrepareSeq(seq);
+                  setPreparedPath(null);
+                  setPreparedBranch(null);
+                  setError(null);
                   materialize.mutate({
                     seq,
                     repo,
                     repoStrategy,
-                    workspaceRoot: activeWorkspaceRoot,
+                    workspaceRoot: trimmedWorkspaceRoot,
+                    targetWorkspaceRoot: activeWorkspaceRoot,
                     branch: effectiveBranch,
                   });
                 }}
               >
-                {materialize.isPending ? "Preparing workspace…" : "Prepare local workspace"}
+                {isPreparing ? "Preparing workspace…" : "Prepare local workspace"}
               </button>
               {preparedPath && (
                 <span className="mono small ok" role="status">
@@ -565,29 +603,13 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                   title={copy.custodyRoles[0]}
                   idPrefix="author"
                   value={author}
-                  onChangeEcosystem={(id) => updateRuntime(setAuthor, id)}
-                  onChangeModel={(m) =>
-                    setAuthor((prev) => ({
-                      ...prev,
-                      model: m,
-                      reasoning: resolveReasoningForModel(prev.ecosystem, m, prev.reasoning),
-                    }))
-                  }
-                  onChangeReasoning={(r) => setAuthor((prev) => ({ ...prev, reasoning: r }))}
+                  onChange={(patch) => updateRuntimeSelection("author", patch)}
                 />
                 <RuntimePickerCard
                   title={copy.custodyRoles[1]}
                   idPrefix="checker"
                   value={checker}
-                  onChangeEcosystem={(id) => updateRuntime(setChecker, id)}
-                  onChangeModel={(m) =>
-                    setChecker((prev) => ({
-                      ...prev,
-                      model: m,
-                      reasoning: resolveReasoningForModel(prev.ecosystem, m, prev.reasoning),
-                    }))
-                  }
-                  onChangeReasoning={(r) => setChecker((prev) => ({ ...prev, reasoning: r }))}
+                  onChange={(patch) => updateRuntimeSelection("checker", patch)}
                 />
               </div>
               <p
@@ -644,16 +666,12 @@ function RuntimePickerCard({
   title,
   idPrefix,
   value,
-  onChangeEcosystem,
-  onChangeModel,
-  onChangeReasoning,
+  onChange,
 }: {
   title: string;
   idPrefix: string;
   value: AgentRuntimeSelection;
-  onChangeEcosystem: (id: CliEcosystemId) => void;
-  onChangeModel: (model: string) => void;
-  onChangeReasoning: (reasoning: ReasoningLevel) => void;
+  onChange: (patch: RuntimeSelectionPatch) => void;
 }) {
   const eco = ecosystemById(value.ecosystem);
   const reasoningLevels = reasoningLevelsFor(value.ecosystem, value.model);
@@ -665,7 +683,7 @@ function RuntimePickerCard({
         <select
           id={`${idPrefix}-cli`}
           value={value.ecosystem}
-          onChange={(e) => onChangeEcosystem(e.target.value as CliEcosystemId)}
+          onChange={(e) => onChange({ ecosystem: e.target.value as CliEcosystemId })}
         >
           {CLI_ECOSYSTEMS.map((c) => (
             <option key={c.id} value={c.id} disabled={!c.runnable}>
@@ -679,7 +697,7 @@ function RuntimePickerCard({
         <select
           id={`${idPrefix}-model`}
           value={value.model}
-          onChange={(e) => onChangeModel(e.target.value)}
+          onChange={(e) => onChange({ model: e.target.value })}
         >
           {eco.models.map((m) => (
             <option key={m} value={m}>
@@ -697,7 +715,7 @@ function RuntimePickerCard({
               type="button"
               className="cr-reason-btn"
               aria-pressed={value.reasoning === r}
-              onClick={() => onChangeReasoning(r)}
+              onClick={() => onChange({ reasoning: r })}
             >
               {r}
             </button>

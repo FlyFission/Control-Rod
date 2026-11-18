@@ -7,7 +7,7 @@ import { renderPage } from "../test/render.js";
 import type { Session } from "../api/types.js";
 import { Shell } from "./Shell.js";
 import { saveMode } from "../lib/mode.js";
-import { loadWorkDefaults, resetWorkDefaults } from "../lib/workDefaults.js";
+import { loadWorkDefaults, resetWorkDefaults, factoryDefaults } from "../lib/workDefaults.js";
 
 const ben = { registered: true, signed_in: true, user: "ben" } as Session;
 
@@ -327,9 +327,13 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const repoSelect = await screen.findByLabelText("Repository");
     await user.selectOptions(repoSelect, "Repo-A");
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
+    expect(screen.getByRole("button", { name: "Preparing workspace…" })).toBeTruthy();
 
-    // Switch repo while first materialize request is still pending
+    // Switch repo while first materialize request is still pending: Prepare re-enables immediately
     await user.selectOptions(repoSelect, "Repo-B");
+    const prepareBtnAfterSwitch = screen.getByRole("button", { name: "Prepare local workspace" }) as HTMLButtonElement;
+    expect(prepareBtnAfterSwitch.disabled).toBe(false);
+    expect(screen.queryByRole("button", { name: /Preparing workspace/i })).toBeNull();
 
     resolveSlow(
       HttpResponse.json({
@@ -343,5 +347,314 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     await waitFor(() => expect((screen.getByRole("button", { name: "Prepare local workspace" }) as HTMLButtonElement).disabled).toBe(false));
     expect(screen.queryByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Repo-A/i)).toBeNull();
+  });
+
+  it("allows preparing Repo-B while delayed Repo-A request is still in flight", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+
+    let resolveRepoA!: (val: Response) => void;
+    const repoAPromise = new Promise<Response>((res) => {
+      resolveRepoA = res;
+    });
+
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [
+            { name: "Repo-A", path: "/home/flyfission/projects/Repo-A", branch: "main", remote_url: null, dirty: false },
+            { name: "Repo-B", path: "/home/flyfission/projects/Repo-B", branch: "main", remote_url: null, dirty: false },
+          ],
+          github: [],
+          github_error: null,
+        }),
+      ),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch" };
+        if (body.repo === "Repo-A") return repoAPromise;
+        return HttpResponse.json({
+          ok: true,
+          strategy: body.strategy,
+          repo: body.repo,
+          branch: body.branch,
+          local_path: `/home/flyfission/projects/.worktrees/Repo-B/${body.branch.replace(/\//g, "-")}`,
+        });
+      }),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    const repoSelect = await screen.findByLabelText("Repository");
+    await user.selectOptions(repoSelect, "Repo-A");
+    await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
+
+    // Switching to Repo-B immediately enables Prepare so user doesn't have to wait for Repo-A
+    await user.selectOptions(repoSelect, "Repo-B");
+    const prepareBtn = screen.getByRole("button", { name: "Prepare local workspace" }) as HTMLButtonElement;
+    expect(prepareBtn.disabled).toBe(false);
+
+    await user.click(prepareBtn);
+    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Repo-B/i)).toBeTruthy();
+
+    // Delayed Repo-A settles afterwards and does not clobber Repo-B's ready state
+    resolveRepoA(
+      HttpResponse.json({
+        ok: true,
+        strategy: "worktree",
+        repo: "Repo-A",
+        branch: "cr/work-package",
+        local_path: "/home/flyfission/projects/.worktrees/Repo-A/cr-work-package",
+      }),
+    );
+    await waitFor(() => expect(screen.getByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Repo-B/i)).toBeTruthy());
+    expect(screen.queryByText(/Ready:.*Repo-A/i)).toBeNull();
+  });
+
+  it("clears error, defaultsNotice, and prepared state on close and ignores in-flight materialize", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+
+    let callCount = 0;
+    let resolveSecond!: (val: Response) => void;
+    const secondPromise = new Promise<Response>((res) => {
+      resolveSecond = res;
+    });
+
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [{ name: "Control-Rod", path: "/home/flyfission/projects/Control-Rod", branch: "main", remote_url: null, dirty: false }],
+          github: [],
+          github_error: null,
+        }),
+      ),
+      http.post("*/repos/materialize", async ({ request }) => {
+        callCount += 1;
+        if (callCount === 2) return secondPromise;
+        const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch" };
+        return HttpResponse.json({
+          ok: true,
+          strategy: body.strategy,
+          repo: body.repo,
+          branch: body.branch,
+          local_path: `/home/flyfission/projects/.worktrees/Control-Rod/${body.branch.replace(/\//g, "-")}`,
+        });
+      }),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    const repoSelect = await screen.findByLabelText("Repository");
+    await user.selectOptions(repoSelect, "Control-Rod");
+    await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
+    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod/i)).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    await user.click(screen.getByRole("button", { name: "Save as my defaults" }));
+    expect(screen.getByText(/Saved defaults for Software mode/i)).toBeTruthy();
+
+    // Trigger validation error
+    await user.click(screen.getByRole("button", { name: "Capture change" }));
+    expect(screen.getByRole("alert").textContent).toContain("Enter an objective or scope before capturing.");
+
+    // Close via Cancel and reopen -> stale preparedPath, defaultsNotice, and error are cleared
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    expect(screen.queryByText(/Ready:/i)).toBeNull();
+    expect(screen.queryByText(/Saved defaults for Software mode/i)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    // Start a second materialize, close via Esc while pending, resolve it, then reopen
+    await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
+    expect(screen.getByRole("button", { name: "Preparing workspace…" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Esc" }));
+
+    resolveSecond(
+      HttpResponse.json({
+        ok: true,
+        strategy: "worktree",
+        repo: "Control-Rod",
+        branch: "cr/work-package",
+        local_path: "/home/flyfission/projects/.worktrees/Control-Rod/stale-close",
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    const btnAfterReopen = screen.getByRole("button", { name: "Prepare local workspace" }) as HTMLButtonElement;
+    expect(btnAfterReopen.disabled).toBe(false);
+    expect(screen.queryByText(/Ready:/i)).toBeNull();
+  });
+
+  it("clears previously succeeded preparedPath and preparedBranch when re-prepare fails", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+
+    let attempt = 0;
+    let capturedBody: { text?: string } | null = null;
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [{ name: "Control-Rod", path: "/home/flyfission/projects/Control-Rod", branch: "main", remote_url: null, dirty: false }],
+          github: [],
+          github_error: null,
+        }),
+      ),
+      http.post("*/repos/materialize", async ({ request }) => {
+        attempt += 1;
+        if (attempt === 1) {
+          const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch" };
+          return HttpResponse.json({
+            ok: true,
+            strategy: body.strategy,
+            repo: body.repo,
+            branch: "cr/server-assigned-branch",
+            local_path: "/home/flyfission/projects/.worktrees/Control-Rod/cr-server-assigned-branch",
+          });
+        }
+        return HttpResponse.json({ code: "git_error", message: "git worktree add failed" }, { status: 500 });
+      }),
+      http.post("*/captures", async ({ request }) => {
+        capturedBody = (await request.json()) as { text?: string };
+        return HttpResponse.json({ id: "cap-3", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: capturedBody.text ?? "" });
+      }),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Fix bug");
+    const repoSelect = await screen.findByLabelText("Repository");
+    await user.selectOptions(repoSelect, "Control-Rod");
+    await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
+    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-server-assigned-branch/i)).toBeTruthy();
+
+    // Re-prepare fails -> prior Ready path and preparedBranch must be cleared
+    await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("git worktree add failed");
+    expect(screen.queryByText(/Ready:/i)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Capture change" }));
+    await waitFor(() => expect(capturedBody).not.toBeNull());
+    expect(capturedBody!.text).not.toContain("[workspace:");
+    expect(capturedBody!.text).toContain("[branch:cr/fix-bug]");
+  });
+
+  it("defensively validates corrupt localStorage values in loadWorkDefaults and renders NewWorkModal safely", async () => {
+    const base = factoryDefaults("software");
+    for (const bad of ["null", '"bad"', "[1,2]", "{not-json"]) {
+      localStorage.setItem("cr.work-defaults.software", bad);
+      expect(loadWorkDefaults("software")).toEqual(base);
+    }
+
+    localStorage.setItem(
+      "cr.work-defaults.software",
+      JSON.stringify({
+        project: 123,
+        repoStrategy: "bogus",
+        lane: "not-a-lane",
+        grade: "invalid-grade",
+        detailLevel: 42,
+        workspaceRoot: false,
+        repo: {},
+        stage: null,
+        purpose: 99,
+        discipline: [],
+        author: { ecosystem: "claude", model: 42, reasoning: [] },
+        checker: "corrupt",
+      }),
+    );
+
+    const sanitized = loadWorkDefaults("software");
+    expect(sanitized).toEqual(base);
+
+    saveMode("software");
+    mockDialogMethods();
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
+      ),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    expect(screen.getByRole("heading", { name: "New change request" })).toBeTruthy();
+  });
+
+  it("renders an error alert when /repos fails", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () => HttpResponse.json({ code: "repo_err", message: "Repository scan failed" }, { status: 500 })),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Repository scan failed");
+  });
+
+  it("does not invalidate prepare when /repos hydrates after empty workspaceRoot", async () => {
+    saveMode("software");
+    localStorage.setItem(
+      "cr.work-defaults.software",
+      JSON.stringify({ ...factoryDefaults("software"), repo: "Control-Rod" }),
+    );
+    mockDialogMethods();
+
+    let resolveRepos!: (val: Response) => void;
+    const reposPromise = new Promise<Response>((res) => {
+      resolveRepos = res;
+    });
+
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", async () => reposPromise),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch" };
+        // Resolve /repos with a server workspace_root right as materialize completes
+        resolveRepos(
+          HttpResponse.json({
+            workspace_root: "/home/flyfission/projects",
+            local: [{ name: "Control-Rod", path: "/home/flyfission/projects/Control-Rod", branch: "main", remote_url: null, dirty: false }],
+            github: [],
+            github_error: null,
+          }),
+        );
+        return HttpResponse.json({
+          ok: true,
+          strategy: body.strategy,
+          repo: body.repo,
+          branch: body.branch,
+          local_path: "/home/flyfission/projects/.worktrees/Control-Rod/cr-work-package",
+        });
+      }),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
+    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-work-package/i)).toBeTruthy();
   });
 });

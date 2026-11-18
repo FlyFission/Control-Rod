@@ -1,0 +1,14 @@
+License gate passed for 212 packages.
+node_license_exit=0
+Using CPython 3.14.4
+Creating virtual environment at: .venv
+   Building controlrod @ file:///home/flyfission/pr-reviews/Control-Rod/sdk/python
+Downloading ruff (10.1MiB)
+      Built controlrod @ file:///home/flyfission/pr-reviews/Control-Rod/sdk/python
+ Downloaded ruff
+Installed 7 packages in 30ms
+All checks passed!
+4 files already formatted
+.................................                                        [100%]
+33 passed in 0.03s
+sdk_python_exit=0

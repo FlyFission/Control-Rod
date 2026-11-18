@@ -383,9 +383,15 @@ const CRLF_DISABLE_PAIRS: ReadonlyArray<readonly [string, string]> = [
 /**
  * Queries configured `filter.<driver>.*` entries in `repoDir` and returns transient
  * `GIT_CONFIG_COUNT`/`KEY_i`/`VALUE_i` overrides that neutralize clean/smudge/process
- * filters (including `required=true` and driver names with `=`) and CRLF conversions.
+ * filters (including `required=true` and driver names with `=`). Line-ending overrides
+ * are scoped cleanly: status checks use `"none"`, checkouts use `"safecrlf-only"`, and
+ * raw-byte checkpoints use `"all"`.
  */
-async function filterDisableEnv(repoDir: string, workspaceRoot?: string): Promise<Record<string, string>> {
+async function filterDisableEnv(
+  repoDir: string,
+  workspaceRoot?: string,
+  crlfMode: "none" | "safecrlf-only" | "all" = "none",
+): Promise<Record<string, string>> {
   let rawKeys = "";
   try {
     rawKeys = await git(
@@ -409,7 +415,12 @@ async function filterDisableEnv(repoDir: string, workspaceRoot?: string): Promis
     }
   }
 
-  const pairs: Array<readonly [string, string]> = [...CRLF_DISABLE_PAIRS];
+  const pairs: Array<readonly [string, string]> =
+    crlfMode === "all"
+      ? [...CRLF_DISABLE_PAIRS]
+      : crlfMode === "safecrlf-only"
+        ? [["core.safecrlf", "false"]]
+        : [];
   for (const prefix of drivers) {
     pairs.push(
       [`${prefix}.clean`, ""],
@@ -449,6 +460,33 @@ async function git(args: string[], options: GitOptions = {}): Promise<string> {
     env: hostGitEnv(ceilingDir, extraEnv),
   });
   return stdout.trim();
+}
+
+async function gitWithBytes(args: string[], options: GitOptions & { input?: Buffer } = {}): Promise<Buffer> {
+  const { cwd, timeout = 25_000, workspaceRoot, extraEnv, input } = options;
+  const ceilingDir = workspaceRoot ?? defaultWorkspaceRoot();
+  return new Promise<Buffer>((resolvePromise, rejectPromise) => {
+    const child = execFile(
+      "git",
+      [...HOST_GIT_ARGS, ...args],
+      {
+        ...(cwd ? { cwd } : {}),
+        timeout,
+        encoding: "buffer",
+        maxBuffer: 32 * 1024 * 1024,
+        env: hostGitEnv(ceilingDir, extraEnv),
+      },
+      (err, stdout) => {
+        if (err) rejectPromise(err);
+        else resolvePromise(Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout));
+      },
+    );
+    if (input !== undefined) {
+      child.stdin?.end(input);
+    } else {
+      child.stdin?.end();
+    }
+  });
 }
 
 interface GhOptions {
@@ -921,7 +959,7 @@ export async function createCheckpoint(opts: {
   resolveRepoGitDirs(repoDir, workspaceRoot, false);
   await assertSafeWorkingTree(repoDir, workspaceRoot);
 
-  const filterEnv = await filterDisableEnv(repoDir, workspaceRoot);
+  const filterEnv = await filterDisableEnv(repoDir, workspaceRoot, "all");
   const tempIndex = join(tmpdir(), `cr-checkpoint-index-${randomUUID()}`);
   const indexEnv: Record<string, string> = {
     ...filterEnv,
@@ -947,6 +985,19 @@ export async function createCheckpoint(opts: {
         throw new Refusal(400, "invalid-workspace-root", `Repository index must not be a symbolic link: ${idxPath}`);
       }
       copyFileSync(idxPath, tempIndex);
+      const trackedRaw = await gitWithBytes(["ls-files", "-z"], {
+        cwd: repoDir,
+        workspaceRoot,
+        extraEnv: indexEnv,
+      });
+      if (trackedRaw.length > 0) {
+        await gitWithBytes(["update-index", "--no-assume-unchanged", "-z", "--stdin"], {
+          cwd: repoDir,
+          workspaceRoot,
+          extraEnv: indexEnv,
+          input: trackedRaw,
+        });
+      }
     } else if (headSha) {
       await git(["read-tree", "HEAD"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
     }
@@ -1077,7 +1128,7 @@ async function checkoutOrCreateBranch(
 ): Promise<void> {
   const [existing, filterEnv] = await Promise.all([
     git(["branch", "--list", branch], { cwd: repoDir, workspaceRoot }),
-    filterDisableEnv(repoDir, workspaceRoot),
+    filterDisableEnv(repoDir, workspaceRoot, "safecrlf-only"),
   ]);
   if (options.worktreeTargetDir) {
     const args = existing
@@ -1112,7 +1163,7 @@ async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
       throw new Refusal(404, "repo-not-found", `Local repository not found at ${ctx.baseCloneDir}`);
     }
     await validateExistingRepoDir(ctx.baseCloneDir, ctx.workspaceRoot, false);
-    const cloneFilterEnv = await filterDisableEnv(ctx.baseCloneDir, ctx.workspaceRoot);
+    const cloneFilterEnv = await filterDisableEnv(ctx.baseCloneDir, ctx.workspaceRoot, "safecrlf-only");
     await git(["clone", ctx.baseCloneDir, targetDir], {
       cwd: ctx.workspaceRoot,
       timeout: 60_000,
@@ -1120,7 +1171,7 @@ async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
       extraEnv: cloneFilterEnv,
     });
   }
-  const targetFilterEnv = await filterDisableEnv(targetDir, ctx.workspaceRoot);
+  const targetFilterEnv = await filterDisableEnv(targetDir, ctx.workspaceRoot, "safecrlf-only");
   await git(["checkout", "-b", ctx.branch, ...(ctx.baseBranch ? [ctx.baseBranch] : [])], {
     cwd: targetDir,
     workspaceRoot: ctx.workspaceRoot,

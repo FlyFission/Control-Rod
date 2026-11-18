@@ -282,6 +282,86 @@ describe("repos Wave 1 hardening", () => {
     });
   });
 
+  it("preserves clean-status semantics for core.autocrlf=true checkouts in GET /repos, branch, and non-force remove", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    writeFileSync(join(repoDir, "notes.txt"), "line one\nline two\n");
+    execFileSync("git", ["add", "notes.txt"], { cwd: repoDir });
+    execFileSync("git", ["commit", "-m", "add lf text"], { cwd: repoDir });
+    execFileSync("git", ["config", "core.autocrlf", "true"], { cwd: repoDir });
+    // Re-checkout working file with CRLF under core.autocrlf=true
+    rmSync(join(repoDir, "notes.txt"));
+    execFileSync("git", ["checkout", "--", "notes.txt"], { cwd: repoDir });
+
+    await withTestApp(async (app) => {
+      const listRes = await app.inject({
+        method: "GET",
+        url: `/repos?workspace_root=${encodeURIComponent(workspaceRoot)}`,
+      });
+      expect(listRes.statusCode).toBe(200);
+      const local = (listRes.json().local as Array<{ name: string; dirty: boolean }>).find(
+        (r) => r.name === "sample-repo",
+      );
+      expect(local?.dirty).toBe(false);
+
+      const wtRes = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/crlf-wt",
+          strategy: "worktree",
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(wtRes.statusCode).toBe(200);
+
+      const rmRes = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: {
+          worktree_path: wtRes.json().local_path,
+          repo_path: repoDir,
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(rmRes.statusCode).toBe(200);
+
+      const branchRes = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/crlf-branch",
+          strategy: "branch",
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(branchRes.statusCode).toBe(200);
+    });
+  });
+
+  it("createCheckpoint clears --assume-unchanged in tempIndex while preserving it in real index", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    writeFileSync(join(repoDir, "note file.txt"), "original\n");
+    execFileSync("git", ["add", "note file.txt"], { cwd: repoDir });
+    execFileSync("git", ["commit", "-m", "track file"], { cwd: repoDir });
+    execFileSync("git", ["update-index", "--assume-unchanged", "note file.txt"], { cwd: repoDir });
+    writeFileSync(join(repoDir, "note file.txt"), "edited-despite-assume-unchanged\n");
+
+    const cp = await createCheckpoint({ repoDir, label: "assume-unchanged", workspaceRoot });
+    const captured = execFileSync("git", ["show", `${cp.commit_sha}:note file.txt`], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(captured).toBe("edited-despite-assume-unchanged\n");
+
+    const realFlags = execFileSync("git", ["ls-files", "-v", "note file.txt"], {
+      cwd: repoDir,
+      encoding: "utf8",
+    }).trim();
+    expect(realFlags.startsWith("h ")).toBe(true);
+  });
+
   it("createCheckpoint preserves force-staged ignored files via --git-path index in repos and worktrees", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     writeFileSync(join(repoDir, "forced.secret"), "keep-me\n");

@@ -1,9 +1,17 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import Fastify from "fastify";
-import { afterEach, describe, expect, it } from "vitest";
+import Fastify, { type FastifyInstance } from "fastify";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Refusal } from "../src/refusal.js";
 import { teach } from "../src/refusals.js";
 import {
@@ -17,44 +25,98 @@ import {
   scaffoldCapitalProjectDirs,
 } from "../src/repos.js";
 
-const tempDirs: string[] = [];
-let prevHome: string | undefined;
-let hasSavedHome = false;
-
-function makeTempRepo(): { workspaceRoot: string; repoDir: string } {
-  if (!hasSavedHome) {
-    prevHome = process.env.HOME;
-    hasSavedHome = true;
-  }
-  const tempHome = realpathSync(mkdtempSync(join(tmpdir(), "cr-repos-test-")));
-  tempDirs.push(tempHome);
-  process.env.HOME = tempHome;
-  const workspaceRoot = join(tempHome, "projects");
-  const repoDir = join(workspaceRoot, "sample-repo");
-  mkdirSync(repoDir, { recursive: true });
-  execFileSync("git", ["init", "-b", "main"], { cwd: repoDir });
-  execFileSync("git", ["config", "user.name", "Test User"], { cwd: repoDir });
-  execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: repoDir });
-  writeFileSync(join(repoDir, ".gitignore"), ".env.local\n*.secret\n");
-  writeFileSync(join(repoDir, "README.md"), "# Sample\n");
-  execFileSync("git", ["add", ".gitignore", "README.md"], { cwd: repoDir });
-  execFileSync("git", ["commit", "-m", "init"], { cwd: repoDir });
-  return { workspaceRoot, repoDir };
+function buildTestApp(): FastifyInstance {
+  const app = Fastify({ logger: false });
+  app.setErrorHandler((err, _req, reply) => {
+    if (err instanceof Refusal) {
+      const taught = teach(err.code);
+      return reply.code(err.status).send({ code: err.code, message: err.message, change: taught.change });
+    }
+    throw err;
+  });
+  repoRoutes(app, async () => "person-test");
+  return app;
 }
 
-afterEach(() => {
-  if (hasSavedHome) {
-    if (prevHome === undefined) delete process.env.HOME;
-    else process.env.HOME = prevHome;
-    hasSavedHome = false;
+async function withTestApp<T>(fn: (app: FastifyInstance) => Promise<T>): Promise<T> {
+  const app = buildTestApp();
+  try {
+    return await fn(app);
+  } finally {
+    await app.close();
   }
-  while (tempDirs.length > 0) {
-    const dir = tempDirs.pop()!;
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
+}
 
 describe("repos Wave 1 hardening", () => {
+  let tempHome: string;
+  let origEnv: Map<string, string | undefined>;
+
+  beforeEach(() => {
+    origEnv = new Map();
+    const keysToSave = new Set<string>([
+      "HOME",
+      "CONTROLROD_WORKSPACE_ROOT",
+      "XDG_CONFIG_HOME",
+      "GH_TOKEN",
+      "GITHUB_TOKEN",
+      ...Object.keys(process.env).filter((k) => k.startsWith("GIT_")),
+    ]);
+    for (const key of keysToSave) {
+      origEnv.set(key, process.env[key]);
+    }
+
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith("GIT_")) {
+        delete process.env[key];
+      }
+    }
+    delete process.env.CONTROLROD_WORKSPACE_ROOT;
+    delete process.env.GH_TOKEN;
+    delete process.env.GITHUB_TOKEN;
+
+    tempHome = realpathSync(mkdtempSync(join(tmpdir(), "cr-repos-test-")));
+    const xdgConfigHome = join(tempHome, ".config");
+    mkdirSync(xdgConfigHome, { recursive: true });
+
+    process.env.HOME = tempHome;
+    process.env.XDG_CONFIG_HOME = xdgConfigHome;
+    process.env.GIT_CONFIG_GLOBAL = "/dev/null";
+    process.env.GIT_CONFIG_NOSYSTEM = "1";
+    process.env.GIT_CONFIG_SYSTEM = "/dev/null";
+  });
+
+  afterEach(() => {
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith("GIT_") && !origEnv.has(key)) {
+        delete process.env[key];
+      }
+    }
+    for (const [key, value] of origEnv) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  function makeTempRepo(
+    name = "sample-repo",
+    options: { commit?: boolean } = {},
+  ): { workspaceRoot: string; repoDir: string } {
+    const workspaceRoot = join(tempHome, "projects");
+    const repoDir = join(workspaceRoot, name);
+    mkdirSync(repoDir, { recursive: true });
+    execFileSync("git", ["init", "-b", "main"], { cwd: repoDir });
+    execFileSync("git", ["config", "user.name", "Test User"], { cwd: repoDir });
+    execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: repoDir });
+    if (options.commit !== false) {
+      writeFileSync(join(repoDir, ".gitignore"), ".env.local\n*.secret\n");
+      writeFileSync(join(repoDir, "README.md"), "# Sample\n");
+      execFileSync("git", ["add", ".gitignore", "README.md"], { cwd: repoDir });
+      execFileSync("git", ["commit", "-m", "init"], { cwd: repoDir });
+    }
+    return { workspaceRoot, repoDir };
+  }
+
   it("HOST_GIT_ARGS neutralizes hooks, fsmonitor, ext protocol, and submodules", () => {
     expect(HOST_GIT_ARGS).toContain("core.hooksPath=/dev/null");
     expect(HOST_GIT_ARGS).toContain("core.fsmonitor=false");
@@ -63,39 +125,48 @@ describe("repos Wave 1 hardening", () => {
   });
 
   it("hostGitEnv strips dangerous GIT_* vars and preserves safe ones", () => {
-    const prevDir = process.env.GIT_DIR;
-    const prevPrompt = process.env.GIT_TERMINAL_PROMPT;
     process.env.GIT_DIR = "/tmp/evil";
     process.env.GIT_TERMINAL_PROMPT = "0";
-    try {
-      const env = hostGitEnv({ GIT_INDEX_FILE: "/tmp/custom-idx" });
-      expect(env.GIT_DIR).toBeUndefined();
-      expect(env.GIT_TERMINAL_PROMPT).toBe("0");
-      expect(env.GIT_INDEX_FILE).toBe("/tmp/custom-idx");
-    } finally {
-      if (prevDir === undefined) delete process.env.GIT_DIR;
-      else process.env.GIT_DIR = prevDir;
-      if (prevPrompt === undefined) delete process.env.GIT_TERMINAL_PROMPT;
-      else process.env.GIT_TERMINAL_PROMPT = prevPrompt;
-    }
+    const env = hostGitEnv({ GIT_INDEX_FILE: "/tmp/custom-idx" });
+    expect(env.GIT_DIR).toBeUndefined();
+    expect(env.GIT_TERMINAL_PROMPT).toBe("0");
+    expect(env.GIT_INDEX_FILE).toBe("/tmp/custom-idx");
   });
 
-  it("POST /repos/materialize does not copy gitignored secret files or return copied_artifacts", async () => {
+  it("POST /repos/materialize does not copy gitignored secret files, scaffolds capital-projects, and rejects invalid mode", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     writeFileSync(join(repoDir, ".env.local"), "API_MODE=dev\nSECRET_KEY=top-secret\n");
     writeFileSync(join(repoDir, "app.secret"), "dummy\n");
 
-    const app = Fastify({ logger: false });
-    app.setErrorHandler((err, _req, reply) => {
-      if (err instanceof Refusal) {
-        const taught = teach(err.code);
-        return reply.code(err.status).send({ code: err.code, message: err.message, change: taught.change });
-      }
-      throw err;
-    });
-    repoRoutes(app, async () => "person-test");
+    await withTestApp(async (app) => {
+      const badMode = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/bad-mode",
+          strategy: "worktree",
+          workspace_root: workspaceRoot,
+          mode: "invalid-mode",
+        },
+      });
+      expect(badMode.statusCode).toBe(400);
+      expect(badMode.json().code).toBe("invalid");
 
-    try {
+      const nonStringMode = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/bad-mode-type",
+          strategy: "worktree",
+          workspace_root: workspaceRoot,
+          mode: 123,
+        },
+      });
+      expect(nonStringMode.statusCode).toBe(400);
+      expect(nonStringMode.json().code).toBe("invalid");
+
       const res = await app.inject({
         method: "POST",
         url: "/repos/materialize",
@@ -118,26 +189,210 @@ describe("repos Wave 1 hardening", () => {
       for (const dir of CAPITAL_PROJECT_DIRS) {
         expect(existsSync(join(body.local_path, dir))).toBe(true);
       }
-    } finally {
-      await app.close();
-    }
+    });
   });
 
-  it("isDangerousWorktreeRemovalPath blocks root, home, workspaceRoot, repoPath, and ancestors", () => {
+  it("createCheckpoint neutralizes LFS required=true, custom filters with '=', and CRLF config", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    writeFileSync(join(repoDir, ".gitattributes"), "*.bin filter=lfs diff=lfs merge=lfs -text\n*.dat filter=my=drv\n");
+    writeFileSync(join(repoDir, "asset.bin"), "raw-binary-payload\r\n");
+    writeFileSync(join(repoDir, "custom.dat"), "custom-payload\r\n");
+    execFileSync("git", ["config", "filter.lfs.clean", "git-lfs clean -- %f"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.smudge", "git-lfs smudge -- %f"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.process", "git-lfs filter-process"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.required", "true"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.my=drv.clean", "exit 1"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.my=drv.required", "true"], { cwd: repoDir });
+    execFileSync("git", ["config", "core.autocrlf", "true"], { cwd: repoDir });
+    execFileSync("git", ["config", "core.safecrlf", "true"], { cwd: repoDir });
+
+    const cp = await createCheckpoint({ repoDir, label: "lfs-safe", workspaceRoot });
+    expect(cp.ref).toMatch(/^refs\/cr-checkpoints\/lfs-safe-/);
+
+    const binContent = execFileSync("git", ["show", `${cp.commit_sha}:asset.bin`], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(binContent).toBe("raw-binary-payload\r\n");
+
+    const datContent = execFileSync("git", ["show", `${cp.commit_sha}:custom.dat`], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(datContent).toBe("custom-payload\r\n");
+  });
+
+  it("status, worktree add, and checkout neutralize LFS required=true and safecrlf=true", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    writeFileSync(join(repoDir, ".gitattributes"), "*.bin filter=lfs diff=lfs merge=lfs -text\n");
+    writeFileSync(join(repoDir, "tracked.bin"), "lfs-raw-bytes\r\n");
+    execFileSync("git", ["add", ".gitattributes", "tracked.bin"], { cwd: repoDir });
+    execFileSync("git", ["commit", "-m", "add lfs fixture"], { cwd: repoDir });
+
+    execFileSync("git", ["config", "filter.lfs.clean", "git-lfs clean -- %f"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.smudge", "git-lfs smudge -- %f"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.process", "git-lfs filter-process"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.required", "true"], { cwd: repoDir });
+    execFileSync("git", ["config", "core.autocrlf", "true"], { cwd: repoDir });
+    execFileSync("git", ["config", "core.safecrlf", "true"], { cwd: repoDir });
+
+    await withTestApp(async (app) => {
+      const listRes = await app.inject({
+        method: "GET",
+        url: `/repos?workspace_root=${encodeURIComponent(workspaceRoot)}`,
+      });
+      expect(listRes.statusCode).toBe(200);
+      expect(listRes.json().local).toHaveLength(1);
+
+      const wtRes = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/lfs-wt",
+          strategy: "worktree",
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(wtRes.statusCode).toBe(200);
+      const wtPath = wtRes.json().local_path as string;
+
+      const rmRes = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: {
+          worktree_path: wtPath,
+          repo_path: repoDir,
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(rmRes.statusCode).toBe(200);
+
+      const branchRes = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/lfs-branch",
+          strategy: "branch",
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(branchRes.statusCode).toBe(200);
+    });
+  });
+
+  it("createCheckpoint preserves force-staged ignored files via --git-path index in repos and worktrees", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    writeFileSync(join(repoDir, "forced.secret"), "keep-me\n");
+    execFileSync("git", ["add", "-f", "forced.secret"], { cwd: repoDir });
+
+    const cp = await createCheckpoint({ repoDir, label: "force-staged", workspaceRoot });
+    const treeFiles = execFileSync("git", ["ls-tree", "--name-only", cp.commit_sha], {
+      cwd: repoDir,
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n");
+    expect(treeFiles).toContain("forced.secret");
+
+    const realStaged = execFileSync("git", ["diff", "--cached", "--name-only"], {
+      cwd: repoDir,
+      encoding: "utf8",
+    }).trim();
+    expect(realStaged).toBe("forced.secret");
+
+    // Worktree with .git gitfile also resolves index via --path-format=absolute --git-path index
+    const wtDir = join(workspaceRoot, ".worktrees", "sample-repo", "wt-idx");
+    mkdirSync(join(workspaceRoot, ".worktrees", "sample-repo"), { recursive: true });
+    execFileSync("git", ["worktree", "add", "-b", "feat/wt-idx", wtDir], { cwd: repoDir });
+    writeFileSync(join(wtDir, "wt-forced.secret"), "wt-keep\n");
+    execFileSync("git", ["add", "-f", "wt-forced.secret"], { cwd: wtDir });
+
+    const wtCp = await createCheckpoint({ repoDir: wtDir, label: "wt-force", workspaceRoot });
+    const wtTreeFiles = execFileSync("git", ["ls-tree", "--name-only", wtCp.commit_sha], {
+      cwd: wtDir,
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n");
+    expect(wtTreeFiles).toContain("wt-forced.secret");
+  });
+
+  it("createCheckpoint works on unborn HEAD without an index", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo("unborn-repo", { commit: false });
+    expect(existsSync(join(repoDir, ".git", "index"))).toBe(false);
+    writeFileSync(join(repoDir, "first.txt"), "hello unborn\n");
+
+    const cp = await createCheckpoint({ repoDir, label: "unborn", workspaceRoot });
+    expect(cp.ref).toMatch(/^refs\/cr-checkpoints\/unborn-/);
+
+    const files = execFileSync("git", ["ls-tree", "--name-only", cp.commit_sha], {
+      cwd: repoDir,
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n");
+    expect(files).toEqual(["first.txt"]);
+
+    // Verify HEAD remains unborn
+    expect(() => execFileSync("git", ["rev-parse", "--verify", "HEAD"], { cwd: repoDir, stdio: "ignore" })).toThrow();
+  });
+
+  it("createCheckpoint refuses plain subdirectories without .git and uses unique UUID refs with CAS update-ref", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    const subDir = join(repoDir, "nested-plain");
+    mkdirSync(subDir, { recursive: true });
+    writeFileSync(join(subDir, "note.txt"), "plain\n");
+
+    await expect(createCheckpoint({ repoDir: subDir, workspaceRoot })).rejects.toMatchObject({
+      status: 404,
+      code: "repo-not-found",
+    });
+
+    const [cp1, cp2] = await Promise.all([
+      createCheckpoint({ repoDir, label: "concurrent", workspaceRoot }),
+      createCheckpoint({ repoDir, label: "concurrent", workspaceRoot }),
+    ]);
+    const uuidPattern = /^refs\/cr-checkpoints\/concurrent-[0-9a-z]+-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    expect(cp1.ref).toMatch(uuidPattern);
+    expect(cp2.ref).toMatch(uuidPattern);
+    expect(cp1.ref).not.toBe(cp2.ref);
+
+    // CAS update-ref with empty oldvalue rejects overwriting an existing ref
+    expect(() =>
+      execFileSync("git", ["update-ref", cp1.ref, cp1.commit_sha, ""], { cwd: repoDir, stdio: "pipe" }),
+    ).toThrow();
+  });
+
+  it("isDangerousWorktreeRemovalPath blocks root, home, workspaceRoot, repoPath, uncontained repoPath, symlinks, and ~user paths", () => {
     const home = homedir();
     const ws = join(home, "projects");
+    mkdirSync(ws, { recursive: true });
     const repo = join(ws, "Control-Rod");
+    mkdirSync(repo, { recursive: true });
+    const outsideRepo = join(home, "other", "Control-Rod");
+    mkdirSync(outsideRepo, { recursive: true });
+
+    const realTarget = join(ws, "real-wt");
+    mkdirSync(realTarget, { recursive: true });
+    const symlinkWt = join(ws, ".worktrees", "Control-Rod", "sym-wt");
+    mkdirSync(join(ws, ".worktrees", "Control-Rod"), { recursive: true });
+    symlinkSync(realTarget, symlinkWt);
+
     expect(isDangerousWorktreeRemovalPath("/", repo, ws)).toBe(true);
     expect(isDangerousWorktreeRemovalPath(home, repo, ws)).toBe(true);
     expect(isDangerousWorktreeRemovalPath(ws, repo, ws)).toBe(true);
     expect(isDangerousWorktreeRemovalPath(repo, repo, ws)).toBe(true);
     expect(isDangerousWorktreeRemovalPath("/tmp/outside", repo, ws)).toBe(true);
-    expect(isDangerousWorktreeRemovalPath(join(ws, ".worktrees", "Control-Rod", "feat"), repo, ws)).toBe(
-      false,
-    );
+    expect(isDangerousWorktreeRemovalPath(join(ws, ".worktrees", "Control-Rod", "feat"), outsideRepo, ws)).toBe(true);
+    expect(isDangerousWorktreeRemovalPath(symlinkWt, repo, ws)).toBe(true);
+    expect(isDangerousWorktreeRemovalPath("~otheruser/projects/.worktrees/Control-Rod/feat", repo, ws)).toBe(true);
+    expect(isDangerousWorktreeRemovalPath("~/projects/.worktrees/Control-Rod/feat", repo, ws)).toBe(false);
+    expect(isDangerousWorktreeRemovalPath(join(ws, ".worktrees", "Control-Rod", "feat"), repo, ws)).toBe(false);
   });
 
-  it("removeWorktreeSafely refuses dirty worktrees without force and removes clean ones", async () => {
+  it("removeWorktreeSafely refuses dirty worktrees without force, rejects string 'false', and prunes missing registered worktrees", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     const wtDir = join(workspaceRoot, ".worktrees", "sample-repo", "wt-rm");
     mkdirSync(join(workspaceRoot, ".worktrees", "sample-repo"), { recursive: true });
@@ -146,6 +401,14 @@ describe("repos Wave 1 hardening", () => {
     writeFileSync(join(wtDir, "dirty.txt"), "uncommitted\n");
     await expect(
       removeWorktreeSafely({ worktreePath: wtDir, repoPath: repoDir, workspaceRoot }),
+    ).rejects.toMatchObject({ code: "worktree-dirty" });
+    await expect(
+      removeWorktreeSafely({
+        worktreePath: wtDir,
+        repoPath: repoDir,
+        workspaceRoot,
+        force: "false" as unknown as boolean,
+      }),
     ).rejects.toMatchObject({ code: "worktree-dirty" });
     expect(existsSync(wtDir)).toBe(true);
 
@@ -157,15 +420,102 @@ describe("repos Wave 1 hardening", () => {
     });
     expect(removed.removed).toBe(wtDir);
     expect(existsSync(wtDir)).toBe(false);
+
+    // Unregistered missing worktree returns 404 worktree-not-found
+    await expect(
+      removeWorktreeSafely({
+        worktreePath: join(workspaceRoot, ".worktrees", "sample-repo", "never-existed"),
+        repoPath: repoDir,
+        workspaceRoot,
+      }),
+    ).rejects.toMatchObject({ status: 404, code: "worktree-not-found" });
+
+    // Missing-on-disk but still registered worktree is pruned cleanly
+    const staleWt = join(workspaceRoot, ".worktrees", "sample-repo", "wt-stale");
+    execFileSync("git", ["worktree", "add", "-b", "feat/wt-stale", staleWt], { cwd: repoDir });
+    rmSync(staleWt, { recursive: true, force: true });
+    expect(existsSync(staleWt)).toBe(false);
+
+    const pruned = await removeWorktreeSafely({
+      worktreePath: staleWt,
+      repoPath: repoDir,
+      workspaceRoot,
+    });
+    expect(pruned.removed).toBe(staleWt);
+    const listAfter = execFileSync("git", ["worktree", "list", "--porcelain"], {
+      cwd: repoDir,
+      encoding: "utf8",
+    });
+    expect(listAfter).not.toContain(staleWt);
+  });
+
+  it("POST /repos/checkpoint and POST /repos/remove validate runtime types and map git failures to 400 git-failed", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+
+    await withTestApp(async (app) => {
+      const badRepoPath = await app.inject({
+        method: "POST",
+        url: "/repos/checkpoint",
+        payload: { repo_path: 123, workspace_root: workspaceRoot },
+      });
+      expect(badRepoPath.statusCode).toBe(400);
+      expect(badRepoPath.json().code).toBe("invalid-repo-path");
+
+      const badLabel = await app.inject({
+        method: "POST",
+        url: "/repos/checkpoint",
+        payload: { repo_path: repoDir, label: 42, workspace_root: workspaceRoot },
+      });
+      expect(badLabel.statusCode).toBe(400);
+      expect(badLabel.json().code).toBe("invalid");
+
+      const badRemoveTypes = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { worktree_path: 123, repo_path: repoDir, workspace_root: workspaceRoot },
+      });
+      expect(badRemoveTypes.statusCode).toBe(400);
+      expect(badRemoveTypes.json().code).toBe("invalid-worktree-path");
+
+      const badForce = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { worktree_path: join(workspaceRoot, ".worktrees", "sample-repo", "wt"), repo_path: repoDir, workspace_root: workspaceRoot, force: "false" },
+      });
+      expect(badForce.statusCode).toBe(400);
+      expect(badForce.json().code).toBe("invalid");
+
+      // Git failure on /repos/remove (plain dir inside .worktrees not registered as a worktree)
+      const bogusWt = join(workspaceRoot, ".worktrees", "sample-repo", "not-a-wt");
+      mkdirSync(bogusWt, { recursive: true });
+      const rmGitFail = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { worktree_path: bogusWt, repo_path: repoDir, workspace_root: workspaceRoot },
+      });
+      expect(rmGitFail.statusCode).toBe(400);
+      expect(rmGitFail.json().code).toBe("git-failed");
+
+      // Git failure on /repos/checkpoint (block refs/cr-checkpoints with a regular file)
+      rmSync(join(repoDir, ".git", "refs", "cr-checkpoints"), { recursive: true, force: true });
+      writeFileSync(join(repoDir, ".git", "refs", "cr-checkpoints"), "not-a-dir\n");
+      const cpGitFail = await app.inject({
+        method: "POST",
+        url: "/repos/checkpoint",
+        payload: { repo_path: repoDir, label: "blocked", workspace_root: workspaceRoot },
+      });
+      expect(cpGitFail.statusCode).toBe(400);
+      expect(cpGitFail.json().code).toBe("git-failed");
+    });
   });
 
   it("createCheckpoint writes a private ref via temp index without altering HEAD or real index", async () => {
-    const { repoDir } = makeTempRepo();
+    const { workspaceRoot, repoDir } = makeTempRepo();
     const headBefore = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoDir, encoding: "utf8" }).trim();
     writeFileSync(join(repoDir, "README.md"), "# Modified\n");
     writeFileSync(join(repoDir, "notes.txt"), "untracked note\n");
 
-    const cp = await createCheckpoint({ repoDir, label: "before-freeze" });
+    const cp = await createCheckpoint({ repoDir, label: "before-freeze", workspaceRoot });
     expect(cp.ref).toMatch(/^refs\/cr-checkpoints\/before-freeze-/);
 
     const headAfter = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoDir, encoding: "utf8" }).trim();

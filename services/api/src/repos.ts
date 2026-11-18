@@ -1,6 +1,16 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -222,6 +232,23 @@ export function defaultWorkspaceRoot(): string {
   return resolve(envRoot.replace(/^~(?=\/|$)/, home));
 }
 
+function asBodyRecord(rawBody: unknown): Record<string, unknown> {
+  if (rawBody !== null && typeof rawBody === "object" && !Array.isArray(rawBody)) {
+    return rawBody as Record<string, unknown>;
+  }
+  return {};
+}
+
+function expandHomePath(rawPath: string, home: string): string | null {
+  const trimmed = rawPath.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("~")) {
+    if (trimmed !== "~" && !trimmed.startsWith("~/")) return null;
+    return trimmed.replace(/^~(?=\/|$)/, home);
+  }
+  return trimmed;
+}
+
 /**
  * Ensures user-supplied `workspace_root` (and `CONTROLROD_WORKSPACE_ROOT`, which must point to a
  * non-dot folder inside `$HOME`) stays strictly within a non-dot directory under `$HOME`.
@@ -233,7 +260,16 @@ export function resolveSafeWorkspaceRoot(requested?: unknown): string {
   const rawHome = homedir();
   const home = canonicalPathOrResolve(rawHome);
   const raw = requested?.trim();
-  const expanded = raw ? raw.replace(/^~(?=\/|$)/, home) : defaultWorkspaceRoot();
+  let expanded: string;
+  if (raw) {
+    const homeExpanded = expandHomePath(raw, home);
+    if (!homeExpanded) {
+      throw new Refusal(400, "invalid-workspace-root", "Workspace root must stay inside your home directory.");
+    }
+    expanded = homeExpanded;
+  } else {
+    expanded = defaultWorkspaceRoot();
+  }
   const candidate = resolveWithoutSymlinks(expanded, rawHome);
   const rel = relative(home, candidate);
   if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
@@ -316,6 +352,17 @@ export function hostGitEnv(
   return env;
 }
 
+function pairsToGitConfigEnv(pairs: ReadonlyArray<readonly [string, string]>): Record<string, string> {
+  const env: Record<string, string> = {
+    GIT_CONFIG_COUNT: String(pairs.length),
+  };
+  pairs.forEach(([key, value], index) => {
+    env[`GIT_CONFIG_KEY_${index}`] = key;
+    env[`GIT_CONFIG_VALUE_${index}`] = value;
+  });
+  return env;
+}
+
 /**
  * Injects transient `GIT_CONFIG_COUNT`/`KEY_i`/`VALUE_i` environment pairs so subprocesses like
  * `gh repo clone` inherit hardened git config without mutating the cloned repository's `.git/config`.
@@ -324,13 +371,54 @@ export function gitConfigEnv(
   pairs: ReadonlyArray<readonly [string, string]>,
   baseEnv: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...baseEnv };
-  env.GIT_CONFIG_COUNT = String(pairs.length);
-  pairs.forEach(([key, value], index) => {
-    env[`GIT_CONFIG_KEY_${index}`] = key;
-    env[`GIT_CONFIG_VALUE_${index}`] = value;
-  });
-  return env;
+  return { ...baseEnv, ...pairsToGitConfigEnv(pairs) };
+}
+
+const CRLF_DISABLE_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ["core.autocrlf", "false"],
+  ["core.safecrlf", "false"],
+  ["core.eol", "lf"],
+];
+
+/**
+ * Queries configured `filter.<driver>.*` entries in `repoDir` and returns transient
+ * `GIT_CONFIG_COUNT`/`KEY_i`/`VALUE_i` overrides that neutralize clean/smudge/process
+ * filters (including `required=true` and driver names with `=`) and CRLF conversions.
+ */
+async function filterDisableEnv(repoDir: string, workspaceRoot?: string): Promise<Record<string, string>> {
+  let rawKeys = "";
+  try {
+    rawKeys = await git(
+      ["config", "--name-only", "--get-regexp", "^filter\\..*\\.(clean|smudge|process|required)$"],
+      { cwd: repoDir, workspaceRoot },
+    );
+  } catch (err) {
+    // `git config --get-regexp` exits with status 1 when no keys match.
+    if ((err as { code?: unknown }).code !== 1) {
+      throw err;
+    }
+  }
+
+  const drivers = new Set<string>();
+  for (const line of rawKeys.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const match = /^(filter\..+)\.(clean|smudge|process|required)$/i.exec(trimmed);
+    if (match?.[1]) {
+      drivers.add(match[1]);
+    }
+  }
+
+  const pairs: Array<readonly [string, string]> = [...CRLF_DISABLE_PAIRS];
+  for (const prefix of drivers) {
+    pairs.push(
+      [`${prefix}.clean`, ""],
+      [`${prefix}.smudge`, ""],
+      [`${prefix}.process`, ""],
+      [`${prefix}.required`, "false"],
+    );
+  }
+  return pairsToGitConfigEnv(pairs);
 }
 
 function assertValidBranch(branch: string, label = "branch"): string {
@@ -601,10 +689,11 @@ async function scanLocalRepos(root: string): Promise<LocalRepoInfo[]> {
       continue;
     }
     try {
+      const filterEnv = await filterDisableEnv(full, root);
       const [branch, remote, statusOut] = await Promise.all([
         git(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: full, workspaceRoot: root }).catch(() => "HEAD"),
         getOriginRemoteUrl(full, root),
-        git(["status", "--porcelain"], { cwd: full, workspaceRoot: root }).catch(() => ""),
+        git(["status", "--porcelain"], { cwd: full, workspaceRoot: root, extraEnv: filterEnv }).catch(() => ""),
       ]);
       repos.push({
         name: entry.name,
@@ -656,33 +745,56 @@ async function listGithubRepos(ceilingDir?: string): Promise<{ repos: GithubRepo
   }
 }
 
+function resolveSafeRemovalTarget(
+  rawPath: string,
+  home: string,
+  workspaceRoot: string,
+): string | null {
+  const expanded = expandHomePath(rawPath, home);
+  if (!expanded) return null;
+  return resolveWithoutSymlinks(expanded, workspaceRoot);
+}
+
+/**
+ * Returns true if removing `worktreePath` (for `repoPath` inside `workspaceRoot`) is unsafe:
+ * empty, `~user` form, root/home/workspace/repo itself, uncontained `repoPath` or `worktreePath`,
+ * symlinked path component, ancestor of `repoPath`, or inside `repoPath/.git`.
+ */
 export function isDangerousWorktreeRemovalPath(
   worktreePath: string,
   repoPath: string,
   workspaceRoot: string,
 ): boolean {
-  if (!worktreePath.trim()) return true;
-  const resolvedWt = resolve(worktreePath);
-  const resolvedRepo = resolve(repoPath);
-  const resolvedRoot = resolve(workspaceRoot);
   const home = canonicalPathOrResolve(homedir());
-  if (
-    resolvedWt === "/" ||
-    resolvedWt === home ||
-    resolvedWt === resolvedRoot ||
-    resolvedWt === resolvedRepo
-  ) {
-    return true;
-  }
-  // Refuse if worktreePath is an ancestor of repoPath, outside workspaceRoot, or traverses a symlink.
+  const expandedRoot = expandHomePath(workspaceRoot, home);
+  if (!expandedRoot) return true;
   try {
-    if (isContainedIn(resolvedWt, resolvedRepo) || !isContainedIn(resolvedRoot, resolvedWt)) {
+    const resolvedRoot = resolveWithoutSymlinks(expandedRoot, homedir());
+    const resolvedWt = resolveSafeRemovalTarget(worktreePath, home, resolvedRoot);
+    const resolvedRepo = resolveSafeRemovalTarget(repoPath, home, resolvedRoot);
+    if (!resolvedWt || !resolvedRepo) return true;
+    if (
+      resolvedWt === "/" ||
+      resolvedWt === home ||
+      resolvedWt === resolvedRoot ||
+      resolvedWt === resolvedRepo
+    ) {
       return true;
     }
+    const repoDotGit = join(resolvedRepo, ".git");
+    if (
+      !isContainedIn(resolvedRoot, resolvedRepo) ||
+      !isContainedIn(resolvedRoot, resolvedWt) ||
+      isContainedIn(resolvedWt, resolvedRepo) ||
+      resolvedWt === repoDotGit ||
+      isContainedIn(repoDotGit, resolvedWt)
+    ) {
+      return true;
+    }
+    return false;
   } catch {
     return true;
   }
-  return false;
 }
 
 export async function removeWorktreeSafely(opts: {
@@ -699,11 +811,48 @@ export async function removeWorktreeSafely(opts: {
       `Refusing to remove protected or out-of-bounds worktree path: ${opts.worktreePath}`,
     );
   }
-  if (!existsSync(opts.worktreePath)) {
-    throw new Refusal(404, "worktree-not-found", `Worktree not found: ${opts.worktreePath}`);
+  const home = canonicalPathOrResolve(homedir());
+  const resolvedWt = resolveSafeRemovalTarget(opts.worktreePath, home, workspaceRoot)!;
+  const resolvedRepo = resolveSafeRemovalTarget(opts.repoPath, home, workspaceRoot)!;
+  const force = opts.force === true;
+
+  if (!pathExistsAny(resolvedRepo)) {
+    throw new Refusal(404, "repo-not-found", `Repository not found at ${resolvedRepo}`);
   }
-  if (!opts.force) {
-    const status = await git(["status", "--porcelain"], { cwd: opts.worktreePath, workspaceRoot });
+  resolveRepoGitDirs(resolvedRepo, workspaceRoot, false);
+  await assertSafeWorkingTree(resolvedRepo, workspaceRoot);
+
+  if (!pathExistsAny(resolvedWt)) {
+    const listOut = await git(["worktree", "list", "--porcelain"], {
+      cwd: resolvedRepo,
+      workspaceRoot,
+    });
+    const isRegistered = listOut
+      .split(/\r?\n/)
+      .some(
+        (line) =>
+          line.startsWith("worktree ") &&
+          canonicalPathOrResolve(line.slice("worktree ".length).trim()) === resolvedWt,
+      );
+    if (!isRegistered) {
+      throw new Refusal(404, "worktree-not-found", `Worktree not found: ${resolvedWt}`);
+    }
+    const pruneArgs = force ? ["worktree", "remove", "--force", resolvedWt] : ["worktree", "prune"];
+    await git(pruneArgs, { cwd: resolvedRepo, workspaceRoot });
+    return { removed: resolvedWt };
+  }
+
+  if (!lstatSync(resolvedWt).isDirectory()) {
+    throw new Refusal(400, "unsafe-worktree-path", `Worktree path is not a directory: ${resolvedWt}`);
+  }
+
+  const filterEnv = await filterDisableEnv(resolvedWt, workspaceRoot);
+  if (!force) {
+    const status = await git(["status", "--porcelain"], {
+      cwd: resolvedWt,
+      workspaceRoot,
+      extraEnv: filterEnv,
+    });
     if (status.length > 0) {
       throw new Refusal(
         409,
@@ -712,27 +861,57 @@ export async function removeWorktreeSafely(opts: {
       );
     }
   }
-  await git(
-    ["worktree", "remove", ...(opts.force ? ["--force"] : []), opts.worktreePath],
-    { cwd: opts.repoPath, workspaceRoot },
-  );
-  return { removed: resolve(opts.worktreePath) };
+  await git(["worktree", "remove", ...(force ? ["--force"] : []), resolvedWt], {
+    cwd: resolvedRepo,
+    workspaceRoot,
+    extraEnv: filterEnv,
+  });
+  return { removed: resolvedWt };
 }
 
 /**
  * Captures a private git checkpoint ref (`refs/cr-checkpoints/...`) using a
  * temporary GIT_INDEX_FILE so the workspace's real index and HEAD are untouched.
+ * Checkpoints on Git LFS repositories neutralize clean/smudge/process filters and
+ * record raw working-tree or pointer bytes without invoking external filter drivers.
  */
 export async function createCheckpoint(opts: {
   repoDir: string;
   label?: string;
+  workspaceRoot?: string;
 }): Promise<{ ref: string; commit_sha: string; tree_sha: string }> {
-  const repoDir = resolve(opts.repoDir);
-  if (!existsSync(repoDir)) {
+  if (opts.label !== undefined && typeof opts.label !== "string") {
+    throw new Refusal(400, "invalid", "label must be a string.");
+  }
+  const home = canonicalPathOrResolve(homedir());
+  const expandedRepo = expandHomePath(opts.repoDir, home);
+  if (!expandedRepo) {
+    throw new Refusal(400, "invalid-repo-path", "repo_path is required.");
+  }
+
+  let workspaceRoot: string;
+  let repoDir: string;
+  if (opts.workspaceRoot !== undefined) {
+    workspaceRoot = resolveSafeWorkspaceRoot(opts.workspaceRoot);
+    if (!isContainedIn(workspaceRoot, expandedRepo)) {
+      throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
+    }
+    repoDir = resolveWithoutSymlinks(expandedRepo, workspaceRoot);
+  } else {
+    workspaceRoot = defaultWorkspaceRoot();
+    repoDir = resolveWithoutSymlinks(expandedRepo);
+  }
+
+  if (!pathExistsAny(repoDir)) {
     throw new Refusal(404, "repo-not-found", `Repository not found: ${repoDir}`);
   }
+  resolveRepoGitDirs(repoDir, workspaceRoot, false);
+  await assertSafeWorkingTree(repoDir, workspaceRoot);
+
+  const filterEnv = await filterDisableEnv(repoDir, workspaceRoot);
   const tempIndex = join(tmpdir(), `cr-checkpoint-index-${randomUUID()}`);
   const indexEnv: Record<string, string> = {
+    ...filterEnv,
     GIT_INDEX_FILE: tempIndex,
     GIT_AUTHOR_NAME: "Control-Rod Checkpoint",
     GIT_AUTHOR_EMAIL: "checkpoint@control-rod.local",
@@ -742,18 +921,27 @@ export async function createCheckpoint(opts: {
   try {
     let headSha: string | null = null;
     try {
-      headSha = await git(["rev-parse", "--verify", "HEAD"], { cwd: repoDir });
+      headSha = await git(["rev-parse", "--verify", "HEAD"], { cwd: repoDir, workspaceRoot });
     } catch {
       headSha = null;
     }
-    if (headSha) {
-      await git(["read-tree", "HEAD"], { cwd: repoDir, extraEnv: indexEnv });
+    const idxPath = await git(["rev-parse", "--path-format=absolute", "--git-path", "index"], {
+      cwd: repoDir,
+      workspaceRoot,
+    });
+    if (pathExistsAny(idxPath)) {
+      if (lstatSync(idxPath).isSymbolicLink()) {
+        throw new Refusal(400, "invalid-workspace-root", `Repository index must not be a symbolic link: ${idxPath}`);
+      }
+      copyFileSync(idxPath, tempIndex);
+    } else if (headSha) {
+      await git(["read-tree", "HEAD"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
     }
-    await git(["add", "-A"], { cwd: repoDir, extraEnv: indexEnv });
-    const treeSha = await git(["write-tree"], { cwd: repoDir, extraEnv: indexEnv });
+    await git(["add", "-A"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
+    const treeSha = await git(["write-tree"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
     const labelSlug = safeSlug(opts.label ?? "snapshot");
     const stamp = Date.now().toString(36);
-    const ref = `refs/cr-checkpoints/${labelSlug}-${stamp}`;
+    const ref = `refs/cr-checkpoints/${labelSlug}-${stamp}-${randomUUID()}`;
     const commitArgs = [
       "commit-tree",
       treeSha,
@@ -761,8 +949,8 @@ export async function createCheckpoint(opts: {
       "-m",
       `control-rod checkpoint: ${opts.label ?? "snapshot"}`,
     ];
-    const commitSha = await git(commitArgs, { cwd: repoDir, extraEnv: indexEnv });
-    await git(["update-ref", ref, commitSha], { cwd: repoDir });
+    const commitSha = await git(commitArgs, { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
+    await git(["update-ref", ref, commitSha, ""], { cwd: repoDir, workspaceRoot });
     return { ref, commit_sha: commitSha, tree_sha: treeSha };
   } finally {
     rmSync(tempIndex, { force: true });
@@ -793,7 +981,7 @@ interface MaterializeContext {
 }
 
 function parseMaterializeRequest(rawBody: unknown): MaterializeContext {
-  const body = (rawBody ?? {}) as Record<string, unknown>;
+  const body = asBodyRecord(rawBody);
   if (typeof body.repo !== "string") {
     throw new Refusal(400, "invalid-repo", "Specify a GitHub repo (owner/name) or local repo folder name.");
   }
@@ -814,6 +1002,9 @@ function parseMaterializeRequest(rawBody: unknown): MaterializeContext {
   ) {
     throw new Refusal(400, "invalid-strategy", "Strategy must be one of worktree, fresh-clone, or branch.");
   }
+  if (body.mode !== undefined && body.mode !== "software" && body.mode !== "capital-projects") {
+    throw new Refusal(400, "invalid", "mode must be 'software' or 'capital-projects'.");
+  }
 
   const repo = body.repo.trim();
   if (!isSafeRepoIdentifier(repo)) {
@@ -822,7 +1013,7 @@ function parseMaterializeRequest(rawBody: unknown): MaterializeContext {
   const branch = assertValidBranch(body.branch, "branch");
   const baseBranch = body.base_branch?.trim() ? assertValidBranch(body.base_branch, "base_branch") : undefined;
   const strategy: MaterializeStrategy = body.strategy ?? "worktree";
-  const mode: WorkspaceMode = body.mode === "capital-projects" ? "capital-projects" : "software";
+  const mode: WorkspaceMode = body.mode ?? "software";
   const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
   const isGithub = SAFE_OWNER_REPO.test(repo);
   const repoName = isGithub ? repo.split("/")[1]!.replace(/\.git$/i, "") : repo;
@@ -871,7 +1062,10 @@ async function checkoutOrCreateBranch(
   workspaceRoot: string,
   options: { baseBranch?: string | undefined; worktreeTargetDir?: string | undefined } = {},
 ): Promise<void> {
-  const existing = await git(["branch", "--list", branch], { cwd: repoDir, workspaceRoot });
+  const [existing, filterEnv] = await Promise.all([
+    git(["branch", "--list", branch], { cwd: repoDir, workspaceRoot }),
+    filterDisableEnv(repoDir, workspaceRoot),
+  ]);
   if (options.worktreeTargetDir) {
     const args = existing
       ? ["worktree", "add", options.worktreeTargetDir, branch]
@@ -883,13 +1077,13 @@ async function checkoutOrCreateBranch(
           options.worktreeTargetDir,
           ...(options.baseBranch ? [options.baseBranch] : []),
         ];
-    await git(args, { cwd: repoDir, workspaceRoot });
+    await git(args, { cwd: repoDir, workspaceRoot, extraEnv: filterEnv });
     return;
   }
   const args = existing
     ? ["checkout", branch]
     : ["checkout", "-b", branch, ...(options.baseBranch ? [options.baseBranch] : [])];
-  await git(args, { cwd: repoDir, workspaceRoot });
+  await git(args, { cwd: repoDir, workspaceRoot, extraEnv: filterEnv });
 }
 
 async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
@@ -905,24 +1099,30 @@ async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
       throw new Refusal(404, "repo-not-found", `Local repository not found at ${ctx.baseCloneDir}`);
     }
     await validateExistingRepoDir(ctx.baseCloneDir, ctx.workspaceRoot, false);
+    const cloneFilterEnv = await filterDisableEnv(ctx.baseCloneDir, ctx.workspaceRoot);
     await git(["clone", ctx.baseCloneDir, targetDir], {
       cwd: ctx.workspaceRoot,
       timeout: 60_000,
       workspaceRoot: ctx.workspaceRoot,
+      extraEnv: cloneFilterEnv,
     });
   }
+  const targetFilterEnv = await filterDisableEnv(targetDir, ctx.workspaceRoot);
   await git(["checkout", "-b", ctx.branch, ...(ctx.baseBranch ? [ctx.baseBranch] : [])], {
     cwd: targetDir,
     workspaceRoot: ctx.workspaceRoot,
+    extraEnv: targetFilterEnv,
   });
   return targetDir;
 }
 
 async function materializeBranch(ctx: MaterializeContext): Promise<string> {
   await ensureBaseClone(ctx);
+  const filterEnv = await filterDisableEnv(ctx.baseCloneDir, ctx.workspaceRoot);
   const statusOut = await git(["status", "--porcelain"], {
     cwd: ctx.baseCloneDir,
     workspaceRoot: ctx.workspaceRoot,
+    extraEnv: filterEnv,
   });
   if (statusOut.length > 0) {
     throw new Refusal(
@@ -956,6 +1156,16 @@ async function materializeWorktree(ctx: MaterializeContext): Promise<string> {
     worktreeTargetDir: targetDir,
   });
   return targetDir;
+}
+
+async function withGitRefusal<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof Refusal) throw err;
+    const msg = err instanceof Error ? err.message : "Git operation failed";
+    throw new Refusal(400, "git-failed", msg);
+  }
 }
 
 export function repoRoutes(
@@ -993,7 +1203,7 @@ export function repoRoutes(
     ensureDirectorySafe(ctx.workspaceRoot, "Workspace root");
     assertContainedIn(ctx.workspaceRoot, ctx.baseCloneDir, "Repository path must stay inside workspace root.");
 
-    try {
+    return withGitRefusal(async () => {
       const localPath =
         ctx.strategy === "fresh-clone"
           ? await materializeFreshClone(ctx)
@@ -1013,44 +1223,64 @@ export function repoRoutes(
         local_path: localPath,
         scaffolded_dirs: scaffoldedDirs,
       };
-    } catch (err) {
-      if (err instanceof Refusal) throw err;
-      const msg = err instanceof Error ? err.message : "Git operation failed";
-      throw new Refusal(400, "git-failed", msg);
-    }
+    });
   });
 
   app.post<{
     Body: { repo_path?: string; label?: string; workspace_root?: string };
   }>("/repos/checkpoint", async (req) => {
     await person(req);
-    const body = req.body ?? {};
+    const body = asBodyRecord(req.body);
     const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
-    const repoPath = resolve(body.repo_path ?? "");
-    if (!body.repo_path?.trim() || !isContainedIn(workspaceRoot, repoPath)) {
+    if (typeof body.repo_path !== "string" || !body.repo_path.trim()) {
       throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
     }
-    const result = await createCheckpoint({
-      repoDir: repoPath,
-      ...(body.label !== undefined ? { label: body.label } : {}),
+    if (body.label !== undefined && typeof body.label !== "string") {
+      throw new Refusal(400, "invalid", "label must be a string.");
+    }
+    const repoPathInput = body.repo_path;
+    const labelInput = body.label;
+    return withGitRefusal(async () => {
+      const result = await createCheckpoint({
+        repoDir: repoPathInput,
+        workspaceRoot,
+        ...(labelInput !== undefined ? { label: labelInput } : {}),
+      });
+      return { ok: true, ...result };
     });
-    return { ok: true, ...result };
   });
 
   app.post<{
     Body: { worktree_path?: string; repo_path?: string; workspace_root?: string; force?: boolean };
   }>("/repos/remove", async (req) => {
     await person(req);
-    const body = req.body ?? {};
-    if (!body.worktree_path?.trim() || !body.repo_path?.trim()) {
+    const body = asBodyRecord(req.body);
+    if (
+      typeof body.worktree_path !== "string" ||
+      typeof body.repo_path !== "string" ||
+      !body.worktree_path.trim() ||
+      !body.repo_path.trim()
+    ) {
       throw new Refusal(400, "invalid-worktree-path", "Specify worktree_path and repo_path.");
     }
-    const result = await removeWorktreeSafely({
-      worktreePath: body.worktree_path,
-      repoPath: body.repo_path,
-      ...(body.workspace_root !== undefined ? { workspaceRoot: body.workspace_root } : {}),
-      force: Boolean(body.force),
+    if (body.force !== undefined && typeof body.force !== "boolean") {
+      throw new Refusal(400, "invalid", "force must be a boolean.");
+    }
+    const worktreePath = body.worktree_path;
+    const repoPath = body.repo_path;
+    const force = body.force === true;
+    const workspaceRootInput = body.workspace_root;
+    if (workspaceRootInput !== undefined && typeof workspaceRootInput !== "string") {
+      throw new Refusal(400, "invalid-workspace-root", "Workspace root must be a string.");
+    }
+    return withGitRefusal(async () => {
+      const result = await removeWorktreeSafely({
+        worktreePath,
+        repoPath,
+        ...(workspaceRootInput !== undefined ? { workspaceRoot: workspaceRootInput } : {}),
+        force,
+      });
+      return { ok: true, ...result };
     });
-    return { ok: true, ...result };
   });
 }

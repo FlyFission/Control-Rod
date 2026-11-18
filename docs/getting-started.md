@@ -58,6 +58,7 @@ These mirror the CI jobs in [`.github/workflows/ci.yml`](../.github/workflows/ci
 | Go (daemon) | In `daemon/`: `gofmt -l .` (must print nothing), `go vet ./...`, `go test ./...` |
 | Python (SDK) | In `sdk/python/`: `uv sync --locked`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q` |
 | Licences | `node tools/license-gate.mjs` |
+| Lifecycle model | `bash models/generate.sh` when you change `models/` or the kernel's lifecycle; see [`models/README.md`](../models/README.md). The trace replays run in the Rust and TypeScript suites above |
 | Agent guide | `python3 tools/check_agents_map.py` when you change `AGENTS.md` or `CLAUDE.md`. Not yet in CI. If the guide must grow, re-record its budget with `--record` in the same change |
 | Change records | `uv run --with pyyaml python tools/check_redteam.py`, and validate your record with `tools/ng.py` from the pinned [nuclear-grade-context-engineering](https://github.com/FlyFission/nuclear-grade-context-engineering) checkout (CI shows the exact command) |
 

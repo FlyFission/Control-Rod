@@ -1,0 +1,42 @@
+# Trace replays, 2026-11-18T14:13:10Z
+
+$ cargo test --locked -p controlrod-kernel-wasm --test lifecycle_traces
+
+running 1 test
+test kernel_matches_every_lifecycle_trace ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+$ cargo test --locked   # whole workspace
+     Running unittests src/lib.rs (target/debug/deps/controlrod_kernel-c58f3c605ba8f396)
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/preparation.rs (target/debug/deps/preparation-bb657355f7541033)
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/controlrod_kernel_wasm-8f7844ab5c0393ec)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+     Running tests/lifecycle_traces.rs (target/debug/deps/lifecycle_traces-3bc69a1f3be9492e)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+$ (cd services/api && pnpm exec vitest run test/lifecycle-traces.test.ts)
+
+ RUN  v5.1.0 /home/user/Control-Rod/services/api
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  14:13:12
+   Duration  200ms (tests 50%, import 31%, transform 11%, worker 7%)
+
+
+$ cargo fmt --all --check && cargo clippy --all-targets --locked -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+
+$ (cd services/api && pnpm exec tsc -p tsconfig.json --noEmit)
+exit 0
+
+$ ruff check models/itf_to_traces.py && ruff format --check models/itf_to_traces.py
+All checks passed!
+1 file already formatted

@@ -644,6 +644,50 @@ describe("repos Wave 1 hardening", () => {
     });
   });
 
+  it("refuses implicit --force worktree removal when status.showUntrackedFiles=no hides an untracked file alongside clean hydrated LFS", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    const payload = Buffer.from("hydrated-lfs-binary-payload-bytes");
+    const sha = createHash("sha256").update(payload).digest("hex");
+    const pointer = `version https://git-lfs.github.com/spec/v1\noid sha256:${sha}\nsize ${payload.length}\n`;
+    writeFileSync(join(repoDir, ".gitattributes"), "*.bin filter=lfs diff=lfs merge=lfs -text\n");
+    writeFileSync(join(repoDir, "asset.bin"), pointer);
+    execFileSync("git", ["add", ".gitattributes", "asset.bin"], { cwd: repoDir });
+    execFileSync("git", ["commit", "-m", "add lfs pointer"], { cwd: repoDir });
+
+    execFileSync("git", ["config", "filter.lfs.clean", "git-lfs clean -- %f"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.smudge", "git-lfs smudge -- %f"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.process", "git-lfs filter-process"], { cwd: repoDir });
+    execFileSync("git", ["config", "filter.lfs.required", "true"], { cwd: repoDir });
+    execFileSync("git", ["config", "status.showUntrackedFiles", "no"], { cwd: repoDir });
+
+    await withTestApp(async (app) => {
+      const wtRes = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: {
+          repo: "sample-repo",
+          branch: "feat/lfs-untracked-guard",
+          strategy: "worktree",
+          workspace_root: workspaceRoot,
+        },
+      });
+      expect(wtRes.statusCode).toBe(200);
+      const wtPath = wtRes.json().local_path as string;
+
+      writeFileSync(join(wtPath, "asset.bin"), payload);
+      writeFileSync(join(wtPath, "valuable.txt"), "keep-this-untracked-file\n");
+
+      const rmRes = await app.inject({
+        method: "POST",
+        url: "/repos/remove",
+        payload: { worktree_path: wtPath, repo_path: repoDir, workspace_root: workspaceRoot },
+      });
+      expect(rmRes.statusCode).toBe(409);
+      expect(rmRes.json().code).toBe("worktree-dirty");
+      expect(existsSync(join(wtPath, "valuable.txt"))).toBe(true);
+    });
+  });
+
   it("createCheckpoint preserves force-staged ignored files via --git-path index in repos and worktrees", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     writeFileSync(join(repoDir, "forced.secret"), "keep-me\n");

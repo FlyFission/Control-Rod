@@ -814,7 +814,8 @@ async function inspectRepoDirtiness(
   workspaceRoot: string,
   filterEnv: Record<string, string>,
 ): Promise<{ dirty: boolean; hasHydratedLfsClean: boolean }> {
-  const raw = await gitWithBytes(["status", "--porcelain=v1", "-z"], {
+  // Always override status.showUntrackedFiles=no so untracked files block implicit --force removal.
+  const raw = await gitWithBytes(["status", "--porcelain=v1", "--untracked-files=normal", "-z"], {
     cwd: repoDir,
     workspaceRoot,
     extraEnv: filterEnv,

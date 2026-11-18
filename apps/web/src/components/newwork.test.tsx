@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
 import { renderPage } from "../test/render.js";
 import type { Session } from "../api/types.js";
+import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { Shell } from "./Shell.js";
 import { saveMode } from "../lib/mode.js";
 import { loadWorkDefaults, resetWorkDefaults, factoryDefaults } from "../lib/workDefaults.js";
@@ -775,5 +776,40 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect((screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement).value).toBe("Recovered objective");
     expect(screen.queryByRole("alert")).toBeNull();
     expect((screen.getByRole("button", { name: "Capture change" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("refuses submission and retains draft when composed header + objective exceeds CAPTURE_LIMIT", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+
+    let captureCalled = false;
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
+      ),
+      http.post("*/captures", () => {
+        captureCalled = true;
+        return HttpResponse.json({ id: "cap-overflow", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: "" });
+      }),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    const objectiveBox = screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement;
+    // Objective itself is under CAPTURE_LIMIT, but the composed metadata header pushes body.length over CAPTURE_LIMIT.
+    const longObjective = "a".repeat(CAPTURE_LIMIT - 20);
+    fireEvent.change(objectiveBox, { target: { value: longObjective } });
+
+    await user.click(screen.getByRole("button", { name: "Capture change" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain(CAPTURE_LIMIT.toLocaleString());
+    expect(alert.textContent).toMatch(/too long/i);
+    expect(captureCalled).toBe(false);
+    expect((screen.getByLabelText("Scope & acceptance criteria") as HTMLTextAreaElement).value).toBe(longObjective);
   });
 });

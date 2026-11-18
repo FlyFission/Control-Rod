@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
 import type { DataLane } from "../api/types.js";
+import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
 import {
@@ -319,6 +320,12 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       .join(" ");
 
     const body = `${header}\n\n${trimmed}`;
+    if (body.length > CAPTURE_LIMIT) {
+      setError(
+        `Too long for one capture (${body.length.toLocaleString()} of ${CAPTURE_LIMIT.toLocaleString()} characters, including metadata header). Shorten the objective or project name.`,
+      );
+      return;
+    }
     const session = modalSessionRef.current;
     setPendingCaptureSession(session);
     send.mutate({ body, lane, session });

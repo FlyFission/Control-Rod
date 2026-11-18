@@ -17,7 +17,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Refusal } from "../src/refusal.js";
 import { teach } from "../src/refusals.js";
 import {
+  HOST_GIT_ARGS,
   defaultWorkspaceRoot,
+  hostGitEnv,
   isContainedIn,
   isSafeRepoIdentifier,
   parseGithubOwnerRepoFromUrl,
@@ -628,6 +630,138 @@ if (args[0] === "repo" && args[1] === "clone") {
         expect(failRes.statusCode).toBe(400);
         expect(failRes.json().code).toBe("git-failed");
       });
+    });
+
+    it("refuses repo-local core.sshCommand and other dangerous .git/config keys without executing them, and strips GIT_SSH env vars", async () => {
+      const ws = join(tempHome, "projects");
+      const markerFile = join(tempHome, "ssh-pwned");
+      const fsmonMarker = join(tempHome, "fsmon-pwned");
+      const uploadpackMarker = join(tempHome, "uploadpack-pwned");
+
+      const sshRepo = join(ws, "evil-ssh");
+      gitInitRepo(sshRepo, "ssh://invalid.example/org/repo.git");
+      writeFileSync(
+        join(sshRepo, ".git", "config"),
+        `${readFileSync(join(sshRepo, ".git", "config"), "utf8")}\n[core]\n\tsshCommand = touch ${JSON.stringify(markerFile)}\n`,
+      );
+
+      const fsmonRepo = join(ws, "evil-fsmon");
+      gitInitRepo(fsmonRepo);
+      writeFileSync(
+        join(fsmonRepo, ".git", "config"),
+        `${readFileSync(join(fsmonRepo, ".git", "config"), "utf8")}\n[core]\n\tfsmonitor = touch ${JSON.stringify(fsmonMarker)}\n`,
+      );
+
+      const uploadpackRepo = join(ws, "evil-uploadpack");
+      gitInitRepo(uploadpackRepo, "file:///nonexistent/remote/repo.git");
+      writeFileSync(
+        join(uploadpackRepo, ".git", "config"),
+        `${readFileSync(join(uploadpackRepo, ".git", "config"), "utf8")}\n[remote "origin"]\n\tuploadpack = touch ${JSON.stringify(uploadpackMarker)}\n`,
+      );
+
+      process.env.GIT_SSH = `touch ${join(tempHome, "env-git-ssh")}`;
+      process.env.GIT_SSH_COMMAND = `touch ${join(tempHome, "env-git-ssh-cmd")}`;
+      process.env.GIT_ASKPASS = `touch ${join(tempHome, "env-git-askpass")}`;
+
+      const sanitizedEnv = hostGitEnv(ws);
+      expect(sanitizedEnv.GIT_SSH).toBeUndefined();
+      expect(sanitizedEnv.GIT_SSH_COMMAND).toBeUndefined();
+      expect(sanitizedEnv.GIT_ASKPASS).toBeUndefined();
+      expect(HOST_GIT_ARGS).toEqual(
+        expect.arrayContaining([
+          "core.sshCommand=ssh -o BatchMode=yes",
+          "core.askPass=",
+          "credential.helper=",
+        ]),
+      );
+
+      await withTestApp(async (app) => {
+        const rSsh = await app.inject({
+          method: "POST",
+          url: "/repos/materialize",
+          payload: { repo: "evil-ssh", branch: "feat/x", strategy: "worktree" },
+        });
+        expect(rSsh.statusCode).toBe(400);
+        expect(rSsh.json().code).toBe("invalid-workspace-root");
+        expect(existsSync(markerFile)).toBe(false);
+
+        const rFsmon = await app.inject({
+          method: "POST",
+          url: "/repos/materialize",
+          payload: { repo: "evil-fsmon", branch: "feat/x", strategy: "branch" },
+        });
+        expect(rFsmon.statusCode).toBe(400);
+        expect(rFsmon.json().code).toBe("invalid-workspace-root");
+        expect(existsSync(fsmonMarker)).toBe(false);
+
+        const rUploadpack = await app.inject({
+          method: "POST",
+          url: "/repos/materialize",
+          payload: { repo: "evil-uploadpack", branch: "feat/x", strategy: "worktree" },
+        });
+        expect(rUploadpack.statusCode).toBe(400);
+        expect(rUploadpack.json().code).toBe("invalid-workspace-root");
+        expect(existsSync(uploadpackMarker)).toBe(false);
+      });
+    });
+
+    it("refuses repos with core.worktree pointing outside repoDir without touching external worktree files", async () => {
+      const ws = join(tempHome, "projects");
+      const outsideWorktree = join(tempHome, "outside-worktree");
+      mkdirSync(outsideWorktree, { recursive: true });
+      writeFileSync(join(outsideWorktree, "secret.txt"), "do not modify\n");
+
+      const siblingDir = join(ws, "sibling-target");
+      mkdirSync(siblingDir, { recursive: true });
+      writeFileSync(join(siblingDir, "README.md"), "# sibling\n");
+
+      const outsideWtRepo = join(ws, "wt-outside");
+      gitInitRepo(outsideWtRepo);
+      execFileSync("git", ["config", "core.worktree", outsideWorktree], { cwd: outsideWtRepo });
+
+      const siblingWtRepo = join(ws, "wt-sibling");
+      gitInitRepo(siblingWtRepo);
+      execFileSync("git", ["config", "core.worktree", siblingDir], { cwd: siblingWtRepo });
+
+      const bareRepo = join(ws, "bare-repo");
+      gitInitRepo(bareRepo);
+      execFileSync("git", ["config", "core.bare", "true"], { cwd: bareRepo });
+
+      await withTestApp(async (app) => {
+        for (const strategy of ["branch", "worktree", "fresh-clone"] as const) {
+          const rOutside = await app.inject({
+            method: "POST",
+            url: "/repos/materialize",
+            payload: { repo: "wt-outside", branch: `feat/${strategy}`, strategy },
+          });
+          expect(rOutside.statusCode, `outside ${strategy}`).toBe(400);
+          expect(rOutside.json().code, `outside ${strategy}`).toBe("invalid-workspace-root");
+
+          const rSibling = await app.inject({
+            method: "POST",
+            url: "/repos/materialize",
+            payload: { repo: "wt-sibling", branch: `feat/${strategy}`, strategy },
+          });
+          expect(rSibling.statusCode, `sibling ${strategy}`).toBe(400);
+          expect(rSibling.json().code, `sibling ${strategy}`).toBe("invalid-workspace-root");
+        }
+
+        const rBare = await app.inject({
+          method: "POST",
+          url: "/repos/materialize",
+          payload: { repo: "bare-repo", branch: "feat/bare", strategy: "branch" },
+        });
+        expect(rBare.statusCode).toBe(400);
+        expect(rBare.json().code).toBe("invalid-workspace-root");
+
+        // GET /repos also skips repos with external core.worktree or bare configs
+        const listRes = await app.inject({ method: "GET", url: "/repos" });
+        expect(listRes.statusCode).toBe(200);
+        expect((listRes.json() as { local: Array<{ name: string }> }).local).toEqual([]);
+      });
+
+      expect(readFileSync(join(outsideWorktree, "secret.txt"), "utf8")).toBe("do not modify\n");
+      expect(existsSync(join(outsideWorktree, "README.md"))).toBe(false);
     });
   });
 

@@ -34,10 +34,7 @@ const SAFE_GIT_ENV_VARS = new Set([
   "GIT_CONFIG_GLOBAL",
   "GIT_CONFIG_SYSTEM",
   "GIT_CONFIG_NOSYSTEM",
-  "GIT_SSH",
-  "GIT_SSH_COMMAND",
   "GIT_SSH_VARIANT",
-  "GIT_ASKPASS",
   "GIT_TERMINAL_PROMPT",
   "GIT_SSL_CAINFO",
   "GIT_SSL_CAPATH",
@@ -50,6 +47,9 @@ const SAFE_GIT_ENV_VARS = new Set([
 const HOST_GIT_CONFIG_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["core.hooksPath", "/dev/null"],
   ["core.fsmonitor", "false"],
+  ["core.sshCommand", "ssh -o BatchMode=yes"],
+  ["core.askPass", ""],
+  ["credential.helper", ""],
   ["core.pager", "cat"],
   ["protocol.ext.allow", "never"],
   ["protocol.file.allow", "user"],
@@ -58,6 +58,9 @@ const HOST_GIT_CONFIG_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["merge.verifySignatures", "false"],
   ["commit.gpgsign", "false"],
   ["tag.gpgsign", "false"],
+  ["remote.origin.uploadpack", "git-upload-pack"],
+  ["remote.origin.receivepack", "git-receive-pack"],
+  ["remote.origin.proxy", ""],
 ];
 
 /**
@@ -291,6 +294,8 @@ export function hostGitEnv(ceilingDir?: string): NodeJS.ProcessEnv {
     if (key.startsWith("GIT_") && !SAFE_GIT_ENV_VARS.has(key)) continue;
     env[key] = value;
   }
+  delete env.SSH_ASKPASS;
+  env.SSH_ASKPASS_REQUIRE = "never";
   env.GIT_TERMINAL_PROMPT = "0";
   env.GIT_CEILING_DIRECTORIES = ceilingDir ?? defaultWorkspaceRoot();
   return env;
@@ -368,11 +373,117 @@ function assertDirectoryOrMissing(dir: string, label = "Directory"): void {
   }
 }
 
-/**
- * Validates that an existing repo directory is a real directory with a non-symlink `.git` directory
- * or a `.git` gitfile whose `gitdir:` target stays inside `baseCloneDir` or `workspaceRoot`.
- */
-function validateExistingRepoDir(baseCloneDir: string, workspaceRoot: string, isGithub: boolean): void {
+const STANDARD_LFS_FILTERS: Readonly<Record<string, string>> = {
+  "filter.lfs.clean": "git-lfs clean -- %f",
+  "filter.lfs.smudge": "git-lfs smudge -- %f",
+  "filter.lfs.process": "git-lfs filter-process",
+};
+
+function isDangerousLocalGitConfig(rawKey: string, rawValue: string): string | null {
+  const key = rawKey.toLowerCase();
+  const val = rawValue.trim();
+
+  if (
+    key === "core.sshcommand" ||
+    key === "core.worktree" ||
+    key === "core.hookspath" ||
+    key === "core.askpass" ||
+    key === "diff.external" ||
+    key === "credential.helper" ||
+    (key.startsWith("credential.") && key.endsWith(".helper")) ||
+    key === "include.path" ||
+    (key.startsWith("includeif.") && key.endsWith(".path")) ||
+    key.startsWith("uploadpack.")
+  ) {
+    return rawKey;
+  }
+
+  if (key === "core.fsmonitor" && val !== "" && val.toLowerCase() !== "false") {
+    return rawKey;
+  }
+
+  if (key === "core.bare" && val !== "" && !["false", "0", "no", "off"].includes(val.toLowerCase())) {
+    return rawKey;
+  }
+
+  if (
+    key.startsWith("remote.") &&
+    (key.endsWith(".uploadpack") || key.endsWith(".receivepack") || key.endsWith(".proxy") || key.endsWith(".vcs"))
+  ) {
+    return rawKey;
+  }
+
+  if (
+    key.startsWith("filter.") &&
+    (key.endsWith(".clean") || key.endsWith(".smudge") || key.endsWith(".process"))
+  ) {
+    if (STANDARD_LFS_FILTERS[key] !== val) {
+      return rawKey;
+    }
+  }
+
+  return null;
+}
+
+async function assertSafeGitConfigFile(configPath: string, workspaceRoot: string): Promise<void> {
+  if (!pathExistsAny(configPath)) return;
+  const st = lstatSync(configPath);
+  if (st.isSymbolicLink() || !st.isFile()) {
+    throw new Refusal(400, "invalid-workspace-root", `Repository git config must be a regular file: ${configPath}`);
+  }
+
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync(
+      "git",
+      [...HOST_GIT_ARGS, "config", "--file", configPath, "--no-includes", "--null", "--list"],
+      { timeout: 10_000, env: hostGitEnv(workspaceRoot) },
+    ));
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Refusal(400, "invalid-workspace-root", `Unreadable repository git config ${configPath}: ${detail}`);
+  }
+
+  for (const entry of stdout.split("\0")) {
+    if (!entry) continue;
+    const nl = entry.indexOf("\n");
+    const rawKey = nl === -1 ? entry : entry.slice(0, nl);
+    const rawVal = nl === -1 ? "" : entry.slice(nl + 1);
+    const disallowed = isDangerousLocalGitConfig(rawKey, rawVal);
+    if (disallowed) {
+      throw new Refusal(
+        400,
+        "invalid-workspace-root",
+        `Repository git config sets disallowed local key: ${disallowed}`,
+      );
+    }
+  }
+}
+
+function resolveGitDirWithCommonDir(gitDir: string, baseCloneDir: string, workspaceRoot: string): string[] {
+  const commondirFile = join(gitDir, "commondir");
+  if (!pathExistsAny(commondirFile)) {
+    return [gitDir];
+  }
+  const commonStat = lstatSync(commondirFile);
+  if (commonStat.isSymbolicLink() || !commonStat.isFile()) {
+    throw new Refusal(400, "invalid-workspace-root", `Invalid repository commondir entry: ${commondirFile}`);
+  }
+  const commonTarget = resolve(gitDir, readFileSync(commondirFile, "utf8").trim());
+  if (!isContainedIn(baseCloneDir, commonTarget) && !isContainedIn(workspaceRoot, commonTarget)) {
+    throw new Refusal(400, "invalid-workspace-root", "Repository commondir target escapes the workspace.");
+  }
+  if (!existsSync(commonTarget) || !statSync(commonTarget).isDirectory()) {
+    throw new Refusal(
+      400,
+      "invalid-workspace-root",
+      `Repository commondir target must be an existing directory: ${commonTarget}`,
+    );
+  }
+  return [gitDir, commonTarget];
+}
+
+function resolveRepoGitDirs(baseCloneDir: string, workspaceRoot: string, isGithub: boolean): string[] {
   const refuseMissingOrInvalid = (githubMessage: string): never => {
     if (!isGithub) {
       throw new Refusal(404, "repo-not-found", `Local repository not found at ${baseCloneDir}`);
@@ -411,11 +522,53 @@ function validateExistingRepoDir(baseCloneDir: string, workspaceRoot: string, is
         `Repository .git gitdir target must be an existing directory: ${targetGitDir}`,
       );
     }
-    return;
+    return resolveGitDirWithCommonDir(targetGitDir, baseCloneDir, workspaceRoot);
   }
   if (!dotGitStat.isDirectory()) {
     throw new Refusal(409, "workspace-exists", `Existing .git entry at ${dotGit} is not a directory or gitfile.`);
   }
+  return resolveGitDirWithCommonDir(dotGit, baseCloneDir, workspaceRoot);
+}
+
+async function assertSafeWorkingTree(repoDir: string, workspaceRoot: string): Promise<void> {
+  let out: string;
+  try {
+    out = await git(["rev-parse", "--is-bare-repository", "--is-inside-work-tree", "--show-toplevel"], {
+      cwd: repoDir,
+      workspaceRoot,
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Refusal(400, "invalid-workspace-root", `Invalid git working tree at ${repoDir}: ${detail}`);
+  }
+
+  const lines = out.split(/\r?\n/);
+  const [isBare, isInsideWorkTree, toplevel] = lines;
+  if (isBare !== "false" || isInsideWorkTree !== "true" || !toplevel) {
+    throw new Refusal(400, "invalid-workspace-root", `Repository at ${repoDir} must have a non-bare working tree.`);
+  }
+  if (canonicalPathOrResolve(toplevel) !== canonicalPathOrResolve(repoDir)) {
+    throw new Refusal(
+      400,
+      "invalid-workspace-root",
+      `Repository working tree (${toplevel}) does not match ${repoDir}.`,
+    );
+  }
+}
+
+/**
+ * Validates that an existing repo directory is a real directory with a non-symlink `.git` directory
+ * or a `.git` gitfile whose `gitdir:` target stays inside `baseCloneDir` or `workspaceRoot`,
+ * inspects its local git config for disallowed command/boundary keys, and verifies its effective
+ * working tree matches `baseCloneDir`.
+ */
+async function validateExistingRepoDir(baseCloneDir: string, workspaceRoot: string, isGithub: boolean): Promise<void> {
+  const gitDirs = resolveRepoGitDirs(baseCloneDir, workspaceRoot, isGithub);
+  for (const dir of gitDirs) {
+    await assertSafeGitConfigFile(join(dir, "config"), workspaceRoot);
+    await assertSafeGitConfigFile(join(dir, "config.worktree"), workspaceRoot);
+  }
+  await assertSafeWorkingTree(baseCloneDir, workspaceRoot);
 }
 
 async function scanLocalRepos(root: string): Promise<LocalRepoInfo[]> {
@@ -427,7 +580,7 @@ async function scanLocalRepos(root: string): Promise<LocalRepoInfo[]> {
     if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
     const full = join(root, entry.name);
     try {
-      validateExistingRepoDir(full, root, false);
+      await validateExistingRepoDir(full, root, false);
     } catch {
       continue;
     }
@@ -538,7 +691,7 @@ function parseMaterializeRequest(rawBody: unknown): MaterializeContext {
 
 async function ensureBaseClone(ctx: MaterializeContext): Promise<void> {
   if (pathExistsAny(ctx.baseCloneDir)) {
-    validateExistingRepoDir(ctx.baseCloneDir, ctx.workspaceRoot, ctx.isGithub);
+    await validateExistingRepoDir(ctx.baseCloneDir, ctx.workspaceRoot, ctx.isGithub);
     if (ctx.isGithub) {
       const expectedOwnerRepo = ctx.repo.replace(/\.git$/i, "").toLowerCase();
       const remoteUrl = await getOriginRemoteUrl(ctx.baseCloneDir, ctx.workspaceRoot);
@@ -599,7 +752,7 @@ async function materializeFreshClone(ctx: MaterializeContext): Promise<string> {
     if (!pathExistsAny(ctx.baseCloneDir)) {
       throw new Refusal(404, "repo-not-found", `Local repository not found at ${ctx.baseCloneDir}`);
     }
-    validateExistingRepoDir(ctx.baseCloneDir, ctx.workspaceRoot, false);
+    await validateExistingRepoDir(ctx.baseCloneDir, ctx.workspaceRoot, false);
     await git(["clone", ctx.baseCloneDir, targetDir], {
       cwd: ctx.workspaceRoot,
       timeout: 60_000,

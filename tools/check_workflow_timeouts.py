@@ -30,7 +30,7 @@ TOP_LEVEL_KEY = re.compile(r"^[A-Za-z0-9_'\"-]+\s*:")
 JOB_HEADER = re.compile(r"^  ([A-Za-z0-9_-]+):\s*(#.*)?$")
 BLOCK_SCALAR = re.compile(r"^[|>][+-]?[0-9]*[+-]?(\s+#.*)?$")
 JOB_KV = re.compile(r"^( +)([A-Za-z0-9_-]+):(?:\s+(.*))?$")
-NESTED_KV = re.compile(r"^[^:#][^:]*:(?:\s+(.*))?$")
+NESTED_KV = re.compile(r"^[^:#](?:[^:]|:(?!\s|$))*:(?:\s+(.*))?$")
 DOC_MARKER = re.compile(r"^(---|\.\.\.)(\s.*)?$")
 
 
@@ -51,45 +51,87 @@ def _find_closing_quote(text: str, quote: str, start: int = 0) -> int | None:
     return None
 
 
-def _parse_scalar_value(raw: str | None) -> tuple[str, str | None]:
-    """Return (value, unclosed_quote) from the text following `key:`."""
+def _parse_flow_collection(text: str) -> tuple[str, str | None]:
+    """Return (value, error_message) for a flow collection starting with `[` or `{`."""
+    pairs = {"[": "]", "{": "}"}
+    stack: list[str] = []
+    i = 0
+    while i < len(text):
+        ch = text[i]
+        if ch in ('"', "'"):
+            end = _find_closing_quote(text, ch, start=i + 1)
+            if end is None:
+                return text, "multiline flow collections are not supported"
+            i = end + 1
+            continue
+        if ch == "#" and i > 0 and text[i - 1] in (" ", "\t"):
+            break
+        if ch in pairs:
+            stack.append(pairs[ch])
+        elif ch in ("]", "}"):
+            if not stack or stack[-1] != ch:
+                return text, "malformed flow collection"
+            stack.pop()
+            if not stack:
+                rest = text[i + 1 :].strip()
+                if rest and not rest.startswith("#"):
+                    return text, f"trailing text after flow collection: {rest!r}"
+                return text[: i + 1], None
+        i += 1
+    return text, "multiline flow collections are not supported"
+
+
+def _parse_scalar_value(raw: str | None) -> tuple[str, str | None, str | None]:
+    """Return (value, unclosed_quote, flow_error) from the text following `key:`."""
     if not raw:
-        return "", None
+        return "", None, None
     text = raw.lstrip(" ")
     if not text or text.startswith("#"):
-        return "", None
+        return "", None, None
     if text[0] in ('"', "'"):
         quote = text[0]
         end = _find_closing_quote(text, quote, start=1)
         if end is None:
-            return text, quote
-        return text[: end + 1], None
+            return text, quote, None
+        return text[: end + 1], None, None
+    if text[0] in ("[", "{"):
+        val, flow_err = _parse_flow_collection(text)
+        return val, None, flow_err
     # Strip trailing `# comment` only when `#` is preceded by whitespace.
     value = re.sub(r"\s+#.*$", "", text).strip()
-    return value, None
+    return value, None, None
 
 
-def _parse_nested_line(line: str) -> tuple[str, str | None]:
-    """Return (scalar_or_block, unclosed_quote) for a nested mapping line or sequence item."""
+def _parse_nested_line(line: str) -> tuple[str, str | None, str | None, int]:
+    """Return (scalar_or_block, unclosed_quote, flow_error, owner_indent) for a nested line."""
+    base_indent = len(line) - len(line.lstrip(" "))
     text = line.lstrip(" ")
+    dash_indent = base_indent
     while text == "-" or text.startswith("- "):
+        dash_indent = len(line) - len(text)
         text = text[1:].lstrip(" ")
+    key_indent = len(line) - len(text)
     if not text or text.startswith("#"):
-        return "", None
+        return "", None, None, key_indent
     if text[0] in ('"', "'"):
         end = _find_closing_quote(text, text[0], start=1)
         if end is None:
-            return text, text[0]
+            return text, text[0], None, key_indent
         after = text[end + 1 :].lstrip(" ")
         if after.startswith(":") and (len(after) == 1 or after[1] in (" ", "\t")):
-            return _parse_scalar_value(after[1:])
-        return text[: end + 1], None
+            val, unclosed, flow_err = _parse_scalar_value(after[1:])
+            return val, unclosed, flow_err, key_indent
+        return text[: end + 1], None, None, key_indent
+    if text[0] in ("[", "{"):
+        val, flow_err = _parse_flow_collection(text)
+        return val, None, flow_err, dash_indent
     kv = NESTED_KV.match(text)
     if kv:
-        return _parse_scalar_value(kv.group(1))
+        val, unclosed, flow_err = _parse_scalar_value(kv.group(1))
+        return val, unclosed, flow_err, key_indent
     if BLOCK_SCALAR.match(text):
-        return text, None
-    return "", None
+        return text, None, None, dash_indent
+    return "", None, None, key_indent
 
 
 def _find_jobs_start(lines: list[str]) -> tuple[int | None, str | None]:
@@ -123,23 +165,30 @@ def _scan_job_lines(lines: list[str], findings: list[str]) -> dict[str, dict[str
     bad_job = False
     allow_job_seq = False
 
-    def reset_job(mark_bad: bool) -> None:
-        nonlocal current_job, current, job_indent, bad_job, allow_job_seq
+    def reset_job() -> None:
+        nonlocal current_job, current, job_indent, skip_until_indent, bad_job, allow_job_seq
         current_job = None
         current = None
         job_indent = None
-        bad_job = mark_bad
+        skip_until_indent = None
+        bad_job = True
         allow_job_seq = False
 
-    def track_nested(line_text: str, line_indent: int) -> None:
+    def apply_scalar_state(
+        val: str, unclosed: str | None, flow_err: str | None, owner_indent: int
+    ) -> None:
         nonlocal in_quoted, skip_until_indent
-        val, unclosed = _parse_nested_line(line_text)
-        if unclosed is not None:
+        if flow_err is not None:
+            findings.append(f"{current_job or 'workflow'}: {flow_err}")
+        elif unclosed is not None:
             in_quoted = unclosed
         elif BLOCK_SCALAR.match(val):
-            skip_until_indent = line_indent
+            skip_until_indent = owner_indent
 
-    for line in lines:
+    def track_nested(line_text: str) -> None:
+        apply_scalar_state(*_parse_nested_line(line_text))
+
+    for idx, line in enumerate(lines):
         if DOC_MARKER.match(line):
             findings.append("multi-document YAML is not supported")
             break
@@ -162,7 +211,7 @@ def _scan_job_lines(lines: list[str], findings: list[str]) -> dict[str, dict[str
         tab_prefix = leading_ws[: skip_until_indent + 1] if skip_until_indent is not None else leading_ws
         if "\t" in tab_prefix:
             findings.append("tab indentation is not supported")
-            reset_job(mark_bad=True)
+            reset_job()
             continue
 
         indent = len(leading_ws)
@@ -176,6 +225,8 @@ def _scan_job_lines(lines: list[str], findings: list[str]) -> dict[str, dict[str
 
         if indent == 0:
             if TOP_LEVEL_KEY.match(line):
+                if any(DOC_MARKER.match(rest) for rest in lines[idx + 1 :]):
+                    findings.append("multi-document YAML is not supported")
                 break
             findings.append(f"unsupported top-level line inside jobs block: {line.strip()!r}")
             break
@@ -196,12 +247,12 @@ def _scan_job_lines(lines: list[str], findings: list[str]) -> dict[str, dict[str
                 bad_job = False
             else:
                 findings.append(f"unsupported job declaration: {line.strip()!r}")
-                reset_job(mark_bad=True)
+                reset_job()
             continue
 
         if indent == 1:
             findings.append(f"unsupported job declaration: {line.strip()!r}")
-            reset_job(mark_bad=True)
+            reset_job()
             continue
 
         # indent >= 3
@@ -218,17 +269,17 @@ def _scan_job_lines(lines: list[str], findings: list[str]) -> dict[str, dict[str
             findings.append(
                 f"{current_job}: inconsistent indentation or unsupported job declaration: {line.strip()!r}"
             )
-            reset_job(mark_bad=True)
+            reset_job()
             continue
 
         if indent > job_indent:
-            track_nested(line, indent)
+            track_nested(line)
             continue
 
         # indent == job_indent
         stripped = line.lstrip(" ")
         if allow_job_seq and (stripped == "-" or stripped.startswith("- ")):
-            track_nested(line, indent)
+            track_nested(line)
             continue
         allow_job_seq = False
 
@@ -238,13 +289,10 @@ def _scan_job_lines(lines: list[str], findings: list[str]) -> dict[str, dict[str
             continue
 
         key = kv.group(2)
-        val, unclosed = _parse_scalar_value(kv.group(3))
+        val, unclosed, flow_err = _parse_scalar_value(kv.group(3))
         current[key] = val
-        if unclosed is not None:
-            in_quoted = unclosed
-        elif BLOCK_SCALAR.match(val):
-            skip_until_indent = indent
-        elif val == "":
+        apply_scalar_state(val, unclosed, flow_err, indent)
+        if flow_err is None and unclosed is None and val == "":
             allow_job_seq = True
 
     if in_quoted is not None:
@@ -260,6 +308,14 @@ def _check_jobs(jobs: dict[str, dict[str, str]]) -> list[str]:
             findings.append(f"{name}: has both runs-on and uses")
             continue
         if "uses" in keys:
+            uses_val = keys["uses"]
+            if (
+                not uses_val
+                or uses_val in ('""', "''", "null", "~")
+                or BLOCK_SCALAR.match(uses_val)
+                or uses_val.startswith(("[", "{"))
+            ):
+                findings.append(f"{name}: uses must be a non-empty workflow path")
             continue
         if "runs-on" not in keys:
             findings.append(f"{name}: has neither runs-on nor uses; the parser may have lost the job")

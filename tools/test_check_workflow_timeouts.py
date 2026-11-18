@@ -259,6 +259,131 @@ class WorkflowTimeoutTests(unittest.TestCase):
         self.assertEqual(len(findings), 1)
         self.assertIn("unsupported job key", findings[0])
 
+    def test_step_block_scalar_does_not_swallow_sibling_env_key(self):
+        text = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            "      - run: |\n"
+            "        echo hi\n"
+            "        env:\n"
+            '          FOO: "hello\n'
+            "    timeout-minutes: 10\n"
+            '      world"\n'
+        )
+        findings = timeout_findings(text)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("no timeout-minutes", findings[0])
+
+        bare_seq = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            "      - |\n"
+            "        echo hi\n"
+            "      - env:\n"
+            '          FOO: "hello\n'
+            "    timeout-minutes: 10\n"
+            '      world"\n'
+        )
+        findings = timeout_findings(bare_seq)
+        self.assertEqual(len(findings), 1)
+        self.assertIn("no timeout-minutes", findings[0])
+
+    def test_quoted_and_colon_or_dotted_nested_keys_track_multiline_quotes(self):
+        for nested_line in [
+            '      "FOO": "line1\n',
+            '      foo:bar: "line1\n',
+            '      foo.bar: "line1\n',
+        ]:
+            with self.subTest(nested_line=nested_line):
+                text = (
+                    "jobs:\n"
+                    "  build:\n"
+                    "    runs-on: ubuntu-latest\n"
+                    "    env:\n"
+                    + nested_line
+                    + "    timeout-minutes: 10\n"
+                    + '      line2"\n'
+                )
+                findings = timeout_findings(text)
+                self.assertEqual(len(findings), 1)
+                self.assertIn("no timeout-minutes", findings[0])
+
+    def test_flow_collections_single_line_passes_and_multiline_fails_closed(self):
+        good = (
+            "jobs:\n"
+            "  build:\n"
+            "    needs: [lint, test]\n"
+            '    strategy: { matrix: { os: ["ubuntu-latest"] } }\n'
+            "    runs-on: ubuntu-latest\n"
+            "    timeout-minutes: 10\n"
+        )
+        self.assertEqual(timeout_findings(good), [])
+
+        bad_job = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            '    needs: [ "a", "b\n'
+            "    timeout-minutes: 10\n"
+            '      c" ]\n'
+        )
+        findings = timeout_findings(bad_job)
+        self.assertTrue(any("flow collection" in f for f in findings))
+
+        bad_nested = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    env:\n"
+            '      ITEMS: [ "a", "b\n'
+            "    timeout-minutes: 10\n"
+            '      c" ]\n'
+        )
+        findings = timeout_findings(bad_nested)
+        self.assertTrue(any("flow collection" in f for f in findings))
+
+    def test_rejects_empty_null_or_non_scalar_uses(self):
+        for uses_line in [
+            "    uses:\n",
+            '    uses: ""\n',
+            "    uses: ''\n",
+            "    uses: null\n",
+            "    uses: ~\n",
+            "    uses: |\n      ./.github/workflows/other.yml\n",
+            "    uses: []\n",
+        ]:
+            with self.subTest(uses_line=uses_line):
+                text = "jobs:\n  reuse:\n" + uses_line
+                findings = timeout_findings(text)
+                self.assertEqual(len(findings), 1)
+                self.assertIn("uses must be a non-empty workflow path", findings[0])
+
+    def test_rejects_doc_end_and_post_jobs_multi_document_markers(self):
+        for text in [
+            "jobs:\n  a:\n    runs-on: x\n    timeout-minutes: 5\n...\n",
+            "jobs:\n  a:\n    runs-on: x\n    timeout-minutes: 5\nconcurrency: main\n---\nname: second\n",
+            "jobs:\n  a:\n    runs-on: x\n    timeout-minutes: 5\nconcurrency: main\n...\n",
+        ]:
+            with self.subTest(text=text):
+                findings = timeout_findings(text)
+                self.assertTrue(any("multi-document" in f for f in findings))
+
+    def test_explicit_indent_block_scalar_genuinely_skips_unclosed_quote_and_deep_tab(self):
+        text = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    env: |2\n"
+            '      FOO: "unclosed\n'
+            "      \tindented-with-tab\n"
+            "    timeout-minutes: 10\n"
+        )
+        self.assertEqual(timeout_findings(text), [])
+
 
 if __name__ == "__main__":
     unittest.main()

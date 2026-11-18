@@ -1,0 +1,36 @@
+name: readme-shots
+
+# Takes the README tour's app screenshots from a release build against recorded sample fixtures
+# (apps/web/e2e/readme-shots.spec.ts) and keeps them as a build artifact. It reads the repository
+# and writes nothing back.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - apps/web/e2e/readme-shots.spec.ts
+      - .github/workflows/readme-shots.yml
+
+permissions:
+  contents: read
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @control-rod/spec run build
+      - run: pnpm --filter @control-rod/web exec playwright install --with-deps chromium
+      - name: Take the screenshots
+        working-directory: apps/web
+        env:
+          THEME_TEST_RELEASE: "true"
+          SHOTS_DIR: ${{ runner.temp }}/readme-shots
+        run: pnpm exec playwright test e2e/readme-shots.spec.ts --project=chromium --reporter=list
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: readme-shots
+          path: ${{ runner.temp }}/readme-shots
+          if-no-files-found: error
+          retention-days: 14

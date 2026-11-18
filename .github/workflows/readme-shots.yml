@@ -48,6 +48,7 @@ jobs:
         run: |
           git checkout -- .
           mkdir -p docs/assets/readme/app
+          rm -f docs/assets/readme/app/*.png
           cp "$SHOTS"/*.png docs/assets/readme/app/
           git add docs/assets/readme/app
           if git diff --cached --quiet; then echo "No change to the pictures."; exit 0; fi

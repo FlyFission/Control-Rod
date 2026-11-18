@@ -1,6 +1,6 @@
 /**
- * Front-page screenshots (README tour): the office under a released world, the case view with its
- * sign-off, the inbox and the packages list, from a release build against the same recorded sample
+ * Front-page screenshots (README tour): the office under a released world, the inbox with its
+ * sign-off drawer open, and the packages list, from a release build against the same recorded sample
  * fixtures as phase3-exit.spec.ts. Skipped unless SHOTS_DIR is set. The readme-shots workflow runs it
  * and keeps the pictures as a build artifact:
  *   THEME_TEST_RELEASE=true SHOTS_DIR=/tmp/shots pnpm exec playwright test e2e/readme-shots.spec.ts --project=chromium
@@ -85,7 +85,7 @@ test.beforeEach(async ({ page }) => {
     if (p === "/admin") return r.fulfill(json(admin));
     if (p === "/captures") return r.fulfill(json([]));
     if (p.startsWith("/events")) return r.fulfill(json([]));
-    if (p === "/runtimes") return r.fulfill(json({ runtimes: [{ runtime: "claude", ready: true, version: "2.1.316 (Claude Code)", login_checked: false, artifact: { path: "/home/ben/.npm-global/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe", digest: { algorithm: "sha256", value: "fd13c70000fec3f2116dfbcbb6121210b4a29328bf0e46210a59dd594a67d824" } } }, { runtime: "codex", ready: false, login_checked: true, reason: "codex is installed but not signed in" }], pins: [] }));
+    if (p === "/runtimes") return r.fulfill(json({ runtimes: [{ runtime: "claude", ready: true, version: "2.1.316 (Claude Code)", login_checked: false, artifact: { path: "/home/ben/.npm-global/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe", digest: { algorithm: "sha256", value: "fd13c70000fec3f2116dfbcbb6121210b4a29328bf0e46210a59dd594a67d824" } } }, { runtime: "codex", ready: true, version: "0.167.0", login_checked: true }], pins: [] }));
     if (p === "/metrics") return r.fulfill(json({ packages_accepted: 3, first_pass_accepted: 2, findings_caught_before_review: 5, quick_answers: 4 }));
     return r.fulfill(json([]));
   });
@@ -131,21 +131,14 @@ test("readme shots", async ({ page, browserName }) => {
       { topic: "disputes", text: "No disputes are open.", count: 0 },
       { topic: "spend", text: "No spend recorded.", count: 0 },
     ] } })));
+  await page.setViewportSize({ width: 1840, height: 980 });
   await page.goto("/office");
   await page.waitForTimeout(2500);
   await page.screenshot({ path: `${OUT}/office.png` });
-  await page.goto("/packages/WP-0007/case");
-  await page.waitForTimeout(2000);
-  await page.screenshot({ path: `${OUT}/case-top.png` });
-  await page.getByRole("button", { name: /Go to Sign/ }).click({ timeout: 5000 }).catch(() => undefined);
-  await page.waitForTimeout(1200);
-  await page.screenshot({ path: `${OUT}/case-sign.png` });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/inbox");
   await page.waitForTimeout(2000);
   await page.screenshot({ path: `${OUT}/inbox.png` });
-  await page.goto("/board");
-  await page.waitForTimeout(1500);
-  await page.screenshot({ path: `${OUT}/board.png` });
   await page.goto("/packages");
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${OUT}/packages.png` });

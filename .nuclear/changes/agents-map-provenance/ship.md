@@ -13,6 +13,10 @@ Rollback: revert the commit. No code outside `tools/`, no schema or wire change.
 
 Monitoring after merge: watch for budget re-records without a reason in their change record, and for code ports that arrive without a provenance file.
 
+## Backfill after merging main (2026-11-18)
+
+`main` added a port, `daemon/internal/runner/git_host.go` from `GoogleCloudPlatform/scion` (change `wave1-hardened-worktrees`), with no provenance file, so the rule in this change refused its register row. This change adds `.nuclear/changes/wave1-hardened-worktrees/provenance.md`, written from a comparison with the upstream file at the pinned commit, and names it in that row. The comparison found that the port leaves out upstream's repository-config checks. Among them, filter drivers defined in a repository's own config are not replaced. That finding is reported to the owner and is not changed here. The port's author has not reviewed the backfill.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

@@ -465,6 +465,85 @@ class WorkflowTimeoutTests(unittest.TestCase):
             self.assertIn(".github/workflows/bad.yml: build: no timeout-minutes", output)
             self.assertIn("1 workflow timeout finding(s)", output)
 
+    def test_rejects_yaml_anchors_aliases_and_tags_in_scalars(self):
+        anchored_env = (
+            "jobs:\n"
+            "  build:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    env:\n"
+            '      MSG: &message "first line\n'
+            "    timeout-minutes: 10\n"
+            '      last line"\n'
+        )
+        findings = timeout_findings(anchored_env)
+        self.assertTrue(findings)
+        self.assertTrue(any("unsupported YAML anchor, alias, or tag" in f for f in findings))
+
+        bad_cases = [
+            (
+                "job-level tag",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n"
+                '    name: !tag "first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "nested tag",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                '      MSG: !tag "first line\n    timeout-minutes: 10\n      last line"\n',
+            ),
+            (
+                "job-level alias",
+                "jobs:\n  build:\n    runs-on: *runner\n    timeout-minutes: 10\n",
+            ),
+            (
+                "nested alias",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    env:\n"
+                "      MSG: *alias\n    timeout-minutes: 10\n",
+            ),
+            (
+                "nested sequence anchor",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n"
+                '      - &step "x\n    timeout-minutes: 10\n      y"\n',
+            ),
+            (
+                "nested sequence tag",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n"
+                '      - !tag "x\n    timeout-minutes: 10\n      y"\n',
+            ),
+            (
+                "nested sequence alias",
+                "jobs:\n  build:\n    runs-on: ubuntu-latest\n    needs:\n"
+                "      - *dep\n    timeout-minutes: 10\n",
+            ),
+        ]
+        for label, text in bad_cases:
+            with self.subTest(label=label):
+                findings = timeout_findings(text)
+                self.assertTrue(
+                    any("unsupported YAML anchor, alias, or tag" in f for f in findings),
+                    findings,
+                )
+
+    def test_allows_ampersand_and_bang_inside_quotes_steps_and_block_scalars(self):
+        text = (
+            "jobs:\n"
+            "  build:\n"
+            '    name: "a & b"\n'
+            "    runs-on: ubuntu-latest\n"
+            "    timeout-minutes: 10\n"
+            "    env:\n"
+            "      SCRIPT: |\n"
+            "        &not-an-anchor\n"
+            "        *not-an-alias\n"
+            "        !not-a-tag\n"
+            "    steps:\n"
+            '      - run: "echo hi!"\n'
+            "      - run: echo a && echo b\n"
+            "      - run: |\n"
+            "          &also-ok\n"
+            "          !also-ok\n"
+        )
+        self.assertEqual(timeout_findings(text), [])
+
 
 if __name__ == "__main__":
     unittest.main()

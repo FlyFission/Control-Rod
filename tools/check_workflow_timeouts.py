@@ -91,6 +91,13 @@ def _parse_flow_collection(text: str) -> tuple[str, str | None]:
     return text, "multiline flow collections are not supported"
 
 
+def _unsupported_yaml_prefix(text: str) -> str | None:
+    """Return an error if `text` starts with a YAML anchor, alias, or tag prefix."""
+    if text[0] in ("&", "*", "!"):
+        return f"unsupported YAML anchor, alias, or tag: {text!r}"
+    return None
+
+
 def _parse_scalar_value(raw: str | None) -> tuple[str, str | None, str | None]:
     """Return (value, unclosed_quote, flow_error) from the text following `key:`."""
     if not raw:
@@ -98,6 +105,9 @@ def _parse_scalar_value(raw: str | None) -> tuple[str, str | None, str | None]:
     text = raw.lstrip(" ")
     if not text or text.startswith("#"):
         return "", None, None
+    prefix_err = _unsupported_yaml_prefix(text)
+    if prefix_err is not None:
+        return text, None, prefix_err
     if text[0] in ('"', "'"):
         quote = text[0]
         end = _find_closing_quote(text, quote, start=1)
@@ -123,6 +133,9 @@ def _parse_nested_line(line: str) -> tuple[str, str | None, str | None, int]:
     key_indent = len(line) - len(text)
     if not text or text.startswith("#"):
         return "", None, None, key_indent
+    prefix_err = _unsupported_yaml_prefix(text)
+    if prefix_err is not None:
+        return text, None, prefix_err, dash_indent
     if text[0] in ('"', "'"):
         end = _find_closing_quote(text, text[0], start=1)
         if end is None:

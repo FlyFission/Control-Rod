@@ -192,6 +192,8 @@ export const REASONS: Record<string, Reason> = {
   "invalid-workspace-root": r("The workspace root must stay inside the user's home directory.", "Choose a folder inside your home directory."),
   "repo-not-found": r("The local repository directory does not exist.", "Clone or materialize the repository first."),
   "workspace-exists": r("A workspace or worktree already exists at that target path.", "Choose another branch name or remove the existing worktree."),
+  "repo-identity-mismatch": r("An existing folder at that path points to a different repository.", "Use a clean folder or choose a different workspace root."),
+  "invalid-strategy": r("The workspace strategy must be 'worktree', 'fresh-clone', or 'branch'.", "Choose one of worktree, fresh-clone, or branch."),
   "git-failed": r("The host Git operation failed.", "Read the Git error detail and retry."),
 
   // The server itself.

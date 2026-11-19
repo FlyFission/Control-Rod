@@ -74,7 +74,19 @@ jobs:
           ln -s "$(command -v socat)" "$RUNNER_TEMP/deps/socat-wrap"
           ln -s "$(command -v rg)" "$RUNNER_TEMP/deps/usr/bin/rg"
           bwrap --version
-          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid true && echo "bubblewrap can create a sandbox"
+      - name: Let bubblewrap create its sandbox (Ubuntu 24.04 and later)
+        # Ubuntu 24.04 stops unprivileged programs from creating user namespaces, which bubblewrap
+        # needs. This is the narrow fix docs/daemon.md gives users: an AppArmor profile that lets
+        # /usr/bin/bwrap, and only it, do so. The check below is the daemon's own preflight test.
+        if: runner.os == 'Linux'
+        run: |
+          if [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ]; then
+            printf '%s\n' 'abi <abi/4.0>,' 'include <tunables/global>' \
+              'profile controlrod-bwrap /usr/bin/bwrap flags=(unconfined) {' '  userns,' '}' \
+              | sudo tee /etc/apparmor.d/controlrod-bwrap
+            sudo apparmor_parser -r /etc/apparmor.d/controlrod-bwrap
+          fi
+          bwrap --unshare-user --unshare-net --ro-bind / / --dev /dev true && echo "bubblewrap can create a sandbox"
       - name: Pinned CLIs, installed the way a user installs them
         run: |
           npm install -g --no-audit --no-fund --prefix "$HOME/.npm-global" \
@@ -97,6 +109,8 @@ jobs:
           echo "::group::Full report"
           cat "$RUNNER_TEMP/launch-qualification.json"
           echo "::endgroup::"
+          python3 -I -c 'import json,sys; r=json.load(open(sys.argv[1])); print(json.dumps({"host": r["host"], "checks": r["checks"]}, indent=1))' \
+            "$RUNNER_TEMP/launch-qualification.json" | tee -a "$GITHUB_STEP_SUMMARY"
           exit "$status"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

@@ -19,7 +19,10 @@ import (
 
 // Tests run on hosts that are not the qualified platform (CI runs native Linux): the platform gate
 // is exercised by its own test, and is otherwise out of the way.
-func init() { platformCheck = func() error { return nil } }
+func init() {
+	platformCheck = func() error { return nil }
+	sandboxCheck = func(func(string) (string, error)) error { return nil }
+}
 
 // testPolicy is the control plane's no-network policy shape (services/api/src/sandbox.ts).
 func testPolicy() *SandboxPolicy {
@@ -593,5 +596,42 @@ func TestRunWorkspacesNeverFeedLinkDiscovery(t *testing.T) {
 	}
 	if slices.Contains(d, "/usr/bin") {
 		t.Fatalf("a link an agent made in a workspace became a denial: %q", d)
+	}
+}
+
+func TestBubblewrapThatCannotSandboxIsRefusedWithTheFix(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		if err := bubblewrapWorks(found); err != nil {
+			t.Fatalf("bubblewrap is only checked on Linux: %v", err)
+		}
+		return
+	}
+	dir := t.TempDir()
+	fake := filepath.Join(dir, "bwrap")
+	if err := os.WriteFile(fake, []byte("#!/bin/sh\necho 'bwrap: setting up uid map: Permission denied' >&2\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	err := bubblewrapWorks(func(string) (string, error) { return fake, nil })
+	var pe *PreflightError
+	if !errors.As(err, &pe) || !strings.Contains(err.Error(), "uid map") || !strings.Contains(err.Error(), "Linux setup") {
+		t.Fatalf("refusal: %v", err)
+	}
+	ok := filepath.Join(dir, "bwrap-ok")
+	if err := os.WriteFile(ok, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := bubblewrapWorks(func(string) (string, error) { return ok, nil }); err != nil {
+		t.Fatalf("a working bubblewrap: %v", err)
+	}
+	if err := bubblewrapWorks(func(string) (string, error) { return "", errors.New("not found") }); err != nil {
+		t.Fatalf("a missing bubblewrap is HostNeeds' to report: %v", err)
+	}
+}
+
+func TestQualifiedPlatformCoversLinuxAndMacOS(t *testing.T) {
+	err := QualifiedPlatform()
+	qualified := runtime.GOOS == "linux" || runtime.GOOS == "darwin"
+	if qualified != (err == nil) {
+		t.Fatalf("%s: qualified=%v, got %v", runtime.GOOS, qualified, err)
 	}
 }

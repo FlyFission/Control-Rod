@@ -1,0 +1,107 @@
+name: platforms
+
+# Agent runs on macOS and native Linux (change record .nuclear/changes/mac-linux-agents/).
+#
+# - `daemon-macos` builds, vets and tests the Go daemon on a Mac, which `ci` never does: the
+#   Seatbelt checker profile, the Keychain and every other darwin-only file run here.
+# - `qualify` runs the phase 6 launch qualification (spikes/runtime-confinement/launch_qualification.py)
+#   on native Linux and on macOS: the daemon's exact launch of the pinned Claude Code and Codex
+#   builds, in a throwaway home full of decoy secrets, with a positive control and a deliberately
+#   weakened control. No credential or prompt is used: Claude Code talks to a scripted provider on
+#   loopback with a fixture key, and Codex runs `codex sandbox` with no model. The report is kept as
+#   an artifact and printed to the log.
+#
+# It runs on demand, or on a pull request that touches the daemon, the qualification or this file,
+# so ordinary front-end changes spend no macOS minutes. Every job is read only.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - daemon/**
+      - spikes/runtime-confinement/**
+      - .github/workflows/platforms.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platforms-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The CLI builds the daemon pins and qualifies (docs/daemon.md, Platforms).
+  CLAUDE_CODE_VERSION: 2.1.318
+  CODEX_VERSION: 0.166.0
+
+jobs:
+  daemon-macos:
+    runs-on: macos-15
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: daemon
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install_args: go
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test ./...
+
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          install_args: go node
+      - name: Sandbox programs (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends bubblewrap socat ripgrep
+          mkdir -p "$RUNNER_TEMP/deps/usr/bin"
+          ln -s "$(command -v socat)" "$RUNNER_TEMP/deps/socat-wrap"
+          ln -s "$(command -v rg)" "$RUNNER_TEMP/deps/usr/bin/rg"
+          bwrap --version
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid true && echo "bubblewrap can create a sandbox"
+      - name: Pinned CLIs, installed the way a user installs them
+        run: |
+          npm install -g --no-audit --no-fund --prefix "$HOME/.npm-global" \
+            "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" "@openai/codex@$CODEX_VERSION"
+          echo "$HOME/.npm-global/bin" >> "$GITHUB_PATH"
+      - name: Build controlrod
+        working-directory: daemon
+        run: go build -o "$RUNNER_TEMP/controlrod" ./cmd/controlrod
+      - name: Launch qualification
+        run: |
+          claude="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$HOME/.npm-global/bin/claude")"
+          codex="$(ls "$HOME"/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-*/vendor/*/bin/codex | head -n 1)"
+          deps=()
+          if [ "$RUNNER_OS" = Linux ]; then deps=(--deps "$RUNNER_TEMP/deps"); fi
+          set +e
+          python3 -I spikes/runtime-confinement/launch_qualification.py --controlrod "$RUNNER_TEMP/controlrod" \
+            --claude "$claude" --codex "$codex" "${deps[@]}" --out "$RUNNER_TEMP/launch-qualification.json"
+          status=$?
+          set -e
+          echo "::group::Full report"
+          cat "$RUNNER_TEMP/launch-qualification.json"
+          echo "::endgroup::"
+          exit "$status"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: launch-qualification-${{ runner.os }}
+          path: ${{ runner.temp }}/launch-qualification.json
+          if-no-files-found: warn
+          retention-days: 30

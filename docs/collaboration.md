@@ -21,7 +21,7 @@ The same rule works as a team habit: with two people building, each reviews the 
 
 While [CODEOWNERS](../.github/CODEOWNERS) names a single maintainer, there is nobody else who could review, so that maintainer's own recorded yes is the human signature for a trust-surface change, including one they prompted an agent to make. It holds only on these conditions:
 
-1. **The yes is the maintainer's own words.** It is given in the maintainer's chat with the agent or in a comment on the pull request, in reply to a question that names the pull request and says it touches a trust surface. A reaction, a relayed summary, an automated reviewer or a second model never counts.
+1. **The yes is the maintainer's own words.** It is given in the maintainer's chat with the agent or in a comment on the pull request, in reply to a question that names the pull request and each trust surface it changes (a path such as `.github/workflows/`, or plain words such as "the live workflows on main"). A reaction, a relayed summary, an automated reviewer or a second model never counts.
 2. **It covers the pull request as it stood when asked.** If a trust-surface file changes after the yes, ask again.
 3. **It is recorded, not signed for.** The agent fills the change record's `Signature` table in `ship.md` with the decision, the question and the answer word for word, the date and time with its time zone, and where it was given, and marks the entry as recorded by the agent. The agent never types the maintainer's signature or initials.
 4. **Nothing else is waived.** CI is green, every review thread is answered, and the change record validates, as for any other change.

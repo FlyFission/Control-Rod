@@ -1,6 +1,6 @@
 # Ship: sole-maintainer sign-off for trust surfaces
 
-Release decision: **draft pull request for the owner's yes; no merge or release is authorized by this record.**
+Release decision: **approved by the owner's recorded yes (see Signature) to merge #97; no release is authorized by this record.**
 
 - **Proposed:** merge to `main` on the owner's yes. Once merged, the owner's recorded yes can sign the open draft #92 (CI job timeouts) under the new section.
 - **Not claimed:** that this replaces an independent review; the rule exists because none is available.
@@ -11,11 +11,11 @@ Release decision: **draft pull request for the owner's yes; no merge or release 
 
 | Field | Entry |
 |---|---|
-| Decision | not yet given |
-| Question | not yet asked |
-| Answer | not yet given |
-| Given | not yet given |
-| Recorded by | not yet recorded |
+| Decision | Approve: merge pull request #97 |
+| Question | "Should I merge PR 97? It changes the repo's trust rules." Asked in the Claude chat at 2026-11-18 9:53 PM ET (2026-11-19 02:53 UTC), with a link to #97 |
+| Answer | "yes", Ben Huffer, project owner and sole maintainer, in the same Claude chat thread at 2026-11-19 6:21 AM ET (11:21 UTC) |
+| Head when asked | 49e2853 (CI green); the only file changed after the yes is this `ship.md`, which is not a trust surface |
+| Recorded by | The implementing agent, from the chat message. Ben Huffer did not write this entry, and no signature or initials were typed for him |
 
 This change creates the sole-maintainer rule, so its own sign-off is the owner's yes to merge it, recorded here by the implementing agent as `docs/collaboration.md` says, with no signature or initials typed for the owner.
 

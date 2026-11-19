@@ -1,0 +1,27 @@
+## main 8b875ab
+top-level permissions: {'contents': 'read'}
+job shots: permissions={'contents': 'write'} timeout=None if=None needs=None
+  uses actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  uses jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+  uses actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+  run  pnpm install --frozen-lockfile
+  run  pnpm --filter @control-rod/spec run build
+  run  pnpm --filter @control-rod/web exec playwright install --with-deps chromium
+  run  pnpm exec playwright test e2e/readme-shots.spec.ts --project=chromium --reporter=list
+  run  git checkout -- .
+
+## this change
+top-level permissions: {'contents': 'read'}
+job shots: permissions={'contents': 'read'} timeout=30 if=None needs=None
+  uses actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  uses jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+  uses actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+  run  pnpm install --frozen-lockfile
+  run  pnpm --filter @control-rod/spec run build
+  run  pnpm --filter @control-rod/web exec playwright install --with-deps chromium
+  run  pnpm exec playwright test e2e/readme-shots.spec.ts --project=chromium --reporter=list
+job commit: permissions={'contents': 'write'} timeout=10 if="github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository" needs=shots
+  uses actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+  uses actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+  run  set -euo pipefail
+

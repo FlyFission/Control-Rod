@@ -59,6 +59,8 @@ These mirror the CI jobs in [`.github/workflows/ci.yml`](../.github/workflows/ci
 | Python (SDK) | In `sdk/python/`: `uv sync --locked`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q` |
 | Licences | `node tools/license-gate.mjs` |
 | Lifecycle model | `bash models/generate.sh` when you change `models/` or the kernel's lifecycle; see [`models/README.md`](../models/README.md). The trace replays run in the Rust and TypeScript suites above |
+| Change records (owner decisions) | `python3 tools/check_owner_decisions.py`; see [collaboration.md](collaboration.md#recording-owner-decisions). Not yet in CI |
+| Instruction checks | `python3 tools/instruction_checks/run.py --list`, then a case with `--out <dir>` when you change `AGENTS.md` or a daemon prompt. Runs the real CLI on your login, so never in CI |
 | Agent guide | `python3 tools/check_agents_map.py` when you change `AGENTS.md` or `CLAUDE.md`. Not yet in CI. If the guide must grow, re-record its budget with `--record` in the same change |
 | Change records | `uv run --with pyyaml python tools/check_redteam.py`, and validate your record with `tools/ng.py` from the pinned [nuclear-grade-context-engineering](https://github.com/FlyFission/nuclear-grade-context-engineering) checkout (CI shows the exact command) |
 

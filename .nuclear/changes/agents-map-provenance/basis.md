@@ -16,9 +16,9 @@ In scope: `tools/check_agents_map.py` and its test, the recorded budget `tools/a
 
 ## Owner decisions (fixed inputs)
 
-| # | Decision |
-|---|---|
-| D1 | Start PL6 and PL7. Owner's words, 2026-11-16, in this session: "start PL6 and PL7". |
+| # | Decision | Owner's words | Given | Reading | Out of scope |
+|---|---|---|---|---|---|
+| D1 | Start PL6 and PL7. | "start PL6 and PL7" | 2026-11-16, Claude Code session for this pull request | Build the agent map check and the port provenance rule, with tests and docs. | CI wiring (a workflow change); choosing headroom for the budget. |
 
 ## Assumptions and invalidation triggers
 

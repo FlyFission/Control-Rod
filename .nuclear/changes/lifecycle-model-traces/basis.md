@@ -24,10 +24,10 @@ Out of scope:
 
 ## Owner decisions (fixed inputs)
 
-| # | Decision |
-|---|---|
-| D1 | Start PL1 and PL2. Owner's words, 2026-11-18, in this session: "start PL1 and PL2". |
-| D2 | Model the package lifecycle first rather than run lease and claim. Authoring agent's choice, open to the owner: the lifecycle is pure, is decided in one function, and runs in two forms (native and WebAssembly), so traces can compare implementations without a database. |
+| # | Decision | Owner's words | Given | Reading | Out of scope |
+|---|---|---|---|---|---|
+| D1 | Start PL1 and PL2. | "start PL1 and PL2" | 2026-11-18, Claude Code session for this pull request | Build a first model and conformance traces with replays. | Changing a kernel decision function; modelling every lifecycle. |
+| D2 | Model the package lifecycle first rather than run lease and claim. | none: authoring agent's choice, open to the owner | 2026-11-18, this record | The lifecycle is pure, is decided in one function, and runs in two forms (native and WebAssembly), so traces can compare implementations without a database. | Run lease and claim, left for a later change. |
 
 ## Assumptions and invalidation triggers
 

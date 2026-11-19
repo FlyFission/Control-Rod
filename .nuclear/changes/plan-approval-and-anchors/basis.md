@@ -30,11 +30,11 @@ Out of scope:
 
 ## Owner decisions (fixed inputs)
 
-| # | Decision |
-|---|---|
-| D1 | Start PL3 and PL4. Owner's words, 2026-11-18, in this session: "start PL3 and PL4". |
-| D2 | PL3 lands as a contract and a pure check with no route; the review panel's R3 and a later plan review slice will use it. Authoring agent's choice, open to the owner. |
-| D3 | PL4 stops at a spike and a design. Building it touches the daemon's agent authority and possibly a kernel floor, each gated. Authoring agent's choice, open to the owner. |
+| # | Decision | Owner's words | Given | Reading | Out of scope |
+|---|---|---|---|---|---|
+| D1 | Start PL3 and PL4. | "start PL3 and PL4" | 2026-11-18, Claude Code session for this pull request | Build the anchor contract and check; run the PL4 spike and write a design. | Routes, tables or views; any daemon or kernel change. |
+| D2 | PL3 lands as a contract and a pure check with no route; review panel R3 and a later plan review slice will use it. | none: authoring agent's choice, open to the owner | 2026-11-18, this record | As stated. | Any route, migration or view. |
+| D3 | PL4 stops at a spike and a design. Building it touches the daemon's agent authority and possibly a kernel floor, each gated. | none: authoring agent's choice, open to the owner | 2026-11-18, this record | As stated. | Building any slice of the design. |
 
 ## Assumptions and invalidation triggers
 

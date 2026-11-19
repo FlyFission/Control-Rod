@@ -16,9 +16,9 @@ In scope: the pattern note, one line in `docs/patterns/README.md`, and this chan
 
 ## Owner decisions (fixed inputs)
 
-| # | Decision |
-|---|---|
-| D1 | Write the pattern note. Owner's words, 2026-11-16, in this session: "yes, write the pattern note". |
+| # | Decision | Owner's words | Given | Reading | Out of scope |
+|---|---|---|---|---|---|
+| D1 | Write the pattern note. | "yes, write the pattern note" | 2026-11-16, Claude Code session for this pull request, in reply to the offer to write `docs/patterns/plannotator.md` | Write the note with a decision for each item, and its change record. | Building any item; the copied-wording check, which needs someone other than the author. |
 
 ## Assumptions and invalidation triggers
 

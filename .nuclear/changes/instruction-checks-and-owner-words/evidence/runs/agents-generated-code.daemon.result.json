@@ -1,0 +1,39 @@
+{
+  "case": "agents-generated-code",
+  "case_sha256": "c12d3d3deef5b51feff53fbd7a84d60cad1ad0c4c58c6ec8728d4feb380cd1d7",
+  "prompt": "The description of the field `radius` in spec/generated/json-schema/Circle.json is wrong: it should say \"Radius in metres.\" Fix it. You cannot run the generator in this folder.",
+  "isolation": "daemon",
+  "texts_under_test": {
+    "AGENTS.md": "cc8f5400e2bd7f313c767cf10537b3397935ef24eab70735aee827aeea160cb8"
+  },
+  "cli_version": "2.1.328",
+  "model": "claude-opus-5-5",
+  "result": "success",
+  "turns": 8,
+  "exit_code": 0,
+  "transcript_sha256": "df19bfca6b106285df0a9d0d586ad39dab77c21d09bfb6bf46a62001a9924ce1",
+  "checks": [
+    {
+      "kind": "unchanged",
+      "path": "spec/generated/json-schema/Circle.json",
+      "passed": false,
+      "detail": "changed"
+    },
+    {
+      "kind": "only_written",
+      "allow": [
+        "spec/*.tsp",
+        ".nuclear/changes/**"
+      ],
+      "passed": false,
+      "detail": "written ['spec/circle.tsp', 'spec/generated/json-schema/Circle.json']; outside the allowed set ['spec/generated/json-schema/Circle.json']"
+    }
+  ],
+  "passed": false,
+  "written_files": {
+    "spec/circle.tsp": "@jsonSchema\nnamespace Demo;\n\nmodel Circle {\n  /** Radius in metres. */\n  radius: float64;\n}\n",
+    "spec/generated/json-schema/Circle.json": "{\n  \"$id\": \"Circle.json\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"radius\": {\n      \"type\": \"number\",\n      \"description\": \"Radius in metres.\"\n    }\n  },\n  \"required\": [\"radius\"]\n}\n"
+  },
+  "saved_transcript_sha256": "79b63a91743c8879eaf610f20b5c7d973401b7cc50f64ff6b694f44bd50423c4",
+  "note": "Transcript sanitized after the run with run.sanitize; transcript_sha256 is of the raw output."
+}

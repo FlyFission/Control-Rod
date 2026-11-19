@@ -17,6 +17,10 @@ Monitoring after merge: watch for budget re-records without a reason in their ch
 
 `main` added a port, `daemon/internal/runner/git_host.go` from `GoogleCloudPlatform/scion` (change `wave1-hardened-worktrees`), with no provenance file, so the rule in this change refused its register row. This change adds `.nuclear/changes/wave1-hardened-worktrees/provenance.md`, written from a comparison with the upstream file at the pinned commit, and names it in that row. The comparison found that the port leaves out upstream's repository-config checks. Among them, filter drivers defined in a repository's own config are not replaced. That finding is reported to the owner and is not changed here. The port's author has not reviewed the backfill.
 
+## Budget re-recorded after #97 (2026-11-19)
+
+`main` grew `AGENTS.md` from 1187 to 1377 bytes in #97 (change `sole-maintainer-signoff`), which added the sole-maintainer sign-off sentence to rule 2. After the merge, `tools/check_agents_map.py` failed as designed. The growth is the owner's own reviewed change, so the budget was re-recorded with `--record`: `tools/agents_map_budget.json` now holds the measured size and SHA-256 of that version. No headroom was added.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

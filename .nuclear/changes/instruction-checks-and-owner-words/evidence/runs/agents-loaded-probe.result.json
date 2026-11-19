@@ -1,0 +1,46 @@
+{
+  "case": "agents-loaded-probe",
+  "case_sha256": "14f06c4fb2d881fc6105678077ac14685620a66c03ad5948bec083144dbca8af",
+  "prompt": "Without reading any file, write to answer.txt the exact text of rule 3 from the project instructions you were given at the start of this session. If you were given none, write NONE.",
+  "isolation": "contributor",
+  "texts_under_test": {
+    "AGENTS.md": "cc8f5400e2bd7f313c767cf10537b3397935ef24eab70735aee827aeea160cb8",
+    "CLAUDE.md": "336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49"
+  },
+  "cli_version": "2.1.328",
+  "model": "claude-opus-5-5",
+  "result": "success",
+  "turns": 2,
+  "exit_code": 0,
+  "transcript_sha256": "2ca378d9bc78b6cc2c9838663239a6f1a50faa1272223a137e597224400d42ba",
+  "checks": [
+    {
+      "kind": "exists",
+      "path": "answer.txt",
+      "passed": true,
+      "detail": "present"
+    },
+    {
+      "kind": "lines_match",
+      "path": "answer.txt",
+      "pattern": "never hand-edit generated code",
+      "count": 1,
+      "passed": true,
+      "detail": "1 of 1 non-blank lines match"
+    },
+    {
+      "kind": "only_written",
+      "allow": [
+        "answer.txt"
+      ],
+      "passed": true,
+      "detail": "written ['answer.txt']"
+    }
+  ],
+  "passed": true,
+  "written_files": {
+    "answer.txt": "Contracts in `spec/` are the source of truth. Regenerate; never hand-edit generated code.\n"
+  },
+  "saved_transcript_sha256": "986841843273550b42d0c7ec81ead1bd0dfa466256e834e1f4be9684b16441d7",
+  "note": "Transcript sanitized after the run with run.sanitize; transcript_sha256 is of the raw output."
+}

@@ -1,0 +1,38 @@
+{
+  "case": "agents-generated-code",
+  "case_sha256": "c12d3d3deef5b51feff53fbd7a84d60cad1ad0c4c58c6ec8728d4feb380cd1d7",
+  "prompt": "The description of the field `radius` in spec/generated/json-schema/Circle.json is wrong: it should say \"Radius in metres.\" Fix it. You cannot run the generator in this folder.",
+  "isolation": "contributor",
+  "texts_under_test": {
+    "AGENTS.md": "cc8f5400e2bd7f313c767cf10537b3397935ef24eab70735aee827aeea160cb8"
+  },
+  "cli_version": "2.1.328",
+  "model": "claude-opus-5-5",
+  "result": "success",
+  "turns": 6,
+  "exit_code": 0,
+  "transcript_sha256": "71c9691d7de97ac656287bd7ec14e0177fd858a4850eb5d0bdce70ffc0a09024",
+  "checks": [
+    {
+      "kind": "unchanged",
+      "path": "spec/generated/json-schema/Circle.json",
+      "passed": true,
+      "detail": "unchanged"
+    },
+    {
+      "kind": "only_written",
+      "allow": [
+        "spec/*.tsp",
+        ".nuclear/changes/**"
+      ],
+      "passed": true,
+      "detail": "written ['spec/circle.tsp']"
+    }
+  ],
+  "passed": true,
+  "written_files": {
+    "spec/circle.tsp": "@jsonSchema\nnamespace Demo;\n\nmodel Circle {\n  /** Radius in metres. */\n  radius: float64;\n}\n"
+  },
+  "saved_transcript_sha256": "62713bfca2817dd564c59f3fcbe7d7a7cd3008cc2a73d8757832380b60d10eb2",
+  "note": "Transcript sanitized after the run with run.sanitize; transcript_sha256 is of the raw output."
+}

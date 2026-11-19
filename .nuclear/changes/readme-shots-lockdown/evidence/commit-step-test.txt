@@ -1,5 +1,5 @@
 == 1. two valid pictures: committed and pushed
-[feat 787a0bc] docs(readme): refresh app screenshots from the readme-shots workflow
+[feat 7221b5e] docs(readme): refresh app screenshots from the readme-shots workflow
  2 files changed, 6 insertions(+)
  create mode 100644 docs/assets/readme/app/inbox.png
  create mode 100644 docs/assets/readme/app/office.png
@@ -30,7 +30,7 @@ remote commits: 1
 exit 1
 remote commits: 1
 == 8. branch moved since the run started: skipped
-The branch moved past 0000000000000000000000000000000000000000 after this run started; the newer run commits the pictures.
+The branch moved past 0000000000000000000000000000000000000000 after the screenshots were taken; the newer run commits the pictures.
 exit 0
 remote commits: 1
 == 9. empty artifact: refused

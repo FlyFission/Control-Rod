@@ -33,6 +33,15 @@ PR #93 (merged 2026-11-18 as 8b875ab) added `readme-shots.yml`. Its one job held
 | A same-repository author already has write access, so a workflow edit on their own branch is not an escalation. | `pull_request` takes the workflow from the pull request; only people with push access open same-repository branches. | A change to `pull_request_target` or `workflow_run`, or a reviewer role without push access. |
 | The bot's pushes start no further jobs. | On #93 the 4 bot-created runs ran no job. | A run started by `github-actions[bot]` that executes a job. |
 
+## Revision 2 (2026-11-19): the push moves to a workflow only the default branch defines
+
+Review on #94 after merge (Copilot comment 4622578535) found that the `commit` job, though it ran no branch code, still lived in a `pull_request` workflow, which GitHub runs as the pull request's own copy. A branch could add a step to `commit` and use its write token. Codex (comment 4622565588) found the Signature table blank. Revision 2:
+
+- `readme-shots.yml` keeps only the read-only `shots` job. Nothing in it holds a write token.
+- `readme-shots-commit.yml` is new. It runs on `workflow_run` when a `readme-shots` run completes, and GitHub always runs the default branch's copy of a `workflow_run` workflow, so no pull request can change what holds the write token. Branch, commit and repository come from the event, not the artifact; only successful `pull_request` runs from this repository and not on the default branch are served. The artifact checks are unchanged.
+- Limit: any workflow a branch names `readme-shots` can start it, so the event checks and the artifact checks are what hold, not the name. A branch can at most get validated PNG files pushed to its own branch, which its author can already do.
+- Limit: `workflow_run` workflows run only from the default branch, so `readme-shots-commit.yml` cannot run on the pull request that adds it. Its first live run is the first `readme-shots` pull request after merge.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

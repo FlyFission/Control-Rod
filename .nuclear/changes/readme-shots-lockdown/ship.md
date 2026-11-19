@@ -17,7 +17,17 @@ Release decision: **draft pull request for a maintainer's signature; no merge or
 | Date | not yet signed |
 | Basis | not yet signed: the PR review that approves `readme-shots.yml` as it stands |
 
-Until the Signature table is filled by that maintainer, this change is an unsigned proposal.
+No signature has been given. This table stays empty until a maintainer fills it in themselves.
+
+## Recorded owner approval (not a signature)
+
+| Field | Entry |
+|---|---|
+| Revision | 1, PR #94 (squash-merged as 410eec8) |
+| Approval | Ben Huffer, project owner, answered "Yes" in the Claude chat at 2026-11-18 7:01 PM ET (2026-11-19 00:01 UTC) to the question "Should I merge PR 94? It changes the live workflow on main." |
+| Recorded by | The implementing agent, from the chat message; Ben Huffer did not write this entry |
+| Independence | Not independent: Ben Huffer prompted the change (`docs/collaboration.md`) |
+| Revision 2 | Not yet approved; it waits on the owner's yes to merge its own pull request |
 
 ## Rollback and monitoring
 

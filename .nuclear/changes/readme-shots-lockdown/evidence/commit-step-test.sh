@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Runs the readme-shots `commit` job's script against local fixture artifacts and a local bare
+# Runs the readme-shots-commit workflow's script against local fixture artifacts and a local bare
 # remote, to show which artifacts it accepts and refuses. Usage, from the repository root:
 #   bash .nuclear/changes/readme-shots-lockdown/evidence/commit-step-test.sh
 set -uo pipefail
-WF="$(pwd)/.github/workflows/readme-shots.yml"
+WF="$(pwd)/.github/workflows/readme-shots-commit.yml"
 T="$(mktemp -d)"
 python3 -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1]));print(d['jobs']['commit']['steps'][-1]['run'])" "$WF" > "$T/commit.sh"
 png() { printf '\x89PNG\r\n\x1a\n%s' "$2" > "$1"; }

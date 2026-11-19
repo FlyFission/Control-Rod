@@ -1,12 +1,12 @@
 # Verification: answer the review of the sole-maintainer rule
 
-Evidence status: **pass** locally for RS-01 to RS-04; CI on the pull request is E-03.
+Evidence status: **pass** for RS-01 to RS-04, locally and in CI (E-03).
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | The full text change against `main` at 608c189. Wording judged by the implementing agent only. | `evidence/fixes-diff.patch` |
 | E-02 | pass | All three touched records validate with the pinned validator under `--strict-custody`. | `evidence/validate.log` |
-| E-03 | pending | CI on the pull request; filled in before the owner is asked. | the pull request's checks |
+| E-03 | pass | `ci`, all seven jobs, green on the pull request at dff09dd (run 44515673883). CI checks records and code, not wording. | GitHub Actions run 44515673883 |
 
 ## Evidence custody and coupling
 
@@ -14,7 +14,7 @@ Evidence status: **pass** locally for RS-01 to RS-04; CI on the pull request is 
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | E-01 | RS-01 | yes | evidence/fixes-diff.patch | Implementing agent | git diff | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-02 | RS-04 | yes | evidence/validate.log | Implementing agent | ng.py | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
-| E-03 | RS-01 | no | pull request checks | Implementing agent | GitHub Actions | Implementing agent | Implementing agent | GitHub-hosted runner | GitHub | Implementing agent | Self-check |
+| E-03 | RS-01 | no | GitHub Actions run 44515673883 | Implementing agent | GitHub Actions | Implementing agent | Implementing agent | GitHub-hosted runner | GitHub | Implementing agent | Self-check |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|

@@ -22,7 +22,6 @@ func seatbeltFixture(t *testing.T) *Workspace {
 	if _, err := exec.LookPath("sandbox-exec"); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CONTROLROD_SEATBELT_QUALIFIED", "1")
 	ws, _ := prepareCheckerFixture(t)
 	return ws
 }

@@ -140,14 +140,14 @@ func TestClaudeSettingsConfineReadsAndKeepTheWorkspaceOpen(t *testing.T) {
 }
 
 func TestCodexProfileDeniesTheOutermostPathsAndSwitchesOffUnqualifiedFeatures(t *testing.T) {
-	home := t.TempDir()
+	home := realTempDir(t)
 	for _, d := range []string{".claude", ".ssh", ".controlrod/work/WP-1/r0/author-1-r1"} {
 		if err := os.MkdirAll(filepath.Join(home, d), 0o700); err != nil {
 			t.Fatal(err)
 		}
 	}
 	ws := &Workspace{Dir: filepath.Join(home, ".controlrod/work/WP-1/r0/author-1-r1")}
-	other := t.TempDir() // a daemon home outside the home folder is denied on its own
+	other := realTempDir(t) // a daemon home outside the home folder is denied on its own
 	args, err := CodexPolicyArgs(testPolicy(), SandboxPaths{Home: home, DaemonHome: other, Workspace: ws.Dir})
 	if err != nil {
 		t.Fatal(err)

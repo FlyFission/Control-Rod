@@ -1,0 +1,39 @@
+== 1. two valid pictures: committed and pushed
+[feat 7221b5e] docs(readme): refresh app screenshots from the readme-shots workflow
+ 2 files changed, 6 insertions(+)
+ create mode 100644 docs/assets/readme/app/inbox.png
+ create mode 100644 docs/assets/readme/app/office.png
+exit 0
+remote commits: 2
+== 2. same pictures again: no change, no commit
+No change to the pictures.
+exit 0
+remote commits: 2
+== 3. name with shell characters: refused
+::error::Refused file name in the artifact.
+exit 1
+remote commits: 1
+== 4. not a PNG: refused
+::error::office.png is not a PNG file.
+exit 1
+remote commits: 1
+== 5. symlink to /etc/passwd: refused
+::error::The artifact holds something other than plain files.
+exit 1
+remote commits: 1
+== 6. a subfolder: refused
+::error::The artifact holds something other than plain files.
+exit 1
+remote commits: 1
+== 7. over 5 MB: refused
+::error::office.png is larger than 5 MB.
+exit 1
+remote commits: 1
+== 8. branch moved since the run started: skipped
+The branch moved past 0000000000000000000000000000000000000000 after the screenshots were taken; the newer run commits the pictures.
+exit 0
+remote commits: 1
+== 9. empty artifact: refused
+::error::Refused file name in the artifact.
+exit 1
+remote commits: 1

@@ -1,4 +1,5 @@
 # Trust surfaces need review from a maintainer who did not author the change.
+# While only one maintainer is listed, their recorded yes is the sign-off instead (docs/collaboration.md#sole-maintainer-sign-off).
 /policies/            @FlyFission
 /tests/redteam/       @FlyFission
 /.github/             @FlyFission

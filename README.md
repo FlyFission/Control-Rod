@@ -23,6 +23,8 @@ It runs in your browser. There's a board for your work, an office where you can 
 
 ## A quick tour
 
+The app screenshots below come from a real build of Control Rod, filled with sample work.
+
 ### 1. The sign-off gate
 
 The agent that did the work never gets the final say. A second agent checks it, and then you decide.
@@ -33,23 +35,29 @@ The agent that did the work never gets the final say. A second agent checks it, 
 4. **A different agent checks it.** The checker gets the result and the evidence. The author's reasoning stays out of its view.
 5. **You decide.** Accept, send it back with notes, or reject. Your signature covers exactly what you looked at, and the history shows every step.
 
+![The inbox with a pump skid datasheet waiting on you. The checker passed it with one finding, and the decision panel offers Accept, Accept with findings, Return with direction and Reject.](docs/assets/readme/app/inbox.png)
+
 ### 2. The office
 
 ![Fifteen office worlds, each with its own cast of six agents at their desks.](docs/assets/readme/office-worlds.png)
 
 Watch your agents at their desks while they work. Each figure's state comes from the real run, so you can see at a glance who is working, who is being checked and what is waiting on you.
 
-1. **Open Office.** Every active agent has a desk.
-2. **Pick a world.** Choose one of fifteen from the **Theme** menu, or keep the plain office. A world changes the look and never the facts.
+1. **Open Office.** Agents sit in the room for their kind of work. When a room is full, the rest are listed beside it.
+2. **Pick a world.** Choose one of fifteen worlds from the **Theme** menu, from The Coffee House Crew to Starport Shipyard. A world changes the look and never the facts.
 3. **Switch the lens.** **Status** shows what each agent is doing; **Gate** shows whether its work is before release, in work, in pre-check or awaiting your acceptance.
 4. **Click a figure.** Its card shows the task, the checker's progress and the spend so far.
 5. **Stop everything if you need to.** **SCRAM** tells you what it will stop, asks for a reason and your passkey, then stops those runs and records it.
 
 **Presenting mode** hides spend, so you can put the office on a shared screen.
 
+![The office in The Coffee House Crew world: ten agents at work across the discipline rooms, and one waiting on you in Your office.](docs/assets/readme/app/office.png)
+
 ### 3. The whole workspace
 
 ![You bring a request, files and your own agents. Control Rod organizes the work. You see the board, the office and the records.](docs/assets/readme/workspace.svg)
+
+![The Packages page: a box to say what needs doing, with a file and a data lane, beside every package and its state.](docs/assets/readme/app/packages.png)
 
 The same discipline works for a code change or an engineering deliverable such as a calculation package or a scope of work.
 

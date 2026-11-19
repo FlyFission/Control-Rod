@@ -1,0 +1,35 @@
+# zizmor v1.32.0, --offline, default persona
+## before PR 94 (8b875ab) readme-shots.yml
+warning[artipacked]: credential persistence through GitHub Actions artifacts
+  --> .github/workflows/readme-shots.yml:25:9
+   |
+25 |         - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+   |  _________^
+26 | |         with:
+27 | |           ref: ${{ github.head_ref || github.ref }}
+   | |___________________________________________________^ does not set persist-credentials: false
+   |
+   = note: audit confidence → Low
+   = note: this finding has an auto-fix
+   = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+error[template-injection]: code injection via template expansion
+  --> .github/workflows/readme-shots.yml:57:37
+   |
+48 |         run: |
+   |         --- this run block
+...
+57 |           git push origin "HEAD:${{ github.head_ref }}"
+   |                                     ^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+   |
+   = note: audit confidence → High
+   = note: this finding has an auto-fix
+   = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+5 findings (3 suppressed, 2 unsafe fixes): 0 informational, 0 low, 1 medium, 1 high
+
+## after PR 94 (410eec8): readme-shots.yml had no findings (the stored credential in its commit job suppressed with a comment)
+
+## revision 2: readme-shots.yml and readme-shots-commit.yml
+No findings to report. Good job! (1 ignored, 4 suppressed)
+Ignored: dangerous-triggers on readme-shots-commit.yml's workflow_run trigger, by a comment on that line (the design; see basis.md).

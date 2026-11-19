@@ -7,6 +7,7 @@ Release decision: **draft pull request for a maintainer's signature; no merge or
 - **Decisions requested from the maintainers:**
   1. Who signs (see risk R-05).
   2. Whether a live-login check on a real Mac and a real Ubuntu machine is required before launch, or can follow it.
+  3. Whether the Seatbelt checker tests in CI are enough to drop the `CONTROLROD_SEATBELT_QUALIFIED` gate, which this change removes. The gate was a control in `checker-workspace` (risk R-10) for a profile never run on a Mac; it now runs on one in every `platforms` run.
 
 ## Signature
 

@@ -27,7 +27,8 @@ No signature has been given. This table stays empty until a maintainer fills it 
 | Approval | Ben Huffer, project owner, answered "Yes" in the Claude chat at 2026-11-18 7:01 PM ET (2026-11-19 00:01 UTC) to the question "Should I merge PR 94? It changes the live workflow on main." |
 | Recorded by | The implementing agent, from the chat message; Ben Huffer did not write this entry |
 | Independence | Not independent: Ben Huffer prompted the change (`docs/collaboration.md`) |
-| Revision 2 | Not yet approved; it waits on the owner's yes to merge its own pull request |
+| Revision 2 | PR #95 (squash-merged as 1fe7cf8). Ben Huffer answered "Yes" in the Claude chat at 2026-11-18 8:52 PM ET (2026-11-19 01:52 UTC) to the question "Should I merge PR 95? It changes the live workflows on main." Recorded by the implementing agent from the chat message. |
+| Standing | Both approvals were given before the sole-maintainer rule existed. Once that rule is on `main` (change record `sole-maintainer-signoff`), they meet its conditions as written: the owner's own words, to a question naming the pull request and the workflow it changes, with no trust-surface change after the yes. The `Signature` table above is left as it was, since it was written under the earlier rule. |
 
 ## Rollback and monitoring
 

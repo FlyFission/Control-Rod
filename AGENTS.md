@@ -5,7 +5,7 @@ This file is the short brief for any agent or person working here. Details live 
 ## Rules
 
 1. Start from a change record. Every change has one under `.nuclear/changes/<slug>/`; read it and the files it names before touching anything else.
-2. Never edit trust surfaces without a human signature: `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major versions, and kernel decision functions in `kernel/`.
+2. Never edit trust surfaces without a human signature: `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major versions, and kernel decision functions in `kernel/`. While CODEOWNERS names a single maintainer, that maintainer's recorded yes is the signature, under the conditions in [docs/collaboration.md](docs/collaboration.md#sole-maintainer-sign-off).
 3. Contracts in `spec/` are the source of truth. Regenerate; never hand-edit generated code.
 4. Shipped code uses permissive licenses only. Do not copy code from AGPL, GPL, SSPL, BSL, Elastic or source-available projects; port ideas from pattern notes instead.
 5. No engineering number is typed by a model. Values come from scripts or tools with recorded inputs, outputs and digests.

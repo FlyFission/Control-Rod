@@ -1,0 +1,2 @@
+$ git diff origin/main --stat -- .github/workflows policies tests/redteam spec kernel docs/adr
+(empty output: no change under any trust surface or docs/adr; origin/main at 608c189)

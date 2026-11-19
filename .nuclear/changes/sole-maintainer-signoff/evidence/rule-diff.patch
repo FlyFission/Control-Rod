@@ -1,0 +1,102 @@
+diff --git a/.github/CODEOWNERS b/.github/CODEOWNERS
+index 1ae70d8..5f27178 100644
+--- a/.github/CODEOWNERS
++++ b/.github/CODEOWNERS
+@@ -1,4 +1,5 @@
+ # Trust surfaces need review from a maintainer who did not author the change.
++# While only one maintainer is listed, their recorded yes is the sign-off instead (docs/collaboration.md#sole-maintainer-sign-off).
+ /policies/            @FlyFission
+ /tests/redteam/       @FlyFission
+ /.github/             @FlyFission
+diff --git a/.github/ISSUE_TEMPLATE/change.yml b/.github/ISSUE_TEMPLATE/change.yml
+index 35c160e..5463a7b 100644
+--- a/.github/ISSUE_TEMPLATE/change.yml
++++ b/.github/ISSUE_TEMPLATE/change.yml
+@@ -42,7 +42,7 @@ body:
+     id: trust
+     attributes:
+       label: Touches a trust surface?
+-      description: policies/, tests/redteam/, .github/workflows/, spec/ major versions or kernel decision functions. These need a maintainer who did not author the change.
++      description: policies/, tests/redteam/, .github/workflows/, spec/ major versions or kernel decision functions. These need a maintainer who did not author the change, or the sole maintainer's recorded yes (docs/collaboration.md).
+       options:
+         - No
+         - Yes
+diff --git a/.github/pull_request_template.md b/.github/pull_request_template.md
+index e0a73bd..8ce4ff2 100644
+--- a/.github/pull_request_template.md
++++ b/.github/pull_request_template.md
+@@ -7,7 +7,7 @@
+ ## Trust surfaces touched
+ 
+ - [ ] None
+-- [ ] `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major version, or kernel decision functions (needs a maintainer who did not author this change)
++- [ ] `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major version, or kernel decision functions (needs a maintainer who did not author this change, or the sole maintainer's recorded yes: see `docs/collaboration.md`)
+ 
+ ## Evidence
+ 
+diff --git a/.nuclear/changes/readme-shots-lockdown/ship.md b/.nuclear/changes/readme-shots-lockdown/ship.md
+index b12b519..62291b1 100644
+--- a/.nuclear/changes/readme-shots-lockdown/ship.md
++++ b/.nuclear/changes/readme-shots-lockdown/ship.md
+@@ -27,7 +27,8 @@ No signature has been given. This table stays empty until a maintainer fills it
+ | Approval | Ben Huffer, project owner, answered "Yes" in the Claude chat at 2026-11-18 7:01 PM ET (2026-11-19 00:01 UTC) to the question "Should I merge PR 94? It changes the live workflow on main." |
+ | Recorded by | The implementing agent, from the chat message; Ben Huffer did not write this entry |
+ | Independence | Not independent: Ben Huffer prompted the change (`docs/collaboration.md`) |
+-| Revision 2 | Not yet approved; it waits on the owner's yes to merge its own pull request |
++| Revision 2 | PR #95 (squash-merged as 1fe7cf8). Ben Huffer answered "Yes" in the Claude chat at 2026-11-18 8:52 PM ET (2026-11-19 01:52 UTC) to the question "Should I merge PR 95? It changes the live workflows on main." Recorded by the implementing agent from the chat message. |
++| Standing | Both approvals were given before the sole-maintainer rule existed. Once that rule is on `main` (change record `sole-maintainer-signoff`), they meet its conditions as written: the owner's own words, to a question naming the pull request and the workflow it changes, with no trust-surface change after the yes. The `Signature` table above is left as it was, since it was written under the earlier rule. |
+ 
+ ## Rollback and monitoring
+ 
+diff --git a/AGENTS.md b/AGENTS.md
+index e04e5f7..65f3295 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -5,7 +5,7 @@ This file is the short brief for any agent or person working here. Details live
+ ## Rules
+ 
+ 1. Start from a change record. Every change has one under `.nuclear/changes/<slug>/`; read it and the files it names before touching anything else.
+-2. Never edit trust surfaces without a human signature: `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major versions, and kernel decision functions in `kernel/`.
++2. Never edit trust surfaces without a human signature: `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major versions, and kernel decision functions in `kernel/`. While CODEOWNERS names a single maintainer, that maintainer's recorded yes is the signature, under the conditions in [docs/collaboration.md](docs/collaboration.md#sole-maintainer-sign-off).
+ 3. Contracts in `spec/` are the source of truth. Regenerate; never hand-edit generated code.
+ 4. Shipped code uses permissive licenses only. Do not copy code from AGPL, GPL, SSPL, BSL, Elastic or source-available projects; port ideas from pattern notes instead.
+ 5. No engineering number is typed by a model. Values come from scripts or tools with recorded inputs, outputs and digests.
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index b17b82f..463a85b 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -16,7 +16,7 @@ Control Rod is built under its own discipline from the first commit.
+ 
+ 1. **Every change has a change record** under `.nuclear/changes/`, following [nuclear-grade context engineering](https://github.com/FlyFission/nuclear-grade-context-engineering). Small administrative changes may use the commit message as the record.
+ 2. **Contracts come first.** Records and APIs are defined in TypeSpec under `spec/`, and every language generates from them. Do not hand-edit generated code.
+-3. **Trust surfaces need a human signature.** Changes to `policies/`, `tests/redteam/`, CI workflows, and the kernel's decision functions require review by a maintainer who did not author them.
++3. **Trust surfaces need a human signature.** Changes to `policies/`, `tests/redteam/`, CI workflows, and the kernel's decision functions require review by a maintainer who did not author them. While only one maintainer is listed, that maintainer's recorded yes stands in, as [docs/collaboration.md](docs/collaboration.md#sole-maintainer-sign-off) sets out.
+ 4. **Red-team tests are first-class.** Every known way around a control becomes a test that must keep failing.
+ 5. **Licenses are checked.** Shipped code may depend only on permissive licenses (MIT, Apache-2.0, BSD, ISC, MPL-2.0). Code ported from another project keeps its notice and is listed in `THIRD_PARTY_NOTICES.md`.
+ 
+diff --git a/docs/collaboration.md b/docs/collaboration.md
+index 153f261..ef713b4 100644
+--- a/docs/collaboration.md
++++ b/docs/collaboration.md
+@@ -13,10 +13,20 @@ How work moves from an idea to `main`. The rules that cannot bend are in [AGENTS
+ 
+ ## Who reviews what
+ 
+-[CODEOWNERS](../.github/CODEOWNERS) lists the trust surfaces: `policies/`, `tests/redteam/`, `.github/`, `kernel/`, `spec/` and `docs/adr/`. A change there needs a maintainer who did not author it. That includes agent-authored changes: the person who prompted the agent counts as the author.
++[CODEOWNERS](../.github/CODEOWNERS) lists the trust surfaces: `policies/`, `tests/redteam/`, `.github/`, `kernel/`, `spec/` and `docs/adr/`. A change there needs a maintainer who did not author it. That includes agent-authored changes: the person who prompted the agent counts as the author. The one exception is [sole-maintainer sign-off](#sole-maintainer-sign-off) below.
+ 
+ The same rule works as a team habit: with two people building, each reviews the other's pull requests. Neither approves their own.
+ 
++### Sole-maintainer sign-off
++
++While [CODEOWNERS](../.github/CODEOWNERS) names a single maintainer, there is nobody else who could review, so that maintainer's own recorded yes is the human signature for a trust-surface change, including one they prompted an agent to make. It holds only on these conditions:
++
++1. **The yes is the maintainer's own words.** It is given in the maintainer's chat with the agent or in a comment on the pull request, in reply to a question that names the pull request and says it touches a trust surface. A reaction, a relayed summary, an automated reviewer or a second model never counts.
++2. **It covers the pull request as it stood when asked.** If a trust-surface file changes after the yes, ask again.
++3. **It is recorded, not signed for.** The agent fills the change record's `Signature` table in `ship.md` with the decision, the question and the answer word for word, the date and time with its time zone, and where it was given, and marks the entry as recorded by the agent. The agent never types the maintainer's signature or initials.
++4. **Nothing else is waived.** CI is green, every review thread is answered, and the change record validates, as for any other change.
++5. **It lapses when a second maintainer is added** to CODEOWNERS. From then on a trust-surface change needs a maintainer who did not author it. Sign-offs already recorded under this section stand.
++
+ Never skip, disable or quarantine a test to get green, and never merge on red. If a failure is environmental, say so in the PR with the output, and add it to [status.md](status.md#known-failures-and-rough-edges).
+ 
+ ## Working with AI agents

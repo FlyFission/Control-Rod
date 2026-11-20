@@ -1,6 +1,6 @@
 # Ship: package lifecycle model and conformance traces
 
-Release decision: **model, traces and replays for owner review.**
+Release decision: **trust-surface additions approved by the owner's recorded yes (see Signature); model, traces and replays for owner review.**
 
 - **Proposed:** merge the model, the generator, the generated traces, the two replay tests and the docs.
 - **Not claimed:**
@@ -13,6 +13,19 @@ Release decision: **model, traces and replays for owner review.**
   2. Confirm the package lifecycle as the first model (D2), with run lease and claim next.
   3. Say whether reason codes are part of the kernel's contract. The model and the traces assume they are.
   4. Say who reviews the model against the floors in `kernel/src/transition.rs`.
+
+## Signature
+
+Recorded under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-maintainer-sign-off).
+
+| Field | Entry |
+|---|---|
+| Decision | Approve: the `kernel/` addition in pull request #88 as it stood at `fe9b099` |
+| Trust-surface files | `kernel/bindings/wasm/tests/lifecycle_traces.rs` |
+| Question | "Do you approve PR #88's changes to `spec/` and `kernel/` as they stand at `fe9b099`?" Asked in the Claude Code chat for this pull request, shortly after 2026-11-19 20:51 UTC (3:51 PM EST), with a link to #88. The message named both trust surfaces: `spec/anchors.tsp` (additive models) and `kernel/bindings/wasm/tests/lifecycle_traces.rs` (a test that changes no decision function) |
+| Answer | "yes", Ben Huffer, project owner and sole maintainer, in the same chat thread. The agent read it at 2026-11-20 15:37 UTC (10:37 AM EST); the chat does not show the agent the time it was sent |
+| Head when asked | `fe9b099` (CI green on all seven jobs); the same head when the answer was read, with no trust-surface file changed in between. The only files changed after the yes are this `ship.md` and its sibling record's `ship.md`, neither a trust surface |
+| Recorded by | The implementing agent, from the chat message. Ben Huffer did not write this entry, and no signature or initials were typed for him |
 
 Rollback: revert the commit. No decision function, schema or wire change.
 

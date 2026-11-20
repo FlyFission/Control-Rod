@@ -4,7 +4,7 @@
 - Execution owner: Claude Code under Ben Huffer's 2026-11-19 instruction "Start Mac and Linux".
 - Decision owner: a maintainer other than the person who prompted the agent (`docs/collaboration.md`). Not chosen here; see `ship.md`.
 - **Trust surface touched: yes.** New workflow `.github/workflows/platforms.yml` (AGENTS rule 2, CODEOWNERS `/.github/`). It is read only (`contents: read`, `persist-credentials: false`) and holds no secret. No policy, red-team fixture, spec version or kernel decision function is touched.
-- Not signed. This record is a draft for the signer.
+- Signed by the owner's recorded yes under sole-maintainer sign-off (`ship.md`). No independent review by a second person.
 
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|

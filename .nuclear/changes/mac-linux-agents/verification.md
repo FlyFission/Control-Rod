@@ -11,7 +11,7 @@ Evidence status: **pass** for the launch qualification on native Linux and macOS
 | E-05 | pass | `go test ./...` in `daemon/` on Linux in the agent's container, and the `ci` workflow on this change. | `ci` workflow |
 | E-06 | pass with limit | The qualification run by hand in the agent's Linux container as an ordinary user: every boundary held; the positive control failed only on DNS, since the container has no resolver. Recorded before the report carried host details. | `evidence/launch-qualification-linux-local.json` |
 | E-07 | open | A live session with a real login on a Mac and on Linux, as `live_login_check.py` did on WSL2. CI has no login. | none yet |
-| E-08 | open | Independent signature by a maintainer who did not author the change. | none yet |
+| E-08 | open | Independent signature by a maintainer who did not author the change. The owner's yes to merge is recorded in `ship.md` under sole-maintainer sign-off; he prompted the change, so it is not independent. | `ship.md` |
 
 ## Evidence custody and coupling
 

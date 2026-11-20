@@ -16,7 +16,7 @@ Release decision: **approved by the owner's recorded yes (see Signature) to merg
 | Decision | Approve: merge pull request #96 |
 | Question | "Should I merge PR 96, knowing it adds that CI workflow?", after "A new repo rule says your yes only counts as the second reviewer if the question names a trust surface, and PR 96 adds a CI workflow that tests agents on Mac and Linux." Asked in the Claude chat at 2026-11-20 5:54 PM ET (22:54 UTC). The same question, "Should I merge PR 96? It touches a trust surface: it adds a CI workflow that tests agents on Mac and Linux.", was asked in the PR's Claude chat thread at 5:53 PM ET (22:53 UTC) |
 | Answer | "Merge PR 96", Ben Huffer, project owner and sole maintainer, in the same Claude chat at 2026-11-20 5:54 PM ET (22:54 UTC). It matches a suggested reply offered with the question, so it may have been sent with one tap. Earlier, at 5:51 PM ET (22:51 UTC), he answered "Yes" in the PR's thread to "Should I merge PR 96?", a question that did not name the trust surface and so is not relied on here |
-| Head when asked | c87bd4e (the PR with main merged in); the only file changed after the yes is this `ship.md`, which is not a trust surface |
+| Head when asked | c87bd4e (the PR with main merged in). Changed after the yes: this `ship.md`, a sign-off note in `risk.md` and `verification.md`, and a test fix in `daemon/internal/runner/events_test.go` (the test now counts a resent log batch once, as the control plane does). None is a trust surface |
 | Recorded by | The implementing agent, from the chat messages. Ben Huffer did not write this entry, and no signature or initials were typed for him |
 
 ## Rollback and monitoring

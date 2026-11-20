@@ -1,6 +1,6 @@
 # Verification: lock down the README screenshot workflow
 
-Evidence status: **pass** for RS-01 to RS-04 on this host (Linux, Python 3, zizmor 1.32.0, shellcheck) and for RS-05 in CI (E-04). **Open** for the independent signature (E-05).
+Evidence status: **pass** for RS-01 to RS-04 on this host (Linux, Python 3, zizmor 1.32.0, shellcheck) and for RS-05 in CI (E-04). Revision 2: **pass** for RS-06 (E-06) and for the script under RS-07 (E-03); **pending** for the first live trusted run (E-07). **Open** for the independent signature (E-05).
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
@@ -8,7 +8,9 @@ Evidence status: **pass** for RS-01 to RS-04 on this host (Linux, Python 3, zizm
 | E-02 | pass | A YAML parse shows `shots` read-only, and `commit` with `contents: write`, a same-repository `if`, `needs: shots`, and no repository code. | `evidence/yaml-parse.txt` |
 | E-03 | pass | The `commit` script, taken from the workflow file, run against nine fixture artifacts and a local bare remote: valid pictures pushed once, no change makes no commit, and a shell-character name, a non-PNG, a symlink, a subfolder, an oversized file and an empty artifact are refused; a moved branch is skipped. Local git, not GitHub. | `evidence/commit-step-test.sh`, `evidence/commit-step-test.txt`, `evidence/digests.txt` |
 | E-04 | pass | Run 44418382440 of `readme-shots` on head `8b6d654` (attempt 1): `shots` and `commit` both concluded `success`; `commit` accepted the artifact and pushed one picture commit, `3faa9e4`, changing only `docs/assets/readme/app/office.png`. Run 44418382259 of `ci` on the same head: all 7 jobs `success`, including `change-records`. Conclusions read from the GitHub jobs API by the agent. The runs GitHub created for the bot's commit wait for a maintainer's approval (`action_required`) and ran no job. The office picture differs from run to run, so each push here gets a new picture commit. | https://github.com/FlyFission/Control-Rod/actions/runs/44418382440 |
-| E-05 | open | Independent signature by a maintainer who did not author the change. | none yet |
+| E-05 | open | Independent signature by a maintainer who did not author the change. The owner's approval of revision 1 is recorded in `ship.md`; he prompted the change, so it is not independent. | `ship.md` |
+| E-06 | pass | Revision 2: zizmor reports no findings on either file (the `workflow_run` trigger is ignored by a comment, by design); the YAML parse shows no write permission in `readme-shots.yml` and the write job only in `readme-shots-commit.yml`. | `evidence/zizmor-before-after.txt`, `evidence/yaml-parse.txt` |
+| E-07 | pending | First live run of `readme-shots-commit.yml`, which can only happen after merge. | the next `readme-shots` pull request |
 
 ## Evidence custody and coupling
 
@@ -19,6 +21,8 @@ Evidence status: **pass** for RS-01 to RS-04 on this host (Linux, Python 3, zizm
 | E-03 | RS-02 | yes | evidence/commit-step-test.txt | Implementing agent | Test script | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-04 | RS-05 | yes | PR CI run | Implementing agent | GitHub Actions | Implementing agent | none | GitHub Actions | GitHub | Implementing agent | CI outside the session |
 | E-05 | RS-01 | yes | Maintainer review on the PR | Implementing agent | Maintainer | Maintainer | none | Maintainer | GitHub | Implementing agent | Not supplied |
+| E-06 | RS-06 | yes | evidence/zizmor-before-after.txt | Implementing agent | zizmor; PyYAML | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
+| E-07 | RS-07 | yes | First live trusted run | Implementing agent | GitHub Actions | Implementing agent | none | GitHub Actions | GitHub | Implementing agent | Not supplied |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
@@ -27,6 +31,8 @@ Evidence status: **pass** for RS-01 to RS-04 on this host (Linux, Python 3, zizm
 | E-03 | coupled: implementing agent | coupled: implementation session | partially separated: agent-written fixtures; script taken from the workflow | partially separated: maintainer decides the merge | coupled: local machine | self-check | Local git, not GitHub [Ship limits](ship.md) |
 | E-04 | coupled: implementing agent | coupled: implementation session | separated: GitHub Actions runners | partially separated: maintainer decides the merge | separated: GitHub's runners | self-check | The workflow under test is the PR's own [Ship limits](ship.md) |
 | E-05 | separated: a different person, if supplied | separated: their own review | separated: their own reading | separated: the signer decides | separated: their own machine | independent reproduction | Not yet supplied, and merge waits on it [Ship limits](ship.md) |
+| E-06 | coupled: implementing agent | coupled: implementation session | separated: zizmor and PyYAML | partially separated: owner decides the merge | coupled: local machine | self-check | Scanner and structure only [Ship limits](ship.md) |
+| E-07 | coupled: implementing agent | coupled: implementation session | separated: GitHub Actions runners | partially separated: owner decides the merge | separated: GitHub's runners | self-check | Possible only after merge [Ship limits](ship.md) |
 
 No independent review was done by an agent. The only independent check is the maintainer's signature (E-05), which is open.
 

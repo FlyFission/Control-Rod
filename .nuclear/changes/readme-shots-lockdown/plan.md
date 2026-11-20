@@ -11,6 +11,14 @@
 
 Revert the workflow commit; the record stays. To stop the workflow pushing at all, delete the `commit` job and the pictures stay an artifact.
 
+## Revision 2 plan
+
+1. Remove the `commit` job from `readme-shots.yml`.
+2. Add `readme-shots-commit.yml` on `workflow_run` (`readme-shots`, completed) with the same script, taking `HEAD_REF` and `HEAD_SHA` from `github.event.workflow_run`, downloading the artifact by run id with `actions: read`.
+3. Re-run zizmor, the YAML parse and the nine fixture cases against the new file.
+4. Record the owner's approval of revision 1 in `ship.md` as a recorded approval, not a signature.
+5. Open a draft PR; merge waits on the owner's yes. After merge, check the first live `readme-shots-commit` run.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

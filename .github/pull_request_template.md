@@ -7,7 +7,7 @@
 ## Trust surfaces touched
 
 - [ ] None
-- [ ] `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major version, or kernel decision functions (needs a maintainer who did not author this change)
+- [ ] `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major version, or kernel decision functions (needs a maintainer who did not author this change, or the sole maintainer's recorded yes: see `docs/collaboration.md`)
 
 ## Evidence
 

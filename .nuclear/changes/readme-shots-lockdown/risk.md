@@ -20,6 +20,14 @@
 - **Mode:** Standard
 - Basis: edits a CI workflow that holds a write token. Reversible by reverting one commit; no schema, contract or persisted data change.
 
+## Revision 2 risks
+
+| ID | Risk | Control | Stop condition |
+|---|---|---|---|
+| R-07 | A pull request edits the job that holds the write token (Copilot 4622578535). | The write job is in `readme-shots-commit.yml`, which runs only as the default branch's copy (`workflow_run`). | Any write permission added back to `readme-shots.yml`. |
+| R-08 | A workflow a branch adds, named `readme-shots`, starts the trusted workflow with a crafted artifact. | Event checks (success, `pull_request`, same repository, not the default branch) and the unchanged artifact checks; the push goes only to that branch. | A push to any branch other than the triggering run's head branch. |
+| R-09 | The new workflow cannot be tried before merge. | Its script is the one already proven live in #94 (run 44418382440) and against nine fixtures; the first live run is checked after merge. | That first run red, or pushing anything but pictures. |
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

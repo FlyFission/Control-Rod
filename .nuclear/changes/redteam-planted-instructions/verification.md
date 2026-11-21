@@ -1,13 +1,13 @@
 # Verification: red-team case for planted instruction files
 
-Evidence status: **pass** for RS-01 and RS-02 locally; CI on the pull request is E-04.
+Evidence status: **pass** for RS-01 and RS-02 locally; CI on the pull request passed (E-04).
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | RT-026 as a diff against `main` at 076299f: one appended block, no other line changed. Wording reviewed by the implementing agent only. | `evidence/catalog-diff.patch` |
 | E-02 | pass | `tools/check_redteam.py` reports 26 cases (2 active, 24 pending); the trust-surface diff stat names only the catalog; `git diff --check` is clean. The check tests shape, not meaning. | `evidence/checks.txt` |
 | E-03 | pass | This record validates with the pinned validator (nuclear-grade 8122269) under `--strict-custody`. | `evidence/validate.log` |
-| E-04 | pending | CI on the pull request. | the pull request's checks |
+| E-04 | pass | CI on the pull request at c5c82e3: all seven checks green, including change-records (catalog check and record validation). | the pull request's checks |
 
 ## Evidence custody and coupling
 

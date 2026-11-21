@@ -1,6 +1,6 @@
 # Verification: bounded timeouts for every CI job
 
-Evidence status: **pass** for CT-01, CT-02 (by the checker), CT-03 and CT-04 on this host (Linux, Python 3.13). CT-02 is also confirmed in CI (E-05). **Open** only for the independent signature (E-06).
+Evidence status: **pass** for CT-01, CT-02 (by the checker), CT-03 and CT-04 on this host (Linux, Python 3.13). CT-02 is also confirmed in CI (E-05). E-06 is met by the sole maintainer's recorded yes (`ship.md`), not by an independent maintainer.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
@@ -9,7 +9,7 @@ Evidence status: **pass** for CT-01, CT-02 (by the checker), CT-03 and CT-04 on 
 | E-03 | pass | Job wall time over 7 runs and 49 job timings, 2026-11-15 to 2026-11-18: six on `main` and this PR's own run. Slowest job `typescript`, 154 s. Every cap is at least 7.8 times the worst time. Inputs transcribed by the agent from the GitHub jobs API (no `gh`), with job IDs. Caps are inputs to the script, not outputs. | `evidence/job-times.input.csv`, `evidence/job-times.py`, `evidence/job-times.txt`, `evidence/digests.txt` |
 | E-04 | pass | The diff adds 9 lines and removes none; the added lines are the seven caps, one step name and one command. | `evidence/diff-shape.txt`, `evidence/ci-timeouts.diff` |
 | E-05 | pass | CI run 44319665384 on this PR's head `8798753` (workflow `ci`, attempt 1): all 7 jobs concluded `success`. In `change-records`, step 7 "Every workflow job has a bounded timeout" ran `python3 tools/check_workflow_timeouts.py` and succeeded, with the capped workflow in force. Step and job conclusions were read from the GitHub jobs API (transcribed by the agent); the run page shows the same. This is the PR's own workflow checking itself, and it is one run. | https://github.com/FlyFission/Control-Rod/actions/runs/44319665384 |
-| E-06 | open | Independent signature by a maintainer who did not author the change. | none yet |
+| E-06 | pass (sole-maintainer sign-off) | The maintainer's signature. With one maintainer in CODEOWNERS, this is the maintainer's own recorded yes under `docs/collaboration.md#sole-maintainer-sign-off`, not a review by someone who did not author the change. | `ship.md` Signature |
 
 ## Evidence custody and coupling
 
@@ -31,7 +31,7 @@ Evidence status: **pass** for CT-01, CT-02 (by the checker), CT-03 and CT-04 on 
 | E-05 | coupled: implementing agent | coupled: implementation session | separated: GitHub Actions runners | partially separated: maintainer decides the merge | separated: GitHub's runners | self-check | The workflow under test is the PR's own [Ship limits](ship.md) |
 | E-06 | separated: a different person, if supplied | separated: their own review | separated: their own reading | separated: the signer decides | separated: their own machine | independent reproduction | Counts only if the signer reruns the checker and reads the diff; not yet supplied, and merge waits on it [Ship limits](ship.md) |
 
-No independent review was done by an agent. The only independent check is the maintainer's signature (E-06), which is open.
+No independent review was done by an agent. The maintainer's signature (E-06) is recorded under sole-maintainer sign-off. It is not independent of the author, because the maintainer prompted the agent.
 
 ## Required links
 

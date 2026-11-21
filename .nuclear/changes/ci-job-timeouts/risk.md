@@ -2,10 +2,10 @@
 
 - **Mode:** Standard
 - Execution owner: Claude Code under Ben Huffer's 2026-11-18 instruction to draft the change record for the `ci.yml` timeouts.
-- Decision owner: a maintainer other than the person who prompted the agent. `docs/collaboration.md` counts the person who prompts an agent as the author of its change, and a trust surface needs a maintainer who did not author it. The signer is not chosen here; see `ship.md`.
+- Decision owner: Ben Huffer, the sole maintainer, under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-maintainer-sign-off) (#97). A review by a maintainer who did not author the change is not available while CODEOWNERS names one maintainer.
 - **Trust surface touched: yes.** `.github/workflows/ci.yml` (AGENTS rule 2, CODEOWNERS `/.github/`). No kernel decision function, policy, red-team fixture or spec version is touched.
 - Scope: `.github/workflows/ci.yml` only. Nine added lines in one commit, kept apart so it can be dropped without losing this record.
-- Not signed. This record is a draft for the signer; nothing in it is an approval.
+- Signed by the sole maintainer's recorded yes on 2026-11-21 (`ship.md`). The cap values wait for the owner's own words.
 
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|

@@ -116,12 +116,14 @@ function unquoteC(quoted: string): string {
 }
 
 const diffPath = (raw: string): string | null => {
-  let p = raw.trim();
+  // Git ends a header path that contains a space with a tab; spaces inside the name are kept.
+  let p = raw;
   if (p.startsWith('"')) {
     const end = /^"(?:[^"\\]|\\.)*"/u.exec(p);
     p = end ? unquoteC(end[0]) : p;
   } else {
-    p = p.split("\t")[0]!.trim();
+    const tab = p.indexOf("\t");
+    if (tab >= 0) p = p.slice(0, tab);
   }
   if (p === "/dev/null") return null;
   return p.replace(/^[ab]\//u, "");

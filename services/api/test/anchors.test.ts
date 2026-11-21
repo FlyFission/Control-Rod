@@ -218,3 +218,11 @@ describe("more review fixes", () => {
     expect(files.filter((f) => f.oldPath === "src/calc.ts")).toHaveLength(1);
   });
 });
+
+describe("diff header paths", () => {
+  it("keeps a trailing space in an unquoted name, which git ends with a tab", () => {
+    const [file] = parseUnifiedDiff("--- a/trailing \t\n+++ b/trailing \t\n@@ -1 +1 @@\n-a\n+b\n");
+    expect(file?.oldPath).toBe("trailing ");
+    expect(file?.newPath).toBe("trailing ");
+  });
+});

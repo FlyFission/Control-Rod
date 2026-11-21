@@ -1,0 +1,9 @@
+$ ng.py validate --strict-custody .nuclear/changes/sole-maintainer-review-fixes
+OK: .nuclear/changes/sole-maintainer-review-fixes
+exit 0
+$ ng.py validate --strict-custody .nuclear/changes/sole-maintainer-signoff
+OK: .nuclear/changes/sole-maintainer-signoff
+exit 0
+$ ng.py validate --strict-custody .nuclear/changes/readme-shots-lockdown
+OK: .nuclear/changes/readme-shots-lockdown
+exit 0

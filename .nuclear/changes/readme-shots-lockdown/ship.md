@@ -1,34 +1,22 @@
 # Ship: lock down the README screenshot workflow
 
-Release decision: **draft pull request for a maintainer's signature; no merge or release is authorized by this record.**
+Release decision: **both revisions merged on the owner's recorded yes (see Signature); no release is authorized by this record.**
 
-- **Proposed:** merge the split workflow and this record to `main` once a maintainer who did not author the change has reviewed and signed. The signature also covers keeping the screenshot workflow at all, which #93 added unsigned.
-- **Not claimed:** that the PNG check proves a file is only an image; an independent signature.
-- **Decisions requested from the maintainers:**
-  1. Who signs (see risk R-06).
-  2. Whether the workflow should push to pull request branches at all, or keep the pictures as an artifact only (delete the `commit` job).
+- **Merged:** the split workflow (#94) and the trusted push (#95). The owner's yes to each also covers keeping the screenshot workflow at all, which #93 added unsigned.
+- **Not claimed:** that the PNG check proves a file is only an image; an independent review.
+- **Decisions:** who signs (risk R-06) is settled by the sole-maintainer rule. Still open for the owner: whether the workflow should push to pull request branches at all, or keep the pictures as an artifact only.
 
 ## Signature
 
-| Field | Entry |
-|---|---|
-| Decision | not yet signed: approve, approve with changes, or reject |
-| Signed by | not yet signed: a maintainer other than the person who prompted the agent |
-| Date | not yet signed |
-| Basis | not yet signed: the PR review that approves `readme-shots.yml` as it stands |
+Signed under the sole-maintainer rule ([docs/collaboration.md](../../../docs/collaboration.md#sole-maintainer-sign-off), [ADR 0024](../../../docs/adr/0024-sole-maintainer-sign-off.md)). Ben Huffer is the only maintainer in CODEOWNERS and prompted this change, so these are his own recorded approvals, not an independent review. Both were given in the Claude chat before the rule existed; each question named the pull request and the trust surface it changes (the live workflows on `main`), and no trust-surface file changed after either yes.
 
-No signature has been given. This table stays empty until a maintainer fills it in themselves.
-
-## Recorded owner approval (not a signature)
-
-| Field | Entry |
-|---|---|
-| Revision | 1, PR #94 (squash-merged as 410eec8) |
-| Approval | Ben Huffer, project owner, answered "Yes" in the Claude chat at 2026-11-18 7:01 PM ET (2026-11-19 00:01 UTC) to the question "Should I merge PR 94? It changes the live workflow on main." |
-| Recorded by | The implementing agent, from the chat message; Ben Huffer did not write this entry |
-| Independence | Not independent: Ben Huffer prompted the change (`docs/collaboration.md`) |
-| Revision 2 | PR #95 (squash-merged as 1fe7cf8). Ben Huffer answered "Yes" in the Claude chat at 2026-11-18 8:52 PM ET (2026-11-19 01:52 UTC) to the question "Should I merge PR 95? It changes the live workflows on main." Recorded by the implementing agent from the chat message. |
-| Standing | Both approvals were given before the sole-maintainer rule existed. Once that rule is on `main` (change record `sole-maintainer-signoff`), they meet its conditions as written: the owner's own words, to a question naming the pull request and the workflow it changes, with no trust-surface change after the yes. The `Signature` table above is left as it was, since it was written under the earlier rule. |
+| Field | Revision 1 | Revision 2 |
+|---|---|---|
+| Decision | Approve: merge #94 (squash-merged as 410eec8) | Approve: merge #95 (squash-merged as 1fe7cf8) |
+| Question | "Should I merge PR 94? It changes the live workflow on main." | "Should I merge PR 95? It changes the live workflows on main." |
+| Answer | "Yes" | "Yes" |
+| Given | 2026-11-18 7:01 PM ET (2026-11-19 00:01 UTC), Claude chat | 2026-11-18 8:52 PM ET (2026-11-19 01:52 UTC), Claude chat |
+| Recorded by | The implementing agent, from the chat message. Ben Huffer did not write this entry, and no signature or initials were typed for him. | Same |
 
 ## Rollback and monitoring
 
@@ -40,7 +28,7 @@ Rollback: revert the workflow commit. Monitoring: any `readme-shots` run started
 
 ## Exit criteria
 
-RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the signature for the screenshot workflow is left for a maintainer. Nothing here is presented as signed.
+RS-01 to RS-05 are implemented with scanner, YAML-parse and local test evidence, and CI on this change is reported as it ran; the owner's recorded yes to each revision is in [ship](ship.md) under the sole-maintainer rule, with no independent review.
 
 ## Source-lineage note
 

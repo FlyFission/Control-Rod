@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-22
+- Amended by: [ADR 0024](0024-sole-maintainer-sign-off.md), for the case where only one maintainer exists
 
 ## Context
 Control Rod must be qualifiable as quality-affecting software, so every design choice needs a traceable rationale.

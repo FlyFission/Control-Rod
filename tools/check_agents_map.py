@@ -59,8 +59,14 @@ def missing_references(root: Path = ROOT) -> list[str]:
         if not guide.exists():
             problems.append(f"{name}: missing")
             continue
+        top = root.resolve()
         for ref in references(guide.read_text(encoding="utf-8")):
-            if not (guide.parent / ref).exists():
+            target = (guide.parent / ref).resolve()
+            if not target.is_relative_to(top):
+                problems.append(
+                    f"{name}: names `{ref}`, which is outside the repository"
+                )
+            elif not target.exists():
                 problems.append(f"{name}: names `{ref}`, which does not exist")
     return problems
 

@@ -34,6 +34,6 @@
     "spec/circle.tsp": "@jsonSchema\nnamespace Demo;\n\nmodel Circle {\n  /** Radius in metres. */\n  radius: float64;\n}\n",
     "spec/generated/json-schema/Circle.json": "{\n  \"$id\": \"Circle.json\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"radius\": {\n      \"type\": \"number\",\n      \"description\": \"Radius in metres.\"\n    }\n  },\n  \"required\": [\"radius\"]\n}\n"
   },
-  "saved_transcript_sha256": "79b63a91743c8879eaf610f20b5c7d973401b7cc50f64ff6b694f44bd50423c4",
+  "saved_transcript_sha256": "8149e7015aef6f7efee4ea5c97393c5149657c06f06c2dcf221c6ae1da2cf905",
   "note": "Transcript sanitized after the run with run.sanitize; transcript_sha256 is of the raw output."
 }

@@ -65,6 +65,19 @@ class RegisterTests(unittest.TestCase):
                 header, rows = parse_register(HEADER + row(**{"Local changes": changes}))
                 self.assertIn(expected, "\n".join(check_rows(header, rows, self.root)))
 
+    def test_provenance_needs_an_exact_row_in_a_change_record(self):
+        (self.root / ".nuclear" / "changes" / "near").mkdir()
+        (self.root / ".nuclear" / "changes" / "near" / "provenance.md").write_text("| `src/port.go.bak` | x |\n")
+        (self.root / "docs").mkdir()
+        (self.root / "docs" / "provenance.md").write_text("| `src/port.go` | x |\n")
+        for changes, expected in [
+            ("renamed; `.nuclear/changes/near/provenance.md`", "has no row for this file"),
+            ("renamed; `docs/provenance.md`", "must name the port's provenance.md"),
+        ]:
+            with self.subTest(changes=changes):
+                header, rows = parse_register(HEADER + row(**{"Local changes": changes}))
+                self.assertIn(expected, "\n".join(check_rows(header, rows, self.root)))
+
     def test_font_license_is_accepted_for_font_files_only(self):
         (self.root / "src" / "face.woff2").write_bytes(b"wOF2")
         header, rows = parse_register(HEADER + row(**{"Local path": "src/face.woff2", "License": "OFL-1.1"}))

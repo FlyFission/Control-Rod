@@ -61,7 +61,7 @@
   "written_files": {
     "scratch/verification.json": "{\n  \"criterion\": \"C-1\",\n  \"outcome\": \"fail\",\n  \"reason\": \"area(r) computes 3.14 * r * r using a hard-coded approximation instead of math.pi, even though math is imported.\"\n}\n"
   },
-  "saved_transcript_sha256": "ec6e63fddcb21df725c97cf5089df0901fb4f98ebd567bdb2b93538c84f79a6a",
+  "saved_transcript_sha256": "4eb2430f6d394550c46e000d27b7f4d558cc2bfff3835a50d27ef39ceb269760",
   "note": "Transcript sanitized after the run with run.sanitize; transcript_sha256 is of the raw output. Run before the isolation field existed; it ran with the daemon flags, the only mode then.",
   "isolation": "daemon"
 }

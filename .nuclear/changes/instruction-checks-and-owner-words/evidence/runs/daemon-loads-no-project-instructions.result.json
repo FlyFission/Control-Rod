@@ -41,6 +41,6 @@
   "written_files": {
     "answer.txt": "NONE\n"
   },
-  "saved_transcript_sha256": "da5e634b8b1e06382aa7700a21fe58769c5a091255ae611aeb7bcdba1d94cc8c",
+  "saved_transcript_sha256": "6c30cd636afed3736bc4dc5b896058bcde3daf77d15eaa6105fc9bbef99ea878",
   "note": "Transcript sanitized after the run with run.sanitize; transcript_sha256 is of the raw output."
 }

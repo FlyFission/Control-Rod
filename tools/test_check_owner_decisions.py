@@ -25,6 +25,12 @@ class OwnerDecisionTests(unittest.TestCase):
         self.assertIn("Reading is empty", problems)
         self.assertIn("Out of scope is empty", problems)
 
+    def test_quote_inside_a_paraphrase_and_date_without_place_fail(self):
+        row = '| D1 | Start PL5 | The owner said "yes" | 2026-11-19 | Build | CI |\n'
+        problems = "\n".join(check_basis(basis(row), "b"))
+        self.assertIn("quoted exactly", problems)
+        self.assertIn("Given needs the date", problems)
+
     def test_old_header_fails_on_a_new_record(self):
         old = "| # | Decision |\n|---|---|\n"
         self.assertIn(

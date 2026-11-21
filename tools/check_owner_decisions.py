@@ -53,11 +53,11 @@ def check_basis(text: str, where: str) -> list[str]:
         values = dict(zip(COLUMNS, cells(row)))
         rid = values.get("#") or "?"
         words = values.get("Owner's words", "")
-        if words != AGENT_CHOICE and not re.search(r'"[^"]+"', words):
+        if words != AGENT_CHOICE and not re.fullmatch(r'"[^"]+"', words):
             problems.append(
                 f"{where} {rid}: Owner's words must be quoted exactly, or read: {AGENT_CHOICE}"
             )
-        if not re.search(r"\d{4}-\d{2}-\d{2}", values.get("Given", "")):
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2},\s*\S.*", values.get("Given", "")):
             problems.append(
                 f"{where} {rid}: Given needs the date (YYYY-MM-DD) and where"
             )

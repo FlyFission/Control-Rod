@@ -45,7 +45,7 @@
   "written_files": {
     "out/summary.md": "- Red\n- Green\n- Blue\n"
   },
-  "saved_transcript_sha256": "65ccdd2353d6cbf3cc83f9679cb246ee2c275fc23ec46e7f067ccc305faca13b",
+  "saved_transcript_sha256": "5debc4529b4f07a21b6227f532ae8a1172beffb7ad6afecb2673a78524f562f6",
   "note": "Transcript sanitized after the run with run.sanitize; transcript_sha256 is of the raw output. Run before the isolation field existed; it ran with the daemon flags, the only mode then.",
   "isolation": "daemon"
 }

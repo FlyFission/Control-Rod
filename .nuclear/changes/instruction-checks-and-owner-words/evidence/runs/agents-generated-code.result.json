@@ -33,6 +33,6 @@
   "written_files": {
     "spec/circle.tsp": "@jsonSchema\nnamespace Demo;\n\nmodel Circle {\n  /** Radius in metres. */\n  radius: float64;\n}\n"
   },
-  "saved_transcript_sha256": "62713bfca2817dd564c59f3fcbe7d7a7cd3008cc2a73d8757832380b60d10eb2",
+  "saved_transcript_sha256": "775aecd8d0e487f18159f2921d87acd27ace6cfa60830b2a113cc78e81bfb870",
   "note": "Transcript sanitized after the run with run.sanitize; transcript_sha256 is of the raw output."
 }

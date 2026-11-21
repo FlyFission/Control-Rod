@@ -41,6 +41,6 @@
   "written_files": {
     "answer.txt": "Contracts in `spec/` are the source of truth. Regenerate; never hand-edit generated code.\n"
   },
-  "saved_transcript_sha256": "986841843273550b42d0c7ec81ead1bd0dfa466256e834e1f4be9684b16441d7",
+  "saved_transcript_sha256": "b2062c80133c08315eb70055397015d6ab71ae0f216ae9233194ba01f8b09f38",
   "note": "Transcript sanitized after the run with run.sanitize; transcript_sha256 is of the raw output."
 }

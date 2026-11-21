@@ -42,7 +42,7 @@ Out of scope:
 |---|---|---|
 | These checks are not role trials, so the role casting design's terms finding for trials (C-8) does not block them. | Role trials are their own job kind, run through the daemon to score casts. These checks are run by hand during development to test a text. | The owner treats any scripted CLI run on a subscription login as covered by C-8. |
 | One run per case shows what the text can do, not how often. | Each case ran once, except the control described in verification. | A rerun gives a different outcome. Then the case needs repetitions before it can be used as a gate. |
-| Saved transcripts hold nothing private. | `run.sanitize` keeps a short allowlist of the opening event and drops rate-limit events; a scan found no email addresses. | A transcript is found to carry account or machine details. |
+| Saved transcripts hold nothing private. | `run.sanitize` keeps a short allowlist of the opening event, drops rate-limit events, removes per-run identifiers, usage, cost, service tier and region from every event, and replaces the case folder's path (widened on 2026-11-21 after review); a scan found no email addresses. | A transcript is found to carry account or machine details. |
 
 ## Required links
 

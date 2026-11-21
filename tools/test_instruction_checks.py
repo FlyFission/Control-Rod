@@ -173,6 +173,53 @@ class InstructionCheckTests(unittest.TestCase):
         self.assertIn('"model": "m"', saved)
         self.assertIn('"result"', saved)
 
+    def test_saved_transcripts_drop_ids_usage_and_the_case_folder(self):
+        raw = (
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "session_id": "s-1",
+                    "uuid": "u-1",
+                    "request_id": "r-1",
+                    "message": {
+                        "id": "msg_1",
+                        "model": "m",
+                        "usage": {"input_tokens": 5, "service_tier": "standard"},
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "wrote /tmp/cr-instruction-check-ab_12/out/x.md",
+                            }
+                        ],
+                    },
+                }
+            )
+            + "\n"
+            + json.dumps(
+                {
+                    "type": "result",
+                    "subtype": "success",
+                    "total_cost_usd": 0.1,
+                    "usage": {},
+                }
+            )
+        )
+        saved = sanitize(raw)
+        for gone in (
+            "s-1",
+            "u-1",
+            "r-1",
+            "msg_1",
+            "input_tokens",
+            "service_tier",
+            "total_cost_usd",
+            "ab_12",
+        ):
+            self.assertNotIn(gone, saved)
+        self.assertIn("<case-folder>/out/x.md", saved)
+        self.assertIn('"model": "m"', saved)
+        self.assertEqual(sanitize(saved), saved)
+
     def test_unknown_check_kind_fails(self):
         self.assertFalse(evaluate({"kind": "looks-good"}, self.dir, {}, {})["passed"])
 

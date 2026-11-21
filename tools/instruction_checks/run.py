@@ -186,22 +186,57 @@ INIT_KEPT = (
 )
 # Events left out of a saved transcript: rate limits describe the operator's plan and usage.
 DROPPED = ("rate_limit_event",)
+# Keys removed from every event, at any depth: per-run and per-request identifiers, and the
+# account's usage, cost, service tier and region. None of them bears on what the agent did.
+REDACTED = frozenset(
+    {
+        "session_id",
+        "uuid",
+        "parent_uuid",
+        "summarizes_uuid",
+        "request_id",
+        "usage",
+        "modelUsage",
+        "total_cost_usd",
+        "service_tier",
+        "inference_geo",
+    }
+)
+# The case's temporary folder, whatever the platform's temp root: replaced by a fixed name.
+CASE_FOLDER = re.compile(r"[^\s\"']*cr-instruction-check-[A-Za-z0-9_]+")
+
+
+def _redact(value):
+    if isinstance(value, dict):
+        return {k: _redact(v) for k, v in value.items() if k not in REDACTED}
+    if isinstance(value, list):
+        return [_redact(v) for v in value]
+    if isinstance(value, str):
+        return CASE_FOLDER.sub("<case-folder>", value)
+    return value
 
 
 def sanitize(transcript: str) -> str:
-    """The transcript without DROPPED events and with the opening event cut down to INIT_KEPT."""
+    """The transcript without DROPPED events, with the opening event cut down to INIT_KEPT,
+    REDACTED keys removed from every event, and the case folder's path replaced."""
     out = []
     for line in transcript.splitlines():
         try:
             event = json.loads(line)
         except ValueError:
-            out.append(line)
+            out.append(CASE_FOLDER.sub("<case-folder>", line))
+            continue
+        if not isinstance(event, dict):
+            out.append(json.dumps(_redact(event)))
             continue
         if event.get("type") in DROPPED:
             continue
         if event.get("type") == "system" and event.get("subtype") == "init":
-            line = json.dumps({k: event[k] for k in INIT_KEPT if k in event})
-        out.append(line)
+            event = {k: event[k] for k in INIT_KEPT if k in event}
+        event = _redact(event)
+        if isinstance(event.get("message"), dict):
+            event["message"].pop("id", None)  # the API's message id, per request
+        out.append(json.dumps(event))
     return "\n".join(out) + ("\n" if out else "")
 
 
@@ -270,7 +305,11 @@ def run_case(name: str, out: Path, claude: str, isolation: str | None = None) ->
         "transcript_sha256": sha256(proc.stdout.encode()),
         "saved_transcript_sha256": sha256(sanitize(proc.stdout).encode()),
         "checks": checks,
-        "passed": all(c["passed"] for c in checks),
+        # A run counts only if the CLI exited cleanly and reported success; files left behind
+        # by a failed or partial run are not evidence.
+        "passed": proc.returncode == 0
+        and stream_facts(proc.stdout)["result"] == "success"
+        and all(c["passed"] for c in checks),
         "written_files": written,
     }
     (out / f"{tag}.result.json").write_text(

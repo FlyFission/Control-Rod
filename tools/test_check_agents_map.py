@@ -34,6 +34,16 @@ class AgentsMapTests(unittest.TestCase):
             with self.subTest(ref=ref):
                 self.assertIn(f"`{ref}`", problems)
 
+    def test_references_outside_the_repository_fail(self):
+        outside = Path(self.tmp.name).parent / "outside-agents-map.md"
+        outside.write_text("x\n")
+        try:
+            self.write_agents(f"See [up](../{outside.name}) and [abs]({outside}).\n")
+            problems = "\n".join(missing_references(self.root))
+            self.assertEqual(problems.count("outside the repository"), 2)
+        finally:
+            outside.unlink()
+
     def test_urls_placeholders_and_plain_code_are_not_paths(self):
         refs = references(
             "[x](https://example.com/a) `ng.py`? no: `uv run` `src/*.ts` `<slug>/x` `rule-4`\n"

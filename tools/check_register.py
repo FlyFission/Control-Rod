@@ -29,7 +29,7 @@ PERMISSIVE = {"MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC"}
 FONT_LICENSES = {"OFL-1.1"}
 FONT_SUFFIXES = (".woff2", ".woff", ".ttf", ".otf")
 COLUMNS = ["Local path", "Upstream repository", "Commit", "Upstream path", "License", "Notice retained", "Local changes"]
-PROVENANCE = re.compile(r"[\w./-]*provenance\.md")
+PROVENANCE = re.compile(r"\.nuclear/changes/[\w-]+/provenance\.md")
 MARKER = re.compile(r"\b(?:Ported from|Adapted from|Translated from|Derived from|SPDX-FileCopyrightText)\b")
 CODE_SUFFIXES = {".ts", ".tsx", ".js", ".mjs", ".go", ".rs", ".py"}
 SKIP_PARTS = {"node_modules", "generated", "dist", ".git"}
@@ -85,7 +85,12 @@ def provenance_problems(where: str, local: str, changes: str, root: Path = ROOT)
     provenance = root / match.group(0)
     if not provenance.is_file():
         return [f"{where}: provenance file {match.group(0)} does not exist"]
-    if local not in provenance.read_text(encoding="utf-8"):
+    first_cells = {
+        line.strip().strip("|").split("|")[0].strip().strip("`")
+        for line in provenance.read_text(encoding="utf-8").splitlines()
+        if line.strip().startswith("|")
+    }
+    if local not in first_cells:
         return [f"{where}: provenance file {match.group(0)} has no row for this file"]
     return []
 

@@ -27,6 +27,12 @@ The owner delegated the close-out (D4 in [basis](basis.md)). Each point below is
 1. The PL8 table and its 2026-11-19 start date are accepted. Agent's choice under D4.
 2. Quoted words in this pull request's five records: **not confirmed by the owner word for word.** The D1 quotes ("yes, write the pattern note", "start PL6 and PL7", "start PL1 and PL2", "start PL3 and PL4", "start PL5 and PL8") and the signature quote "yes" were recorded by earlier agent sessions. This agent cannot see those sessions. The work each quote started is in this pull request.
 3. Instruction checks on a subscription login: left open until the C-8 terms finding. Runs stay manual.
+4. Review findings, fixed 2026-11-21:
+   - The saved transcripts kept session and message identifiers, request ids, usage, cost, service tier, region and the case folder's temporary path. `sanitize` now removes those from every event, and the six committed transcripts were passed through it again. Each `saved_transcript_sha256` was updated; `transcript_sha256` (the raw stream) and every verdict are unchanged.
+   - A run now passes only if the CLI exited 0 and reported `success`. All six recorded runs did both, so no verdict changes.
+   - `check_owner_decisions.py` requires the whole Owner's words cell to be one quoted string, and Given to be a date followed by where.
+   - `check_agents_map.py` refuses references that resolve outside the repository. `check_register.py` accepts only `.nuclear/changes/<slug>/provenance.md` and needs an exact first-cell row for the file.
+   Each has a test that fails on the old code.
 
 ## Required links
 

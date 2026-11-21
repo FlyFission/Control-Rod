@@ -157,6 +157,25 @@ func filterDriverKey(key string) (name, variable string, ok bool) {
 	return name, variable, true
 }
 
+// hasConditionalInclude reports whether the repository config holds an
+// includeIf directive. Its condition (gitdir, onbranch, hasconfig) can
+// select different config for the command than for the listing the pins
+// are computed from: a "worktree add" checks out under the new worktree's
+// git directory, a checkout can switch branch. Such config cannot be pinned
+// ahead of the command, so it is refused.
+func hasConditionalInclude(entries []gitConfigEntry) bool {
+	for _, e := range entries {
+		if repoConfigScope(e.scope) && strings.HasPrefix(strings.ToLower(e.key), "includeif.") {
+			return true
+		}
+	}
+	return false
+}
+
+// errConditionalInclude refuses a repository config with an includeIf
+// directive (hasConditionalInclude).
+var errConditionalInclude = errors.New("host-side git: the repository config has a conditional include (includeIf), whose filter drivers cannot be pinned ahead of the command; refusing")
+
 // listGitConfig runs `git config --show-scope -z --list` in dir with the
 // leading args lead and env, and parses the result.
 func listGitConfig(ctx context.Context, dir string, lead, env []string) ([]gitConfigEntry, error) {
@@ -348,6 +367,9 @@ func HostGitCommand(ctx context.Context, dir string, args ...string) (*HostGitCm
 	if err != nil {
 		return nil, err
 	}
+	if hasConditionalInclude(entries) {
+		return nil, errConditionalInclude
+	}
 	before := repoFilterEntries(entries)
 	pins := filterPins(entries)
 	cmdEnv := append(append([]string{}, env...), pinEnv(pins)...)
@@ -362,6 +384,9 @@ func HostGitCommand(ctx context.Context, dir string, args ...string) (*HostGitCm
 		again, err := listGitConfig(vctx, dir, lead, env)
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrRepoConfigChanged, err)
+		}
+		if hasConditionalInclude(again) {
+			return fmt.Errorf("%w: a conditional include appeared", ErrRepoConfigChanged)
 		}
 		if after := repoFilterEntries(again); !slices.Equal(before, after) {
 			return fmt.Errorf("%w: repository filter drivers differ", ErrRepoConfigChanged)

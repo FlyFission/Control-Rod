@@ -1,15 +1,15 @@
 == M1-no-pins
 --- FAIL: TestHostGitCommandNeutralizesRepoFilterDriver (0.03s)
---- FAIL: TestHostGitCommandNeutralizesIncludedFilterDriver (0.03s)
---- FAIL: TestHostGitCommandNeutralizesWorktreeFilterDriver (0.03s)
---- FAIL: TestHostGitCommandKeepsGlobalFilterDefinition (0.02s)
---- FAIL: TestHostGitCommandNeutralizesFilterNameWithEquals (0.04s)
---- FAIL: TestHostGitCommandNeutralizesEmptyFilterName (0.03s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.177s
+--- FAIL: TestHostGitCommandNeutralizesIncludedFilterDriver (0.04s)
+--- FAIL: TestHostGitCommandNeutralizesWorktreeFilterDriver (0.05s)
+--- FAIL: TestHostGitCommandKeepsGlobalFilterDefinition (0.03s)
+--- FAIL: TestHostGitCommandNeutralizesFilterNameWithEquals (0.05s)
+--- FAIL: TestHostGitCommandNeutralizesEmptyFilterName (0.05s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.257s
 KILLED
 == M2-no-verify
 --- FAIL: TestHostGitCmdDetectsFilterConfigChange (0.04s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.049s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.048s
 KILLED
 == M3-empty-dir
 --- FAIL: TestHostGitCommandRequiresDir (0.00s)
@@ -18,29 +18,37 @@ KILLED
 == M4-local-scope-only
 --- FAIL: TestHostGitCommandNeutralizesWorktreeFilterDriver (0.03s)
 --- FAIL: TestFilterPins (0.00s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.042s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.040s
 KILLED
 == M5-no-trusted-value
---- FAIL: TestHostGitCommandKeepsGlobalFilterDefinition (0.02s)
+--- FAIL: TestHostGitCommandKeepsGlobalFilterDefinition (0.03s)
 --- FAIL: TestFilterPins (0.00s)
 --- FAIL: TestFilterPinsValuelessTrustedRequired (0.00s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.029s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.041s
 KILLED
 == M6-required-not-false
 --- FAIL: TestFilterPins (0.00s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.202s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.245s
 KILLED
 == M7-pins-as-c-args
---- FAIL: TestHostGitCommandNeutralizesFilterNameWithEquals (0.05s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.057s
+--- FAIL: TestHostGitCommandNeutralizesFilterNameWithEquals (0.04s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.053s
 KILLED
 == M8-valueless-trusted-dropped
 --- FAIL: TestFilterPinsValuelessTrustedRequired (0.00s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.008s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.010s
 KILLED
 == M9-empty-name-dropped
 --- FAIL: TestFilterPins (0.00s)
---- FAIL: TestHostGitCommandNeutralizesEmptyFilterName (0.04s)
+--- FAIL: TestHostGitCommandNeutralizesEmptyFilterName (0.05s)
 --- FAIL: TestFilterDriverKey (0.00s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.072s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.054s
+KILLED
+== M10-conditional-include-allowed
+--- FAIL: TestHostGitCommandRefusesConditionalInclude (0.03s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.043s
+KILLED
+== M11-conditional-include-not-rechecked
+--- FAIL: TestHostGitCommandRefusesConditionalInclude (0.04s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.050s
 KILLED

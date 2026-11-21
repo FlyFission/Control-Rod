@@ -41,4 +41,6 @@ mutate M8-valueless-trusted-dropped 'value = "true"
 			}
 			trusted' 'ValuelessTrusted'
 mutate M9-empty-name-dropped 'strings.Count(key, ".") < 2' 'strings.Count(key, ".") < 2 || name == ""' 'EmptyFilterName|FilterDriverKey|FilterPins'
+mutate M10-conditional-include-allowed 'if hasConditionalInclude(entries) {' 'if false && hasConditionalInclude(entries) {' 'ConditionalInclude'
+mutate M11-conditional-include-not-rechecked 'if hasConditionalInclude(again) {' 'if false && hasConditionalInclude(again) {' 'ConditionalInclude'
 exit $status

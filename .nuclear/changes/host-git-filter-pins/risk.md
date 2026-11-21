@@ -13,6 +13,7 @@
 | R-04 | Known gap: other repository-config commands are not refused. Upstream refuses an include or any key outside an allowlist (for example `core.sshCommand`, `diff.<x>.textconv`, `credential.helper`, `remote.<x>.uploadpack`) before running anything; this port does not. | `HostGitArgs` still pins hooks, fsmonitor, pager, ext transport, submodule recursion and signing. `HostGitCommand` has no callers, and whether a run can write repository config depends on the runtime mounts. Named in `ship.md` as follow-up. | A caller added for a repository an agent can write, before the policy is ported. |
 | R-06 | A filter driver name the pins cannot address. git splits `-c` at the first "=", so `-c filter.a=b.smudge=` sets `filter.a` and leaves driver `a=b` in effect (Codex and Copilot reviews on PR #104; reproduced with git 2.43.0). | Pins are passed through `GIT_CONFIG_COUNT`/`KEY_<n>`/`VALUE_<n>`, which keep the key whole; marker test with a driver named `a=b` (HG-05). Mutation M7 (pins back as `-c`) reproduces the reported failure. | A repository driver left in effect by a pin. |
 | R-08 | The driver with an empty name (`filter..clean`, which `.gitattributes` selects with `filter=`) is skipped by the pins and the after-run check, because the key splits like the two-part `filter.clean` (Codex review on PR #104; reproduced with git 2.43.0). | `filterDriverKey` counts the dots in the key, so an empty name is a driver; marker test (HG-05, mutation M9). | A repository driver of any name left unpinned. |
+| R-09 | A conditional include (`includeIf "gitdir:**/worktrees/**"`, `onbranch:`, `hasconfig:`) selects filter drivers for the command that the listing in the source repository did not see, so `worktree add` runs a repository smudge (Codex review on PR #104; reproduced with git 2.43.0). | Any repository-scope `includeIf` refuses the command before git runs, and one appearing during the run fails it (HG-06, mutations M10, M11). Plain `include.path` is still allowed: it is listed and pinned. | A repository includeIf that does not refuse the command. |
 | R-07 | A valueless trusted `required` (true to git) pinned as the empty value (false), so a failing trusted filter is no longer enforced (Codex review on PR #104). | Valueless trusted entries pinned as `true` (mutation M8). | A trusted boolean weakened by its pin. |
 | R-05 | Signature change breaks callers. | No callers on `main`; `go vet ./...` for linux, darwin and windows. | A build failure. |
 
@@ -27,7 +28,7 @@
 
 ## Exit criteria
 
-HG-01 to HG-05 are implemented with tests, each control is shown to matter by mutation, and the daemon suite passes.
+HG-01 to HG-06 are implemented with tests, each control is shown to matter by mutation, and the daemon suite passes.
 
 ## Source-lineage note
 

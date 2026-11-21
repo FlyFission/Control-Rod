@@ -397,6 +397,37 @@ func TestHostGitCommandNeutralizesEmptyFilterName(t *testing.T) {
 	assertNoMarkers(t, markers)
 }
 
+// HG-06: a conditional include in repository config is refused, since its
+// condition can select config the listing did not see. Here it applies only
+// inside a linked worktree, so "worktree add" would run its smudge.
+func TestHostGitCommandRefusesConditionalInclude(t *testing.T) {
+	repo, markers := newFilterRepo(t)
+	inc := filepath.Join(t.TempDir(), "included")
+	for _, kv := range evilDriver(markers) {
+		cmd := exec.Command("git", "config", "-f", inc, kv[0], kv[1])
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("write include: %v\n%s", err, out)
+		}
+	}
+	hostRunGit(t, repo, "config", "includeIf.gitdir:**/worktrees/**.path", inc)
+	dest := filepath.Join(t.TempDir(), "wt")
+	if _, err := HostGitCommand(context.Background(), repo, "worktree", "add", "--detach", dest, "HEAD"); !errors.Is(err, errConditionalInclude) {
+		t.Fatalf("HostGitCommand: error = %v, want errConditionalInclude", err)
+	}
+	assertNoMarkers(t, markers)
+
+	// One added while a command runs fails it, even when what it includes
+	// holds no filter driver (here a file that does not exist).
+	repo2, _ := newFilterRepo(t)
+	cmd, err := HostGitCommand(context.Background(), repo2, "config", "includeIf.onbranch:main.path", filepath.Join(t.TempDir(), "absent"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Run(); !errors.Is(err, ErrRepoConfigChanged) {
+		t.Errorf("includeIf added during the command: error = %v, want ErrRepoConfigChanged", err)
+	}
+}
+
 func TestFilterDriverKey(t *testing.T) {
 	for _, c := range []struct {
 		key, name, variable string

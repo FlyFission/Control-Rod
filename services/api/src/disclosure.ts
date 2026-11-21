@@ -13,7 +13,9 @@ export type DataLane = "public" | "internal" | "proprietary" | "client-confident
 export const LANE_ORDER: readonly DataLane[] = ["public", "internal", "proprietary", "client-confidential", "restricted"];
 
 /** Runtimes that keep everything on this machine: the test runtime, and local model runtimes when they arrive. */
-const LOCAL_RUNTIMES = ["fake", "ollama"];
+// Ollama is not here: a model name can route `ollama run` to a hosted model, so it is not local by
+// runtime alone. Local models join through a harness that pins the endpoint.
+const LOCAL_RUNTIMES = ["fake"];
 
 /**
  * Which runtimes each lane admits. Public and internal work may use the subscription CLIs. The

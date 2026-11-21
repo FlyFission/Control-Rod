@@ -15,22 +15,29 @@ import { getObject, recordObject, transition } from "./workbench.js";
  */
 
 const ROLES = ["intake", "author", "pre-check"] as const;
-export const PINNABLE = ["claude", "codex", "grok", "opencode", "agy", "ollama"];
+/**
+ * Runtimes an organization can pin. Grok CLI, OpenCode, Antigravity and Ollama join this list when
+ * the daemon can confine them; until then the daemon lists them as not ready and starts none.
+ */
+export const PINNABLE = ["claude", "codex"];
 
+/**
+ * The model vendor each runtime always reaches. OpenCode and Ollama are absent on purpose: either can
+ * serve any vendor's model, so the runtime alone does not name a family.
+ */
 export const RUNTIME_FAMILIES: Record<string, string> = {
   claude: "Anthropic",
   codex: "OpenAI",
   grok: "xAI",
-  opencode: "OpenCode",
   agy: "Google",
-  ollama: "Ollama-Local",
   fake: "Test",
 };
 
+/** True only when both runtimes have a known family and the families differ. Unknown fails closed. */
 export function distinctFamily(authorRuntime: string, checkerRuntime: string): boolean {
-  const aFam = RUNTIME_FAMILIES[authorRuntime] ?? authorRuntime;
-  const cFam = RUNTIME_FAMILIES[checkerRuntime] ?? checkerRuntime;
-  return aFam !== cFam;
+  const aFam = RUNTIME_FAMILIES[authorRuntime];
+  const cFam = RUNTIME_FAMILIES[checkerRuntime];
+  return aFam !== undefined && cFam !== undefined && aFam !== cFam;
 }
 
 /**
@@ -47,7 +54,7 @@ export function verifyO6CheckerQuorum(
     if (!distinctFamily(authorRuntime, cr)) {
       return { ok: false, reason: `Checker ${cr} shares vendor family with author ${authorRuntime}` };
     }
-    distinctCheckers.add(RUNTIME_FAMILIES[cr] ?? cr);
+    distinctCheckers.add(RUNTIME_FAMILIES[cr]!);
   }
   const required = grade.trim().toLowerCase() === "safety" ? 2 : 1;
   if (distinctCheckers.size < required) {

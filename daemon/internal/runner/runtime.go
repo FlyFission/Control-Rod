@@ -329,6 +329,10 @@ func Command(runtime string, run Run, ws *Workspace, p *SandboxPolicy, at Sandbo
 			return nil, err
 		}
 	}
+	// A runtime awaiting confinement is refused here too, so no path starts it unconfined.
+	if err := confinementRefusal(a); err != nil {
+		return nil, err
+	}
 	// A sandboxed pre-check is a checker: clean cwd, read-only deliverables, scratch only.
 	// The fake runtime is not sandboxed, so its pre-check launch stays as it was.
 	if run.Role == "pre-check" && a.SandboxRequired() && ws != nil {

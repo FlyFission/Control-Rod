@@ -8,6 +8,11 @@ import (
 
 type opencodeAdapter struct{ sandboxedBase }
 
+// ConfinementGap keeps this runtime listed but never started; see AwaitingConfinement.
+func (opencodeAdapter) ConfinementGap() string {
+	return "Control Rod does not yet configure OpenCode's permissions from the run's policy or wrap it in a sandbox, and OpenCode's model vendor depends on its own configuration, so the run's disclosure lane cannot be checked."
+}
+
 func (opencodeAdapter) ID() string          { return RuntimeOpenCode }
 func (opencodeAdapter) Binary() string      { return "opencode" }
 func (opencodeAdapter) DisplayName() string { return "OpenCode" }
@@ -26,7 +31,7 @@ func (opencodeAdapter) Capabilities() Capabilities {
 		Roles:            []string{"author", "pre-check", "intake"},
 		OutputFormat:     "json",
 		ToolAllowlist:    false,
-		NativeSandbox:    "outer-sandbox",
+		NativeSandbox:    "none",
 		NetworkHostLimit: true,
 		MultiVendor:      true,
 		ConfigIsolation:  []string{"OPENCODE_CONFIG"},

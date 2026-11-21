@@ -9,6 +9,11 @@ import (
 
 type agyAdapter struct{ sandboxedBase }
 
+// ConfinementGap keeps this runtime listed but never started; see AwaitingConfinement.
+func (agyAdapter) ConfinementGap() string {
+	return "Control Rod does not yet configure Antigravity's sandbox from the run's policy or wrap it in one, and its headless launch form has not been checked against a pinned version."
+}
+
 func (agyAdapter) ID() string          { return RuntimeAgy }
 func (agyAdapter) Binary() string      { return "agy" }
 func (agyAdapter) DisplayName() string { return "Antigravity CLI" }
@@ -27,7 +32,7 @@ func (agyAdapter) Capabilities() Capabilities {
 		Roles:            []string{"author", "pre-check", "intake"},
 		OutputFormat:     "json",
 		ToolAllowlist:    false,
-		NativeSandbox:    "outer-sandbox",
+		NativeSandbox:    "none",
 		NetworkHostLimit: true,
 		MultiVendor:      false,
 		ConfigIsolation:  []string{"--brain-dir", "per-run-brain"},

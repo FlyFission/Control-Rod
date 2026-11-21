@@ -20,7 +20,9 @@ describe("Wave 2 multi-CLI assurance and O6 quorum", () => {
   });
 
   it("admitsDecidingChecker forbids ollama on safety and material grades", () => {
-    expect(admitsDecidingChecker("proprietary", "ollama", "standard")).toBe(true);
+    // Ollama is not admitted on a proprietary lane at all, since it can route to a hosted model.
+    expect(admitsDecidingChecker("proprietary", "ollama", "standard")).toBe(false);
+    expect(admitsDecidingChecker("public", "ollama", "standard")).toBe(false);
     expect(admitsDecidingChecker("proprietary", "ollama", "safety")).toBe(false);
     expect(admitsDecidingChecker("proprietary", "ollama", "material")).toBe(false);
     expect(admitsDecidingChecker("public", "grok", "safety")).toBe(true);
@@ -29,6 +31,11 @@ describe("Wave 2 multi-CLI assurance and O6 quorum", () => {
   it("verifyO6CheckerQuorum enforces distinct vendor families and 2-of-2 for safety", () => {
     expect(distinctFamily("claude", "claude")).toBe(false);
     expect(distinctFamily("claude", "grok")).toBe(true);
+    // OpenCode and Ollama can serve any vendor's model, so they never count as a distinct family.
+    expect(distinctFamily("claude", "opencode")).toBe(false);
+    expect(distinctFamily("claude", "ollama")).toBe(false);
+    expect(distinctFamily("unknown-cli", "codex")).toBe(false);
+    expect(verifyO6CheckerQuorum("claude", ["codex", "opencode"], "safety").ok).toBe(false);
     expect(verifyO6CheckerQuorum("claude", ["claude"], "standard").ok).toBe(false);
     expect(verifyO6CheckerQuorum("claude", ["codex"], "standard").ok).toBe(true);
     expect(verifyO6CheckerQuorum("claude", ["codex"], "safety").ok).toBe(false);

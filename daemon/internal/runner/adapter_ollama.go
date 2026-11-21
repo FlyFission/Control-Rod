@@ -11,6 +11,11 @@ const PinnedOllamaHost = "http://127.0.0.1:11434"
 
 type ollamaAdapter struct{ sandboxedBase }
 
+// ConfinementGap keeps this runtime listed but never started; see AwaitingConfinement.
+func (ollamaAdapter) ConfinementGap() string {
+	return "ollama run is text only, with no file tools to do or check work, and a model name can route to a hosted model, so locality is not guaranteed. Local models will run through Control Rod's own harness instead."
+}
+
 func (ollamaAdapter) ID() string          { return RuntimeOllama }
 func (ollamaAdapter) Binary() string      { return "ollama" }
 func (ollamaAdapter) DisplayName() string { return "Ollama (Local)" }
@@ -29,7 +34,7 @@ func (ollamaAdapter) Capabilities() Capabilities {
 		Roles:            []string{"author", "intake", "pre-check"},
 		OutputFormat:     "text",
 		ToolAllowlist:    false,
-		NativeSandbox:    "outer-sandbox",
+		NativeSandbox:    "none",
 		NetworkHostLimit: true,
 		MultiVendor:      false,
 		ConfigIsolation:  []string{"OLLAMA_HOST=http://127.0.0.1:11434"},

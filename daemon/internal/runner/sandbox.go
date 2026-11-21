@@ -573,6 +573,11 @@ func PreflightHost(rt string, lookPath func(string) (string, error), managedCode
 	if a, ok := AdapterFor(rt); ok && !a.SandboxRequired() {
 		return nil
 	}
+	if a, ok := AdapterFor(rt); ok {
+		if err := confinementRefusal(a); err != nil {
+			return err
+		}
+	}
 	if err := platformCheck(); err != nil {
 		return refuse("%s", err.Error())
 	}

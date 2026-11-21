@@ -19,6 +19,11 @@ func (grokAdapter) LoginDir(home string, getenv func(string) string) string {
 func (grokAdapter) LoginWritableFiles() []string { return nil }
 func (grokAdapter) LoginSessionDirs() []string   { return []string{"sessions", "logs"} }
 
+// ConfinementGap keeps this runtime listed but never started; see AwaitingConfinement.
+func (grokAdapter) ConfinementGap() string {
+	return "Control Rod does not yet configure Grok CLI's sandbox from the run's policy or wrap it in one, and its headless launch form has not been checked against a pinned version."
+}
+
 func (grokAdapter) ID() string          { return RuntimeGrok }
 func (grokAdapter) Binary() string      { return "grok" }
 func (grokAdapter) DisplayName() string { return "Grok CLI" }
@@ -37,7 +42,7 @@ func (grokAdapter) Capabilities() Capabilities {
 		Roles:            []string{"author", "pre-check", "intake"},
 		OutputFormat:     "streaming-json",
 		ToolAllowlist:    false,
-		NativeSandbox:    "outer-sandbox",
+		NativeSandbox:    "none",
 		NetworkHostLimit: true,
 		MultiVendor:      false,
 		ConfigIsolation:  []string{"--sandbox", "--no-subagents", "GROK_HOME", "deny:auth.json"},

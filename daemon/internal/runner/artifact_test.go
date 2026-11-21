@@ -26,7 +26,7 @@ func writeFile(t *testing.T, path string, body []byte, mode os.FileMode) {
 }
 
 func TestResolveArtifactFollowsSymlinksAndHashesNativeExecutables(t *testing.T) {
-	dir := t.TempDir()
+	dir := realTempDir(t)
 	real := filepath.Join(dir, "real-cli")
 	writeFile(t, real, append(append([]byte{}, elf...), "body"...), 0o755)
 	bin := filepath.Join(dir, "bin")
@@ -62,7 +62,7 @@ func TestResolveArtifactFollowsTheCodexWrapperToItsNativeTree(t *testing.T) {
 	if arch == "" || osName == "" {
 		t.Skip("no Codex platform package for this platform")
 	}
-	dir := t.TempDir()
+	dir := realTempDir(t)
 	pkg := filepath.Join(dir, "lib", "node_modules", "@openai", "codex")
 	writeFile(t, filepath.Join(pkg, "bin", "codex.js"), []byte("#!/usr/bin/env node\n"), 0o755)
 	root := filepath.Join(pkg, "node_modules", "@openai", "codex-"+osName+"-"+arch, "vendor", "some-triple")

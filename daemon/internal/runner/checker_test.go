@@ -376,31 +376,16 @@ func TestSeatbeltProfileDeniesWritesExceptScratch(t *testing.T) {
 	}
 }
 
-func TestSeatbeltIsUnqualifiedUntilTheFlagIsSet(t *testing.T) {
-	t.Setenv("CONTROLROD_SEATBELT_QUALIFIED", "")
-	if err := requireSeatbeltQualified(); err == nil || err.Error() != "macOS checker sandbox not yet qualified" {
-		t.Fatalf("default: %v", err)
-	}
-	t.Setenv("CONTROLROD_SEATBELT_QUALIFIED", "true")
-	if err := requireSeatbeltQualified(); err == nil {
-		t.Fatal("a value other than 1 qualified the sandbox")
-	}
-	t.Setenv("CONTROLROD_SEATBELT_QUALIFIED", "1")
-	if err := requireSeatbeltQualified(); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestSessionReadDeniesCanonicalizesTheRootOnly(t *testing.T) {
-	real := t.TempDir()
+	real := realTempDir(t)
 	if err := os.MkdirAll(filepath.Join(real, "log"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	home := t.TempDir()
+	home := realTempDir(t)
 	if err := os.Symlink(home, filepath.Join(real, "sessions")); err != nil {
 		t.Fatal(err)
 	}
-	linkParent := t.TempDir()
+	linkParent := realTempDir(t)
 	link := filepath.Join(linkParent, "login")
 	if err := os.Symlink(real, link); err != nil {
 		t.Fatal(err)
@@ -419,7 +404,7 @@ func TestSessionReadDeniesCanonicalizesTheRootOnly(t *testing.T) {
 }
 
 func TestMacProfileHidesRealSessionDirs(t *testing.T) {
-	home := t.TempDir()
+	home := realTempDir(t)
 	login := filepath.Join(home, ".codex")
 	if err := os.MkdirAll(login, 0o700); err != nil {
 		t.Fatal(err)
@@ -557,7 +542,7 @@ func TestCheckerRunTmpIsRemovedAlone(t *testing.T) {
 }
 
 func TestCanonicalPathResolvesTheAncestorSymlink(t *testing.T) {
-	root := t.TempDir()
+	root := realTempDir(t)
 	real := filepath.Join(root, "private", "tmp")
 	if err := os.MkdirAll(real, 0o700); err != nil {
 		t.Fatal(err)

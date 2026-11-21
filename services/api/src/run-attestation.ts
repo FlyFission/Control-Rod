@@ -55,23 +55,9 @@ export function harnessName(provider: string): string {
 
 export function countedProvider(provider: unknown): boolean {
   const n = harnessName(String(provider ?? ""));
-  return n === "claude" || n === "codex" || n === "grok" || n === "opencode" || n === "agy" || n === "ollama";
-}
-
-export function verifyQualifiedAttestation(att: {
-  probe_result?: string;
-  endpoint_enforcement?: string;
-}): { ok: boolean; reason?: string } {
-  if (att.probe_result !== "pass") {
-    return { ok: false, reason: `Expected probe_result=pass, got ${att.probe_result ?? "missing"}` };
-  }
-  if (att.endpoint_enforcement !== "enforced") {
-    return {
-      ok: false,
-      reason: `Expected endpoint_enforcement=enforced, got ${att.endpoint_enforcement ?? "missing"}`,
-    };
-  }
-  return { ok: true };
+  // Grok CLI, OpenCode, Antigravity and Ollama are named above but not counted: they have no
+  // registered models and the daemon does not start them yet, so a pre-check on one cannot count.
+  return n === "claude" || n === "codex";
 }
 
 export interface AttestationVerdict {

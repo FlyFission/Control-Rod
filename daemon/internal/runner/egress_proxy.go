@@ -6,39 +6,24 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
 // EgressFilter is a local TCP/CONNECT domain-allowlist proxy (ADR 0021 compliant:
 // zero TLS MITM, zero credential injection or relaying). It binds on 127.0.0.1:0
 // and permits CONNECT tunnels only to exact host:port entries in its allowlist.
+//
+// The allowlist is the caller's: the daemon builds it from the run's verified sandbox policy, so
+// this file holds no provider list of its own.
 type EgressFilter struct {
 	allowlist map[string]bool
 	listener  net.Listener
 	server    *http.Server
-}
 
-// AllowedEgressForLane returns the allowed host:port endpoints for a data lane
-// and grade, matching sandbox.ts networkFor(lane, grade). Sensitive lanes
-// (proprietary, client-confidential, restricted) permit local Ollama only.
-func AllowedEgressForLane(lane, grade string) []string {
-	switch strings.ToLower(strings.TrimSpace(lane)) {
-	case "public", "internal":
-		if strings.ToLower(strings.TrimSpace(grade)) == "strict" {
-			return []string{"127.0.0.1:11434", "localhost:11434"}
-		}
-		return []string{
-			"api.anthropic.com:443",
-			"api.openai.com:443",
-			"api.x.ai:443",
-			"generativelanguage.googleapis.com:443",
-			"127.0.0.1:11434",
-			"localhost:11434",
-		}
-	default:
-		// proprietary, client-confidential, restricted, or unclassified: local only.
-		return []string{"127.0.0.1:11434", "localhost:11434"}
-	}
+	mu      sync.Mutex
+	closed  bool
+	tunnels map[net.Conn]struct{}
 }
 
 // StartEgressFilter starts a 127.0.0.1 TCP/CONNECT proxy allowing only allowedHosts.
@@ -57,6 +42,7 @@ func StartEgressFilter(allowedHosts []string) (*EgressFilter, error) {
 	ef := &EgressFilter{
 		allowlist: allow,
 		listener:  ln,
+		tunnels:   map[net.Conn]struct{}{},
 	}
 	ef.server = &http.Server{
 		Handler:           ef,
@@ -73,9 +59,39 @@ func (ef *EgressFilter) Addr() string {
 	return ef.listener.Addr().String()
 }
 
-// Close shuts down the egress filter listener.
+// Close shuts down the listener and every open tunnel. http.Server.Close does not reach a
+// hijacked connection, so the filter tracks each tunnel's two ends and closes them itself.
 func (ef *EgressFilter) Close() error {
-	return ef.server.Close()
+	err := ef.server.Close()
+	ef.mu.Lock()
+	ef.closed = true
+	for c := range ef.tunnels {
+		_ = c.Close()
+	}
+	ef.tunnels = map[net.Conn]struct{}{}
+	ef.mu.Unlock()
+	return err
+}
+
+// track records a tunnel end, or reports false once the filter is closed.
+func (ef *EgressFilter) track(conns ...net.Conn) bool {
+	ef.mu.Lock()
+	defer ef.mu.Unlock()
+	if ef.closed {
+		return false
+	}
+	for _, c := range conns {
+		ef.tunnels[c] = struct{}{}
+	}
+	return true
+}
+
+func (ef *EgressFilter) untrack(conns ...net.Conn) {
+	ef.mu.Lock()
+	defer ef.mu.Unlock()
+	for _, c := range conns {
+		delete(ef.tunnels, c)
+	}
 }
 
 func (ef *EgressFilter) isAllowed(hostPort string) bool {
@@ -109,16 +125,24 @@ func (ef *EgressFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = targetConn.Close()
 		return
 	}
+	if !ef.track(clientConn, targetConn) {
+		_ = clientConn.Close()
+		_ = targetConn.Close()
+		return
+	}
 	_, _ = clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 
+	end := func() {
+		_ = targetConn.Close()
+		_ = clientConn.Close()
+		ef.untrack(clientConn, targetConn)
+	}
 	go func() {
-		defer targetConn.Close()
-		defer clientConn.Close()
+		defer end()
 		_, _ = io.Copy(targetConn, clientConn)
 	}()
 	go func() {
-		defer targetConn.Close()
-		defer clientConn.Close()
+		defer end()
 		_, _ = io.Copy(clientConn, targetConn)
 	}()
 }

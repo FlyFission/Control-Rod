@@ -1,8 +1,8 @@
 ?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
-ok  	github.com/flyfission/control-rod/daemon/internal/confinement	0.309s
-ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.004s
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	(cached)
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	(cached)
 --- FAIL: TestBubblewrapMountsDeliverablesReadOnly (0.00s)
---- FAIL: TestCheckerMountBindsTheVerifiedDescriptor (0.01s)
+--- FAIL: TestCheckerMountBindsTheVerifiedDescriptor (0.00s)
 --- FAIL: TestConfirmSandboxSeesTheBubblewrapChild (0.00s)
 --- FAIL: TestCheckerMountBlocksWritesOutsideScratch (0.00s)
 --- FAIL: TestCheckerCannotReachAHostUnixSocket (0.00s)
@@ -16,7 +16,7 @@ ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.004s
 --- FAIL: TestCheckerSessionSymlinkDoesNotGrantHomeWrites (0.00s)
 --- FAIL: TestPreparedCheckerThroughTheMount (0.00s)
 FAIL
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	19.238s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	19.192s
 ?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
 ?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]
 FAIL

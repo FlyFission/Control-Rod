@@ -12,6 +12,8 @@
 | R-03 | An organization pins a runtime that can never start. | `PINNABLE` is `claude` and `codex` only. | A pin accepted for any other runtime. |
 | R-04 | Proprietary or stricter work goes to a hosted model through Ollama. | Ollama is removed from the local runtimes; a lane above internal admits only `fake`. Tested. | Ollama admitted on any lane. |
 | R-05 | An OpenCode or Ollama checker counts as independent of an author from the same vendor. | Neither has a family; `distinctFamily` fails closed when either side has none. Tested. | `distinctFamily` true for a runtime with no family. |
+| R-07 | An open egress tunnel outlives the filter, or the filter allows a static provider list wider than the run's policy. | `Close` closes every tracked tunnel; the static `AllowedEgressForLane` list is removed. Tested. | Traffic through a tunnel after `Close`. |
+| R-08 | A pre-check on an unqualified runtime is judged as counted and fails as an unregistered model, or a helper suggests endpoint enforcement exists. | `countedProvider` stays Claude and Codex; the unused `verifyQualifiedAttestation` is removed. | A counted pre-check on a runtime with no registered model. |
 | R-06 | The unverified launch forms (`grok -p … --sandbox`, `agy run --brain-dir`) are taken as working. | They cannot run while refused; each gap says the form has not been checked against a pinned version. | Removing the gate without a launch golden test against a pinned CLI. |
 
 ## Selected mode

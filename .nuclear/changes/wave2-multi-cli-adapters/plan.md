@@ -4,7 +4,9 @@
 2. `sandbox.go` `PreflightHost` and `runtime.go` `Command` refuse an adapter awaiting confinement, after the policy check.
 3. The four adapters implement `ConfinementGap` with the reason each cannot run, and report `NativeSandbox: "none"`.
 4. API: `PINNABLE` back to `claude` and `codex`; Ollama out of `LOCAL_RUNTIMES`; `RUNTIME_FAMILIES` without OpenCode and Ollama; `distinctFamily` fails closed.
-5. Tests: `TestAwaitingConfinementIsRefused`; `TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv` skips the launch check for refused adapters; `wave2-assurance.test.ts` updated.
+5. Egress filter: drop the static `AllowedEgressForLane` list; track hijacked tunnels and close them in `Close`.
+6. Attestation: `countedProvider` stays Claude and Codex; remove `verifyQualifiedAttestation`.
+7. Tests: `TestAwaitingConfinementIsRefused`; `TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv` skips the launch check for refused adapters; `wave2-assurance.test.ts` updated.
 
 Each runtime leaves `AwaitingConfinement` in its own change, with its confinement, a launch golden test against a pinned CLI, and qualification. The design doc's order is an ACP client for Antigravity, OpenCode, Grok Build and Codex, and Control Rod's own harness for local models.
 

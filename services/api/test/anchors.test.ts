@@ -180,3 +180,22 @@ describe("the AnchoredQuote contract", () => {
     expect(valid({ anchor: { kind: "section", path: "a.md", side: "head", heading_path: [] } })).toBe(false);
   });
 });
+
+describe("review fixes", () => {
+  it("decodes git's C-quoted paths in diff headers", () => {
+    const diff = 'diff --git "a/caf\\303\\251.txt" "b/caf\\303\\251.txt"\n--- "a/caf\\303\\251.txt"\n+++ "b/caf\\303\\251.txt"\n@@ -1 +1 @@\n-old\n+new\n';
+    const [file] = parseUnifiedDiff(diff);
+    expect(file?.oldPath).toBe("café.txt");
+    expect(file?.newPath).toBe("café.txt");
+    const tab = parseUnifiedDiff('--- "a/x\\ty.txt"\n+++ "b/x\\ty.txt"\n@@ -1 +1 @@\n-a\n+b\n');
+    expect(tab[0]?.newPath).toBe("x\ty.txt");
+  });
+
+  it("keeps a longer fence open across a shorter inner fence", () => {
+    const doc = "# Top\n\n````md\n```js\nx\n```\n## Fake\n````\n\n## Real\n\ntext\n";
+    expect(sections(doc, ["Fake"])).toEqual([]);
+    expect(sections(doc, ["Top", "Real"])).toHaveLength(1);
+    expect(sections("# A\n\n~~~\n```\n## In\n~~~\n", ["In"])).toEqual([]);
+    expect(sections("# A\n\n```\n```js\n## In\n```\n", ["In"])).toEqual([]);
+  });
+});

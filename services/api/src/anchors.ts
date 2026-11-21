@@ -87,8 +87,39 @@ function quoteIn(quote: string, text: string): boolean {
   return q.length > 0 && normalize(text).includes(q);
 }
 
+const C_ESCAPES: Record<string, number> = { a: 7, b: 8, t: 9, n: 10, v: 11, f: 12, r: 13, '"': 34, "\\": 92 };
+
+/** Decodes a C-quoted path, as git writes names with non-ASCII or special characters ("caf\303\251.txt"). */
+function unquoteC(quoted: string): string {
+  const bytes: number[] = [];
+  const body = quoted.slice(1, -1);
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i]!;
+    if (c !== "\\") {
+      bytes.push(...new TextEncoder().encode(c));
+      continue;
+    }
+    const octal = /^[0-7]{3}/u.exec(body.slice(i + 1));
+    if (octal) {
+      bytes.push(Number.parseInt(octal[0], 8));
+      i += 3;
+    } else {
+      const next = body[i + 1] ?? "";
+      bytes.push(C_ESCAPES[next] ?? next.charCodeAt(0));
+      i += 1;
+    }
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
+}
+
 const diffPath = (raw: string): string | null => {
-  const p = raw.split("\t")[0]!.trim();
+  let p = raw.trim();
+  if (p.startsWith('"')) {
+    const end = /^"(?:[^"\\]|\\.)*"/u.exec(p);
+    p = end ? unquoteC(end[0]) : p;
+  } else {
+    p = p.split("\t")[0]!.trim();
+  }
   if (p === "/dev/null") return null;
   return p.replace(/^[ab]\//u, "");
 };
@@ -165,13 +196,21 @@ interface Heading {
 /** ATX headings (`#` to `######`) outside fenced code blocks. */
 export function headings(doc: string): Heading[] {
   const out: Heading[] = [];
-  let fence: string | undefined;
+  // The open fence's character and length. Only a fence of the same character, at least as
+  // long and with nothing after it but spaces, closes it (CommonMark 4.5).
+  let fence: { char: string; length: number } | undefined;
   lines(doc).forEach((text, i) => {
-    const f = /^ {0,3}(`{3,}|~{3,})/u.exec(text);
+    const f = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(text);
     if (f) {
-      if (!fence) fence = f[1]![0];
-      else if (f[1]![0] === fence) fence = undefined;
-      return;
+      const run = f[1]!;
+      if (!fence) {
+        fence = { char: run[0]!, length: run.length };
+        return;
+      }
+      if (run[0] === fence.char && run.length >= fence.length && f[2]!.trim() === "") {
+        fence = undefined;
+        return;
+      }
     }
     if (fence) return;
     const h = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*$/u.exec(text);

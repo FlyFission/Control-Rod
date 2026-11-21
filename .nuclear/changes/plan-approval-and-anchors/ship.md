@@ -37,6 +37,7 @@ The owner delegated the close-out (D4 in [basis](basis.md)). Each point below is
 1. The anchor contract is signed (see Signature).
 2. Plan approval design: option A versus B, which packages need a plan, and whether "work follows an approved plan" becomes a kernel floor are left open. The design ships as a design, merging it builds nothing, and the kernel floor needs its own signature.
 3. D2 and D3 stand.
+4. Two review findings on `services/api/src/anchors.ts` were fixed, with tests that fail before the fix and pass after it. A shorter inner fence no longer closes a longer outer one (CommonMark 4.5), so a heading inside a nested example is not taken as real. Git's C-quoted diff paths, such as `"a/caf\303\251.txt"`, are decoded before the `a/` or `b/` prefix is stripped. Neither fix touches `spec/` or `kernel/`.
 
 ## Required links
 

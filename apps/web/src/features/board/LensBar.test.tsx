@@ -142,4 +142,56 @@ describe("LensBar", () => {
     await user.click(screen.getByRole("button", { name: "Delete view" }));
     expect(onDeleteView).toHaveBeenCalledWith("Code only");
   });
+
+  it("distinguishes an unsaved custom lens from Default view so Default view remains selectable to reset", async () => {
+    const onChange = vi.fn();
+    render(
+      <LensBar
+        lens={{ ...DEFAULT_LENS, needs: true }}
+        cards={cards}
+        views={[]}
+        onChange={onChange}
+        onSaveView={vi.fn()}
+        onDeleteView={vi.fn()}
+      />,
+    );
+    const select = screen.getByLabelText("Saved view") as HTMLSelectElement;
+    expect(select.value).toBe("__custom__");
+    expect(screen.getByRole("option", { name: "Custom view" })).toBeTruthy();
+
+    const user = userEvent.setup();
+    await user.selectOptions(select, "");
+    expect(onChange).toHaveBeenCalledWith(DEFAULT_LENS);
+  });
+
+  it("hides zero counts when countsStatus is unknown and labels last-known counts when stale", () => {
+    const { rerender } = render(
+      <LensBar
+        lens={DEFAULT_LENS}
+        cards={[]}
+        countsStatus="unknown"
+        views={[]}
+        onChange={vi.fn()}
+        onSaveView={vi.fn()}
+        onDeleteView={vi.fn()}
+      />,
+    );
+    const kinds = screen.getByRole("group", { name: "Kind" });
+    expect(kinds.textContent).not.toContain("0");
+    expect(kinds.textContent).toContain("—");
+
+    rerender(
+      <LensBar
+        lens={DEFAULT_LENS}
+        cards={cards}
+        countsStatus="last-known"
+        views={[]}
+        onChange={vi.fn()}
+        onSaveView={vi.fn()}
+        onDeleteView={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Last known counts")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^All\s*3\s*\(last known\)$/ })).toBeTruthy();
+  });
 });

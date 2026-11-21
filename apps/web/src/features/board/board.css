@@ -580,6 +580,9 @@
 .bd-lens-count {
   font-size: var(--fs-chip);
 }
+.bd-lens-stale {
+  font-size: var(--fs-label);
+}
 .bd-lens-spacer {
   flex: 1;
   min-width: 8px;

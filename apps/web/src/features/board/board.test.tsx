@@ -919,4 +919,59 @@ describe("board lenses (M2)", () => {
     await user.click(screen.getByRole("button", { name: /^Code\s*1$/ }));
     expect(await screen.findByText("2 waiting on a signature are hidden by this view")).toBeTruthy();
   });
+
+  it("selects Custom view when lenses are modified so Default view can be chosen to reset", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "Code one", deliverables: [{ id: "D1", type: "patch" }] }),
+        pkg({ id: "WP-2", title: "Doc one", deliverables: [{ id: "D1", type: "report" }] }),
+      ],
+    });
+    await renderPage(<Page />);
+    await screen.findByText("Code one");
+
+    const user = userEvent.setup();
+    const select = screen.getByLabelText("Saved view") as HTMLSelectElement;
+    expect(select.value).toBe("");
+
+    await user.click(screen.getByRole("button", { name: /^Code\s*1$/ }));
+    expect(select.value).toBe("__custom__");
+    expect(screen.queryByText("Doc one")).toBeNull();
+    expect(window.location.search).toContain("kind=code");
+
+    await user.selectOptions(select, "");
+    expect(select.value).toBe("");
+    expect(screen.getByText("Doc one")).toBeTruthy();
+    expect(window.location.search).toBe("");
+  });
+
+  it("respects counts confidence in the lens bar and legend for unknown and last-known reads", async () => {
+    api({ packages: [] });
+    let failPackages = true;
+    server.use(
+      http.get("*/packages", () =>
+        failPackages
+          ? HttpResponse.json({ code: "boom" }, { status: 500 })
+          : HttpResponse.json([pkg({ id: "WP-1", title: "One", deliverables: [{ id: "D1", type: "patch" }] })]),
+      ),
+    );
+    await renderPage(<Page />);
+    expect(await screen.findByText(/Could not load the work on this board/)).toBeTruthy();
+    expect(screen.getByText("Counts unknown until the work is read")).toBeTruthy();
+    const kinds = screen.getByRole("group", { name: "Kind" });
+    expect(kinds.textContent).not.toContain("0");
+    expect(kinds.textContent).toContain("—");
+    const legend = document.querySelector(".bd-legend")!;
+    expect(legend.textContent).toContain("Counts unknown");
+    expect(legend.textContent).not.toContain("0 of 0");
+
+    failPackages = false;
+    await userEvent.setup().click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("One")).toBeTruthy();
+    expect(legend.textContent).toContain("1 of 1");
+
+    act(() => FakeSource.last!.emit("error"));
+    expect(await screen.findByText("Last known counts")).toBeTruthy();
+    expect(legend.textContent).toContain("Last known: 1 of 1");
+  });
 });

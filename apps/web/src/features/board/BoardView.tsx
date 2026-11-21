@@ -261,6 +261,7 @@ export function BoardView() {
         <LensBar
           lens={lens}
           cards={data.cards}
+          countsStatus={data.counts}
           views={views}
           onChange={updateLens}
           onSaveView={handleSaveView}
@@ -330,7 +331,9 @@ export function BoardView() {
               <section key={lane.key} className="bd-lane" aria-labelledby={`bd-lane-${lane.key}`}>
                 <div className="bd-lane-head">
                   <h2 id={`bd-lane-${lane.key}`}>{lane.label}</h2>
-                  <span className="mono muted">{lane.cards.length}</span>
+                  <span className="mono muted">
+                    {data.counts === "last-known" ? `Last known: ${lane.cards.length}` : lane.cards.length}
+                  </span>
                 </div>
                 <div className="bd-board">{renderColumns(lane.cards, idx === 0, "h3", `bd-col-${lane.key}`)}</div>
               </section>
@@ -357,7 +360,11 @@ export function BoardView() {
           </span>
         ))}
         <span className="bd-legend-count mono">
-          {filteredCards.length} of {data.cards.length}
+          {data.counts === "unknown"
+            ? "Counts unknown"
+            : data.counts === "last-known"
+              ? `Last known: ${filteredCards.length} of ${data.cards.length}`
+              : `${filteredCards.length} of ${data.cards.length}`}
         </span>
       </div>
     </div>

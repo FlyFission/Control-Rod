@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { type ColorBy, DEFAULT_LENS, type Density, type GroupBy, type Lens, lensesEqual } from "../../lib/lenses.js";
 import type { SavedView } from "./savedViews.js";
-import type { BoardCard } from "./useBoardData.js";
+import type { BoardCard, Confidence } from "./useBoardData.js";
 
 export type LensBarProps = {
   lens: Lens;
   cards: BoardCard[];
+  countsStatus?: Confidence;
   views: SavedView[];
   onChange: (next: Lens) => void;
   onSaveView: (name: string) => void;
@@ -16,7 +17,7 @@ export type LensBarProps = {
  * Board lens bar (M2): kind filter with counts, Needs you & Mine toggles, Color by, Group by,
  * density switch, and per-user saved views. Uses real buttons and selects.
  */
-export function LensBar({ lens, cards, views, onChange, onSaveView, onDeleteView }: LensBarProps) {
+export function LensBar({ lens, cards, countsStatus = "current", views, onChange, onSaveView, onDeleteView }: LensBarProps) {
   const [saving, setSaving] = useState(false);
   const [viewName, setViewName] = useState("");
   const [selectedName, setSelectedName] = useState("");
@@ -32,6 +33,10 @@ export function LensBar({ lens, cards, views, onChange, onSaveView, onDeleteView
     (selectedName && views.find((v) => v.name === selectedName && lensesEqual(v.lens, lens))?.name) ||
     views.find((v) => lensesEqual(v.lens, lens))?.name ||
     "";
+
+  // Distinguish an unsaved non-default lens from "Default view" so "Default view" stays selectable to reset.
+  const isDefault = lensesEqual(lens, DEFAULT_LENS);
+  const selectValue = matchedView !== "" ? matchedView : isDefault ? "" : "__custom__";
 
   function update(patch: Partial<Lens>) {
     onChange({ ...lens, ...patch });
@@ -65,10 +70,21 @@ export function LensBar({ lens, cards, views, onChange, onSaveView, onDeleteView
             onClick={() => update({ kind: k })}
           >
             <span>{label}</span>
-            <span className="bd-lens-count mono">{n}</span>
+            {countsStatus === "unknown" ? (
+              <span className="bd-lens-count mono">
+                <span aria-hidden="true">—</span>
+                <span className="sr-only">count unknown</span>
+              </span>
+            ) : (
+              <span className="bd-lens-count mono">
+                {n}
+                {countsStatus === "last-known" && <span className="sr-only"> (last known)</span>}
+              </span>
+            )}
           </button>
         ))}
       </div>
+      {countsStatus === "last-known" && <span className="bd-lens-stale muted">Last known counts</span>}
 
       <button
         type="button"
@@ -143,9 +159,10 @@ export function LensBar({ lens, cards, views, onChange, onSaveView, onDeleteView
           <span>Saved view</span>
           <select
             className="bd-lens-select"
-            value={matchedView}
+            value={selectValue}
             onChange={(e) => {
               const name = e.target.value;
+              if (name === "__custom__") return;
               setSelectedName(name);
               if (!name) {
                 onChange({ ...DEFAULT_LENS });
@@ -156,6 +173,11 @@ export function LensBar({ lens, cards, views, onChange, onSaveView, onDeleteView
             }}
           >
             <option value="">Default view</option>
+            {selectValue === "__custom__" && (
+              <option value="__custom__" disabled>
+                Custom view
+              </option>
+            )}
             {views.map((v) => (
               <option key={v.name} value={v.name}>
                 {v.name}

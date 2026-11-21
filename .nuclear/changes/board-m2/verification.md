@@ -4,7 +4,7 @@ Evidence status: **pass** for the build, tests, typecheck, and Chromium axe scan
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Web suite: 692 tests in 51 files pass (`pnpm --filter @control-rod/web test`), including 8 tests in `src/lib/lenses.test.ts`, 5 tests in `src/features/board/LensBar.test.tsx`, 6 new M2 tests in `src/features/board/board.test.tsx`, 10 tests in `src/design/contrast.test.ts`, and 5 tests in `src/design/type-scale.test.ts`. Local machine only. | `evidence/web-suite.log` |
+| E-01 | pass | Web suite: 696 tests in 51 files pass (`pnpm --filter @control-rod/web test`), including 8 tests in `src/lib/lenses.test.ts`, 7 tests in `src/features/board/LensBar.test.tsx`, 8 new M2 tests in `src/features/board/board.test.tsx`, 10 tests in `src/design/contrast.test.ts`, and 5 tests in `src/design/type-scale.test.ts`. Local machine only. | `evidence/web-suite.log` |
 | E-02 | pass | Web typecheck (`pnpm --filter @control-rod/web typecheck`) exits 0. | `evidence/typecheck.log` |
 | E-03 | pass | Web production build (`pnpm --filter @control-rod/web build`: `check:themes`, `check:office`, `gen:api`, `tsc --noEmit`, `vite build`) exits 0. | Recorded in session verification log |
 | E-04 | pass | Board axe scan (WCAG 2.2 A and AA, `@axe-core/playwright` 4.14.0) clean across all 6 Chromium tests in looks a, b, and c, including M2 lens bar, `Group by: person` swimlanes, `Color by: person`, compact density, and the default-view guard banner (`1 waiting on a signature is hidden by this view` and `Show`), plus M1, M3, M4, and review drawer agent panel states. Chromium only; axe checks a subset of accessibility issues. | `evidence/board-axe-chromium.log` |

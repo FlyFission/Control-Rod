@@ -61,8 +61,11 @@ export interface Snapshot {
   diff?: DiffFile[];
 }
 
-/** The same rule as AnchorPath in spec/anchors.tsp. */
-const PATH = /^(?!\/)(?!.*\\)(?!(.*\/)?\.{1,2}(\/|$))[^\u0000]{1,1024}$/u;
+/**
+ * The rule of AnchorPath in spec/anchors.tsp, and also no line breaks: with one, the
+ * look-aheads in the contract's pattern stop at the break and miss a later `..` segment.
+ */
+const PATH = /^(?!\/)(?![\s\S]*\\)(?!([\s\S]*\/)?\.{1,2}(\/|$))[^\u0000\r\n]{1,1024}$/u;
 
 export function validPath(path: string): boolean {
   return PATH.test(path);
@@ -124,6 +127,22 @@ const diffPath = (raw: string): string | null => {
   return p.replace(/^[ab]\//u, "");
 };
 
+/**
+ * The path in a `diff --git a/P b/P` header when both sides name the same file, which is the
+ * case for an added or deleted file. Returns null when the two sides cannot be told apart.
+ */
+function gitHeaderPath(rest: string): string | null {
+  if (rest.startsWith('"')) {
+    const m = /^("(?:[^"\\]|\\.)*") ("(?:[^"\\]|\\.)*")$/u.exec(rest);
+    if (!m) return null;
+    const a = diffPath(m[1]!);
+    return a !== null && a === diffPath(m[2]!) ? a : null;
+  }
+  if ((rest.length - 5) % 2 !== 0) return null;
+  const p = rest.slice(2, 2 + (rest.length - 5) / 2);
+  return rest === `a/${p} b/${p}` ? p : null;
+}
+
 /** Parses a unified diff (git format). Unknown lines outside hunks are ignored. */
 export function parseUnifiedDiff(text: string): DiffFile[] {
   const files: DiffFile[] = [];
@@ -131,13 +150,30 @@ export function parseUnifiedDiff(text: string): DiffFile[] {
   let hunk: Hunk | undefined;
   let oldLine = 0;
   let newLine = 0;
+  // A file added or deleted empty has a `diff --git` header and a mode line but no `---`/`+++`.
+  let header: { path: string | null; mode: "deleted" | "new" | undefined; seen: boolean } | undefined;
+  const flushHeader = () => {
+    if (header && !header.seen && header.mode && header.path !== null) {
+      files.push({
+        oldPath: header.mode === "deleted" ? header.path : null,
+        newPath: header.mode === "new" ? header.path : null,
+        hunks: [],
+      });
+    }
+    header = undefined;
+  };
   for (const line of lines(text)) {
     if (line.startsWith("diff --git ")) {
+      flushHeader();
+      header = { path: gitHeaderPath(line.slice(11)), mode: undefined, seen: false };
       file = undefined;
       hunk = undefined;
       continue;
     }
+    if (header && !hunk && line.startsWith("deleted file mode ")) header.mode = "deleted";
+    if (header && !hunk && line.startsWith("new file mode ")) header.mode = "new";
     if (line.startsWith("--- ") && !hunk) {
+      if (header) header.seen = true;
       file = { oldPath: diffPath(line.slice(4)), newPath: null, hunks: [] };
       files.push(file);
       continue;
@@ -173,6 +209,7 @@ export function parseUnifiedDiff(text: string): DiffFile[] {
       hunk = undefined;
     }
   }
+  flushHeader();
   return files;
 }
 

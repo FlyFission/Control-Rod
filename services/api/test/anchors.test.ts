@@ -199,3 +199,22 @@ describe("review fixes", () => {
     expect(sections("# A\n\n```\n```js\n## In\n```\n", ["In"])).toEqual([]);
   });
 });
+
+describe("more review fixes", () => {
+  it("refuses a path with a line break before a dot segment", () => {
+    expect(validPath("x\n/../../secret")).toBe(false);
+    expect(validPath("x\r\n..")).toBe(false);
+    expect(validPath("docs/guide.md")).toBe(true);
+  });
+
+  it("keeps an empty file's deletion and addition, which have no ---/+++ lines", () => {
+    const diff =
+      "diff --git a/empty.txt b/empty.txt\ndeleted file mode 100644\nindex e69de29..0000000\n" +
+      "diff --git a/new file.txt b/new file.txt\nnew file mode 100644\nindex 0000000..e69de29\n" +
+      "diff --git a/src/calc.ts b/src/calc.ts\n--- a/src/calc.ts\n+++ b/src/calc.ts\n@@ -1 +1 @@\n-a\n+b\n";
+    const files = parseUnifiedDiff(diff);
+    expect(files).toContainEqual({ oldPath: "empty.txt", newPath: null, hunks: [] });
+    expect(files).toContainEqual({ oldPath: null, newPath: "new file.txt", hunks: [] });
+    expect(files.filter((f) => f.oldPath === "src/calc.ts")).toHaveLength(1);
+  });
+});

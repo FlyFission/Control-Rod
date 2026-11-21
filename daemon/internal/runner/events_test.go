@@ -123,6 +123,24 @@ func TestPermissionHookSettingsAndPayloads(t *testing.T) {
 	}
 }
 
+// recordedEvents reads posted batches the way the control plane does: each event is kept once by
+// its index (EventsFrom plus its place in the batch). A batch can arrive twice when the run ends
+// while its post is in flight: the server records it, the daemon abandons the post, puts the
+// batch back and the final flush sends it again from the same index.
+func recordedEvents(batches []LogBatch) []Event {
+	var out []Event
+	seen := map[int]bool{}
+	for _, b := range batches {
+		for i, e := range b.Events {
+			if idx := b.EventsFrom + i; !seen[idx] {
+				seen[idx] = true
+				out = append(out, e)
+			}
+		}
+	}
+	return out
+}
+
 func TestDaemonSendsNormalizedEventsAndTheExit(t *testing.T) {
 	home := t.TempDir()
 	script := `echo '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Write","input":{"file_path":"out/r.md"}}]}}'; echo done > out/r.md`
@@ -136,10 +154,8 @@ func TestDaemonSendsNormalizedEventsAndTheExit(t *testing.T) {
 	api.mu.Lock()
 	defer api.mu.Unlock()
 	var kinds []string
-	for _, b := range api.logs["run-events"] {
-		for _, e := range b.Events {
-			kinds = append(kinds, e.Kind)
-		}
+	for _, e := range recordedEvents(api.logs["run-events"]) {
+		kinds = append(kinds, e.Kind)
 	}
 	if got := strings.Join(kinds, ","); got != "tool_start,exit" {
 		t.Fatalf("events %q", got)
@@ -168,11 +184,9 @@ func TestBreakerStopsARunawayRun(t *testing.T) {
 		t.Fatalf("completion %q %q", c.Status, c.Error)
 	}
 	var notices []string
-	for _, b := range api.logs["run-runaway"] {
-		for _, e := range b.Events {
-			if e.Kind == EvNotice {
-				notices = append(notices, e.Text)
-			}
+	for _, e := range recordedEvents(api.logs["run-runaway"]) {
+		if e.Kind == EvNotice {
+			notices = append(notices, e.Text)
 		}
 	}
 	if len(notices) != 2 || !strings.HasPrefix(notices[0], "Breaker warning") || !strings.HasPrefix(notices[1], "Breaker tripped") {
@@ -256,5 +270,19 @@ func TestClaudeResultUsageIsCumulative(t *testing.T) {
 	}
 	if len(result) != 1 || !result[0].Cumulative || *result[0].InputTokens != 30 {
 		t.Fatalf("result usage %+v", result)
+	}
+}
+
+func TestRecordedEventsKeepsAResentBatchOnce(t *testing.T) {
+	first := LogBatch{Events: []Event{{Kind: EvToolStart}}}
+	// The same batch again, as the final flush resends a post the run's end abandoned.
+	again := LogBatch{Events: []Event{{Kind: EvToolStart}}}
+	exit := LogBatch{Events: []Event{{Kind: EvExit}}, EventsFrom: 1}
+	var kinds []string
+	for _, e := range recordedEvents([]LogBatch{first, again, exit}) {
+		kinds = append(kinds, e.Kind)
+	}
+	if got := strings.Join(kinds, ","); got != "tool_start,exit" {
+		t.Fatalf("events %q", got)
 	}
 }

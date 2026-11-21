@@ -73,22 +73,31 @@ function databaseOk() {
 }
 
 /**
- * Mirrors QualifiedPlatform in daemon/internal/runner/sandbox.go: agent runs are offered only where the
- * native sandbox launch has been qualified, which so far is WSL2. Saying so here tells someone on macOS or
- * native Linux before setup that the app will run and agent runs will be refused. Returns the platform
- * name when runs are not offered, or null when they are.
+ * Mirrors QualifiedPlatform and the Linux sandbox preflight in daemon/internal/runner/sandbox.go: agent
+ * runs are offered on WSL2, native Linux and macOS. On Linux and WSL2 each CLI's sandbox is bubblewrap,
+ * and Claude Code's network proxy needs socat, so say what is missing before setup instead of after.
+ * Returns one line per problem, or an empty list when agent runs can start here.
  */
-function agentRunsUnavailable() {
-  if (platform() === "linux") {
-    try {
-      if (readFileSync("/proc/sys/kernel/osrelease", "utf8").toLowerCase().includes("microsoft")) return null;
-    } catch {
-      /* fall through */
+function agentRunProblems() {
+  const os = platform();
+  if (os === "darwin") return [];
+  if (os !== "linux") return [`agent runs are not qualified on ${os} yet; use WSL2 on Windows`];
+  const problems = [];
+  if (!which("bwrap")) problems.push("bubblewrap is missing: sudo apt install bubblewrap");
+  if (!which("socat")) problems.push("socat is missing (Claude Code needs it): sudo apt install socat");
+  if (which("bwrap")) {
+    const r = spawnSync("bwrap", ["--unshare-user", "--unshare-net", "--ro-bind", "/", "/", "--dev", "/dev", "true"], {
+      encoding: "utf8",
+      timeout: 15000,
+    });
+    if (r.status !== 0) {
+      problems.push(
+        "bubblewrap cannot create a sandbox here, usually because Ubuntu 24.04 and later turn off user" +
+          '\n      namespaces by default. Allow it for bubblewrap only: see "Linux setup" in docs/daemon.md',
+      );
     }
-    return "native Linux";
   }
-  if (platform() === "darwin") return "macOS";
-  return platform();
+  return problems;
 }
 
 function doctor() {
@@ -116,17 +125,13 @@ function doctor() {
     if (!found && required) ok = false;
   }
   if (!databaseOk()) ok = false;
-  const unqualified = agentRunsUnavailable();
-  console.log(
-    unqualified
-      ? `--    agent runs: not yet on ${unqualified} (the sandbox is qualified on WSL2 so far)`
-      : "ok    agent runs: sandbox qualified on this platform (WSL2)",
-  );
-  if (unqualified) {
+  const problems = agentRunProblems();
+  if (problems.length === 0) console.log("ok    agent runs: the sandbox can start on this platform");
+  for (const p of problems) console.log(`--    agent runs: ${p}`);
+  if (problems.length) {
     console.log(
-      `\nOn ${unqualified} the app, the board, the office view and the records all work, and you can prepare and` +
-        "\nrelease work. The daemon will not start an agent until the sandbox has been qualified here, and it" +
-        "\nsays why. docs/status.md shows where that stands.",
+      "\nThe app, the board, the office view and the records work without this. The daemon will not start an" +
+        "\nagent until the sandbox can hold, and it says why.",
     );
   }
   if (!which("claude")) console.log("\nInstall Claude Code and sign in so agents can run on your subscription.");

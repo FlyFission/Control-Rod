@@ -1,0 +1,58 @@
+Launch qualification in CI, workflow `platforms`, run 44428208435 on head cb3eb0b (attempt 1).
+Read from the job logs (summary step) through the GitHub API by the implementing agent on 2026-11-19.
+Artifacts launch-qualification-Linux (14484993547) and launch-qualification-macOS (14484763682) hold
+the full reports for 30 days; the agent's proxy could not download them, so only the summaries are copied.
+
+qualify (ubuntu-24.04), job 135238653957, conclusion success
+{
+ "host": {"system": "Linux", "release": "7.0.0-1017-azure", "machine": "x86_64", "mac_ver": "",
+          "osrelease": "7.0.0-1017-azure", "claude": "2.1.318 (Claude Code)", "codex": "codex-cli 0.166.0"},
+ "checks": {
+  "positive_control_sees_every_target": true,
+  "claude_holds_every_boundary": true,
+  "claude_weakened_control_leaks": true,
+  "codex_holds_every_boundary": true,
+  "codex_weakened_control_leaks": true,
+  "claude_file_tools_refuse_outside_and_allow_inside": true
+ }
+}
+
+qualify (macos-15), job 135238654480, conclusion success
+{
+ "host": {"system": "Darwin", "release": "24.6.0", "machine": "arm64", "mac_ver": "15.8.2",
+          "osrelease": "", "claude": "2.1.318 (Claude Code)", "codex": "codex-cli 0.166.0"},
+ "checks": {
+  "positive_control_sees_every_target": true,
+  "claude_holds_every_boundary": true,
+  "claude_weakened_control_leaks": true,
+  "codex_holds_every_boundary": true,
+  "codex_weakened_control_leaks": true,
+  "claude_file_tools_refuse_outside_and_allow_inside": true
+ }
+}
+
+Run 44429807544 on head 890760d (attempt 1), all four jobs success:
+- daemon-macos, job 135244101045: gofmt, go vet and go test ./... on macos-15, including the
+  Seatbelt checker tests in checker_darwin_test.go and the process-group stop tests.
+- qualify (ubuntu-24.04) job 135244101277, qualify (macos-15) job 135244101190: all checks true.
+- qualify (macos-15-intel), job 135244100762, conclusion success:
+{
+ "host": {"system": "Darwin", "release": "24.6.0", "machine": "x86_64", "mac_ver": "15.7.9",
+          "osrelease": "", "claude": "2.1.318 (Claude Code)", "codex": "codex-cli 0.166.0"},
+ "checks": {
+  "positive_control_sees_every_target": true,
+  "claude_holds_every_boundary": true,
+  "claude_weakened_control_leaks": true,
+  "codex_holds_every_boundary": true,
+  "codex_weakened_control_leaks": true,
+  "claude_file_tools_refuse_outside_and_allow_inside": true
+ }
+}
+
+Earlier run 44427440133 on head 5cbf484: qualify (macos-15) success (all checks true);
+qualify (ubuntu-24.04) failed with "bwrap: setting up uid map: Permission denied" before the
+AppArmor step existed. That failure is what the daemon's bubblewrap preflight now reports.
+Earlier run 44428208435 on head cb3eb0b: daemon-macos failed, 37 tests in internal/runner. Causes:
+a run could not be stopped on macOS (its leader was reaped at once, so its group was never
+signalled, and a zombie counted as a live member); the Seatbelt profile blocked writes to
+/dev/null; and tests that assumed Linux paths, setsid(1), a pidfd or a cgroup. Fixed in 8dc12f7.

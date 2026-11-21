@@ -4962,6 +4962,94 @@
         }
       }
     },
+    "/repos/checkpoint": {
+      "post": {
+        "operationId": "Repos_checkpoint",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repos.CheckpointResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Repos.CheckpointRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/repos/materialize": {
       "post": {
         "operationId": "Repos_materialize",
@@ -5044,6 +5132,94 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/Repos.MaterializeRepoRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/repos/remove": {
+      "post": {
+        "operationId": "Repos_remove",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Repos.RemoveWorktreeResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Repos.RemoveWorktreeRequest"
               }
             }
           }
@@ -11785,6 +11961,46 @@
         },
         "description": "A Member's current qualification as the forms show it: no license numbers and no reasons."
       },
+      "Repos.CheckpointRequest": {
+        "type": "object",
+        "required": [
+          "repo_path"
+        ],
+        "properties": {
+          "repo_path": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "workspace_root": {
+            "type": "string"
+          }
+        }
+      },
+      "Repos.CheckpointResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "ref",
+          "commit_sha",
+          "tree_sha"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "commit_sha": {
+            "type": "string"
+          },
+          "tree_sha": {
+            "type": "string"
+          }
+        }
+      },
       "Repos.GithubRepoInfo": {
         "type": "object",
         "required": [
@@ -11867,6 +12083,13 @@
           },
           "workspace_root": {
             "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "software",
+              "capital-projects"
+            ]
           }
         }
       },
@@ -11886,6 +12109,13 @@
           "strategy": {
             "$ref": "#/components/schemas/Repos.MaterializeStrategy"
           },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "software",
+              "capital-projects"
+            ]
+          },
           "repo": {
             "type": "string"
           },
@@ -11894,6 +12124,12 @@
           },
           "local_path": {
             "type": "string"
+          },
+          "scaffolded_dirs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -11904,6 +12140,42 @@
           "fresh-clone",
           "branch"
         ]
+      },
+      "Repos.RemoveWorktreeRequest": {
+        "type": "object",
+        "required": [
+          "worktree_path",
+          "repo_path"
+        ],
+        "properties": {
+          "worktree_path": {
+            "type": "string"
+          },
+          "repo_path": {
+            "type": "string"
+          },
+          "workspace_root": {
+            "type": "string"
+          },
+          "force": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Repos.RemoveWorktreeResult": {
+        "type": "object",
+        "required": [
+          "ok",
+          "removed"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "removed": {
+            "type": "string"
+          }
+        }
       },
       "Repos.ReposResponse": {
         "type": "object",

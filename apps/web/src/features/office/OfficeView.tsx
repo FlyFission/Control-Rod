@@ -15,7 +15,7 @@ import { seatFigures } from "./seat.js";
 
 /**
  * The office view (specification 13; plan tasks 4.5 and 4.8): the projected figures on the canonical
- * floor under the chosen theme (the released theme, or in a draft build one of the fifteen worlds;
+ * floor under the chosen theme (the standard office or one of the fifteen released worlds;
  * plan task 4.9), a lens that recolours them, presenting mode, and a card for the selected figure.
  * Every state and cause comes from GET /office/figures; nothing here guesses.
  */

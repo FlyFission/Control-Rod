@@ -190,10 +190,15 @@ export const REASONS: Record<string, Reason> = {
   "invalid-repo": r("The repository name is not valid.", "Use owner/name for GitHub or a safe local folder name."),
   "invalid-branch": r("The branch name is not valid.", "Choose a valid Git branch name without '..' or trailing slashes."),
   "invalid-workspace-root": r("The workspace root must stay inside the user's home directory.", "Choose a folder inside your home directory."),
+  "invalid-repo-path": r("The repository path must stay inside the workspace root.", "Specify a repo_path inside the configured workspace root."),
+  "invalid-worktree-path": r("Both worktree_path and repo_path are required.", "Provide both paths and retry."),
+  "unsafe-worktree-path": r("Refusing to remove a protected or out-of-bounds directory.", "Target only a worktree directory inside the workspace root."),
   "repo-not-found": r("The local repository directory does not exist.", "Clone or materialize the repository first."),
   "workspace-exists": r("A workspace or worktree already exists at that target path.", "Choose another branch name or remove the existing worktree."),
   "repo-identity-mismatch": r("An existing folder at that path points to a different repository.", "Use a clean folder or choose a different workspace root."),
   "invalid-strategy": r("The workspace strategy must be 'worktree', 'fresh-clone', or 'branch'.", "Choose one of worktree, fresh-clone, or branch."),
+  "worktree-dirty": r("The worktree has uncommitted changes.", "Commit, capture a checkpoint, or pass force=true."),
+  "worktree-not-found": r("The worktree directory was not found.", "Verify the worktree_path and retry."),
   "git-failed": r("The host Git operation failed.", "Read the Git error detail and retry."),
 
   // The server itself.

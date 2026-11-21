@@ -16,5 +16,5 @@ import w12 from "./clockwork-observatory.js";
 import w13 from "./coral-commons.js";
 import w14 from "./meadow-post.js";
 
-/** The fifteen worlds, in catalogue order: development themes, draft art pending human review. */
+/** The fifteen worlds, in catalogue order: released themes, approved by the project owner on 2026-11-18. */
 export const WORLD_THEMES: readonly OfficeThemeV1[] = [w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14];

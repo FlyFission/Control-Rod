@@ -32,6 +32,8 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   MaterializeRepoResult,
   CheckpointRequest,
   CheckpointResult,
+  FreezeRequest,
+  FreezeResult,
   RemoveWorktreeRequest,
   RemoveWorktreeResult,
 } from "./types.js";
@@ -45,6 +47,8 @@ export type {
   MaterializeRepoResult,
   CheckpointRequest,
   CheckpointResult,
+  FreezeRequest,
+  FreezeResult,
   RemoveWorktreeRequest,
   RemoveWorktreeResult,
 };
@@ -234,6 +238,8 @@ export const api = {
     call<MaterializeRepoResult>("POST", "/repos/materialize", body),
   checkpointRepo: (body: CheckpointRequest) =>
     call<CheckpointResult>("POST", "/repos/checkpoint", body),
+  freezeRepo: (body: FreezeRequest) =>
+    call<FreezeResult>("POST", "/repos/freeze", body),
   removeRepo: (body: RemoveWorktreeRequest) =>
     call<RemoveWorktreeResult>("POST", "/repos/remove", body),
   /** The event stream; `after` resumes after that event id (the server replays what was missed). */

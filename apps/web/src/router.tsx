@@ -13,6 +13,7 @@ import { useLiveEvents } from "./lib/live.js";
 import { sessionIdentity, watchSessionIdentity } from "./lib/session.js";
 import { CasePage } from "./features/case/CasePage.js";
 import { Board } from "./pages/Board.js";
+import { Compare } from "./pages/Compare.js";
 import { Explore } from "./pages/Explore.js";
 import { Inbox } from "./pages/Inbox.js";
 import { OfficePlace } from "./pages/OfficePlace.js";
@@ -23,6 +24,7 @@ import { Records } from "./pages/Records.js";
 import { Registers } from "./pages/Registers.js";
 import { Roster } from "./pages/Roster.js";
 import { SignIn } from "./pages/SignIn.js";
+import { Today } from "./pages/Today.js";
 import { Usage } from "./pages/Usage.js";
 import { Subscriptions } from "./pages/Subscriptions.js";
 
@@ -80,6 +82,8 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/packages", component: Packages }),
   createRoute({ getParentRoute: () => rootRoute, path: "/registers", component: Registers }),
   createRoute({ getParentRoute: () => rootRoute, path: "/explore", component: Explore }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/compare", component: Compare }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/today", component: Today }),
   createRoute({ getParentRoute: () => rootRoute, path: "/roster", component: Roster }),
   createRoute({ getParentRoute: () => rootRoute, path: "/usage", component: Usage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/records", component: Records }),

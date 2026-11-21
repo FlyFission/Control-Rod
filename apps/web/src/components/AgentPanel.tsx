@@ -67,10 +67,18 @@ export function AgentPanel({ packageId, runId, showStop = true }: { packageId: s
 function Transcript({ packageId, run, showStop }: { packageId: string; run: Run; showStop: boolean }) {
   const qc = useQueryClient();
   const live = isLive(run);
+  const key = ["run-events", packageId, run.id, run.status] as const;
   const events = useQuery({
     // Same key as the case page, so both read one cache; the status in the key reads a finished run once more in full.
-    queryKey: ["run-events", packageId, run.id, run.status],
-    queryFn: () => allRunEvents(packageId, run.id),
+    // A refresh asks only for events after the last one held, so polling grows with what arrived, not the whole history.
+    queryKey: key,
+    queryFn: async () => {
+      const held = qc.getQueryData<Awaited<ReturnType<typeof allRunEvents>>>(key);
+      const last = held?.at(-1)?.seq;
+      if (held === undefined || last === undefined) return allRunEvents(packageId, run.id);
+      const fresh = await allRunEvents(packageId, run.id, last);
+      return fresh.length === 0 ? held : [...held, ...fresh];
+    },
     refetchInterval: () => (live && isVisible() ? 2000 : false),
   });
   const stop = useMutation({
@@ -81,11 +89,12 @@ function Transcript({ packageId, run, showStop }: { packageId: string; run: Run;
     },
   });
   const steps = events.data ? story(events.data) : [];
-  // Freezing holds what is shown so it can be read; polling carries on and the count stays true.
-  const [frozen, setFrozen] = useState<number | null>(null);
-  const shownAll = frozen === null ? steps : steps.slice(0, frozen);
+  // Freezing holds a snapshot of what is shown, so a step that changes (a tool finishing) stays as
+  // it was too; polling carries on and the count of new steps stays true.
+  const [frozen, setFrozen] = useState<typeof steps | null>(null);
+  const shownAll = frozen ?? steps;
   const shown = shownAll.slice(-PANEL_STEPS);
-  const waiting = frozen === null ? 0 : Math.max(0, steps.length - frozen);
+  const waiting = frozen === null ? 0 : Math.max(0, steps.length - frozen.length);
   const role = ROLE_WORDS[run.role] ?? run.role;
   return (
     <section className="agent-panel" aria-label={`${role} agent`}>
@@ -98,13 +107,14 @@ function Transcript({ packageId, run, showStop }: { packageId: string; run: Run;
         <span className="muted small">{runStatusText(run)}</span>
       </header>
       <div className="agent-term-bar">
-        {live && (
+        {/* Resume stays while paused, so a run that finishes while paused can still be read in full. */}
+        {(live || frozen !== null) && (
           <button
             type="button"
             className="btn ghost small"
             onClick={() => {
               if (frozen !== null) void events.refetch();
-              setFrozen(frozen === null ? steps.length : null);
+              setFrozen(frozen === null ? steps : null);
             }}
           >
             {frozen === null ? "Pause updates" : "Resume updates"}

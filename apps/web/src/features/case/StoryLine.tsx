@@ -18,9 +18,9 @@ export function StoryLine({ step }: { step: StoryStep }) {
 }
 
 /** Every event of a run, page by page (2,000 per page, up to the run's limit). */
-export async function allRunEvents(packageId: string, runId: string) {
+export async function allRunEvents(packageId: string, runId: string, from = 0) {
   const out: Awaited<ReturnType<typeof api.runEvents>>["events"] = [];
-  let after = 0;
+  let after = from;
   for (let page = 0; page < 12; page++) {
     const { events } = await api.runEvents(packageId, runId, after);
     out.push(...events);

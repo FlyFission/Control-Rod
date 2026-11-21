@@ -1,11 +1,2 @@
-
-> @control-rod/web@0.0.0 typecheck apps/web
-> pnpm gen:api && tsc -p tsconfig.json --noEmit
-
-
-> @control-rod/web@0.0.0 gen:api apps/web
-> openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
-
 ✨ openapi-typescript 7.13.0
-🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [264.6ms]
-exit 0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [315.3ms]

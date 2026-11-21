@@ -17,10 +17,19 @@ const run = (over: Partial<Run>): Run => ({
 });
 const ev = (seq: number, event: Omit<NormalizedEvent, "at">) => ({ seq, event: { at: ago(0), ...event } as NormalizedEvent });
 
-function serve(runs: Run[], events: Record<string, { seq: number; event: NormalizedEvent }[]>, stopped: string[] = []) {
+function serve(
+  runs: Run[],
+  events: Record<string, { seq: number; event: NormalizedEvent }[]>,
+  stopped: string[] = [],
+  asked: number[] = [],
+) {
   server.use(
     http.get("*/packages/:id", () => HttpResponse.json(view({ runs }))),
-    http.get("*/packages/:id/runs/:runId/events", ({ params }) => HttpResponse.json({ events: events[String(params["runId"])] ?? [] })),
+    http.get("*/packages/:id/runs/:runId/events", ({ params, request }) => {
+      const after = Number(new URL(request.url).searchParams.get("after") ?? 0);
+      asked.push(after);
+      return HttpResponse.json({ events: (events[String(params["runId"])] ?? []).filter((e) => e.seq > after) });
+    }),
     http.post("*/packages/:id/runs/:runId/stop", ({ params }) => {
       stopped.push(String(params["runId"]));
       return HttpResponse.json(run({ id: String(params["runId"]), status: "running", stop_requested_at: new Date().toISOString() }));
@@ -107,5 +116,48 @@ describe("AgentPanel", () => {
     expect(screen.queryByText("second")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Resume updates" }));
     expect(await screen.findByText("second")).toBeTruthy();
+  });
+
+  it("asks only for events after the last one it holds while polling", async () => {
+    const asked: number[] = [];
+    const events = { "R-2": [ev(1, { kind: "message", text: "first" }), ev(2, { kind: "message", text: "second" })] };
+    serve([run({ id: "R-2", status: "running", started_at: ago(1) })], events, [], asked);
+    await renderPage(<AgentPanel packageId="WP-0001" />);
+    await screen.findByText("second");
+    events["R-2"].push(ev(3, { kind: "message", text: "third" }));
+    expect(await screen.findByText("third", {}, { timeout: 4000 })).toBeTruthy();
+    expect(asked[0]).toBe(0);
+    expect(asked.slice(1).every((a) => a >= 2)).toBe(true);
+    expect(screen.getAllByText("first")).toHaveLength(1);
+  });
+
+  it("keeps a step as it was while paused, even when its tool finishes", async () => {
+    const events = { "R-2": [ev(1, { kind: "tool_start", tool: "Read", summary: "Read inputs/BRIEF.md", call_id: "c1" })] };
+    serve([run({ id: "R-2", status: "running", started_at: ago(1) })], events);
+    await renderPage(<AgentPanel packageId="WP-0001" />);
+    await screen.findByText("Read inputs/BRIEF.md");
+    await userEvent.click(screen.getByRole("button", { name: "Pause updates" }));
+    events["R-2"].push(ev(2, { kind: "tool_end", call_id: "c1", ok: true }));
+    await new Promise((r) => setTimeout(r, 2600));
+    expect(screen.queryByLabelText("succeeded")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Resume updates" }));
+    expect(await screen.findByLabelText("succeeded")).toBeTruthy();
+  });
+
+  it("keeps Resume when the run finishes while paused", async () => {
+    const runs = [run({ id: "R-2", status: "running", started_at: ago(1) })];
+    const events = { "R-2": [ev(1, { kind: "message", text: "first" })] };
+    serve(runs, events);
+    const { qc } = await renderPage(<AgentPanel packageId="WP-0001" />);
+    await screen.findByText("first");
+    await userEvent.click(screen.getByRole("button", { name: "Pause updates" }));
+    events["R-2"].push(ev(2, { kind: "message", text: "last words" }));
+    runs[0] = run({ id: "R-2", status: "succeeded", started_at: ago(1), finished_at: ago(0) });
+    await qc.invalidateQueries({ queryKey: ["package", "WP-0001"] });
+    // The run has finished: Stop is gone, and Resume is still offered.
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Stop this run" })).toBeNull());
+    expect(screen.queryByText("last words")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Resume updates" }));
+    expect(await screen.findByText("last words")).toBeTruthy();
   });
 });

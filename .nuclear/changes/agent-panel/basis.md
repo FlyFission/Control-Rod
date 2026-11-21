@@ -12,7 +12,7 @@ The owner keeps several agent terminals open at once and wants one place that sh
 
 ## Scope
 
-In scope: `apps/web` only (see risk.md) and this packet. Out of scope: any API, spec, daemon, kernel, policy, red-team or workflow change; any way to send text to a running agent.
+In scope: `apps/web` only (see risk.md) and this packet. Out of scope: intake agents in the office, whose runs belong to a capture rather than a package (the panel reads package runs; a later slice adds capture runs); any API, spec, daemon, kernel, policy, red-team or workflow change; any way to send text to a running agent.
 
 ## Fixed inputs
 

@@ -4,7 +4,8 @@
 2. `components/AgentPanel.tsx`: `pickRun(runs, runId?)`; a header with state, role, round, runtime and vendor badge; a terminal-style transcript of the latest 200 story steps in a `role="log"` region, polled every 2 s while live and visible; Pause and Resume with a count of what arrived; Stop when `canStop`; a footer saying the run cannot be steered and that a Return direction goes to the next run.
 3. Board: the review drawer shows an Agent section with the panel when the package has runs.
 4. Office: the agent card shows the panel for its figure's run, with Stop left to the card's own actions.
-5. Tests: `components/agent-panel.test.tsx` (12), the full web suite, typecheck, and the board axe spec extended to open the drawer on a running card in each look.
+5. Review fixes: polling asks only for events after the last one held (`allRunEvents` takes a start sequence); Pause holds a snapshot of the steps; Resume stays while paused after the run ends.
+6. Tests: `components/agent-panel.test.tsx` (15), the full web suite, typecheck, and the board axe spec extended to open the drawer on a running card in each look.
 
 Interfaces as built: `pickRun(runs: readonly Run[], runId?: string): Run | undefined`; `<AgentPanel packageId runId? showStop? />`; `PANEL_STEPS = 200`.
 

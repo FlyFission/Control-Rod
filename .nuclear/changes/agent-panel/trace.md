@@ -10,6 +10,9 @@
 | T-06 | A card with no runs says so. | "says when no agent has run on the card" | implemented and tested |
 | T-07 | A long run shows the latest 200 steps and says how many there are. | "shows only the latest steps of a long run and says so" | implemented and tested |
 | T-08 | Pause holds what is shown and counts what arrived; Resume shows it. | "holds what is shown while paused and counts what arrived" | implemented and tested |
+| T-11 | Polling asks only for events after the last one held. | "asks only for events after the last one it holds while polling" | implemented and tested |
+| T-12 | Pause holds a snapshot, so a tool finishing does not change what is shown. | "keeps a step as it was while paused…" | implemented and tested |
+| T-13 | Resume stays offered when the run finishes while paused. | "keeps Resume when the run finishes while paused" | implemented and tested |
 | T-09 | The case page's run story is unchanged after the move. | `features/case/case.test.tsx` (existing) | tested |
 | T-10 | The board stays axe clean in looks a, b and c with the drawer and panel open. | `e2e/board-looks.spec.ts` "the review drawer's agent panel has no axe violations" | implemented; run on Chromium (E-02) |
 

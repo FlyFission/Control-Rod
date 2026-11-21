@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -184,21 +185,18 @@ func repoFilterEntries(entries []gitConfigEntry) []string {
 	return out
 }
 
+// configPin is one config setting HostGitCommand passes to git with
+// command-line precedence.
+type configPin struct{ key, value string }
+
 // filterPins returns, for every filter driver variable (clean, smudge,
-// process, required) the repository config sets, a -c setting that re-sets
+// process, required) the repository config sets, a setting that re-sets
 // it to its global/system value, or, when there is none, to the empty value
 // (no command; an empty process disables the whole driver) and required to
 // false. Variables the repository does not set keep their global/system
-// value. Command-line settings outrank every config file, including files
-// pulled in with include.path, so the pins hold without rewriting the
-// repository config. A valueless trusted entry (git reads it as true) is
-// pinned as "true".
-//
-// git splits a -c argument at its first "=", so a driver name containing
-// "=" cannot be pinned: "-c filter.a=b.smudge=" would set filter.a instead.
-// Such a repository driver is refused (errFilterNameUnpinnable) rather than
-// left in effect.
-func filterPins(entries []gitConfigEntry) ([]string, error) {
+// value. A valueless trusted entry (git reads it as true) is pinned as
+// "true".
+func filterPins(entries []gitConfigEntry) []configPin {
 	repoDrivers := map[string]map[string]bool{}
 	trusted := map[string]string{}
 	for _, e := range entries {
@@ -228,13 +226,10 @@ func filterPins(entries []gitConfigEntry) ([]string, error) {
 
 	names := make([]string, 0, len(repoDrivers))
 	for name := range repoDrivers {
-		if strings.Contains(name, "=") {
-			return nil, errFilterNameUnpinnable
-		}
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	var pins []string
+	var pins []configPin
 	for _, name := range names {
 		for _, v := range filterDriverVars {
 			if !repoDrivers[name][v] {
@@ -244,15 +239,31 @@ func filterPins(entries []gitConfigEntry) ([]string, error) {
 			if !ok && v == "required" {
 				value = "false"
 			}
-			pins = append(pins, "-c", "filter."+name+"."+v+"="+value)
+			pins = append(pins, configPin{key: "filter." + name + "." + v, value: value})
 		}
 	}
-	return pins, nil
+	return pins
 }
 
-// errFilterNameUnpinnable refuses a repository filter driver whose name
-// contains "=", which a -c setting cannot address.
-var errFilterNameUnpinnable = errors.New("host-side git: the repository config defines a filter driver whose name contains '=', which cannot be overridden; refusing")
+// pinEnv encodes pins as GIT_CONFIG_COUNT, GIT_CONFIG_KEY_<n> and
+// GIT_CONFIG_VALUE_<n>, which git applies with command-line precedence,
+// above every config file including files pulled in with include.path. It
+// is used instead of -c because git splits a -c argument at its first "=",
+// and a driver name may contain one: "-c filter.a=b.smudge=" would set
+// filter.a and leave driver "a=b" in effect. The environment keeps the key
+// whole. env must not already carry GIT_CONFIG_COUNT (HostGitEnv drops it).
+func pinEnv(pins []configPin) []string {
+	if len(pins) == 0 {
+		return nil
+	}
+	out := []string{"GIT_CONFIG_COUNT=" + strconv.Itoa(len(pins))}
+	for i, p := range pins {
+		out = append(out,
+			"GIT_CONFIG_KEY_"+strconv.Itoa(i)+"="+p.key,
+			"GIT_CONFIG_VALUE_"+strconv.Itoa(i)+"="+p.value)
+	}
+	return out
+}
 
 // HostGitCmd is a host-side git command built by HostGitCommand. Run,
 // Output and CombinedOutput run it and then read the repository config
@@ -299,9 +310,9 @@ func (c *HostGitCmd) after(runErr error) error {
 	return runErr
 }
 
-// HostGitCommand builds a git command run in dir with HostGitArgs, the
-// repository filter-driver pins and then args, and the environment scrubbed
-// by HostGitEnv(os.Environ()). Use it for host-side commands in a repository
+// HostGitCommand builds a git command run in dir with HostGitArgs and then
+// args, and the environment scrubbed by HostGitEnv(os.Environ()) plus the
+// repository filter-driver pins (pinEnv). Use it for host-side commands in a repository
 // an agent can write, above all those that write the work tree (worktree
 // add, checkout, switch, merge) or refresh the index (status, add).
 //
@@ -326,14 +337,12 @@ func HostGitCommand(ctx context.Context, dir string, args ...string) (*HostGitCm
 		return nil, err
 	}
 	before := repoFilterEntries(entries)
-	pins, err := filterPins(entries)
-	if err != nil {
-		return nil, err
-	}
-	full := append(append(append([]string{}, lead...), pins...), args...)
+	pins := filterPins(entries)
+	cmdEnv := append(append([]string{}, env...), pinEnv(pins)...)
+	full := append(append([]string{}, lead...), args...)
 	cmd := exec.CommandContext(ctx, "git", full...)
 	cmd.Dir = dir
-	cmd.Env = env
+	cmd.Env = cmdEnv
 	verify := func() error {
 		// A fresh context: the command's own may have expired.
 		vctx, cancel := context.WithTimeout(context.Background(), hostGitVerifyTimeout)

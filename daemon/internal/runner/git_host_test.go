@@ -252,8 +252,8 @@ func TestHostGitCommandKeepsGlobalFilterDefinition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Contains(hc.Args, "filter.evil.smudge="+trusted) {
-		t.Fatalf("expected the global smudge pinned: %q", hc.Args)
+	if !slices.Contains(hc.Env, "GIT_CONFIG_VALUE_0="+trusted) {
+		t.Fatalf("expected the global smudge pinned: %q", hc.Env)
 	}
 	if err := os.Remove(filepath.Join(repo, "file.txt")); err != nil {
 		t.Fatal(err)
@@ -341,16 +341,12 @@ func TestFilterPins(t *testing.T) {
 		{scope: "local", key: "filter.x.other", value: "ignored", hasValue: true},
 		{scope: "command", key: "filter.y.clean", value: "cli", hasValue: true},
 	}
-	want := []string{
-		"-c", "filter.lfs.smudge=global-smudge",
-		"-c", "filter.lfs.required=false",
-		"-c", "filter.x.process=",
+	want := []configPin{
+		{"filter.lfs.smudge", "global-smudge"},
+		{"filter.lfs.required", "false"},
+		{"filter.x.process", ""},
 	}
-	got, err := filterPins(entries)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(got, want) {
+	if got := filterPins(entries); !reflect.DeepEqual(got, want) {
 		t.Errorf("filterPins = %q, want %q", got, want)
 	}
 }
@@ -362,29 +358,39 @@ func TestFilterPinsValuelessTrustedRequired(t *testing.T) {
 		{scope: "global", key: "filter.lfs.required", hasValue: false},
 		{scope: "local", key: "filter.lfs.required", value: "false", hasValue: true},
 	}
-	got, err := filterPins(entries)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := []string{"-c", "filter.lfs.required=true"}; !reflect.DeepEqual(got, want) {
+	if got, want := filterPins(entries), []configPin{{"filter.lfs.required", "true"}}; !reflect.DeepEqual(got, want) {
 		t.Errorf("filterPins = %q, want %q", got, want)
 	}
 }
 
-// HG-05: a repository driver whose name contains "=" cannot be pinned with
-// -c (git splits at the first "="), so the command is refused before
-// anything runs, and its smudge never runs.
-func TestHostGitCommandRefusesUnpinnableFilterName(t *testing.T) {
+// HG-05: a repository driver whose name contains "=" (which a -c setting
+// cannot address, since git splits it at the first "=") is pinned too.
+func TestHostGitCommandNeutralizesFilterNameWithEquals(t *testing.T) {
 	repo, markers := newFilterRepo(t)
 	if err := os.WriteFile(filepath.Join(repo, ".gitattributes"), []byte("*.txt filter=a=b\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	hostRunGit(t, repo, "config", "filter.a=b.smudge", "sh -c 'touch "+filepath.Join(markers, "smudge")+"; cat'")
-	if err := os.Remove(filepath.Join(repo, "file.txt")); err != nil {
-		t.Fatal(err)
+	hostRunGit(t, repo, "add", ".gitattributes")
+	hostRunGit(t, repo, "commit", "-q", "-m", "driver a=b")
+	for _, kv := range evilDriver(markers) {
+		hostRunGit(t, repo, "config", strings.Replace(kv[0], "filter.evil.", "filter.a=b.", 1), kv[1])
 	}
-	if _, err := HostGitCommand(context.Background(), repo, "checkout", "--", "file.txt"); !errors.Is(err, errFilterNameUnpinnable) {
-		t.Fatalf("HostGitCommand: error = %v, want errFilterNameUnpinnable", err)
-	}
+	exerciseFilters(t, repo)
 	assertNoMarkers(t, markers)
+}
+
+// pinEnv numbers the settings and leaves an empty list out entirely.
+func TestPinEnv(t *testing.T) {
+	if got := pinEnv(nil); got != nil {
+		t.Errorf("pinEnv(nil) = %q, want nil", got)
+	}
+	got := pinEnv([]configPin{{"filter.a=b.smudge", ""}, {"filter.a=b.required", "false"}})
+	want := []string{
+		"GIT_CONFIG_COUNT=2",
+		"GIT_CONFIG_KEY_0=filter.a=b.smudge", "GIT_CONFIG_VALUE_0=",
+		"GIT_CONFIG_KEY_1=filter.a=b.required", "GIT_CONFIG_VALUE_1=false",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("pinEnv = %q, want %q", got, want)
+	}
 }

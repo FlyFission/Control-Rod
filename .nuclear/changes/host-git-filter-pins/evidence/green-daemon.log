@@ -7,8 +7,8 @@ $ go vet ./...
 vet exit 0
 $ go test ./... -count=1
 ?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
-ok  	github.com/flyfission/control-rod/daemon/internal/confinement	0.157s
-ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.003s
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	18.486s
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	0.164s
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.002s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	18.859s
 ?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
 ?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]

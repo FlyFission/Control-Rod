@@ -1,38 +1,39 @@
 == M1-no-pins
 --- FAIL: TestHostGitCommandNeutralizesRepoFilterDriver (0.03s)
---- FAIL: TestHostGitCommandNeutralizesIncludedFilterDriver (0.06s)
---- FAIL: TestHostGitCommandNeutralizesWorktreeFilterDriver (0.04s)
+--- FAIL: TestHostGitCommandNeutralizesIncludedFilterDriver (0.03s)
+--- FAIL: TestHostGitCommandNeutralizesWorktreeFilterDriver (0.03s)
 --- FAIL: TestHostGitCommandKeepsGlobalFilterDefinition (0.02s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.166s
+--- FAIL: TestHostGitCommandNeutralizesFilterNameWithEquals (0.04s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.163s
 KILLED
 == M2-no-verify
---- FAIL: TestHostGitCmdDetectsFilterConfigChange (0.03s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.042s
+--- FAIL: TestHostGitCmdDetectsFilterConfigChange (0.05s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.057s
 KILLED
 == M3-empty-dir
 --- FAIL: TestHostGitCommandRequiresDir (0.00s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.011s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.010s
 KILLED
 == M4-local-scope-only
---- FAIL: TestHostGitCommandNeutralizesWorktreeFilterDriver (0.03s)
+--- FAIL: TestHostGitCommandNeutralizesWorktreeFilterDriver (0.04s)
 --- FAIL: TestFilterPins (0.00s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.041s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.047s
 KILLED
 == M5-no-trusted-value
 --- FAIL: TestHostGitCommandKeepsGlobalFilterDefinition (0.02s)
 --- FAIL: TestFilterPins (0.00s)
 --- FAIL: TestFilterPinsValuelessTrustedRequired (0.00s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.031s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.032s
 KILLED
 == M6-required-not-false
 --- FAIL: TestFilterPins (0.00s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.134s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.204s
 KILLED
-== M7-unpinnable-name-allowed
---- FAIL: TestHostGitCommandRefusesUnpinnableFilterName (0.02s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.027s
+== M7-pins-as-c-args
+--- FAIL: TestHostGitCommandNeutralizesFilterNameWithEquals (0.04s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.047s
 KILLED
 == M8-valueless-trusted-dropped
 --- FAIL: TestFilterPinsValuelessTrustedRequired (0.00s)
-FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.008s
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.007s
 KILLED

@@ -7,7 +7,7 @@
 | A-3 | Bad windows are refused with 400 and an empty window with 404. | E-01 | done |
 | A-4 | Package proofs behave as before. | E-03 | done |
 | A-5 | The Records page exports a window, sends it with its zone and offers the file and the offline command. | E-02 | done |
-| A-6 | The owner's recorded yes covers the `spec/` change. | `ship.md` Signature | open |
+| A-6 | The owner's recorded yes covers the `spec/` change. | `ship.md` Signature | done |
 
 ## Required links
 

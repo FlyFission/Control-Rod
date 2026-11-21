@@ -1,6 +1,6 @@
 # Ship: audit export for a time window
 
-Release decision: **proposed merge, held for the owner's recorded yes on the `spec/` change.**
+Release decision: **approved by the owner's recorded yes (see Signature) to merge #110; no release is authorized by this record.**
 
 - **Proposed:** merge the export operation, route, offline check, Records page form, tests and documentation.
 - **Not claimed:** that the chain is witnessed, that event times come from an independent clock, or any compliance or certification.
@@ -10,10 +10,10 @@ Release decision: **proposed merge, held for the owner's recorded yes on the `sp
 | Field | Entry |
 |---|---|
 | Decision | Approve: merge pull request #110, which adds `recordsExport` to `spec/api.tsp` |
-| Question | Not yet asked |
-| Answer | Pending |
-| Head when asked | Pending |
-| Recorded by | The implementing agent will fill this from the owner's own words. No signature or initials will be typed for the owner |
+| Question | "Should I merge PR #110? It changes the repo's trust rules: it adds one new operation, `recordsExport`, to `spec/api.tsp`. A plain "yes" here is enough, and I'll record it in the change record." Asked in the Claude project thread at 2026-11-21 12:53 PM ET (17:53 UTC), with a link to #110 |
+| Answer | "Yes", Ben Huffer, project owner and sole maintainer, in the same Claude project thread at 2026-11-21 1:07 PM ET (18:07 UTC) |
+| Head when asked | fbe4462 (CI green); the only file changed after the yes is this record (`ship.md`, `trace.md`), which is not a trust surface |
+| Recorded by | The implementing agent, from the chat message. Ben Huffer did not write this entry, and no signature or initials were typed for him |
 
 Rollback: revert the commit. A read-only operation; no schema or state change.
 

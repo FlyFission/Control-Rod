@@ -1,0 +1,230 @@
+=== pnpm --filter @control-rod/api typecheck ===
+
+> @control-rod/api@0.0.0 typecheck /home/flyfission/worktrees/control-rod-kernel-o6/services/api
+> tsc -p tsconfig.json --noEmit
+
+PASS: @control-rod/api typecheck
+=== pnpm --filter @control-rod/api test ===
+
+> @control-rod/api@0.0.0 test /home/flyfission/worktrees/control-rod-kernel-o6/services/api
+> node ../../tools/test-api.mjs
+
+[test-api] PostgreSQL fixture binaries: /home/flyfission/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.1.0 /home/flyfission/worktrees/control-rod-kernel-o6/services/api
+
+ ✓ test/preparation-role-boundary.test.ts (5 tests) 3798ms
+ ✓ test/authority.test.ts (6 tests) 3849ms
+ ✓ test/null-character.test.ts (2 tests) 3913ms
+ ✓ test/figures-race.test.ts (1 test) 3995ms
+ ✓ test/preparation-release.test.ts (3 tests) 4181ms
+   ✓ prepared release through the existing authority (3)
+     ✓ persists the complete manifest and exactly one author under concurrent signed releases 454ms
+ ✓ test/context-profile-brief.test.ts (4 tests) 4427ms
+   ✓ context profiles in the brief (4)
+     ✓ leaves a Light brief byte for byte as it was, with no nuclear inputs and no profile event 347ms
+     ✓ locks Safety grade work to Nuclear over a Light card, for the author and the pre-check, with skills as inputs only 302ms
+ ✓ test/preparation-store.test.ts (8 tests) 4465ms
+   ✓ immutable preparation storage (8)
+     ✓ upgrades an existing legacy schema without altering package bytes 383ms
+ ✓ test/founding.test.ts (1 test) 3997ms
+ ✓ test/draft-cas.test.ts (7 tests) 4161ms
+ ✓ test/preparation-api.test.ts (4 tests) 4571ms
+ ✓ test/subscriptions.test.ts (3 tests) 4119ms
+ ✓ test/stream.test.ts (7 tests) 5361ms
+ ✓ test/inbox.test.ts (16 tests) 12269ms
+   ✓ ordering (4)
+     ✓ puts a SCRAM that needs a person above everything else 421ms
+   ✓ waiting agents (4)
+     ✓ routes an independence hold on high consequence work only to a signer with an attested hardware key 316ms
+   ✓ recovery under SCRAM (2)
+     ✓ never counts recovery work as yours when SCRAM holds it and you cannot settle it 383ms
+   ✓ since you last looked (5)
+     ✓ counts criteria as open until something shows them met, never from missing results 464ms
+   ✓ requirements confirmation (1)
+     ✓ asks the person who may confirm requirements to confirm them, binding the requirements digest 5065ms
+ ✓ test/preparation-walkthrough.test.ts (2 tests) 7414ms
+   ✓ rehearses requirements, release, independent-role results and acceptance for a known JSON bugfix 1051ms
+   ✓ migrations 009 and 010 preserve the full preparation history (review R14) 552ms
+ ✓ test/command-boundary.test.ts (33 tests) 13522ms
+   ✓ review round 2 (7)
+     ✓ SEC-07: administrator issued logins open a database without provisioning 471ms
+ ✓ test/sandbox.test.ts (4 tests) 5595ms
+ ✓ test/refusals.test.ts (6 tests) 5984ms
+ ✓ test/context-profile-real-pack.test.ts (2 tests) 6074ms
+   ✓ a Nuclear brief from the real pack (1)
+     ✓ carries the real Core and cluster cards in BRIEF.md and the real skills and templates as inputs 370ms
+ ✓ test/checker-attempts.test.ts (36 tests) 16192ms
+   ✓ sticky checker fails (35)
+     ✓ refuses a re-run on the same digest and shows why 771ms
+     ✓ spends a signed override on one recheck, and a timeout does not hide the fail 574ms
+     ✓ keeps quota and inconclusive attempts on the record under the fail 837ms
+     ✓ allows a check after the deliverable digest changes 493ms
+     ✓ copies a fail from the verification the checker run wrote 454ms
+     ✓ clears the block after an overridden recheck passes 469ms
+     ✓ does not reuse a pass after the acceptance criteria change and the files do not 491ms
+     ✓ does not let one package's fail stick to a new package with the same bytes 414ms
+     ✓ keeps an override when the queued check is stopped before it is claimed 381ms
+     ✓ records one attempt when two connections record the same run 307ms
+     ✓ warns after repeated inconclusive checks and still allows another 391ms
+     ✓ refuses a long reason, a second unused override, a replayed assertion, a swapped reason, and a deliverable that changed before signing 425ms
+     ✓ keeps an override when a claim is held by a budget, and when startup runs before the claim 445ms
+     ✓ does not let a running check spend an override at admission 380ms
+     ✓ lets an overridden pass on the earlier revision clear that fail when the same bytes come back 576ms
+     ✓ does not show an earlier revision's fail as this revision's pre-check 375ms
+     ✓ refuses another override while the recheck that spent one is still running 344ms
+     ✓ asks a running checker to stop on restart and keeps its reservation until the daemon finishes 413ms
+[control-rod] the database dropped an idle reader connection (terminating connection due to administrator command); a new one opens on next use
+[control-rod] the database dropped an idle writer connection (terminating connection due to administrator command); a new one opens on next use
+ ✓ test/runs.test.ts (33 tests) 11448ms
+   ✓ launch inputs (2)
+     ✓ holds a role that needs named hosts when only Codex is offered, saying why, and dispatches it once a runtime can limit them 541ms
+     ✓ gives network only to the author runs of roles whose tools ask for it 367ms
+   ✓ pre-check independence (3)
+     ✓ holds a pre-check that could only run on the author's runtime, with the reason in plain words 370ms
+   ✓ pack files and role briefs (2)
+     ✓ gives an early stage its family's pre-check and a role with its own pre-check that one 506ms
+   ✓ claim scan (1)
+     ✓ finds work queued behind more than a page of held runs 315ms
+ ✓ test/preparation-grant-concurrency.test.ts (7 tests) 17750ms
+   ✓ grant concurrency and final database deadlines (6)
+     ✓ admits exactly one proposal across two distinct concurrent valid write permits 628ms
+     ✓ rolls back an audit-blocked finalization and releases its package lock 1201ms
+     ✓ enforces a deferred deadline after ordinary begin checks 2151ms
+     ✓ enforces a deferred deadline after ordinary first-finalize checks 2071ms
+     ✓ enforces a deferred deadline after ordinary completed-replay checks 2081ms
+     ✓ bounds lifetime acknowledgments and does not renew the budget on retry 968ms
+   ✓ bounds the whole authority transaction and relinquishes its row locks 5054ms
+ ✓ test/pool-resilience.test.ts (2 tests) 6112ms
+ ✓ test/run-events.test.ts (6 tests) 6295ms
+ ✓ test/budgets.test.ts (29 tests) 12231ms
+   ✓ settlement (12)
+     ✓ settles a finished run at its measured run time, records reported tokens, and frees the cap for what it did not use 400ms
+     ✓ keeps a token report for a run that ended exactly at the event limit, and drops it past the limit 548ms
+   ✓ tracking, alerting and the Usage view (3)
+     ✓ counts reported tokens against a token budget, records a crossing once per window, and shows money as not reported 606ms
+   ✓ presenting and racing (10)
+     ✓ never shows a budget hold's spend while presenting, on any path 533ms
+     ✓ never lets a suspended budget drive a figure's spend 333ms
+ ✓ test/preparation-confirm.test.ts (7 tests) 11205ms
+ ✓ test/person-verification.test.ts (16 tests) 6508ms
+ ✓ test/preparation-basis.test.ts (7 tests) 7544ms
+   ✓ prepared execution basis barriers (7)
+     ✓ claims a released run with immutable basis bytes and denies a changed package basis before claim 526ms
+     ✓ refuses a changed repository HEAD or blob, even when a previous release was valid 378ms
+     ✓ retains late output once and advances preparation on a signed return without reusing confirmation 311ms
+ ✓ test/workbench.test.ts (54 tests) 6889ms
+   ✓ storage (11)
+     ✓ stores one consistent example of every kind against a revision 0 release, each with its event 379ms
+ ✓ test/prepared-checker-evidence.test.ts (2 tests) 6103ms
+   ✓ prepared checker evidence (2)
+     ✓ lets a fake prepared check keep a separate out/ evidence file 501ms
+ ✓ test/attestation.test.ts (8 tests) 12023ms
+ ✓ test/preparation-results.test.ts (13 tests) 10999ms
+   ✓ typed criterion verification admission (13)
+     ✓ binds complete results to the actual verification record and admits signed acceptance with retained checker evidence 710ms
+     ✓ refuses missing criterion results without publishing a verification record 312ms
+     ✓ does not let an author supply checker results and blocks acceptance after basis changes 352ms
+     ✓ refuses acceptance when retained evidence is altered, even if its mutable row hash is changed too 333ms
+     ✓ keeps a passing verification's criterion results when a later check of the same round is inconclusive 589ms
+     ✓ never waives an unexecuted required check, but permits a reasoned exception after completed failed checks 1213ms
+ ✓ test/preparation-grants.test.ts (19 tests) 9733ms
+   ✓ controller-owned preparation grant authority (9)
+     ✓ derives immutable input custody and grants only the existing running scoped attempt 458ms
+   ✓ grant input and payload integrity (2)
+     ✓ accepts the actual byte ceiling and rejects ambiguous encodings 413ms
+   ✓ migrations 009 and 010 preserve grant history (review R14) 1067ms
+Cloning into '/tmp/cr-repos-test-TXBegu/projects/sample-repo/sub'...
+done.
+ ✓ test/preparation-recovery.test.ts (1 test) 8924ms
+   ✓ real PostgreSQL backup and restore rehearsal (CONTROLROD_TEST_PG_BIN) (1)
+     ✓ restores controlled records, signatures, evidence and event chain and refuses unaware legacy writes 5603ms
+ ✓ test/app.test.ts (16 tests) 7378ms
+   ✓ a dependent engineering job runs end to end under the floors (7)
+     ✓ releases both, but holds the scope of work until the survey is accepted 561ms
+   ✓ migrations 009 and 010 over real signed history (review R14) (1)
+     ✓ reverse and reapply without changing any legacy row, signed decision or event 535ms
+ ✓ test/scram.test.ts (14 tests) 9403ms
+   ✓ pulling SCRAM (14)
+     ✓ stops running work, holds everything in scope, quarantines what stopped runs report, and restarts only once reviewed 616ms
+     ✓ waits for a claim already in flight, so the run it starts is stopped too 419ms
+     ✓ restarts one discipline while the rest stays stopped 474ms
+     ✓ scopes a project SCRAM to the project, and counts a daemon out of contact for a lease as stopped with an unknown outcome 351ms
+     ✓ needs a fresh review for anything a stopped run reports after its last review 307ms
+     ✓ quarantines a late report from a run lost before the pull, and holds the restart for its review 323ms
+Cloning into '/tmp/cr-repos-test-DyAs36/projects/sample-repo/sub'...
+done.
+Cloning into '/tmp/cr-repos-test-DyAs36/projects/.worktrees/sample-repo/feat-lfs-sub-guard/sub'...
+done.
+Preparing worktree (new branch 'feat/wt-idx')
+ ✓ test/preparation-review-integrity.test.ts (4 tests) 8125ms
+   ✓ final-review controlled input and output regressions (4)
+     ✓ refuses confirmation when a declared dependency has no complete basis pin 748ms
+     ✓ refreshes exact declared dependency bytes into a signed basis and refuses a newer revision at claim 627ms
+     ✓ dispatches retained pinned dependency bytes instead of live dependency output lookup 671ms
+     ✓ rehashes and locks author deliverables before accepting an already signed review 478ms
+Preparing worktree (new branch 'feat/wt-rm')
+Preparing worktree (new branch 'feat/wt-stale')
+Preparing worktree (new branch 'feat/wt-other-missing')
+Preparing worktree (new branch 'feat/wt-locked-missing')
+ ✓ test/dependencies.test.ts (6 tests) 7071ms
+ ✓ test/repos.test.ts (24 tests) 7537ms
+   ✓ repos Wave 1 hardening (24)
+     ✓ status, worktree add, and checkout neutralize LFS required=true and safecrlf=true 907ms
+     ✓ preserves clean-status semantics for core.autocrlf=true checkouts in GET /repos, branch, and non-force remove 964ms
+     ✓ createCheckpoint captures present skip-worktree edits while preserving absent sparse entries and bypasses gitattributes EOL conversion 324ms
+     ✓ createCheckpoint captures the checked-out commit of tracked submodules without staging inner files 486ms
+     ✓ preserves clean-status semantics for hydrated LFS files while flagging actual LFS modifications 1160ms
+     ✓ refuses implicit --force worktree removal for initialized or diff.ignoreSubmodules=all submodules alongside hydrated LFS 462ms
+     ✓ removeWorktreeSafely refuses dirty worktrees without force, rejects string 'false', and prunes missing registered worktrees 397ms
+ ✓ test/supervision.test.ts (17 tests) 8582ms
+   ✓ ownership receipts (1)
+     ✓ records the spawn receipt once, and refuses another receipt or another attempt's 317ms
+ ✓ test/seals.test.ts (16 tests) 6671ms
+ ✓ test/admin.test.ts (49 tests) 10767ms
+ ✓ test/runtimes.test.ts (9 tests) 10570ms
+ ✓ test/figures.test.ts (9 tests) 12233ms
+   ✓ office figures (9)
+     ✓ projects each state with its cause and place from recorded data (OV-02) 316ms
+     ✓ reads the floor in a fixed number of queries, however many agents are on it 510ms
+     ✓ puts work an active SCRAM holds in Quarantine above everything else, even a finished run 399ms
+ ✓ test/markings.test.ts (18 tests) 10779ms
+ ✓ test/restore-grants.test.ts (1 test) 9559ms
+ ✓ test/tenancy.test.ts (20 tests) 10270ms
+   ✓ migration 009 (2)
+     ✓ backfills ownership and members without rewriting any signed body, event or digest, down and up 475ms
+ ✓ test/preparation-pilot.test.ts (2 tests) 9203ms
+   ✓ manual pilot compatibility and missing-input holds (2)
+     ✓ refuses pre-protocol writers on every enrolled lifecycle table but permits legacy draft writes 406ms
+ ✓ test/preparation-grant-storage.test.ts (1 test) 8227ms
+ ✓ test/session-revoke.test.ts (3 tests) 8749ms
+ ✓ test/database-deadline.test.ts (1 test) 8143ms
+ ✓ test/preparation.test.ts (9 tests) 372ms
+ ✓ test/evidence.test.ts (54 tests) 266ms
+ ✓ test/context-profile.test.ts (24 tests) 120ms
+ ✓ test/anchors.test.ts (19 tests) 46ms
+ ✓ test/lifecycle-traces.test.ts (2 tests) 63ms
+ ✓ test/preparation-config.test.ts (7 tests) 30ms
+ ✓ test/criterion-pass.test.ts (13 tests) 10ms
+ ✓ test/wave2-assurance.test.ts (4 tests) 4ms
+ ✓ test/json-boundary.test.ts (33 tests) 103ms
+ ✓ test/verify-bundle.test.ts (5 tests) 13ms
+ ✓ test/migration-lock.test.ts (1 test) 4ms
+ ✓ test/prepared-checker-paths.test.ts (1 test) 3ms
+ ✓ test/repos-materialize.test.ts (26 tests) 1921ms
+ ✓ test/disclosure.test.ts (15 tests) 11153ms
+ ✓ test/bootstrap.test.ts (1 test) 11413ms
+ ✓ test/static.test.ts (3 tests) 7668ms
+ ✓ test/run-attestation.test.ts (15 tests) 7584ms
+   ✓ enrollment (4)
+     ✓ does not count a Codex pre-check with no attestation 377ms
+ ✓ test/kernel-o6.test.ts (5 tests) 8636ms
+   ✓ Safety-grade package lifecycle end-to-end with O6 quorum and attestation (2)
+     ✓ refuses unattested pre-checks and single-family acceptance, then accepts once 2 distinct attested families pass 1043ms
+     ✓ refuses Safety inconclusive second seat at MAX_ROUNDS and allows accept-with-findings once 2 distinct attested families have decisive checks 880ms
+
+ Test Files  68 passed (68)
+      Tests  801 passed (801)
+   Start at  13:47:11
+   Duration  50.99s (tests 92%, import 7%, transform 1%)
+

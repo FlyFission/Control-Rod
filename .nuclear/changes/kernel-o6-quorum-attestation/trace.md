@@ -1,0 +1,22 @@
+# Trace: Wave 4 Kernel O6 provider, family, quorum, and attestation hardening
+
+| ID | Requirement | Code | Tests and checks | Disposition |
+|---|---|---|---|---|
+| O6-01 | `RuntimeIdentity` adds optional `vendor` and `family`; `canonicalize_token` normalizes aliases (`anthropic`, `openai`, `xai`, `google`); `may_be_same` fails closed on empty token sets or any token intersection across `(provider, vendor, family)`. | `kernel/src/transition.rs` (`RuntimeIdentity`, `canonicalize_token`, `may_be_same`) | `kernel::transition::tests::canonicalize_token_normalizes_aliases_and_rejects_empty`, `kernel::transition::tests::extra_vendor_or_family_only_tightens_may_be_same_and_empty_fails_closed`; `services/api/test/kernel-o6.test.ts` (`fails closed when extra vendor or family attempts to mask provider`) (E-01, E-02) | implemented and tested |
+| O6-02 | `Request` adds `grade: Option<Grade>` (`general-service`, `material`, `safety`), `attestation_verified: Option<bool>`, and `safety_quorum_met: Option<bool>`. | `kernel/src/transition.rs` (`Grade`, `Request`), `kernel/tests/preparation.rs` | `kernel::transition::tests::grade_deserializes_with_kebab_case_matching_spec`, `kernel/tests/preparation.rs::prepared_safety_acceptance_still_enforces_fail_closed_quorum` (E-01) | implemented and tested |
+| O6-03 | `SubmitPreCheck` fails closed if `attestation_verified == Some(false)` or `grade == Some(Grade::Safety)` with `attestation_verified != Some(true)`; `Accept` and `AcceptWithFindings` fail closed if `safety_quorum_met == Some(false)` or `grade == Some(Grade::Safety)` with `safety_quorum_met != Some(true)`. | `kernel/src/transition.rs` (`decide`) | `kernel::transition::tests::grade_safety_requires_attestation_on_pre_check_without_override_bypass`, `kernel::transition::tests::grade_safety_requires_quorum_on_accept_and_accept_with_findings`, `kernel/tests/preparation.rs::prepared_safety_acceptance_still_enforces_fail_closed_quorum`; `services/api/test/kernel-o6.test.ts` (E-01, E-02) | implemented and tested |
+| O6-04 | WebAssembly kernel artifacts in `services/api/kernel/` are rebuilt from updated Rust sources via `./scripts/build-kernel-wasm.sh`. | `services/api/kernel/controlrod_kernel_bg.wasm` | `./scripts/build-kernel-wasm.sh` (`wasm-bindgen 0.2.104`); `kernel/bindings/wasm/tests/lifecycle_traces.rs::kernel_matches_every_lifecycle_trace`; `services/api/test/lifecycle-traces.test.ts` (E-01, E-02) | implemented and tested |
+| O6-05 | `services/api/src/kernel.ts` and `services/api/src/work.ts` wire `vendor`, `family`, `grade`, `attestation_verified`, and `safety_quorum_met` into `decide(...)` so `Safety`-grade packages work end-to-end without breaking existing tests. | `services/api/src/kernel.ts`, `services/api/src/work.ts` (`identityOf`, `mayBeSameRuntime`, `verifiedSafetyCheckers`, `safetyQuorumMet`, `pickChecker`, `applyCompletion`, `finishPreCheck`, `packageActions`, `applyDecision`) | `pnpm --filter @control-rod/api typecheck`; `pnpm --filter @control-rod/api test` (68 files, 801 tests passing, including `test/kernel-o6.test.ts`, `test/run-attestation.test.ts`, `test/wave2-assurance.test.ts`, `test/checker-attempts.test.ts`, `test/runs.test.ts`, `test/refusals.test.ts`, `test/preparation*.test.ts`) (E-02) | implemented and tested |
+| O6-06 | Change record validates under `--strict-custody` and owner-decision checks, with `ship.md` `Signature` left `not yet given` / `not yet asked` for Ben Huffer's sole-maintainer sign-off on the draft PR. | `.nuclear/changes/kernel-o6-quorum-attestation/` | `ng.py validate --strict-custody .nuclear/changes/kernel-o6-quorum-attestation/`, `python3 tools/check_owner_decisions.py`, `python3 tools/check_public_claims.py` (E-03) | implemented and tested |
+
+## Required links
+
+[Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).
+
+## Exit criteria
+
+O6-01 to O6-06 are implemented and tested in Rust and TypeScript; `./scripts/build-kernel-wasm.sh` rebuilds `services/api/kernel/` cleanly; Rust `fmt`/`clippy`/`test` and API `typecheck`/tests pass; the change record validates with `ng.py validate --strict-custody` and `tools/check_owner_decisions.py`; and `ship.md` awaits Ben Huffer's sole-maintainer sign-off on the draft PR.
+
+## Source-lineage note
+
+Local engineering evidence using the repository workflow, not a compliance certification. Workflow source map: https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md.

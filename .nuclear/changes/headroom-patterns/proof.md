@@ -60,7 +60,7 @@ Claim: four statements, one per bullet.
 ### Gaps
 
 - A person has not checked the note against the source files for copied wording, as `docs/patterns/README.md` asks. Agents did, with the n-gram script and the review. The owner accepted this by delegation (see Sign-off).
-- Owner questions left open in the note: row 2 (fail-closed outcomes and expiring overrides, with xerj.md row 6), row 3 (identity matching for qualification arms), row 9 (exception messages in logs, with xerj.md row 4). Also open: the workspace gap named in the threat-model row, and whether it gets a red-team case (`tests/redteam/` needs a signature).
+- Owner questions left open in the note: row 2 (fail-closed outcomes and expiring overrides, with xerj.md row 6), row 3 (identity matching for qualification arms), row 9 (exception messages in logs, with xerj.md row 4). Also open: the workspace gap named in the threat-model row, and whether it gets a red-team case (`tests/redteam/` needs a signature). Update 2026-11-21: #103 added the case as RT-026 (pending), and the threat-model row now names it. The gap itself stays open until RT-026 passes.
 - The "Not tested" line is not enforced. An automated check would touch `.github/workflows/`.
 - Headroom's own figures were not reproduced and are not relied on.
 

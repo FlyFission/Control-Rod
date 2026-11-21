@@ -23,8 +23,10 @@ import (
 
 // Config is everything the daemon needs. The token is held here and in the client only.
 type Config struct {
-	API          string
-	Token        string
+	API   string
+	Token string
+	// TokenFile is set when Token was read from a file; the client re-reads it after a 401.
+	TokenFile    string
 	Home         string
 	Parallel     int
 	Timeout      time.Duration
@@ -89,6 +91,14 @@ func Home(getenv func(string) string) (string, error) {
 		return "", fmt.Errorf("find home directory: %w", err)
 	}
 	return filepath.Join(dir, ".controlrod"), nil
+}
+
+// TokenFile is the file Token read, or "" when the token came from CONTROLROD_DAEMON_TOKEN.
+func TokenFile(getenv func(string) string, home string) string {
+	if strings.TrimSpace(getenv("CONTROLROD_DAEMON_TOKEN")) != "" {
+		return ""
+	}
+	return filepath.Join(home, "daemon.token")
 }
 
 // Token returns CONTROLROD_DAEMON_TOKEN, or the contents of <home>/daemon.token.
@@ -195,7 +205,11 @@ func New(cfg Config) *Daemon {
 	ns := Namespace(cfg.Home)
 	k := *cfg.Container
 	k.NS = ns
-	return &Daemon{cfg: cfg, client: NewClient(cfg.API, cfg.Token), log: cfg.Logger, outbox: NewOutbox(cfg.Home),
+	client := NewClient(cfg.API, cfg.Token)
+	if cfg.TokenFile != "" {
+		client.WithTokenFile(cfg.TokenFile)
+	}
+	return &Daemon{cfg: cfg, client: client, log: cfg.Logger, outbox: NewOutbox(cfg.Home),
 		receipts: NewReceipts(cfg.Home), container: k, ns: ns, quit: context.Background(),
 		retry: newRetryGate(cfg.OutboxInterval, max(cfg.RetryLimit, cfg.OutboxInterval))}
 }

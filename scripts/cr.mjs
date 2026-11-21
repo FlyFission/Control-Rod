@@ -3,7 +3,7 @@
 // Starts the control plane (with an embedded Postgres unless CONTROLROD_DATABASE_URL is set),
 // the run daemon, and serves the web app at http://localhost:7300.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -203,9 +203,12 @@ async function start() {
 
   const api = spawn("node", [join(root, "services", "api", "dist", "server.js")], { env, stdio: "inherit" });
   await waitForHealth();
-  const token = readFileSync(join(home, "daemon.token"), "utf8").trim();
+  // The daemon reads its token from CONTROLROD_HOME/daemon.token, and reads it again if the control
+  // plane restarts and writes a new one; passing it in the environment would pin the old token.
+  const daemonEnv = { ...env, CONTROLROD_API: `http://127.0.0.1:${port}` };
+  delete daemonEnv.CONTROLROD_DAEMON_TOKEN;
   const daemon = spawn(join(bin, "controlrod"), ["daemon", "--parallel", process.env.CONTROLROD_PARALLEL ?? "3"], {
-    env: { ...env, CONTROLROD_API: `http://127.0.0.1:${port}`, CONTROLROD_DAEMON_TOKEN: token },
+    env: daemonEnv,
     stdio: "inherit",
   });
   console.log(`\nControl Rod: open ${env.CONTROLROD_ORIGIN ?? `http://localhost:${port}`} (Ctrl+C stops everything)\n`);

@@ -85,14 +85,15 @@ func daemon(args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	d := runner.New(runner.Config{
-		API:      api,
-		Token:    token,
-		Home:     home,
-		Parallel: *parallel,
-		Timeout:  *timeout,
-		Runtimes: runner.Detect(exec.LookPath, os.Getenv),
-		Version:  version.Version,
-		Logger:   logger,
+		API:       api,
+		Token:     token,
+		TokenFile: runner.TokenFile(os.Getenv, home),
+		Home:      home,
+		Parallel:  *parallel,
+		Timeout:   *timeout,
+		Runtimes:  runner.Detect(exec.LookPath, os.Getenv),
+		Version:   version.Version,
+		Logger:    logger,
 	})
 	if err := d.Run(ctx); err != nil {
 		logger.Error(err.Error())

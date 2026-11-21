@@ -57,6 +57,7 @@ These mirror the CI jobs in [`.github/workflows/ci.yml`](../.github/workflows/ci
 | Rust (kernel) | `cargo fmt --all --check`, `cargo clippy --all-targets --locked -- -D warnings`, `cargo test --locked` |
 | Go (daemon) | In `daemon/`: `gofmt -l .` (must print nothing), `go vet ./...`, `go test ./...` |
 | Python (SDK) | In `sdk/python/`: `uv sync --locked`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q` |
+| Web app, end to end (live) | `pnpm -C apps/web exec playwright test -c playwright.live.config.ts --project=chromium --trace off`: the real control plane, database and daemon (fake runtime) driven in a browser, with break-it and persona passes. See [apps/web/e2e/live/README.md](../apps/web/e2e/live/README.md); `tools/break-loop/loop.sh` runs the fix loop over it. Not yet in CI |
 | Licences | `node tools/license-gate.mjs` |
 | Lifecycle model | `bash models/generate.sh` when you change `models/` or the kernel's lifecycle; see [`models/README.md`](../models/README.md). The trace replays run in the Rust and TypeScript suites above |
 | Change records (owner decisions) | `python3 tools/check_owner_decisions.py`; see [collaboration.md](collaboration.md#recording-owner-decisions). Not yet in CI |

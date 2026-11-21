@@ -1,6 +1,8 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
+  // The live suites start a real stack and have their own config (playwright.live.config.ts).
+  testIgnore: "live/**",
   fullyParallel: false,
   timeout: 60000,
   projects: [

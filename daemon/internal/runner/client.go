@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/flyfission/control-rod/daemon/internal/wire"
@@ -20,9 +22,15 @@ var ErrNoWork = errors.New("no work")
 // Client talks to the control plane runner API. The token is sent only in the Authorization
 // header and is never formatted into an error or a log line.
 type Client struct {
-	base  string
+	base string
+	http *http.Client
+
+	mu    sync.Mutex
 	token string
-	http  *http.Client
+	// tokenFile, when set, is where the token came from. The control plane writes a new token there
+	// each time it starts, so a 401 re-reads it once: a daemon that outlives a control-plane restart
+	// keeps working instead of being refused forever.
+	tokenFile string
 }
 
 // NewClient returns a client for the control plane at base.
@@ -30,11 +38,51 @@ func NewClient(base, token string) *Client {
 	return &Client{base: strings.TrimRight(base, "/"), token: token, http: &http.Client{}}
 }
 
+// WithTokenFile makes the client re-read its token from path when the control plane refuses it.
+func (c *Client) WithTokenFile(path string) *Client {
+	c.tokenFile = path
+	return c
+}
+
+func (c *Client) currentToken() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.token
+}
+
+// reloadToken re-reads the token file; true when it holds a different, non-empty token.
+func (c *Client) reloadToken() bool {
+	if c.tokenFile == "" {
+		return false
+	}
+	b, err := os.ReadFile(c.tokenFile)
+	if err != nil {
+		return false
+	}
+	t := strings.TrimSpace(string(b))
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if t == "" || t == c.token {
+		return false
+	}
+	c.token = t
+	return true
+}
+
 func (c *Client) post(ctx context.Context, path string, body any, timeout time.Duration) (*http.Response, error) {
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("encode %s: %w", path, err)
 	}
+	resp, err := c.send(ctx, path, buf, timeout)
+	if err == nil && resp.StatusCode == http.StatusUnauthorized && c.reloadToken() {
+		_ = resp.Body.Close()
+		return c.send(ctx, path, buf, timeout)
+	}
+	return resp, err
+}
+
+func (c *Client) send(ctx context.Context, path string, buf []byte, timeout time.Duration) (*http.Response, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(buf))
 	if err != nil {
@@ -42,7 +90,7 @@ func (c *Client) post(ctx context.Context, path string, body any, timeout time.D
 		return nil, fmt.Errorf("request %s: %w", path, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Authorization", "Bearer "+c.currentToken())
 	resp, err := c.http.Do(req)
 	if err != nil {
 		cancel()

@@ -1,0 +1,2 @@
+$ git diff --cached --stat -- .github policies tests/redteam spec kernel services/api/src apps/web
+(end of diff)

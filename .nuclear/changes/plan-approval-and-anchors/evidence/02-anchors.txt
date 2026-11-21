@@ -1,0 +1,58 @@
+# Anchor contract and check, 2026-11-18T18:19:38Z
+
+$ pnpm --filter @control-rod/spec run build && git diff --exit-code -- spec/generated   # contracts regenerate with no drift from what is staged
+- Compiling...
+✔ Compiling
+✔ @typespec/json-schema 131ms generated/json-schema/
+✔ @typespec/openapi3 139ms generated/openapi/
+Compilation completed successfully.
+no drift
+
+$ ls spec/generated/json-schema | grep -i anchor
+Anchor.json
+AnchorCheck.json
+AnchorFailure.json
+AnchorPath.json
+AnchoredQuote.json
+BaseLinesAnchor.json
+DeletedFileAnchor.json
+HeadLinesAnchor.json
+SectionAnchor.json
+
+$ (cd services/api && pnpm exec vitest run test/anchors.test.ts --reporter verbose)
+ ✓ test/anchors.test.ts > head lines > anchor when the quote is at those lines, whatever the whitespace 2ms
+ ✓ test/anchors.test.ts > head lines > say whether the lines touch the change on a diff target 1ms
+ ✓ test/anchors.test.ts > head lines > refuse a missing path, a bad or out-of-range span, no quote, and a quote one line off 0ms
+ ✓ test/anchors.test.ts > head lines > refuse paths that could leave the snapshot 1ms
+ ✓ test/anchors.test.ts > base lines > anchor removed lines that the quote matches 0ms
+ ✓ test/anchors.test.ts > base lines > refuse unchanged base lines, a folder target, and a quote not there 0ms
+ ✓ test/anchors.test.ts > deleted file > anchor a file the diff deletes, with or without a quote from it 0ms
+ ✓ test/anchors.test.ts > deleted file > refuse a file that still exists, one that never did, and a quote not in it 0ms
+ ✓ test/anchors.test.ts > sections > resolve a heading path to one section, ignoring headings inside code fences 2ms
+ ✓ test/anchors.test.ts > sections > refuse a path that matches no section or several 0ms
+ ✓ test/anchors.test.ts > sections > anchor a removed section in base only when the change removed it 0ms
+ ✓ test/anchors.test.ts > unified diff parsing > records the exact removed and added line numbers, and deleted and added files 1ms
+ ✓ test/anchors.test.ts > the AnchoredQuote contract > accepts each anchor kind and refuses unknown fields, escaping paths and bad spans 10ms
+      Tests  13 passed (13)
+
+$ (cd services/api && pnpm exec tsc -p tsconfig.json --noEmit)
+exit 0
+
+## Mutants: the checker broken on purpose, one at a time, then restored
+mutant: s/return q.length > 0 \&\& normalize(text).includes(q);/return q.length > 0;/
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  4 failed | 9 passed (13)
+mutant: s/if (end > all.length) return fail("out-of-range");/if (false) return fail("out-of-range");/
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 12 passed (13)
+mutant: s/return removed ? { anchored: true } : fail("not-in-change");/return { anchored: true };/
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 12 passed (13)
+mutant: s/if (fence) return;/if (false) return;/
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 12 passed (13)
+mutant: s/if (!validPath(a.path)) return fail("bad-path");/if (false) return fail("bad-path");/
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 12 passed (13)
+restored:
+      Tests  13 passed (13)

@@ -1,0 +1,11 @@
+$ uv run --with pyyaml python tools/check_redteam.py
+26 red-team cases (2 active, 24 pending)
+
+$ git diff origin/main --stat -- .github/workflows policies tests/redteam spec kernel docs/adr
+ tests/redteam/catalog.yaml | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+$ git diff --check
+(no output)
+
+base: origin/main at 076299f

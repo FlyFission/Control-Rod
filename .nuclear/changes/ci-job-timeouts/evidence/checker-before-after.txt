@@ -1,0 +1,15 @@
+# Checker against the workflow before and after the edit (tools/check_workflow_timeouts.py at 44765a0)
+
+## before: .github/workflows/ci.yml on main (44765a0)
+7 finding(s) -> exit 1
+  typescript: no timeout-minutes (GitHub's default is 360)
+  rust: no timeout-minutes (GitHub's default is 360)
+  go: no timeout-minutes (GitHub's default is 360)
+  python: no timeout-minutes (GitHub's default is 360)
+  licenses: no timeout-minutes (GitHub's default is 360)
+  change-records: no timeout-minutes (GitHub's default is 360)
+  sbom: no timeout-minutes (GitHub's default is 360)
+
+## after: edited .github/workflows/ci.yml
+workflow timeouts check passed (1 file(s))
+exit=0

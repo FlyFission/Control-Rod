@@ -170,6 +170,19 @@ export type MaterializeRepoRequest = S["Repos.MaterializeRepoRequest"];
 export type MaterializeRepoResult = S["Repos.MaterializeRepoResult"];
 export type CheckpointRequest = S["Repos.CheckpointRequest"];
 export type CheckpointResult = S["Repos.CheckpointResult"];
+export interface FreezeRequest {
+  repo_path: string;
+  label?: string;
+  workspace_root?: string;
+}
+export interface FreezeResult {
+  ok: boolean;
+  checkpoint_ref: string;
+  commit_sha: string;
+  tree_sha: string;
+  manifest_digest: string;
+  file_count: number;
+}
 export type RemoveWorktreeRequest = S["Repos.RemoveWorktreeRequest"];
 export type RemoveWorktreeResult = S["Repos.RemoveWorktreeResult"];
 

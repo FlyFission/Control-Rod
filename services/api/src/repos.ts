@@ -19,6 +19,7 @@ import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { freezeWorkspace } from "./outfall.js";
 import { Refusal } from "./refusal.js";
 
 const execFileAsync = promisify(execFile);
@@ -1605,6 +1606,22 @@ async function withGitRefusal<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+function parseRepoSnapshotRequest(rawBody: unknown): {
+  workspaceRoot: string;
+  repoPath: string;
+  label: string | undefined;
+} {
+  const body = asBodyRecord(rawBody);
+  const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
+  if (typeof body.repo_path !== "string" || !body.repo_path.trim()) {
+    throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
+  }
+  if (body.label !== undefined && typeof body.label !== "string") {
+    throw new Refusal(400, "invalid", "label must be a string.");
+  }
+  return { workspaceRoot, repoPath: body.repo_path, label: body.label };
+}
+
 export function repoRoutes(
   app: FastifyInstance,
   person: (req: FastifyRequest) => Promise<string>,
@@ -1667,21 +1684,27 @@ export function repoRoutes(
     Body: { repo_path?: string; label?: string; workspace_root?: string };
   }>("/repos/checkpoint", async (req) => {
     await person(req);
-    const body = asBodyRecord(req.body);
-    const workspaceRoot = resolveSafeWorkspaceRoot(body.workspace_root);
-    if (typeof body.repo_path !== "string" || !body.repo_path.trim()) {
-      throw new Refusal(400, "invalid-repo-path", "repo_path must be inside the workspace root.");
-    }
-    if (body.label !== undefined && typeof body.label !== "string") {
-      throw new Refusal(400, "invalid", "label must be a string.");
-    }
-    const repoPathInput = body.repo_path;
-    const labelInput = body.label;
+    const { workspaceRoot, repoPath, label } = parseRepoSnapshotRequest(req.body);
     return withGitRefusal(async () => {
       const result = await createCheckpoint({
-        repoDir: repoPathInput,
+        repoDir: repoPath,
         workspaceRoot,
-        ...(labelInput !== undefined ? { label: labelInput } : {}),
+        ...(label !== undefined ? { label } : {}),
+      });
+      return { ok: true, ...result };
+    });
+  });
+
+  app.post<{
+    Body: { repo_path?: string; label?: string; workspace_root?: string };
+  }>("/repos/freeze", async (req) => {
+    await person(req);
+    const { workspaceRoot, repoPath, label } = parseRepoSnapshotRequest(req.body);
+    return withGitRefusal(async () => {
+      const result = await freezeWorkspace({
+        repoDir: repoPath,
+        workspaceRoot,
+        ...(label !== undefined ? { label } : {}),
       });
       return { ok: true, ...result };
     });

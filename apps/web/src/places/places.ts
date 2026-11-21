@@ -13,10 +13,12 @@ export interface Place {
 }
 
 export const PLACES: Place[] = [
+  { to: "/today", label: "Today", purpose: "Attention queue across Software and Capital Projects", group: "Work" },
   { to: "/", label: "Board", purpose: "Every card by step: what needs you and what is waiting", group: "Work" },
   { to: "/inbox", label: "Inbox", purpose: "Decisions waiting on you, riskiest first", group: "Work" },
   { to: "/office", label: "Office", purpose: "The floor: who is working on what", group: "Work" },
   { to: "/packages", label: "Packages", purpose: "Capture work and find every package", group: "Work" },
+  { to: "/compare", label: "Compare", purpose: "Side-by-side comparison of frozen revisions", group: "Audit" },
   { to: "/registers", label: "Registers", purpose: "Deliverables across every package", group: "Audit" },
   { to: "/records", label: "Records", purpose: "The event chain and its verification", group: "Audit" },
   { to: "/usage", label: "Usage", purpose: "Whether the work is earning its place", group: "Audit" },

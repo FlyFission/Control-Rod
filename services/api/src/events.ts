@@ -91,6 +91,54 @@ export async function listEvents(db: Db, after = 0, limit = 500): Promise<EventR
   return r.rows.map((x) => x.body);
 }
 
+export interface SemanticViolation {
+  seq: number;
+  type: string;
+  reason: string;
+}
+
+const VALID_ACTOR_KINDS = new Set(["human", "agent", "system"]);
+
+/**
+ * Per-event-family semantic invariant checks (inspired by bernstein audit_chain).
+ */
+export function verifySemanticInvariants(events: readonly EventRecord[]): SemanticViolation[] {
+  const violations: SemanticViolation[] = [];
+  let prevSeq = 0;
+  let prevTime = 0;
+  for (const ev of events) {
+    if (ev.seq <= prevSeq) {
+      violations.push({ seq: ev.seq, type: ev.type, reason: `Non-monotonic seq ${ev.seq} <= ${prevSeq}` });
+    }
+    prevSeq = ev.seq;
+
+    const ts = Date.parse(ev.at);
+    if (Number.isNaN(ts)) {
+      violations.push({ seq: ev.seq, type: ev.type, reason: `Invalid ISO timestamp: ${ev.at}` });
+    } else if (ts < prevTime) {
+      violations.push({ seq: ev.seq, type: ev.type, reason: `Timestamp regressed: ${ev.at}` });
+    } else {
+      prevTime = ts;
+    }
+
+    if (!ev.type?.trim()) {
+      violations.push({ seq: ev.seq, type: ev.type ?? "", reason: "Missing event type" });
+    }
+    if (!ev.subject?.trim()) {
+      violations.push({ seq: ev.seq, type: ev.type, reason: "Missing event subject" });
+    }
+    if (!ev.actor || !VALID_ACTOR_KINDS.has(ev.actor.kind) || !ev.actor.id?.trim()) {
+      violations.push({ seq: ev.seq, type: ev.type, reason: "Invalid or incomplete actor" });
+    }
+
+    const family = (ev.type ?? "").split(".")[0];
+    if (family === "decision" && ev.data && typeof ev.data.verdict === "string" && !ev.data.verdict.trim()) {
+      violations.push({ seq: ev.seq, type: ev.type, reason: "Decision event has empty verdict" });
+    }
+  }
+  return violations;
+}
+
 /** Recomputes the whole chain. Reports the first entry whose digest or link does not hold. */
 export async function verifyChain(
   db: Db | Tx,

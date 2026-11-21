@@ -8,7 +8,8 @@
 3. `packs/software/`:
    - Update `packs/software/README.md` documenting the layout and conventions.
    - Create `packs/software/roles/software-author.md`, `packs/software/roles/software-author.tools.md`, and `packs/software/roles/software-pre-check.md` with no hardcoded engineering numbers and explicit independent pre-check and evidence rules.
-   - Create `packs/software/bugfix/`, `packs/software/feature/`, and `packs/software/migration/`, each with depth-2 `roles/intake.md`, `templates/`, and `typicals/`.
+   - Create `packs/software/templates/` (`bugfix-report.md`, `feature-spec-and-summary.md`, `migration-plan.md`) and `packs/software/typicals/` (`bugfix-checklist.json`, `feature-checklist.json`, `migration-checklist.json`) directly under `packs/software/` so `packFiles(findRoleIn(cfg, "software-author")!.packDir)` ships them during `buildJob()`.
+   - Create `packs/software/bugfix/roles/intake.md`, `packs/software/feature/roles/intake.md`, and `packs/software/migration/roles/intake.md` at depth 2 so `jobIntakeGuides()` picks up all three playbook guides.
 4. `services/api/test/software-pack.test.ts` and `docs/status.md`:
    - Add Vitest coverage verifying `findRoleIn`, `preCheckRole`, `roleToolText`, `packFiles`, and `jobIntakeGuides` resolve `packs/software/` cleanly with zero symlinks and within `packFiles` size limits.
    - Update `docs/status.md` to reflect that `packs/software/` is populated.

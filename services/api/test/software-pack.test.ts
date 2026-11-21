@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Ajv2020 } from "ajv/dist/2020.js";
@@ -13,6 +13,8 @@ const cfg: WorkConfig = { root: repo, ajv: new Ajv2020() };
 const PACK_FILE_MAX = 256 * 1024;
 const PACK_TOTAL_MAX = 2 * 1024 * 1024;
 const PLAYBOOKS = ["bugfix", "feature", "migration"] as const;
+const EXPECTED_TEMPLATES = ["bugfix-report.md", "feature-spec-and-summary.md", "migration-plan.md"] as const;
+const EXPECTED_TYPICALS = ["bugfix-checklist.json", "feature-checklist.json", "migration-checklist.json"] as const;
 
 function walkEntries(dir: string): string[] {
   const entries: string[] = [];
@@ -75,24 +77,25 @@ describe("packs/software", () => {
     expect(readRoleTools(checkerTools).hosts).toEqual([]);
   });
 
-  it("loads templates and typicals for bugfix, feature, and migration via packFiles", () => {
-    for (const playbook of PLAYBOOKS) {
-      const dir = join(softwarePack, playbook);
-      expect(statSync(dir).isDirectory()).toBe(true);
-      const files = packFiles(dir);
-      const names = files.map((f) => f.name);
-      expect(names.some((n) => n.startsWith("pack/templates/"))).toBe(true);
-      expect(names.some((n) => n.startsWith("pack/typicals/"))).toBe(true);
+  it("ships all templates and typicals via packFiles(findRoleIn(cfg, 'software-author')!.packDir)", () => {
+    const author = findRoleIn(cfg, "software-author");
+    expect(author).not.toBeNull();
+    const files = packFiles(author!.packDir);
+    const names = files.map((f) => f.name);
 
-      for (const f of files) {
-        const rel = f.name.replace(/^pack\//, "");
-        const disk = readFileSync(join(dir, rel));
-        expect(Buffer.from(f.content_base64, "base64").equals(disk)).toBe(true);
-        if (rel.endsWith(".json")) {
-          const parsed = JSON.parse(disk.toString("utf8")) as Record<string, unknown>;
-          expect(parsed.role).toBe("software-author");
-          expect(typeof parsed.typical).toBe("string");
-        }
+    expect(names).toEqual([
+      ...EXPECTED_TEMPLATES.map((t) => `pack/templates/${t}`),
+      ...EXPECTED_TYPICALS.map((t) => `pack/typicals/${t}`),
+    ]);
+
+    for (const f of files) {
+      const rel = f.name.replace(/^pack\//, "");
+      const disk = readFileSync(join(author!.packDir, rel));
+      expect(Buffer.from(f.content_base64, "base64").equals(disk)).toBe(true);
+      if (rel.endsWith(".json")) {
+        const parsed = JSON.parse(disk.toString("utf8")) as Record<string, unknown>;
+        expect(parsed.role).toBe("software-author");
+        expect(typeof parsed.typical).toBe("string");
       }
     }
   });

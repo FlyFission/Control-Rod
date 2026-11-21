@@ -1,10 +1,10 @@
 
  RUN  v5.1.0 /home/flyfission/worktrees/control-rod-live-fix/services/api
 
- ✓ test/software-pack.test.ts (5 tests) 14ms
+ ✓ test/software-pack.test.ts (5 tests) 19ms
 
  Test Files  1 passed (1)
       Tests  5 passed (5)
-   Start at  13:34:05
-   Duration  349ms (transform 48%, import 45%, tests 6%, worker 1%)
+   Start at  13:41:08
+   Duration  405ms (transform 46%, import 46%, tests 7%, worker 1%)
 

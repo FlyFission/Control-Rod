@@ -17,6 +17,7 @@ import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScramm
 import { networkFor, readRoleTools, resolveSandboxPolicy, runtimesForHosts, toolsFile } from "./sandbox.js";
 import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
+import { RULES, briefHeader, composeBrief } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
@@ -790,13 +791,6 @@ function jobIntakeGuides(cfg: WorkConfig): string[] {
   return out;
 }
 
-const RULES = `## Rules
-
-- Read every file under inputs/. Write every deliverable into out/. Never edit inputs/.
-- Every engineering number comes from a tool or code you run, never typed from memory.
-- Cite every outside fact with its source and the date you retrieved it.
-- You cannot approve, accept or release anything. A person does that.
-`;
 
 type Input = { name: string; content_base64: string };
 const file = (name: string, content: string | Buffer): Input => ({
@@ -903,7 +897,7 @@ async function nuclearContext(c: Tx, cfg: WorkConfig, run: Json, body: Json): Pr
 
 async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, hosts: string[]) {
   const inputs: Input[] = fakeScript(run, runtime);
-  const header = `# Control Rod brief\n\nRole: ${run.role} · Package ${run.package_id} revision ${run.package_revision} · Round ${run.round}\n`;
+  const header = briefHeader(run);
   if (run.role === "intake") {
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id]);
     const capture = cap.rows[0]?.body;
@@ -972,7 +966,7 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   }
   const nuclear = await nuclearContext(c, cfg, run, pkg.body);
   inputs.push(...nuclear.inputs);
-  const brief = [header, roleText, `## The work package\n\nSee inputs/PACKAGE.json. Objective: ${pkg.body.objective}\n`, ...extra, ...nuclear.sections, RULES].join("\n");
+  const brief = composeBrief({ header, roleText, objective: pkg.body.objective, extra, nuclear: nuclear.sections });
   inputs.push(file("BRIEF.md", brief));
   // The role's qualified tools, and its network line only with the hosts the run's sandbox policy
   // allows (plan task 6.1); the daemon derives each CLI's settings from the policy, not this file.

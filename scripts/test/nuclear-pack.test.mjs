@@ -85,3 +85,16 @@ test("regenerating from the NGCE checkout reproduces the committed pack", { skip
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("regenerating keeps budgets.json and check does not count it as a pack file", { skip: !live && `no NGCE checkout at ${NGCE}` }, () => {
+  const dir = mkdtempSync(join(tmpdir(), "nuclear-pack-budgets-"));
+  try {
+    generate({ from: NGCE, out: dir });
+    writeFileSync(join(dir, "budgets.json"), "{}\n");
+    generate({ from: NGCE, out: dir });
+    assert.equal(readFileSync(join(dir, "budgets.json"), "utf8"), "{}\n");
+    assert.deepEqual(check({ out: dir }), []);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

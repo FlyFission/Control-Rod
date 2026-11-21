@@ -27,6 +27,10 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const UPSTREAM = "https://github.com/FlyFission/nuclear-grade-context-engineering";
 const DEFAULT_FROM = "/home/claude/ngce";
 const DEFAULT_OUT = join(REPO, "packs", "nuclear-grade");
+// Files the pack holds that do not come from NGCE: the manifest itself, and the brief token
+// budgets scripts/measure-briefs.mjs writes. Generate keeps budgets.json; check skips both.
+const BUDGETS = "budgets.json";
+const NOT_FROM_NGCE = new Set(["manifest.json", BUDGETS]);
 // Retained license evidence for docs/third-party/register.md.
 const DEFAULT_LICENSES = join(REPO, "third_party", "licenses", "FlyFission__nuclear-grade-context-engineering");
 const TEMPLATE_MODES = ["quick", "standard", "cm"];
@@ -221,7 +225,12 @@ export function generate({ from = DEFAULT_FROM, out = DEFAULT_OUT, licenses } = 
   files.set("LICENSE", readFileSync(join(from, "LICENSE")));
   sources.set("LICENSE", "LICENSE");
 
+  const budgets = existsSync(join(out, BUDGETS)) ? readFileSync(join(out, BUDGETS)) : null;
   rmSync(out, { recursive: true, force: true });
+  if (budgets) {
+    mkdirSync(out, { recursive: true });
+    writeFileSync(join(out, BUDGETS), budgets);
+  }
   for (const [path, bytes] of [...files].sort(([a], [b]) => (a < b ? -1 : 1))) {
     mkdirSync(dirname(join(out, path)), { recursive: true });
     writeFileSync(join(out, path), bytes);
@@ -260,7 +269,7 @@ export function check({ out = DEFAULT_OUT } = {}) {
   if (!existsSync(manifestPath)) return [`${posix(relative(REPO, manifestPath))} is missing`];
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const listed = Object.keys(manifest.files ?? {});
-  const present = listFiles(out).filter((path) => path !== "manifest.json");
+  const present = listFiles(out).filter((path) => !NOT_FROM_NGCE.has(path));
   for (const path of present) if (!listed.includes(path)) problems.push(`${path}: not in manifest`);
   for (const path of listed) {
     const full = join(out, path);

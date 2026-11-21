@@ -114,6 +114,19 @@ for (const look of ["a", "b", "c"]) {
     expect(await scan(page)).toEqual([]);
     await page.keyboard.press("Escape");
 
+    // Slice M2: lenses (group by person, color by person, compact density, and default-view guard).
+    await page.getByLabel("Group by").selectOption("person");
+    await page.getByLabel("Color by").selectOption("person");
+    await page.getByRole("button", { name: "Compact" }).click();
+    await page.getByRole("button", { name: /^Code\s*1$/ }).click();
+    await expect(page.getByText("1 waiting on a signature is hidden by this view")).toBeVisible();
+    expect(await scan(page)).toEqual([]);
+    await page.getByRole("button", { name: "Show" }).click();
+    await expect(page.getByText(/hidden by this view/)).toHaveCount(0);
+    await page.getByRole("button", { name: "Comfortable" }).click();
+    await page.getByLabel("Group by").selectOption("none");
+    await page.getByLabel("Color by").selectOption("kind");
+
     await page.evaluate(() => (window as unknown as { __stream: { emit(t: string): void } }).__stream.emit("error"));
     await expect(page.getByText(/What you see may be out of date/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Reconnect" })).toBeVisible();

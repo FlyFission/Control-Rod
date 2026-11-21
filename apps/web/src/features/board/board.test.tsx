@@ -67,7 +67,11 @@ beforeEach(() => {
   FakeSource.count = 0;
   resetLiveStatus();
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  window.history.replaceState(null, "", "/");
+  window.localStorage.clear();
+});
 
 describe("BoardView", () => {
   it("renders the six column headings in order", async () => {
@@ -714,5 +718,260 @@ describe("context profile", () => {
     await renderPage(<Page />);
     const card = (await screen.findByText("Plant work")).closest("article")!;
     await waitFor(() => expect(within(card).getByText("Nuclear")).toBeTruthy());
+  });
+});
+
+describe("board lenses (M2)", () => {
+  it("shows kind counts, filters by kind, updates the URL, and restores on reload", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-C", title: "Controller patch", deliverables: [{ id: "D1", type: "patch" }] }),
+        pkg({ id: "WP-D", title: "Valve scope", deliverables: [{ id: "D1", type: "scope of work" }] }),
+      ],
+    });
+    const first = await renderPage(<Page />);
+    await screen.findByText("Controller patch");
+    await screen.findByText("Valve scope");
+
+    const user = userEvent.setup();
+    const allBtn = screen.getByRole("button", { name: /^All\s*2$/ });
+    const codeBtn = screen.getByRole("button", { name: /^Code\s*1$/ });
+    const docBtn = screen.getByRole("button", { name: /^Documents\s*1$/ });
+    expect(allBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(codeBtn.getAttribute("aria-pressed")).toBe("false");
+    expect(docBtn.getAttribute("aria-pressed")).toBe("false");
+
+    await user.click(codeBtn);
+    expect(screen.getByText("Controller patch")).toBeTruthy();
+    expect(screen.queryByText("Valve scope")).toBeNull();
+    expect(window.location.search).toContain("kind=code");
+
+    // Simulate reload with the same URL.
+    first.unmount();
+    await renderPage(<Page />);
+    expect(await screen.findByText("Controller patch")).toBeTruthy();
+    expect(screen.queryByText("Valve scope")).toBeNull();
+    expect(screen.getByRole("button", { name: /^Code\s*1$/ }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("toggles Needs you from the header count button as well as the lens bar", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "Needs sign", status: "in-verification" }),
+        pkg({ id: "WP-2", title: "Waiting draft", status: "in-work" }),
+      ],
+      actions: { "WP-1": [accept], "WP-2": [] },
+      runs: { "WP-2": "running" },
+    });
+    await renderPage(<Page />);
+    const countBtn = await screen.findByRole("button", { name: "1 needs you" });
+    const user = userEvent.setup();
+    await user.click(countBtn);
+    expect(screen.getByRole("button", { name: "Needs you" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("Needs sign")).toBeTruthy();
+    expect(screen.queryByText("Waiting draft")).toBeNull();
+    expect(window.location.search).toContain("needs=1");
+  });
+
+  it("groups by person into swimlanes with counts, and updates the legend for colorBy", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "Alpha work", project: "prj_1", deliverables: [{ id: "D1", type: "patch" }] }),
+        pkg({ id: "WP-2", title: "Beta work", project: "prj_2", deliverables: [{ id: "D1", type: "report" }] }),
+        pkg({ id: "WP-3", title: "Gamma work", project: "prj_1", deliverables: [{ id: "D1", type: "patch" }] }),
+      ],
+      originators: { "WP-1": ["ben"], "WP-2": ["ana"], "WP-3": ["ben"] },
+    });
+    await renderPage(<Page />);
+    await screen.findByText("Alpha work");
+
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByLabelText("Group by"), "person");
+    expect(window.location.search).toContain("groupBy=person");
+    const laneEls = Array.from(document.querySelectorAll(".bd-lane"));
+    expect(laneEls.map((el) => el.querySelector(".bd-lane-head")!.textContent)).toEqual(["ana1", "ben2"]);
+    expect(within(laneEls[0] as HTMLElement).getByText("Beta work")).toBeTruthy();
+    expect(within(laneEls[1] as HTMLElement).getByText("Alpha work")).toBeTruthy();
+    expect(within(laneEls[1] as HTMLElement).getByText("Gamma work")).toBeTruthy();
+
+    const legend = document.querySelector(".bd-legend")!;
+    expect(legend.textContent).toContain("Color: Kind");
+    await user.selectOptions(screen.getByLabelText("Color by"), "person");
+    expect(legend.textContent).toContain("Color: Person");
+    expect(legend.textContent).toContain("ana");
+    expect(legend.textContent).toContain("ben");
+  });
+
+  it("enforces the default-view guard for kind, Needs you, Mine, all three together, and a saved view, keeping color/group/density on Show", async () => {
+    const packages = [
+      pkg({ id: "WP-CODE", title: "Code draft", status: "draft", deliverables: [{ id: "D1", type: "patch" }] }),
+      pkg({
+        id: "WP-SIG",
+        title: "Protected doc",
+        status: "in-verification",
+        grade: "general-service",
+        deliverables: [{ id: "D1", type: "scope of work" }],
+      }),
+    ];
+    api({
+      packages,
+      actions: { "WP-CODE": [{ command: "release", label: "Release", allowed: true, signature: "direct" }], "WP-SIG": [] },
+      originators: { "WP-CODE": ["ben"], "WP-SIG": ["ana"] },
+    });
+    server.use(
+      http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-SIG", package_revision: 0 }])),
+    );
+    await renderPage(<Page />);
+    await screen.findByText("Protected doc");
+    const user = userEvent.setup();
+
+    // Set non-filter presentation lenses that Show must preserve.
+    await user.selectOptions(screen.getByLabelText("Color by"), "state");
+    await user.selectOptions(screen.getByLabelText("Group by"), "kind");
+    await user.click(screen.getByRole("button", { name: "Compact" }));
+
+    // 1. Kind filter hides protected doc
+    await user.click(screen.getByRole("button", { name: /^Code\s*1$/ }));
+    expect(await screen.findByText("1 waiting on a signature is hidden by this view")).toBeTruthy();
+    expect(screen.queryByText("Protected doc")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.queryByText(/hidden by this view/)).toBeNull();
+    expect(screen.getByText("Protected doc")).toBeTruthy();
+    expect((screen.getByLabelText("Color by") as HTMLSelectElement).value).toBe("state");
+    expect((screen.getByLabelText("Group by") as HTMLSelectElement).value).toBe("kind");
+    expect(screen.getByRole("button", { name: "Compact" }).getAttribute("aria-pressed")).toBe("true");
+
+    // 2. Needs you filter hides protected doc (which has tone "wait")
+    await user.click(screen.getByRole("button", { name: "Needs you" }));
+    expect(await screen.findByText("1 waiting on a signature is hidden by this view")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.queryByText(/hidden by this view/)).toBeNull();
+    expect(screen.getByText("Protected doc")).toBeTruthy();
+
+    // 3. Mine filter hides protected doc (originated by ana, viewer is ben)
+    await user.click(screen.getByRole("button", { name: "Mine" }));
+    expect(await screen.findByText("1 waiting on a signature is hidden by this view")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.queryByText(/hidden by this view/)).toBeNull();
+    expect(screen.getByText("Protected doc")).toBeTruthy();
+
+    // 4. All three active together -> save as a view, reset, apply saved view, then Show
+    await user.click(screen.getByRole("button", { name: /^Code\s*1$/ }));
+    await user.click(screen.getByRole("button", { name: "Needs you" }));
+    await user.click(screen.getByRole("button", { name: "Mine" }));
+    expect(await screen.findByText("1 waiting on a signature is hidden by this view")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Save view" }));
+    await user.type(screen.getByLabelText("View name"), "My code");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await user.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.queryByText(/hidden by this view/)).toBeNull();
+    expect(screen.getByText("Protected doc")).toBeTruthy();
+
+    // Selecting the saved view reapplies its filters and triggers the guard; Show clears its filters.
+    await user.selectOptions(screen.getByLabelText("Saved view"), "My code");
+    expect(await screen.findByText("1 waiting on a signature is hidden by this view")).toBeTruthy();
+    expect(screen.queryByText("Protected doc")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show" }));
+    expect(screen.queryByText(/hidden by this view/)).toBeNull();
+    expect(screen.getByText("Protected doc")).toBeTruthy();
+  });
+
+  it("hides avatars and grade chips in compact density while keeping the next line", async () => {
+    api({
+      packages: [pkg({ id: "WP-1", title: "Compact card", grade: "general-service", status: "in-verification" })],
+      actions: { "WP-1": [accept] },
+      originators: { "WP-1": ["ben"] },
+    });
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Compact card")).closest("article")!;
+    await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("Accept"));
+    expect(card.querySelectorAll(".bd-avatar").length).toBeGreaterThan(0);
+    expect(card.querySelector(".bd-chip")).not.toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Compact" }));
+    expect(document.querySelector(".bd")!.getAttribute("data-density")).toBe("compact");
+    expect(card.querySelectorAll(".bd-avatar").length).toBe(0);
+    expect(card.querySelector(".bd-chip")).toBeNull();
+    expect(card.querySelector(".bd-next")!.textContent).toContain("Accept");
+  });
+
+  it("pluralizes the default-view guard notice when multiple protected cards are hidden", async () => {
+    const packages = [
+      pkg({ id: "WP-CODE", title: "Code draft", status: "draft", deliverables: [{ id: "D1", type: "patch" }] }),
+      pkg({ id: "WP-SIG", title: "Doc signature", status: "in-verification", grade: "general-service", deliverables: [{ id: "D1", type: "scope of work" }] }),
+      pkg({ id: "WP-PV", title: "Doc verify", status: "in-verification", grade: "safety", deliverables: [{ id: "D1", type: "calculation" }] }),
+    ];
+    api({ packages });
+    server.use(
+      http.get("*/office", () =>
+        HttpResponse.json([
+          { id: "o1", kind: "accept", package_id: "WP-SIG", package_revision: 0 },
+          { id: "o2", kind: "accept", package_id: "WP-PV", package_revision: 0 },
+        ]),
+      ),
+    );
+    await renderPage(<Page />);
+    await screen.findByText("Doc signature");
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /^Code\s*1$/ }));
+    expect(await screen.findByText("2 waiting on a signature are hidden by this view")).toBeTruthy();
+  });
+
+  it("selects Custom view when lenses are modified so Default view can be chosen to reset", async () => {
+    api({
+      packages: [
+        pkg({ id: "WP-1", title: "Code one", deliverables: [{ id: "D1", type: "patch" }] }),
+        pkg({ id: "WP-2", title: "Doc one", deliverables: [{ id: "D1", type: "report" }] }),
+      ],
+    });
+    await renderPage(<Page />);
+    await screen.findByText("Code one");
+
+    const user = userEvent.setup();
+    const select = screen.getByLabelText("Saved view") as HTMLSelectElement;
+    expect(select.value).toBe("");
+
+    await user.click(screen.getByRole("button", { name: /^Code\s*1$/ }));
+    expect(select.value).toBe("__custom__");
+    expect(screen.queryByText("Doc one")).toBeNull();
+    expect(window.location.search).toContain("kind=code");
+
+    await user.selectOptions(select, "");
+    expect(select.value).toBe("");
+    expect(screen.getByText("Doc one")).toBeTruthy();
+    expect(window.location.search).toBe("");
+  });
+
+  it("respects counts confidence in the lens bar and legend for unknown and last-known reads", async () => {
+    api({ packages: [] });
+    let failPackages = true;
+    server.use(
+      http.get("*/packages", () =>
+        failPackages
+          ? HttpResponse.json({ code: "boom" }, { status: 500 })
+          : HttpResponse.json([pkg({ id: "WP-1", title: "One", deliverables: [{ id: "D1", type: "patch" }] })]),
+      ),
+    );
+    await renderPage(<Page />);
+    expect(await screen.findByText(/Could not load the work on this board/)).toBeTruthy();
+    expect(screen.getByText("Counts unknown until the work is read")).toBeTruthy();
+    const kinds = screen.getByRole("group", { name: "Kind" });
+    expect(kinds.textContent).not.toContain("0");
+    expect(kinds.textContent).toContain("—");
+    const legend = document.querySelector(".bd-legend")!;
+    expect(legend.textContent).toContain("Counts unknown");
+    expect(legend.textContent).not.toContain("0 of 0");
+
+    failPackages = false;
+    await userEvent.setup().click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("One")).toBeTruthy();
+    expect(legend.textContent).toContain("1 of 1");
+
+    act(() => FakeSource.last!.emit("error"));
+    expect(await screen.findByText("Last known counts")).toBeTruthy();
+    expect(legend.textContent).toContain("Last known: 1 of 1");
   });
 });

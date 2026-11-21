@@ -20,6 +20,14 @@ Rollback: revert the commit. Tooling and documentation only.
 
 Monitoring after merge: a record dated 2026-11-19 or later that fails `tools/check_owner_decisions.py`; a case result that differs on rerun.
 
+## Settled on 2026-11-21
+
+The owner delegated the close-out (D4 in [basis](basis.md)). Each point below is the agent's own choice under that delegation, open to the owner, unless it says otherwise.
+
+1. The PL8 table and its 2026-11-19 start date are accepted. Agent's choice under D4.
+2. Quoted words in this pull request's five records: **not confirmed by the owner word for word.** The D1 quotes ("yes, write the pattern note", "start PL6 and PL7", "start PL1 and PL2", "start PL3 and PL4", "start PL5 and PL8") and the signature quote "yes" were recorded by earlier agent sessions. This agent cannot see those sessions. The work each quote started is in this pull request.
+3. Instruction checks on a subscription login: left open until the C-8 terms finding. Runs stay manual.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

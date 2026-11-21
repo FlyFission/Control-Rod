@@ -23,7 +23,7 @@ Source: <owner/repo> at <full 40 character commit>, license <SPDX id>, read on <
 
 <Upstream files or functions near the port that were deliberately left out, and why.>
 
-## Behaviour differences that could not be avoided
+## Unavoidable behaviour differences
 
 1. <Each place where the port behaves differently from upstream, what the caller must do about it, and the test that pins it.>
 ```

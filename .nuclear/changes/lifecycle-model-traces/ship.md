@@ -31,6 +31,15 @@ Rollback: revert the commit. No decision function, schema or wire change.
 
 Monitoring after merge: a replay failure means the kernel, its WebAssembly build or the model changed. Find which before regenerating traces.
 
+## Settled on 2026-11-21
+
+The owner delegated the close-out (D3 in [basis](basis.md)). Each point below is the agent's own choice under that delegation, open to the owner, unless it says otherwise.
+
+1. The `kernel/` test is signed anyway (see Signature), so whether it needed a signature no longer blocks.
+2. D2 stands: the package lifecycle first, then run lease and claim.
+3. Reason codes are treated as part of the kernel's contract, as the model and traces assume. Agent's choice under D3, open to the owner.
+4. Review of the model against the kernel's floors: done by an agent that did not write the model (`evidence/04-model-review.md`). No disagreement was found, and four coverage gaps are listed. A person has not reviewed it.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

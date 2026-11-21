@@ -30,6 +30,14 @@ Rollback: revert the commit. Additive contracts and a pure module; no schema mig
 
 Monitoring after merge: any slice that uses anchors or builds plan approval opens its own record and names its gate.
 
+## Settled on 2026-11-21
+
+The owner delegated the close-out (D4 in [basis](basis.md)). Each point below is the agent's own choice under that delegation, open to the owner, unless it says otherwise.
+
+1. The anchor contract is signed (see Signature).
+2. Plan approval design: option A versus B, which packages need a plan, and whether "work follows an approved plan" becomes a kernel floor are left open. The design ships as a design, merging it builds nothing, and the kernel floor needs its own signature.
+3. D2 and D3 stand.
+
 ## Required links
 
 [Risk](risk.md), [basis](basis.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

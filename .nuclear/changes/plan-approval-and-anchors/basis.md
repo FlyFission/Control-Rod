@@ -35,6 +35,7 @@ Out of scope:
 | D1 | Start PL3 and PL4. | "start PL3 and PL4" | 2026-11-18, Claude Code session for this pull request | Build the anchor contract and check; run the PL4 spike and write a design. | Routes, tables or views; any daemon or kernel change. |
 | D2 | PL3 lands as a contract and a pure check with no route; review panel R3 and a later plan review slice will use it. | none: authoring agent's choice, open to the owner | 2026-11-18, this record | As stated. | Any route, migration or view. |
 | D3 | PL4 stops at a spike and a design. Building it touches the daemon's agent authority and possibly a kernel floor, each gated. | none: authoring agent's choice, open to the owner | 2026-11-18, this record | As stated. | Building any slice of the design. |
+| D4 | Close out the pull request: settle the open decisions by the agent's best judgement and merge. | "You have my permission to close all of these out in the objectively best way possible continue" | 2026-11-21, Claude project thread "Close out the open review decisions", in reply to a list of the open decisions on #88, #92 and #102 with a recommendation for each | The agent settles each open decision in this record by the recommendation it gave, records each as its own choice, and merges once CI is green. | Confirming words the owner gave in earlier sessions; a person's read of the note for copied wording; any new trust-surface change; building any item. |
 
 ## Assumptions and invalidation triggers
 

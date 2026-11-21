@@ -12,7 +12,7 @@ This file was written after the port merged, by change `agents-map-provenance`, 
 
 Everything that reads the repository's own git config before running git. Upstream uses it to replace filter drivers defined in that config with the global or system definition, to refuse a remote operation when that config has keys outside an allowlist, and to check afterwards that the config did not change. The LFS endpoint and scoped credential helpers were left out with it.
 
-## Behaviour differences that could not be avoided
+## Unavoidable behaviour differences
 
 1. **Filter drivers and other repository-config commands are not neutralized.** Upstream's file comment says its `HostGitCommand` replaces filter drivers defined in the repository's config and refuses unexpected config on remote operations. The port carries only the fixed `-c` settings and the environment scrub. A filter driver set in a repository's own config is therefore not replaced by this file, and nothing here refuses unexpected config. Whether a run can write that config depends on the runtime mounts. No test pins this either way. This difference was found while writing this backfill. It is reported to the owner and is not changed here.
 2. **`core.hooksPath=/dev/null` on Windows.** Upstream uses `os.DevNull`, which is `NUL` on Windows; the port uses `/dev/null` everywhere. No test covers Windows.

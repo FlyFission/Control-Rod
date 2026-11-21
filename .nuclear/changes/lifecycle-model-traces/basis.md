@@ -28,6 +28,7 @@ Out of scope:
 |---|---|---|---|---|---|
 | D1 | Start PL1 and PL2. | "start PL1 and PL2" | 2026-11-18, Claude Code session for this pull request | Build a first model and conformance traces with replays. | Changing a kernel decision function; modelling every lifecycle. |
 | D2 | Model the package lifecycle first rather than run lease and claim. | none: authoring agent's choice, open to the owner | 2026-11-18, this record | The lifecycle is pure, is decided in one function, and runs in two forms (native and WebAssembly), so traces can compare implementations without a database. | Run lease and claim, left for a later change. |
+| D3 | Close out the pull request: settle the open decisions by the agent's best judgement and merge. | "You have my permission to close all of these out in the objectively best way possible continue" | 2026-11-21, Claude project thread "Close out the open review decisions", in reply to a list of the open decisions on #88, #92 and #102 with a recommendation for each | The agent settles each open decision in this record by the recommendation it gave, records each as its own choice, and merges once CI is green. | Confirming words the owner gave in earlier sessions; a person's read of the note for copied wording; any new trust-surface change; building any item. |
 
 ## Assumptions and invalidation triggers
 

@@ -19,6 +19,7 @@ In scope: the pattern note, one line in `docs/patterns/README.md`, and this chan
 | # | Decision | Owner's words | Given | Reading | Out of scope |
 |---|---|---|---|---|---|
 | D1 | Write the pattern note. | "yes, write the pattern note" | 2026-11-16, Claude Code session for this pull request, in reply to the offer to write `docs/patterns/plannotator.md` | Write the note with a decision for each item, and its change record. | Building any item; the copied-wording check, which needs someone other than the author. |
+| D2 | Close out the pull request: settle the open decisions by the agent's best judgement and merge. | "You have my permission to close all of these out in the objectively best way possible continue" | 2026-11-21, Claude project thread "Close out the open review decisions", in reply to a list of the open decisions on #88, #92 and #102 with a recommendation for each | The agent settles each open decision in this record by the recommendation it gave, records each as its own choice, and merges once CI is green. | Confirming words the owner gave in earlier sessions; a person's read of the note for copied wording; any new trust-surface change; building any item. |
 
 ## Assumptions and invalidation triggers
 

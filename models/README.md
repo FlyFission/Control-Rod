@@ -37,7 +37,7 @@ A mismatch fails the test and names the trace, step, request and both answers. B
 
 ### Trace format, version 1
 
-`index.json` lists the trace files, each with its SHA-256, and the SHA-256 of the model that produced them. Each trace file holds:
+`index.json` names every trace file with its SHA-256, and the SHA-256 of the model that produced them. Each trace file holds:
 
 | Field | Meaning |
 | --- | --- |

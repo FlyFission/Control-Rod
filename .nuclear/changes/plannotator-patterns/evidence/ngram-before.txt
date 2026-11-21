@@ -1,0 +1,99 @@
+== .nuclear/changes/agents-map-provenance/basis.md: 487 words, 0 shared 6-word runs
+== .nuclear/changes/agents-map-provenance/plan.md: 194 words, 0 shared 6-word runs
+== .nuclear/changes/agents-map-provenance/risk.md: 381 words, 0 shared 6-word runs
+== .nuclear/changes/agents-map-provenance/ship.md: 463 words, 0 shared 6-word runs
+== .nuclear/changes/agents-map-provenance/trace.md: 304 words, 0 shared 6-word runs
+== .nuclear/changes/agents-map-provenance/verification.md: 466 words, 0 shared 6-word runs
+== .nuclear/changes/instruction-checks-and-owner-words/basis.md: 661 words, 0 shared 6-word runs
+== .nuclear/changes/instruction-checks-and-owner-words/plan.md: 210 words, 0 shared 6-word runs
+== .nuclear/changes/instruction-checks-and-owner-words/risk.md: 420 words, 0 shared 6-word runs
+== .nuclear/changes/instruction-checks-and-owner-words/ship.md: 375 words, 0 shared 6-word runs
+== .nuclear/changes/instruction-checks-and-owner-words/trace.md: 341 words, 0 shared 6-word runs
+== .nuclear/changes/instruction-checks-and-owner-words/verification.md: 585 words, 0 shared 6-word runs
+== .nuclear/changes/lifecycle-model-traces/basis.md: 612 words, 0 shared 6-word runs
+== .nuclear/changes/lifecycle-model-traces/plan.md: 210 words, 0 shared 6-word runs
+== .nuclear/changes/lifecycle-model-traces/risk.md: 463 words, 0 shared 6-word runs
+== .nuclear/changes/lifecycle-model-traces/ship.md: 520 words, 0 shared 6-word runs
+== .nuclear/changes/lifecycle-model-traces/trace.md: 302 words, 0 shared 6-word runs
+== .nuclear/changes/lifecycle-model-traces/verification.md: 567 words, 0 shared 6-word runs
+== .nuclear/changes/plan-approval-and-anchors/basis.md: 581 words, 0 shared 6-word runs
+== .nuclear/changes/plan-approval-and-anchors/plan.md: 199 words, 0 shared 6-word runs
+== .nuclear/changes/plan-approval-and-anchors/risk.md: 414 words, 0 shared 6-word runs
+== .nuclear/changes/plan-approval-and-anchors/ship.md: 519 words, 0 shared 6-word runs
+== .nuclear/changes/plan-approval-and-anchors/trace.md: 316 words, 0 shared 6-word runs
+== .nuclear/changes/plan-approval-and-anchors/verification.md: 519 words, 2 shared 6-word runs
+   'a 1 a 2 a 3'  <- packages/shared/pr-gitlab.test.ts
+   'a 2 a 3 a 4'  <- packages/shared/shape/stamps.ts
+== .nuclear/changes/plannotator-patterns/basis.md: 421 words, 2 shared 6-word runs
+   'is licensed mit or apache 2'  <- packages/references/PROVENANCE.md
+   'licensed mit or apache 2 0'  <- packages/references/PROVENANCE.md
+== .nuclear/changes/plannotator-patterns/plan.md: 194 words, 0 shared 6-word runs
+== .nuclear/changes/plannotator-patterns/risk.md: 380 words, 0 shared 6-word runs
+== .nuclear/changes/plannotator-patterns/ship.md: 238 words, 0 shared 6-word runs
+== .nuclear/changes/plannotator-patterns/trace.md: 210 words, 0 shared 6-word runs
+== .nuclear/changes/plannotator-patterns/verification.md: 315 words, 1 shared 6-word runs
+   'n 1 n 2 n 3'  <- packages/server/inbox-walkthrough.test.ts
+== .nuclear/changes/wave1-hardened-worktrees/provenance.md: 541 words, 4 shared 6-word runs
+   'removed renamed or changed tests carried'  <- packages/references/PROVENANCE.md
+   'behaviour differences that could not be'  <- packages/references/PROVENANCE.md
+   'differences that could not be avoided'  <- packages/references/PROVENANCE.md
+   'that could not be avoided 1'  <- packages/references/PROVENANCE.md
+== docs/README.md: 733 words, 0 shared 6-word runs
+== docs/collaboration.md: 1710 words, 0 shared 6-word runs
+== docs/getting-started.md: 1115 words, 0 shared 6-word runs
+== docs/patterns/README.md: 359 words, 0 shared 6-word runs
+== docs/patterns/plannotator.md: 1555 words, 35 shared 6-word runs
+   'is licensed mit or apache 2'  <- packages/references/PROVENANCE.md
+   'licensed mit or apache 2 0'  <- packages/references/PROVENANCE.md
+   'mit or apache 2 0 license'  <- apps/opencode-plugin/README.md
+   'paths below are relative to that'  <- packages/references/PROVENANCE.md
+   'back to the agent as its'  <- README.md
+   'to the agent as its next'  <- README.md
+   'the real code through the same'  <- spec/README.md
+   'real code through the same actions'  <- spec/README.md
+   'packages server update lifecycle model test'  <- spec/README.md
+   'server update lifecycle model test ts'  <- spec/README.md
+   'packages shared inbox fixtures thread state'  <- adr/implementation/inbox-thread-state.md
+   'shared inbox fixtures thread state v1'  <- adr/implementation/inbox-thread-state.md
+   'docs agent guides plan review md'  <- CLAUDE.md
+   'tested clean room a fresh agent'  <- packages/inbox/agents/animatePrompt.ts
+   'clean room a fresh agent with'  <- CLAUDE.md
+   'room a fresh agent with only'  <- CLAUDE.md
+   'a fresh agent with only that'  <- CLAUDE.md
+   'fresh agent with only that text'  <- CLAUDE.md
+   'agent with only that text in'  <- CLAUDE.md
+   'with only that text in a'  <- CLAUDE.md
+   'only that text in a scratch'  <- CLAUDE.md
+   'that text in a scratch folder'  <- CLAUDE.md
+   'text in a scratch folder outside'  <- CLAUDE.md
+   'a file that does not exist'  <- packages/shared/feedback-archive.ts
+   'tests agents md size test ts'  <- CLAUDE.md
+   'behaviour differences that could not be'  <- packages/references/PROVENANCE.md
+   'differences that could not be avoided'  <- packages/references/PROVENANCE.md
+   'in docs agent guides project and'  <- apps/guides-show/README.md
+   'docs agent guides project and development'  <- CLAUDE.md
+   'agent guides project and development md'  <- CLAUDE.md
+   'tests child env guard test ts'  <- packages/shared/child-env.ts
+   'back to the session that asked'  <- README.md
+   'docs agent guides guides and shared'  <- CLAUDE.md
+   'agent guides guides and shared ui'  <- CLAUDE.md
+   'guides guides and shared ui md'  <- CLAUDE.md
+== docs/superpowers/specs/2026-11-18-plan-approval-design.md: 874 words, 0 shared 6-word runs
+== docs/third-party/port-provenance.md: 301 words, 4 shared 6-word runs
+   'removed renamed or changed tests carried'  <- packages/references/PROVENANCE.md
+   'behaviour differences that could not be'  <- packages/references/PROVENANCE.md
+   'differences that could not be avoided'  <- packages/references/PROVENANCE.md
+   'that could not be avoided 1'  <- packages/references/PROVENANCE.md
+== docs/third-party/register.md: 452 words, 2 shared 6-word runs
+   'the sil open font license 1'  <- packages/inbox/assets/icon-sets/noto-3d/LICENSE.md
+   'sil open font license 1 1'  <- packages/inbox/assets/icon-sets/noto-3d/LICENSE.md
+== models/README.md: 771 words, 8 shared 6-word runs
+   'lifecycle qnt is a quint https'  <- spec/README.md
+   'qnt is a quint https quint'  <- spec/README.md
+   'is a quint https quint lang'  <- spec/README.md
+   'a quint https quint lang org'  <- spec/README.md
+   'quint https quint lang org model'  <- spec/README.md
+   'https quint lang org model of'  <- spec/README.md
+   'index json lists the trace files'  <- packages/shared/inbox/fixtures/thread-state/v1/README.md
+   'json lists the trace files each'  <- packages/shared/inbox/fixtures/thread-state/v1/README.md
+== models/package-lifecycle.qnt: 2418 words, 0 shared 6-word runs

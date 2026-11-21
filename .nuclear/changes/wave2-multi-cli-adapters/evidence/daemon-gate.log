@@ -1,0 +1,10 @@
+=== RUN   TestRegistry
+--- PASS: TestRegistry (0.00s)
+=== RUN   TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv
+--- PASS: TestSandboxedAdaptersRefuseNilPolicyAndUseAgentEnv (0.01s)
+=== RUN   TestAwaitingConfinementIsRefused
+--- PASS: TestAwaitingConfinementIsRefused (0.01s)
+=== RUN   TestEgressFilterBlocksAndAllowsConnect
+--- PASS: TestEgressFilterBlocksAndAllowsConnect (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.039s

@@ -59,23 +59,36 @@ Claim: four statements, one per bullet.
 
 ### Gaps
 
-- A person has not yet checked the note against the source files for copied wording, as `docs/patterns/README.md` asks. An agent did, with the n-gram script and the review. **Open: maintainer check.**
+- A person has not checked the note against the source files for copied wording, as `docs/patterns/README.md` asks. Agents did, with the n-gram script and the review. The owner accepted this by delegation (see Sign-off).
 - Owner questions left open in the note: row 2 (fail-closed outcomes and expiring overrides, with xerj.md row 6), row 3 (identity matching for qualification arms), row 9 (exception messages in logs, with xerj.md row 4). Also open: the workspace gap named in the threat-model row, and whether it gets a red-team case (`tests/redteam/` needs a signature).
 - The "Not tested" line is not enforced. An automated check would touch `.github/workflows/`.
 - Headroom's own figures were not reproduced and are not relied on.
 
 ## Reviewer note
 
-- Reviewer: Ben Huffer (pending on the PR)
-- Review note: check the note against the Headroom files in its header, and decide the open questions above.
-- Is Quick mode still valid after proof? yes/no: yes, because no trust surface was edited.
+- Reviewer: Ben Huffer, by delegation (see Sign-off). No person has read the note line by line.
+- Review note: the open questions in the note (rows 2, 3 and 9) stay open; merging the note does not answer them. The red-team case for the author-workspace gap is a separate change, because it touches `tests/redteam/`.
+- Is Quick mode still valid after proof? yes/no: yes. The only file under a CODEOWNERS path is `.github/pull_request_template.md` (two lines, not under `.github/workflows/`), and it is covered by the sign-off below.
+
+## Sign-off
+
+Recorded under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-maintainer-sign-off), because `docs/collaboration.md` lists `.github/` among the CODEOWNERS trust surfaces even though AGENTS.md rule 2 names only `.github/workflows/`.
+
+| Field | Entry |
+|---|---|
+| Decision | Approve: pull request #102 as it stood at `c8c68de`, including the `.github/pull_request_template.md` line |
+| Question | A message in the owner's Claude project thread "Close out the open review decisions", posted 2026-11-21 about 12:50 UTC (7:50 AM EST). It named #102, said the pull request ticks "None" for trust surfaces but edits the PR template under `.github/`, which CODEOWNERS lists, and recommended the owner give a recorded yes |
+| Answer | "You have my permission to close all of these out in the objectively best way possible continue", Ben Huffer, project owner and sole maintainer, in the same thread, 2026-11-21 13:24 UTC (8:24 AM EST, America/New_York) |
+| Head when asked | `c8c68de`. After the yes, `main` was merged in without conflict and this `proof.md` was updated; no other file in this change was touched |
+| Copied-wording check | Still done by agents only: the n-gram script and the separate agent review above. The owner delegated the close-out and did not read the note in person. This gap is accepted by delegation, not closed |
+| Recorded by | An agent working for the owner in that thread, from the chat message. Ben Huffer did not write this entry, and no signature or initials were typed for him |
 
 ## Required links
 
 - Related PR/issue: draft PR on branch `claude/focused-noether-n5a59m`
 - Relevant changed files: `docs/patterns/headroom.md`, `docs/patterns/README.md`, `docs/threat-model.md`, `.github/pull_request_template.md`
 - CI run / test output / eval report / screenshot / log: `evidence/ngram-check.txt`, `evidence/review-dispositions.md`, `evidence/checks.txt`, `evidence/trust-surface-diff.txt`, `evidence/validate.log`
-- If AI-assisted: link to AI scope or independent check note: an AI agent wrote everything here under the owner's instruction; a separate agent instance reviewed it (`evidence/review-dispositions.md`); no human has reviewed it yet.
+- If AI-assisted: link to AI scope or independent check note: an AI agent wrote everything here under the owner's instruction; a separate agent instance reviewed it (`evidence/review-dispositions.md`); no human has read it line by line; the owner signed off by delegation (see Sign-off).
 
 ## Exit criteria
 

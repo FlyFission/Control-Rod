@@ -23,8 +23,8 @@
 - Affected files/configs/docs: `docs/patterns/headroom.md` (new), `docs/patterns/README.md` (one line), `docs/threat-model.md` (one row), `.github/pull_request_template.md` (one line), this record.
 - Controlled items touched: a pattern note (design input), the threat model (draft), the PR template.
   - Not touched: `.github/workflows/`, `policies/`, `tests/redteam/`, `spec/`, `kernel/`, `docs/adr/`.
-  - The PR template sits under `/.github/`, which CODEOWNERS routes to the maintainer for review. AGENTS.md rule 2 does not list it as a trust surface.
-- User-visible behavior changed? yes/no: no (contributors see one more line in the PR template)
+  - The PR template sits under `/.github/`, which CODEOWNERS and `docs/collaboration.md` list as a trust surface, though AGENTS.md rule 2 names only `.github/workflows/`. It is covered by the sole-maintainer sign-off in `proof.md`.
+- User-visible behavior changed? yes/no: yes. Contributors see one more line in the PR template.
 - Dependency/model/API/prompt/tool permission changed? yes/no: no
 - Release or rollback posture changed? yes/no: no
 

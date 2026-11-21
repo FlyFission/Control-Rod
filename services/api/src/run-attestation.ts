@@ -46,11 +46,17 @@ export function harnessName(provider: string): string {
   const p = provider.toLowerCase();
   if (p === "anthropic" || p === "claude" || p === "claude-code") return "claude";
   if (p === "openai" || p === "codex") return "codex";
+  if (p === "xai" || p === "grok" || p === "grok-cli") return "grok";
+  if (p === "opencode") return "opencode";
+  if (p === "agy" || p === "antigravity" || p === "gemini-cli") return "agy";
+  if (p === "ollama" || p === "local-ollama") return "ollama";
   return p;
 }
 
 export function countedProvider(provider: unknown): boolean {
   const n = harnessName(String(provider ?? ""));
+  // Grok CLI, OpenCode, Antigravity and Ollama are named above but not counted: they have no
+  // registered models and the daemon does not start them yet, so a pre-check on one cannot count.
   return n === "claude" || n === "codex";
 }
 

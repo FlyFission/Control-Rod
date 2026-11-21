@@ -7,5 +7,5 @@
 > openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
 
 ✨ openapi-typescript 7.13.0
-🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [278ms]
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [230.1ms]
 exit 0

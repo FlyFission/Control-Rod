@@ -54,8 +54,16 @@ async function mockBoardApi(page: Page, look: string) {
   await page.route("**/packages/*", (r) => {
     const id = new URL(r.request().url()).pathname.split("/")[2];
     const p = packages.find((x) => x.id === id);
-    return r.fulfill({ json: { package: p, runs: id === "WP-3" ? [{ id: "R-1", package_id: id, package_revision: 0, role: "author", status: "running" }] : [], outputs: [], decisions: [], subject_digest: { algorithm: "sha256", value: "0".repeat(64) }, originators: ["ben"] } });
+    return r.fulfill({ json: { package: p, runs: id === "WP-3" ? [{ id: "R-1", package_id: id, package_revision: 0, role: "author", status: "running", round: 1, agent_baseline: "site-author", runtime: { kind: "local", provider: "claude", model: "any" }, queued_at: "2026-11-21T10:00:00Z", started_at: "2026-11-21T10:00:05Z" }] : [], outputs: [], decisions: [], subject_digest: { algorithm: "sha256", value: "0".repeat(64) }, originators: ["ben"] } });
   });
+  // The agent panel's transcript for the running author (click-to-talk slice S1).
+  await page.route("**/packages/*/runs/*/events**", (r) =>
+    r.fulfill({ json: { events: [
+      { seq: 1, event: { kind: "message", at: "2026-11-21T10:00:06Z", text: "Reading the brief" } },
+      { seq: 2, event: { kind: "tool_start", at: "2026-11-21T10:00:07Z", tool: "Edit", summary: "Edit src/controller.ts", call_id: "c1" } },
+      { seq: 3, event: { kind: "tool_end", at: "2026-11-21T10:00:08Z", call_id: "c1", ok: true } },
+    ] } }),
+  );
   await page.route("**/packages/*/actions", (r) => r.fulfill({ json: [{ command: "accept", label: "Accept", allowed: true, signature: "direct" }] }));
   await page.route("**/packages/*/person-verifications", (r) => r.fulfill({ json: [] }));
   // One unclassified capture at the top of Ready (slice M4): its lane choices are inline.
@@ -110,6 +118,20 @@ for (const look of ["a", "b", "c"]) {
     await expect(page.getByText(/What you see may be out of date/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Reconnect" })).toBeVisible();
     await expect(page.getByText(/^Status unknown since /).first()).toBeVisible();
+    expect(await scan(page)).toEqual([]);
+  });
+}
+
+for (const look of ["a", "b", "c"]) {
+  test(`the review drawer's agent panel has no axe violations in look ${look}`, async ({ page }) => {
+    await mockBoardApi(page, look);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Controller patch", exact: true }).click();
+    const panel = page.getByRole("region", { name: "Author agent" });
+    await expect(panel.getByRole("log", { name: "Author transcript" })).toBeVisible();
+    await expect(panel.getByText("Edit src/controller.ts")).toBeVisible();
+    await expect(panel.getByText(/cannot be steered/)).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Stop this run" })).toBeVisible();
     expect(await scan(page)).toEqual([]);
   });
 }

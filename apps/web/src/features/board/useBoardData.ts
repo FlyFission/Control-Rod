@@ -5,6 +5,7 @@ import type { ActionDescriptor, CaptureView, Digest, PersonVerificationEntry, Wo
 import { type ColumnId, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, preCheckState, verificationRead } from "../../lib/board.js";
 import { type Kind, kindsOf } from "../../lib/kind.js";
 import { useLiveStatus } from "../../lib/live.js";
+import { projectContextDefault, resolveContextProfile } from "../../lib/context-profile.js";
 import { type NextLine, hasOtherQualified, nextLine } from "../../lib/next.js";
 
 export type BoardCard = {
@@ -30,6 +31,8 @@ export type BoardCard = {
   digest?: Digest;
   /** The run that Stop would end, when one is queued or running. */
   activeRunId?: string;
+  /** The brief carries the Nuclear context (card value, else project default; Safety and Material always). */
+  nuclear: boolean;
 };
 
 /** How far a count can be trusted: from current reads, from reads not refreshed since a drop or failed to refresh, or not at all. */
@@ -198,6 +201,7 @@ export function useBoardData(): BoardData {
       offered = offeredNow;
     }
     if (next === CHECKING || next === NO_NEXT || retry !== undefined) undetermined = true;
+    const nuclear = resolveContextProfile(p, projectContextDefault(admin.data?.projects, p.project)).profile === "nuclear";
     // Actions are offered only from current reads: a last-known card shows its line but offers nothing.
     const actionable = cardFresh && live.status === "live" ? { offered, view } : undefined;
     cards.push({
@@ -209,6 +213,7 @@ export function useBoardData(): BoardData {
       runActive,
       ...(retry ? { retry } : {}),
       lastKnown: !cardFresh,
+      nuclear,
       ...(actionable?.offered && actionable.view ? { offered: actionable.offered, digest: actionable.view.subject_digest } : {}),
       ...(actionable?.offered && actionable.view && activeRun ? { activeRunId: activeRun.id } : {}),
     });

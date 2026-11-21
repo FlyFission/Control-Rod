@@ -19,7 +19,7 @@ const refuse = (command: string, reason: string, change: string): ActionDescript
 
 function card(over: Partial<BoardCard> = {}): BoardCard {
   const p = pkg({ id: "WP-7", title: "Pump curve memo", status: "in-verification", revision: 2 });
-  return { pkg: p, kinds: ["doc"], column: "needs-signature", next: { tone: "needs", text: "Accept or return" }, runActive: false, lastKnown: false, offered: [allow("accept"), allow("return")], digest: DIGEST, ...over };
+  return { pkg: p, kinds: ["doc"], column: "needs-signature", next: { tone: "needs", text: "Accept or return" }, runActive: false, lastKnown: false, nuclear: false, offered: [allow("accept"), allow("return")], digest: DIGEST, ...over };
 }
 
 function passkeys(calls: unknown[]): Passkeys {

@@ -1,0 +1,21 @@
+$ pnpm -r run typecheck
+exit 0 (every workspace package with a typecheck script)
+
+$ pnpm --filter @control-rod/spec run build && git diff --exit-code -- spec/generated
+exit 0, no diff
+
+$ TEST_DATABASE_URL=postgres://postgres:test@127.0.0.1:55432/postgres pnpm -r run test
+scripts test: # pass 12
+scripts test: # fail 0
+scripts test: # skipped 1
+apps/web test:  Test Files  46 passed (46)
+apps/web test:       Tests  631 passed (631)
+services/api test:  FAIL  test/command-boundary.test.ts > database logins > SEC-01: the reader cannot switch to the writer or the owner, by any spelling
+services/api test:  FAIL  test/command-boundary.test.ts > database logins > SEC-03: a command's client is unusable after the command and cannot control its transaction
+services/api test:  Test Files  1 failed | 62 passed | 1 skipped (64)
+services/api test:       Tests  2 failed | 778 passed | 1 skipped (781)
+
+$ TEST_DATABASE_URL=postgres://controlrod:test@127.0.0.1:55433/postgres npx vitest run test/command-boundary.test.ts   (rerun of the two failures on a server whose superuser is controlrod, as the harness's own cluster names it)
+Test Files  1 passed (1); Tests  33 passed (33)
+
+Same two failures on origin/main 9ff3b08 against the postgres-superuser server: Tests  2 failed | 31 passed (33)

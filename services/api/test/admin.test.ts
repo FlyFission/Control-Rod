@@ -129,6 +129,11 @@ describe("commands", () => {
     expect(created.json()).toMatchObject({ autonomy_level: 0, status: "active" });
     const updated = await signed(ben, benKey, "project.update", { project_id: project, default_rigor: "high-consequence" });
     expect(updated.json().default_rigor).toBe("high-consequence");
+    expect(updated.json().default_context_profile).toBeUndefined();
+    const nuclear = await signed(ben, benKey, "project.update", { project_id: project, default_context_profile: "nuclear" });
+    expect(nuclear.statusCode, nuclear.body).toBe(200);
+    expect(nuclear.json()).toMatchObject({ default_context_profile: "nuclear", default_rigor: "high-consequence" });
+    expect((await signed(ben, benKey, "project.update", { project_id: project, default_context_profile: "heavy" })).statusCode).toBe(400);
     expect((await signed(ben, benKey, "project.update", { project_id: project, autonomy_level: 3 })).json().autonomy_level).toBe(0);
     expect((await signed(ben, benKey, "project.set-autonomy", { project_id: project, level: 2 })).json()).toEqual({ project_id: project, autonomy_level: 2 });
     const four = await signed(ben, benKey, "project.set-autonomy", { project_id: project, level: 4 });

@@ -199,6 +199,7 @@ export function BoardView() {
                     column={x.column}
                     stream={data.status}
                     lastKnown={x.lastKnown}
+                    nuclear={x.nuclear}
                     selected={selectedId === x.pkg.id}
                     actions={<CardActions card={x} />}
                     {...(data.unknownSince ? { unknownSince: data.unknownSince } : {})}

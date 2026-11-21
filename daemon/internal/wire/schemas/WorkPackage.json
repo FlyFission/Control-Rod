@@ -44,6 +44,19 @@
             ],
             "description": "The quality grade signers must hold (workbench specification 5.2). Absent means General service,\nas for every package drafted before grades existed."
         },
+        "context_profile": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "light"
+                },
+                {
+                    "type": "string",
+                    "const": "nuclear"
+                }
+            ],
+            "description": "Which context the brief carries. Absent means the project default; Safety and Material grades\nand trust-surface scopes are always nuclear."
+        },
         "status": {
             "$ref": "PackageStatus.json"
         },

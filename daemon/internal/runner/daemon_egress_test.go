@@ -37,13 +37,17 @@ func connectViaProxy(addr, target string) (*http.Response, error) {
 func TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun(t *testing.T) {
 	t.Setenv("CONTROLROD_EGRESS_FILTER", "1")
 	t.Setenv("HTTP_PROXY", "http://stale.invalid:1")
+	t.Setenv("http_proxy", "http://stale-lower.invalid:1")
 	t.Setenv("HTTPS_PROXY", "http://stale.invalid:1")
+	t.Setenv("https_proxy", "http://stale-lower.invalid:1")
+	t.Setenv("NO_PROXY", "*")
+	t.Setenv("no_proxy", "127.0.0.1,localhost")
 
 	home := t.TempDir()
 	readyFile := filepath.Join(t.TempDir(), "proxy-ready")
 	releaseFile := filepath.Join(t.TempDir(), "release")
 	script := fmt.Sprintf(`set -eu
-printf '%%s\n%%s\n' "$HTTP_PROXY" "$HTTPS_PROXY" > %q
+printf '%%s\n%%s\n%%s\n%%s\n' "$HTTP_PROXY" "$http_proxy" "$HTTPS_PROXY" "$https_proxy" > %q
 env > out/env.txt
 i=0
 while [ ! -f %q ] && [ "$i" -lt 200 ]; do
@@ -81,7 +85,8 @@ echo '{"type":"result","subtype":"success"}'
 		b, err := os.ReadFile(readyFile)
 		if err == nil {
 			lines := strings.Split(strings.TrimSpace(string(b)), "\n")
-			if len(lines) == 2 && lines[0] != "" && lines[0] == lines[1] {
+			if len(lines) == 4 && lines[0] != "" &&
+				lines[0] == lines[1] && lines[1] == lines[2] && lines[2] == lines[3] {
 				proxyURL = lines[0]
 				break
 			}
@@ -91,7 +96,7 @@ echo '{"type":"result","subtype":"success"}'
 	if proxyURL == "" {
 		_ = os.WriteFile(releaseFile, []byte("go"), 0o600)
 		comp := <-done
-		t.Fatalf("author run did not observe HTTP_PROXY/HTTPS_PROXY (status=%q err=%q)", comp.Status, comp.Error)
+		t.Fatalf("author run did not observe HTTP_PROXY/http_proxy/HTTPS_PROXY/https_proxy (status=%q err=%q)", comp.Status, comp.Error)
 	}
 	if !strings.HasPrefix(proxyURL, "http://127.0.0.1:") {
 		_ = os.WriteFile(releaseFile, []byte("go"), 0o600)
@@ -128,11 +133,15 @@ echo '{"type":"result","subtype":"success"}'
 	}
 
 	envText := mustRead(t, filepath.Join(home, "work", "WP-0007", "r2", "author-1-run-egress-author", "out", "env.txt"))
-	if strings.Count(envText, "HTTP_PROXY=") != 1 || strings.Count(envText, "HTTPS_PROXY=") != 1 {
-		t.Fatalf("expected single HTTP_PROXY and HTTPS_PROXY entries in child env:\n%s", envText)
+	for _, key := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy"} {
+		if strings.Count(envText, key+"=") != 1 || !strings.Contains(envText, key+"="+proxyURL) {
+			t.Fatalf("expected single %s=%s in child env:\n%s", key, proxyURL, envText)
+		}
 	}
-	if !strings.Contains(envText, "HTTP_PROXY="+proxyURL) || !strings.Contains(envText, "HTTPS_PROXY="+proxyURL) {
-		t.Fatalf("child env missing %s:\n%s", proxyURL, envText)
+	for _, stripped := range []string{"NO_PROXY=", "no_proxy="} {
+		if strings.Contains(envText, stripped) {
+			t.Fatalf("child env still contains %s:\n%s", stripped, envText)
+		}
 	}
 }
 
@@ -140,7 +149,7 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 	t.Run("disabled when env unset", func(t *testing.T) {
 		t.Setenv("CONTROLROD_EGRESS_FILTER", "")
 		cmd := exec.Command("true")
-		ef, err := wireAuthorEgressFilter(cmd, &Workspace{}, testPolicy())
+		ef, err := wireAuthorEgressFilter(RuntimeClaude, cmd, &Workspace{}, testPolicy())
 		if err != nil || ef != nil {
 			t.Fatalf("expected nil filter, got ef=%v err=%v", ef, err)
 		}
@@ -160,38 +169,45 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 		t.Cleanup(func() { startEgressFilter = old })
 
 		cmd := exec.Command("true")
-		ef, err := wireAuthorEgressFilter(cmd, &Workspace{Checker: true}, testPolicy())
+		ef, err := wireAuthorEgressFilter(RuntimeClaude, cmd, &Workspace{Checker: true}, testPolicy())
 		if err != nil || ef != nil {
 			t.Fatalf("expected nil filter for checker, got ef=%v err=%v", ef, err)
 		}
 		if called != 0 {
 			t.Fatalf("startEgressFilter called %d times for checker", called)
 		}
-		if v := envValue(cmd.Env, "HTTP_PROXY"); v != "" {
-			t.Fatalf("HTTP_PROXY injected on checker command: %q", v)
-		}
-		if v := envValue(cmd.Env, "HTTPS_PROXY"); v != "" {
-			t.Fatalf("HTTPS_PROXY injected on checker command: %q", v)
+		for _, k := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy"} {
+			if v := envValue(cmd.Env, k); v != "" {
+				t.Fatalf("%s injected on checker command: %q", k, v)
+			}
 		}
 	})
 
-	t.Run("sandbox empty AllowedHosts denies all outbound CONNECT", func(t *testing.T) {
+	t.Run("sandbox empty AllowedHosts with no provider hosts denies all outbound CONNECT", func(t *testing.T) {
 		t.Setenv("CONTROLROD_EGRESS_FILTER", "1")
 		cmd := exec.Command("true")
+		cmd.Env = []string{"http_proxy=http://old:1", "NO_PROXY=*", "no_proxy=localhost", "KEEP=1"}
 		p := testPolicy()
 		p.AllowedHosts = []string{}
-		ef, err := wireAuthorEgressFilter(cmd, &Workspace{}, p)
+		ef, err := wireAuthorEgressFilter("", cmd, &Workspace{}, p)
 		if err != nil || ef == nil {
 			t.Fatalf("wireAuthorEgressFilter: ef=%v err=%v", ef, err)
 		}
 		defer ef.Close()
 
 		want := "http://" + ef.Addr()
-		if got := envValue(cmd.Env, "HTTP_PROXY"); got != want {
-			t.Fatalf("HTTP_PROXY=%q want %q", got, want)
+		for _, k := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy"} {
+			if got := envValue(cmd.Env, k); got != want {
+				t.Fatalf("%s=%q want %q", k, got, want)
+			}
 		}
-		if got := envValue(cmd.Env, "HTTPS_PROXY"); got != want {
-			t.Fatalf("HTTPS_PROXY=%q want %q", got, want)
+		for _, k := range []string{"NO_PROXY", "no_proxy"} {
+			if got := envValue(cmd.Env, k); got != "" {
+				t.Fatalf("%s=%q was not stripped", k, got)
+			}
+		}
+		if got := envValue(cmd.Env, "KEEP"); got != "1" {
+			t.Fatalf("unrelated env KEEP=%q", got)
 		}
 		resp, err := connectViaProxy(ef.Addr(), "127.0.0.1:11434")
 		if err != nil {
@@ -203,7 +219,52 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 		}
 	})
 
-	t.Run("sandbox AllowedHosts normalizes default port 443 and preserves explicit ports", func(t *testing.T) {
+	t.Run("sandbox empty AllowedHosts still includes runtime provider host without mutating policy", func(t *testing.T) {
+		t.Setenv("CONTROLROD_EGRESS_FILTER", "1")
+		for _, tc := range []struct {
+			runtime  string
+			wantHost string
+		}{
+			{runtime: RuntimeClaude, wantHost: "api.anthropic.com:443"},
+			{runtime: RuntimeCodex, wantHost: "api.openai.com:443"},
+		} {
+			t.Run(tc.runtime, func(t *testing.T) {
+				var gotHosts []string
+				old := startEgressFilter
+				startEgressFilter = func(hosts []string) (*EgressFilter, error) {
+					gotHosts = append([]string(nil), hosts...)
+					return old(hosts)
+				}
+				t.Cleanup(func() { startEgressFilter = old })
+
+				cmd := exec.Command("true")
+				p := testPolicy()
+				p.AllowedHosts = []string{}
+				ef, err := wireAuthorEgressFilter(tc.runtime, cmd, &Workspace{}, p)
+				if err != nil || ef == nil {
+					t.Fatalf("wireAuthorEgressFilter: ef=%v err=%v", ef, err)
+				}
+				defer ef.Close()
+
+				if !slices.Equal(gotHosts, []string{tc.wantHost}) {
+					t.Fatalf("hosts=%v want [%s]", gotHosts, tc.wantHost)
+				}
+				if len(p.AllowedHosts) != 0 {
+					t.Fatalf("sandbox.AllowedHosts was mutated: %v", p.AllowedHosts)
+				}
+				resp, err := connectViaProxy(ef.Addr(), "127.0.0.1:11434")
+				if err != nil {
+					t.Fatal(err)
+				}
+				_ = resp.Body.Close()
+				if resp.StatusCode != http.StatusForbidden {
+					t.Fatalf("non-provider host should be blocked, got %d", resp.StatusCode)
+				}
+			})
+		}
+	})
+
+	t.Run("sandbox AllowedHosts combines with provider hosts, deduplicates, and preserves explicit ports", func(t *testing.T) {
 		t.Setenv("CONTROLROD_EGRESS_FILTER", "1")
 		var gotHosts []string
 		old := startEgressFilter
@@ -215,16 +276,19 @@ func TestWireAuthorEgressFilterPoliciesAndCheckerSkip(t *testing.T) {
 
 		cmd := exec.Command("true")
 		p := testPolicy()
-		p.AllowedHosts = []string{"api.anthropic.com", "127.0.0.1:11434"}
-		ef, err := wireAuthorEgressFilter(cmd, &Workspace{}, p)
+		p.AllowedHosts = []string{"docs.example.org", "127.0.0.1:11434", "api.anthropic.com"}
+		ef, err := wireAuthorEgressFilter(RuntimeClaude, cmd, &Workspace{}, p)
 		if err != nil || ef == nil {
 			t.Fatalf("wireAuthorEgressFilter: ef=%v err=%v", ef, err)
 		}
 		defer ef.Close()
 
-		want := []string{"api.anthropic.com:443", "127.0.0.1:11434"}
+		want := []string{"docs.example.org:443", "127.0.0.1:11434", "api.anthropic.com:443"}
 		if !slices.Equal(gotHosts, want) {
 			t.Fatalf("hosts=%v want %v", gotHosts, want)
+		}
+		if !slices.Equal(p.AllowedHosts, []string{"docs.example.org", "127.0.0.1:11434", "api.anthropic.com"}) {
+			t.Fatalf("sandbox.AllowedHosts mutated: %v", p.AllowedHosts)
 		}
 	})
 }

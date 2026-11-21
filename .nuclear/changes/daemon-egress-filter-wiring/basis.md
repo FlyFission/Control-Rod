@@ -12,7 +12,7 @@ Wave 2 ([wave2-multi-cli-adapters](../wave2-multi-cli-adapters/basis.md)) added 
 
 ## Scope
 
-In scope: `daemon/internal/runner/daemon.go` (`execute()`, `authorEgressHosts`, `wireAuthorEgressFilter`), `daemon/internal/runner/daemon_egress_test.go`, and this change record under `.nuclear/changes/daemon-egress-filter-wiring/`. Out of scope: kernel decision logic, attestation, sandbox policy verification, checker mount/seccomp/admission paths, API routes, web UI, specs, workflows, and red-team fixtures.
+In scope: `daemon/internal/runner/daemon.go` (`execute()`, `runtimeProviderHosts`, `authorEgressHosts`, `setProxyEnv`, `wireAuthorEgressFilter`), `daemon/internal/runner/egress_proxy.go` (`serveHTTPForward`, `stripHopByHop`), `daemon/internal/runner/egress_proxy_test.go`, `daemon/internal/runner/daemon_egress_test.go`, and this change record under `.nuclear/changes/daemon-egress-filter-wiring/`. Out of scope: kernel decision logic, attestation, sandbox policy verification, checker mount/seccomp/admission paths, API routes, web UI, specs, workflows, and red-team fixtures.
 
 ## Fixed inputs
 

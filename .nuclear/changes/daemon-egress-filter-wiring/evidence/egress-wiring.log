@@ -1,26 +1,34 @@
 go version go1.24.7 linux/amd64
 $ gofmt -l .
 $ go vet ./...
-$ go test -v -count=1 ./internal/runner -run ...
+$ go test -v -count=1 ./internal/runner -run 'TestAuthorEgressFilter|TestWireAuthorEgressFilter|TestCheckerExecuteNeverStartsAuthorEgressProxy|TestEgressFilter'
 === RUN   TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun
---- PASS: TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun (0.14s)
+--- PASS: TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun (0.12s)
 === RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip
 === RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/disabled_when_env_unset
 === RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/checker_workspace_skips_proxy_even_when_enabled
-=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_denies_all_outbound_CONNECT
-=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_AllowedHosts_normalizes_default_port_443_and_preserves_explicit_ports
+=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_with_no_provider_hosts_denies_all_outbound_CONNECT
+=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_still_includes_runtime_provider_host_without_mutating_policy
+=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_still_includes_runtime_provider_host_without_mutating_policy/claude
+=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_still_includes_runtime_provider_host_without_mutating_policy/codex
+=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_AllowedHosts_combines_with_provider_hosts,_deduplicates,_and_preserves_explicit_ports
 --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip (0.00s)
     --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/disabled_when_env_unset (0.00s)
     --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/checker_workspace_skips_proxy_even_when_enabled (0.00s)
-    --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_denies_all_outbound_CONNECT (0.00s)
-    --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_AllowedHosts_normalizes_default_port_443_and_preserves_explicit_ports (0.00s)
+    --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_with_no_provider_hosts_denies_all_outbound_CONNECT (0.00s)
+    --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_still_includes_runtime_provider_host_without_mutating_policy (0.00s)
+        --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_still_includes_runtime_provider_host_without_mutating_policy/claude (0.00s)
+        --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_still_includes_runtime_provider_host_without_mutating_policy/codex (0.00s)
+    --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_AllowedHosts_combines_with_provider_hosts,_deduplicates,_and_preserves_explicit_ports (0.00s)
 === RUN   TestCheckerExecuteNeverStartsAuthorEgressProxy
---- PASS: TestCheckerExecuteNeverStartsAuthorEgressProxy (5.52s)
+--- PASS: TestCheckerExecuteNeverStartsAuthorEgressProxy (6.50s)
 === RUN   TestEgressFilterBlocksAndAllowsConnect
 --- PASS: TestEgressFilterBlocksAndAllowsConnect (0.00s)
 === RUN   TestEgressFilterCloseEndsOpenTunnels
 --- PASS: TestEgressFilterCloseEndsOpenTunnels (0.00s)
 === RUN   TestEgressFilterForwardsBytesSentWithTheConnect
 --- PASS: TestEgressFilterForwardsBytesSentWithTheConnect (0.00s)
+=== RUN   TestEgressFilterPlainHTTPForwardingAllowsAndBlocks
+--- PASS: TestEgressFilterPlainHTTPForwardingAllowsAndBlocks (0.00s)
 PASS
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	5.725s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	6.672s

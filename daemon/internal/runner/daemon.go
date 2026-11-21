@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -700,38 +701,93 @@ func copyRunOutputs(a Adapter, ws *Workspace, buf *logBuffer) error {
 
 var startEgressFilter = StartEgressFilter
 
-// authorEgressHosts returns the host:port allowlist for an author egress filter.
-// When a sandbox policy is present, AllowedHosts is respected literally (an empty
-// slice denies all outbound CONNECT); otherwise local Ollama defaults apply.
-func authorEgressHosts(sandbox *SandboxPolicy) []string {
-	if sandbox == nil {
-		return []string{"127.0.0.1:11434", "localhost:11434"}
+// runtimeProviderHosts returns the model-provider endpoint hosts for runtime
+// from the embedded model registry (models.json), without mutating any policy.
+func runtimeProviderHosts(runtime string) []string {
+	if runtime == "" {
+		return nil
 	}
-	// Respect AllowedHosts literally: empty slice means deny all outbound CONNECT.
-	hosts := make([]string, 0, len(sandbox.AllowedHosts))
-	for _, h := range sandbox.AllowedHosts {
-		if !strings.Contains(h, ":") {
-			hosts = append(hosts, h+":443")
-		} else {
-			hosts = append(hosts, h)
+	reg, err := DefaultModels()
+	if err != nil {
+		return nil
+	}
+	var hosts []string
+	for _, m := range reg.Models {
+		if m.Harness == runtime {
+			hosts = append(hosts, m.Hosts...)
 		}
 	}
 	return hosts
 }
 
-// wireAuthorEgressFilter starts the local CONNECT egress proxy and injects
-// HTTP_PROXY and HTTPS_PROXY into cmd.Env for author runs when
-// CONTROLROD_EGRESS_FILTER=1. Checker runs and nil commands are skipped.
-func wireAuthorEgressFilter(cmd *exec.Cmd, ws *Workspace, sandbox *SandboxPolicy) (*EgressFilter, error) {
+// authorEgressHosts returns the host:port allowlist for an author egress filter.
+// When a sandbox policy is present, its AllowedHosts are combined with the
+// runtime's own model-provider endpoint hosts (without mutating the policy).
+// When sandbox is nil, local Ollama defaults are included alongside any provider hosts.
+func authorEgressHosts(runtime string, sandbox *SandboxPolicy) []string {
+	seen := map[string]bool{}
+	var hosts []string
+	add := func(raw string) {
+		h := strings.TrimSpace(raw)
+		if h == "" {
+			return
+		}
+		if _, _, err := net.SplitHostPort(h); err != nil {
+			h = net.JoinHostPort(strings.Trim(h, "[]"), "443")
+		}
+		key := strings.ToLower(h)
+		if !seen[key] {
+			seen[key] = true
+			hosts = append(hosts, h)
+		}
+	}
+	if sandbox != nil {
+		for _, h := range sandbox.AllowedHosts {
+			add(h)
+		}
+	} else {
+		for _, h := range []string{"127.0.0.1:11434", "localhost:11434"} {
+			add(h)
+		}
+	}
+	for _, h := range runtimeProviderHosts(runtime) {
+		add(h)
+	}
+	return hosts
+}
+
+// setProxyEnv removes any case-insensitive HTTP_PROXY, HTTPS_PROXY, and NO_PROXY
+// entries so parent environment variables cannot bypass the egress filter, then
+// injects both uppercase and lowercase HTTP_PROXY/HTTPS_PROXY.
+func setProxyEnv(env []string, proxyURL string) []string {
+	out := make([]string, 0, len(env)+4)
+	for _, kv := range env {
+		k, _, ok := strings.Cut(kv, "=")
+		if ok && (strings.EqualFold(k, "HTTP_PROXY") || strings.EqualFold(k, "HTTPS_PROXY") || strings.EqualFold(k, "NO_PROXY")) {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return append(out,
+		"HTTP_PROXY="+proxyURL,
+		"http_proxy="+proxyURL,
+		"HTTPS_PROXY="+proxyURL,
+		"https_proxy="+proxyURL,
+	)
+}
+
+// wireAuthorEgressFilter starts the local HTTP/CONNECT egress proxy and injects
+// proxy env vars into cmd.Env for author runs when CONTROLROD_EGRESS_FILTER=1.
+// Checker runs and nil commands are skipped.
+func wireAuthorEgressFilter(runtime string, cmd *exec.Cmd, ws *Workspace, sandbox *SandboxPolicy) (*EgressFilter, error) {
 	if cmd == nil || ws == nil || ws.Checker || os.Getenv("CONTROLROD_EGRESS_FILTER") != "1" {
 		return nil, nil
 	}
-	ef, err := startEgressFilter(authorEgressHosts(sandbox))
+	ef, err := startEgressFilter(authorEgressHosts(runtime, sandbox))
 	if err != nil {
 		return nil, fmt.Errorf("start author egress filter: %w", err)
 	}
-	proxyURL := "http://" + ef.Addr()
-	cmd.Env = withEnv(cmd.Env, "HTTP_PROXY="+proxyURL, "HTTPS_PROXY="+proxyURL)
+	cmd.Env = setProxyEnv(cmd.Env, "http://"+ef.Addr())
 	return ef, nil
 }
 
@@ -1257,7 +1313,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	}
 	if err == nil {
 		var ef *EgressFilter
-		ef, err = wireAuthorEgressFilter(cmd, ws, sandbox)
+		ef, err = wireAuthorEgressFilter(runtime, cmd, ws, sandbox)
 		if ef != nil {
 			defer ef.Close()
 		}

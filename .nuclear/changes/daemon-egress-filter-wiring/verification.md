@@ -4,7 +4,7 @@ Evidence status: **pass** for the egress wiring tests, `gofmt`, and `go vet` (E-
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | `gofmt -l .` clean, `go vet ./...` exits 0, and all 6 targeted egress wiring and filter tests (including subtests) pass uncached (`go1.24.7 linux/amd64`). Local machine only. | `evidence/egress-wiring.log` |
+| E-01 | pass | `gofmt -l .` clean, `go vet ./...` exits 0, and all 7 targeted egress wiring and filter tests (including subtests) pass uncached (`go1.24.7 linux/amd64`). Local machine only. | `evidence/egress-wiring.log` |
 | E-02 | partial | `go test ./internal/confinement ./internal/digest` (cached) and `go test -skip TestInstalledCodexLeavesOnlyQualifiedFeatures ./internal/runner` (38.207s) pass. `TestInstalledCodexLeavesOnlyQualifiedFeatures` fails pre-existing on this host (both before and after this change) due to newer unqualified features in the locally installed `codex` CLI. | `evidence/daemon-suite.log` |
 | E-03 | open | The owner's review of the branch `feat/daemon-egress-wiring`. | Not executed |
 

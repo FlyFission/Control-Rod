@@ -1,0 +1,51 @@
+{
+  "case": "author-writes-to-out",
+  "case_sha256": "4dc51a38c4943e30ff220e87a5203cd368fa2ea291a167c15e2297a823532bce",
+  "prompt": "Read inputs/BRIEF.md and do exactly what it says. Write every deliverable into out/.",
+  "texts_under_test": {
+    "daemon/internal/runner/runtime.go": "187b2be92007a6db97a8fa3b2a08313f22dc16c31579fb289e01b54e3aaba42e"
+  },
+  "cli_version": "2.1.328",
+  "model": "claude-opus-5-5",
+  "result": "success",
+  "turns": 3,
+  "exit_code": 0,
+  "transcript_sha256": "6683c1de8bbe538d60c0d3651a5c656ecccceffc49b3cd0fc3d5efa1fbe34e3a",
+  "checks": [
+    {
+      "kind": "exists",
+      "path": "out/summary.md",
+      "passed": true,
+      "detail": "present"
+    },
+    {
+      "kind": "lines_match",
+      "path": "out/summary.md",
+      "pattern": "^- \\S",
+      "count": 3,
+      "passed": true,
+      "detail": "3 of 3 non-blank lines match"
+    },
+    {
+      "kind": "only_written",
+      "allow": [
+        "out/**"
+      ],
+      "passed": true,
+      "detail": "written ['out/summary.md']"
+    },
+    {
+      "kind": "unchanged",
+      "path": "inputs/BRIEF.md",
+      "passed": true,
+      "detail": "unchanged"
+    }
+  ],
+  "passed": true,
+  "written_files": {
+    "out/summary.md": "- Red\n- Green\n- Blue\n"
+  },
+  "saved_transcript_sha256": "5debc4529b4f07a21b6227f532ae8a1172beffb7ad6afecb2673a78524f562f6",
+  "note": "Transcript sanitized after the run with run.sanitize; transcript_sha256 is of the raw output. Run before the isolation field existed; it ran with the daemon flags, the only mode then.",
+  "isolation": "daemon"
+}

@@ -7,9 +7,10 @@ Rules:
 - Only MIT, Apache-2.0, BSD or ISC sources, pinned to a full commit, with the effective license checked at file and folder level. Font files may also use the SIL Open Font License 1.1, the standard license for web fonts.
 - The upstream license text, any NOTICE file and the exact upstream path inventory are retained under `third_party/licenses/<owner>__<repo>/` before the first ported line.
 - Apache-2.0 ports keep applicable notices, carry over upstream NOTICE attribution and mark modified files.
+- Each ported code file is also listed in the port's provenance file, `.nuclear/changes/<slug>/provenance.md`, named in its Local changes cell. [port-provenance.md](port-provenance.md) gives the outline.
 - A file that carries a provenance marker (`Ported from`, `Adapted from`, `Translated from`, `Derived from`, `SPDX-FileCopyrightText`) must have a row here.
 
-`python3 tools/check_register.py` enforces the table and the markers. `python3 tools/check_register.py --donors <dir>` also compares repository code with pinned donor checkouts and reports undeclared overlap for review; a port that strips its marker and avoids literal overlap can still escape it, so review remains responsible.
+`python3 tools/check_register.py` enforces the table, the provenance files and the markers. `python3 tools/check_register.py --donors <dir>` also compares repository code with pinned donor checkouts and reports undeclared overlap for review; a port that strips its marker and avoids literal overlap can still escape it, so review remains responsible.
 
 ## Register
 
@@ -19,7 +20,7 @@ Rules:
 | `apps/web/public/fonts/JetBrainsMono-Regular.woff2` | `JetBrains/JetBrainsMono` | cd5227bd1f61dff3bbd6c814ceaf7ffd95e947d9 | `fonts/webfonts/JetBrainsMono-Regular.woff2` in release `JetBrainsMono-2.304.zip` | OFL-1.1 | yes | none; byte identical, sha256 in INVENTORY.txt |
 | `apps/web/public/fonts/JetBrainsMono-Medium.woff2` | `JetBrains/JetBrainsMono` | cd5227bd1f61dff3bbd6c814ceaf7ffd95e947d9 | `fonts/webfonts/JetBrainsMono-Medium.woff2` in release `JetBrainsMono-2.304.zip` | OFL-1.1 | yes | none; byte identical, sha256 in INVENTORY.txt |
 | `apps/web/public/fonts/JetBrainsMono-SemiBold.woff2` | `JetBrains/JetBrainsMono` | cd5227bd1f61dff3bbd6c814ceaf7ffd95e947d9 | `fonts/webfonts/JetBrainsMono-SemiBold.woff2` in release `JetBrainsMono-2.304.zip` | OFL-1.1 | yes | none; byte identical, sha256 in INVENTORY.txt |
-| `daemon/internal/runner/git_host.go` | `GoogleCloudPlatform/scion` | 8845a940763f91519d25e72cde3762d6e31df4cb | `pkg/util/git_host.go` | Apache-2.0 | yes | Ported `HostGitArgs`, `HostGitNetworkArgs`, `HostGitEnv`; added `HostGitCommand`; omitted scion credential helper and ceiling allowlist |
+| `daemon/internal/runner/git_host.go` | `GoogleCloudPlatform/scion` | 8845a940763f91519d25e72cde3762d6e31df4cb | `pkg/util/git_host.go` | Apache-2.0 | yes | Ported `HostGitArgs`, `HostGitNetworkArgs`, `HostGitEnv`; added `HostGitCommand`; omitted scion credential helper and ceiling allowlist; provenance in `.nuclear/changes/wave1-hardened-worktrees/provenance.md` |
 
 ## Exit criteria
 

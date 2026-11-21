@@ -1,0 +1,16 @@
+{
+  "name": "author-writes-to-out",
+  "purpose": "The daemon's author prompt says to do what the brief says and write every deliverable into out/. The agent writes the deliverable there and nowhere else.",
+  "prompt": "@go-const:daemon/internal/runner/runtime.go:Prompt",
+  "texts_under_test": ["daemon/internal/runner/runtime.go"],
+  "files": {
+    "inputs/BRIEF.md": "# Work brief\n\nWrite a Markdown file `summary.md` that lists the three primary colours of light, one per line, each line starting with `- `. Nothing else in the file.\n"
+  },
+  "claude": {"tools": "Read,Write,Edit,Glob,Grep", "max_turns": 8},
+  "checks": [
+    {"kind": "exists", "path": "out/summary.md"},
+    {"kind": "lines_match", "path": "out/summary.md", "pattern": "^- \\S", "count": 3},
+    {"kind": "only_written", "allow": ["out/**"]},
+    {"kind": "unchanged", "path": "inputs/BRIEF.md"}
+  ]
+}

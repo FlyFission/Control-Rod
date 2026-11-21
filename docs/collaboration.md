@@ -38,6 +38,21 @@ Agents are expected here; the repository is built for them. The rules that apply
 - Review its diff as you would a colleague's. Run the checks in [getting-started.md](getting-started.md#check-your-change) yourself; do not rely on its report that they passed.
 - Say in the PR when an agent wrote it. Agent PRs carry the same evidence requirement as any other.
 
+### Recording owner decisions
+
+A change record's `basis.md` lists the owner decisions it rests on. The record keeps the owner's own words, so a reader can check the record's reading against what was actually said. The table has these columns:
+
+| Column | Holds |
+| --- | --- |
+| `#` | `D1`, `D2`, ... |
+| `Decision` | The decision, in the record's words. |
+| `Owner's words` | The owner's words, exactly, in double quotes. For a choice the agent made itself: `none: authoring agent's choice, open to the owner`. Never present an agent's choice as the owner's. |
+| `Given` | The date (`YYYY-MM-DD`) and where: the chat session, or a link to the comment. |
+| `Reading` | What the record takes the words to mean. |
+| `Out of scope` | What the words do not cover, so a broad reading cannot grow from a short answer. |
+
+A trust-surface sign-off is recorded in `ship.md`'s `Signature` table instead (see [sole-maintainer sign-off](#sole-maintainer-sign-off)). `python3 tools/check_owner_decisions.py` checks the table in every record dated 2026-11-19 or later. Older records keep the form they were written in.
+
 ## Labels
 
 Create these once (the owner or anyone with write access; needs the `gh` CLI):

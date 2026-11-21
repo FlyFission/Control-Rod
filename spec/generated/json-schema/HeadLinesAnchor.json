@@ -1,0 +1,32 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "HeadLinesAnchor.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "type": "string",
+            "const": "head-lines"
+        },
+        "path": {
+            "$ref": "AnchorPath.json"
+        },
+        "start": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        },
+        "end": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+        }
+    },
+    "required": [
+        "kind",
+        "path",
+        "start",
+        "end"
+    ],
+    "description": "Lines in the head snapshot. On a diff target the check also says whether they touch the change.",
+    "unevaluatedProperties": false
+}

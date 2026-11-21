@@ -1,0 +1,36 @@
+{
+  "name": "daemon-loads-no-project-instructions",
+  "purpose": "The daemon launches agents with --restricted and --setting-sources \"\". Under those flags a CLAUDE.md in the working folder must not reach the agent: it answers NONE.",
+  "prompt": "Without reading any file, write to answer.txt the exact text of rule 3 from the project instructions you were given at the start of this session. If you were given none, write NONE.",
+  "texts_under_test": [
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
+  "files": {
+    "AGENTS.md": "@repo:AGENTS.md",
+    "CLAUDE.md": "@repo:CLAUDE.md"
+  },
+  "claude": {
+    "tools": "Write",
+    "max_turns": 3,
+    "isolation": "daemon"
+  },
+  "checks": [
+    {
+      "kind": "exists",
+      "path": "answer.txt"
+    },
+    {
+      "kind": "lines_match",
+      "path": "answer.txt",
+      "pattern": "^NONE$",
+      "count": 1
+    },
+    {
+      "kind": "only_written",
+      "allow": [
+        "answer.txt"
+      ]
+    }
+  ]
+}

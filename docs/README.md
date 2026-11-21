@@ -34,6 +34,7 @@ Design specifications and implementation plans live in [`superpowers/specs/`](su
 - [Platform buildout specification](superpowers/specs/2026-10-23-platform-buildout-design.md)
 - [Workbench ontology specification](superpowers/specs/2026-10-29-workbench-ontology-design.md), which maps each of its sections to the Platform Plan in its [alignment table](superpowers/specs/2026-10-29-workbench-ontology-design.md#2-platform-plan-alignment)
 - [Guided preparation](superpowers/specs/2026-10-22-guided-preparation-design.md)
+- [Plan approval in runs](superpowers/specs/2026-11-18-plan-approval-design.md): a planning run, a signed plan, then a work run bound to it (proposed)
 - [Multi-provider agents design plan](plan/multi-provider-design-plan.md) and the [handoff](plan/HANDOFF.md) for the work that follows it
 - [Role casting](superpowers/specs/2026-11-16-role-casting-design.md): domain agents per role in both modes, the signed casting sheet that picks each role's model, and the trials that earn a cast (draft; [ADR 0023](adr/0023-role-casting.md) proposed)
 - [Board redesign](superpowers/specs/2026-11-06-board-redesign-design.md), implemented slice by slice from its [plan](superpowers/plans/2026-11-06-board-redesign.md)

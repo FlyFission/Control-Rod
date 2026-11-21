@@ -1,0 +1,18 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "Anchor.json",
+    "anyOf": [
+        {
+            "$ref": "HeadLinesAnchor.json"
+        },
+        {
+            "$ref": "BaseLinesAnchor.json"
+        },
+        {
+            "$ref": "DeletedFileAnchor.json"
+        },
+        {
+            "$ref": "SectionAnchor.json"
+        }
+    ]
+}

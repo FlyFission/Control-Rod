@@ -1,0 +1,58 @@
+# Auditing Control Rod records
+
+This page is for an auditor, a QA reviewer, or anyone else who needs to check what happened in a Control Rod installation without simply taking the installation's word for it. It covers what is recorded, how to sample it, and how to check a record on your own machine. It also says plainly what the records cannot prove yet.
+
+Control Rod gives you records and a way to check them. Whether they count as quality records is a decision for your QA program. See [boundary.md](boundary.md) and [qa-standards.md](qa-standards.md).
+
+## What is recorded
+
+| Record | What it holds | Where to find it |
+| --- | --- | --- |
+| Event chain | Every controlled change: who did it (a person, an agent or the system), what it was, when, and the digest of the event before it | **Records** page; `GET /events` |
+| Seals | A Member's passkey signature over the chain head at a moment, with a stated purpose | **Records** page; `GET /records/verify` |
+| Decisions | Release, accept, return, reject and owner overrides. Each one is a passkey signature over the digest of exactly what the person reviewed | The package's events in the chain |
+| Run evidence | For each agent run: the runtime digest, the model the runtime reported, the permission mode, the sandbox policy, and the daemon's signed attestation ([ADR 0022](adr/0022-run-attestation.md)) | The package's runs and their events |
+| Signer qualifications | What each Member may sign, one frozen version per change. Revoking one adds a new version and deletes nothing | **Policies** page |
+| Change records | For changes to Control Rod itself: risk, basis, plan, trace, verification and ship, validated in CI | `.nuclear/changes/` in the repository |
+
+## Sampling
+
+1. **Check the whole chain first.** Open **Records**, or call `GET /records/verify`. You get back whether every entry recomputes and links, each seal's result, and how many entries no valid seal covers yet. If the chain is broken anywhere, stop and treat every later record as unproven.
+2. **Ask for a seal before you sample.** A Member seals the chain from the **Records** page with a passkey. After that, everything up to the seal is covered, and a later rewrite of a covered entry fails the check.
+3. **Pick packages and take their proofs.** On **Records**, enter a package ID and choose **Prove it**, then **Download the proof bundle**. The bundle holds the chain from its first entry through the seal that covers the package, the seal itself, and the public key needed to check the seal's signature.
+4. **Check each bundle offline,** as described in the next section.
+5. **Read the package's decisions and runs** against your sampling criteria. For example, check that each acceptance followed a pre-check from a different provider, or that every override has a written reason.
+
+## Checking a bundle on your own machine
+
+You need a clone of the repository and Node 22. You don't need a database, a sign-in or access to the installation.
+
+```sh
+pnpm install
+pnpm cr verify WP-0001-inclusion-proof.json
+```
+
+The command recomputes every digest and link from entry 1 onward. It also derives the package's own entries from the chain, and checks the seal and its passkey signature against the key in the file. It uses the same function as the control plane, `verifyInclusion` in [`services/api/src/seals.ts`](../services/api/src/seals.ts).
+
+A bundle that holds:
+
+```text
+OK    WP-0001: 6 entries (3, 4, 9, 10, 11, 14) recompute and link through the chain from entry 1 to entry 17.
+      Sealed by seal seal_… at entry 15 on 2026-11-21T16:00:00.000Z (Weekly seal); its passkey signature checks against the key in the bundle.
+      Still to confirm outside this file: that the key belongs to signer mem_….
+      Local chain, not witnessed: nothing outside this installation shows that later entries were not cut.
+```
+
+A bundle that does not hold names the first problem it finds, for example `FAIL  WP-0001: event 9 does not match its digest.`, and the command exits with status 1. It exits with 2 for a file that isn't a bundle.
+
+## What the records cannot prove yet
+
+Keep these limits in your findings.
+
+- **Nothing outside the installation witnesses the chain.** Someone with control of the database could cut off entries after the last seal, or rebuild the whole chain from scratch before anyone sealed it. The outside-witnessed transparency log ([ADR 0009](adr/0009-evidence-format.md)) is decided but not built.
+- **The bundle carries the signer's key but does not prove whose key it is.** Confirm that the key belongs to the named Member from somewhere outside the bundle, such as the Member's own passkey enrollment.
+- **An unsealed bundle authenticates nothing.** It shows the entries are consistent with each other, up to a head that is only stated.
+- **There is no export for a time window yet.** Sampling works one package at a time.
+- **There is no retention schedule.** How long records are kept is up to you.
+
+When these limits change, this page and [qa-standards.md](qa-standards.md) change in the same pull request.

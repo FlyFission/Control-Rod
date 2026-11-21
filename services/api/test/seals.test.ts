@@ -156,6 +156,12 @@ describe("inclusion proofs", () => {
     const own = (await h.db.query<{ seq: number }>("select seq from events where body->>'subject' = 'WP-PROOF-1' order by seq")).rows.map((r) => r.seq);
     expect(p.check.events).toEqual(own);
     expect(await verifyInclusion(b)).toEqual({ ok: true, authenticated: true, events: own });
+    // The downloaded file checks offline with `pnpm cr verify`, which names what it cannot settle.
+    const { verifyBundleText } = await import("../src/verify-bundle.js");
+    const offline = await verifyBundleText(JSON.stringify(b, null, 2));
+    expect(offline.code).toBe(0);
+    expect(offline.lines.join("\n")).toContain(`passkey signature checks against the key in the bundle`);
+    expect(offline.lines.join("\n")).toContain(`that the key belongs to signer ${b.seal.payload.signer_id}`);
   });
 
   it("catches anything changed in a bundle: an event, a missing event, another package's name, a head, a purpose, a signature", async () => {

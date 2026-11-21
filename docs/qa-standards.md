@@ -43,7 +43,7 @@ These are the controls most QA programs ask about first. Each theme is covered i
 | Design control | Guided preparation turns a rough request into confirmed requirements, a design basis and acceptance criteria before any work is released. Decisions are recorded as ADRs. Capital Projects interfaces with deadbands are specified but not built. | Partial | III | Req. 3 | 8.3 |
 | Verification | Acceptance is checked against each criterion. A pre-check by a second agent is required before anything can be accepted. Missing evidence can never be waived. CI runs the type checks, tests, licence gate and SBOM. | Built | III, XI | Req. 3, 11 | 8.3.4, 8.6 |
 | Independent review | The kernel refuses a pre-check that comes from the author's own agent baseline or the author's own model provider, unless the owner signs a written override. Trust-surface files need a maintainer who did not author the change. | Built (agents); Partial (people, one maintainer today) | III | Req. 3 | 8.3.4 |
-| Records | An append-only, hash-chained event log with seals and inclusion proofs. Run evidence, sandbox policy and signed daemon attestations are stored per run. A retention schedule and outside-witnessed timestamps are missing. | Partial | XVII | Req. 17 | 7.5.3 |
+| Records | An append-only, hash-chained event log with seals and inclusion proofs. Any proof can be checked offline with `pnpm cr verify` ([auditing.md](auditing.md)). Run evidence, sandbox policy and signed daemon attestations are stored per run. A retention schedule and outside-witnessed timestamps are missing. | Partial | XVII | Req. 17 | 7.5.3 |
 | Corrective action | Failed pre-checks, returns, rejections and acceptance with findings are recorded. SCRAM stops work with a signed reason. Issues and security advisories track problems. There is no corrective-action register with root cause and closure. | Partial | XVI | Req. 16 | 10.2 |
 | Approvals | Only a person can release, accept, return or reject, and only with a passkey signature over the digest of exactly what they reviewed. Signer qualifications are versioned, and revoking one adds a new version. | Built | II, III, VI | Req. 2, 3, 6 | 5.3, 8.6 |
 
@@ -70,7 +70,7 @@ Appendix B is public, so its 18 criteria are the rows. "What it asks" is a short
 | XV | **Nonconforming items.** Items that fail are identified, kept out of use and dispositioned. | A failed pre-check blocks plain acceptance. Accepting anyway needs a written reason. Return and reject are signed. Missing evidence can never be waived. | Built | Dispositions are not rolled up into one nonconformance report. | Req. 15 | 8.7 | |
 | XVI | **Corrective action.** Find the cause of significant problems and stop them coming back. | Issues, security advisories, and the `tracking-deficiencies`, `learning-from-experience` and `reporting-shared-defects` skills. SCRAM can stop all work with a signed reason. | Partial | There is no corrective-action register with cause, action, owner and closure verification. | Req. 16 | 10.2 | 830.122(c); 10 CFR Part 21 |
 | XVII | **Quality records.** Records are complete, identifiable, retrievable and kept. | An append-only event chain with hashes, seals and inclusion proofs. Evidence is stored per run, along with signed decisions, change records and git history. | Partial | There is no retention schedule. The outside-witnessed transparency log ([ADR 0009](adr/0009-evidence-format.md)) is decided but not built. | Req. 17 | 7.5.3 | 830.122(d); 21 CFR 11.10(c), (e) |
-| XVIII | **Audits.** Planned, documented audits of the program, by people independent of the work. | None. | Gap | There is no audit plan or audit record. | Req. 18 | 9.2, 9.3 | 830.122(i), (j) |
+| XVIII | **Audits.** Planned, documented audits of the program, by people independent of the work. | Control Rod gives auditors what they need to check records: an [auditor's guide](auditing.md), a check of the whole chain, inclusion proofs for each package, and `pnpm cr verify`, which checks a proof offline with no database or sign-in. | Partial | Planning and running audits is **yours**. There is no export for a time window yet, and no audit record inside Control Rod. | Req. 18 | 9.2, 9.3 | 830.122(i), (j) |
 
 ## Software-specific controls
 
@@ -103,7 +103,7 @@ What helps with that today: every run records the exact runtime digest, model, s
 3. **Traceability matrix and V&V plan.** These are the two missing items in the [SQA package](sqa/README.md).
 4. **Corrective-action register.** Record cause, action, owner and closure check, linked to the findings that started it.
 5. **Records retention and outside witness.** Write a retention schedule, and build the transparency log with an outside witness ([ADR 0009](adr/0009-evidence-format.md)).
-6. **Audit support.** Add an export that an auditor can sample from: decisions, evidence and signatures for a time window.
+6. **Audit export for a time window.** Checking a single package offline is already possible ([auditing.md](auditing.md)). What's missing is an export of the decisions, evidence and signatures for a period. It needs a new API contract in `spec/`.
 7. **Supplier qualification for model providers, and role trials.**
 8. **Training records** linked to signer qualifications.
 

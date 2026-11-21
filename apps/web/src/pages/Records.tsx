@@ -271,6 +271,11 @@ function Proof() {
               Download the proof bundle
             </a>
           )}
+          {href && (
+            <p className="muted small">
+              Anyone holding the file can check it without this app: <code>pnpm cr verify {p.bundle.package_id}-inclusion-proof.json</code>
+            </p>
+          )}
         </div>
       )}
     </section>

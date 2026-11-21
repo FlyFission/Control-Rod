@@ -11,6 +11,7 @@
 - [`adr/`](adr/): architecture decision records, one per decision
 - [threat-model.md](threat-model.md): what Control Rod defends against, and what it cannot
 - [boundary.md](boundary.md): what Control Rod is not, and how it fits inside a QA program
+- [auditing.md](auditing.md): how an auditor samples Control Rod's records and checks a proof offline with `pnpm cr verify`
 - [qa-standards.md](qa-standards.md): how Control Rod's controls line up with 10 CFR 50 Appendix B, NQA-1, ISO 9001 and other quality standards, with the gaps marked (no compliance claim)
 - [crosswalk.md](crosswalk.md): how one control spine serves Software and Capital Projects modes
 - [`sqa/`](sqa/): the software quality assurance package for Control Rod itself

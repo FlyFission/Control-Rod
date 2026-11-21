@@ -4,7 +4,7 @@
 |---|---|---|---|
 | A-1 | A downloaded proof is checked with no database, server or sign-in, by the control plane's own function. | E-01, E-02 | done |
 | A-2 | Tampering, missing entries and a cut tail fail with the problem named; non-bundle files are refused. | E-01 | done |
-| A-3 | A sealed bundle passes and the output names what it cannot settle. | E-03 | pending CI |
+| A-3 | A sealed bundle passes and the output names what it cannot settle. | E-03 | done |
 | A-4 | Auditors have a guide to sampling and to the limits of the records. | `docs/auditing.md` | done |
 | A-5 | The owner has reviewed the change. | E-04 | open |
 

@@ -1,12 +1,12 @@
 # Verification: offline proof verification for auditors
 
-Evidence status: **pass** for the unit tests, typecheck and a hand run (E-01, E-02). **Pending CI** for the sealed case, which needs the PostgreSQL test database (E-03). **Open** for the owner's review (E-04).
+Evidence status: **pass** for the unit tests, typecheck, a hand run and the sealed case (E-01 to E-03). **Open** for the owner's review (E-04).
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | `vitest run test/verify-bundle.test.ts`: 4 tests pass; API and web typecheck clean; Records page tests pass. Local machine. | `evidence/local-checks.log` |
 | E-02 | pass | `pnpm cr verify` on a generated unsealed bundle exits 0; after editing one entry it exits 1 with "event 2 does not match its digest". | `evidence/local-checks.log` |
-| E-03 | pending | `seals.test.ts` runs a real passkey-sealed bundle through `verifyBundleText`. This container has no usable PostgreSQL 17 as root, so it runs in CI. | CI run on the pull request |
+| E-03 | pass | `seals.test.ts` runs a real passkey-sealed bundle through `verifyBundleText`; green in CI on 7bb72ae and locally against PostgreSQL 17 run as a non-root user. | CI run on the pull request |
 | E-04 | open | Owner review. | Not executed |
 
 ## Evidence custody and coupling

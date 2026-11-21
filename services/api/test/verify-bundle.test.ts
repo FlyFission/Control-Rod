@@ -55,4 +55,21 @@ describe("pnpm cr verify", () => {
     expect((await verifyBundleText("not json")).code).toBe(2);
     expect((await verifyBundleText(JSON.stringify({ hello: "world" }))).code).toBe(2);
   });
+
+  it("checks an audit export for a time window, deriving its entries from their recorded times", async () => {
+    const window = { ...bundle, package_id: undefined, window: { from: "2026-11-21T00:00:01Z", to: "2026-11-21T00:00:03Z" } };
+    delete (window as Json).package_id;
+    const ok = await verifyBundleText(JSON.stringify(window));
+    expect(ok.code).toBe(0);
+    expect(ok.lines[0]).toBe("OK    window 2026-11-21T00:00:01Z to 2026-11-21T00:00:03Z: 2 entries (2, 3) recompute and link through the chain from entry 1 to entry 3.");
+    const empty = structuredClone(window) as Json;
+    empty.window = { from: "2027-01-01T00:00:00Z", to: "2027-02-01T00:00:00Z" };
+    expect((await verifyBundleText(JSON.stringify(empty))).lines[0]).toBe("FAIL  window 2027-01-01T00:00:00Z to 2027-02-01T00:00:00Z: the segment records nothing inside the window.");
+    const backwards = structuredClone(window) as Json;
+    backwards.window = { from: "2026-11-21T00:00:03Z", to: "2026-11-21T00:00:01Z" };
+    expect((await verifyBundleText(JSON.stringify(backwards))).lines[0]).toContain("the window is not valid: from must be before to");
+    const edited = structuredClone(window) as Json;
+    edited.segment[2].at = "2026-11-21T00:00:02.500Z";
+    expect((await verifyBundleText(JSON.stringify(edited))).lines[0]).toContain("event 3 does not match its digest");
+  });
 });

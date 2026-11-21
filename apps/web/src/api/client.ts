@@ -16,7 +16,7 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   OfficeItem,
   OfficeFloor,
   ScramDetail,
-  ChainHead, PackageProof, RecordsVerification, ScramPreview, ScramSummary,
+  ChainHead, PackageProof, RecordsVerification, WindowExport, ScramPreview, ScramSummary,
   PackageView,
   PersonVerificationEntry,
   Run,
@@ -218,6 +218,7 @@ export const api = {
   recordsHead: () => call<{ head: ChainHead | null }>("GET", "/records/head"),
   personVerifications: (id: string) => call<PersonVerificationEntry[]>("GET", `/packages/${enc(id)}/person-verifications`),
   packageProof: (id: string) => call<PackageProof>("GET", `/packages/${enc(id)}/proof`),
+  recordsExport: (from: string, to: string) => call<WindowExport>("GET", `/records/export?from=${enc(from)}&to=${enc(to)}`),
   repos: (workspaceRoot?: string) =>
     call<ReposResponse>(
       "GET",

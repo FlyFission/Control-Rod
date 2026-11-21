@@ -70,7 +70,7 @@ Appendix B is public, so its 18 criteria are the rows. "What it asks" is a short
 | XV | **Nonconforming items.** Items that fail are identified, kept out of use and dispositioned. | A failed pre-check blocks plain acceptance. Accepting anyway needs a written reason. Return and reject are signed. Missing evidence can never be waived. | Built | Dispositions are not rolled up into one nonconformance report. | Req. 15 | 8.7 | |
 | XVI | **Corrective action.** Find the cause of significant problems and stop them coming back. | Issues, security advisories, and the `tracking-deficiencies`, `learning-from-experience` and `reporting-shared-defects` skills. SCRAM can stop all work with a signed reason. | Partial | There is no corrective-action register with cause, action, owner and closure verification. | Req. 16 | 10.2 | 830.122(c); 10 CFR Part 21 |
 | XVII | **Quality records.** Records are complete, identifiable, retrievable and kept. | An append-only event chain with hashes, seals and inclusion proofs. Evidence is stored per run, along with signed decisions, change records and git history. | Partial | There is no retention schedule. The outside-witnessed transparency log ([ADR 0009](adr/0009-evidence-format.md)) is decided but not built. | Req. 17 | 7.5.3 | 830.122(d); 21 CFR 11.10(c), (e) |
-| XVIII | **Audits.** Planned, documented audits of the program, by people independent of the work. | Control Rod gives auditors what they need to check records: an [auditor's guide](auditing.md), a check of the whole chain, inclusion proofs for each package, and `pnpm cr verify`, which checks a proof offline with no database or sign-in. | Partial | Planning and running audits is **yours**. There is no export for a time window yet, and no audit record inside Control Rod. | Req. 18 | 9.2, 9.3 | 830.122(i), (j) |
+| XVIII | **Audits.** Planned, documented audits of the program, by people independent of the work. | Control Rod gives auditors what they need to check records: an [auditor's guide](auditing.md), a check of the whole chain, inclusion proofs for each package, an export of everything recorded in a time window, and `pnpm cr verify`, which checks a proof or an export offline with no database or sign-in. | Partial | Planning and running audits is **yours**. There is no audit record inside Control Rod. | Req. 18 | 9.2, 9.3 | 830.122(i), (j) |
 
 ## Software-specific controls
 
@@ -103,9 +103,10 @@ What helps with that today: every run records the exact runtime digest, model, s
 3. **Traceability matrix and V&V plan.** These are the two missing items in the [SQA package](sqa/README.md).
 4. **Corrective-action register.** Record cause, action, owner and closure check, linked to the findings that started it.
 5. **Records retention and outside witness.** Write a retention schedule, and build the transparency log with an outside witness ([ADR 0009](adr/0009-evidence-format.md)).
-6. **Audit export for a time window.** Checking a single package offline is already possible ([auditing.md](auditing.md)). What's missing is an export of the decisions, evidence and signatures for a period. It needs a new API contract in `spec/`.
-7. **Supplier qualification for model providers, and role trials.**
-8. **Training records** linked to signer qualifications.
+6. **Supplier qualification for model providers, and role trials.**
+7. **Training records** linked to signer qualifications.
+
+An audit export for a time window, checkable offline, was added on 2026-11-21 ([auditing.md](auditing.md)).
 
 ## Using this page in an assessment
 

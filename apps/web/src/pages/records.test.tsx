@@ -135,4 +135,27 @@ describe("Records", () => {
     expect(await within(region).findByText("The proof does not hold: event 5 does not link to the one before it.")).toBeTruthy();
     expect(within(region).getByText("No seal covers these entries yet: the proof runs to the chain's current head, unsealed.")).toBeTruthy();
   });
+
+  it("exports a time window for audit, sending the window with its time zone, and offers the file with the offline check", async () => {
+    let asked: URL | undefined;
+    server.use(http.get("*/records/export", ({ request }) => {
+      asked = new URL(request.url);
+      return HttpResponse.json({
+        ok: true, chain: { ok: true, count: 50 }, check: { ok: true, authenticated: true, events: [12, 13, 14] },
+        bundle: { window: { from: asked.searchParams.get("from"), to: asked.searchParams.get("to") }, segment: [], seal: { id: "seal_1", payload: { head_seq: 30, purpose: "End of day" } }, statement: "Local chain, not witnessed" },
+      });
+    }));
+    const user = userEvent.setup();
+    await renderPage(<Records passkeys={passkeys} />);
+    const region = screen.getByRole("region", { name: "Export a time window for audit" });
+    await user.type(within(region).getByLabelText("From"), "2026-11-01T00:00");
+    await user.type(within(region).getByLabelText("To"), "2026-11-08T00:00");
+    await user.click(within(region).getByRole("button", { name: "Export" }));
+    expect(await within(region).findByText("3 entries recorded in the window recompute and link through the chain from its first entry.")).toBeTruthy();
+    expect(asked!.searchParams.get("from")).toBe(new Date("2026-11-01T00:00").toISOString());
+    expect(region.textContent).toContain("Covered by seal seal_1 through entry 30 (End of day).");
+    const link = within(region).getByRole("link", { name: "Download the export" }) as HTMLAnchorElement;
+    expect(link.getAttribute("download")).toMatch(/^audit-export-.*\.json$/);
+    expect(region.textContent).toContain("pnpm cr verify audit-export-");
+  });
 });

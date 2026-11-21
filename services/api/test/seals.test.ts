@@ -232,6 +232,43 @@ describe("inclusion proofs", () => {
   });
 });
 
+describe("audit export for a time window", () => {
+  const exportOf = async (from: string, to: string) => get(`/records/export?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+
+  it("exports every event recorded in a window under the seal covering them, checkable offline", async () => {
+    const from = new Date(Date.now() - 1000).toISOString();
+    await pkg("WP-WINDOW-1");
+    await pkg("WP-WINDOW-2");
+    // The window closes before the seal, so the seal's own events fall after it and the seal covers it.
+    await new Promise((r) => setTimeout(r, 5));
+    const to = new Date().toISOString();
+    await new Promise((r) => setTimeout(r, 5));
+    expect((await seal("Covers the export window")).statusCode).toBe(200);
+    const r = await exportOf(from, to);
+    expect(r.statusCode, r.body).toBe(200);
+    const p = r.json();
+    expect(p).toMatchObject({ ok: true, chain: { ok: true }, check: { ok: true, authenticated: true }, bundle: { window: { from, to }, witnessed: false } });
+    // The window's events are derived from their recorded times, never taken from a list.
+    const inside = (await h.db.query<{ seq: number }>("select seq from events where (body->>'at')::timestamptz >= $1 and (body->>'at')::timestamptz < $2 order by seq", [from, to])).rows.map((x) => x.seq);
+    expect(p.check.events).toEqual(inside);
+    expect(p.bundle.segment[0].seq).toBe(1);
+    const { verifyBundleText } = await import("../src/verify-bundle.js");
+    const offline = await verifyBundleText(JSON.stringify(p.bundle));
+    expect(offline.code).toBe(0);
+    expect(offline.lines[0]).toContain(`window ${from} to ${to}`);
+    // Moving an event's time into or out of the window changes its digest, so the export no longer holds.
+    const moved = structuredClone(p.bundle);
+    moved.segment[inside[0]! - 1].at = "2000-01-01T00:00:00.000Z";
+    expect((await verifyBundleText(JSON.stringify(moved))).code).toBe(1);
+  });
+
+  it("refuses a window that is not two ordered date-times, and says when nothing was recorded in it", async () => {
+    expect((await get("/records/export?from=yesterday&to=today")).statusCode).toBe(400);
+    expect((await exportOf("2026-11-02T00:00:00Z", "2026-11-01T00:00:00Z")).statusCode).toBe(400);
+    expect((await exportOf("2001-01-01T00:00:00Z", "2001-02-01T00:00:00Z")).statusCode).toBe(404);
+  });
+});
+
 describe("key history", () => {
   it("keeps a seal checkable after its passkey is revoked, from the retained key", async () => {
     const credentialId = Buffer.from(key.credentialId).toString("base64url");

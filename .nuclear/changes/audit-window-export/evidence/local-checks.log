@@ -1,0 +1,11 @@
+$ vitest run test/seals.test.ts test/verify-bundle.test.ts (PostgreSQL 17, non-root)
+ Test Files  2 passed (2)
+      Tests  21 passed (21)
+$ pnpm typecheck (api)
+ok
+$ vitest run src/pages/records.test.tsx (web)
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+$ full API suite
+Test Files  1 failed | 64 passed | 1 skipped (66); Tests  2 failed | 790 passed | 2 skipped (794)
+failed: command-boundary.test.ts SEC-01, SEC-03 (known trust-auth test database issue, docs/status.md)

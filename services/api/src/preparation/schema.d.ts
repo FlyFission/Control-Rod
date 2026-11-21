@@ -835,6 +835,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/records/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description An audit export of a time window: the whole chain from its first event through the recording event of
+         *     the first valid seal covering the last event recorded in the window (or the chain head, unsealed), with
+         *     that seal and what checking its signature needs. The window is half open, by each event's recorded
+         *     time. Self contained like a package proof; refused (mixed-scope) on a shared chain.
+         */
+        get: operations["recordsExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/records/head": {
         parameters: {
             query?: never;
@@ -6855,6 +6877,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    recordsExport: {
+        parameters: {
+            query: {
+                /** @description Start of the window, inclusive, with its time zone. */
+                from: string;
+                /** @description End of the window, exclusive, with its time zone. */
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description The global chain verifies and the export holds. */
+                        ok: boolean;
+                        chain: {
+                            ok: boolean;
+                            /** Format: int32 */
+                            count: number;
+                            /** Format: int32 */
+                            broken_at?: number;
+                        };
+                        /** @description The export checked on its own: links from the first event, the window's events derived from their times, and the seal's signature. */
+                        check: {
+                            ok: boolean;
+                            authenticated: boolean;
+                            events: number[];
+                            problem?: string;
+                        };
+                        bundle: {
+                            window: {
+                                /** Format: date-time */
+                                from: string;
+                                /** Format: date-time */
+                                to: string;
+                            };
+                            segment: {
+                                [key: string]: unknown;
+                            }[];
+                            seal: {
+                                [key: string]: unknown;
+                            } | null;
+                            seal_evidence?: {
+                                public_key: string;
+                                rp_id: string;
+                                origins: string[];
+                            };
+                            /** @description Unsealed: the chain head when the export was made, which the segment must end at. Unauthenticated. */
+                            head?: {
+                                /** Format: int32 */
+                                seq: number;
+                                digest: string;
+                            };
+                            /** @enum {boolean} */
+                            witnessed: false;
+                            /** @enum {string} */
+                            statement: "Local chain, not witnessed";
+                        };
+                    } | components["schemas"]["ApiError"];
                 };
             };
         };

@@ -20,8 +20,9 @@ Control Rod gives you records and a way to check them. Whether they count as qua
 1. **Check the whole chain first.** Open **Records**, or call `GET /records/verify`. You get back whether every entry recomputes and links, each seal's result, and how many entries no valid seal covers yet. If the chain is broken anywhere, stop and treat every later record as unproven.
 2. **Ask for a seal before you sample.** A Member seals the chain from the **Records** page with a passkey. After that, everything up to the seal is covered, and a later rewrite of a covered entry fails the check.
 3. **Pick packages and take their proofs.** On **Records**, enter a package ID and choose **Prove it**, then **Download the proof bundle**. The bundle holds the chain from its first entry through the seal that covers the package, the seal itself, and the public key needed to check the seal's signature.
-4. **Check each bundle offline,** as described in the next section.
-5. **Read the package's decisions and runs** against your sampling criteria. For example, check that each acceptance followed a pre-check from a different provider, or that every override has a written reason.
+4. **Or export a whole period.** On **Records**, under **Export a time window for audit**, choose a start and an end and select **Export**, then **Download the export**. The export holds every event recorded in that window, by each event's own recorded time, in the same self-checking form as a package proof (`GET /records/export?from=…&to=…`). Seal the chain after the window closes, so that the seal covers the whole window.
+5. **Check each file offline,** as described in the next section.
+6. **Read the package's decisions and runs** against your sampling criteria. For example, check that each acceptance followed a pre-check from a different provider, or that every override has a written reason.
 
 ## Checking a bundle on your own machine
 
@@ -30,9 +31,10 @@ You need a clone of the repository and Node 22. You don't need a database, a sig
 ```sh
 pnpm install
 pnpm cr verify WP-0001-inclusion-proof.json
+pnpm cr verify audit-export-2026-11-01-to-2026-11-08.json
 ```
 
-The command recomputes every digest and link from entry 1 onward. It also derives the package's own entries from the chain, and checks the seal and its passkey signature against the key in the file. It uses the same function as the control plane, `verifyInclusion` in [`services/api/src/seals.ts`](../services/api/src/seals.ts).
+The command recomputes every digest and link from entry 1 onward. It also derives the package's own entries from the chain, and checks the seal and its passkey signature against the key in the file. For an export, it finds the window's entries from their recorded times, and checks that the seal covers the last of them. It uses the same functions as the control plane, `verifyInclusion` and `verifyWindow` in [`services/api/src/seals.ts`](../services/api/src/seals.ts).
 
 A bundle that holds:
 
@@ -52,7 +54,7 @@ Keep these limits in your findings.
 - **Nothing outside the installation witnesses the chain.** Someone with control of the database could cut off entries after the last seal, or rebuild the whole chain from scratch before anyone sealed it. The outside-witnessed transparency log ([ADR 0009](adr/0009-evidence-format.md)) is decided but not built.
 - **The bundle carries the signer's key but does not prove whose key it is.** Confirm that the key belongs to the named Member from somewhere outside the bundle, such as the Member's own passkey enrollment.
 - **An unsealed bundle authenticates nothing.** It shows the entries are consistent with each other, up to a head that is only stated.
-- **There is no export for a time window yet.** Sampling works one package at a time.
+- **An export trusts each event's recorded time to place it in the window.** Moving an event's time breaks its digest, so the check catches it. But the times come from the control plane's own clock.
 - **There is no retention schedule.** How long records are kept is up to you.
 
 When these limits change, this page and [qa-standards.md](qa-standards.md) change in the same pull request.

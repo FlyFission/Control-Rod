@@ -835,6 +835,42 @@ op packageProof(@path id: string): {
   };
 } | ApiError;
 
+/**
+ * An audit export of a time window: the whole chain from its first event through the recording event of
+ * the first valid seal covering the last event recorded in the window (or the chain head, unsealed), with
+ * that seal and what checking its signature needs. The window is half open, by each event's recorded
+ * time. Self contained like a package proof; refused (mixed-scope) on a shared chain.
+ */
+@route("/records/export")
+@get
+op recordsExport(
+  /** Start of the window, inclusive, with its time zone. */
+  @query from: utcDateTime,
+
+  /** End of the window, exclusive, with its time zone. */
+  @query to: utcDateTime,
+): {
+  /** The global chain verifies and the export holds. */
+  ok: boolean;
+
+  chain: { ok: boolean; @minValue(0) count: int32; broken_at?: int32 };
+
+  /** The export checked on its own: links from the first event, the window's events derived from their times, and the seal's signature. */
+  check: { ok: boolean; authenticated: boolean; events: int32[]; problem?: string };
+
+  bundle: {
+    window: { from: utcDateTime; to: utcDateTime };
+    segment: Record<unknown>[];
+    seal: Record<unknown> | null;
+    seal_evidence?: { public_key: string; rp_id: string; origins: string[] };
+
+    /** Unsealed: the chain head when the export was made, which the segment must end at. Unauthenticated. */
+    head?: { seq: int32; digest: string };
+    witnessed: false;
+    statement: "Local chain, not witnessed";
+  };
+} | ApiError;
+
 /** A budget as a figure carries it. `used` is absent when the budget's unit is not reported. */
 model FigureSpend {
   budget_id: string;

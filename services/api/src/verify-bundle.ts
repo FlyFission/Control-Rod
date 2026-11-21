@@ -1,14 +1,14 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type InclusionBundle, NOT_WITNESSED, verifyInclusion } from "./seals.js";
+import { type InclusionBundle, NOT_WITNESSED, type WindowBundle, verifyInclusion, verifyWindow } from "./seals.js";
 
 /**
- * Offline check of a downloaded inclusion proof (`pnpm cr verify <file>`), for an auditor who holds
- * only the file. It reads no database and calls no server: every digest, link, the seal and its
+ * Offline check of a downloaded inclusion proof or audit export (`pnpm cr verify <file>`), for an
+ * auditor who holds only the file. It reads no database and calls no server: every digest, link, the seal and its
  * passkey signature are recomputed from the bundle by `verifyInclusion`, the same function the control
- * plane uses. It accepts the bundle the Records page downloads, or the whole `GET /packages/:id/proof`
- * response, which carries the bundle under `bundle`.
+ * plane uses (`verifyWindow` for an export). It accepts the bundle the Records page downloads, or the
+ * whole `GET /packages/:id/proof` or `GET /records/export` response, which carries it under `bundle`.
  *
  * What it cannot settle, and says so: that the key in the bundle belongs to the person named as the
  * signer (confirm that outside the bundle), and that nothing after the seal was cut, because nothing
@@ -24,10 +24,14 @@ export interface BundleReport {
   lines: string[];
 }
 
-function asBundle(parsed: Json): InclusionBundle | null {
+type Bundle = { kind: "package"; b: InclusionBundle } | { kind: "window"; b: WindowBundle };
+
+function asBundle(parsed: Json): Bundle | null {
   const b = parsed && typeof parsed === "object" && "bundle" in parsed && !("segment" in parsed) ? parsed.bundle : parsed;
-  if (!b || typeof b !== "object" || typeof b.package_id !== "string" || !Array.isArray(b.segment)) return null;
-  return b as InclusionBundle;
+  if (!b || typeof b !== "object" || !Array.isArray(b.segment)) return null;
+  if (typeof b.package_id === "string") return { kind: "package", b: b as InclusionBundle };
+  if (b.window && typeof b.window === "object") return { kind: "window", b: b as WindowBundle };
+  return null;
 }
 
 /** Checks the text of a bundle file and says what it shows, in plain words. */
@@ -38,18 +42,20 @@ export async function verifyBundleText(text: string): Promise<BundleReport> {
   } catch {
     return { code: 2, lines: ["This file is not JSON, so it is not an inclusion proof."] };
   }
-  const b = asBundle(parsed);
-  if (!b) return { code: 2, lines: ["This file is not an inclusion proof: it has no package_id and segment."] };
+  const found = asBundle(parsed);
+  if (!found) return { code: 2, lines: ["This file is not an inclusion proof or an audit export: it has no segment with a package_id or a window."] };
+  const b = found.b;
+  const name = found.kind === "package" ? found.b.package_id : `window ${found.b.window.from} to ${found.b.window.to}`;
   let check: Awaited<ReturnType<typeof verifyInclusion>>;
   try {
-    check = await verifyInclusion(b);
+    check = found.kind === "package" ? await verifyInclusion(found.b) : await verifyWindow(found.b);
   } catch (e) {
-    return { code: 1, lines: [`FAIL  ${b.package_id}: the bundle could not be checked (${e instanceof Error ? e.message : String(e)}).`] };
+    return { code: 1, lines: [`FAIL  ${name}: the bundle could not be checked (${e instanceof Error ? e.message : String(e)}).`] };
   }
-  if (!check.ok) return { code: 1, lines: [`FAIL  ${b.package_id}: ${check.problem ?? "the proof does not hold"}.`] };
+  if (!check.ok) return { code: 1, lines: [`FAIL  ${name}: ${check.problem ?? "the proof does not hold"}.`] };
   const n = check.events.length;
   const lines = [
-    `OK    ${b.package_id}: ${n} ${n === 1 ? "entry" : "entries"} (${check.events.join(", ")}) ${n === 1 ? "recomputes and links" : "recompute and link"} through the chain from entry 1 to entry ${b.segment.at(-1)!.seq}.`,
+    `OK    ${name}: ${n} ${n === 1 ? "entry" : "entries"} (${check.events.join(", ")}) ${n === 1 ? "recomputes and links" : "recompute and link"} through the chain from entry 1 to entry ${b.segment.at(-1)!.seq}.`,
   ];
   if (check.authenticated) {
     const s = b.seal.payload;
@@ -67,7 +73,7 @@ export async function verifyBundleText(text: string): Promise<BundleReport> {
 async function main(argv: string[]) {
   const files = argv.filter((a) => !a.startsWith("-"));
   if (!files.length) {
-    console.error("Usage: pnpm cr verify <inclusion-proof.json> [more.json ...]");
+    console.error("Usage: pnpm cr verify <inclusion-proof-or-audit-export.json> [more.json ...]");
     return 2;
   }
   let worst = 0;

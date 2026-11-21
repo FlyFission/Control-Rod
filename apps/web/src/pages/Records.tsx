@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
-import type { PackageProof, RecordsVerification, SealCheck } from "../api/types.js";
+import type { PackageProof, RecordsVerification, SealCheck, WindowExport } from "../api/types.js";
 import { type Passkeys, browserPasskeys, signAdmin } from "../lib/decide.js";
 import { shortDigest, time } from "../lib/format.js";
 
@@ -44,6 +44,7 @@ export function Records({ passkeys = browserPasskeys }: { passkeys?: Passkeys } 
       <Verification />
       <Seal passkeys={passkeys} />
       <Proof />
+      <Export />
       <section className="panel" aria-labelledby="rec-title">
         <h2 id="rec-title">The chain</h2>
         {q.isLoading && <p className="muted">Loading</p>}
@@ -274,6 +275,80 @@ function Proof() {
           {href && (
             <p className="muted small">
               Anyone holding the file can check it without this app: <code>pnpm cr verify {p.bundle.package_id}-inclusion-proof.json</code>
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** A date-time-local value read as the viewer's local time, sent with its zone. */
+const asInstant = (local: string) => (local ? new Date(local).toISOString() : "");
+
+/** An audit export: everything the chain recorded in a time window, under the seal that covers it, to keep and check offline. */
+function Export() {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [asked, setAsked] = useState<{ from: string; to: string } | null>(null);
+  const q = useQuery({ queryKey: ["records-export", asked], queryFn: () => api.recordsExport(asked!.from, asked!.to), enabled: asked !== null });
+  const p: WindowExport | undefined = q.data;
+  const href = p ? `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(p.bundle, null, 2))}` : undefined;
+  const file = p ? `audit-export-${p.bundle.window.from.slice(0, 10)}-to-${p.bundle.window.to.slice(0, 10)}.json` : "";
+  return (
+    <section className="panel" aria-labelledby="export-title">
+      <h2 id="export-title">Export a time window for audit</h2>
+      <form
+        className="office-scram-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const next = { from: asInstant(from), to: asInstant(to) };
+          if (asked && next.from === asked.from && next.to === asked.to) void q.refetch();
+          else setAsked(next);
+        }}
+      >
+        <label className="field">
+          <span>From</span>
+          <input type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>To</span>
+          <input type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} />
+        </label>
+        <button type="submit" className="btn small" disabled={!from || !to || q.isFetching}>
+          Export
+        </button>
+      </form>
+      {q.isError && (
+        <p className="error" role="alert">
+          {q.error.message}
+        </p>
+      )}
+      {p && (
+        <div role="status">
+          <p className={p.ok ? "ok" : "error"}>
+            {!p.check.ok
+              ? `The export does not hold: ${p.check.problem ?? "unknown problem"}.`
+              : !p.chain.ok
+                ? `The chain is broken at entry ${p.chain.broken_at ?? "unknown"}, so this export cannot be relied on.`
+                : `${p.check.events.length} ${p.check.events.length === 1 ? "entry" : "entries"} recorded in the window recompute and link through the chain from its first entry.`}
+          </p>
+          <p>
+            {p.bundle.seal
+              ? p.check.authenticated
+                ? `Covered by seal ${p.bundle.seal.id} through entry ${p.bundle.seal.payload.head_seq} (${p.bundle.seal.payload.purpose}).`
+                : `Seal ${p.bundle.seal.id} does not authenticate these entries.`
+              : "No seal covers the end of this window yet: seal the chain first if the export is for an audit."}
+          </p>
+          <p className="muted small">{NOT_WITNESSED}</p>
+          {href && (
+            <a className="btn small" href={href} download={file}>
+              Download the export
+            </a>
+          )}
+          {href && (
+            <p className="muted small">
+              Check it without this app: <code>pnpm cr verify {file}</code>
             </p>
           )}
         </div>

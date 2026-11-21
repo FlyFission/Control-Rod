@@ -257,31 +257,45 @@ export async function inclusionProof(db: Db, auth: AuthConfig, orgId: string, pa
   return readTx(db, async (c) => {
     const owner = (await c.query<{ org_id: string }>("select org_id from object_owners where object_kind = 'package' and object_id = $1", [packageId])).rows[0];
     if (!owner || owner.org_id !== orgId) throw new Refusal(404, "not-found", "No such package");
-    const orgs = (await c.query<{ n: number }>("select count(*)::int as n from organizations")).rows[0]!.n;
-    if (orgs !== 1) throw new Refusal(409, "mixed-scope", "This installation records more than one organization in one chain, so a proof from it cannot be exported yet");
+    await refuseMixedScope(c);
     const report = await verifyOn(c, auth, orgId);
     const all = (await c.query<{ body: EventRecord }>("select body from events order by seq")).rows.map((r) => r.body);
     const mine = packageEvents(all, packageId);
     if (!mine.events.length) throw new Refusal(404, "not-found", "This package has no recorded events");
-    const last = mine.events.at(-1)!;
-    const covering = report.seals.filter((s) => s.result === "valid" && s.head_seq >= last).sort((a, b) => a.head_seq - b.head_seq)[0];
-    const seal = covering ? (await c.query<{ body: Json }>("select body from chain_seals where id = $1", [covering.id])).rows[0]!.body : null;
-    const recordedAt = seal ? all.find((e) => e.type === "chain.sealed" && e.subject === seal.id && e.data?.seal_digest === digest(seal))?.seq : undefined;
-    const top = seal && recordedAt !== undefined ? recordedAt : all.at(-1)!.seq;
-    const segment = all.filter((e) => e.seq <= top);
-    const evidence = seal ? await signerKey(c, auth, seal) : null;
-    const tail = segment.at(-1)!;
-    const bundle: InclusionBundle = {
-      package_id: packageId, segment, seal,
-      ...(evidence ? { seal_evidence: { public_key: evidence.public_key, rp_id: evidence.rp_id, origins: evidence.origins } } : {}),
-      ...(seal ? {} : { head: { seq: tail.seq, digest: tail.digest.value } }),
-      witnessed: false, statement: NOT_WITNESSED,
-    };
+    const bundle: InclusionBundle = { package_id: packageId, ...(await coveringSegment(c, auth, report, all, mine.events.at(-1)!)) };
     const check = await verifyInclusion(bundle);
     // Per package verification is global chain verification plus the inclusion proof (11.6): a chain
     // broken anywhere fails it, however consistent the package's own segment is.
     return { ok: report.chain.ok && check.ok, chain: report.chain, check, bundle };
   });
+}
+
+/** One chain per installation: a proof from a chain holding more than one organization would carry others' events. */
+async function refuseMixedScope(c: Tx) {
+  const orgs = (await c.query<{ n: number }>("select count(*)::int as n from organizations")).rows[0]!.n;
+  if (orgs !== 1) throw new Refusal(409, "mixed-scope", "This installation records more than one organization in one chain, so a proof from it cannot be exported yet");
+}
+
+type Covering = Omit<InclusionBundle, "package_id">;
+
+/**
+ * The chain from its first event through the recording event of the first valid seal covering `last`
+ * (or through the head, unsealed), with that seal and what checking its signature needs.
+ */
+async function coveringSegment(c: Tx, auth: AuthConfig, report: Awaited<ReturnType<typeof verifyOn>>, all: EventRecord[], last: number): Promise<Covering> {
+  const covering = report.seals.filter((s) => s.result === "valid" && s.head_seq >= last).sort((a, b) => a.head_seq - b.head_seq)[0];
+  const seal = covering ? (await c.query<{ body: Json }>("select body from chain_seals where id = $1", [covering.id])).rows[0]!.body : null;
+  const recordedAt = seal ? all.find((e) => e.type === "chain.sealed" && e.subject === seal.id && e.data?.seal_digest === digest(seal))?.seq : undefined;
+  const top = seal && recordedAt !== undefined ? recordedAt : all.at(-1)!.seq;
+  const segment = all.filter((e) => e.seq <= top);
+  const evidence = seal ? await signerKey(c, auth, seal) : null;
+  const tail = segment.at(-1)!;
+  return {
+    segment, seal,
+    ...(evidence ? { seal_evidence: { public_key: evidence.public_key, rp_id: evidence.rp_id, origins: evidence.origins } } : {}),
+    ...(seal ? {} : { head: { seq: tail.seq, digest: tail.digest.value } }),
+    witnessed: false, statement: NOT_WITNESSED,
+  };
 }
 
 /**
@@ -295,30 +309,108 @@ export async function inclusionProof(db: Db, auth: AuthConfig, orgId: string, pa
  */
 export async function verifyInclusion(b: InclusionBundle): Promise<{ ok: boolean; authenticated: boolean; events: number[]; problem?: string }> {
   const fail = (problem: string) => ({ ok: false, authenticated: false, events: [] as number[], problem });
-  if (!b.segment.length) return fail("the segment is empty");
-  let prev: string | undefined;
-  for (const [i, e] of b.segment.entries()) {
-    const { digest: d, ...rest } = e;
-    if (e.seq !== i + 1) return fail(`event ${i + 1} is missing from the segment`);
-    if (eventDigest(rest) !== d.value) return fail(`event ${e.seq} does not match its digest`);
-    if (rest.prev?.value !== prev) return fail(`event ${e.seq} does not link to the one before it`);
-    prev = d.value;
-  }
+  const links = segmentLinks(b.segment);
+  if (links) return fail(links);
   const mine = packageEvents(b.segment, b.package_id);
   if (mine.problem) return fail(mine.problem);
+  const tail = await checkCovering(b, mine.events.at(-1)!, "the package's last event");
+  if (tail.problem) return fail(tail.problem);
+  return { ok: true, authenticated: tail.authenticated, events: mine.events };
+}
+
+/** Every digest and link recomputes from the chain's first event; the problem, or null. */
+function segmentLinks(segment: EventRecord[]): string | null {
+  if (!Array.isArray(segment) || !segment.length) return "the segment is empty";
+  let prev: string | undefined;
+  for (const [i, e] of segment.entries()) {
+    const { digest: d, ...rest } = e;
+    if (e.seq !== i + 1) return `event ${i + 1} is missing from the segment`;
+    if (eventDigest(rest) !== d.value) return `event ${e.seq} does not match its digest`;
+    if (rest.prev?.value !== prev) return `event ${e.seq} does not link to the one before it`;
+    prev = d.value;
+  }
+  return null;
+}
+
+/**
+ * The end of a linked segment: unsealed, it must stop at the head the bundle states; sealed, the seal
+ * must cover `last`, be recorded in the segment as it stands with the key the bundle carries, and its
+ * subject and passkey signature must hold against that key.
+ */
+async function checkCovering(b: Covering, last: number, what: string): Promise<{ authenticated: boolean; problem?: string }> {
   const tail = b.segment.at(-1)!;
   if (!b.seal) {
-    if (!b.head || tail.seq !== b.head.seq || tail.digest.value !== b.head.digest) return fail("the segment does not end at the head the bundle states");
-    return { ok: true, authenticated: false, events: mine.events };
+    if (!b.head || tail.seq !== b.head.seq || tail.digest.value !== b.head.digest) return { authenticated: false, problem: "the segment does not end at the head the bundle states" };
+    return { authenticated: false };
   }
   const head = b.segment[b.seal.payload.head_seq - 1];
-  if (!head || head.digest.value !== b.seal.payload.head_digest.value) return fail("the seal's head is not in the segment as it signed it");
-  if (mine.events.at(-1)! > b.seal.payload.head_seq) return fail("the seal does not cover the package's last event");
-  if (!b.seal_evidence) return fail("the bundle does not carry what checking the seal's signature needs");
+  if (!head || head.digest.value !== b.seal.payload.head_digest.value) return { authenticated: false, problem: "the seal's head is not in the segment as it signed it" };
+  if (last > b.seal.payload.head_seq) return { authenticated: false, problem: `the seal does not cover ${what}` };
+  if (!b.seal_evidence) return { authenticated: false, problem: "the bundle does not carry what checking the seal's signature needs" };
   const record = b.segment.find((e) => e.seq > b.seal.payload.head_seq && e.type === "chain.sealed" && e.subject === b.seal.id);
-  if (!record || record.data?.seal_digest !== digest(b.seal)) return fail("the segment does not record this seal as it stands");
-  if (record.data?.key_digest !== keyDigest(Buffer.from(b.seal_evidence.public_key, "base64url"))) return fail("the key the bundle carries is not the one recorded with the seal");
+  if (!record || record.data?.seal_digest !== digest(b.seal)) return { authenticated: false, problem: "the segment does not record this seal as it stands" };
+  if (record.data?.key_digest !== keyDigest(Buffer.from(b.seal_evidence.public_key, "base64url"))) return { authenticated: false, problem: "the key the bundle carries is not the one recorded with the seal" };
   const signature = await checkSealSignature(b.seal, b.seal_evidence);
-  if (signature !== "valid") return fail(signature === "subject-mismatch" ? "the seal's subject is not what its payload signs" : "the seal's signature does not check");
-  return { ok: true, authenticated: true, events: mine.events };
+  if (signature !== "valid") return { authenticated: false, problem: signature === "subject-mismatch" ? "the seal's subject is not what its payload signs" : "the seal's signature does not check" };
+  return { authenticated: true };
+}
+
+/** An audit export: everything the chain recorded in a time window, under the seal that covers it. */
+export interface WindowBundle extends Covering {
+  /** Half open: events at or after `from` and before `to`, by the time each event records. */
+  window: { from: string; to: string };
+}
+
+/** The events a segment records inside a window, by their own recorded times. Derived, never listed. */
+export function windowEvents(segment: EventRecord[], from: string, to: string): number[] {
+  const a = Date.parse(from);
+  const b = Date.parse(to);
+  return segment.filter((e) => { const t = Date.parse(e.at); return t >= a && t < b; }).map((e) => e.seq);
+}
+
+/** A window an export may name: two ISO date-times, the first before the second. The problem, or null. */
+export function windowProblem(from: unknown, to: unknown): string | null {
+  const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+  if (typeof from !== "string" || !iso.test(from) || Number.isNaN(Date.parse(from))) return "from must be a date-time with its time zone, such as 2026-11-01T00:00:00Z";
+  if (typeof to !== "string" || !iso.test(to) || Number.isNaN(Date.parse(to))) return "to must be a date-time with its time zone, such as 2026-12-01T00:00:00Z";
+  if (Date.parse(from) >= Date.parse(to)) return "from must be before to";
+  return null;
+}
+
+/**
+ * Checks an audit export with nothing but the file, as `verifyInclusion` does for a package: every
+ * digest and link from the chain's first event, the window's events derived from their recorded
+ * times, and the seal covering the window's last event with its passkey signature.
+ */
+export async function verifyWindow(b: WindowBundle): Promise<{ ok: boolean; authenticated: boolean; events: number[]; problem?: string }> {
+  const fail = (problem: string) => ({ ok: false, authenticated: false, events: [] as number[], problem });
+  const bad = windowProblem(b.window?.from, b.window?.to);
+  if (bad) return fail(`the window is not valid: ${bad}`);
+  const links = segmentLinks(b.segment);
+  if (links) return fail(links);
+  const events = windowEvents(b.segment, b.window.from, b.window.to);
+  if (!events.length) return fail("the segment records nothing inside the window");
+  const tail = await checkCovering(b, events.at(-1)!, "the window's last event");
+  if (tail.problem) return fail(tail.problem);
+  return { ok: true, authenticated: tail.authenticated, events };
+}
+
+/**
+ * The audit export of a time window (plan: auditing). The same shape of evidence as a package's
+ * inclusion proof, chosen by time instead of by package, so an auditor can sample a period. The
+ * disclosure is the same as the Records page and the inclusion proof: the events every Member sees.
+ */
+export async function windowExport(db: Db, auth: AuthConfig, orgId: string, from: unknown, to: unknown) {
+  const bad = windowProblem(from, to);
+  if (bad) throw new Refusal(400, "invalid", bad);
+  return readTx(db, async (c) => {
+    await refuseMixedScope(c);
+    const report = await verifyOn(c, auth, orgId);
+    const all = (await c.query<{ body: EventRecord }>("select body from events order by seq")).rows.map((r) => r.body);
+    const inside = windowEvents(all, from as string, to as string);
+    if (!inside.length) throw new Refusal(404, "not-found", "Nothing was recorded in that window");
+    const bundle: WindowBundle = { window: { from: from as string, to: to as string }, ...(await coveringSegment(c, auth, report, all, inside.at(-1)!)) };
+    const check = await verifyWindow(bundle);
+    return { ok: report.chain.ok && check.ok, chain: report.chain, check, bundle };
+  });
 }

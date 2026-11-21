@@ -4,7 +4,7 @@ Release decision: **proposed merge after review; the owner retains the merge dec
 
 - **Proposed:** merge the live suites, the break loop tooling and the four fixes (F-01 to F-04 in trace.md).
 - **Not claimed:** Firefox or WebKit results; that the persona judge is right; that the app is free of the open findings below; the full API suite (targeted files only).
-- **Owner decisions requested:** (1) approve or return the branch; (2) whether to add the nightly live workflow in `proposed-live-workflow.yml` (a trust surface, so it waits for your recorded yes); (3) D3 and D4 in basis.md are the agent's own choices and open to you.
+- **Owner decisions requested:** (1) approve or return the branch; (2) whether to add the on-demand live workflow in `proposed-live-workflow.yml` (no schedule: the owner asked on 2026-11-21 that nothing be scheduled) (a trust surface, so it waits for your recorded yes); (3) D3 and D4 in basis.md are the agent's own choices and open to you.
 
 ## Open findings after the first pass
 

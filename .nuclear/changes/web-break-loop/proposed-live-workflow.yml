@@ -1,11 +1,10 @@
 # PROPOSED, not active. A workflow is a trust surface (AGENTS.md rule 2): copy this to
 # .github/workflows/live.yml only with the owner's recorded yes. It runs the live suites on all three
-# browsers nightly and on demand, and keeps the findings, journeys and screenshots as an artifact.
+# browsers only when someone presses "Run workflow" (no schedule, by the owner's preference), and
+# keeps the findings, journeys and screenshots as an artifact.
 name: live
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "17 7 * * *"
 permissions:
   contents: read
 concurrency:

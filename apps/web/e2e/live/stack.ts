@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 import { makeAttestation, type Attestation } from "./passkey.js";
 
 export const repoRoot = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
-const AGENT_BINARIES = ["claude", "codex", "opencode", "grok", "gemini", "antigravity"];
+const AGENT_BINARIES = ["claude", "codex", "opencode", "grok", "gemini", "antigravity", "ollama", "agy"];
 
 function freePort(): Promise<number> {
   return new Promise((ok, bad) => {
@@ -198,8 +198,13 @@ export async function startStack(opts: { name: string; env?: Record<string, stri
       else console.log(`live stack kept at ${base}`);
     },
   };
-  await stack.startApi();
-  if (daemonBin) await stack.startDaemon();
+  try {
+    await stack.startApi();
+    if (daemonBin) await stack.startDaemon();
+  } catch (err) {
+    await stack.stop();
+    throw err;
+  }
   return stack;
 }
 

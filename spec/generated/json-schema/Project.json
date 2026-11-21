@@ -18,6 +18,19 @@
         "default_rigor": {
             "$ref": "RigorMode.json"
         },
+        "default_context_profile": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "light"
+                },
+                {
+                    "type": "string",
+                    "const": "nuclear"
+                }
+            ],
+            "description": "The context profile packages carry when they name none. Absent means light."
+        },
         "lanes": {
             "type": "array",
             "items": {

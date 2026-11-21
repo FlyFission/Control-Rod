@@ -204,6 +204,12 @@ model WorkPackage {
    */
   grade?: "safety" | "material" | "general-service";
 
+  /**
+   * Which context the brief carries. Absent means the project default; Safety and Material grades
+   * and trust-surface scopes are always nuclear.
+   */
+  context_profile?: "light" | "nuclear";
+
   status: PackageStatus;
   rigor_mode: RigorMode;
   data_lane: DataLane;

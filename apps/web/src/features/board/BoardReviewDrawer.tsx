@@ -4,9 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { WorkPackage } from "../../api/types.js";
 import { DecisionBar } from "../../components/DecisionBar.js";
+import { projectContextDefault } from "../../lib/context-profile.js";
 import { needsIndependentCheck } from "../../lib/board.js";
 import { shortDigest, STATUS_LABEL } from "../../lib/format.js";
 import { MODE_COPY, type EngineeringMode } from "../../lib/mode.js";
+import { ContextSwitch } from "./ContextSwitch.js";
 
 interface BoardReviewDrawerProps {
   packageId: string;
@@ -25,6 +27,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
     queryKey: ["package", packageId],
     queryFn: () => api.packageView(packageId),
   });
+  const admin = useQuery({ queryKey: ["admin"], queryFn: api.admin });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -70,6 +73,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
               <span className="bd-chip">Lane: {view?.effective_lane ?? pkg.data_lane}</span>
               {pkg.discipline && <span className="bd-chip">{pkg.discipline}</span>}
             </div>
+            <ContextSwitch pkg={pkg} view={view} projectDefault={projectContextDefault(admin.data?.projects, pkg.project)} />
 
             <section className="bd-drawer-sec">
               <h3>Custody Chain</h3>

@@ -198,6 +198,7 @@ export function BoardView() {
                     column={x.column}
                     stream={data.status}
                     lastKnown={x.lastKnown}
+                    nuclear={x.nuclear}
                     selected={selectedId === x.pkg.id}
                     {...(data.unknownSince ? { unknownSince: data.unknownSince } : {})}
                     {...(x.owner ? { owner: x.owner } : {})}

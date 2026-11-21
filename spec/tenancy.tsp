@@ -247,6 +247,9 @@ model Project {
   mode: Mode;
   default_rigor: RigorMode;
 
+  /** The context profile packages carry when they name none. Absent means light. */
+  default_context_profile?: "light" | "nuclear";
+
   @minItems(1)
   lanes: DataLane[];
 

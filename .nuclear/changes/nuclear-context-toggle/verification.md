@@ -10,7 +10,7 @@ Evidence status: **pass** on this host (Linux, Node 22, PostgreSQL 17.10 embedde
 | E-04 | pass | Measured briefs: each fixture's Light and Nuclear BRIEF.md token count, from `scripts/measure-briefs.mjs` with its inputs sha256. Counts are from the NGCE-ported counter, not a model tokenizer. | `evidence/budgets.txt`, `packs/nuclear-grade/budgets.json` |
 | E-05 | pass | Trust-surface diff against `origin/main`: `spec/` only (two `.tsp` files and their generated output). | `evidence/trust-surface-diff.txt` |
 | E-06 | pass | This record validates with `ng.py validate --strict-custody` at NGCE `8122269`, the commit CI pins. | `evidence/validate.log` |
-| E-07 | pending | CI on the pull request. | the pull request's checks |
+| E-07 | pass | CI on the pull request: all 11 checks passed on head 0ce7b75. | the pull request's checks |
 
 Earlier evidence carried from the two records this one replaces: `evidence/brief-*.log` (composer against the fixture pack) and `evidence/pack-*.txt` (pack generation and counter, validated then at NGCE `395aa6e`). They describe those commits before integration; E-01 to E-06 supersede them.
 

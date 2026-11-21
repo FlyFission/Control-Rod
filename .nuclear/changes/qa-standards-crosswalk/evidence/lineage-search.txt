@@ -1,0 +1,28 @@
+./services/api/test/founding.test.ts:7: * The founding Member of an install upgraded from before migration 009 (review thread on #21): the
+./services/api/test/migration-preservation.ts:76:  const upgraded = await openDb(db.options.connectionString as string, { secrets: TEST_ROLE_SECRETS });
+./services/api/test/migration-preservation.ts:77:  await closeDb(upgraded);
+./README.md:115:Control Rod isn't a quality assurance program, a certification, or a replacement for qualified engineering judgment. It produces discipline and records that a QA program can lean on; t
+./packs/nuclear-grade/templates/standard/risk.md:132:Original Nuclear-grade template inspired by public sources on graded quality, keeping the approved version under control (CM), software lifecycle, 
+./packs/nuclear-grade/clusters/review-panel.md:14:- **Failure class:** false-independence (correlated seats counted as separate views, consensus treated as proof, dissent averaged away, a degraded pan
+./packs/nuclear-grade/clusters/review-panel.md:15:- **Next action:** record result and health together, verify each actionable finding against live source, and escalate a split or degraded panel rathe
+./packs/nuclear-grade/reference/running-a-review-panel/SKILL.md:10:A panel's worth is the number of ways its seats can fail differently, not its headcount. Declare each seat's diversity axis, preserve
+./packs/nuclear-grade/reference/running-a-review-panel/SKILL.md:17:- **Failure class:** false-independence (correlated seats counted as separate views, consensus treated as proof, dissent averaged awa
+./packs/nuclear-grade/reference/running-a-review-panel/SKILL.md:18:- **Next action:** record result and health together, verify each actionable finding against live source, and escalate a split or deg
+./packs/nuclear-grade/reference/running-a-review-panel/SKILL.md:54:7. Record panel health beside the result: every seat dropped, timed out, invalid, or given a truncated packet. A panel that planned f
+./packs/nuclear-grade/reference/running-a-review-panel/SKILL.md:72:- Dissent, dropped seats, timeouts, and invalid responses all appear; a degraded panel is labeled degraded, and a split high-conseque
+./packs/nuclear-grade/reference/running-a-review-panel/SKILL.md:79:- Escalate when the panel degrades below the diversity that justified convening it. Report the degraded result and the missing axes; 
+./packs/nuclear-grade/reference/learning-from-experience/SKILL.md:106:This skill is an original software-workflow translation of operating experience, post-job review, reporting errors and near misses
+./packs/nuclear-grade/reference/responding-to-incidents/SKILL.md:22:- Production is down or degraded, data is at risk, security is in question, or users are harmed.
+./packs/nuclear-grade/reference/checking-facts/SKILL.md:114:An original fact-checking workflow, not a claim to have invented source verification. Concept lineage: alternate or simplified calculational
+./packs/nuclear-grade/reference/reporting-shared-defects/SKILL.md:104:This skill is an original software-workflow translation of the evaluate-and-notify duty for defects in supplied or shared items, i
+./docs/superpowers/specs/2026-10-22-guided-preparation-design.md:48:1. A person captures a request using the current workbench. An answer-only request stays outside the preparation workflow; consequen
+./docs/superpowers/specs/2026-11-16-role-casting-design.md:200:| Originate (software) | Private packages with hidden acceptance tests, written for trials and never merged into this repository, run aga
+./docs/superpowers/specs/2026-11-16-role-casting-design.md:206:| Summarize | Sources with known facts. | Required facts left out, checked against the fact list; claims not in the source, scored by a s
+./docs/superpowers/specs/2026-11-16-role-casting-design.md:208:A measure that no script can score is labelled human-graded, graded blind to the candidate, and attributed to the person.
+./docs/patterns/kandev.md:205:- **Why it matters:** avoids silent double work and gives graded choices.
+./docs/boundary.md:6:- It does not create NQA-1 records by itself. A customer's QA program decides whether Control Rod's records serve as quality records, and under what controls.
+./docs/README.md:14:- [qa-standards.md](qa-standards.md): how Control Rod's controls line up with 10 CFR 50 Appendix B, NQA-1, ISO 9001 and other quality standards, with the gaps marked (no compliance
+./docs/overlay-themes/reviews/BRIEF.md:8:Each theme must be graded from 1 to 10 across these five objective criteria. The threshold for acceptance is **10/10 across all five criteria**:
+./docs/overlay-themes/reviews/codex.err:29:Each theme must be graded from 1 to 10 across these five objective criteria. The threshold for acceptance is **10/10 across all five criteria**:
+./docs/overlay-themes/reviews/codex.err:491:Final review: fresh-context read-only review of 41d2d0b..4e6b39d; seven Important and one Minor finding. All eight entered one fix pass. Quiet was regraded 
+./docs/adr/0015-modes-rigor-overlays.md:7:One control spine serves two modes, Software and Capital Projects, each a domain pack. Rigor tier (administrative, quick, standard, high-consequence) and QA o

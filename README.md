@@ -112,7 +112,7 @@ More detail, test commands and troubleshooting: [docs/getting-started.md](docs/g
 
 ## What it is not
 
-Control Rod isn't a quality assurance program, a certification, or a replacement for qualified engineering judgment. It produces discipline and records that a QA program can lean on; the people and processes around it still own quality and safety decisions. Nothing here claims compliance with a standard.
+Control Rod isn't a quality assurance program, a certification, or a replacement for qualified engineering judgment. It produces discipline and records that a QA program can lean on; the people and processes around it still own quality and safety decisions. Nothing here claims compliance with a standard. If you work under NQA-1, ISO 9001 or a similar program, [docs/qa-standards.md](docs/qa-standards.md) shows how Control Rod's controls line up with those standards, and where the gaps are.
 
 ## Building it with us
 

@@ -1,0 +1,25 @@
+{
+  "comment": "Fixture work packages scripts/measure-briefs.mjs composes Light and Nuclear briefs for. Each is an author run, round 1, revision 0, with the general-author role text. tools stands in for the role's tools file: read-only for three, and work.ts's default author tools for the one with write tools.",
+  "packages": [
+    {
+      "fixture": "general-service-quick",
+      "package": { "id": "WP-MEASURE-GSQ", "objective": "Summarize the pump room ventilation survey", "grade": "general-service", "rigor_mode": "quick", "deliverables": [{ "type": "report", "format": ["md"] }] },
+      "tools": ["Read", "Glob", "Grep"]
+    },
+    {
+      "fixture": "material-standard",
+      "package": { "id": "WP-MEASURE-MS", "objective": "Check the cable tray fill calculation", "grade": "material", "rigor_mode": "standard", "deliverables": [{ "type": "calculation", "format": ["md"] }] },
+      "tools": ["Read", "Glob", "Grep"]
+    },
+    {
+      "fixture": "safety-high-consequence",
+      "package": { "id": "WP-MEASURE-SHC", "objective": "Size the relief valve for the surge tank", "grade": "safety", "rigor_mode": "high-consequence", "deliverables": [{ "type": "calculation", "format": ["md"] }] },
+      "tools": ["Read", "Glob", "Grep"]
+    },
+    {
+      "fixture": "general-service-write-tools",
+      "package": { "id": "WP-MEASURE-GSW", "objective": "Update the equipment list from the survey", "grade": "general-service", "rigor_mode": "quick", "deliverables": [{ "type": "report", "format": ["md"] }] },
+      "tools": ["Read", "Write", "Edit", "Glob", "Grep", "WebSearch", "WebFetch", "Bash(python3:*)"]
+    }
+  ]
+}

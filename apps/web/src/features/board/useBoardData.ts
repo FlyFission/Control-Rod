@@ -5,6 +5,7 @@ import type { ActionDescriptor, CaptureView, PersonVerificationEntry, WorkPackag
 import { type ColumnId, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, preCheckState, verificationRead } from "../../lib/board.js";
 import { type Kind, kindsOf } from "../../lib/kind.js";
 import { useLiveStatus } from "../../lib/live.js";
+import { projectContextDefault, resolveContextProfile } from "../../lib/context-profile.js";
 import { type NextLine, hasOtherQualified, nextLine } from "../../lib/next.js";
 
 export type BoardCard = {
@@ -20,6 +21,8 @@ export type BoardCard = {
   retry?: () => void;
   /** A read behind this card has not succeeded since the latest stream drop: what it shows is last known. */
   lastKnown: boolean;
+  /** The brief carries the Nuclear context (card value, else project default; Safety and Material always). */
+  nuclear: boolean;
 };
 
 /** How far a count can be trusted: from current reads, from reads not refreshed since a drop or failed to refresh, or not at all. */
@@ -184,7 +187,8 @@ export function useBoardData(): BoardData {
       });
     }
     if (next === CHECKING || next === NO_NEXT || retry !== undefined) undetermined = true;
-    cards.push({ pkg: p, kinds: kindsOf(p), column, next, ...(owner ? { owner } : {}), runActive, ...(retry ? { retry } : {}), lastKnown: !cardFresh });
+    const nuclear = resolveContextProfile(p, projectContextDefault(admin.data?.projects, p.project)).profile === "nuclear";
+    cards.push({ pkg: p, kinds: kindsOf(p), column, next, ...(owner ? { owner } : {}), runActive, ...(retry ? { retry } : {}), lastKnown: !cardFresh, nuclear });
   });
 
   // Redraw when the earliest grace ends, so a refetch still in flight then turns its card last known.

@@ -1,0 +1,153 @@
+{
+  "upstream": "https://github.com/FlyFission/nuclear-grade-context-engineering",
+  "commit": "395aa6ed161b773f1cf24abbf85e1c9ff95b969c",
+  "license": "MIT",
+  "core": {
+    "card": "core.md",
+    "skills": [
+      "questioning-attitude",
+      "rating-change-risk",
+      "proving-claims",
+      "double-checking-before-acting",
+      "staying-on-mission",
+      "checking-release-readiness",
+      "learning-from-experience"
+    ],
+    "tokens": 2747
+  },
+  "clusters": {
+    "agent-authority": {
+      "card": "clusters/agent-authority.md",
+      "skills": [
+        "deciding-who-decides",
+        "declaring-intent",
+        "stress-testing-agent-changes",
+        "vetting-outside-code-and-models",
+        "recording-what-an-agent-did",
+        "briefing-an-agent",
+        "handing-off-work"
+      ],
+      "tokens": 3161
+    },
+    "configuration-management": {
+      "card": "clusters/configuration-management.md",
+      "skills": [
+        "creating-change-records",
+        "choosing-what-to-control",
+        "checking-what-a-change-affects",
+        "recording-a-known-good-version",
+        "closing-stale-packets",
+        "breaking-down-the-work"
+      ],
+      "tokens": 2481
+    },
+    "claims-discipline": {
+      "card": "clusters/claims-discipline.md",
+      "skills": [
+        "checking-legal-and-safety-wording",
+        "checking-source-claims",
+        "checking-facts"
+      ],
+      "tokens": 1223
+    },
+    "incident-deficiency": {
+      "card": "clusters/incident-deficiency.md",
+      "skills": [
+        "responding-to-incidents",
+        "tracking-deficiencies",
+        "reporting-shared-defects"
+      ],
+      "tokens": 1388
+    },
+    "hygiene": {
+      "card": "clusters/hygiene.md",
+      "skills": [
+        "organizing-project-folders",
+        "reviewing-code-quality",
+        "verifying-final-artifacts"
+      ],
+      "tokens": 1292
+    },
+    "review-panel": {
+      "card": "clusters/review-panel.md",
+      "skills": [
+        "running-a-review-panel"
+      ],
+      "tokens": 556
+    }
+  },
+  "templates": {
+    "quick": [
+      "risk.md",
+      "proof.md"
+    ],
+    "standard": [
+      "risk.md",
+      "basis.md",
+      "plan.md",
+      "trace.md",
+      "verification.md",
+      "ship.md"
+    ],
+    "cm": [
+      "controlled-items.md",
+      "change-impact.md",
+      "baseline.md",
+      "variance.md",
+      "opex.md"
+    ]
+  },
+  "files": {
+    "LICENSE": "sha256:47942eee341d941c346538d6a920fc6e843fe4758330fe690618dca2c414cc0d",
+    "clusters/agent-authority.md": "sha256:2e2d9eed2fcb70f2b023799ce5108c93d9383a541f84838caf96374e4d6cc5ac",
+    "clusters/claims-discipline.md": "sha256:6b82784fed0f794681ee81d2d56e26bd3f6ad8b9eb5cdf1f17756381011d5ceb",
+    "clusters/configuration-management.md": "sha256:b747ac7d6fc0249fb48ccc4b600ecb0aec6ec764aa75a83817043de338968d93",
+    "clusters/hygiene.md": "sha256:a676d7166575048b87f11f9ec31bfe3341262a7be452d46f2369311f0f68aba2",
+    "clusters/incident-deficiency.md": "sha256:ea34ff6ab393abf93f5fd8c14fb300771efbe10e679331802f8e68dafb20032f",
+    "clusters/review-panel.md": "sha256:e993518e53093ce1460dffc28d56f046d03b6694afe1fa8720c41dac4d449714",
+    "core.md": "sha256:59ccd62464fbdf99adaa33ae635fda2b1221a5af3dfa21d3dd5325c884d31520",
+    "reference/breaking-down-the-work/SKILL.md": "sha256:c8c36613515f33de3eb32ade4454274abff6a52f5f8af7a7884fd5cb43a66bb2",
+    "reference/briefing-an-agent/SKILL.md": "sha256:eb16398f4842d8d4ac4c3275018d036e3768c145d0ff88bad99d042894a04e57",
+    "reference/checking-facts/SKILL.md": "sha256:e8bfacf6ab8fffd65ffea5cde18fa037de723c18477c17a1746cd5e4172cbed9",
+    "reference/checking-legal-and-safety-wording/SKILL.md": "sha256:0731b07e58470d2c734e915c4689f8d38527f1db878d49bb43095606ac4038df",
+    "reference/checking-release-readiness/SKILL.md": "sha256:a276eef2e7d2ba6677c68cee8c9f716f0f1ee0991939d870eb493043938cd3d7",
+    "reference/checking-source-claims/SKILL.md": "sha256:b336b09c3a5712cdc06dced9e20b79b19b37a78e0dc6bd569a8624ff7497b9b7",
+    "reference/checking-what-a-change-affects/SKILL.md": "sha256:72c699ed1f8999bd66eb460257b572ad2fc32e8526e54c55e3343a1445e9a79d",
+    "reference/choosing-what-to-control/SKILL.md": "sha256:6d9f6a1eb64b538a506f5b8238e6ecdf4d7520d91f7059861ee8cb1e0d839b86",
+    "reference/closing-stale-packets/SKILL.md": "sha256:03d4542da24fc0ffeeafa230807786ddcd3a61cc152c7d82ecd1eea24eeb2454",
+    "reference/creating-change-records/SKILL.md": "sha256:0b2c93bc1e970e36bbf94a3d3379b979d7fe0db2852544dc7fd97e799139395e",
+    "reference/deciding-who-decides/SKILL.md": "sha256:be925f626fc4cd532c8864bbac07e2e2a6f089d54c3cdb788e35c49998352235",
+    "reference/declaring-intent/SKILL.md": "sha256:c68791d9aae1137462d6a6382eb0e1f7acb1454d2f84b697b7c214648e33ff17",
+    "reference/double-checking-before-acting/SKILL.md": "sha256:0d99e3e2e04b7ce884bf8673d7ba113d5185ee79c831e2a42c9b0506f807a87b",
+    "reference/handing-off-work/SKILL.md": "sha256:024a48f60001393e5ac62173cd5dd32bebed03fd9a14b856d6e03cdd492d8781",
+    "reference/learning-from-experience/SKILL.md": "sha256:09a1a3dea41ac8558469cd204314a4aad3fe79cc2ca2b9f512b36c21d09a0947",
+    "reference/organizing-project-folders/SKILL.md": "sha256:c6110f8d393719ab4aa54559c2248129d6eb4fc192a74a10fe23e65d629fcc45",
+    "reference/proving-claims/SKILL.md": "sha256:062b1394cf1d6d0a0720fe5e7cf2089a25dad86eb03e7e9b57e3e424dc634f46",
+    "reference/questioning-attitude/SKILL.md": "sha256:d7353766f309b597e9f2094c188db251a165dd9f051f317f59ac369d788e1343",
+    "reference/rating-change-risk/SKILL.md": "sha256:82f6882d9f4f9a29b8987aa85afd00b808b8068fc1b3cf6e352f260cb88888c3",
+    "reference/recording-a-known-good-version/SKILL.md": "sha256:7392e3fb019540fe9cd26c9bf0d2bd53a1c3462cb69070ef950eb1b6ad8b27e8",
+    "reference/recording-what-an-agent-did/SKILL.md": "sha256:9a2dbf54c527719e94f0add35d0dfdc4cbbd21a5ccbf8ad74bc78215773e6866",
+    "reference/reporting-shared-defects/SKILL.md": "sha256:f46c7f1a6ff5176d3b2d5e387de9b4fc244cda6fe4823d49cb13a4e5282742a7",
+    "reference/responding-to-incidents/SKILL.md": "sha256:c5dd562f90dca22090394d2c19aa6073dd46eb199c8ff7167870eb656b280cae",
+    "reference/reviewing-code-quality/SKILL.md": "sha256:27e9b2b3e72057d165a4782d708039d2cc1144068d34db57ea0fd5d35a3ff72d",
+    "reference/running-a-review-panel/SKILL.md": "sha256:d746081657497bbb60ac60a06c33a8449ceb49d5a3d431163002c8f77a58f56d",
+    "reference/staying-on-mission/SKILL.md": "sha256:5aab0b535ebea4aad7c1c08174d01b38760f3aff9516d6cb5732848b327d1c51",
+    "reference/stress-testing-agent-changes/SKILL.md": "sha256:aa802c1dc878e83b754111dac17810fa535aa944a71f1e584a6ebf6b3bb72767",
+    "reference/tracking-deficiencies/SKILL.md": "sha256:5fc87882f22efb7b914c295d489d86a7ff2756493268a448565798ffc74809f2",
+    "reference/verifying-final-artifacts/SKILL.md": "sha256:cf64f93d0e040a20c14c44dec79e13c87790d57840327edcf732f485e49b48be",
+    "reference/vetting-outside-code-and-models/SKILL.md": "sha256:ed67ea29c72be17d39b2d4677857518a49be992f6debedf93812e48308860d4c",
+    "templates/cm/baseline.md": "sha256:25e573303cf6d5a0205bb5e47ea3d4a6fd62bba39343bf713cae2523b96f2e39",
+    "templates/cm/change-impact.md": "sha256:e85b00c1b13157f49f153e62f118dda193153340abb37912d47bef126077d764",
+    "templates/cm/controlled-items.md": "sha256:87d8ddb24223f027a2e7fb63e76b387a02623f670d212a9ec5c2367b68a21c00",
+    "templates/cm/opex.md": "sha256:4873284783f686de602be2c8c28a999b7a7be2fda14b2474332b4ebb63de0aed",
+    "templates/cm/variance.md": "sha256:a13821bba0d94700a6de2e1d875688478c164ad478d758002b33d592e169459c",
+    "templates/quick/proof.md": "sha256:a093abbb768b1a506b2bfc5cea21a1fdc6b7e92956850f0507d2ccdf50784d28",
+    "templates/quick/risk.md": "sha256:2727a468fbd615e35ef8a30e2c2ddebce16baf88ae9322246f7d2177b94ebb98",
+    "templates/standard/basis.md": "sha256:1c55468579f4d932f7e8c9a868352e990c35df478066b95d37c562e59c9a000d",
+    "templates/standard/plan.md": "sha256:bf86e4d3e537a1d855b1877734f53542f3c493891d19814329255378c17d8bad",
+    "templates/standard/risk.md": "sha256:3d96e349f8301d26ee281aec24131e91d4def09886b918d3bacb8d8d1bef5a40",
+    "templates/standard/ship.md": "sha256:452fd68d4c8e77d192c930b0b6b57fc0ca296dd1ed341c30adb762568257540d",
+    "templates/standard/trace.md": "sha256:edab01b0a2b61f4ad94c83c6daf1db726f60231ec832ee2a09da37b99ff23e5f",
+    "templates/standard/verification.md": "sha256:20e12c7c1f54fdfb2e5cdb3132fc08232d111d77123a16d991acef4d5a9db598"
+  }
+}

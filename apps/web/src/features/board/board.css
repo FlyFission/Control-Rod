@@ -455,3 +455,70 @@
   gap: 6px;
   font-size: var(--fs-label);
 }
+
+/* Act from the card (M3): the primary decision and the Move to menu. */
+.bd-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bd-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.bd-move {
+  position: relative;
+}
+.bd-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  max-width: 300px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+}
+.bd-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bd-menu-item:hover,
+.bd-menu-item:focus-visible {
+  background: var(--surface);
+  outline: none;
+}
+.bd-menu-item.refused {
+  color: var(--text-2);
+  cursor: default;
+}
+.bd-menu-why {
+  white-space: normal;
+}
+.bd-reason textarea {
+  width: 100%;
+}
+.bd-alert {
+  margin: 0;
+  color: var(--text);
+  border-left: 3px solid var(--stuck);
+  padding-left: 8px;
+}

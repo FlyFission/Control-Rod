@@ -39,7 +39,7 @@ function Page() {
 
 const accept: ActionDescriptor = { command: "accept", label: "Accept", allowed: true, signature: "direct" };
 
-type Setup = { packages: WorkPackage[]; actions?: Record<string, ActionDescriptor[]>; originators?: Record<string, string[]>; runs?: Record<string, "running" | "succeeded"> };
+type Setup = { packages: WorkPackage[]; actions?: Record<string, ActionDescriptor[]>; originators?: Record<string, string[]>; runs?: Record<string, "running" | "succeeded" | "stopping"> };
 function api(s: Setup) {
   server.use(
     http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })),
@@ -56,7 +56,7 @@ function api(s: Setup) {
       return HttpResponse.json({
         ...view({}, p),
         originators: s.originators?.[id] ?? ["ben"],
-        runs: run ? [{ id: "R-1", package_id: id, package_revision: 0, role: "author", status: run }] : [],
+        runs: run ? [{ id: "R-1", package_id: id, package_revision: 0, role: "author", status: run === "stopping" ? "running" : run, ...(run === "stopping" ? { stop_requested_at: "2026-11-21T10:00:00Z" } : {}) }] : [],
       });
     }),
   );
@@ -107,6 +107,37 @@ describe("BoardView", () => {
     expect(card.textContent).not.toMatch(/Accept/);
   });
 
+  it("acts from the card: Accept on the face and Move to beside it (M3)", async () => {
+    api({ packages: [pkg({ id: "WP-A", title: "Cable schedule", status: "in-verification" })], actions: { "WP-A": [accept] } });
+    server.use(http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-A", package_revision: 0 }])));
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Cable schedule")).closest("article")!;
+    expect(await within(card).findByRole("button", { name: "Accept" })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: /Move to, Cable schedule/ })).toBeTruthy();
+  });
+
+  it("puts no Accept button on Safety work that no person has verified", async () => {
+    api({ packages: [pkg({ id: "WP-S2", title: "Vent stack", grade: "safety", status: "in-verification" })], actions: { "WP-S2": [accept] }, originators: { "WP-S2": ["ana"] } });
+    server.use(http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S2", package_revision: 0 }])));
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Vent stack")).closest("article")!;
+    const user = userEvent.setup();
+    await user.click(await within(card).findByRole("button", { name: /Move to/ }));
+    expect(within(card).queryByRole("button", { name: "Accept" })).toBeNull();
+    expect(within(card).getByRole("menuitem", { name: /Accept/ }).getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("offers Stop run while a run is going, and not again once a stop was requested", async () => {
+    api({ packages: [pkg({ id: "WP-R", title: "Running one", status: "in-work" }), pkg({ id: "WP-T", title: "Stopping one", status: "in-work" })], actions: { "WP-R": [], "WP-T": [] }, runs: { "WP-R": "running", "WP-T": "stopping" } });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const running = (await screen.findByText("Running one")).closest("article")!;
+    await user.click(await within(running).findByRole("button", { name: /Move to/ }));
+    expect(within(running).getByRole("menuitem", { name: "Stop run" })).toBeTruthy();
+    const stopping = screen.getByText("Stopping one").closest("article")!;
+    expect(within(stopping).queryByRole("button", { name: /Move to/ })).toBeNull();
+  });
+
   it("does not tag a General service package", async () => {
     api({ packages: [pkg({ id: "WP-G", title: "Lighting layout", grade: "general-service" })] });
     await renderPage(<Page />);
@@ -129,7 +160,7 @@ describe("BoardView", () => {
     api({ packages: [pkg({ id: "WP-G", title: "Lighting layout", status: "in-verification" })], actions: { "WP-G": [accept] } });
     await renderPage(<Page />);
     const card = (await screen.findByText("Lighting layout")).closest("article")!;
-    await waitFor(() => expect(within(card).getByText(/Accept/)).toBeTruthy());
+    await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("Accept"));
     act(() => FakeSource.last!.emit("error"));
     expect(await screen.findByText(/What you see may be out of date/)).toBeTruthy();
     // The card no longer shows its last state as if it were current (spec 8, ruling 13).
@@ -137,13 +168,15 @@ describe("BoardView", () => {
     expect(card.querySelector(".bd-next")!.textContent).not.toContain("Accept");
     expect(screen.getByRole("button", { name: "Reconnect" })).toBeTruthy();
     expect(card.textContent).not.toMatch(/[▲✕✓]/);
+    // Nothing is offered from a state that may be out of date (M3).
+    expect(within(card).queryByRole("button", { name: "Accept" })).toBeNull();
     const before = FakeSource.count;
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Reconnect" }));
     await waitFor(() => expect(FakeSource.count).toBe(before + 1));
     act(() => FakeSource.last!.emit("open"));
     await waitFor(() => expect(screen.queryByText(/What you see may be out of date/)).toBeNull());
-    await waitFor(() => expect(within(card).getByText(/Accept/)).toBeTruthy());
+    await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("Accept"));
   });
 
   it("shows the counts as last known while the stream is unknown", async () => {

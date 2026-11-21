@@ -1,0 +1,29 @@
+== M1-no-pins
+--- FAIL: TestHostGitCommandNeutralizesRepoFilterDriver (0.04s)
+--- FAIL: TestHostGitCommandNeutralizesIncludedFilterDriver (0.04s)
+--- FAIL: TestHostGitCommandNeutralizesWorktreeFilterDriver (0.04s)
+--- FAIL: TestHostGitCommandKeepsGlobalFilterDefinition (0.03s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.165s
+KILLED
+== M2-no-verify
+--- FAIL: TestHostGitCmdDetectsFilterConfigChange (0.05s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.061s
+KILLED
+== M3-empty-dir
+--- FAIL: TestHostGitCommandRequiresDir (0.00s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.011s
+KILLED
+== M4-local-scope-only
+--- FAIL: TestHostGitCommandNeutralizesWorktreeFilterDriver (0.04s)
+--- FAIL: TestFilterPins (0.00s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.056s
+KILLED
+== M5-no-trusted-value
+--- FAIL: TestHostGitCommandKeepsGlobalFilterDefinition (0.03s)
+--- FAIL: TestFilterPins (0.00s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.042s
+KILLED
+== M6-required-not-false
+--- FAIL: TestFilterPins (0.00s)
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.168s
+KILLED

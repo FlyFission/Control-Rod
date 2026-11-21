@@ -18,7 +18,7 @@ The rest of `tokens.py` (budgets, audit report, redundancy index): Control Rod n
 
 ## Required links
 
-[Risk](risk.md), [proof](proof.md). Provenance rule: [`docs/third-party/port-provenance.md`](../../../docs/third-party/port-provenance.md).
+[Risk](risk.md), [verification](verification.md). Provenance rule: [`docs/third-party/port-provenance.md`](../../../docs/third-party/port-provenance.md).
 
 ## Exit criteria
 

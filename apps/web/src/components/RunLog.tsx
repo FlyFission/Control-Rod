@@ -125,7 +125,7 @@ export function canStop(run: Run): boolean {
   return run.status === "queued" || (run.status === "running" && run.stop_requested_at === undefined);
 }
 
-function RunActions({ packageId, run }: { packageId: string; run: Run }) {
+export function RunActions({ packageId, run }: { packageId: string; run: Run }) {
   const qc = useQueryClient();
   const done = () => void qc.invalidateQueries({ queryKey: ["package", packageId] });
   const requeue = useMutation({ mutationFn: () => api.requeueRun(packageId, run.id), onSuccess: done });
@@ -167,7 +167,8 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packag
   const lines = frozen ?? latest;
   const waiting = frozen === null ? 0 : Math.max(0, latest.length - frozen.length);
   return (
-    <details className="run" open={live}>
+    // A run that needs the person (requeue it, or reconcile it first) is shown open, so its buttons are seen.
+    <details className="run" open={live || canRequeue(run) || outcomeUnknown(run)}>
       <summary>
         <StateMark kind={runState(run)} />
         <span className="tag">{ROLE_LABEL[run.role]}</span>

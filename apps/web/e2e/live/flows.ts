@@ -59,7 +59,7 @@ export async function draftPair(page: Page, stack: Stack, tag: string): Promise<
 /** Opens the review drawer from the card, presses Release, and waits until the release is recorded. */
 export async function releaseFromBoard(page: Page, stack: Stack, id: string): Promise<void> {
   await card(page, id).locator(".bd-title").click();
-  await page.getByRole("button", { name: "Release", exact: true }).click();
+  await drawer(page).getByRole("button", { name: "Release", exact: true }).click();
   await expect.poll(async () => (await decisionsOf(page, stack, id)).some((d) => d.kind === "release"), { timeout: 20000 }).toBe(true);
 }
 
@@ -89,3 +89,6 @@ export async function signOverride(page: Page, reason = "Live test: only the scr
 function escape(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+/** The board's review drawer (cards carry their own action buttons too, so scope drawer buttons to it). */
+export const drawer = (page: Page) => page.getByRole("complementary", { name: /^Review / });

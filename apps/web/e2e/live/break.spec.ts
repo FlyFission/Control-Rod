@@ -4,7 +4,7 @@
  * regression guard. Tests share one stack per worker, so each makes its own packages.
  */
 import { expect, signIn, test } from "./fixtures.js";
-import { addCard, captureCard, card, decisionsOf, draftPair, openCase, packages, releaseFromBoard } from "./flows.js";
+import { addCard, captureCard, card, decisionsOf, drawer, draftPair, openCase, packages, releaseFromBoard } from "./flows.js";
 
 const PWNED = "window.__pwned";
 /** Captures whose text contains `needle` (GET /captures lists the newest 200, so count by a unique tag). */
@@ -104,7 +104,7 @@ test.describe("@break double actions", () => {
     try {
       const asked = owner.ceremonies.length;
       await card(page, survey).locator(".bd-title").click();
-      await page.getByRole("button", { name: "Release", exact: true }).dblclick();
+      await drawer(page).getByRole("button", { name: "Release", exact: true }).dblclick();
       await expect.poll(async () => (await decisionsOf(page, stack, survey)).length, { timeout: 15000 }).toBeGreaterThan(0);
       await page.waitForTimeout(2000);
       expect((await decisionsOf(page, stack, survey)).map((d) => d.kind)).toEqual(["release"]);
@@ -122,14 +122,14 @@ test.describe("@break two tabs", () => {
     const stale = await context.newPage();
     await stale.goto(stack.url + "/");
     await card(stale, survey).locator(".bd-title").click();
-    await expect(stale.getByRole("button", { name: "Release", exact: true })).toBeVisible();
+    await expect(drawer(stale).getByRole("button", { name: "Release", exact: true })).toBeVisible();
 
     await releaseFromBoard(page, stack, survey);
     await expect.poll(async () => (await decisionsOf(page, stack, survey)).length).toBe(1);
 
     // The stale tab still shows the draft's Release button (or has updated live). Pressing it must not
     // record a second release, and must say why.
-    const btn = stale.getByRole("button", { name: "Release", exact: true });
+    const btn = drawer(stale).getByRole("button", { name: "Release", exact: true });
     if (await btn.isVisible()) {
       await btn.click();
       await stale.waitForTimeout(2000);
@@ -152,7 +152,7 @@ test.describe("@break outages", () => {
     await context.setOffline(true);
     await field.press("Enter");
     await page.waitForTimeout(1500);
-    await expect.soft(page.getByRole("alert").first(), "the person is told the card was not added").toBeVisible();
+    await expect(page.getByRole("alert").first(), "the person is told the card was not added").toBeVisible();
     await expect(field, "the typed line survives a failed send").toHaveValue(text);
     await context.setOffline(false);
     await field.press("Enter");
@@ -192,16 +192,24 @@ test.describe("@break outages", () => {
       await stack.killDaemon("SIGKILL");
       await openCase(page, stack, survey);
       // Soft: a person should learn soon that no daemon is answering, not only after the lease lapses.
-      await expect.soft(page.getByText(/daemon (is )?(not|isn't) (running|answering|connected)|no daemon|stopped answering/i).first(),
+      await expect.soft(page.getByText(/daemon (is )?(not|isn't) (running|answering|connected)|no daemon|stopped answering|daemon has not answered/i).first(),
         "within 30 s the case says the daemon is gone").toBeVisible({ timeout: 30000 });
       await journal.step("daemon-dead", { axe: false });
       // Hard: after the lease (90 s) and a sweep, the run is lost and says what to do.
-      await expect(page.getByText(/lost/i).first()).toBeVisible({ timeout: 180000 });
+      await expect(page.getByRole("region", { name: "Runs" }).getByText(/^Lost/).first()).toBeVisible({ timeout: 180000 });
       await journal.step("run-lost");
       stack.setFake("author", null);
       await stack.startDaemon();
       const retry = page.getByRole("button", { name: /requeue|retry|run again/i }).first();
-      await expect(retry, "a lost run offers a way to run again").toBeVisible({ timeout: 30000 });
+      const reconcile = page.getByRole("button", { name: "Sign with passkey and reconcile" }).first();
+      // The killed author's process may still be running, so the outcome can stay unknown and the page
+      // must offer the signed reconcile first; either way the person has a way to run it again.
+      await expect(retry.or(reconcile).first(), "a lost run offers a way to run again").toBeVisible({ timeout: 30000 });
+      if (!(await retry.isVisible())) {
+        await page.getByLabel(/why|reason|what happened/i).last().fill("The daemon was killed in a live break test; the author never finished.");
+        await reconcile.click();
+        await expect(retry, "after reconciling, the lost run can be requeued").toBeVisible({ timeout: 30000 });
+      }
       await retry.click();
       await expect(page.getByText(/Held: waiting for an independent runtime|Pre-check/).first()).toBeVisible({ timeout: 60000 });
     } finally {
@@ -265,6 +273,6 @@ test.describe("@break sessions and links", () => {
     await expect(page.getByText(/not found|no package|does not exist|doesn't exist|could not (find|load)/i).first()).toBeVisible({ timeout: 15000 });
     await journal.step("missing-package");
     // Soft: "could not load" reads like an outage. A person should learn there is no such package.
-    await expect.soft(page.getByText(/not found|no package|does not exist|doesn't exist|could not find/i).first(), "the page says the package does not exist, not that loading failed").toBeVisible({ timeout: 2000 });
+    await expect(page.getByText(/not found|no package|does not exist|doesn't exist|could not find/i).first(), "the page says the package does not exist, not that loading failed").toBeVisible({ timeout: 5000 });
   });
 });

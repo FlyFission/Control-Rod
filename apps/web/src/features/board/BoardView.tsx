@@ -8,6 +8,7 @@ import { Card, sinceText } from "./Card.js";
 import { CaptureCard } from "./CaptureCard.js";
 import { CardActions } from "./CardActions.js";
 import { QuickAdd } from "./QuickAdd.js";
+import { DaemonNotice } from "../../components/DaemonNotice.js";
 import { useBoardData } from "./useBoardData.js";
 import "./board.css";
 
@@ -124,6 +125,7 @@ export function BoardView() {
             ))}
           </div>
         </div>
+        <DaemonNotice running={data.agentsRunning} />
         {unknown && (
           <p className="bd-unknown" role="status">
             <span>Status unknown since {sinceText(data.unknownSince)}. What you see may be out of date.</span>

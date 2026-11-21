@@ -1,227 +1,28 @@
 
 Running 23 tests using 2 workers
 
-  ✓   1 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes html text literally (857ms)
-  ✓   3 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes script text literally (613ms)
-  ✓   4 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes markdown-js-link text literally (590ms)
-  ✓   5 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes rtl-and-emoji text literally (663ms)
-  ✓   6 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes control-chars text literally (561ms)
-  ✓   7 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes long-word text literally (645ms)
-  ✓   8 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes sql-ish text literally (585ms)
+  ✓   2 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes html text literally (791ms)
+  ✓   3 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes script text literally (657ms)
+  ✓   4 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes markdown-js-link text literally (613ms)
+  ✓   5 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes rtl-and-emoji text literally (578ms)
+  ✓   6 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes control-chars text literally (538ms)
+  ✓   7 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes long-word text literally (625ms)
+  ✓   8 [chromium] › e2e/live/break.spec.ts:30:5 › @break inputs › quick add takes sql-ish text literally (626ms)
   ✓   9 [chromium] › e2e/live/break.spec.ts:52:3 › @break inputs › an empty or blank line adds nothing (1.6s)
   ✓  10 [chromium] › e2e/live/break.spec.ts:65:3 › @break inputs › a pasted list of 40 lines offers one card per line and adds exactly 40 (2.4s)
-  ✓   2 [chromium] › e2e/live/lifecycle.spec.ts:13:3 › @functional card lifecycle › a request goes from a typed line to an accepted package (11.4s)
-  ✓  11 [chromium] › e2e/live/break.spec.ts:89:3 › @break double actions › double clicking Classify starts one intake (4.1s)
-  ✓  13 [chromium] › e2e/live/break.spec.ts:101:3 › @break double actions › double clicking Release signs once and records one release (3.9s)
-  ✓  14 [chromium] › e2e/live/break.spec.ts:120:3 › @break two tabs › a stale tab cannot release twice and learns what happened (6.2s)
-  ✘  12 [chromium] › e2e/live/personas.spec.ts:39:3 › @persona › new user with no agents set up tries to get one thing done (22.8s)
-  ✘  15 [chromium] › e2e/live/break.spec.ts:146:3 › @break outages › the network drops while adding a card: the line is kept and nothing is lost or doubled (18.6s)
-  ✓  17 [chromium] › e2e/live/break.spec.ts:164:3 › @break outages › the control plane restarts: the board says so, recovers without a reload, and work still runs (5.9s)
-  ✓  16 [chromium] › e2e/live/personas.spec.ts:68:3 › @persona › someone juggling eight runs keeps track of what needs them (42.5s)
-  ✓  19 [chromium] › e2e/live/personas.spec.ts:104:3 › @persona › a keyboard-only person adds and classifies a card (885ms)
-  ✘  20 [chromium] › e2e/live/personas.spec.ts:143:3 › @persona › a person on a phone reads the board and adds a card (682ms)
-  ✘  18 [chromium] › e2e/live/break.spec.ts:184:3 › @break outages › the daemon dies mid-run: the run is shown lost, and can be retried to success (2.2m)
-  ✓  21 [chromium] › e2e/live/break.spec.ts:215:3 › @break hostile agent output › an author that writes markup, escapes and a symlink cannot run script or leak files (5.8s)
-  ✓  22 [chromium] › e2e/live/break.spec.ts:248:3 › @break sessions and links › a lost session sends the person to sign in instead of failing silently (794ms)
-  ✘  23 [chromium] › e2e/live/break.spec.ts:262:3 › @break sessions and links › a link to a package that does not exist says so (4.3s)
+  ✓   1 [chromium] › e2e/live/lifecycle.spec.ts:13:3 › @functional card lifecycle › a request goes from a typed line to an accepted package (11.4s)
+  ✓  11 [chromium] › e2e/live/break.spec.ts:89:3 › @break double actions › double clicking Classify starts one intake (4.2s)
+  ✓  13 [chromium] › e2e/live/break.spec.ts:101:3 › @break double actions › double clicking Release signs once and records one release (6.0s)
+  ✓  14 [chromium] › e2e/live/break.spec.ts:120:3 › @break two tabs › a stale tab cannot release twice and learns what happened (5.4s)
+  ✓  15 [chromium] › e2e/live/break.spec.ts:146:3 › @break outages › the network drops while adding a card: the line is kept and nothing is lost or doubled (3.5s)
+  ✓  12 [chromium] › e2e/live/personas.spec.ts:39:3 › @persona › new user with no agents set up tries to get one thing done (22.6s)
+  ✓  16 [chromium] › e2e/live/break.spec.ts:164:3 › @break outages › the control plane restarts: the board says so, recovers without a reload, and work still runs (9.9s)
+  ✓  17 [chromium] › e2e/live/personas.spec.ts:68:3 › @persona › someone juggling eight runs keeps track of what needs them (42.7s)
+  ✓  19 [chromium] › e2e/live/personas.spec.ts:104:3 › @persona › a keyboard-only person adds and classifies a card (865ms)
+  ✓  20 [chromium] › e2e/live/personas.spec.ts:143:3 › @persona › a person on a phone reads the board and adds a card (632ms)
+  ✓  18 [chromium] › e2e/live/break.spec.ts:184:3 › @break outages › the daemon dies mid-run: the run is shown lost, and can be retried to success (1.6m)
+  ✓  21 [chromium] › e2e/live/break.spec.ts:223:3 › @break hostile agent output › an author that writes markup, escapes and a symlink cannot run script or leak files (15.9s)
+  ✓  22 [chromium] › e2e/live/break.spec.ts:256:3 › @break sessions and links › a lost session sends the person to sign in instead of failing silently (903ms)
+  ✓  23 [chromium] › e2e/live/break.spec.ts:270:3 › @break sessions and links › a link to a package that does not exist says so (2.3s)
 
-
-  1) [chromium] › e2e/live/break.spec.ts:146:3 › @break outages › the network drops while adding a card: the line is kept and nothing is lost or doubled 
-
-    Error: the person is told the card was not added
-
-    expect(locator).toBeVisible() failed
-
-    Locator: getByRole('alert').first()
-    Expected: visible
-    Timeout: 15000ms
-    Error: element(s) not found
-
-    Call log:
-      - the person is told the card was not added getByRole('alert').first() with timeout 15000ms
-      - waiting for getByRole('alert').first()
-
-
-      153 |     await field.press("Enter");
-      154 |     await page.waitForTimeout(1500);
-    > 155 |     await expect.soft(page.getByRole("alert").first(), "the person is told the card was not added").toBeVisible();
-          |                                                                                                     ^
-      156 |     await expect(field, "the typed line survives a failed send").toHaveValue(text);
-      157 |     await context.setOffline(false);
-      158 |     await field.press("Enter");
-        at /home/claude/Control-Rod/apps/web/e2e/live/break.spec.ts:155:101
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    test-results/break--break-outages-the-n-e757c--nothing-is-lost-or-doubled-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: test-results/break--break-outages-the-n-e757c--nothing-is-lost-or-doubled-chromium/error-context.md
-
-  2) [chromium] › e2e/live/break.spec.ts:184:3 › @break outages › the daemon dies mid-run: the run is shown lost, and can be retried to success 
-
-    Error: within 30 s the case says the daemon is gone
-
-    expect(locator).toBeVisible() failed
-
-    Locator: getByText(/daemon (is )?(not|isn't) (running|answering|connected)|no daemon|stopped answering/i).first()
-    Expected: visible
-    Timeout: 30000ms
-    Error: element(s) not found
-
-    Call log:
-      - within 30 s the case says the daemon is gone getByText(/daemon (is )?(not|isn't) (running|answering|connected)|no daemon|stopped answering/i).first() with timeout 30000ms
-      - waiting for getByText(/daemon (is )?(not|isn't) (running|answering|connected)|no daemon|stopped answering/i).first()
-
-
-      194 |       // Soft: a person should learn soon that no daemon is answering, not only after the lease lapses.
-      195 |       await expect.soft(page.getByText(/daemon (is )?(not|isn't) (running|answering|connected)|no daemon|stopped answering/i).first(),
-    > 196 |         "within 30 s the case says the daemon is gone").toBeVisible({ timeout: 30000 });
-          |                                                         ^
-      197 |       await journal.step("daemon-dead", { axe: false });
-      198 |       // Hard: after the lease (90 s) and a sweep, the run is lost and says what to do.
-      199 |       await expect(page.getByText(/lost/i).first()).toBeVisible({ timeout: 180000 });
-        at /home/claude/Control-Rod/apps/web/e2e/live/break.spec.ts:196:57
-
-    Error: a lost run offers a way to run again
-
-    expect(locator).toBeVisible() failed
-
-    Locator: getByRole('button', { name: /requeue|retry|run again/i }).first()
-    Expected: visible
-    Timeout: 30000ms
-    Error: element(s) not found
-
-    Call log:
-      - a lost run offers a way to run again getByRole('button', { name: /requeue|retry|run again/i }).first() with timeout 30000ms
-      - waiting for getByRole('button', { name: /requeue|retry|run again/i }).first()
-
-
-      202 |       await stack.startDaemon();
-      203 |       const retry = page.getByRole("button", { name: /requeue|retry|run again/i }).first();
-    > 204 |       await expect(retry, "a lost run offers a way to run again").toBeVisible({ timeout: 30000 });
-          |                                                                   ^
-      205 |       await retry.click();
-      206 |       await expect(page.getByText(/Held: waiting for an independent runtime|Pre-check/).first()).toBeVisible({ timeout: 60000 });
-      207 |     } finally {
-        at /home/claude/Control-Rod/apps/web/e2e/live/break.spec.ts:204:67
-
-    attachment #1: daemon-dead (image/png) ─────────────────────────────────────────────────────────
-    test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/attachments/daemon-dead-e53ee49c33ce32c5a37305c2a93920a766db7ee5.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: run-lost (image/png) ────────────────────────────────────────────────────────────
-    test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/attachments/run-lost-524956d3e454bcc93d3fe0ab04b970f7a0e9babc.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
-    test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/error-context.md
-
-  3) [chromium] › e2e/live/break.spec.ts:262:3 › @break sessions and links › a link to a package that does not exist says so 
-
-    Error: the page says the package does not exist, not that loading failed
-
-    expect(locator).toBeVisible() failed
-
-    Locator: getByText(/not found|no package|does not exist|doesn't exist|could not find/i).first()
-    Expected: visible
-    Timeout: 2000ms
-    Error: element(s) not found
-
-    Call log:
-      - the page says the package does not exist, not that loading failed getByText(/not found|no package|does not exist|doesn't exist|could not find/i).first() with timeout 2000ms
-      - waiting for getByText(/not found|no package|does not exist|doesn't exist|could not find/i).first()
-
-
-      266 |     await journal.step("missing-package");
-      267 |     // Soft: "could not load" reads like an outage. A person should learn there is no such package.
-    > 268 |     await expect.soft(page.getByText(/not found|no package|does not exist|doesn't exist|could not find/i).first(), "the page says the package does not exist, not that loading failed").toBeVisible({ timeout: 2000 });
-          |                                                                                                                                                                                         ^
-      269 |   });
-      270 | });
-      271 |
-        at /home/claude/Control-Rod/apps/web/e2e/live/break.spec.ts:268:185
-
-    attachment #1: missing-package (image/png) ─────────────────────────────────────────────────────
-    test-results/break--break-sessions-and--9a626-that-does-not-exist-says-so-chromium/attachments/missing-package-1ecdcc7d56b1354ac33824a4fe302ed95930fb6a.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
-    test-results/break--break-sessions-and--9a626-that-does-not-exist-says-so-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: test-results/break--break-sessions-and--9a626-that-does-not-exist-says-so-chromium/error-context.md
-
-  4) [chromium] › e2e/live/personas.spec.ts:39:3 › @persona › new user with no agents set up tries to get one thing done 
-
-    Error: the board explains that nothing can run until an agent and the daemon are set up
-
-    expect(received).toBe(expected) // Object.is equality
-
-    Expected: true
-    Received: false
-
-      58 |       const ok = await told.isVisible().catch(() => false);
-      59 |       if (!ok) await j.note("Find out why nothing happened", "Nothing on the board says no agent or daemon is available, or what to start.");
-    > 60 |       expect.soft(ok, "the board explains that nothing can run until an agent and the daemon are set up").toBe(true);
-         |                                                                                                           ^
-      61 |     } finally {
-      62 |       j.save(browserName);
-      63 |       await context.close();
-        at /home/claude/Control-Rod/apps/web/e2e/live/personas.spec.ts:60:107
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    test-results/personas--persona-new-user-89e0d-tries-to-get-one-thing-done-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: test-results/personas--persona-new-user-89e0d-tries-to-get-one-thing-done-chromium/error-context.md
-
-  5) [chromium] › e2e/live/personas.spec.ts:143:3 › @persona › a person on a phone reads the board and adds a card 
-
-    Error: the board does not scroll sideways at 390 px
-
-    expect(received).toBeLessThanOrEqual(expected)
-
-    Expected: <= 1
-    Received:    55
-
-      151 |       await j.note("Open the board on a phone");
-      152 |       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    > 153 |       expect.soft(overflow, "the board does not scroll sideways at 390 px").toBeLessThanOrEqual(1);
-          |                                                                             ^
-      154 |       await addCard(page, `Phone note ${Date.now()}`);
-      155 |       await j.note("Add one card from the phone");
-      156 |       const small = await page.evaluate(() => [...document.querySelectorAll("main button, main a, main select")]
-        at /home/claude/Control-Rod/apps/web/e2e/live/personas.spec.ts:153:77
-
-    Error: tap targets in the board are at least 24 px (WCAG 2.5.8)
-
-    expect(received).toBe(expected) // Object.is equality
-
-    Expected: 0
-    Received: 4
-
-      156 |       const small = await page.evaluate(() => [...document.querySelectorAll("main button, main a, main select")]
-      157 |         .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.width < 24 || r.height < 24); }).length);
-    > 158 |       expect.soft(small, "tap targets in the board are at least 24 px (WCAG 2.5.8)").toBe(0);
-          |                                                                                      ^
-      159 |     } finally {
-      160 |       j.save(browserName);
-      161 |       await context.close();
-        at /home/claude/Control-Rod/apps/web/e2e/live/personas.spec.ts:158:86
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    test-results/personas--persona-a-person-4b45d-s-the-board-and-adds-a-card-chromium/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: test-results/personas--persona-a-person-4b45d-s-the-board-and-adds-a-card-chromium/error-context.md
-
-  5 failed
-    [chromium] › e2e/live/break.spec.ts:146:3 › @break outages › the network drops while adding a card: the line is kept and nothing is lost or doubled 
-    [chromium] › e2e/live/break.spec.ts:184:3 › @break outages › the daemon dies mid-run: the run is shown lost, and can be retried to success 
-    [chromium] › e2e/live/break.spec.ts:262:3 › @break sessions and links › a link to a package that does not exist says so 
-    [chromium] › e2e/live/personas.spec.ts:39:3 › @persona › new user with no agents set up tries to get one thing done 
-    [chromium] › e2e/live/personas.spec.ts:143:3 › @persona › a person on a phone reads the board and adds a card 
-  18 passed (3.3m)
+  23 passed (2.7m)

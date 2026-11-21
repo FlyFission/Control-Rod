@@ -14,12 +14,13 @@
         "/home/claude/Control-Rod/apps/web/test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/attachments/run-lost-524956d3e454bcc93d3fe0ab04b970f7a0e9babc.png",
         "/home/claude/Control-Rod/apps/web/test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/test-failed-1.png"
       ],
-      "status": "open",
+      "status": "fixed",
       "first_seen": "2026-11-21",
       "last_seen": "2026-11-21",
       "seen": 1,
       "notes": [
-        "2026-11-21: RunLog shows 'Lost: the daemon stopped answering' with no requeue on the case page; the inbox item has the instruction. Overlaps the board-actions work in PR #107."
+        "2026-11-21: RunLog shows 'Lost: the daemon stopped answering' with no requeue on the case page; the inbox item has the instruction. Overlaps the board-actions work in PR #107.",
+        "2026-11-21: Requeue on the case page; lost runs open on the package page; the signed reconcile is offered when the process may still be alive"
       ]
     },
     "fail|@break outages > the daemon dies mid-run: the run is shown lost, and can be retried to success|within N s the case says the daemon is gone": {
@@ -35,11 +36,13 @@
         "/home/claude/Control-Rod/apps/web/test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/attachments/run-lost-524956d3e454bcc93d3fe0ab04b970f7a0e9babc.png",
         "/home/claude/Control-Rod/apps/web/test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/test-failed-1.png"
       ],
-      "status": "open",
+      "status": "fixed",
       "first_seen": "2026-11-21",
       "last_seen": "2026-11-21",
       "seen": 1,
-      "notes": []
+      "notes": [
+        "2026-11-21: DaemonNotice from /runtimes reported_at: shown within about 25 s"
+      ]
     },
     "fail|@break outages > the network drops while adding a card: the line is kept and nothing is lost or doubled|the person is told the card was not added": {
       "severity": "major",
@@ -53,11 +56,13 @@
       "evidence": [
         "/home/claude/Control-Rod/apps/web/test-results/break--break-outages-the-n-e757c--nothing-is-lost-or-doubled-chromium/test-failed-1.png"
       ],
-      "status": "open",
+      "status": "fixed",
       "first_seen": "2026-11-21",
       "last_seen": "2026-11-21",
       "seen": 1,
-      "notes": []
+      "notes": [
+        "2026-11-21: Mutations run offline and fail with 'Could not reach Control Rod'"
+      ]
     },
     "fail|@break sessions and links > a link to a package that does not exist says so|the page says the package does not exist, not that loading failed": {
       "severity": "major",
@@ -72,11 +77,13 @@
         "/home/claude/Control-Rod/apps/web/test-results/break--break-sessions-and--9a626-that-does-not-exist-says-so-chromium/attachments/missing-package-1ecdcc7d56b1354ac33824a4fe302ed95930fb6a.png",
         "/home/claude/Control-Rod/apps/web/test-results/break--break-sessions-and--9a626-that-does-not-exist-says-so-chromium/test-failed-1.png"
       ],
-      "status": "open",
+      "status": "fixed",
       "first_seen": "2026-11-21",
       "last_seen": "2026-11-21",
       "seen": 1,
-      "notes": []
+      "notes": [
+        "2026-11-21: PackageLoadError: a 404 says there is no such package"
+      ]
     },
     "fail|@persona > a person on a phone reads the board and adds a card|tap targets in the board are at least N px (WCAG N.N.N)": {
       "severity": "minor",
@@ -88,11 +95,13 @@
         "chromium"
       ],
       "evidence": [],
-      "status": "open",
+      "status": "fixed",
       "first_seen": "2026-11-21",
       "last_seen": "2026-11-21",
       "seen": 1,
-      "notes": []
+      "notes": [
+        "2026-11-21: Card titles are at least 24 px tall"
+      ]
     },
     "fail|@persona > a person on a phone reads the board and adds a card|the board does not scroll sideways at N px": {
       "severity": "minor",
@@ -104,11 +113,13 @@
         "chromium"
       ],
       "evidence": [],
-      "status": "open",
+      "status": "fixed",
       "first_seen": "2026-11-21",
       "last_seen": "2026-11-21",
       "seen": 1,
-      "notes": []
+      "notes": [
+        "2026-11-21: The board scroller is position: relative, so cards' sr-only text no longer widens the page"
+      ]
     },
     "fail|@persona > new user with no agents set up tries to get one thing done|the board explains that nothing can run until an agent and the daemon are set up": {
       "severity": "minor",
@@ -120,11 +131,13 @@
         "chromium"
       ],
       "evidence": [],
-      "status": "open",
+      "status": "fixed",
       "first_seen": "2026-11-21",
       "last_seen": "2026-11-21",
       "seen": 1,
-      "notes": []
+      "notes": [
+        "2026-11-21: DaemonNotice: no run daemon has connected yet, start it with pnpm cr start"
+      ]
     }
   }
 }

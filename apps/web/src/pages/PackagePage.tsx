@@ -12,6 +12,8 @@ import { RunCard } from "../components/RunLog.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../lib/format.js";
 import { DECISION_LABEL } from "../lib/decide.js";
 import { sessionGeneration } from "../lib/session.js";
+import { PackageLoadError } from "../components/PackageLoadError.js";
+import { DaemonNotice } from "../components/DaemonNotice.js";
 
 const RUNGS: WorkPackage["status"][] = ["draft", "released", "in-work", "in-verification", "accepted"];
 
@@ -26,11 +28,7 @@ export function PackagePage({ id }: { id: string }) {
 
   if (q.isLoading) return <p className="muted">Loading</p>;
   if (q.isError || q.data === undefined) {
-    return (
-      <p role="alert" className="error">
-        Could not load package {id}.
-      </p>
-    );
+    return <PackageLoadError id={id} error={q.error} retry={() => void q.refetch()} />;
   }
   const view = q.data;
   const pkg = view.package;
@@ -96,6 +94,7 @@ export function PackagePage({ id }: { id: string }) {
           <Criteria pkg={pkg} etag={view.draft_etag} enrolled={view.preparation_enrolled ?? false} />
           <section id="runs" className="panel" aria-labelledby="runs-title">
             <h2 id="runs-title">Runs</h2>
+            <DaemonNotice running={view.runs.filter((r) => r.status === "running").length} />
             {view.runs.length === 0 && <p className="muted">No runs yet.</p>}
             {view.runs.map((r) => (
               <RunCard key={r.id} packageId={pkg.id} run={r} />

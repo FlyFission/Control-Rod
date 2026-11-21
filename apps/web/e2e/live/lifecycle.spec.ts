@@ -7,7 +7,7 @@
  * accept (passkey) -> Accepted. Then the dependent package becomes releasable.
  */
 import { expect, test } from "./fixtures.js";
-import { addCard, card, classify, column, decisionsOf, openCase, SCOPE_REQUEST, signOverride, waitForText, packages } from "./flows.js";
+import { addCard, card, classify, column, decisionsOf, drawer, openCase, SCOPE_REQUEST, signOverride, waitForText, packages } from "./flows.js";
 
 test.describe("@functional card lifecycle", () => {
   test("a request goes from a typed line to an accepted package", async ({ page, journal, stack, owner }) => {
@@ -27,7 +27,7 @@ test.describe("@functional card lifecycle", () => {
     await journal.step("intake-drafted");
 
     await card(page, survey).locator(".bd-title").click();
-    const release = page.getByRole("button", { name: "Release", exact: true });
+    const release = drawer(page).getByRole("button", { name: "Release", exact: true });
     await expect(release).toBeVisible();
     await journal.step("review-drawer-draft");
     const asked = owner.ceremonies.length;
@@ -39,6 +39,10 @@ test.describe("@functional card lifecycle", () => {
     await openCase(page, stack, survey);
     await waitForText(page, "Held: waiting for an independent runtime");
     await journal.step("precheck-held");
+    // The board's next step for a held pre-check is the hold, not "Return for revision".
+    await page.goto(stack.url + "/board");
+    await expect(card(page, survey), "the board says the pre-check is held").toContainText(/Pre-check held/, { timeout: 30000 });
+    await openCase(page, stack, survey);
     await signOverride(page);
     await waitForText(page, /Pre-check[\s\S]*pass/i);
     await journal.step("precheck-passed");
@@ -56,7 +60,7 @@ test.describe("@functional card lifecycle", () => {
 
     // The dependent package now has its input accepted: releasing it must be open.
     await card(page, sow).locator(".bd-title").click();
-    await expect(page.getByRole("button", { name: "Release", exact: true })).toBeEnabled();
+    await expect(drawer(page).getByRole("button", { name: "Release", exact: true })).toBeEnabled();
     expect(journal.pageErrors).toEqual([]);
   });
 });

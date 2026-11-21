@@ -1825,3 +1825,15 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+/* Shown on the board and a package's runs when no run daemon is answering (lib/daemon.ts). */
+.daemon-notice {
+  flex-basis: 100%;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--stuck);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: var(--fs-small);
+  overflow-wrap: anywhere;
+}

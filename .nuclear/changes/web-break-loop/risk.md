@@ -25,7 +25,7 @@
 
 ## Exit criteria
 
-The three suites run against the real stack on Chromium with evidence retained here, the loop tooling works end to end (run, merge, next, set), the four first-pass fixes each have a test that failed before them, and the owner has made the merge decision. Nothing here claims Firefox or WebKit results (their browsers could not be downloaded in this environment), that the persona judge's opinions are right, or that the app is free of the open findings.
+The three suites run against the real stack on Chromium with evidence retained here, the loop tooling works end to end (run, merge, next, set), each fix has a test that failed before it, and the owner has made the merge decision. Nothing here claims Firefox or WebKit results (their browsers could not be downloaded in this environment), or that the persona judge's opinions are right.
 
 ## Source-lineage note
 

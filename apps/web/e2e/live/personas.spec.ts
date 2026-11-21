@@ -150,11 +150,23 @@ test.describe("@persona", () => {
       await expect(page.getByRole("button", { name: "+ Add a card" })).toBeVisible({ timeout: 30000 });
       await j.note("Open the board on a phone");
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      if (overflow > 1) {
+        // Name what sticks out past the screen, outside a sideways scroller (or placed against the page).
+        const wide = await page.evaluate(() => [...document.querySelectorAll("body *")]
+          .filter((x) => x.getBoundingClientRect().right > document.documentElement.clientWidth + 1
+            && (!x.closest(".bd-board") || /absolute|fixed/.test(getComputedStyle(x).position)))
+          .slice(0, 8).map((x) => `${x.tagName.toLowerCase()}.${(x as HTMLElement).className}`));
+        test.info().annotations.push({ type: "wider than the screen", description: wide.join(", ") });
+      }
       expect.soft(overflow, "the board does not scroll sideways at 390 px").toBeLessThanOrEqual(1);
       await addCard(page, `Phone note ${Date.now()}`);
       await j.note("Add one card from the phone");
       const small = await page.evaluate(() => [...document.querySelectorAll("main button, main a, main select")]
         .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.width < 24 || r.height < 24); }).length);
+      const tiny = await page.evaluate(() => [...document.querySelectorAll("main button, main a, main select")]
+        .filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && (r.width < 24 || r.height < 24); })
+        .map((e) => `${e.tagName.toLowerCase()} "${(e.getAttribute("aria-label") ?? e.textContent ?? "").trim().slice(0, 40)}"`));
+      if (tiny.length > 0) test.info().annotations.push({ type: "small tap targets", description: tiny.join(", ") });
       expect.soft(small, "tap targets in the board are at least 24 px (WCAG 2.5.8)").toBe(0);
     } finally {
       j.save(browserName);

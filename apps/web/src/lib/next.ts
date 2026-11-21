@@ -18,6 +18,11 @@ export type NextInput = {
   /** Whether someone other than every originator could verify it (see hasOtherQualified). */
   otherQualifiedVerifier: boolean;
   runActive: boolean;
+  /**
+   * Whether a queued pre-check is held for want of a runtime independent of the author's. The work is
+   * not the person's to return then: the check has not run. Found by the live persona pass.
+   */
+  heldPreCheck?: boolean;
 };
 
 /** Why an action is refused, in the API's own words where it gave them. */
@@ -42,6 +47,10 @@ export function nextLine(i: NextInput): NextLine {
   if (column === "person-verifies" && !i.otherQualifiedVerifier) {
     const who = i.originators.length > 0 ? `. Originators cannot verify their own work: ${i.originators.join(", ")}` : "";
     return { tone: "block", text: `Needs a second qualified person${who}` };
+  }
+
+  if (i.heldPreCheck) {
+    return { tone: "needs", text: "Pre-check held: it needs a runtime independent of the author's, or your signed override" };
   }
 
   // Ruling 16: the verification outranks an allowed accept (screen-only until D-4; see blockUnverifiedAccept).

@@ -12,7 +12,7 @@ Control Rod is meant for thousands of people working in different ways. The exis
 
 ## Scope
 
-In scope: `apps/web/e2e/live/` (stack, passkey shim, fixtures, flows, three suites, ledger, README), `apps/web/playwright.live.config.ts`, `tools/break-loop/` (findings ledger tool, loop script, pass prompt, persona judge), and the fixes for findings from the first pass: `apps/web/src/components/Shell.tsx`, `apps/web/src/features/board/CaptureCard.tsx`, `services/api/src/app.ts` (error handler), `daemon/internal/runner/client.go` and `daemon.go`, `daemon/cmd/controlrod/main.go`, `scripts/cr.mjs`, with their tests. Out of scope: any trust surface (no policy, red-team, workflow, spec or kernel change); a CI job for the live suites (a workflow change, proposed in `ship.md` for the owner); fixing the open findings in areas other threads are changing.
+In scope: `apps/web/e2e/live/` (stack, passkey shim, fixtures, flows, three suites, ledger, README), `apps/web/playwright.live.config.ts`, `tools/break-loop/` (findings ledger tool, loop script, pass prompt, persona judge), and the fixes for findings from the first pass: `apps/web/src/components/Shell.tsx`, `apps/web/src/features/board/CaptureCard.tsx`, `services/api/src/app.ts` (error handler), `daemon/internal/runner/client.go` and `daemon.go`, `daemon/cmd/controlrod/main.go`, `scripts/cr.mjs`, with their tests; and the second-pass fixes (D5): `apps/web/src/main.tsx`, `api/client.ts`, `components/PackageLoadError.tsx`, `components/DaemonNotice.tsx`, `lib/daemon.ts`, `lib/next.ts`, `components/RunLog.tsx`, `features/board/BoardView.tsx`, `useBoardData.ts`, `board.css`, `features/case/CasePage.tsx`, `pages/PackagePage.tsx`, `styles.css`, with their tests. Out of scope: any trust surface (no policy, red-team, workflow, spec or kernel change); a CI job for the live suites (a workflow change, proposed in `ship.md` for the owner).
 
 ## Owner decisions (fixed inputs)
 
@@ -22,6 +22,7 @@ In scope: `apps/web/e2e/live/` (stack, passkey shim, fixtures, flows, three suit
 | D2 | Go ahead with the harness and the first loop against the board. | "Sure, go ahead yeah I’ve been trying to work this towards completion and would love to expedite it in any way possible I think this would help" | 2026-11-21, Claude project thread "Build a test-and-break loop for the web app", in reply to the coordinator's four-pass proposal | Build it, run the first loop, fix what is in scope, open a pull request. | Merging; any trust-surface change; a CI workflow. |
 | D3 | Fix in this pull request only findings outside the areas PR #106 and PR #107 are changing; report the rest. | none: authoring agent's choice, open to the owner | 2026-11-21, this thread | Board card actions and the agent panel are left to their threads; findings there are in the ledger. | Holding back a fix the owner wants here. |
 | D4 | The daemon reads its token from `daemon.token` and re-reads it once after a 401, instead of the control plane keeping its token across restarts. | none: authoring agent's choice, open to the owner | 2026-11-21, this thread | Keeps the per-start token rotation and fixes the stuck daemon. | Changing how the control plane issues tokens. |
+| D5 | Fix the seven findings left open after the first pass, including the two in areas PR #107 was changing (it has since merged). | "Fix anything that is broken or buggy yeah" | 2026-11-21, Claude project thread "Build a test-and-break loop for the web app", in reply to the list of seven open findings | Fix each, make its live expectation hard where it was soft, rerun. Supersedes D3 for these seven. | Any trust-surface or contract change. |
 
 ## Assumptions and invalidation triggers
 
@@ -37,7 +38,7 @@ In scope: `apps/web/e2e/live/` (stack, passkey shim, fixtures, flows, three suit
 
 ## Exit criteria
 
-The three suites run against the real stack on Chromium with evidence retained here, the loop tooling works end to end (run, merge, next, set), the four first-pass fixes each have a test that failed before them, and the owner has made the merge decision. Nothing here claims Firefox or WebKit results (their browsers could not be downloaded in this environment), that the persona judge's opinions are right, or that the app is free of the open findings.
+The three suites run against the real stack on Chromium with evidence retained here, the loop tooling works end to end (run, merge, next, set), each fix has a test that failed before it, and the owner has made the merge decision. Nothing here claims Firefox or WebKit results (their browsers could not be downloaded in this environment), or that the persona judge's opinions are right.
 
 ## Source-lineage note
 

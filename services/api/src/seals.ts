@@ -368,11 +368,15 @@ export function windowEvents(segment: EventRecord[], from: string, to: string): 
   return segment.filter((e) => { const t = Date.parse(e.at); return t >= a && t < b; }).map((e) => e.seq);
 }
 
-/** A window an export may name: two ISO date-times, the first before the second. The problem, or null. */
+/**
+ * A window an export may name: two ISO date-times, the first before the second. The problem, or null.
+ * At most millisecond precision, the precision events record and `Date.parse` keeps: a finer boundary
+ * would be truncated and select the wrong events.
+ */
 export function windowProblem(from: unknown, to: unknown): string | null {
-  const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
-  if (typeof from !== "string" || !iso.test(from) || Number.isNaN(Date.parse(from))) return "from must be a date-time with its time zone, such as 2026-11-01T00:00:00Z";
-  if (typeof to !== "string" || !iso.test(to) || Number.isNaN(Date.parse(to))) return "to must be a date-time with its time zone, such as 2026-12-01T00:00:00Z";
+  const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
+  if (typeof from !== "string" || !iso.test(from) || Number.isNaN(Date.parse(from))) return "from must be a date-time with its time zone and at most millisecond precision, such as 2026-11-01T00:00:00Z";
+  if (typeof to !== "string" || !iso.test(to) || Number.isNaN(Date.parse(to))) return "to must be a date-time with its time zone and at most millisecond precision, such as 2026-12-01T00:00:00Z";
   if (Date.parse(from) >= Date.parse(to)) return "from must be before to";
   return null;
 }

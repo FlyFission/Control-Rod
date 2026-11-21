@@ -265,6 +265,7 @@ describe("audit export for a time window", () => {
   it("refuses a window that is not two ordered date-times, and says when nothing was recorded in it", async () => {
     expect((await get("/records/export?from=yesterday&to=today")).statusCode).toBe(400);
     expect((await exportOf("2026-11-02T00:00:00Z", "2026-11-01T00:00:00Z")).statusCode).toBe(400);
+    expect((await exportOf("2026-11-21T00:00:00.0005Z", "2026-11-21T00:00:00.0015Z")).statusCode).toBe(400);
     expect((await exportOf("2001-01-01T00:00:00Z", "2001-02-01T00:00:00Z")).statusCode).toBe(404);
   });
 });

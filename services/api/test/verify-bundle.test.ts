@@ -68,6 +68,10 @@ describe("pnpm cr verify", () => {
     const backwards = structuredClone(window) as Json;
     backwards.window = { from: "2026-11-21T00:00:03Z", to: "2026-11-21T00:00:01Z" };
     expect((await verifyBundleText(JSON.stringify(backwards))).lines[0]).toContain("the window is not valid: from must be before to");
+    // Finer than a millisecond would be truncated and select the wrong events, so it is refused.
+    const fine = structuredClone(window) as Json;
+    fine.window = { from: "2026-11-21T00:00:00.0005Z", to: "2026-11-21T00:00:00.0015Z" };
+    expect((await verifyBundleText(JSON.stringify(fine))).lines[0]).toContain("at most millisecond precision");
     const edited = structuredClone(window) as Json;
     edited.segment[2].at = "2026-11-21T00:00:02.500Z";
     expect((await verifyBundleText(JSON.stringify(edited))).lines[0]).toContain("event 3 does not match its digest");

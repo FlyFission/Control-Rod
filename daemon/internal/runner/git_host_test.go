@@ -346,7 +346,45 @@ func TestFilterPins(t *testing.T) {
 		"-c", "filter.lfs.required=false",
 		"-c", "filter.x.process=",
 	}
-	if got := filterPins(entries); !reflect.DeepEqual(got, want) {
+	got, err := filterPins(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("filterPins = %q, want %q", got, want)
 	}
+}
+
+// HG-02: a valueless trusted boolean (git reads it as true) is pinned as
+// true, not as the empty value git reads as false.
+func TestFilterPinsValuelessTrustedRequired(t *testing.T) {
+	entries := []gitConfigEntry{
+		{scope: "global", key: "filter.lfs.required", hasValue: false},
+		{scope: "local", key: "filter.lfs.required", value: "false", hasValue: true},
+	}
+	got, err := filterPins(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"-c", "filter.lfs.required=true"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("filterPins = %q, want %q", got, want)
+	}
+}
+
+// HG-05: a repository driver whose name contains "=" cannot be pinned with
+// -c (git splits at the first "="), so the command is refused before
+// anything runs, and its smudge never runs.
+func TestHostGitCommandRefusesUnpinnableFilterName(t *testing.T) {
+	repo, markers := newFilterRepo(t)
+	if err := os.WriteFile(filepath.Join(repo, ".gitattributes"), []byte("*.txt filter=a=b\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hostRunGit(t, repo, "config", "filter.a=b.smudge", "sh -c 'touch "+filepath.Join(markers, "smudge")+"; cat'")
+	if err := os.Remove(filepath.Join(repo, "file.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := HostGitCommand(context.Background(), repo, "checkout", "--", "file.txt"); !errors.Is(err, errFilterNameUnpinnable) {
+		t.Fatalf("HostGitCommand: error = %v, want errFilterNameUnpinnable", err)
+	}
+	assertNoMarkers(t, markers)
 }

@@ -16,7 +16,7 @@ Monitoring after merge: none needed until a caller is added.
 
 ## Exit criteria
 
-HG-01 to HG-04 are implemented with tests, each control is shown to matter by mutation, and the daemon suite passes.
+HG-01 to HG-05 are implemented with tests, each control is shown to matter by mutation, and the daemon suite passes.
 
 ## Source-lineage note
 

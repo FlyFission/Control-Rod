@@ -20,7 +20,8 @@ Carried from upstream at the pinned commit, Apache-2.0, notice already retained 
 
 1. Before building the command, `HostGitCommand` lists the config git sees in the directory (`git config --show-scope -z --list`, with `HostGitArgs` and the scrubbed environment). For each filter driver variable the repository scope (`local`, `worktree`, including included files) sets, it adds `-c filter.<name>.<var>=<value>`, where the value is the host user's global or system definition, or empty when there is none, and `required` becomes `false`. Command-line settings outrank every config file.
 2. The command is returned as `*HostGitCmd`; `Run`, `Output` and `CombinedOutput` list the config again afterwards and fail with `ErrRepoConfigChanged` if the repository's filter-driver entries changed while git ran.
-3. An empty directory is refused (provenance item 3), and `core.hooksPath` uses `os.DevNull` as upstream does (item 2).
+3. Two additions from the Codex review on PR #104, not in upstream: a repository filter driver whose name contains "=" is refused, because a `-c` setting cannot address it; and a valueless trusted entry is pinned as `true`, as git reads it.
+4. An empty directory is refused (provenance item 3), and `core.hooksPath` uses `os.DevNull` as upstream does (item 2).
 
 ## Not carried
 
@@ -32,7 +33,7 @@ Upstream's deny-by-default repository config policy (refusing an include directi
 
 ## Exit criteria
 
-HG-01 to HG-04 are implemented with tests, each control is shown to matter by mutation, and the daemon suite passes.
+HG-01 to HG-05 are implemented with tests, each control is shown to matter by mutation, and the daemon suite passes.
 
 ## Source-lineage note
 

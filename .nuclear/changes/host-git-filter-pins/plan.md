@@ -4,7 +4,8 @@
 2. Port the config listing, filter pins and `HostGitCmd` after-run check from upstream; refuse an empty directory; use `os.DevNull`.
 3. Add tests for the global definition being kept, for the after-run check, for the empty directory, and unit tests for parsing and pins.
 4. Remove each control in turn and record the tests failing (`evidence/mutation.sh`, `evidence/mutation.log`); run the whole daemon suite (`evidence/green-daemon.log`).
-5. Update the third-party register rows for `git_host.go` and its test.
+5. Answer the Codex review on PR #104: refuse driver names containing "=", pin valueless trusted entries as `true`; add tests and mutations M7, M8.
+6. Update the third-party register rows for `git_host.go` and its test.
 
 ## Required links
 
@@ -12,7 +13,7 @@
 
 ## Exit criteria
 
-HG-01 to HG-04 are implemented with tests, each control is shown to matter by mutation, and the daemon suite passes.
+HG-01 to HG-05 are implemented with tests, each control is shown to matter by mutation, and the daemon suite passes.
 
 ## Source-lineage note
 

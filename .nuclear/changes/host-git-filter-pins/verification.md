@@ -1,10 +1,10 @@
 # Verification: replace repository-defined filter drivers in host-side git
 
-Evidence status: **pass** for HG-01 to HG-04 on this host (Linux, git 2.43.0, Go 1.24.7).
+Evidence status: **pass** for HG-01 to HG-05 on this host (Linux, git 2.43.0, Go 1.24.7).
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Each control removed in turn (6 mutations: no pins, no after-run check, empty directory allowed, `worktree` scope dropped, global value ignored, `required` not pinned false) makes at least one named test fail. M1 (no pins) is the behaviour before this change for HG-01: all three marker tests fail. M6 is caught only by the unit test; git also treats the empty `required` value as false. | `evidence/mutation.sh`, `evidence/mutation.log` |
+| E-01 | pass | Each control removed in turn (8 mutations: no pins, no after-run check, empty directory allowed, `worktree` scope dropped, global value ignored, `required` not pinned false, a name with "=" allowed, a valueless trusted entry pinned empty) makes at least one named test fail. M1 (no pins) is the behaviour before this change for HG-01: all three marker tests fail. M7 is the case the Codex review reproduced: the repository's smudge runs. M6 is caught only by the unit test; git also treats the empty `required` value as false. | `evidence/mutation.sh`, `evidence/mutation.log` |
 | E-02 | pass | With the change, `gofmt -l` is empty, `go vet ./...` exits 0, and `go test ./... -count=1` passes for every daemon package (bubblewrap installed for the checker tests). `GOOS=darwin` and `GOOS=windows` vet of the runner package exit 0; neither was run. | `evidence/green-daemon.log` |
 
 ## Evidence custody and coupling
@@ -27,7 +27,7 @@ No independent review was done.
 
 ## Exit criteria
 
-HG-01 to HG-04 are implemented with tests, each control is shown to matter by mutation, and the daemon suite passes.
+HG-01 to HG-05 are implemented with tests, each control is shown to matter by mutation, and the daemon suite passes.
 
 ## Source-lineage note
 

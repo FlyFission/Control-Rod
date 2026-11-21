@@ -191,8 +191,14 @@ func repoFilterEntries(entries []gitConfigEntry) []string {
 // false. Variables the repository does not set keep their global/system
 // value. Command-line settings outrank every config file, including files
 // pulled in with include.path, so the pins hold without rewriting the
-// repository config.
-func filterPins(entries []gitConfigEntry) []string {
+// repository config. A valueless trusted entry (git reads it as true) is
+// pinned as "true".
+//
+// git splits a -c argument at its first "=", so a driver name containing
+// "=" cannot be pinned: "-c filter.a=b.smudge=" would set filter.a instead.
+// Such a repository driver is refused (errFilterNameUnpinnable) rather than
+// left in effect.
+func filterPins(entries []gitConfigEntry) ([]string, error) {
 	repoDrivers := map[string]map[string]bool{}
 	trusted := map[string]string{}
 	for _, e := range entries {
@@ -212,12 +218,19 @@ func filterPins(entries []gitConfigEntry) []string {
 		}
 		if (e.scope == "system" || e.scope == "global") && isFilter {
 			// Later entries win, as in git: system is listed before global.
-			trusted[subsection+"."+strings.ToLower(variable)] = e.value
+			value := e.value
+			if !e.hasValue {
+				value = "true"
+			}
+			trusted[subsection+"."+strings.ToLower(variable)] = value
 		}
 	}
 
 	names := make([]string, 0, len(repoDrivers))
 	for name := range repoDrivers {
+		if strings.Contains(name, "=") {
+			return nil, errFilterNameUnpinnable
+		}
 		names = append(names, name)
 	}
 	sort.Strings(names)
@@ -234,8 +247,12 @@ func filterPins(entries []gitConfigEntry) []string {
 			pins = append(pins, "-c", "filter."+name+"."+v+"="+value)
 		}
 	}
-	return pins
+	return pins, nil
 }
+
+// errFilterNameUnpinnable refuses a repository filter driver whose name
+// contains "=", which a -c setting cannot address.
+var errFilterNameUnpinnable = errors.New("host-side git: the repository config defines a filter driver whose name contains '=', which cannot be overridden; refusing")
 
 // HostGitCmd is a host-side git command built by HostGitCommand. Run,
 // Output and CombinedOutput run it and then read the repository config
@@ -309,7 +326,10 @@ func HostGitCommand(ctx context.Context, dir string, args ...string) (*HostGitCm
 		return nil, err
 	}
 	before := repoFilterEntries(entries)
-	pins := filterPins(entries)
+	pins, err := filterPins(entries)
+	if err != nil {
+		return nil, err
+	}
 	full := append(append(append([]string{}, lead...), pins...), args...)
 	cmd := exec.CommandContext(ctx, "git", full...)
 	cmd.Dir = dir

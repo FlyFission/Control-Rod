@@ -6,6 +6,7 @@ import { MODE_COPY, useMode } from "../../lib/mode.js";
 import { BoardReviewDrawer } from "./BoardReviewDrawer.js";
 import { Card, sinceText } from "./Card.js";
 import { CaptureCard } from "./CaptureCard.js";
+import { CardActions } from "./CardActions.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { useBoardData } from "./useBoardData.js";
 import "./board.css";
@@ -198,7 +199,9 @@ export function BoardView() {
                     column={x.column}
                     stream={data.status}
                     lastKnown={x.lastKnown}
+                    nuclear={x.nuclear}
                     selected={selectedId === x.pkg.id}
+                    actions={<CardActions card={x} />}
                     {...(data.unknownSince ? { unknownSince: data.unknownSince } : {})}
                     {...(x.owner ? { owner: x.owner } : {})}
                     {...(x.retry ? { onRetry: x.retry } : {})}

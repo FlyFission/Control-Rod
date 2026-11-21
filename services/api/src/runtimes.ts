@@ -15,7 +15,56 @@ import { getObject, recordObject, transition } from "./workbench.js";
  */
 
 const ROLES = ["intake", "author", "pre-check"] as const;
+/**
+ * Runtimes an organization can pin. Grok CLI, OpenCode, Antigravity and Ollama join this list when
+ * the daemon can confine them; until then the daemon lists them as not ready and starts none.
+ */
 export const PINNABLE = ["claude", "codex"];
+
+/**
+ * The model vendor each runtime always reaches. OpenCode and Ollama are absent on purpose: either can
+ * serve any vendor's model, so the runtime alone does not name a family.
+ */
+export const RUNTIME_FAMILIES: Record<string, string> = {
+  claude: "Anthropic",
+  codex: "OpenAI",
+  grok: "xAI",
+  agy: "Google",
+  fake: "Test",
+};
+
+/** True only when both runtimes have a known family and the families differ. Unknown fails closed. */
+export function distinctFamily(authorRuntime: string, checkerRuntime: string): boolean {
+  const aFam = RUNTIME_FAMILIES[authorRuntime];
+  const cFam = RUNTIME_FAMILIES[checkerRuntime];
+  return aFam !== undefined && cFam !== undefined && aFam !== cFam;
+}
+
+/**
+ * O6 quorum check: every checker must belong to a distinct vendor family from the author,
+ * and `safety` grade requires at least 2 distinct checker families (2-of-2 quorum).
+ */
+export function verifyO6CheckerQuorum(
+  authorRuntime: string,
+  checkerRuntimes: readonly string[],
+  grade: string,
+): { ok: boolean; reason?: string } {
+  const distinctCheckers = new Set<string>();
+  for (const cr of checkerRuntimes) {
+    if (!distinctFamily(authorRuntime, cr)) {
+      return { ok: false, reason: `Checker ${cr} shares vendor family with author ${authorRuntime}` };
+    }
+    distinctCheckers.add(RUNTIME_FAMILIES[cr]!);
+  }
+  const required = grade.trim().toLowerCase() === "safety" ? 2 : 1;
+  if (distinctCheckers.size < required) {
+    return {
+      ok: false,
+      reason: `Grade ${grade} requires ${required} distinct checker vendor families, got ${distinctCheckers.size}`,
+    };
+  }
+  return { ok: true };
+}
 
 export interface ProbeArtifact { path: string; digest: { algorithm: "sha256"; value: string } }
 

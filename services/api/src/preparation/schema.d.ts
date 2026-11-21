@@ -2308,6 +2308,11 @@ export interface components {
             name: string;
             mode: components["schemas"]["ControlRod.Records.Mode"];
             default_rigor: components["schemas"]["ControlRod.Records.RigorMode"];
+            /**
+             * @description The context profile packages carry when they name none. Absent means light.
+             * @enum {string}
+             */
+            default_context_profile?: "light" | "nuclear";
             lanes: components["schemas"]["ControlRod.Records.DataLane"][];
             qa_overlays: string[];
             /**
@@ -2722,6 +2727,12 @@ export interface components {
              * @enum {string}
              */
             grade?: "safety" | "material" | "general-service";
+            /**
+             * @description Which context the brief carries. Absent means the project default; Safety and Material grades
+             *     and trust-surface scopes are always nuclear.
+             * @enum {string}
+             */
+            context_profile?: "light" | "nuclear";
             status: components["schemas"]["ControlRod.Records.PackageStatus"];
             rigor_mode: components["schemas"]["ControlRod.Records.RigorMode"];
             data_lane: components["schemas"]["ControlRod.Records.DataLane"];

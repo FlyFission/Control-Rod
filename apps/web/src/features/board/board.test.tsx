@@ -39,7 +39,7 @@ function Page() {
 
 const accept: ActionDescriptor = { command: "accept", label: "Accept", allowed: true, signature: "direct" };
 
-type Setup = { packages: WorkPackage[]; actions?: Record<string, ActionDescriptor[]>; originators?: Record<string, string[]>; runs?: Record<string, "running" | "succeeded"> };
+type Setup = { packages: WorkPackage[]; actions?: Record<string, ActionDescriptor[]>; originators?: Record<string, string[]>; runs?: Record<string, "running" | "succeeded" | "stopping"> };
 function api(s: Setup) {
   server.use(
     http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })),
@@ -56,7 +56,7 @@ function api(s: Setup) {
       return HttpResponse.json({
         ...view({}, p),
         originators: s.originators?.[id] ?? ["ben"],
-        runs: run ? [{ id: "R-1", package_id: id, package_revision: 0, role: "author", status: run }] : [],
+        runs: run ? [{ id: "R-1", package_id: id, package_revision: 0, role: "author", status: run === "stopping" ? "running" : run, ...(run === "stopping" ? { stop_requested_at: "2026-11-21T10:00:00Z" } : {}) }] : [],
       });
     }),
   );
@@ -107,6 +107,37 @@ describe("BoardView", () => {
     expect(card.textContent).not.toMatch(/Accept/);
   });
 
+  it("acts from the card: Accept on the face and Move to beside it (M3)", async () => {
+    api({ packages: [pkg({ id: "WP-A", title: "Cable schedule", status: "in-verification" })], actions: { "WP-A": [accept] } });
+    server.use(http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-A", package_revision: 0 }])));
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Cable schedule")).closest("article")!;
+    expect(await within(card).findByRole("button", { name: "Accept" })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: /Move to, Cable schedule/ })).toBeTruthy();
+  });
+
+  it("puts no Accept button on Safety work that no person has verified", async () => {
+    api({ packages: [pkg({ id: "WP-S2", title: "Vent stack", grade: "safety", status: "in-verification" })], actions: { "WP-S2": [accept] }, originators: { "WP-S2": ["ana"] } });
+    server.use(http.get("*/office", () => HttpResponse.json([{ id: "o1", kind: "accept", package_id: "WP-S2", package_revision: 0 }])));
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Vent stack")).closest("article")!;
+    const user = userEvent.setup();
+    await user.click(await within(card).findByRole("button", { name: /Move to/ }));
+    expect(within(card).queryByRole("button", { name: "Accept" })).toBeNull();
+    expect(within(card).getByRole("menuitem", { name: /Accept/ }).getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("offers Stop run while a run is going, and not again once a stop was requested", async () => {
+    api({ packages: [pkg({ id: "WP-R", title: "Running one", status: "in-work" }), pkg({ id: "WP-T", title: "Stopping one", status: "in-work" })], actions: { "WP-R": [], "WP-T": [] }, runs: { "WP-R": "running", "WP-T": "stopping" } });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const running = (await screen.findByText("Running one")).closest("article")!;
+    await user.click(await within(running).findByRole("button", { name: /Move to/ }));
+    expect(within(running).getByRole("menuitem", { name: "Stop run" })).toBeTruthy();
+    const stopping = screen.getByText("Stopping one").closest("article")!;
+    expect(within(stopping).queryByRole("button", { name: /Move to/ })).toBeNull();
+  });
+
   it("does not tag a General service package", async () => {
     api({ packages: [pkg({ id: "WP-G", title: "Lighting layout", grade: "general-service" })] });
     await renderPage(<Page />);
@@ -129,7 +160,7 @@ describe("BoardView", () => {
     api({ packages: [pkg({ id: "WP-G", title: "Lighting layout", status: "in-verification" })], actions: { "WP-G": [accept] } });
     await renderPage(<Page />);
     const card = (await screen.findByText("Lighting layout")).closest("article")!;
-    await waitFor(() => expect(within(card).getByText(/Accept/)).toBeTruthy());
+    await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("Accept"));
     act(() => FakeSource.last!.emit("error"));
     expect(await screen.findByText(/What you see may be out of date/)).toBeTruthy();
     // The card no longer shows its last state as if it were current (spec 8, ruling 13).
@@ -137,13 +168,15 @@ describe("BoardView", () => {
     expect(card.querySelector(".bd-next")!.textContent).not.toContain("Accept");
     expect(screen.getByRole("button", { name: "Reconnect" })).toBeTruthy();
     expect(card.textContent).not.toMatch(/[▲✕✓]/);
+    // Nothing is offered from a state that may be out of date (M3).
+    expect(within(card).queryByRole("button", { name: "Accept" })).toBeNull();
     const before = FakeSource.count;
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Reconnect" }));
     await waitFor(() => expect(FakeSource.count).toBe(before + 1));
     act(() => FakeSource.last!.emit("open"));
     await waitFor(() => expect(screen.queryByText(/What you see may be out of date/)).toBeNull());
-    await waitFor(() => expect(within(card).getByText(/Accept/)).toBeTruthy());
+    await waitFor(() => expect(card.querySelector(".bd-next")!.textContent).toContain("Accept"));
   });
 
   it("shows the counts as last known while the stream is unknown", async () => {
@@ -598,5 +631,88 @@ describe("BoardView", () => {
     expect(screen.getByText("Loading")).toBeTruthy();
     await act(async () => releaseCaptures());
     await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
+  });
+});
+
+describe("context profile", () => {
+  it("locks Safety grade work to Nuclear with the reason, and badges the card", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", context_profile: "light" })] });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
+    expect(within(card).getByText("Nuclear")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Relief valve sizing" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-S" });
+    const group = within(drawer).getByRole("group", { name: "Context" });
+    const nuclear = within(group).getByRole("button", { name: "Nuclear" }) as HTMLButtonElement;
+    expect(nuclear.getAttribute("aria-pressed")).toBe("true");
+    expect(nuclear.disabled).toBe(true);
+    expect((within(group).getByRole("button", { name: "Light" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(drawer).getByText("Safety grade work is always Nuclear")).toBeTruthy();
+  });
+
+  it("shows no badge for Light work and saves a switch to Nuclear through the draft edit", async () => {
+    const p = pkg({ id: "WP-L", title: "Lighting layout", grade: "general-service" });
+    api({ packages: [p] });
+    let sent: { body: WorkPackage; ifMatch: string | null } | undefined;
+    server.use(
+      http.get("*/packages/:id", () => HttpResponse.json({ ...view({}, p), originators: ["ben"], draft_etag: '"tag-1"' })),
+      http.put("*/packages/:id", async ({ request }) => {
+        const body = (await request.json()) as WorkPackage;
+        sent = { body, ifMatch: request.headers.get("if-match") };
+        return HttpResponse.json(body, { headers: { etag: '"tag-2"' } });
+      }),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const card = (await screen.findByText("Lighting layout")).closest("article")!;
+    expect(within(card).queryByText("Nuclear")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Lighting layout" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-L" });
+    const group = within(drawer).getByRole("group", { name: "Context" });
+    expect(within(group).getByRole("button", { name: "Light" }).getAttribute("aria-pressed")).toBe("true");
+    await waitFor(() => expect((within(group).getByRole("button", { name: "Nuclear" }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(within(group).getByRole("button", { name: "Nuclear" }));
+    await waitFor(() => expect(sent).toBeDefined());
+    expect(sent!.ifMatch).toBe('"tag-1"');
+    expect(sent!.body.context_profile).toBe("nuclear");
+  });
+
+  it("keeps the switch read-only for a draft in guided preparation, which refuses the draft edit", async () => {
+    const p = pkg({ id: "WP-G", title: "Guided pump study", grade: "general-service" });
+    api({ packages: [p] });
+    let puts = 0;
+    server.use(
+      http.get("*/packages/:id", () => HttpResponse.json({ ...view({}, p), originators: ["ben"], draft_etag: '"tag-1"', preparation_enrolled: true })),
+      http.put("*/packages/:id", () => {
+        puts += 1;
+        return HttpResponse.json({ code: "preparation-edit-required" }, { status: 409 });
+      }),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Guided pump study" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-G" });
+    expect(await within(drawer).findByText("Not editable during guided preparation")).toBeTruthy();
+    const group = within(drawer).getByRole("group", { name: "Context" });
+    const nuclear = within(group).getByRole("button", { name: "Nuclear" }) as HTMLButtonElement;
+    expect(nuclear.disabled).toBe(true);
+    expect((within(group).getByRole("button", { name: "Light" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(nuclear);
+    expect(puts).toBe(0);
+  });
+
+  it("badges a card whose project defaults to Nuclear", async () => {
+    api({ packages: [pkg({ id: "WP-P", title: "Plant work", project: "prj_plant" })] });
+    server.use(
+      http.get("*/admin", () => HttpResponse.json({
+        members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }],
+        registry: { qualifications: [] },
+        projects: [{ id: "prj_plant", org_id: "o", name: "Plant", mode: "capital-projects", default_rigor: "standard", default_context_profile: "nuclear", lanes: ["internal"], qa_overlays: [], autonomy_level: 0, status: "active" }],
+      })),
+    );
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Plant work")).closest("article")!;
+    await waitFor(() => expect(within(card).getByText("Nuclear")).toBeTruthy());
   });
 });

@@ -3,6 +3,7 @@ packages:
   - "services/*"
   - "apps/*"
   - "sdk/ts"
+  - "scripts"
 
 overrides:
   '@scalar/json-magic@0.13.5>undici': 7.30.1

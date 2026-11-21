@@ -17,6 +17,8 @@ import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScramm
 import { networkFor, readRoleTools, resolveSandboxPolicy, runtimesForHosts, toolsFile } from "./sandbox.js";
 import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
+import { RULES, briefHeader, composeBrief } from "./brief.js";
+import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -611,6 +613,22 @@ async function stopQueuedRun(c: Tx, cfg: WorkConfig, row: { id: string; package_
   await recordCheckerAttempt(c, cfg.ajv, { ...row, status: "stopped", body });
 }
 
+type RunLike = { id: string; package_id: string; package_revision: number; role: string; round: number; body: Json };
+
+/** Fails a queued run before it starts, with the reason on the run (the board shows it). */
+async function failQueuedRun(c: Tx, cfg: WorkConfig, row: RunLike, error: string) {
+  const body = { ...row.body, status: "failed", finished_at: now(), label: "Not started", error };
+  delete body.waiting_reason;
+  delete body.waiting_cause;
+  delete body.waiting_key;
+  validate(cfg, "Run.json", body);
+  const updated = await c.query("update runs set status = 'failed', body = $2 where id = $1 and status = 'queued'", [row.id, body]);
+  if ((updated.rowCount ?? 0) === 0) return;
+  row.body = body;
+  await appendEvent(c, "run.failed", row.id, SYSTEM, { package: row.package_id, role: row.role, round: row.round, error });
+  await recordCheckerAttempt(c, cfg.ajv, { ...row, status: "failed", body });
+}
+
 async function stopQueuedRuns(c: Tx, cfg: WorkConfig, packageId: string, revision: number | undefined, error: string) {
   const rows = await c.query<{ id: string; package_id: string; package_revision: number; role: string; round: number; body: Json }>(
     revision === undefined
@@ -789,13 +807,6 @@ function jobIntakeGuides(cfg: WorkConfig): string[] {
   return out;
 }
 
-const RULES = `## Rules
-
-- Read every file under inputs/. Write every deliverable into out/. Never edit inputs/.
-- Every engineering number comes from a tool or code you run, never typed from memory.
-- Cite every outside fact with its source and the date you retrieved it.
-- You cannot approve, accept or release anything. A person does that.
-`;
 
 type Input = { name: string; content_base64: string };
 const file = (name: string, content: string | Buffer): Input => ({
@@ -861,9 +872,80 @@ export function preparedCheckerOutputPaths(runtime: string): {
   };
 }
 
+type NuclearResolution = {
+  resolved: ReturnType<typeof resolveContextProfile>;
+  clusters: ReturnType<typeof selectClusters>;
+  pack: ReturnType<typeof loadNuclearPack>;
+  problem?: string;
+};
+
+/**
+ * The profile a package run resolves to and, under Nuclear, the clusters and the loaded, verified
+ * pack, or why it could not be loaded. Light reads no pack.
+ */
+async function resolveNuclear(c: Tx, cfg: WorkConfig, run: Json, body: Json): Promise<NuclearResolution> {
+  const project = typeof body.project === "string"
+    ? (await c.query<{ body: Json }>("select body from projects where id = $1", [body.project])).rows[0]?.body ?? null
+    : null;
+  const resolved = resolveContextProfile(body, project);
+  if (resolved.profile !== "nuclear") return { resolved, clusters: [], pack: null };
+  const asked = readRoleTools(roleToolText(cfg, run, body));
+  const clusters = selectClusters({
+    tools: asked.tools,
+    hosts: asked.hosts, // already empty for a pre-check: roleToolText drops its network line
+    deliverables: Array.isArray(body.deliverables) ? body.deliverables : [],
+    rigorMode: body.rigor_mode,
+    grade: body.grade,
+  });
+  try {
+    const pack = loadNuclearPack(join(cfg.root, "packs", "nuclear-grade"));
+    return pack ? { resolved, clusters, pack } : { resolved, clusters, pack, problem: "the nuclear-grade pack is not installed on this control plane" };
+  } catch (e) {
+    return { resolved, clusters, pack: null, problem: (e as Error).message };
+  }
+}
+
+async function contextProfileEvent(c: Tx, run: Json, n: NuclearResolution) {
+  await appendEvent(c, "run.context-profile", run.id, SYSTEM, {
+    package: run.package_id, role: run.role, profile: n.resolved.profile, locked: n.resolved.locked,
+    ...(n.resolved.reason ? { reason: n.resolved.reason } : {}), clusters: n.clusters,
+    ...(n.pack ? { pack_commit: n.pack.commit } : {}), ...(n.problem ? { problem: n.problem } : {}),
+  });
+}
+
+/**
+ * Before a package run launches: a Nuclear run whose pack is missing or fails its checks never
+ * starts. The run fails while still queued, with the reason on it for the board, and the
+ * run.context-profile event records the problem. Returns true when the run was blocked.
+ */
+async function blockedByNuclearPack(c: Tx, cfg: WorkConfig, row: RunLike, body: Json): Promise<boolean> {
+  const n = await resolveNuclear(c, cfg, row.body, body);
+  if (n.resolved.profile !== "nuclear" || !n.problem) return false;
+  await contextProfileEvent(c, { ...row.body, id: row.id, package_id: row.package_id, role: row.role }, n);
+  await failQueuedRun(c, cfg, row,
+    `Not started: this package runs under the Nuclear context profile${n.resolved.reason ? ` (${n.resolved.reason})` : ""}, but its cards could not be loaded: ${n.problem}`.slice(0, 2000));
+  return true;
+}
+
+/**
+ * The Nuclear context a package's author or pre-check brief carries: nothing at all under Light, so
+ * a Light brief is byte for byte what it was before profiles existed. Under Nuclear, the pack's Core
+ * card and selected cluster cards go in the brief, its skills and templates go in as inputs, and the
+ * resolved profile and clusters are recorded on the run as a run.context-profile event. The claim
+ * already refused a Nuclear run without a good pack; one that fails here (the pack changed in
+ * between) throws, so the claim rolls back rather than launch without its cards.
+ */
+async function nuclearContext(c: Tx, cfg: WorkConfig, run: Json, body: Json): Promise<{ sections: string[]; inputs: Input[] }> {
+  const n = await resolveNuclear(c, cfg, run, body);
+  if (n.resolved.profile !== "nuclear") return { sections: [], inputs: [] };
+  if (!n.pack) throw new Error(`nuclear-grade pack unavailable at launch: ${n.problem ?? "unknown"}`);
+  await contextProfileEvent(c, run, n);
+  return nuclearBriefSections(n.pack, n.clusters, run.role, body.rigor_mode, n.resolved.reason);
+}
+
 async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, hosts: string[]) {
   const inputs: Input[] = fakeScript(run, runtime);
-  const header = `# Control Rod brief\n\nRole: ${run.role} · Package ${run.package_id} revision ${run.package_revision} · Round ${run.round}\n`;
+  const header = briefHeader(run);
   if (run.role === "intake") {
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id]);
     const capture = cap.rows[0]?.body;
@@ -930,7 +1012,9 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
     );
     if (ret.rows[0] && pkg.revision > 0) extra.push(`## Direction from the owner\n\n${ret.rows[0].body.reason ?? ""}\n`);
   }
-  const brief = [header, roleText, `## The work package\n\nSee inputs/PACKAGE.json. Objective: ${pkg.body.objective}\n`, ...extra, RULES].join("\n");
+  const nuclear = await nuclearContext(c, cfg, run, pkg.body);
+  inputs.push(...nuclear.inputs);
+  const brief = composeBrief({ header, roleText, objective: pkg.body.objective, extra, nuclear: nuclear.sections });
   inputs.push(file("BRIEF.md", brief));
   // The role's qualified tools, and its network line only with the hosts the run's sandbox policy
   // allows (plan task 6.1); the daemon derives each CLI's settings from the policy, not this file.
@@ -1070,6 +1154,8 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
               continue;
             }
           }
+          // A Nuclear run without its verified pack fails here, before any budget or claim is taken.
+          if (await blockedByNuclearPack(c, cfg, row, pkg.body)) continue;
           const baseline = `${row.role === "pre-check" ? "checker" : "author"}-${runtime}`;
           // Budgets: the run's reservation is taken before anything moves, or a hard cap holds it here
           // and the package stays where it was (plan task 5.2).

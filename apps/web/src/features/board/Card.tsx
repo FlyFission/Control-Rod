@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { WorkPackage } from "../../api/types.js";
 import type { ColumnId } from "../../lib/board.js";
 import { needsIndependentCheck } from "../../lib/board.js";
@@ -49,10 +50,14 @@ export type CardProps = {
   lastKnown?: boolean;
   /** Whether this card is currently open in the Board Review Drawer. */
   selected?: boolean;
+  /** The brief carries the Nuclear context: the card shows one small badge. */
+  nuclear?: boolean;
+  /** The card's actions (primary decision and Move to), shown under the next line. */
+  actions?: ReactNode;
 };
 
 /** A board card: the small fixed core of spec 6.2. No drag; the title opens the package. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
@@ -88,6 +93,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           </span>
         )}
         <span className="bd-chip">{pkg.grade ?? "general-service"}</span>
+        {nuclear && <span className="bd-nuclear">Nuclear</span>}
         {needsIndependentCheck(pkg) && (
           <span className="bd-check">
             <span aria-hidden="true">{"◆"} </span>
@@ -112,6 +118,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           <span className="muted">{next.text}</span>
         )}
       </p>
+      {actions}
       {onRetry && stream !== "unknown" && (
         <button type="button" className="btn small bd-retry" onClick={onRetry}>
           Retry

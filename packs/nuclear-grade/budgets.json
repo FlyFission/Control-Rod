@@ -1,0 +1,132 @@
+{
+  "generated_by": "scripts/measure-briefs.mjs",
+  "counter": "scripts/lib/token-count.mjs",
+  "measured": "BRIEF.md of an author run, round 1, composed by services/api/src/brief.ts and context-profile.ts",
+  "budget_rule": "budget = measured tokens (a ceiling, no margin)",
+  "pack_commit": "395aa6ed161b773f1cf24abbf85e1c9ff95b969c",
+  "inputs": [
+    {
+      "path": "scripts/measure-briefs.mjs",
+      "sha256": "0aa987a7ef10d7999a27c1e8b3e083c304c856b196ae4e83fc541a8b83e16f3e"
+    },
+    {
+      "path": "scripts/lib/token-count.mjs",
+      "sha256": "f2cf8e8467166ecac6cf882efcd783d64746fe8e0a27fc8cca9f02964784031c"
+    },
+    {
+      "path": "services/api/src/brief.ts",
+      "sha256": "4f9ab97eb465d3cd618c1ceb80a94da4adb5f753594d30f5b4915344dd349e86"
+    },
+    {
+      "path": "services/api/src/context-profile.ts",
+      "sha256": "d96cfefbf262369eb3ec9a87c991f76e74e7b7675bd87b03c7667dbaa372597d"
+    },
+    {
+      "path": "packs/general/roles/general-author.md",
+      "sha256": "5e2b3ff822c76212a50203955add8cd1797e439d909cb4a87cebdb72ad4f3f81"
+    },
+    {
+      "path": "scripts/test/fixtures/brief-packages.json",
+      "sha256": "d08c4e19097fcc0f6a4102ffce5e230b9afe9f40273709808f9330cac57da955"
+    },
+    {
+      "path": "packs/nuclear-grade/manifest.json",
+      "sha256": "7a9a1ced17dcb7af5c834dac471db423ac0ee3ceceae82ec507a0e911050e3cf"
+    }
+  ],
+  "inputs_sha256": "731bea3875b3efe728d74ec21c3690bc09a778f78f3b61a29b0c318e1ab05e9d",
+  "briefs": [
+    {
+      "fixture": "general-service-quick",
+      "grade": "general-service",
+      "rigor_mode": "quick",
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep"
+      ],
+      "locked_nuclear": false,
+      "clusters": [],
+      "light": {
+        "tokens": 338,
+        "budget": 338
+      },
+      "nuclear": {
+        "tokens": 3186,
+        "budget": 3186
+      }
+    },
+    {
+      "fixture": "material-standard",
+      "grade": "material",
+      "rigor_mode": "standard",
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep"
+      ],
+      "locked_nuclear": true,
+      "clusters": [
+        "configuration-management"
+      ],
+      "light": {
+        "tokens": 337,
+        "budget": 337
+      },
+      "nuclear": {
+        "tokens": 5676,
+        "budget": 5676
+      }
+    },
+    {
+      "fixture": "safety-high-consequence",
+      "grade": "safety",
+      "rigor_mode": "high-consequence",
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep"
+      ],
+      "locked_nuclear": true,
+      "clusters": [
+        "configuration-management",
+        "review-panel"
+      ],
+      "light": {
+        "tokens": 338,
+        "budget": 338
+      },
+      "nuclear": {
+        "tokens": 6252,
+        "budget": 6252
+      }
+    },
+    {
+      "fixture": "general-service-write-tools",
+      "grade": "general-service",
+      "rigor_mode": "quick",
+      "tools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "WebSearch",
+        "WebFetch",
+        "Bash(python3:*)"
+      ],
+      "locked_nuclear": false,
+      "clusters": [
+        "agent-authority"
+      ],
+      "light": {
+        "tokens": 338,
+        "budget": 338
+      },
+      "nuclear": {
+        "tokens": 6352,
+        "budget": 6352
+      }
+    }
+  ]
+}

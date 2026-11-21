@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api } from "../../api/client.js";
 import type { ActionDescriptor, AgentFigure, PackageView } from "../../api/types.js";
+import { AgentPanel } from "../../components/AgentPanel.js";
 import { STATE_INFO, StateMark } from "../../components/StateMark.js";
 import { VendorBadge } from "../../components/VendorBadge.js";
 import { COLUMNS, acceptVerified, blockUnverifiedAccept, boardColumn, needsIndependentCheck, verificationRead } from "../../lib/board.js";
@@ -88,6 +89,7 @@ function Card({ f, lens }: { f: AgentFigure; lens: string | undefined }) {
       )}
       {lens && <p className="small">{lens}</p>}
       {f.observability && <p className="muted small">This runtime cannot report permission waits: {f.observability}.</p>}
+      {isPackage && <AgentPanel packageId={f.package_id} runId={f.id} showStop={false} />}
       {isPackage && <Glance f={f} view={view.data} actions={offered} verified={verified} failed={view.isError || actions.isError} />}
       <AgentActions f={f} view={view.data} />
       {isPackage ? (

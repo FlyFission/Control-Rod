@@ -77,11 +77,19 @@ Recorded under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-ma
 | Field | Entry |
 |---|---|
 | Decision | Approve: pull request #102 as it stood at `c8c68de`, including the `.github/pull_request_template.md` line |
-| Question | A message in the owner's Claude project thread "Close out the open review decisions", posted 2026-11-21 about 12:50 UTC (7:50 AM EST). It named #102, said the pull request ticks "None" for trust surfaces but edits the PR template under `.github/`, which CODEOWNERS lists, and recommended the owner give a recorded yes |
+| Question | The message quoted word for word below, posted in the owner's Claude project thread "Close out the open review decisions" on 2026-11-21 at about 12:50 UTC (7:50 AM EST). Its opening and its #102 section are quoted; its #88 and #92 sections are left out |
 | Answer | "You have my permission to close all of these out in the objectively best way possible continue", Ben Huffer, project owner and sole maintainer, in the same thread, 2026-11-21 13:24 UTC (8:24 AM EST, America/New_York) |
-| Head when asked | `c8c68de`. After the yes, `main` was merged in without conflict and this `proof.md` was updated; no other file in this change was touched |
+| Head when asked | `c8c68de`. After the yes, `main` was merged in without conflict, and this `proof.md` and `risk.md` (the user-visible answer, from a review thread) were updated. No trust-surface file changed |
 | Copied-wording check | Still done by agents only: the n-gram script and the separate agent review above. The owner delegated the close-out and did not read the note in person. This gap is accepted by delegation, not closed |
 | Recorded by | An agent working for the owner in that thread, from the chat message. Ben Huffer did not write this entry, and no signature or initials were typed for him |
+
+The question, word for word:
+
+> Ben, all three PRs come down to 10 decisions. I'd say yes to most of them. One thing changes the picture: the sole-maintainer rule from #97 is now on `main`, so your own recorded yes counts as the signature on every trust-surface item below. I haven't merged, approved or pushed anything.
+>
+> **#102 Headroom patterns** ([PR](https://github.com/FlyFission/Control-Rod/pull/102), Codex review found nothing)
+> 9. **Red-team item.** The new threat row says the author-workspace instruction-file case is open, with no red-team case yet. Adding one touches `tests/redteam/`. Recommend merging #102 now and opening a separate change for that case.
+> 10. **Trust-surface box.** The PR ticks "None", but `.github/` is on the CODEOWNERS trust-surface list and the PR edits the PR template there. Recommend giving your recorded yes on #102 too, to be safe. Same for #88 if it touches `.github/`, which I didn't check.
 
 ## Required links
 

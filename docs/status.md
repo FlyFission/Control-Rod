@@ -24,7 +24,7 @@ This page is a map, not a ledger. The evidence for each item is in its change re
 - Board redesign slices M2, M3 and M5 to M8 (lenses, Move to and actions, the card view, code and document review, the visual pass) are designed in `docs/superpowers/plans/2026-11-06-board-redesign.md` and not yet built. The program gap analysis (`docs/superpowers/specs/2026-11-08-program-gap-analysis.md`) ranks what comes after them.
 - In `New work`, the 8 CLI ecosystems beyond `claude` and `codex` remain disabled ("Not yet runnable"), and binding runtime or materialized-workspace selections directly into daemon runs is deferred to Cycle 2 (Cycle 1 prepares the local checkout and records `[workspace:...]` / `[branch:...]` metadata in the capture text).
 - Hosted deployment, organization-wide controls, and independent witnessed evidence.
-- Sandbox confinement is qualified on WSL2 only. macOS and native Linux are not yet qualified, and macOS startup is unverified.
+- Sandbox confinement is qualified on WSL2, native Linux and macOS for author launches of Claude Code and Codex. Native Linux and macOS passed the launch qualification in CI (the `platforms` workflow) without a real login; the live-login check has run only on WSL2. Starting the whole app on macOS is unverified.
 - The web app still requests public fonts and map tiles, so it is not air-gap ready.
 - Phase 6 remaining work: the protected red-team suite (6.4), attestation probes (6.5) and the protected kernel changes (6.6 to 6.8). The red-team items and kernel changes need an owner signature.
 
@@ -35,7 +35,7 @@ These are failures recorded in merged or open pull requests, not guesses.
 - `command-boundary` SEC-01 and SEC-03 in the API suite fail against a test database that uses trust authentication. They fail the same way on `main`, so they are an environment issue; see [test-database.md](test-database.md).
 - The browser test `phase3-exit.spec.ts:117` fails: the first Tab stop is "Office" instead of the skip link. It predates recent changes.
 - Firefox and WebKit have not been run for the browser suite; Chromium has.
-- Real Claude Code and Codex runs are verified only on the owner's WSL2 machine.
+- Real Claude Code and Codex runs with a real login are verified only on the owner's WSL2 machine. On native Linux and macOS the same launch is qualified against a scripted provider in CI.
 
 ## Dependency holds
 

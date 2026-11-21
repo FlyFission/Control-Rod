@@ -348,7 +348,7 @@ func (d *Daemon) probe(ctx context.Context) {
 		}
 		next = append(next, st)
 	}
-	report := SubscriptionFromStatuses(next, CurrentPlatform(), os.Getenv)
+	report := SubscriptionFromStatuses(next, CurrentPlatform())
 	d.probeMu.Lock()
 	prev := map[string]bool{}
 	for _, s := range d.status {

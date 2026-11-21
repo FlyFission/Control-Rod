@@ -916,6 +916,8 @@ func walkJSON(dec *json.Decoder) error {
 func seatbeltProfile(writable, unreadable []string) string {
 	var b strings.Builder
 	b.WriteString("(version 1)\n(allow default)\n(deny file-write*)\n")
+	// Shells and both CLIs send output to /dev/null; writing data there reaches nothing.
+	b.WriteString("(allow file-write-data\n    (literal \"/dev/null\"))\n")
 	b.WriteString("(deny network-outbound\n    (remote unix-socket))\n")
 	for _, p := range unreadable {
 		b.WriteString("(deny file-read*\n    (subpath " + sbplString(p) + "))\n")
@@ -946,16 +948,6 @@ func sessionReadDenies(root string, rels []string) []string {
 		}
 	}
 	return out
-}
-
-// requireSeatbeltQualified refuses a sandboxed checker on macOS until someone
-// has run the Seatbelt profile on a Mac and set CONTROLROD_SEATBELT_QUALIFIED=1.
-// Any other value, including an empty one, stays refused.
-func requireSeatbeltQualified() error {
-	if os.Getenv("CONTROLROD_SEATBELT_QUALIFIED") == "1" {
-		return nil
-	}
-	return errors.New("macOS checker sandbox not yet qualified")
 }
 
 // makeCheckerRunTmp creates one directory for this run under the canonical

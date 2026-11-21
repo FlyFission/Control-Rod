@@ -17,7 +17,7 @@ It runs in your browser. There's a board for your work, an office where you can 
 | | Windows (WSL2) | Linux | macOS |
 | --- | --- | --- | --- |
 | The app: board, office view, records, preparing and releasing work | Yes | Yes | Expected to work, not yet verified |
-| Agents doing the work inside their sandbox | Yes | Waiting on sandbox qualification | Waiting on sandbox qualification |
+| Agents doing the work inside their sandbox | Yes | Yes ([Ubuntu 24.04 needs one step](docs/daemon.md#linux-setup)) | Yes |
 
 > **Pre-alpha.** It works end to end on one machine for one person, and we're building it in the open. Expect rough edges. [What works today, and what doesn't](docs/status.md).
 

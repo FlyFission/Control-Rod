@@ -1,0 +1,19 @@
+{
+  "typical": "software migration",
+  "role": "software-author",
+  "fields": [
+    "source_state",
+    "target_state",
+    "invariants",
+    "forward_steps",
+    "rollback_steps",
+    "preservation_tests",
+    "observed_checks"
+  ],
+  "required_evidence": [
+    "forward and rollback procedure",
+    "data or contract preservation test",
+    "post-migration typecheck and test output"
+  ],
+  "values": "from verified run"
+}

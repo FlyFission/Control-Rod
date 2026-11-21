@@ -733,7 +733,7 @@ function dependencyRefusal(error: unknown): unknown {
  * Finds a role brief by name. General roles win; a job's own intake.md is read only as job
  * guidance, never as the role named "intake". Returns the brief and the pack it came from.
  */
-function findRoleIn(cfg: WorkConfig, name: string): { text: string; packDir: string } | null {
+export function findRoleIn(cfg: WorkConfig, name: string): { text: string; packDir: string } | null {
   const safe = name.replace(/[^a-z0-9.-]/gi, "");
   const general = join(cfg.root, "packs", "general", "roles", `${safe}.md`);
   if (existsSync(general)) return { text: readFileSync(general, "utf8"), packDir: join(cfg.root, "packs", "general") };
@@ -761,7 +761,7 @@ const PACK_DIRS = ["templates", "typicals", "examples"];
 const PACK_FILE_MAX = 256 * 1024;
 const PACK_TOTAL_MAX = 2 * 1024 * 1024;
 
-function packFiles(packDir: string): Input[] {
+export function packFiles(packDir: string): Input[] {
   const out: Input[] = [];
   let total = 0;
   for (const sub of PACK_DIRS) {
@@ -788,12 +788,12 @@ function packFiles(packDir: string): Input[] {
 }
 
 /** Pre-check brief: the role's own, then its family's (pump-sizing to pump), then the general one. */
-function preCheckRole(cfg: WorkConfig, role: string): string {
+export function preCheckRole(cfg: WorkConfig, role: string): string {
   const family = role.split("-")[0] ?? role;
   return findRole(cfg, `${role}-pre-check`) ?? findRole(cfg, `${family}-pre-check`) ?? findRole(cfg, "pre-check") ?? "";
 }
 
-function jobIntakeGuides(cfg: WorkConfig): string[] {
+export function jobIntakeGuides(cfg: WorkConfig): string[] {
   const out: string[] = [];
   const base = join(cfg.root, "packs");
   for (const mode of existsSync(base) ? readdirSync(base) : []) {
@@ -841,7 +841,7 @@ const DEFAULT_TOOLS = "Read\nWrite\nEdit\nGlob\nGrep\nWebSearch\nWebFetch\nBash(
  * What a run's role asks for in its tools file: intake's fixed list, or the package role's file
  * (a pre-check never asks for network: it works from the deliverables alone).
  */
-function roleToolText(cfg: WorkConfig, run: Json, pkgBody: Json | undefined): string {
+export function roleToolText(cfg: WorkConfig, run: Json, pkgBody: Json | undefined): string {
   if (run.role === "intake") return INTAKE_TOOLS;
   const role: string = pkgBody?.agent_assignment?.[0]?.role ?? "general-author";
   const tools = findRole(cfg, `${role}.tools`) ?? DEFAULT_TOOLS;

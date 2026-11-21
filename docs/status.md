@@ -20,7 +20,7 @@ This page is a map, not a ledger. The evidence for each item is in its change re
 ## What is stubbed or planned
 
 - `policies/` (Cedar floors and QA overlays), `connectors/`, `runtimes/` and `deploy/` are placeholders.
-- `packs/software/` is a placeholder.
+- `packs/software/` is populated with shared software roles (`software-author`, `software-author.tools`, `software-pre-check`), `templates/`, `typicals/`, and depth-2 `bugfix`, `feature`, and `migration` intake playbooks (`roles/intake.md`). Capital-projects domain playbooks beyond the test fixture remain to be added.
 - Board redesign slices M5 to M8 (the card view, code and document review, the visual pass) are designed in `docs/superpowers/plans/2026-11-06-board-redesign.md` and not yet built. The program gap analysis (`docs/superpowers/specs/2026-11-08-program-gap-analysis.md`) ranks what comes after them.
 - In `New work`, the 8 CLI ecosystems beyond `claude` and `codex` remain disabled ("Not yet runnable"), and binding runtime or materialized-workspace selections directly into daemon runs is deferred to Cycle 2 (Cycle 1 prepares the local checkout and records `[workspace:...]` / `[branch:...]` metadata in the capture text).
 - Hosted deployment, organization-wide controls, and independent witnessed evidence.

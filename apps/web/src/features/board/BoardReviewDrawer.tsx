@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { WorkPackage } from "../../api/types.js";
+import { AgentPanel } from "../../components/AgentPanel.js";
 import { DecisionBar } from "../../components/DecisionBar.js";
 import { needsIndependentCheck } from "../../lib/board.js";
 import { shortDigest, STATUS_LABEL } from "../../lib/format.js";
@@ -55,8 +56,11 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
             Full case ↗
           </Link>
           <button type="button" className="btn small" onClick={onClose} aria-label="Close review drawer">
-            Close <kbd>Esc</kbd>
+            Close
           </button>
+          <kbd className="muted small" aria-hidden="true">
+            Esc
+          </kbd>
         </div>
       </div>
 
@@ -70,6 +74,13 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
               <span className="bd-chip">Lane: {view?.effective_lane ?? pkg.data_lane}</span>
               {pkg.discipline && <span className="bd-chip">{pkg.discipline}</span>}
             </div>
+
+            {view && view.runs.length > 0 && (
+              <section className="bd-drawer-sec">
+                <h3>Agent</h3>
+                <AgentPanel packageId={packageId} />
+              </section>
+            )}
 
             <section className="bd-drawer-sec">
               <h3>Custody Chain</h3>

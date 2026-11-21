@@ -12,7 +12,8 @@ import { runState, runStatusText } from "../../components/RunLog.js";
 import { isVisible } from "../../lib/live.js";
 import { shortDigest } from "../../lib/format.js";
 import { type Presentation, TIER_LABEL, presentation } from "./scaling.js";
-import { type StoryStep, story, traceFacts } from "./story.js";
+import { story, traceFacts } from "./story.js";
+import { StoryLine, allRunEvents } from "./StoryLine.js";
 
 const ROLE_WORDS: Record<string, string> = { intake: "Intake", author: "Author", "pre-check": "Pre-check" };
 
@@ -290,34 +291,6 @@ function RunStory({ packageId, run, p, open }: { packageId: string; run: Run; p:
       </details>
     </li>
   );
-}
-
-function StoryLine({ step }: { step: StoryStep }) {
-  const mark = step.kind === "tool" ? (step.ok === false ? "✕" : step.ok === true ? "✓" : "…") : "";
-  return (
-    <li className={`story-step ${step.kind}${step.ok === false ? " failed" : ""}`}>
-      {mark && (
-        <span className="story-mark" aria-label={step.ok === false ? "failed" : step.ok === true ? "succeeded" : "no result reported"}>
-          {mark}
-        </span>
-      )}
-      <span className="story-text">{step.text}</span>
-      {step.detail && <span className="muted small"> {step.detail}</span>}
-    </li>
-  );
-}
-
-/** Every event of a run, page by page (2,000 per page, up to the run's limit). */
-async function allRunEvents(packageId: string, runId: string) {
-  const out: Awaited<ReturnType<typeof api.runEvents>>["events"] = [];
-  let after = 0;
-  for (let page = 0; page < 12; page++) {
-    const { events } = await api.runEvents(packageId, runId, after);
-    out.push(...events);
-    if (events.length < 2000) break;
-    after = events.at(-1)!.seq;
-  }
-  return out;
 }
 
 function Checked({ pkg, view, p }: { pkg: WorkPackage; view: PackageView; p: Presentation }) {

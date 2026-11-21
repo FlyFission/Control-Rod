@@ -144,6 +144,19 @@ func splitConfigKey(key string) (section, subsection, variable string) {
 	return key[:first], key[first+1 : last], key[last+1:]
 }
 
+// filterDriverKey reports whether key is a filter driver variable,
+// "filter.<name>.<variable>", and returns the driver name and variable. The
+// name may be empty: "filter..clean" defines the driver a ".gitattributes"
+// line "filter=" selects, which splitConfigKey cannot tell apart from the
+// two-part key "filter.clean".
+func filterDriverKey(key string) (name, variable string, ok bool) {
+	section, name, variable := splitConfigKey(key)
+	if !strings.EqualFold(section, "filter") || strings.Count(key, ".") < 2 {
+		return "", "", false
+	}
+	return name, variable, true
+}
+
 // listGitConfig runs `git config --show-scope -z --list` in dir with the
 // leading args lead and env, and parses the result.
 func listGitConfig(ctx context.Context, dir string, lead, env []string) ([]gitConfigEntry, error) {
@@ -169,8 +182,8 @@ func repoFilterEntries(entries []gitConfigEntry) []string {
 		if !repoConfigScope(e.scope) {
 			continue
 		}
-		section, subsection, variable := splitConfigKey(e.key)
-		if !strings.EqualFold(section, "filter") || subsection == "" {
+		_, variable, ok := filterDriverKey(e.key)
+		if !ok {
 			continue
 		}
 		if !slices.Contains(filterDriverVars, strings.ToLower(variable)) {
@@ -200,8 +213,7 @@ func filterPins(entries []gitConfigEntry) []configPin {
 	repoDrivers := map[string]map[string]bool{}
 	trusted := map[string]string{}
 	for _, e := range entries {
-		section, subsection, variable := splitConfigKey(e.key)
-		isFilter := strings.EqualFold(section, "filter") && subsection != ""
+		subsection, variable, isFilter := filterDriverKey(e.key)
 		if repoConfigScope(e.scope) {
 			if isFilter {
 				v := strings.ToLower(variable)

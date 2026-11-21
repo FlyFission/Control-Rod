@@ -40,4 +40,5 @@ mutate M8-valueless-trusted-dropped 'value = "true"
 			trusted' 'value = ""
 			}
 			trusted' 'ValuelessTrusted'
+mutate M9-empty-name-dropped 'strings.Count(key, ".") < 2' 'strings.Count(key, ".") < 2 || name == ""' 'EmptyFilterName|FilterDriverKey|FilterPins'
 exit $status

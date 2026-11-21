@@ -340,8 +340,10 @@ func TestFilterPins(t *testing.T) {
 		{scope: "worktree", key: "filter.x.process", value: "evil", hasValue: true},
 		{scope: "local", key: "filter.x.other", value: "ignored", hasValue: true},
 		{scope: "command", key: "filter.y.clean", value: "cli", hasValue: true},
+		{scope: "local", key: "filter..clean", value: "evil", hasValue: true},
 	}
 	want := []configPin{
+		{"filter..clean", ""},
 		{"filter.lfs.smudge", "global-smudge"},
 		{"filter.lfs.required", "false"},
 		{"filter.x.process", ""},
@@ -377,6 +379,40 @@ func TestHostGitCommandNeutralizesFilterNameWithEquals(t *testing.T) {
 	}
 	exerciseFilters(t, repo)
 	assertNoMarkers(t, markers)
+}
+
+// HG-05: the driver with an empty name ("filter..clean", selected by a
+// ".gitattributes" line "filter=") is pinned too.
+func TestHostGitCommandNeutralizesEmptyFilterName(t *testing.T) {
+	repo, markers := newFilterRepo(t)
+	if err := os.WriteFile(filepath.Join(repo, ".gitattributes"), []byte("*.txt filter=\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hostRunGit(t, repo, "add", ".gitattributes")
+	hostRunGit(t, repo, "commit", "-q", "-m", "empty driver name")
+	for _, kv := range evilDriver(markers) {
+		hostRunGit(t, repo, "config", strings.Replace(kv[0], "filter.evil.", "filter..", 1), kv[1])
+	}
+	exerciseFilters(t, repo)
+	assertNoMarkers(t, markers)
+}
+
+func TestFilterDriverKey(t *testing.T) {
+	for _, c := range []struct {
+		key, name, variable string
+		ok                  bool
+	}{
+		{"filter.lfs.smudge", "lfs", "smudge", true},
+		{"filter..clean", "", "clean", true},
+		{"filter.a=b.c.process", "a=b.c", "process", true},
+		{"filter.clean", "", "", false},
+		{"core.filemode", "", "", false},
+	} {
+		name, variable, ok := filterDriverKey(c.key)
+		if name != c.name || variable != c.variable || ok != c.ok {
+			t.Errorf("filterDriverKey(%q) = %q %q %v, want %q %q %v", c.key, name, variable, ok, c.name, c.variable, c.ok)
+		}
+	}
 }
 
 // pinEnv numbers the settings and leaves an empty list out entirely.

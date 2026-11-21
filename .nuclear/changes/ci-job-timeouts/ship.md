@@ -1,12 +1,12 @@
 # Ship: bounded timeouts for every CI job
 
-Release decision: **signed by the sole maintainer's recorded yes (see Signature); merge waits for the owner to state the cap values in their own words.**
+Release decision: **approved for merge: signed by the sole maintainer's recorded yes, with the cap values chosen by the owner (see Signature).**
 
 - **Proposed:** merge the workflow commit and this record to `main`.
 - **Not claimed:** that the caps are the right values (they are policy choices); that the checker catches every malformed workflow (it covers `.github/workflows/*.yml` by a line scan, backed here by a real parse of the one file); a signature from a maintainer other than the person who prompted the agent.
 - **Decisions, as settled on 2026-11-21:**
   1. Who signs. `main` now has [sole-maintainer sign-off](../../../docs/collaboration.md#sole-maintainer-sign-off) (#97), so the sole maintainer's recorded yes is the signature. Settled by the owner's words below.
-  2. Cap values: **open, for the owner.** The proposal is `typescript` 20, `rust` 30, `go` 15, `python` 15, `licenses` 15, `change-records` 10, `sbom` 10 minutes, with a 60-minute ceiling in the checker. AGENTS.md rule 5 says no engineering number is typed by a model, and the owner's delegation below does not name values, so the agent does not choose them. They are policy inputs to `evidence/job-times.py`, not outputs of it.
+  2. Cap values: **chosen by the owner** on 2026-11-21: `typescript` 20, `rust` 30, `go` 15, `python` 15, `licenses` 15, `change-records` 10, `sbom` 10 minutes, with a 60-minute ceiling in the checker. AGENTS.md rule 5 keeps the choice from an agent, so the owner was asked separately (see Signature). They are policy inputs to `evidence/job-times.py`, not outputs of it.
   3. The new `change-records` step stays. Agent's own choice, under the same delegation.
   4. DCO: no `Signed-off-by` line is added. It is a human certification, and the agent does not type it.
 
@@ -16,12 +16,13 @@ Recorded under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-ma
 
 | Field | Entry |
 |---|---|
-| Decision | Approve: pull request #92 as it stood at `5152d9c`, with the new step. The cap values are recorded separately once the owner states them |
+| Decision | Approve: pull request #92 as it stood at `5152d9c`, with the new step and the caps as proposed |
 | Trust-surface files | `.github/workflows/ci.yml` |
 | Question | The message quoted word for word below, posted in the owner's Claude project thread "Close out the open review decisions" on 2026-11-21 at about 12:50 UTC (7:50 AM EST). Its opening and its #92 section are quoted; its #88 and #102 sections are left out |
 | Answer | "You have my permission to close all of these out in the objectively best way possible continue", Ben Huffer, project owner and sole maintainer, in the same thread, 2026-11-21 13:24 UTC (8:24 AM EST, America/New_York) |
 | Head when asked | `5152d9c`. After the yes, `main` was merged in (no conflict; the merge does not change `ci.yml`) and this record (`ship.md`, `risk.md`, `verification.md`) was updated. No trust-surface file changed |
 | Recorded by | An agent working for the owner in that thread, from the chat message. Ben Huffer did not write this entry, and no signature or initials were typed for him |
+| Caps accepted or changed | Accepted as proposed. Question, word for word: "Set the CI timeout caps for #92 in your own words?" with options "Accept the proposed caps" (typescript 20, rust 30, go 15, python 15, licenses 15, change-records 10, sbom 10 min are recorded as your numbers and #92 merges), "Use other values" and "Hold #92". Answer: Ben Huffer chose "Accept the proposed caps" on that decision card in the same thread, 2026-11-21 13:36 UTC (8:36 AM EST). The platform verified that the tap came from the owner's own client. A tap on an option the agent wrote is the owner's choice, not words the owner typed |
 
 The question, word for word:
 

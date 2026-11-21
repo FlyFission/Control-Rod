@@ -5,7 +5,7 @@
 - Decision owner: Ben Huffer, the sole maintainer, under [sole-maintainer sign-off](../../../docs/collaboration.md#sole-maintainer-sign-off) (#97). A review by a maintainer who did not author the change is not available while CODEOWNERS names one maintainer.
 - **Trust surface touched: yes.** `.github/workflows/ci.yml` (AGENTS rule 2, CODEOWNERS `/.github/`). No kernel decision function, policy, red-team fixture or spec version is touched.
 - Scope: `.github/workflows/ci.yml` only. Nine added lines in one commit, kept apart so it can be dropped without losing this record.
-- Signed by the sole maintainer's recorded yes on 2026-11-21 (`ship.md`). The cap values wait for the owner's own words.
+- Signed by the sole maintainer's recorded yes on 2026-11-21 (`ship.md`). The cap values were chosen by the owner the same day.
 
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|

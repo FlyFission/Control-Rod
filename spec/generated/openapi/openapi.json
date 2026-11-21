@@ -4728,6 +4728,213 @@
         }
       }
     },
+    "/records/export": {
+      "get": {
+        "operationId": "recordsExport",
+        "description": "An audit export of a time window: the whole chain from its first event through the recording event of\nthe first valid seal covering the last event recorded in the window (or the chain head, unsealed), with\nthat seal and what checking its signature needs. The window is half open, by each event's recorded\ntime. Self contained like a package proof; refused (mixed-scope) on a shared chain.",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "description": "Start of the window, inclusive, with its time zone.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "explode": false
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "description": "End of the window, exclusive, with its time zone.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "explode": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "ok": {
+                          "type": "boolean",
+                          "description": "The global chain verifies and the export holds."
+                        },
+                        "chain": {
+                          "type": "object",
+                          "properties": {
+                            "ok": {
+                              "type": "boolean"
+                            },
+                            "count": {
+                              "type": "integer",
+                              "format": "int32",
+                              "minimum": 0
+                            },
+                            "broken_at": {
+                              "type": "integer",
+                              "format": "int32"
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "count"
+                          ]
+                        },
+                        "check": {
+                          "type": "object",
+                          "properties": {
+                            "ok": {
+                              "type": "boolean"
+                            },
+                            "authenticated": {
+                              "type": "boolean"
+                            },
+                            "events": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer",
+                                "format": "int32"
+                              }
+                            },
+                            "problem": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "ok",
+                            "authenticated",
+                            "events"
+                          ],
+                          "description": "The export checked on its own: links from the first event, the window's events derived from their times, and the seal's signature."
+                        },
+                        "bundle": {
+                          "type": "object",
+                          "properties": {
+                            "window": {
+                              "type": "object",
+                              "properties": {
+                                "from": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "to": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                }
+                              },
+                              "required": [
+                                "from",
+                                "to"
+                              ]
+                            },
+                            "segment": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": {}
+                              }
+                            },
+                            "seal": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "additionalProperties": {}
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "seal_evidence": {
+                              "type": "object",
+                              "properties": {
+                                "public_key": {
+                                  "type": "string"
+                                },
+                                "rp_id": {
+                                  "type": "string"
+                                },
+                                "origins": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "public_key",
+                                "rp_id",
+                                "origins"
+                              ]
+                            },
+                            "head": {
+                              "type": "object",
+                              "properties": {
+                                "seq": {
+                                  "type": "integer",
+                                  "format": "int32"
+                                },
+                                "digest": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "seq",
+                                "digest"
+                              ],
+                              "description": "Unsealed: the chain head when the export was made, which the segment must end at. Unauthenticated."
+                            },
+                            "witnessed": {
+                              "type": "boolean",
+                              "enum": [
+                                false
+                              ]
+                            },
+                            "statement": {
+                              "type": "string",
+                              "enum": [
+                                "Local chain, not witnessed"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "window",
+                            "segment",
+                            "seal",
+                            "witnessed",
+                            "statement"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "chain",
+                        "check",
+                        "bundle"
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/records/head": {
       "get": {
         "operationId": "recordsHead",

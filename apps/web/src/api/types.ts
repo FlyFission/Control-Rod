@@ -59,6 +59,13 @@ export interface PackageProof {
   check: { ok: boolean; authenticated: boolean; events: number[]; problem?: string };
   bundle: { package_id: string; segment: unknown[]; seal: { id: string; payload: { head_seq: number; purpose: string } } | null; seal_evidence?: unknown; statement: string };
 }
+/** An audit export of a time window, with the control plane's checks of the bundle and of the whole chain. */
+export interface WindowExport {
+  ok: boolean;
+  chain: { ok: boolean; count: number; broken_at?: number };
+  check: { ok: boolean; authenticated: boolean; events: number[]; problem?: string };
+  bundle: { window: { from: string; to: string }; segment: unknown[]; seal: { id: string; payload: { head_seq: number; purpose: string } } | null; seal_evidence?: unknown; statement: string };
+}
 /** When a SCRAM was pulled and, once every run it reached has stopped, how long that took. */
 export interface ScramTiming {
   pulled_at?: string;

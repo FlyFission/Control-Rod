@@ -32,7 +32,7 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
-import { chainHead, inclusionProof, verifyRecords } from "./seals.js";
+import { chainHead, inclusionProof, verifyRecords, windowExport } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
 import {
@@ -623,6 +623,11 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const caller = await callerFor(db, await person(req));
     // The bundle is self contained; the control plane's own checks of it and of the whole chain travel beside it.
     return inclusionProof(db, auth, caller.orgId, req.params.id);
+  });
+  /** An audit export: every event recorded in a time window, up to the seal that covers them. */
+  app.get<{ Querystring: { from?: string; to?: string } }>("/records/export", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return windowExport(db, auth, caller.orgId, req.query.from, req.query.to);
   });
   /** A package's recorded person verifications, every revision, oldest first. */
   app.get<{ Params: { id: string } }>("/packages/:id/person-verifications", async (req) => {

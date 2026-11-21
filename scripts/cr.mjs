@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Control Rod on one machine: `pnpm cr doctor`, `pnpm cr setup`, `pnpm cr start`.
+// Control Rod on one machine: `pnpm cr doctor`, `pnpm cr setup`, `pnpm cr start`, and
+// `pnpm cr verify <file>` to check a downloaded inclusion proof offline.
 // Starts the control plane (with an embedded Postgres unless CONTROLROD_DATABASE_URL is set),
 // the run daemon, and serves the web app at http://localhost:7300.
 import { spawn, spawnSync } from "node:child_process";
@@ -224,11 +225,25 @@ async function start() {
   });
 }
 
+/**
+ * Checks downloaded inclusion proofs with nothing but the files: no database, no server. Builds the
+ * control plane first if its sources changed, since the check is the control plane's own function.
+ */
+function verify(files) {
+  if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
+  if (newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "verify-bundle.js"))) {
+    run("pnpm", ["--filter", "@control-rod/api", "build"]);
+  }
+  const r = spawnSync("node", [join(root, "services", "api", "dist", "verify-bundle.js"), ...files], { stdio: "inherit" });
+  process.exit(r.status ?? 1);
+}
+
 const cmd = process.argv[2] ?? "start";
 if (cmd === "doctor") process.exit(doctor() ? 0 : 1);
 else if (cmd === "setup") setup();
 else if (cmd === "start") await start();
+else if (cmd === "verify") verify(process.argv.slice(3).map((f) => resolve(process.env.INIT_CWD ?? process.cwd(), f)));
 else {
-  console.log("Usage: pnpm cr [doctor|setup|start]");
+  console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>]");
   process.exit(2);
 }

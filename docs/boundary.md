@@ -7,3 +7,5 @@ Control Rod supplies discipline and records. It does not supply quality status.
 - It does not issue deliverables for construction. A licensed person issues IFC through the customer's document control.
 - It does not decide data classification or export control. It enforces handling once a person sets a data lane.
 - Nothing in the product or its documentation claims compliance with a standard until an assessment of a specific deployment says so.
+
+For where Control Rod's controls sit against the quality standards you may work under, and what is missing, see [qa-standards.md](qa-standards.md).

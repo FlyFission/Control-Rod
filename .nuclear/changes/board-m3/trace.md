@@ -3,9 +3,9 @@
 | ID | Requirement | Tests | Disposition |
 |---|---|---|---|
 | T-01 | Menu items are decision labels, never column names (spec 6.2, B3). | `move.test.tsx` "lists decisions by their decision labels, never column names" | implemented and tested |
-| T-02 | A refused decision is listed disabled with the server's reason and change. | `move.test.tsx` "lists a refused decision disabled with the server's reason and change" | implemented and tested |
+| T-02 | A refused decision is listed disabled with the server's reason and change, both shown in the menu before it is chosen. | `move.test.tsx` "lists a refused decision disabled with the server's reason and change"; "explains a refused menu item without sending any request" | implemented and tested |
 | T-03 | Only an open Release or Accept sits on the card face. | `move.test.tsx` "puts only an open Release or Accept on the card face"; "ignores commands that are not decisions" | implemented and tested |
-| T-04 | Stop appears only while a run is active, and sends the stop request. | `move.test.tsx` "offers Stop only while a run is active"; "offers Stop while a run is active and sends the stop request" | implemented and tested |
+| T-04 | Stop appears only while a run is active, and sends the stop request. | `move.test.tsx` "offers Stop only while a run is active"; "offers Stop while a run is active and sends the stop request"; `board.test.tsx` "offers Stop run while a run is going, and not again once a stop was requested" | implemented and tested |
 | T-05 | A decision is signed over the card's digest and said as recorded; the card stays until the next read. | `move.test.tsx` "signs the primary decision over the card's digest" | implemented and tested |
 | T-06 | A server refusal (409 with reason and change) is shown in the card's alert region and nothing more is sent. | `move.test.tsx` "shows the server's refusal in the card and sends nothing more" | implemented and tested |
 | T-07 | Choosing a refused menu item explains it and sends no request. | `move.test.tsx` "explains a refused menu item without sending any request" | implemented and tested |

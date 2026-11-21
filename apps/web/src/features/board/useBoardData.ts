@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { canStop } from "../../components/RunLog.js";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "../../api/client.js";
 import type { ActionDescriptor, CaptureView, Digest, PersonVerificationEntry, WorkPackage } from "../../api/types.js";
@@ -215,7 +216,8 @@ export function useBoardData(): BoardData {
       lastKnown: !cardFresh,
       nuclear,
       ...(actionable?.offered && actionable.view ? { offered: actionable.offered, digest: actionable.view.subject_digest } : {}),
-      ...(actionable?.offered && actionable.view && activeRun ? { activeRunId: activeRun.id } : {}),
+      // Stop only while the run can still be stopped: not after a stop was requested (the run log's rule).
+      ...(actionable?.offered && actionable.view && activeRun && canStop(activeRun) ? { activeRunId: activeRun.id } : {}),
     });
   });
 

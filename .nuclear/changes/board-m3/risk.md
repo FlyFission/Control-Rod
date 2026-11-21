@@ -13,7 +13,7 @@
 | R-04 | A decision that needs a reason is signed without one. | Return, Reject and Accept with findings open a reason field and the sign button stays disabled until it has text; tested. | A return, reject or accept with findings sent with an empty reason. |
 | R-05 | The menu is unusable by keyboard or by a screen reader. | Real buttons, `menu` and `menuitem` roles, `aria-expanded`, a label naming the card, focus returned on Escape; tested by keyboard alone. | A decision reachable only by mouse. |
 | R-07 | Two operations run on one card at once (a second signing flow from the menu, or Stop during a decision), and the first to finish re-enables the card while the other is pending. | One operation in flight per card: a ref guards sign, stop and every menu choice, and Move to is disabled and closed while one is pending; tested. Found by the Codex review of c213acc. | A second decision-options or stop request while one is pending. |
-| R-06 | Stop is offered when nothing is running, or reported as done before the run ends. | Stop is listed only while a run is queued or running; success says the stop was requested and the card shows the recorded outcome later; tested. | Stop on a card with no active run. |
+| R-06 | Stop is offered when nothing is running, or reported as done before the run ends. | Stop is listed only while a run is queued, or running with no stop requested yet (the run log's `canStop`, found in review); success says the stop was requested and the card shows the recorded outcome later; tested. | Stop on a card with no active run. |
 
 ## Selected mode
 

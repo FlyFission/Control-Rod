@@ -121,6 +121,8 @@ describe("CardActions", () => {
     await user.click(screen.getByRole("button", { name: /Move to/ }));
     const item = screen.getByRole("menuitem", { name: /Accept/ });
     expect(item.getAttribute("aria-disabled")).toBe("true");
+    // The refused item says why and what would change it before it is chosen.
+    expect(item.textContent).toContain("A qualified checker records a passing verification");
     await user.click(item);
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("A person verification of the current work must come before Accept");

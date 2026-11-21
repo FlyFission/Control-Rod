@@ -4,7 +4,7 @@ Evidence status: **pass** for the build on the local toolchain (E-01 to E-03). *
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
-| E-01 | pass | Web suite: 662 tests in 48 files pass, after merging main (agent panel #106, context toggle #108), including the 13 tests in `move.test.tsx` and the two new board tests. Local machine only. | `evidence/web-suite.log` |
+| E-01 | pass | Web suite: 663 tests in 48 files pass, after merging main (agent panel #106, context toggle #108), including the 13 tests in `move.test.tsx` and the two new board tests. Local machine only. | `evidence/web-suite.log` |
 | E-02 | pass | Web typecheck exits 0. | `evidence/typecheck.log` |
 | E-03 | pass | Board axe scan (WCAG 2.2 A and AA, @axe-core/playwright 4.14.0) clean in looks a, b and c on Chromium with the Move to menu open on a Safety card and on a running card, plus the M1 and M4 states and the review drawer agent panel; each test run twice. Chromium only; axe finds a subset of accessibility issues. The run used the machine's preinstalled Chromium through a local config that is not committed. | `evidence/board-axe-chromium.log` |
 | E-04 | open | Firefox and WebKit runs of the board spec; the owner's review of the branch. | Not executed |

@@ -39,7 +39,7 @@ function Page() {
 
 const accept: ActionDescriptor = { command: "accept", label: "Accept", allowed: true, signature: "direct" };
 
-type Setup = { packages: WorkPackage[]; actions?: Record<string, ActionDescriptor[]>; originators?: Record<string, string[]>; runs?: Record<string, "running" | "succeeded"> };
+type Setup = { packages: WorkPackage[]; actions?: Record<string, ActionDescriptor[]>; originators?: Record<string, string[]>; runs?: Record<string, "running" | "succeeded" | "stopping"> };
 function api(s: Setup) {
   server.use(
     http.get("*/auth/session", () => HttpResponse.json({ registered: true, signed_in: true, user: "ben" })),
@@ -56,7 +56,7 @@ function api(s: Setup) {
       return HttpResponse.json({
         ...view({}, p),
         originators: s.originators?.[id] ?? ["ben"],
-        runs: run ? [{ id: "R-1", package_id: id, package_revision: 0, role: "author", status: run }] : [],
+        runs: run ? [{ id: "R-1", package_id: id, package_revision: 0, role: "author", status: run === "stopping" ? "running" : run, ...(run === "stopping" ? { stop_requested_at: "2026-11-21T10:00:00Z" } : {}) }] : [],
       });
     }),
   );
@@ -125,6 +125,17 @@ describe("BoardView", () => {
     await user.click(await within(card).findByRole("button", { name: /Move to/ }));
     expect(within(card).queryByRole("button", { name: "Accept" })).toBeNull();
     expect(within(card).getByRole("menuitem", { name: /Accept/ }).getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("offers Stop run while a run is going, and not again once a stop was requested", async () => {
+    api({ packages: [pkg({ id: "WP-R", title: "Running one", status: "in-work" }), pkg({ id: "WP-T", title: "Stopping one", status: "in-work" })], actions: { "WP-R": [], "WP-T": [] }, runs: { "WP-R": "running", "WP-T": "stopping" } });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const running = (await screen.findByText("Running one")).closest("article")!;
+    await user.click(await within(running).findByRole("button", { name: /Move to/ }));
+    expect(within(running).getByRole("menuitem", { name: "Stop run" })).toBeTruthy();
+    const stopping = screen.getByText("Stopping one").closest("article")!;
+    expect(within(stopping).queryByRole("button", { name: /Move to/ })).toBeNull();
   });
 
   it("does not tag a General service package", async () => {

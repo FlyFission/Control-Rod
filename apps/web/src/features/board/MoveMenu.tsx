@@ -106,7 +106,7 @@ export function MoveMenu({ items, onChoose, cardTitle, disabled = false }: { ite
                 }}
               >
                 <span>{item.label}</span>
-                {!item.enabled && item.reason && <span className="bd-menu-why small muted">{item.reason}</span>}
+                {!item.enabled && (item.reason || item.change) && <span className="bd-menu-why small muted">{[item.reason, item.change].filter(Boolean).join(". ")}</span>}
               </button>
             </li>
           ))}

@@ -6,6 +6,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -167,5 +169,56 @@ func TestEgressFilterForwardsBytesSentWithTheConnect(t *testing.T) {
 	buf := make([]byte, 4)
 	if _, err := io.ReadFull(br, buf); err != nil || string(buf) != "ping" {
 		t.Fatalf("bytes sent with the CONNECT were lost: %q %v", buf, err)
+	}
+}
+
+func TestEgressFilterPlainHTTPForwardingAllowsAndBlocks(t *testing.T) {
+	allowedSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Upstream", "ok")
+		_, _ = fmt.Fprintf(w, "hello %s", r.URL.Path)
+	}))
+	defer allowedSrv.Close()
+
+	blockedSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("blocked upstream was contacted")
+	}))
+	defer blockedSrv.Close()
+
+	allowedURL, err := url.Parse(allowedSrv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ef, err := StartEgressFilter([]string{allowedURL.Host})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ef.Close()
+
+	proxyURL, err := url.Parse("http://" + ef.Addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &http.Client{
+		Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
+		Timeout:   3 * time.Second,
+	}
+
+	resp, err := client.Get(allowedSrv.URL + "/api/tags")
+	if err != nil {
+		t.Fatalf("allowlisted plain HTTP request failed: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || string(body) != "hello /api/tags" || resp.Header.Get("X-Upstream") != "ok" {
+		t.Fatalf("unexpected allowed response: status=%d body=%q headers=%v", resp.StatusCode, string(body), resp.Header)
+	}
+
+	blockedResp, err := client.Get(blockedSrv.URL + "/secret")
+	if err != nil {
+		t.Fatalf("blocked plain HTTP request errored: %v", err)
+	}
+	_ = blockedResp.Body.Close()
+	if blockedResp.StatusCode != http.StatusForbidden || blockedResp.Header.Get("X-ControlRod-Egress") != "blocked" {
+		t.Fatalf("expected 403 X-ControlRod-Egress=blocked, got %d (%q)", blockedResp.StatusCode, blockedResp.Header.Get("X-ControlRod-Egress"))
 	}
 }

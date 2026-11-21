@@ -1,12 +1,13 @@
 # Verification: board redesign slice M3, act from the card
 
-Evidence status: **pass** for the build on the local toolchain (E-01, E-02). **Open** for the board axe scan with the menu open, Firefox and WebKit, and the owner's merge review (E-03). Nothing here verifies the kernel's enforcement of person verification.
+Evidence status: **pass** for the build on the local toolchain (E-01 to E-03). **Open** for Firefox and WebKit and the owner's merge review (E-04). Nothing here verifies the kernel's enforcement of person verification.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|
 | E-01 | pass | Web suite: 638 tests in 46 files pass, including the 12 tests in `move.test.tsx` and the two new board tests. Local machine only. | `evidence/web-suite.log` |
 | E-02 | pass | Web typecheck exits 0. | `evidence/typecheck.log` |
-| E-03 | open | Board axe scan with the Move to menu open, Firefox and WebKit runs, and the owner's review of the branch. | Not executed |
+| E-03 | pass | Board axe scan (WCAG 2.2 A and AA, @axe-core/playwright 4.14.0) clean in looks a, b and c on Chromium with the Move to menu open on a Safety card and on a running card, plus the M1 and M4 states. Chromium only; axe finds a subset of accessibility issues. The run used the machine's preinstalled Chromium through a local config that is not committed. | `evidence/board-axe-chromium.log` |
+| E-04 | open | Firefox and WebKit runs of the board spec; the owner's review of the branch. | Not executed |
 
 ## Evidence custody and coupling
 
@@ -14,13 +15,15 @@ Evidence status: **pass** for the build on the local toolchain (E-01, E-02). **O
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | E-01 | T-01, T-02, T-03, T-04, T-05, T-06, T-07, T-08, T-09, T-10, T-11, T-12 | yes | evidence/web-suite.log | Implementing agent | Vitest 5.1.0 | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
 | E-02 | T-05 | no | evidence/typecheck.log | Implementing agent | tsc 5.9.3 | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
-| E-03 | T-09 | yes | Owner review | Implementing agent | Not executed | Owner | Not executed | Not executed | Packet and export | Implementing agent | Not supplied |
+| E-03 | T-09, T-13 | yes | evidence/board-axe-chromium.log | Implementing agent | Playwright 1.65.0, axe-core 4.14.0 | Implementing agent | Implementing agent | Local toolchain | Packet and export | Implementing agent | Self-check |
+| E-04 | T-13 | yes | Owner review | Implementing agent | Not executed | Owner | Not executed | Not executed | Packet and export | Implementing agent | Not supplied |
 
 | Evidence ID | Actor | Context | Mechanism | Authority | Resource | Classification | Admissibility / residual-risk disposition |
 |---|---|---|---|---|---|---|---|
 | E-01 | coupled: implementing agent wrote tests and code | coupled: one session | separated: deterministic test tools | separated: owner retains merge decision | coupled: local machine | self-check | Same agent wrote tests and code; no existing test weakened, one assertion scoped to the next line because the card now also shows an Accept button  [Ship limits](ship.md) |
 | E-02 | coupled: implementing agent | coupled: one session | separated: compiler | separated: owner retains merge decision | coupled: local machine | self-check | Types only  [Ship limits](ship.md) |
-| E-03 | separated: owner | separated: owner's own review | partially separated: not executed | separated: owner decides | coupled: local machine | self-check | Hold the merge until the owner reviews  [Ship limits](ship.md) |
+| E-03 | coupled: implementing agent | coupled: one session | separated: deterministic scanner | separated: owner retains merge decision | coupled: local machine | self-check | Chromium only; axe is a subset of accessibility  [Ship limits](ship.md) |
+| E-04 | separated: owner | separated: owner's own review | partially separated: not executed | separated: owner decides | coupled: local machine | self-check | Hold the merge until the owner reviews  [Ship limits](ship.md) |
 
 No human independent review has been done yet.
 
@@ -30,7 +33,7 @@ No human independent review has been done yet.
 
 ## Exit criteria
 
-Slice M3 is implemented with its tests and evidence retained in this packet, and the owner has made the merge decision. Nothing here claims that the kernel enforces person verification (D-4 is unsigned; the Accept block on Safety and Material work is a screen rule), that the board axe scan covers the open menu (not run for this slice), or that the board has been validated with real users.
+Slice M3 is implemented with its tests and evidence retained in this packet, and the owner has made the merge decision. Nothing here claims that the kernel enforces person verification (D-4 is unsigned; the Accept block on Safety and Material work is a screen rule), behavior in Firefox or WebKit, or that the board has been validated with real users.
 
 ## Source-lineage note
 

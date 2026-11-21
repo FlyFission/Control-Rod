@@ -5,8 +5,8 @@
 3. `CardActions.tsx`: the primary button and the menu. A decision is signed through `decide()` over the digest the card read; Return, Reject and Accept with findings open a reason field first. A refused item, or a server refusal, is said in the card's own alert region and sends nothing more. Success says "{Decision} recorded." and refreshes the board's reads; the card moves only when the next read moves it.
 4. `useBoardData.ts`: the card carries `offered` (the actions with ruling 16 applied), `digest` and `activeRunId`, and only when its reads are current and the event stream is live, so no decision is offered from a stale or unknown read.
 5. `Card.tsx`, `BoardView.tsx`, `board.css`: an actions slot on the card face.
-6. Tests: `move.test.tsx` (12 tests), `board.test.tsx` (two new, one tightened).
-7. Evidence: web suite and typecheck under `evidence/`.
+6. Tests: `move.test.tsx` (12 tests), `board.test.tsx` (two new, one tightened), `e2e/board-looks.spec.ts` scanning with the Move to menu open on a Safety card (refused Accept) and on a running card (Stop run), and selecting the card title exactly now that Move to names the card.
+7. Evidence: web suite, typecheck and the board axe run on Chromium under `evidence/`.
 
 Deviation from the plan's interface: the plan gave `menuItems` two extra arguments (`verifyStanding`, `acceptBlock`). Ruling 16 is instead applied once, upstream, by the existing `blockUnverifiedAccept` before the actions reach `menuItems`, so the card's next line, its primary button and its menu all read the same refused Accept. The behavior the plan asks for is tested on the board ("puts no Accept button on Safety work that no person has verified").
 
@@ -20,7 +20,7 @@ Deviation from the plan's interface: the plan gave `menuItems` two extra argumen
 
 ## Exit criteria
 
-Slice M3 is implemented with its tests and evidence retained in this packet, and the owner has made the merge decision. Nothing here claims that the kernel enforces person verification (D-4 is unsigned; the Accept block on Safety and Material work is a screen rule), that the board axe scan covers the open menu (not run for this slice), or that the board has been validated with real users.
+Slice M3 is implemented with its tests and evidence retained in this packet, and the owner has made the merge decision. Nothing here claims that the kernel enforces person verification (D-4 is unsigned; the Accept block on Safety and Material work is a screen rule), behavior in Firefox or WebKit, or that the board has been validated with real users.
 
 ## Source-lineage note
 

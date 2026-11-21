@@ -32,7 +32,7 @@ Owner decisions O1 to O8 and the parked list in the design record; controller ru
 
 ## Exit criteria
 
-Slice M3 is implemented with its tests and evidence retained in this packet, and the owner has made the merge decision. Nothing here claims that the kernel enforces person verification (D-4 is unsigned; the Accept block on Safety and Material work is a screen rule), that the board axe scan covers the open menu (not run for this slice), or that the board has been validated with real users.
+Slice M3 is implemented with its tests and evidence retained in this packet, and the owner has made the merge decision. Nothing here claims that the kernel enforces person verification (D-4 is unsigned; the Accept block on Safety and Material work is a screen rule), behavior in Firefox or WebKit, or that the board has been validated with real users.
 
 ## Source-lineage note
 

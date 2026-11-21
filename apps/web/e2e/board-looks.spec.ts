@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 /** Run with: playwright test -c playwright.board.config.ts (keeps the JSON evidence file untouched).
  * The board at "/" in each look has no WCAG 2.2 A or AA violations (redesign task 4): live, with a
- * blocked O6 card, and with the stream unknown (banner and unknown cards). */
+ * blocked O6 card, with the Move to menu open (M3), and with the stream unknown (banner and unknown cards). */
 test.skip(process.env["THEME_TEST_LEGACY"] === "true", "Dedicated legacy rollback run");
 test.skip(process.env["THEME_TEST_RELEASE"] === "true", "Dedicated release artifact run");
 
@@ -75,7 +75,7 @@ for (const look of ["a", "b", "c"]) {
   test(`the board has no axe violations in look ${look}, live, with a blocked O6 card, and with the stream unknown`, async ({ page }) => {
     await mockBoardApi(page, look);
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "Relief valve sizing" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Relief valve sizing", exact: true })).toBeVisible();
     // Ruling 10: the look sits on the board container only; the rest of the app stays look A.
     await expect(page.locator(".bd")).toHaveAttribute("data-look", look);
     await expect(page.locator("html")).not.toHaveAttribute("data-look", /./);
@@ -90,6 +90,21 @@ for (const look of ["a", "b", "c"]) {
     await page.getByRole("button", { name: "+ Add a card" }).click();
     await expect(page.getByLabel("Card title")).toBeFocused();
     expect(await scan(page)).toEqual([]);
+
+    // Slice M3: the Safety card offers no Accept button (ruling 16), and a card's Move to menu is
+    // clean while open, with a refused item and Stop listed.
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Accept", exact: true })).toHaveCount(2);
+    const moveTo = page.getByRole("button", { name: "Move to, Relief valve sizing" });
+    await moveTo.click();
+    await expect(page.getByRole("menuitem", { name: /Accept/ })).toHaveAttribute("aria-disabled", "true");
+    expect(await scan(page)).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(moveTo).toBeFocused();
+    await page.getByRole("button", { name: "Move to, Controller patch" }).click();
+    await expect(page.getByRole("menuitem", { name: "Stop run" })).toBeVisible();
+    expect(await scan(page)).toEqual([]);
+    await page.keyboard.press("Escape");
 
     await page.evaluate(() => (window as unknown as { __stream: { emit(t: string): void } }).__stream.emit("error"));
     await expect(page.getByText(/What you see may be out of date/)).toBeVisible();

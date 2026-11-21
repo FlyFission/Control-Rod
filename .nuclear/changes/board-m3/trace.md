@@ -14,6 +14,7 @@
 | T-10 | No actions without current, live reads. | `move.test.tsx` "shows nothing when the card offers no current actions"; `board.test.tsx` "says status is unknown" (no Accept button) | implemented and tested |
 | T-11 | The board acts from the card: Accept on the face and Move to beside it. | `board.test.tsx` "acts from the card" | implemented and tested |
 | T-12 | Ruling 16: no Accept on Safety work that no person has verified; Accept is listed disabled. | `board.test.tsx` "puts no Accept button on Safety work that no person has verified" | implemented and tested |
+| T-13 | The board stays axe clean in looks a, b and c with the Move to menu open, and Escape returns focus to Move to in a real browser. | `e2e/board-looks.spec.ts` | implemented; run on Chromium (E-03) |
 
 ## Required links
 
@@ -21,7 +22,7 @@
 
 ## Exit criteria
 
-Slice M3 is implemented with its tests and evidence retained in this packet, and the owner has made the merge decision. Nothing here claims that the kernel enforces person verification (D-4 is unsigned; the Accept block on Safety and Material work is a screen rule), that the board axe scan covers the open menu (not run for this slice), or that the board has been validated with real users.
+Slice M3 is implemented with its tests and evidence retained in this packet, and the owner has made the merge decision. Nothing here claims that the kernel enforces person verification (D-4 is unsigned; the Accept block on Safety and Material work is a screen rule), behavior in Firefox or WebKit, or that the board has been validated with real users.
 
 ## Source-lineage note
 

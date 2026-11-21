@@ -3,7 +3,8 @@
 Release decision: **proposed merge after review; the owner retains the merge decision.**
 
 - **Proposed:** merge slice M3 from `claude/project-thread-hqvd67` as a draft pull request.
-- **Not claimed:** that the kernel enforces person verification (D-4 is unsigned; the card's Accept block is a screen rule and other API clients can still accept); an axe scan of the open menu (the board axe spec was not extended or run for this slice); Firefox or WebKit behavior; usability with real users.
+- **Not claimed:** that the kernel enforces person verification (D-4 is unsigned; the card's Accept block is a screen rule and other API clients can still accept); Firefox or WebKit behavior (Chromium only here); usability with real users.
+- **Pre-existing, not this change:** on the local Chromium run of every e2e spec, `phase3-exit.spec.ts` (skip link order, 320 px reflow) and `office-harness.spec.ts` ("catches a broken semantic layer") fail identically with this change removed; CI does not run them.
 - **Owner decisions requested:** approve or return the branch.
 
 Rollback: revert the merge. No API, schema or wire change; no stored data is touched.
@@ -16,7 +17,7 @@ Monitoring after merge: watch that a card never offers a decision while the boar
 
 ## Exit criteria
 
-Slice M3 is implemented with its tests and evidence retained in this packet, and the owner has made the merge decision. Nothing here claims that the kernel enforces person verification (D-4 is unsigned; the Accept block on Safety and Material work is a screen rule), that the board axe scan covers the open menu (not run for this slice), or that the board has been validated with real users.
+Slice M3 is implemented with its tests and evidence retained in this packet, and the owner has made the merge decision. Nothing here claims that the kernel enforces person verification (D-4 is unsigned; the Accept block on Safety and Material work is a screen rule), behavior in Firefox or WebKit, or that the board has been validated with real users.
 
 ## Source-lineage note
 

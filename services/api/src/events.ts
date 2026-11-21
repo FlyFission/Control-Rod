@@ -132,8 +132,11 @@ export function verifySemanticInvariants(events: readonly EventRecord[]): Semant
     }
 
     const family = (ev.type ?? "").split(".")[0];
-    if (family === "decision" && ev.data && typeof ev.data.verdict === "string" && !ev.data.verdict.trim()) {
-      violations.push({ seq: ev.seq, type: ev.type, reason: "Decision event has empty verdict" });
+    if (family === "decision") {
+      const status = ev.data?.status;
+      if (typeof status !== "string" || !status.trim()) {
+        violations.push({ seq: ev.seq, type: ev.type, reason: "Decision event missing non-empty status" });
+      }
     }
   }
   return violations;

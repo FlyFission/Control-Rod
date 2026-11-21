@@ -5,66 +5,70 @@
 
  RUN  v5.1.0 /home/flyfission/worktrees/control-rod-wave3-workbench/services/api
 
- ✓ test/verify-bundle.test.ts (5 tests) 53ms
- ✓ test/wave3-outfall.test.ts (4 tests) 1397ms
+ ✓ test/verify-bundle.test.ts (5 tests) 33ms
+ ✓ test/wave3-outfall.test.ts (4 tests) 1190ms
    ✓ Wave 3 Merkle freeze, governed outfall, and semantic audit invariants (4)
-     ✓ freezeWorkspace captures deterministic Merkle digest without deleting untracked files 410ms
-     ✓ POST /repos/freeze enforces workspaceRoot containment, validates inputs, and maps git failures 964ms
- ✓ test/repos-materialize.test.ts (26 tests) 4058ms
+     ✓ freezeWorkspace captures deterministic Merkle digest without deleting untracked files or mangling special paths 432ms
+     ✓ POST /repos/freeze enforces workspaceRoot containment, validates inputs, and maps git failures 728ms
+ ✓ test/repos-materialize.test.ts (26 tests) 3146ms
    ✓ repos.ts hardening (26)
      ✓ POST /repos/materialize route hardening (13)
-       ✓ rejects invalid strategy, dot-segments, and non-string repo/branch 393ms
-       ✓ worktree skips fetch when local repo has no origin and surfaces fetch errors when origin fails 451ms
-       ✓ refuses repo-local core.sshCommand and other dangerous .git/config keys without executing them, and strips GIT_SSH env vars 481ms
-       ✓ refuses repos with core.worktree pointing outside repoDir without touching external worktree files 559ms
+       ✓ worktree skips fetch when local repo has no origin and surfaces fetch errors when origin fails 366ms
+       ✓ refuses repo-local core.sshCommand and other dangerous .git/config keys without executing them, and strips GIT_SSH env vars 346ms
+       ✓ refuses repos with core.worktree pointing outside repoDir without touching external worktree files 528ms
      ✓ GET /repos route hardening (2)
-       ✓ skips local entries with symlinked .git or external/invalid gitdir targets 481ms
-Cloning into '/tmp/cr-repos-test-cShren/projects/sample-repo/sub'...
+       ✓ skips local entries with symlinked .git or external/invalid gitdir targets 410ms
+Cloning into '/tmp/cr-repos-test-jK6PF3/projects/sample-repo/sub'...
 done.
-Cloning into '/tmp/cr-repos-test-H4822W/projects/sample-repo/sub'...
+ ✓ test/refusals.test.ts (6 tests) 6527ms
+Cloning into '/tmp/cr-repos-test-RI4fps/projects/sample-repo/sub'...
 done.
-Cloning into '/tmp/cr-repos-test-H4822W/projects/.worktrees/sample-repo/feat-lfs-sub-guard/sub'...
+Cloning into '/tmp/cr-repos-test-RI4fps/projects/.worktrees/sample-repo/feat-lfs-sub-guard/sub'...
 done.
- ✓ test/refusals.test.ts (6 tests) 7675ms
 Preparing worktree (new branch 'feat/wt-idx')
- ✓ test/seals.test.ts (16 tests) 8419ms
 Preparing worktree (new branch 'feat/wt-rm')
 Preparing worktree (new branch 'feat/wt-stale')
 Preparing worktree (new branch 'feat/wt-other-missing')
 Preparing worktree (new branch 'feat/wt-locked-missing')
- ✓ test/repos.test.ts (24 tests) 11901ms
-   ✓ repos Wave 1 hardening (24)
-     ✓ POST /repos/materialize does not copy gitignored secret files, scaffolds capital-projects, and rejects invalid mode 662ms
-     ✓ createCheckpoint neutralizes LFS required=true, custom filters with '=', and CRLF config 458ms
-     ✓ status, worktree add, and checkout neutralize LFS required=true and safecrlf=true 1065ms
-     ✓ preserves clean-status semantics for core.autocrlf=true checkouts in GET /repos, branch, and non-force remove 1123ms
-     ✓ createCheckpoint clears --assume-unchanged in tempIndex while preserving it in real index 327ms
-     ✓ createCheckpoint captures present skip-worktree edits while preserving absent sparse entries and bypasses gitattributes EOL conversion 348ms
-     ✓ createCheckpoint captures invalid working-tree-encoding raw bytes without failing 391ms
-     ✓ createCheckpoint handles file-to-directory and directory-to-file replacements 401ms
-     ✓ createCheckpoint captures the checked-out commit of tracked submodules without staging inner files 702ms
-     ✓ createCheckpoint captures committed unstaged embedded repositories as gitlinks and refuses unborn embedded repos 487ms
-     ✓ preserves clean-status semantics for hydrated LFS files while flagging actual LFS modifications 1624ms
-     ✓ refuses implicit --force worktree removal when status.showUntrackedFiles=no hides an untracked file alongside clean hydrated LFS 437ms
-     ✓ refuses implicit --force worktree removal for initialized or diff.ignoreSubmodules=all submodules alongside hydrated LFS 1215ms
-     ✓ createCheckpoint preserves force-staged ignored files via --git-path index in repos and worktrees 392ms
-     ✓ createCheckpoint refuses plain subdirectories without .git and uses unique UUID refs with CAS update-ref 400ms
-     ✓ removeWorktreeSafely refuses dirty worktrees without force, rejects string 'false', and prunes missing registered worktrees 565ms
- ✓ test/workbench.test.ts (54 tests) 10284ms
+ ✓ test/workbench.test.ts (54 tests) 9439ms
    ✓ storage (11)
-     ✓ stores one consistent example of every kind against a revision 0 release, each with its event 1007ms
- ✓ test/app.test.ts (16 tests) 11227ms
-   ✓ a quick question is answered without a package (1)
-     ✓ answers and counts it 381ms
+     ✓ stores one consistent example of every kind against a revision 0 release, each with its event 823ms
+ ✓ test/seals.test.ts (16 tests) 9745ms
+   ✓ inclusion proofs (4)
+     ✓ proves a package's events under the first seal covering them, in a bundle checkable on its own 407ms
+   ✓ audit export for a time window (2)
+     ✓ exports every event recorded in a window under the seal covering them, checkable offline 368ms
+ ✓ test/repos.test.ts (24 tests) 11107ms
+   ✓ repos Wave 1 hardening (24)
+     ✓ POST /repos/materialize does not copy gitignored secret files, scaffolds capital-projects, and rejects invalid mode 520ms
+     ✓ createCheckpoint neutralizes LFS required=true, custom filters with '=', and CRLF config 381ms
+     ✓ status, worktree add, and checkout neutralize LFS required=true and safecrlf=true 930ms
+     ✓ preserves clean-status semantics for core.autocrlf=true checkouts in GET /repos, branch, and non-force remove 912ms
+     ✓ createCheckpoint clears --assume-unchanged in tempIndex while preserving it in real index 407ms
+     ✓ createCheckpoint captures present skip-worktree edits while preserving absent sparse entries and bypasses gitattributes EOL conversion 397ms
+     ✓ createCheckpoint handles file-to-directory and directory-to-file replacements 311ms
+     ✓ createCheckpoint refuses to traverse symlinked ancestors when staging tracked paths 391ms
+     ✓ createCheckpoint captures the checked-out commit of tracked submodules without staging inner files 861ms
+     ✓ createCheckpoint captures committed unstaged embedded repositories as gitlinks and refuses unborn embedded repos 533ms
+     ✓ preserves clean-status semantics for hydrated LFS files while flagging actual LFS modifications 1604ms
+     ✓ refuses implicit --force worktree removal when status.showUntrackedFiles=no hides an untracked file alongside clean hydrated LFS 397ms
+     ✓ refuses implicit --force worktree removal for initialized or diff.ignoreSubmodules=all submodules alongside hydrated LFS 1030ms
+     ✓ createCheckpoint preserves force-staged ignored files via --git-path index in repos and worktrees 341ms
+     ✓ createCheckpoint refuses plain subdirectories without .git and uses unique UUID refs with CAS update-ref 345ms
+     ✓ removeWorktreeSafely refuses dirty worktrees without force, rejects string 'false', and prunes missing registered worktrees 578ms
+     ✓ POST /repos/checkpoint and POST /repos/remove validate runtime types and map git failures to 400 git-failed 317ms
+     ✓ createCheckpoint writes a private ref via temp index without altering HEAD or real index 309ms
+ ✓ test/app.test.ts (16 tests) 10447ms
    ✓ a dependent engineering job runs end to end under the floors (7)
-     ✓ takes an attachment and drafts dependent packages 321ms
-     ✓ releases both, but holds the scope of work until the survey is accepted 918ms
+     ✓ takes an attachment and drafts dependent packages 312ms
+     ✓ releases both, but holds the scope of work until the survey is accepted 1002ms
+     ✓ returns work with direction as a new revision 412ms
    ✓ migrations 009 and 010 over real signed history (review R14) (1)
-     ✓ reverse and reapply without changing any legacy row, signed decision or event 1768ms
+     ✓ reverse and reapply without changing any legacy row, signed decision or event 1392ms
 
  Test Files  8 passed (8)
       Tests  151 passed (151)
-   Start at  13:26:57
-   Duration  14.15s (tests 80%, import 15%, transform 5%)
+   Start at  13:35:28
+   Duration  12.23s (tests 86%, import 10%, transform 3%)
 
 exit 0

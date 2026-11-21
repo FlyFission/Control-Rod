@@ -3,24 +3,15 @@ import { useState } from "react";
 import { api } from "../api/client.js";
 
 /**
- * Explore (Wave 4): Uncounted batch exploration & multi-CLI fan-out over hardened
- * worktrees, wired to live private-ref Checkpoints and non-destructive Merkle Freeze.
+ * Explore (Wave 4): Private-ref Checkpoints and non-destructive Merkle Freeze over
+ * hardened worktrees. Multi-CLI fan-out controls are previewed and disabled until Cycle 2.
  */
 export function Explore() {
-  const [mode, setMode] = useState<"software" | "capital-projects">("software");
   const [repoPath, setRepoPath] = useState("");
   const [label, setLabel] = useState("explore");
-  const [prompt, setPrompt] = useState("");
-  const [selectedRuntimes, setSelectedRuntimes] = useState<string[]>(["claude", "codex"]);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const toggleRuntime = (rt: string) => {
-    setSelectedRuntimes((prev) =>
-      prev.includes(rt) ? prev.filter((item) => item !== rt) : [...prev, rt],
-    );
-  };
 
   const runCheckpoint = async () => {
     if (!repoPath.trim()) return;
@@ -63,22 +54,12 @@ export function Explore() {
       <header className="place-head">
         <h1>Explore</h1>
         <p className="muted">
-          Uncounted batch turns and multi-CLI fan-out over hardened worktrees. Capture private checkpoints or freeze a Merkle tree for Case Mode.
+          Capture private checkpoints or freeze a Merkle tree over a hardened worktree. Multi-CLI fan-out is coming in Cycle 2.
         </p>
       </header>
 
       <section className="panel" style={{ marginBottom: "1rem" }}>
         <div className="row" style={{ gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
-          <label>
-            Delivery Mode{" "}
-            <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value as "software" | "capital-projects")}
-            >
-              <option value="software">Software (GitHub PR outfall)</option>
-              <option value="capital-projects">Capital Projects (Transmittal Dossier)</option>
-            </select>
-          </label>
           <label>
             Worktree / Repo Path{" "}
             <input
@@ -99,31 +80,39 @@ export function Explore() {
           </label>
         </div>
 
-        <div style={{ marginBottom: "0.75rem" }}>
-          <span className="muted" style={{ marginRight: "0.5rem" }}>Fan-out Runtimes:</span>
-          {["claude", "codex", "grok", "opencode", "agy", "ollama"].map((rt) => (
-            <label key={rt} style={{ marginRight: "0.65rem" }}>
-              <input
-                type="checkbox"
-                checked={selectedRuntimes.includes(rt)}
-                onChange={() => toggleRuntime(rt)}
-              />{" "}
-              {rt}
+        <fieldset disabled style={{ border: "1px solid var(--line-2)", borderRadius: "8px", padding: "0.75rem", marginBottom: "0.75rem" }}>
+          <legend className="muted small">Multi-CLI fan-out coming in Cycle 2 (not sent with Checkpoint or Freeze)</legend>
+          <div className="row" style={{ gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+            <label>
+              Delivery Mode{" "}
+              <select value="software" disabled>
+                <option value="software">Software (GitHub PR outfall)</option>
+                <option value="capital-projects">Capital Projects (Transmittal Dossier)</option>
+              </select>
             </label>
-          ))}
-        </div>
+            <div>
+              <span className="muted" style={{ marginRight: "0.5rem" }}>Fan-out Runtimes:</span>
+              {["claude", "codex", "grok", "opencode", "agy", "ollama"].map((rt) => (
+                <label key={rt} style={{ marginRight: "0.65rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={rt === "claude" || rt === "codex"}
+                    disabled
+                  />{" "}
+                  {rt}
+                </label>
+              ))}
+            </div>
+          </div>
 
-        <textarea
-          rows={3}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder={
-            mode === "software"
-              ? "Describe the exploration task for your hardened worktree..."
-              : "Describe the calculation, drawing, or specification dossier task..."
-          }
-          style={{ width: "100%", marginBottom: "0.75rem" }}
-        />
+          <textarea
+            rows={3}
+            value=""
+            disabled
+            placeholder="Multi-CLI fan-out coming in Cycle 2: exploration prompt dispatch is disabled in this release."
+            style={{ width: "100%" }}
+          />
+        </fieldset>
 
         <div className="row" style={{ gap: "0.75rem", flexWrap: "wrap" }}>
           <button type="button" onClick={runCheckpoint} disabled={busy || !repoPath.trim()}>

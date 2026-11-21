@@ -1,8 +1,7 @@
-import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { promisify } from "node:util";
 import { Refusal } from "./refusal.js";
 import {
   HOST_GIT_ARGS,
@@ -13,8 +12,6 @@ import {
   resolveSafeWorkspaceRoot,
   resolveWithoutSymlinks,
 } from "./repos.js";
-
-const execFileAsync = promisify(execFile);
 
 export interface FreezeResult {
   checkpoint_ref: string;
@@ -71,6 +68,76 @@ function canonicalHome(): string {
 }
 
 /**
+ * Streams NUL-delimited, unquoted `git ls-tree` output directly into SHA-256 so large
+ * repositories never hit `execFile` buffer limits and filenames with spaces or non-ASCII bytes
+ * hash losslessly and deterministically.
+ */
+function hashFrozenTree(
+  treeSha: string,
+  cwd: string,
+  ceilingDir: string,
+): Promise<{ manifestDigest: string; fileCount: number }> {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn(
+      "git",
+      [...HOST_GIT_ARGS, "-c", "core.quotePath=false", "ls-tree", "-r", "-z", "--full-tree", treeSha],
+      { cwd, env: hostGitEnv(ceilingDir), stdio: ["ignore", "pipe", "pipe"] },
+    );
+    const hash = createHash("sha256");
+    let fileCount = 0;
+    let trailingBytes = false;
+    const stderrChunks: Buffer[] = [];
+    let stderrBytes = 0;
+    let settled = false;
+
+    const finishError = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      rejectPromise(err);
+    };
+
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      finishError(new Error("git ls-tree timed out"));
+    }, 25_000);
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      hash.update(chunk);
+      for (let i = 0; i < chunk.length; i += 1) {
+        if (chunk[i] === 0) {
+          fileCount += 1;
+          trailingBytes = false;
+        } else {
+          trailingBytes = true;
+        }
+      }
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      if (stderrBytes < 16_384) {
+        stderrChunks.push(chunk);
+        stderrBytes += chunk.length;
+      }
+    });
+    child.on("error", (err) => finishError(err));
+    child.on("close", (code, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code !== 0) {
+        const detail = Buffer.concat(stderrChunks).toString("utf8").trim();
+        rejectPromise(new Error(detail || `git ls-tree exited with ${signal ?? code}`));
+        return;
+      }
+      if (trailingBytes) {
+        fileCount += 1;
+      }
+      resolvePromise({ manifestDigest: hash.digest("hex"), fileCount });
+    });
+  });
+}
+
+/**
  * Non-destructive Merkle Freeze: captures a private temp-index checkpoint and computes
  * a deterministic SHA-256 manifest digest over the frozen git tree.
  */
@@ -93,23 +160,13 @@ export async function freezeWorkspace(opts: {
     opts.workspaceRoot !== undefined
       ? resolveWithoutSymlinks(expandedRepo, ceilingDir)
       : resolveWithoutSymlinks(expandedRepo);
-  const { stdout } = await execFileAsync(
-    "git",
-    [...HOST_GIT_ARGS, "ls-tree", "-r", "--full-tree", cp.tree_sha],
-    { cwd: resolvedRepoDir, env: hostGitEnv(ceilingDir), timeout: 25_000 },
-  );
-  const entries = stdout
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .sort();
-  const manifestDigest = createHash("sha256").update(entries.join("\n")).digest("hex");
+  const { manifestDigest, fileCount } = await hashFrozenTree(cp.tree_sha, resolvedRepoDir, ceilingDir);
   return {
     checkpoint_ref: cp.ref,
     commit_sha: cp.commit_sha,
     tree_sha: cp.tree_sha,
     manifest_digest: manifestDigest,
-    file_count: entries.length,
+    file_count: fileCount,
   };
 }
 

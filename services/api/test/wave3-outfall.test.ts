@@ -69,7 +69,7 @@ afterEach(() => {
 });
 
 describe("Wave 3 Merkle freeze, governed outfall, and semantic audit invariants", () => {
-  it("verifySemanticInvariants catches non-monotonic seq, timestamp regression, and empty decision verdict", () => {
+  it("verifySemanticInvariants catches non-monotonic seq, timestamp regression, and missing decision status", () => {
     const base1: Omit<EventRecord, "digest"> = {
       seq: 1,
       at: "2026-11-15T12:00:00.000Z",
@@ -81,10 +81,10 @@ describe("Wave 3 Merkle freeze, governed outfall, and semantic audit invariants"
     const base2: Omit<EventRecord, "digest"> = {
       seq: 2,
       at: "2026-11-15T12:01:00.000Z",
-      type: "decision.recorded",
+      type: "decision.accept",
       subject: "PKG-1",
       actor: { kind: "human", id: "ben" },
-      data: { verdict: "accepted" },
+      data: { revision: 0, decision: "dec_1", subject_digest: "abc", status: "accepted" },
     };
     const ev2: EventRecord = { ...base2, digest: { algorithm: "sha256", value: eventDigest(base2) } };
     expect(verifySemanticInvariants([ev1, ev2])).toEqual([]);
@@ -93,21 +93,33 @@ describe("Wave 3 Merkle freeze, governed outfall, and semantic audit invariants"
       ...ev2,
       seq: 1,
       at: "2026-11-15T11:59:00.000Z",
-      data: { verdict: "   " },
+      data: { status: "   " },
     };
     const violations = verifySemanticInvariants([ev1, bad]);
     expect(violations.length).toBe(3);
+
+    const missingStatus: EventRecord = {
+      ...ev2,
+      seq: 3,
+      at: "2026-11-15T12:02:00.000Z",
+      data: { revision: 0 },
+    };
+    expect(verifySemanticInvariants([ev1, ev2, missingStatus])).toHaveLength(1);
   });
 
-  it("freezeWorkspace captures deterministic Merkle digest without deleting untracked files", async () => {
+  it("freezeWorkspace captures deterministic Merkle digest without deleting untracked files or mangling special paths", async () => {
     const repoDir = makeTempRepo();
     writeFileSync(join(repoDir, "calculations", "beam.py"), "sigma = 120\n");
+    writeFileSync(join(repoDir, "calculations", "café spec .py"), "val = 1\n");
 
-    const freeze = await freezeWorkspace({ repoDir, label: "wave3-freeze" });
-    expect(freeze.checkpoint_ref).toMatch(/^refs\/cr-checkpoints\/wave3-freeze-/);
-    expect(freeze.manifest_digest).toMatch(/^[0-9a-f]{64}$/);
-    expect(freeze.file_count).toBeGreaterThanOrEqual(2);
+    const freeze1 = await freezeWorkspace({ repoDir, label: "wave3-freeze" });
+    const freeze2 = await freezeWorkspace({ repoDir, label: "wave3-freeze-2" });
+    expect(freeze1.checkpoint_ref).toMatch(/^refs\/cr-checkpoints\/wave3-freeze-/);
+    expect(freeze1.manifest_digest).toMatch(/^[0-9a-f]{64}$/);
+    expect(freeze1.manifest_digest).toBe(freeze2.manifest_digest);
+    expect(freeze1.file_count).toBe(3);
     expect(existsSync(join(repoDir, "calculations", "beam.py"))).toBe(true);
+    expect(existsSync(join(repoDir, "calculations", "café spec .py"))).toBe(true);
   });
 
   it("POST /repos/freeze enforces workspaceRoot containment, validates inputs, and maps git failures", async () => {

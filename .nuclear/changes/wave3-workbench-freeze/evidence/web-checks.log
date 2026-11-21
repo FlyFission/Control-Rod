@@ -7,7 +7,7 @@
 > openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
 
 ✨ openapi-typescript 7.13.0
-🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [381.5ms]
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [632.5ms]
 
 > @control-rod/web@0.0.0 test /home/flyfission/worktrees/control-rod-wave3-workbench/apps/web
 > pnpm gen:api && vitest run
@@ -17,7 +17,7 @@
 > openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
 
 ✨ openapi-typescript 7.13.0
-🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [687.2ms]
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [334.5ms]
 
  RUN  v5.1.0 /home/flyfission/worktrees/control-rod-wave3-workbench/apps/web
 
@@ -37,23 +37,7 @@ stderr | src/features/board/board.test.tsx > BoardView > renders the six column 
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/board/quick-add.test.tsx > QuickAdd on the board > closes on Escape and returns focus to the opener; a typed draft survives losing focus
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
 stderr | src/features/board/board.test.tsx > BoardView > labels each card by its title and keeps the counts out of a live region
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/quick-add.test.tsx > QuickAdd on the board > opens from the c key outside a field, and not from c typed inside one
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -69,14 +53,6 @@ stderr | src/features/board/board.test.tsx > BoardView > tags a Safety package a
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/case/case.test.tsx > case view > offers no Accept on Safety work no person has verified, in the bar or the strip (ruling 16)
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
 stderr | src/features/board/board.test.tsx > BoardView > offers no Accept on Safety work that no person has verified, even when the server allows it
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -85,7 +61,7 @@ stderr | src/features/board/board.test.tsx > BoardView > offers no Accept on Saf
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/board/quick-add.test.tsx > QuickAdd on the board > offers one card per pasted line and posts them all
+stderr | src/features/board/quick-add.test.tsx > QuickAdd on the board > closes on Escape and returns focus to the opener; a typed draft survives losing focus
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -101,7 +77,7 @@ stderr | src/features/board/board.test.tsx > BoardView > acts from the card: Acc
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/case/case.test.tsx > case view > is one column in PROVE order, signed at the bottom, with the decision bar never absent
+stderr | src/features/board/board.test.tsx > BoardView > puts no Accept button on Safety work that no person has verified
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -109,7 +85,31 @@ stderr | src/features/case/case.test.tsx > case view > is one column in PROVE or
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/case/case.test.tsx > case view > shows the pre-check floor even in the most compact tier
+stderr | src/features/board/quick-add.test.tsx > QuickAdd on the board > opens from the c key outside a field, and not from c typed inside one
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/board.test.tsx > BoardView > offers Stop run while a run is going, and not again once a stop was requested
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/quick-add.test.tsx > QuickAdd on the board > offers one card per pasted line and posts them all
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/board.test.tsx > BoardView > does not tag a General service package
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -131,14 +131,6 @@ Read more: https://mswjs.io/docs/http/intercepting-requests
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/board/board.test.tsx > BoardView > puts no Accept button on Safety work that no person has verified
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
 stderr | src/features/board/quick-add.test.tsx > QuickAdd on the board > shows the server's refusal in place and keeps the text
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -147,15 +139,7 @@ stderr | src/features/board/quick-add.test.tsx > QuickAdd on the board > shows t
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/case/case.test.tsx > case view > says when the pre-check shares the author's runtime, with the override
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/case/case.test.tsx > case view > shows who generated, selected and presented the evidence and flags every axis not separated, even compactly
+stderr | src/features/board/board.test.tsx > BoardView > opens the non-obscuring review drawer from the title button and links to the full case
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -171,10 +155,10 @@ stderr | src/features/board/quick-add.test.tsx > QuickAdd on the board > refuses
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/board/board.test.tsx > BoardView > offers Stop run while a run is going, and not again once a stop was requested
+stderr | src/places/places.test.tsx > shell and palette > forgets the event stream state on sign out
 [MSW] Error: intercepted a request without a matching request handler:
 
-  • GET /runtimes
+  • GET /inbox
 
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
@@ -187,7 +171,7 @@ stderr | src/places/places.test.tsx > shell and palette > forgets the event stre
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/case/case.test.tsx > case view > says a running run's story is still being written
+stderr | src/features/board/board.test.tsx > BoardView > says status is unknown after the stream errors, with a Reconnect button and no live symbol
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -195,22 +179,10 @@ stderr | src/features/case/case.test.tsx > case view > says a running run's stor
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/places/places.test.tsx > shell and palette > forgets the event stream state on sign out
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /inbox
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/board.test.tsx > BoardView > does not tag a General service package
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
+ ✓ src/pages/wave3-pages.test.tsx (3 tests) 1444ms
+   ✓ Wave 3/4 workbench pages (3)
+     ✓ Explore disables Cycle 2 multi-CLI fan-out controls and runs Checkpoint and Merkle Freeze 960ms
+     ✓ Compare renders side-by-side candidates, adds temporary local notes, and shows retry on error 365ms
 stderr | src/places/places.test.tsx > shell and palette > opens on Ctrl+K, finds a place by typing, and goes there on Enter
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -227,98 +199,7 @@ stderr | src/features/board/quick-add.test.tsx > QuickAdd on the board > retains
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/case/case.test.tsx > case view > tells each run's story with its trace facts and flags
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/board.test.tsx > BoardView > opens the non-obscuring review drawer from the title button and links to the full case
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/case/case.test.tsx > case view > opens design inputs, methodology and the signer requirements for high consequence work, and Show everything opens the rest
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/case/case.test.tsx > case view > opens design inputs, methodology and the signer requirements for high consequence work, and Show everything opens the rest
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /packages/WP-0001/person-verifications
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/quick-add.test.tsx > CaptureCard > classifies the lane inline and then reads Intake drafting
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/places/places.test.tsx > shell and palette > lists a command the viewer may not take, says why and what would change it, and does nothing when chosen
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /inbox
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/case/case.test.tsx > case view > keeps the compact tier one click from everything
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
 stderr | src/features/board/board.test.tsx > BoardView > says status is unknown after the stream errors, with a Reconnect button and no live symbol
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
- ✓ src/features/case/case.test.tsx (12 tests) 2142ms
-   ✓ case view (9)
-     ✓ offers no Accept on Safety work no person has verified, in the bar or the strip (ruling 16) 719ms
-stderr | src/features/board/quick-add.test.tsx > CaptureCard > shows a failed intake with its error and offers a retry
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/board.test.tsx > BoardView > says status is unknown after the stream errors, with a Reconnect button and no live symbol
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
- ✓ src/pages/criteria.test.tsx (7 tests) 2862ms
-   ✓ criteria editor (7)
-     ✓ saves with the tag the draft had when editing began 752ms
-     ✓ keeps what is being typed when a refresh arrives, and offers the latest on a stale save 459ms
-     ✓ loads the latest criteria from the server when the page has not refreshed yet, and saves with its tag 475ms
-     ✓ keeps the person's text when the latest criteria cannot be loaded 318ms
-     ✓ after a save, the next edit uses the saved tag even when the reload fails 445ms
-     ✓ a save that finishes after a new session began leaves that session's cache without it 382ms
-stderr | src/features/board/quick-add.test.tsx > CaptureCard > gives way to the package cards once intake lists package ids
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -342,7 +223,7 @@ stderr | src/features/board/board.test.tsx > BoardView > says the work could not
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/board/quick-add.test.tsx > CaptureCard > keeps the board usable and says so when captures cannot be read
+stderr | src/features/board/quick-add.test.tsx > CaptureCard > classifies the lane inline and then reads Intake drafting
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -350,7 +231,47 @@ stderr | src/features/board/quick-add.test.tsx > CaptureCard > keeps the board u
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
+stderr | src/places/places.test.tsx > shell and palette > lists a command the viewer may not take, says why and what would change it, and does nothing when chosen
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /inbox
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
 stderr | src/features/board/board.test.tsx > BoardView > shows no card for a listed package whose view says it does not exist for this viewer
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/quick-add.test.tsx > CaptureCard > shows a failed intake with its error and offers a retry
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/board.test.tsx > BoardView > says the counts are unknown, not zero, when the work could not be read
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/board.test.tsx > BoardView > reads cards and counts as last known after a drop until each read has succeeded again, even reads made inactive by leaving the board
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/quick-add.test.tsx > CaptureCard > gives way to the package cards once intake lists package ids
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -366,16 +287,60 @@ stderr | src/places/places.test.tsx > shell and palette > offers the viewed pack
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
- ✓ src/features/board/quick-add.test.tsx (15 tests) 3795ms
-   ✓ QuickAdd on the board (7)
-     ✓ posts one capture on Enter, with no lane, and leaves a fresh focused field 1016ms
-     ✓ closes on Escape and returns focus to the opener; a typed draft survives losing focus 336ms
-     ✓ offers one card per pasted line and posts them all 328ms
-     ✓ retains only unsent lines on partial batch failure, invalidates captures, and retries without duplicates 455ms
-stderr | src/features/board/board.test.tsx > BoardView > says the counts are unknown, not zero, when the work could not be read
+stderr | src/features/board/board.test.tsx > BoardView > reads cards and counts as last known after a drop until each read has succeeded again, even reads made inactive by leaving the board
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/quick-add.test.tsx > CaptureCard > keeps the board usable and says so when captures cannot be read
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ src/features/board/quick-add.test.tsx (15 tests) 2741ms
+   ✓ QuickAdd on the board (7)
+     ✓ posts one capture on Enter, with no lane, and leaves a fresh focused field 710ms
+     ✓ retains only unsent lines on partial batch failure, invalidates captures, and retries without duplicates 465ms
+stderr | src/features/board/board.test.tsx > BoardView > says the agent count is unknown when a package view cannot be read
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/places/places.test.tsx > shell and palette > does not offer Accept from the palette on unverified Safety work (ruling 16)
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /inbox
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ src/pages/criteria.test.tsx (7 tests) 2306ms
+   ✓ criteria editor (7)
+     ✓ saves with the tag the draft had when editing began 520ms
+     ✓ loads the latest criteria from the server when the page has not refreshed yet, and saves with its tag 501ms
+     ✓ keeps the person's text when the latest criteria cannot be loaded 339ms
+     ✓ after a save, the next edit uses the saved tag even when the reload fails 392ms
+stderr | src/features/board/board.test.tsx > BoardView > keeps the current display through a short refetch and shows last known only after one second
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/places/places.test.tsx > shell and palette > keeps focus in the palette when a refused command is clicked, and Escape still closes it
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /inbox
 
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
@@ -404,83 +369,10 @@ stderr | src/components/components.test.tsx > inbox > keeps the server's gate ri
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/board/board.test.tsx > BoardView > reads cards and counts as last known after a drop until each read has succeeded again, even reads made inactive by leaving the board
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
 stderr | src/components/components.test.tsx > inbox > shows the digest lines in words and marks them seen, on this person's own cursor
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/places/places.test.tsx > shell and palette > does not offer Accept from the palette on unverified Safety work (ruling 16)
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /inbox
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/board.test.tsx > BoardView > reads cards and counts as last known after a drop until each read has succeeded again, even reads made inactive by leaving the board
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/places/places.test.tsx > shell and palette > keeps focus in the palette when a refused command is clicked, and Escape still closes it
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /inbox
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
- ✓ src/features/office/scram.test.tsx (9 tests) 4386ms
-   ✓ SCRAM (9)
-     ✓ states the scope and what it stops, counted by the pull's own selection, then signs exactly that (OV-12) 1159ms
-     ✓ takes focus when it opens, keeps Tab inside, closes on Escape, and gives focus back 347ms
-     ✓ cannot be cancelled while the signed stop is in flight 469ms
-     ✓ fires only once the count is stated; a failed count can be waived explicitly 375ms
-     ✓ never lets a count that does not arrive block the stop: after a while it can be waived, and the stop fires 514ms
-     ✓ lists each report's outputs and digests before a disposition, and never widens a draft review to a report that lands mid-draft 569ms
-     ✓ restarts only something the SCRAM holds, states the exact scope, writes the reason afresh on a new scope, and shows the refusal 838ms
-stderr | src/features/board/board.test.tsx > BoardView > says the agent count is unknown when a package view cannot be read
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/board.test.tsx > BoardView > keeps the current display through a short refetch and shows last known only after one second
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/places/places.test.tsx > shell and palette > says when what the viewer may do could not be checked
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /inbox
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/places/places.test.tsx > shell and palette > closes on Escape and gives focus back to where it was
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /inbox
 
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
@@ -501,6 +393,30 @@ stderr | src/features/board/board.test.tsx > BoardView > keeps both counts unkno
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
+stderr | src/places/places.test.tsx > shell and palette > says when what the viewer may do could not be checked
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /inbox
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/board.test.tsx > BoardView > never offers Accept on a card while a refresh of its cached covering pass is in flight
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/places/places.test.tsx > shell and palette > closes on Escape and gives focus back to where it was
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /inbox
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
 stderr | src/places/places.test.tsx > shell and palette > moves with the arrow keys and wraps around
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -509,17 +425,15 @@ stderr | src/places/places.test.tsx > shell and palette > moves with the arrow k
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
- ✓ src/components/components.test.tsx (33 tests) 5312ms
-   ✓ capture (3)
-     ✓ sends the text as a web capture 1127ms
-     ✓ sends an attached file as an attachment fence and shows its name, never the base64 687ms
-   ✓ decision flow (14)
-     ✓ requires direction before returning a package 421ms
-   ✓ runs that need the owner (5)
-     ✓ holds requeue on a run whose outcome is unknown and reconciles it with a signed reason 334ms
-   ✓ data lanes (1)
-     ✓ sends the chosen lane and says a sensitive lane stays on this computer 342ms
-stderr | src/features/board/board.test.tsx > BoardView > never offers Accept on a card while a refresh of its cached covering pass is in flight
+stderr | src/features/board/board.test.tsx > BoardView > says it could not read what is next when the package view or actions fail, with a retry
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/board.test.tsx > BoardView > carries the chosen look on the board container only
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -543,7 +457,7 @@ stderr | src/places/places.test.tsx > places > shows each runtime's artifact and
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/board/board.test.tsx > BoardView > says it could not read what is next when the package view or actions fail, with a retry
+stderr | src/features/board/board.test.tsx > BoardView > guides the first card on an empty board
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
@@ -565,22 +479,6 @@ Read more: https://mswjs.io/docs/http/intercepting-requests
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/features/board/board.test.tsx > BoardView > carries the chosen look on the board container only
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/board.test.tsx > BoardView > guides the first card on an empty board
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
 stderr | src/features/office/office-view.test.tsx > office view > shows the figures, what waits on the viewer, and a card that says why (OV-01, OV-02)
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -589,19 +487,6 @@ stderr | src/features/office/office-view.test.tsx > office view > shows the figu
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
- ✓ src/places/places.test.tsx (19 tests) 5028ms
-   ✓ shell and palette (11)
-     ✓ shows every place in one navigation and marks the current one 342ms
-     ✓ switches the board look and keeps it, leaving the rest of the app in look A 340ms
-     ✓ opens on Ctrl+K, finds a place by typing, and goes there on Enter 399ms
-     ✓ lists a command the viewer may not take, says why and what would change it, and does nothing when chosen 697ms
-     ✓ offers the viewed package's decisions and takes an allowed one to the decision bar 401ms
-     ✓ does not offer Accept from the palette on unverified Safety work (ruling 16) 431ms
-     ✓ keeps focus in the palette when a refused command is clicked, and Escape still closes it 479ms
-     ✓ closes on Escape and gives focus back to where it was 407ms
-     ✓ moves with the arrow keys and wraps around 392ms
-   ✓ places (6)
-     ✓ shows the floors, and every administrative command with the viewer's standing 325ms
 stderr | src/features/board/board.test.tsx > BoardView > counts what needs you and the agents running
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -618,6 +503,12 @@ stderr | src/features/board/board.test.tsx > BoardView > says a viewer who origi
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
+ ✓ src/places/places.test.tsx (19 tests) 3294ms
+   ✓ shell and palette (11)
+     ✓ shows every place in one navigation and marks the current one 371ms
+     ✓ opens on Ctrl+K, finds a place by typing, and goes there on Enter 431ms
+     ✓ lists a command the viewer may not take, says why and what would change it, and does nothing when chosen 409ms
+     ✓ keeps focus in the palette when a refused command is clicked, and Escape still closes it 387ms
 stderr | src/features/board/board.test.tsx > BoardView > tells a viewer who did not originate the work that nobody can verify it, naming the excluded originators
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -634,6 +525,14 @@ stderr | src/features/board/board.test.tsx > BoardView > says nothing definite w
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
+ ✓ src/features/office/scram.test.tsx (9 tests) 4075ms
+   ✓ SCRAM (9)
+     ✓ states the scope and what it stops, counted by the pull's own selection, then signs exactly that (OV-12) 995ms
+     ✓ cannot be cancelled while the signed stop is in flight 484ms
+     ✓ fires only once the count is stated; a failed count can be waived explicitly 393ms
+     ✓ never lets a count that does not arrive block the stop: after a while it can be waived, and the stop fires 459ms
+     ✓ lists each report's outputs and digests before a disposition, and never widens a draft review to a report that lands mid-draft 613ms
+     ✓ restarts only something the SCRAM holds, states the exact scope, writes the reason afresh on a new scope, and shows the refusal 794ms
 stderr | src/features/office/office-view.test.tsx > office view > shows the figures, what waits on the viewer, and a card that says why (OV-01, OV-02)
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -650,10 +549,6 @@ stderr | src/features/office/office-view.test.tsx > office view > shows the figu
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
- ✓ src/pages/wave3-pages.test.tsx (3 tests) 1850ms
-   ✓ Wave 3/4 workbench pages (3)
-     ✓ Explore switches modes and runs Checkpoint and Merkle Freeze against /repos/checkpoint and /repos/freeze 1238ms
-     ✓ Compare renders side-by-side candidates and anchors digest review notes 526ms
 stderr | src/features/board/board.test.tsx > BoardView > moves a card back to Person verifies and offers no Accept when a refresh of its covering pass fails
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -662,6 +557,12 @@ stderr | src/features/board/board.test.tsx > BoardView > moves a card back to Pe
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
+ ✓ src/components/components.test.tsx (33 tests) 4259ms
+   ✓ capture (3)
+     ✓ sends the text as a web capture 819ms
+     ✓ sends an attached file as an attachment fence and shows its name, never the base64 373ms
+   ✓ decision flow (14)
+     ✓ requires direction before returning a package 312ms
 stderr | src/features/office/office-view.test.tsx > office view > switches lens without moving anyone, and presenting mode asks the server to leave restricted work out (OV-07)
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -678,18 +579,6 @@ stderr | src/features/board/board.test.tsx > BoardView > says it cannot tell who
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
- ✓ src/pages/policies-admin.test.tsx (18 tests) 7207ms
-   ✓ administration forms (17)
-     ✓ states exactly what a command changes before it is signed, and signs exactly that 1003ms
-     ✓ revokes a passkey named by its owner and registration, never a raw id 312ms
-     ✓ issues a qualification with roles, authorities and parsed licenses, refusing a malformed license 1015ms
-     ✓ proposes policy unsigned, and approves a proposal showing exactly what it puts in force, signed 474ms
-     ✓ sets a hard cap on run time, saying it holds work before it starts 508ms
-     ✓ refuses a hard cap on anything but minutes before anything is signed 349ms
-     ✓ updates a project's overlays, or clears them, but never both at once 345ms
-     ✓ starts a first proposal from the formats signing accepts now, when no policy has been approved 530ms
-     ✓ starts the policy proposal again when a new policy comes into force 795ms
-     ✓ offers the first Member their own first qualification while no administrator exists 501ms
 stderr | src/features/board/board.test.tsx > BoardView > makes no second-person claim while /admin is still loading
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -706,6 +595,11 @@ stderr | src/features/office/office-view.test.tsx > office view > never shows a 
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
+ ✓ src/pages/policies-admin.test.tsx (18 tests) 4708ms
+   ✓ administration forms (17)
+     ✓ states exactly what a command changes before it is signed, and signs exactly that 763ms
+     ✓ issues a qualification with roles, authorities and parsed licenses, refusing a malformed license 803ms
+     ✓ offers the first Member their own first qualification while no administrator exists 439ms
 stderr | src/features/office/office-view.test.tsx > exceptions overlay and portfolio (OV-26) > shows the folded counts and lets the viewer show everyone
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -722,32 +616,6 @@ stderr | src/features/board/board.test.tsx > BoardView > says it cannot tell who
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
- ✓ src/components/agent-panel.test.tsx (15 tests) 8048ms
-   ✓ AgentPanel (10)
-     ✓ holds what is shown while paused and counts what arrived 2099ms
-     ✓ asks only for events after the last one it holds while polling 2108ms
-     ✓ keeps a step as it was while paused, even when its tool finishes 2710ms
-stderr | src/pages/inbox.test.tsx > Inbox > auto-opens the drawer for the first package, keeps it closed on Close/Esc, and reopens on Inspect inline
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /admin
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
- ✓ src/components/preparation/preparation.test.tsx (20 tests) 7629ms
-   ✓ manual preparation workbench (20)
-     ✓ shows stored context, requirement status and blocker ownership; saves with the loaded ETag 899ms
-     ✓ keeps unsaved work on conflict and offers explicit reload instead of merging 671ms
-     ✓ retiring an item retires every reference to it, so the saved preparation never cites a missing item 402ms
-     ✓ keeps a new line while typing a one-per-line list, and saves only the entries 565ms
-     ✓ never carries one package's unsaved draft to another package 434ms
-     ✓ keeps a new line in every one-per-line list 395ms
-     ✓ a save that finishes after a new session began leaves that session's cache without it 792ms
-     ✓ a basis refresh answered after a new session began does not appear in the editor 395ms
-     ✓ a refusal answered after a new session began is not shown 532ms
-     ✓ a comparison read answered after a new session began is not shown 485ms
-     ✓ a reload refused after a new session began shows no refusal 305ms
 stderr | src/features/board/board.test.tsx > BoardView > shows the meaning word beside its symbol
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -756,10 +624,42 @@ stderr | src/features/board/board.test.tsx > BoardView > shows the meaning word 
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
+stderr | src/features/office/agent-card.test.tsx > agent card > shows the package at a glance, rigor and independence in words, and who may sign (OV-08, OV-10, OV-11)
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /packages/WP-0001/runs/R-2/events
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/office/agent-card.test.tsx > agent card > shows the package at a glance, rigor and independence in words, and who may sign (OV-08, OV-10, OV-11)
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /packages/WP-0001/person-verifications
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
 stderr | src/features/board/board.test.tsx > BoardView > is neutral while connecting: no banner and no live symbol
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/office/agent-card.test.tsx > agent card > states spend against the agent's tightest budget, and says when its unit is not reported (OV-08, OV-13)
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /packages/WP-0001/runs/R-2/events
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/office/agent-card.test.tsx > agent card > states spend against the agent's tightest budget, and says when its unit is not reported (OV-08, OV-13)
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /packages/WP-0001/person-verifications
 
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
@@ -788,177 +688,10 @@ stderr | src/features/board/board.test.tsx > BoardView > resets DecisionBar stat
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
-stderr | src/pages/inbox.test.tsx > Inbox > auto-opens the drawer for the first package, keeps it closed on Close/Esc, and reopens on Inspect inline
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /admin
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/pages/inbox.test.tsx > Inbox > closes the drawer when a selected package disappears on refresh and stays closed if dismissed
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /admin
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/pages/inbox.test.tsx > Inbox > closes the drawer when a selected package disappears on refresh and stays closed if dismissed
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /admin
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/office/office-view.test.tsx > SCRAM while presenting > keeps SCRAM at hand, but its count names no runs and asks the control plane for counts only
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /auth/session
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
- ✓ src/pages/inbox.test.tsx (2 tests) 2187ms
-   ✓ Inbox (2)
-     ✓ auto-opens the drawer for the first package, keeps it closed on Close/Esc, and reopens on Inspect inline 1521ms
-     ✓ closes the drawer when a selected package disappears on refresh and stays closed if dismissed 653ms
-stderr | src/features/office/office-view.test.tsx > shared causes (OV-03) > shows the chip with its input, owner, age and count, and opens to list the agents
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /auth/session
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
- ✓ src/features/office/office-view.test.tsx (19 tests) 3742ms
-   ✓ office view (3)
-     ✓ shows the figures, what waits on the viewer, and a card that says why (OV-01, OV-02) 1291ms
-     ✓ switches lens without moving anyone, and presenting mode asks the server to leave restricted work out (OV-07) 440ms
-   ✓ exceptions overlay and portfolio (OV-26) (3)
-     ✓ shows the folded counts and lets the viewer show everyone 433ms
-   ✓ themes (plan task 4.9) (3)
-     ✓ in an ordinary build offers the fifteen released worlds, switches the scene only, keeps the open card, and remembers the choice 527ms
-   ✓ SCRAM while presenting (1)
-     ✓ keeps SCRAM at hand, but its count names no runs and asks the control plane for counts only 356ms
-stderr | src/session-gate.test.tsx > the session gate when the signed-in person changes behind it > treats a refetched session for someone else as a new session: clears the earlier data and remounts the app
-The current testing environment is not configured to support act(...)
-
-stderr | src/features/board/board.test.tsx > BoardView > navigates package card title buttons with J and K while skipping non-button CaptureCard titles
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/session-gate.test.tsx > the session gate when the signed-in person changes behind it > treats a refetched session for someone else as a new session: clears the earlier data and remounts the app
-The current testing environment is not configured to support act(...)
-
-stderr | src/features/board/board.test.tsx > BoardView > stays loading while captures are pending even after packages arrive
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/board.test.tsx > BoardView > shows package error alerts even while captures are still pending
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
- ✓ src/pages/records.test.tsx (8 tests) 2710ms
-   ✓ Records (8)
-     ✓ says, everywhere, that the chain is local and not witnessed 346ms
-     ✓ verifies the chain and every seal, and states how much no valid seal covers 576ms
-     ✓ seals exactly the head it shows, with a purpose, signed 752ms
-     ✓ exports a time window for audit, sending the window with its time zone, and offers the file with the offline check 448ms
-stderr | src/session-gate.test.tsx > the session gate when the signed-in person changes behind it > treats a refetched sign-out as a new session too
-The current testing environment is not configured to support act(...)
-
-stderr | src/features/board/board.test.tsx > context profile > locks Safety grade work to Nuclear with the reason, and badges the card
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/board.test.tsx > context profile > shows no badge for Light work and saves a switch to Nuclear through the draft edit
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/session-gate.test.tsx > the session gate when the signed-in person changes behind it > keeps everything when a refetch returns the same person
-The current testing environment is not configured to support act(...)
-
- ✓ src/session-gate.test.tsx (3 tests) 2084ms
-   ✓ the session gate when the signed-in person changes behind it (3)
-     ✓ treats a refetched session for someone else as a new session: clears the earlier data and remounts the app 1410ms
-     ✓ keeps everything when a refetch returns the same person 368ms
-stderr | src/features/board/board.test.tsx > context profile > keeps the switch read-only for a draft in guided preparation, which refuses the draft edit
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
- ✓ src/pages/usage.test.tsx (3 tests) 668ms
-   ✓ Usage (3)
-     ✓ shows each budget's use this window, what open runs hold, and a budget whose unit is not reported as not reported 473ms
-stderr | src/features/office/agent-card.test.tsx > agent card > shows the package at a glance, rigor and independence in words, and who may sign (OV-08, OV-10, OV-11)
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /packages/WP-0001/runs/R-2/events
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/office/agent-card.test.tsx > agent card > shows the package at a glance, rigor and independence in words, and who may sign (OV-08, OV-10, OV-11)
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /packages/WP-0001/person-verifications
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
 stderr | src/features/office/agent-card.test.tsx > agent card > states spend against the agent's tightest budget, and says when its unit is not reported (OV-08, OV-13)
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /packages/WP-0001/runs/R-2/events
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/office/agent-card.test.tsx > agent card > states spend against the agent's tightest budget, and says when its unit is not reported (OV-08, OV-13)
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /packages/WP-0001/person-verifications
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/office/agent-card.test.tsx > agent card > states spend against the agent's tightest budget, and says when its unit is not reported (OV-08, OV-13)
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /packages/WP-0001/runs/R-2/events
-
-If you still wish to intercept this unhandled request, please create a request handler for it.
-Read more: https://mswjs.io/docs/http/intercepting-requests
-
-stderr | src/features/board/board.test.tsx > context profile > badges a card whose project defaults to Nuclear
-[MSW] Error: intercepted a request without a matching request handler:
-
-  • GET /runtimes
 
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
@@ -987,33 +720,6 @@ stderr | src/features/office/agent-card.test.tsx > agent card > offers the actio
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
- ✓ src/features/board/board.test.tsx (41 tests) 10948ms
-   ✓ BoardView (37)
-     ✓ renders the six column headings in order 409ms
-     ✓ labels each card by its title and keeps the counts out of a live region 345ms
-     ✓ opens the non-obscuring review drawer from the title button and links to the full case 422ms
-     ✓ reads cards and counts as last known after a drop until each read has succeeded again, even reads made inactive by leaving the board 648ms
-     ✓ keeps the current display through a short refetch and shows last known only after one second 486ms
-     ✓ never offers Accept on a card while a refresh of its cached covering pass is in flight 341ms
-     ✓ counts what needs you and the agents running 318ms
-     ✓ makes no second-person claim while /admin is still loading 526ms
-     ✓ resets DecisionBar state in BoardReviewDrawer when switching packages 1087ms
-     ✓ navigates package card title buttons with J and K while skipping non-button CaptureCard titles 527ms
-   ✓ context profile (4)
-     ✓ shows no badge for Light work and saves a switch to Nuclear through the draft edit 311ms
-     ✓ keeps the switch read-only for a draft in guided preparation, which refuses the draft edit 435ms
- ✓ src/components/newwork.test.tsx (16 tests) 11797ms
-   ✓ engineering mode toggle and NewWorkModal (16)
-     ✓ switches between Software and Capital Projects mode in the shell 624ms
-     ✓ supports Simple vs Advanced mode, auto-inference, runnable-only CLIs, and saved defaults 2057ms
-     ✓ pairs reasoning effort levels to runnable CLI ecosystems and models 502ms
-     ✓ keeps preparedBranch pinned across Simple-mode objective edits and invalidates on branch edit 2716ms
-     ✓ discards a delayed /repos/materialize response when repo changes mid-flight 437ms
-     ✓ allows preparing Repo-B while delayed Repo-A request is still in flight 443ms
-     ✓ clears error, defaultsNotice, and prepared state on close and ignores in-flight materialize 1059ms
-     ✓ clears previously succeeded preparedPath and preparedBranch when re-prepare fails 648ms
-     ✓ isolates in-flight /captures success when modal is closed and reopened 1081ms
-     ✓ isolates in-flight /captures error when modal is closed and reopened 1029ms
 stderr | src/features/office/agent-card.test.tsx > agent card > never offers stop on a run that is not queued or running
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -1028,10 +734,6 @@ Read more: https://mswjs.io/docs/http/intercepting-requests
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
- ✓ src/pages/signin.test.tsx (8 tests) 2014ms
-   ✓ a sign-in page drawn from an out-of-date session (8)
-     ✓ takes a browser that is already signed in to its session instead of refusing 738ms
-     ✓ redraws the app after a first registration  319ms
 stderr | src/features/office/agent-card.test.tsx > agent card > does not say the viewer may accept unverified Material work, even when the server allows it (ruling 16)
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -1040,10 +742,26 @@ stderr | src/features/office/agent-card.test.tsx > agent card > does not say the
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
+stderr | src/features/office/office-view.test.tsx > SCRAM while presenting > keeps SCRAM at hand, but its count names no runs and asks the control plane for counts only
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /auth/session
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
 stderr | src/features/office/agent-card.test.tsx > agent card > puts unverified Material work at Person verifies, never Needs signature, and says when the step is unknown
 [MSW] Error: intercepted a request without a matching request handler:
 
   • GET /packages/WP-0001/runs/R-2/events
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/board.test.tsx > BoardView > navigates package card title buttons with J and K while skipping non-button CaptureCard titles
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
 
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
@@ -1064,6 +782,14 @@ stderr | src/features/office/agent-card.test.tsx > agent card > does not say the
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
+stderr | src/features/board/board.test.tsx > BoardView > stays loading while captures are pending even after packages arrive
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
 stderr | src/features/office/agent-card.test.tsx > agent card > does not say the viewer may accept while a refresh of a cached covering pass is in flight
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -1072,6 +798,30 @@ stderr | src/features/office/agent-card.test.tsx > agent card > does not say the
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
+stderr | src/features/office/office-view.test.tsx > shared causes (OV-03) > shows the chip with its input, owner, age and count, and opens to list the agents
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /auth/session
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/board.test.tsx > BoardView > shows package error alerts even while captures are still pending
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ src/features/office/office-view.test.tsx (19 tests) 2671ms
+   ✓ office view (3)
+     ✓ shows the figures, what waits on the viewer, and a card that says why (OV-01, OV-02) 696ms
+     ✓ switches lens without moving anyone, and presenting mode asks the server to leave restricted work out (OV-07) 513ms
+   ✓ exceptions overlay and portfolio (OV-26) (3)
+     ✓ shows the folded counts and lets the viewer show everyone 353ms
+   ✓ themes (plan task 4.9) (3)
+     ✓ in an ordinary build offers the fifteen released worlds, switches the scene only, keeps the open card, and remembers the choice 457ms
 stderr | src/features/office/agent-card.test.tsx > agent card > names the signature the rung opens, and never borrows another gate's
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -1080,52 +830,258 @@ stderr | src/features/office/agent-card.test.tsx > agent card > names the signat
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
- ✓ src/features/office/agent-card.test.tsx (11 tests) 2245ms
+stderr | src/features/board/board.test.tsx > context profile > locks Safety grade work to Nuclear with the reason, and badges the card
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ src/components/preparation/preparation.test.tsx (20 tests) 5792ms
+   ✓ manual preparation workbench (20)
+     ✓ shows stored context, requirement status and blocker ownership; saves with the loaded ETag 826ms
+     ✓ keeps unsaved work on conflict and offers explicit reload instead of merging 570ms
+     ✓ keeps a new line while typing a one-per-line list, and saves only the entries 355ms
+     ✓ a save that finishes after a new session began leaves that session's cache without it 495ms
+     ✓ a basis refresh answered after a new session began does not appear in the editor 310ms
+     ✓ a refusal answered after a new session began is not shown 464ms
+     ✓ a comparison read answered after a new session began is not shown 434ms
+ ✓ src/features/office/agent-card.test.tsx (11 tests) 1480ms
    ✓ agent card (11)
-     ✓ shows the package at a glance, rigor and independence in words, and who may sign (OV-08, OV-10, OV-11) 709ms
-     ✓ offers the actions on the agent as governed commands, and says why the rest are not available (OV-06) 499ms
- ✓ src/features/board/move.test.tsx (14 tests) 2081ms
-   ✓ CardActions (9)
-     ✓ signs the primary decision over the card's digest and says it was recorded 565ms
-     ✓ asks for a reason before signing a return 449ms
-     ✓ puts away an open reason form when its decision is withdrawn, and sends nothing 368ms
- ✓ src/features/floor/gallery.test.tsx (2 tests) 923ms
-   ✓ labels sample previews and prevents public activation of draft artwork 762ms
+     ✓ shows the package at a glance, rigor and independence in words, and who may sign (OV-08, OV-10, OV-11) 416ms
+stderr | src/features/board/board.test.tsx > context profile > shows no badge for Light work and saves a switch to Nuclear through the draft edit
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ src/pages/records.test.tsx (8 tests) 1958ms
+   ✓ Records (8)
+     ✓ verifies the chain and every seal, and states how much no valid seal covers 393ms
+     ✓ seals exactly the head it shows, with a purpose, signed 370ms
+     ✓ exports a time window for audit, sending the window with its time zone, and offers the file with the offline check 341ms
+stderr | src/features/board/board.test.tsx > context profile > keeps the switch read-only for a draft in guided preparation, which refuses the draft edit
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/board/board.test.tsx > context profile > badges a card whose project defaults to Nuclear
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ src/features/board/board.test.tsx (41 tests) 7125ms
+   ✓ BoardView (37)
+     ✓ renders the six column headings in order 459ms
+     ✓ keeps the current display through a short refetch and shows last known only after one second 410ms
+     ✓ makes no second-person claim while /admin is still loading 493ms
+     ✓ resets DecisionBar state in BoardReviewDrawer when switching packages 509ms
+stderr | src/features/case/case.test.tsx > case view > offers no Accept on Safety work no person has verified, in the bar or the strip (ruling 16)
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/case/case.test.tsx > case view > is one column in PROVE order, signed at the bottom, with the decision bar never absent
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/case/case.test.tsx > case view > shows the pre-check floor even in the most compact tier
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ src/components/agent-panel.test.tsx (15 tests) 7952ms
+   ✓ AgentPanel (10)
+     ✓ shows the live run's transcript from its recorded events 328ms
+     ✓ holds what is shown while paused and counts what arrived 2094ms
+     ✓ asks only for events after the last one it holds while polling 2076ms
+     ✓ keeps a step as it was while paused, even when its tool finishes 2735ms
+stderr | src/features/case/case.test.tsx > case view > says when the pre-check shares the author's runtime, with the override
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/case/case.test.tsx > case view > shows who generated, selected and presented the evidence and flags every axis not separated, even compactly
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/case/case.test.tsx > case view > says a running run's story is still being written
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/case/case.test.tsx > case view > tells each run's story with its trace facts and flags
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/case/case.test.tsx > case view > opens design inputs, methodology and the signer requirements for high consequence work, and Show everything opens the rest
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/case/case.test.tsx > case view > opens design inputs, methodology and the signer requirements for high consequence work, and Show everything opens the rest
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /packages/WP-0001/person-verifications
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/features/case/case.test.tsx > case view > keeps the compact tier one click from everything
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /runtimes
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ src/features/case/case.test.tsx (12 tests) 1769ms
+   ✓ case view (9)
+     ✓ offers no Accept on Safety work no person has verified, in the bar or the strip (ruling 16) 660ms
 stderr | src/components/shell.test.tsx > signing out > an answer that arrives after a newer sign-in does not replace the newer session
 The current testing environment is not configured to support act(...)
 
+ ✓ src/features/board/move.test.tsx (14 tests) 2271ms
+   ✓ CardActions (9)
+     ✓ signs the primary decision over the card's digest and says it was recorded 483ms
+     ✓ asks for a reason before signing a return 490ms
+     ✓ puts away an open reason form when its decision is withdrawn, and sends nothing 563ms
+ ✓ src/pages/signin.test.tsx (8 tests) 1901ms
+   ✓ a sign-in page drawn from an out-of-date session (8)
+     ✓ takes a browser that is already signed in to its session instead of refusing 536ms
+     ✓ recovers when adding a passkey asks for a step-up the stale page never offered 338ms
 stderr | src/components/shell.test.tsx > signing out > a late answer makes the tab ask the server who is signed in, and shows sign-in when nobody is
 The current testing environment is not configured to support act(...)
 
- ✓ src/pages/roster.test.tsx (5 tests) 2089ms
-   ✓ Roster (5)
-     ✓ states each role's recorded baselines and pins, and that a role nothing has run names none 791ms
-     ✓ pins a version for exactly the roles chosen, stating what changes, signed 504ms
-     ✓ shows what a rollback restores, signs both artifacts, and shows the control plane's refusal as given 346ms
- ✓ src/components/shell.test.tsx (3 tests) 2180ms
+ ✓ src/components/newwork.test.tsx (16 tests) 9469ms
+   ✓ engineering mode toggle and NewWorkModal (16)
+     ✓ switches between Software and Capital Projects mode in the shell 667ms
+     ✓ supports Simple vs Advanced mode, auto-inference, runnable-only CLIs, and saved defaults 1940ms
+     ✓ keeps preparedBranch pinned across Simple-mode objective edits and invalidates on branch edit 1505ms
+     ✓ discards a delayed /repos/materialize response when repo changes mid-flight 351ms
+     ✓ clears error, defaultsNotice, and prepared state on close and ignores in-flight materialize 663ms
+     ✓ clears previously succeeded preparedPath and preparedBranch when re-prepare fails 546ms
+     ✓ isolates in-flight /captures success when modal is closed and reopened 928ms
+     ✓ isolates in-flight /captures error when modal is closed and reopened 1331ms
+     ✓ refuses submission and retains draft when composed header + objective exceeds CAPTURE_LIMIT 307ms
+ ✓ src/components/shell.test.tsx (3 tests) 1931ms
    ✓ signing out (3)
-     ✓ cannot be sent twice while a sign-out is pending 1065ms
-     ✓ an answer that arrives after a newer sign-in does not replace the newer session 433ms
-     ✓ a late answer makes the tab ask the server who is signed in, and shows sign-in when nobody is 642ms
- ✓ src/features/office/contract.test.ts (40 tests) 985ms
+     ✓ cannot be sent twice while a sign-out is pending 578ms
+     ✓ an answer that arrives after a newer sign-in does not replace the newer session 668ms
+     ✓ a late answer makes the tab ask the server who is signed in, and shows sign-in when nobody is 671ms
+ ✓ src/pages/usage.test.tsx (3 tests) 1013ms
+   ✓ Usage (3)
+     ✓ shows each budget's use this window, what open runs hold, and a budget whose unit is not reported as not reported 615ms
+stderr | src/pages/inbox.test.tsx > Inbox > auto-opens the drawer for the first package, keeps it closed on Close/Esc, and reopens on Inspect inline
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /admin
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/pages/inbox.test.tsx > Inbox > auto-opens the drawer for the first package, keeps it closed on Close/Esc, and reopens on Inspect inline
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /admin
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+stderr | src/pages/inbox.test.tsx > Inbox > closes the drawer when a selected package disappears on refresh and stays closed if dismissed
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /admin
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ src/pages/roster.test.tsx (5 tests) 1543ms
+   ✓ Roster (5)
+     ✓ states each role's recorded baselines and pins, and that a role nothing has run names none 522ms
+     ✓ pins a version for exactly the roles chosen, stating what changes, signed 423ms
+stderr | src/pages/inbox.test.tsx > Inbox > closes the drawer when a selected package disappears on refresh and stays closed if dismissed
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • GET /admin
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ src/pages/inbox.test.tsx (2 tests) 1391ms
+   ✓ Inbox (2)
+     ✓ auto-opens the drawer for the first package, keeps it closed on Close/Esc, and reopens on Inspect inline 967ms
+     ✓ closes the drawer when a selected package disappears on refresh and stays closed if dismissed 400ms
+stderr | src/session-gate.test.tsx > the session gate when the signed-in person changes behind it > treats a refetched session for someone else as a new session: clears the earlier data and remounts the app
+The current testing environment is not configured to support act(...)
+
+ ✓ src/features/office/contract.test.ts (40 tests) 855ms
    ✓ generated files (3)
-     ✓ holds the fifteen worlds to what tools/build_office_worlds.py draws now, byte for byte 365ms
- ✓ src/features/office/stage.test.tsx (3 tests) 973ms
-   ✓ office stage (3)
-     ✓ names every region canonically beside its themed label, and hides the scene from assistive technology 534ms
-     ✓ gives every figure a name that says its state and cause, and selects it on click 405ms
- ✓ src/lib/live.test.tsx (9 tests) 766ms
-   ✓ live events (9)
-     ✓ refreshes the package a run event names in its data, not only its subject 392ms
- ✓ src/features/floor/themes/pack-conformance.test.ts (15 tests) 189ms
- ✓ src/pages/subscriptions.test.tsx (3 tests) 1720ms
+     ✓ holds the fifteen worlds to what tools/build_office_worlds.py draws now, byte for byte 369ms
+stderr | src/session-gate.test.tsx > the session gate when the signed-in person changes behind it > treats a refetched sign-out as a new session too
+The current testing environment is not configured to support act(...)
+
+ ✓ src/features/floor/data.test.tsx (4 tests) 643ms
+   ✓ loads a bounded page without silently losing coverage 460ms
+stderr | src/session-gate.test.tsx > the session gate when the signed-in person changes behind it > keeps everything when a refetch returns the same person
+The current testing environment is not configured to support act(...)
+
+ ✓ src/pages/subscriptions.test.tsx (3 tests) 1712ms
    ✓ subscriptions (3)
-     ✓ shows the daemon's probes, pins, checker list and tiers, and has no token field 1390ms
- ✓ src/features/floor/data.test.tsx (4 tests) 1029ms
-   ✓ loads a bounded page without silently losing coverage 687ms
- ✓ src/lib/lib.test.ts (10 tests) 96ms
- ✓ src/components/preparation/coverage.test.tsx (3 tests) 725ms
-   ✓ shows reported criterion outcomes and retained checker evidence separately from mapped intent 550ms
+     ✓ shows the daemon's probes, pins, checker list and tiers, and has no token field 1393ms
+ ✓ src/session-gate.test.tsx (3 tests) 2483ms
+   ✓ the session gate when the signed-in person changes behind it (3)
+     ✓ treats a refetched session for someone else as a new session: clears the earlier data and remounts the app 1646ms
+     ✓ treats a refetched sign-out as a new session too 479ms
+     ✓ keeps everything when a refetch returns the same person 336ms
+ ✓ src/features/floor/gallery.test.tsx (2 tests) 1255ms
+   ✓ labels sample previews and prevents public activation of draft artwork 907ms
+   ✓ closes on Escape and can select plain without loading art 333ms
+ ✓ src/lib/live.test.tsx (9 tests) 714ms
+   ✓ live events (9)
+     ✓ refreshes the package a run event names in its data, not only its subject 428ms
+ ✓ src/features/office/stage.test.tsx (3 tests) 801ms
+   ✓ office stage (3)
+     ✓ names every region canonically beside its themed label, and hides the scene from assistive technology 538ms
+ ✓ src/features/floor/render.test.tsx (3 tests) 556ms
+ ✓ src/components/preparation/coverage.test.tsx (3 tests) 540ms
+   ✓ shows reported criterion outcomes and retained checker evidence separately from mapped intent 448ms
 stderr | src/pages/package-accept.test.tsx > package page acceptance > offers no Accept on unverified Safety work when navigated to directly
 [MSW] Error: intercepted a request without a matching request handler:
 
@@ -1134,22 +1090,13 @@ stderr | src/pages/package-accept.test.tsx > package page acceptance > offers no
 If you still wish to intercept this unhandled request, please create a request handler for it.
 Read more: https://mswjs.io/docs/http/intercepting-requests
 
- ✓ src/pages/package-accept.test.tsx (1 test) 809ms
+ ✓ src/lib/session.test.tsx (5 tests) 124ms
+ ✓ src/pages/package-accept.test.tsx (1 test) 464ms
    ✓ package page acceptance (1)
-     ✓ offers no Accept on unverified Safety work when navigated to directly 772ms
- ✓ src/design/type-scale.test.ts (5 tests) 54ms
- ✓ src/features/floor/render.test.tsx (3 tests) 306ms
- ✓ src/components/checker-history.test.tsx (2 tests) 444ms
-   ✓ checker attempt history (2)
-     ✓ shows a sticky refusal and every attempt in order, including inconclusive ones 381ms
- ✓ src/features/floor/preferences.test.tsx (7 tests) 43ms
- ✓ src/lib/daemon.test.ts (6 tests) 41ms
- ✓ src/features/floor/projection.test.ts (22 tests) 78ms
- ✓ src/lib/session.test.tsx (5 tests) 211ms
- ✓ src/design/looks-contrast.test.ts (188 tests) 153ms
- ✓ src/lib/board.test.ts (10 tests) 45ms
- ✓ src/features/office/layout.test.ts (5 tests) 27ms
- ✓ src/lib/context-profile.test.ts (4 tests) 25ms
+     ✓ offers no Accept on unverified Safety work when navigated to directly 443ms
+ ✓ src/components/checker-history.test.tsx (2 tests) 178ms
+ ✓ src/features/floor/preferences.test.tsx (7 tests) 146ms
+ ✓ src/lib/lib.test.ts (10 tests) 251ms
 stdout | src/design/contrast.test.ts > text contrast > keeps every plain text colour in the stylesheets at AA
 6.24  #ffe0a4 on #644d29 (rule)  floor.css  .floor-neutral-icon.kind-request
 6.36  #7d9cb0 on #141416 (page)  floor.css  .floor-preview-heading
@@ -1164,20 +1111,28 @@ stdout | src/design/contrast.test.ts > text contrast > keeps every plain text co
 7.17  #ff7a59 on #141416 (page)  board.css  .bd-card[data-tone="block"] .bd-sym
 7.17  #ff7a59 on #141416 (page)  board.css  .bd-card[data-tone="block"] .bd-word
 
- ✓ src/design/contrast.test.ts (10 tests) 30ms
+ ✓ src/design/contrast.test.ts (10 tests) 36ms
+ ✓ src/features/floor/themes/pack-conformance.test.ts (15 tests) 371ms
+ ✓ src/features/floor/projection.test.ts (22 tests) 29ms
+ ✓ src/features/office/layout.test.ts (5 tests) 32ms
+ ✓ src/design/looks-contrast.test.ts (188 tests) 100ms
+ ✓ src/lib/kind.test.ts (9 tests) 52ms
+ ✓ src/design/type-scale.test.ts (5 tests) 53ms
+ ✓ src/api/explain.test.ts (2 tests) 9ms
+ ✓ src/lib/next.test.ts (18 tests) 37ms
+ ✓ src/lib/context-profile.test.ts (4 tests) 27ms
+ ✓ src/lib/daemon.test.ts (6 tests) 30ms
  ✓ src/features/floor/motion.test.tsx (2 tests) 17ms
  ✓ src/features/floor/themes/registry.test.ts (3 tests) 16ms
- ✓ src/lib/next.test.ts (18 tests) 21ms
- ✓ src/lib/kind.test.ts (9 tests) 20ms
- ✓ src/api/explain.test.ts (2 tests) 12ms
- ✓ src/lib/vendor.test.ts (1 test) 11ms
+ ✓ src/lib/board.test.ts (10 tests) 14ms
+ ✓ src/lib/vendor.test.ts (1 test) 9ms
 
  Test Files  50 passed (50)
       Tests  676 passed (676)
-   Start at  13:26:51
-   Duration  22.30s (tests 47%, environment 33%, setup 10%, import 8%, transform 2%)
+   Start at  13:35:23
+   Duration  18.60s (tests 45%, environment 36%, setup 11%, import 6%, transform 2%)
 
-Environment  jsdom was created 50 times · 73.96s total, 33% of tracked time
+Environment  jsdom was created 50 times · 64.98s total, 36% of tracked time
              create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
              learn more: https://vitest.dev/guide/improving-performance#test-environments
 

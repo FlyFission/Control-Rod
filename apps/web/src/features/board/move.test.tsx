@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { act } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -150,6 +152,33 @@ describe("CardActions", () => {
     await user.type(screen.getByLabelText("Direction for the next revision"), "Use the vendor curve");
     await user.click(sign);
     await waitFor(() => expect(sent).toMatchObject({ kind: "return", reason: "Use the vendor curve" }));
+  });
+
+  it("puts away an open reason form when its decision is withdrawn, and sends nothing", async () => {
+    let asked = false;
+    server.use(
+      http.post("*/packages/WP-7/decisions/options", () => {
+        asked = true;
+        return HttpResponse.json({}, { status: 500 });
+      }),
+    );
+    let setCard: (c: BoardCard) => void = () => {};
+    function Harness() {
+      const [c, set] = useState(card());
+      setCard = set;
+      return <CardActions card={c} passkeys={passkeys([])} />;
+    }
+    await renderPage(<Harness />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Move to/ }));
+    await user.click(screen.getByRole("menuitem", { name: "Return with direction" }));
+    await user.type(screen.getByLabelText("Direction for the next revision"), "Use the vendor curve");
+    act(() => setCard(card({ offered: [allow("accept"), refuse("return", "The package moved on", "Read the new revision")] })));
+    expect(screen.queryByRole("button", { name: "Sign: Return with direction" })).toBeNull();
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("Return with direction is no longer open");
+    expect(alert.textContent).toContain("The package moved on");
+    expect(asked).toBe(false);
   });
 
   it("is usable by keyboard alone, and Escape returns focus to Move to", async () => {

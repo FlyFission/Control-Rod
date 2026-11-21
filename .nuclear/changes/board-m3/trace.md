@@ -14,6 +14,7 @@
 | T-10 | No actions without current, live reads. | `move.test.tsx` "shows nothing when the card offers no current actions"; `board.test.tsx` "says status is unknown" (no Accept button) | implemented and tested |
 | T-11 | The board acts from the card: Accept on the face and Move to beside it. | `board.test.tsx` "acts from the card" | implemented and tested |
 | T-12 | Ruling 16: no Accept on Safety work that no person has verified; Accept is listed disabled. | `board.test.tsx` "puts no Accept button on Safety work that no person has verified" | implemented and tested |
+| T-15 | An open reason form is put away when its decision is withdrawn, says why, and sends nothing. | `move.test.tsx` "puts away an open reason form when its decision is withdrawn" | implemented and tested |
 | T-14 | One operation at a time per card: while a signature is pending, the primary button and Move to are disabled and no second request is sent. | `move.test.tsx` "allows one operation at a time" | implemented and tested |
 | T-13 | The board stays axe clean in looks a, b and c with the Move to menu open, and Escape returns focus to Move to in a real browser. | `e2e/board-looks.spec.ts` | implemented; run on Chromium (E-03) |
 

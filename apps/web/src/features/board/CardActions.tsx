@@ -35,6 +35,11 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
   const items = menuItems(card.offered, card.activeRunId !== undefined);
   if (items.length === 0) return null;
   const primary = primaryItem(items);
+  // A decision is signable only while the card's current reads still offer it. A reason form opened
+  // before the decision was withdrawn is put away and says why; its text is kept if it opens again.
+  const openNow = (id: DecisionKind) => items.some((i) => i.id === id && i.enabled);
+  const pendingItem = pending !== null ? items.find((i) => i.id === pending) : undefined;
+  const pendingOpen = pending !== null && openNow(pending);
   const pkg = card.pkg;
   const digest = card.digest;
 
@@ -45,7 +50,7 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
   }
 
   async function sign(kind: DecisionKind, why?: string) {
-    if (inFlight.current) return;
+    if (inFlight.current || !openNow(kind)) return;
     inFlight.current = true;
     setBusyWith("sign");
     setAlert(null);
@@ -117,7 +122,12 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
         )}
         <MoveMenu items={items} onChoose={choose} cardTitle={pkg.title} disabled={busy} />
       </div>
-      {pending !== null && (
+      {pending !== null && !pendingOpen && (
+        <p role="alert" className="bd-alert small">
+          {([`${DECISION_LABEL[pending]} is no longer open`, pendingItem?.reason, pendingItem?.change].filter(Boolean).join(". ") + ".").replace(/\.\./g, ".")}
+        </p>
+      )}
+      {pending !== null && pendingOpen && (
         <div className="bd-reason">
           <label className="field">
             <span>{REASON_PROMPT[pending] ?? "Reason"}</span>

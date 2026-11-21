@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,7 @@ import { type Harness, ORIGIN, VirtualAuthenticator, b64, claims, daemonHeaders,
 const repo = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 const fixturePack = fileURLToPath(new URL("./fixtures/nuclear-grade/", import.meta.url));
 
+let harnessRoot = "";
 /** The real repository with packs/nuclear-grade replaced by the fixture pack. */
 function rootWithFixtureNuclearPack(): string {
   const dir = mkdtempSync(join(tmpdir(), "cr-root-ng-"));
@@ -17,6 +18,7 @@ function rootWithFixtureNuclearPack(): string {
   mkdirSync(join(dir, "packs"));
   for (const entry of readdirSync(join(repo, "packs"))) if (entry !== "nuclear-grade") symlinkSync(join(repo, "packs", entry), join(dir, "packs", entry));
   symlinkSync(fixturePack, join(dir, "packs", "nuclear-grade"));
+  harnessRoot = dir;
   process.once("exit", () => rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
@@ -140,19 +142,19 @@ describe("context profiles in the brief", () => {
 
   it("locks Safety grade work to Nuclear over a Light card, for the author and the pre-check, with skills as inputs only", async () => {
     const id = await releasedPackage("SAFE1", "high-consequence");
-    await setBody(id, { grade: "safety", context_profile: "light", nuclear_clusters: ["hygiene"] });
+    await setBody(id, { grade: "safety", context_profile: "light" });
     const author = await claimFor(id);
     const brief = input(author, "BRIEF.md") ?? "";
     expect(brief).toContain("Nuclear context profile (Safety grade work is always Nuclear)");
     expect(brief).toContain("CORE-CARD-MARKER");
-    for (const c of ["agent-authority", "configuration-management", "hygiene", "review-panel"]) expect(brief).toContain(`CLUSTER-CARD-MARKER-${c}`);
-    expect(brief).not.toContain("CLUSTER-CARD-MARKER-claims-discipline");
+    for (const c of ["agent-authority", "configuration-management", "review-panel"]) expect(brief).toContain(`CLUSTER-CARD-MARKER-${c}`);
+    for (const c of ["claims-discipline", "hygiene", "incident-deficiency"]) expect(brief).not.toContain(`CLUSTER-CARD-MARKER-${c}`);
     expect(brief).not.toContain("FULL-SKILL-MARKER");
     expect(brief.indexOf("CORE-CARD-MARKER")).toBeLessThan(brief.indexOf("## Rules"));
     expect(names(author)).toEqual(expect.arrayContaining(["reference/core-discipline/SKILL.md", "reference/panel-review/SKILL.md", "templates/standard/record.md", "templates/cm/baseline.md"]));
     expect(input(author, "reference/core-discipline/SKILL.md")).toContain("FULL-SKILL-MARKER-core-discipline");
     expect(await profileEvents(author.run.id)).toEqual([
-      expect.objectContaining({ profile: "nuclear", locked: true, reason: "Safety grade work is always Nuclear", clusters: ["agent-authority", "configuration-management", "hygiene", "review-panel"], pack_commit: "fixture0000000000000000000000000000000000" }),
+      expect.objectContaining({ profile: "nuclear", locked: true, reason: "Safety grade work is always Nuclear", clusters: ["agent-authority", "configuration-management", "review-panel"], pack_commit: "fixture0000000000000000000000000000000000" }),
     ]);
     await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "report.md", content_base64: b64("# Report") }] });
 
@@ -175,5 +177,41 @@ describe("context profiles in the brief", () => {
     expect(names(job)).toContain("templates/quick/record.md");
     expect(names(job)).not.toContain("templates/standard/record.md");
     await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "test over", outputs: [] });
+  });
+
+  it("does not launch a Nuclear run whose pack fails its digests: the run fails queued, with the problem on the run and the event", async () => {
+    const id = await releasedPackage("TAMPER1", "quick");
+    await setBody(id, { context_profile: "nuclear" });
+    const link = join(harnessRoot, "packs", "nuclear-grade");
+    const tampered = mkdtempSync(join(tmpdir(), "cr-ng-tampered-"));
+    cpSync(fixturePack, tampered, { recursive: true });
+    writeFileSync(join(tampered, "core.md"), "# Core card (tampered)\n");
+    rmSync(link);
+    symlinkSync(tampered, link);
+    try {
+      for (let i = 0; i < 20; i++) {
+        const job = await claim();
+        if (!job) break;
+        expect(job.run.package_id).not.toBe(id);
+        await asDaemon(`/runner/runs/${job.run.id}/complete`, { status: "failed", error: "left over from another test", outputs: [] });
+      }
+    } finally {
+      rmSync(link);
+      symlinkSync(fixturePack, link);
+      rmSync(tampered, { recursive: true, force: true });
+    }
+    const run = (await h.db.query<{ id: string; status: string; body: { error?: string; label?: string } }>(
+      "select id, status, body from runs where package_id = $1 and role = 'author'", [id])).rows;
+    expect(run).toHaveLength(1);
+    expect(run[0]!.status).toBe("failed");
+    expect(run[0]!.body.label).toBe("Not started");
+    expect(run[0]!.body.error).toMatch(/Not started: this package runs under the Nuclear context profile .*core\.md does not match its manifest digest/);
+    const started = await h.db.query("select 1 from events where body->>'type' = 'run.started' and body->>'subject' = $1", [run[0]!.id]);
+    expect(started.rowCount).toBe(0);
+    expect(await profileEvents(run[0]!.id)).toEqual([
+      expect.objectContaining({ profile: "nuclear", locked: false, problem: expect.stringMatching(/core\.md does not match its manifest digest/) }),
+    ]);
+    const pkgStatus = (await h.db.query<{ status: string }>("select status from packages where id = $1", [id])).rows[0]!.status;
+    expect(pkgStatus).toBe("released");
   });
 });

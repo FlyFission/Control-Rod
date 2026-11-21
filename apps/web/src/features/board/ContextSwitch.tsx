@@ -20,7 +20,7 @@ interface ContextSwitchProps {
 
 /**
  * "Context: Light / Nuclear" for one package. Saves through the draft edit (If-Match), so only a
- * draft can change; Safety and Material grades show locked Nuclear with the reason.
+ * draft outside guided preparation can change; Safety and Material grades show locked Nuclear with the reason.
  */
 export function ContextSwitch({ pkg, view, projectDefault, server }: ContextSwitchProps) {
   const qc = useQueryClient();
@@ -35,9 +35,16 @@ export function ContextSwitch({ pkg, view, projectDefault, server }: ContextSwit
       void qc.invalidateQueries({ queryKey: ["packages"] });
     },
   });
-  const editable = view !== undefined && view.package.status === "draft" && view.draft_etag !== undefined;
+  // A draft in guided preparation refuses the plain draft edit (preparation-edit-required), and
+  // the preparation contract does not carry the context, so the switch stays read-only there.
+  const preparing = view?.preparation_enrolled === true;
+  const editable = view !== undefined && view.package.status === "draft" && view.draft_etag !== undefined && !preparing;
   const disabled = ctx.locked || !editable || save.isPending;
-  const note = ctx.locked ? ctx.reason : view && !editable ? "Only a draft's context can change" : undefined;
+  const note = ctx.locked
+    ? ctx.reason
+    : view && !editable
+      ? preparing && view.package.status === "draft" ? "Not editable during guided preparation" : "Only a draft's context can change"
+      : undefined;
   const noteId = `bd-ctx-note-${pkg.id}`;
 
   return (

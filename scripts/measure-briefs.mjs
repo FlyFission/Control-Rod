@@ -65,7 +65,6 @@ export async function measure() {
       deliverables: pkg.deliverables,
       rigorMode: pkg.rigor_mode,
       grade: pkg.grade,
-      requested: pkg.nuclear_clusters,
     });
     const { sections } = profile.nuclearBriefSections(pack, clusters, "author", pkg.rigor_mode, resolved.reason);
     const nuclear = brief.composeBrief({ ...parts, nuclear: sections });

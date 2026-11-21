@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,13 +47,10 @@ describe("selectClusters", () => {
     ["high-consequence rigor", { rigorMode: "high-consequence" }, ["configuration-management"]],
     ["safety grade", { grade: "safety" }, ["review-panel"]],
     ["material grade alone adds none", { grade: "material" }, []],
-    ["hint adds incident-deficiency and hygiene", { requested: ["hygiene", "incident-deficiency"] }, ["hygiene", "incident-deficiency"]],
-    ["hint ignores unknown ids and non-strings", { requested: ["made-up", 3, "hygiene"] }, ["hygiene"]],
-    ["hint that is not a list is ignored", { requested: "hygiene" }, []],
     [
       "everything, sorted",
-      { tools: ["Write"], deliverables: [{ type: "readme" }], rigorMode: "high-consequence", grade: "safety", requested: ["incident-deficiency"] },
-      ["agent-authority", "claims-discipline", "configuration-management", "incident-deficiency", "review-panel"],
+      { tools: ["Write"], deliverables: [{ type: "readme" }], rigorMode: "high-consequence", grade: "safety" },
+      ["agent-authority", "claims-discipline", "configuration-management", "review-panel"],
     ],
   ];
   it.each(cases)("%s", (_name, facts, want) => {
@@ -103,10 +100,53 @@ describe("loadNuclearPack", () => {
   it("refuses a manifest path that leaves the pack", () => {
     const dir = mkdtempSync(join(tmpdir(), "cr-ng-"));
     try {
-      writeFileSync(join(dir, "manifest.json"), JSON.stringify({ commit: "x", core: { card: "../../etc/passwd", skills: [] } }));
+      writeFileSync(join(dir, "manifest.json"), JSON.stringify({ commit: "x", core: { card: "../../etc/passwd", skills: [] }, files: {} }));
       expect(() => loadNuclearPack(dir)).toThrow(/leaves the pack/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  /** A copy of the fixture pack to break, removed afterwards. */
+  const withCopy = (fn: (dir: string, outside: string) => void) => {
+    const dir = mkdtempSync(join(tmpdir(), "cr-ng-"));
+    const outside = mkdtempSync(join(tmpdir(), "cr-ng-outside-"));
+    try {
+      cpSync(fixturePack, dir, { recursive: true });
+      fn(dir, outside);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  };
+
+  it("loads the intact fixture copy, so the cases below fail only for what they break", () => {
+    withCopy((dir) => expect(loadNuclearPack(dir)?.commit).toBe("fixture0000000000000000000000000000000000"));
+  });
+
+  it("refuses a file reached through a symlinked parent directory that leaves the pack", () => {
+    withCopy((dir, outside) => {
+      mkdirSync(join(outside, "core-discipline"));
+      cpSync(join(dir, "reference", "core-discipline", "SKILL.md"), join(outside, "core-discipline", "SKILL.md"));
+      rmSync(join(dir, "reference", "core-discipline"), { recursive: true });
+      symlinkSync(join(outside, "core-discipline"), join(dir, "reference", "core-discipline"));
+      expect(() => loadNuclearPack(dir)).toThrow(/reference\/core-discipline\/SKILL\.md leaves the pack/);
+    });
+  });
+
+  it("refuses a card whose bytes differ from its manifest digest", () => {
+    withCopy((dir) => {
+      writeFileSync(join(dir, "clusters", "review-panel.md"), "# Review panel (tampered)\n");
+      expect(() => loadNuclearPack(dir)).toThrow(/clusters\/review-panel\.md does not match its manifest digest/);
+    });
+  });
+
+  it("refuses a loaded file the manifest has no digest for", () => {
+    withCopy((dir) => {
+      const m = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8"));
+      delete m.files["templates/quick/record.md"];
+      writeFileSync(join(dir, "manifest.json"), JSON.stringify(m));
+      expect(() => loadNuclearPack(dir)).toThrow(/templates\/quick\/record\.md has no digest in the manifest/);
+    });
   });
 });

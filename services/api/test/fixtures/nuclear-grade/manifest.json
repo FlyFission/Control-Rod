@@ -62,5 +62,23 @@
       "baseline.md"
     ]
   },
-  "files": {}
+  "files": {
+    "clusters/agent-authority.md": "sha256:3af3e374b6bbef58108f3e4869ae97feef5c67f0927da34a041665e200c44448",
+    "clusters/claims-discipline.md": "sha256:1c808e494f291596e2fb6300c2cb9c1af3a304b4106db027dfee7e239996478f",
+    "clusters/configuration-management.md": "sha256:ab90e77e97068e5fc2bab84ae9ccb2af79ec156b2d458cb961d6a00a4e35bd01",
+    "clusters/hygiene.md": "sha256:8c8a2f3b2a762d1e806fd4fd6138b22fe88a59f85795f49d45240c951d9b814f",
+    "clusters/incident-deficiency.md": "sha256:4c8578258914666bccd1832a951be4543e1d42d6b23411691eee02ead5737daf",
+    "clusters/review-panel.md": "sha256:e432e4a9c416c9ea00ce2ef634ee9857666c5027a956316aa3a545b586a4d8cf",
+    "core.md": "sha256:917e398955ea342b3ee2599e1f189999a3bbd27ebaba13175a6b7b70dd332ac3",
+    "reference/authority-limits/SKILL.md": "sha256:ed78996286dbab7035d11b4412d851368ed3a0e01c56b5972d39b775990badec",
+    "reference/claim-ledger/SKILL.md": "sha256:b8ec286c847e9dedb629d9bd429c3e3918b3bbb2398a39d7ebab65652f0c514e",
+    "reference/config-baseline/SKILL.md": "sha256:d07facaf8bc64a0c5cf29b95247ddd5f0f52958e70bdd1e4d36847af4a1f0b2c",
+    "reference/core-discipline/SKILL.md": "sha256:b2fd08cef90bc4b40d9a60298913150113a556054271758970849871e046acbf",
+    "reference/deficiency-report/SKILL.md": "sha256:668cb7bc50a943a281d0efb3318624fa2ba84369d43830f432f79c96879553ab",
+    "reference/panel-review/SKILL.md": "sha256:b2da07f0dea20856ebad7a56912faced9a447ee6de7bdfd073115d3f038e09de",
+    "reference/repo-hygiene/SKILL.md": "sha256:2c82177208cd7e0da45cdbf7bacbb68c0f0edc61816cd5a64739b717a016fa1a",
+    "templates/cm/baseline.md": "sha256:8c3d849b0531e74b2041dad08cfd3f7a9739c8ad50e666aff98d698ecde36cbf",
+    "templates/quick/record.md": "sha256:35f6f14e2ed9409e0f85de7358c9a8e8ab12fc094d43b5f7a7974ca8d656f65b",
+    "templates/standard/record.md": "sha256:64d136db43f9d64c9529ead353a19531a2f7886546a162e996ee595e873f608c"
+  }
 }

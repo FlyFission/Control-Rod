@@ -4,7 +4,8 @@
  * Everything here decides from package, project and role facts; nothing reads agent prose.
  * `loadNuclearPack` reads the pack from disk; the rest is pure.
  */
-import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, join, normalize, relative, sep } from "node:path";
 
 export type ContextProfile = "light" | "nuclear";
@@ -62,8 +63,6 @@ export interface ClusterFacts {
   deliverables: { type?: string; format?: string[] }[];
   rigorMode?: string;
   grade?: string;
-  /** The package's optional `nuclear_clusters` hint. */
-  requested?: unknown;
 }
 
 /** Tools that change files (write) or run programs (run). */
@@ -85,8 +84,11 @@ const toolName = (t: string) => t.replace(/\(.*$/, "").trim();
 
 /**
  * The cluster rule table. One rule per cluster; each reads only structured facts.
+ * hygiene and incident-deficiency stay in the pack but are not selectable yet: no WorkPackage
+ * field says when they apply, and the contract allows no undeclared ones. Each needs a declared
+ * contract field in spec/ (follow-up) before a rule can read it.
  */
-const CLUSTER_RULES: Record<ClusterId, (f: ClusterFacts, requested: Set<string>) => boolean> = {
+const CLUSTER_RULES: Record<ClusterId, (f: ClusterFacts) => boolean> = {
   // The role may write files, run programs or reach the network (its tools file says so).
   "agent-authority": (f) => f.hosts.length > 0 || f.tools.some((t) => WRITE_TOOLS.has(toolName(t)) || RUN_TOOLS.has(toolName(t))),
   // A deliverable is a public document or claim: its type is in PUBLIC_DELIVERABLE_TYPES or starts "public-".
@@ -99,15 +101,14 @@ const CLUSTER_RULES: Record<ClusterId, (f: ClusterFacts, requested: Set<string>)
   "configuration-management": (f) => f.rigorMode === "standard" || f.rigorMode === "high-consequence",
   // Safety grade work gets the review panel card.
   "review-panel": (f) => f.grade === "safety",
-  // Only when the package's nuclear_clusters hint asks for it.
-  "incident-deficiency": (_f, r) => r.has("incident-deficiency"),
-  hygiene: (_f, r) => r.has("hygiene"),
+  // Not selectable yet; needs a declared contract field (follow-up).
+  "incident-deficiency": () => false,
+  hygiene: () => false,
 };
 
-/** The clusters a Nuclear brief carries, sorted. The hint may add any known cluster; unknown ids are ignored. */
+/** The clusters a Nuclear brief carries, sorted. */
 export function selectClusters(facts: ClusterFacts): ClusterId[] {
-  const requested = new Set(Array.isArray(facts.requested) ? facts.requested.filter((x): x is string => typeof x === "string") : []);
-  return CLUSTER_IDS.filter((id) => CLUSTER_RULES[id](facts, requested) || requested.has(id)).sort();
+  return CLUSTER_IDS.filter((id) => CLUSTER_RULES[id](facts)).sort();
 }
 
 /** The nuclear-grade pack, read and checked. Texts and bytes are loaded so the brief builder stays pure. */
@@ -124,14 +125,35 @@ export interface NuclearPack {
 export type Input = { name: string; content_base64: string };
 const input = (name: string, content: string | Buffer): Input => ({ name, content_base64: Buffer.from(content).toString("base64") });
 
-/** A path inside the pack, refusing absolute paths and anything that climbs out. */
-function inside(dir: string, rel: unknown): string {
+const climbs = (r: string) => !r || r === ".." || r.startsWith(`..${sep}`) || isAbsolute(r);
+
+/**
+ * A path inside the pack, refusing absolute paths and anything that climbs out, by name or through
+ * a symlink anywhere on the way: the file's real path must sit under the pack root's real path.
+ * `root` is the pack directory's real path.
+ */
+function inside(dir: string, root: string, rel: unknown): string {
   if (typeof rel !== "string" || !rel || isAbsolute(rel)) throw new Error(`nuclear-grade pack: bad path ${String(rel)}`);
   const p = normalize(join(dir, rel));
-  const r = relative(dir, p);
-  if (!r || r.startsWith("..") || isAbsolute(r)) throw new Error(`nuclear-grade pack: path ${rel} leaves the pack`);
-  if (!existsSync(p) || !lstatSync(p).isFile()) throw new Error(`nuclear-grade pack: ${rel} is missing`);
-  return p;
+  if (climbs(relative(dir, p))) throw new Error(`nuclear-grade pack: path ${rel} leaves the pack`);
+  if (!existsSync(p)) throw new Error(`nuclear-grade pack: ${rel} is missing`);
+  const real = realpathSync(p);
+  if (climbs(relative(root, real))) throw new Error(`nuclear-grade pack: path ${rel} leaves the pack`);
+  if (!statSync(real).isFile()) throw new Error(`nuclear-grade pack: ${rel} is missing`);
+  return real;
+}
+
+/**
+ * Reads a pack file and checks its bytes against the manifest's `files` digest. A file the
+ * manifest does not list, or whose digest differs, fails the whole pack.
+ */
+function verified(dir: string, root: string, files: Json, rel: unknown): Buffer {
+  const bytes = readFileSync(inside(dir, root, rel));
+  const want = files[rel as string];
+  if (typeof want !== "string") throw new Error(`nuclear-grade pack: ${String(rel)} has no digest in the manifest`);
+  const got = `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
+  if (got !== want) throw new Error(`nuclear-grade pack: ${String(rel)} does not match its manifest digest`);
+  return bytes;
 }
 
 const SKILL_NAME = /^[a-z0-9][a-z0-9._-]*$/i;
@@ -160,20 +182,25 @@ function filesUnder(dir: string): string[] {
 
 /**
  * Reads packs/nuclear-grade (or another directory laid out the same way). Returns null when the
- * pack is not installed; throws when its manifest names files that are missing or outside it.
+ * pack is not installed; throws when its manifest names files that are missing, outside it (by
+ * name or through a symlink), or whose bytes differ from the manifest's `files` digests.
+ * budgets.json is not in the manifest by design and is never read here.
  */
 export function loadNuclearPack(dir: string): NuclearPack | null {
   const manifestPath = join(dir, "manifest.json");
   if (!existsSync(manifestPath)) return null;
-  const m = JSON.parse(readFileSync(manifestPath, "utf8")) as Json;
+  const root = realpathSync(dir);
+  const m = JSON.parse(readFileSync(inside(dir, root, "manifest.json"), "utf8")) as Json;
   if (!m.core || typeof m.core !== "object") throw new Error("nuclear-grade pack: manifest has no core");
-  const core = { card: readFileSync(inside(dir, m.core.card), "utf8"), skills: skillList(m.core.skills) };
+  if (!m.files || typeof m.files !== "object" || Array.isArray(m.files)) throw new Error("nuclear-grade pack: manifest has no file digests");
+  const read = (rel: unknown) => verified(dir, root, m.files, rel);
+  const core = { card: read(m.core.card).toString("utf8"), skills: skillList(m.core.skills) };
   const clusters: NuclearPack["clusters"] = {};
   for (const [id, c] of Object.entries((m.clusters ?? {}) as Record<string, Json>))
-    clusters[id] = { card: readFileSync(inside(dir, c.card), "utf8"), skills: skillList(c.skills) };
+    clusters[id] = { card: read(c.card).toString("utf8"), skills: skillList(c.skills) };
   const skills: Record<string, Buffer> = {};
   for (const s of new Set([...core.skills, ...Object.values(clusters).flatMap((c) => c.skills)]))
-    skills[s] = readFileSync(inside(dir, `reference/${s}/SKILL.md`));
+    skills[s] = read(`reference/${s}/SKILL.md`);
   const templates: NuclearPack["templates"] = {};
   for (const [mode, list] of Object.entries((m.templates ?? {}) as Record<string, unknown>)) {
     if (!SKILL_NAME.test(mode)) throw new Error(`nuclear-grade pack: bad template mode ${mode}`);
@@ -181,7 +208,7 @@ export function loadNuclearPack(dir: string): NuclearPack | null {
     // with no list, every file under templates/<mode>/ ships.
     const base = `templates/${mode}/`;
     const names = Array.isArray(list) ? list.map((e) => (typeof e === "string" && e.startsWith(base) ? e.slice(base.length) : e)) : filesUnder(join(dir, base));
-    templates[mode] = names.map((n) => ({ name: n as string, bytes: readFileSync(inside(dir, `${base}${n as string}`)) }));
+    templates[mode] = names.map((n) => ({ name: n as string, bytes: read(`${base}${n as string}`) }));
   }
   return { commit: typeof m.commit === "string" ? m.commit : "unknown", core, clusters, templates, skills };
 }

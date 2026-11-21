@@ -13,13 +13,14 @@
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|
 | R-01 | A Light brief changes and every existing agent sees different instructions. | Light adds no sections or inputs; a test compares the Light brief with the pre-profile text byte for byte; Light budgets record today's Light briefs. | Any Light brief difference. |
-| R-02 | Safety or Material grade work runs without Nuclear context. | Both grades lock Nuclear over card and project settings on the server; the web mirror shows the same lock and reason. A missing or broken pack puts a stop-and-report notice in the brief and on the run event. | A Safety grade brief with neither Core card nor notice. |
+| R-02 | Safety or Material grade work runs without Nuclear context. | Both grades lock Nuclear over card and project settings on the server; the web mirror shows the same lock and reason. A Nuclear run whose pack is missing or fails its checks is not launched: the claim fails the queued run with the reason (label "Not started") and the run.context-profile event records the problem (test). | A Nuclear run started without its verified Core card. |
 | R-03 | The toggle shows a profile the server does not use. | The web helper mirrors `resolveContextProfile` rule for rule and reason for reason, and matches the project by id as the server does (tests on both sides). | A card showing a profile its run did not get. |
 | R-04 | The real pack's manifest differs from what the composer reads. | A test loads `packs/nuclear-grade` and composes a Nuclear brief through the claim path. | Pack load failure or a missing card. |
 | R-05 | Nuclear briefs grow without anyone noticing. | `budgets.json` records each fixture brief's measured tokens as its ceiling; a test recomposes and fails over budget; `--check` also flags changed inputs. | A brief over budget. |
-| R-06 | Agent prose steers which cards are given. | Clusters read only package fields, the role's tools file and the hint (`CLUSTER_RULES`). | A rule reading free text. |
-| R-07 | A manifest path reads outside the pack. | Paths are resolved inside the pack and refused otherwise (test). | A path outside the pack read. |
+| R-06 | Agent prose steers which cards are given. | Clusters read only declared package fields and the role's tools file (`CLUSTER_RULES`). hygiene and incident-deficiency stay in the pack but are not selectable yet; each needs a declared contract field (follow-up). | A rule reading free text. |
+| R-07 | A manifest path reads outside the pack, or a pack file is changed after generation. | Paths are resolved inside the pack by name and by real path (a symlinked parent directory that leaves the pack is refused), and every loaded card, skill and template must match its `manifest.json` `files` sha256; a missing digest or mismatch fails the whole pack (tests). | A file read from outside the pack, or one read whose digest differs. |
 | R-08 | A contract change (`spec/`) merges without the owner's signature. | Signature row left unfilled; merge waits on Ben Huffer's recorded yes. | A merge without that yes. |
+| R-09 | The toggle offers a change the server refuses. | A draft in guided preparation shows the switch disabled with "Not editable during guided preparation", since the draft edit refuses it (`preparation-edit-required`) and the preparation contract has no context field (test). | A click that always fails. |
 
 ## Selected mode
 

@@ -1,5 +1,5 @@
 brief budget check passed: 4 fixtures
-inputs_sha256 eb90179c26560164d8f5ec900cb0cd4af60397714011db97089d788a70b9675a
+inputs_sha256 731bea3875b3efe728d74ec21c3690bc09a778f78f3b61a29b0c318e1ab05e9d
 general-service-quick light 338 nuclear 3186 clusters -
 material-standard light 337 nuclear 5676 clusters configuration-management
 safety-high-consequence light 338 nuclear 6252 clusters configuration-management,review-panel

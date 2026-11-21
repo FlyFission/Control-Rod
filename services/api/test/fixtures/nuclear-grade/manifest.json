@@ -1,0 +1,66 @@
+{
+  "commit": "fixture0000000000000000000000000000000000",
+  "core": {
+    "card": "core.md",
+    "skills": [
+      "core-discipline"
+    ],
+    "tokens": 20
+  },
+  "clusters": {
+    "agent-authority": {
+      "card": "clusters/agent-authority.md",
+      "skills": [
+        "authority-limits"
+      ],
+      "tokens": 10
+    },
+    "configuration-management": {
+      "card": "clusters/configuration-management.md",
+      "skills": [
+        "config-baseline"
+      ],
+      "tokens": 10
+    },
+    "claims-discipline": {
+      "card": "clusters/claims-discipline.md",
+      "skills": [
+        "claim-ledger"
+      ],
+      "tokens": 10
+    },
+    "incident-deficiency": {
+      "card": "clusters/incident-deficiency.md",
+      "skills": [
+        "deficiency-report"
+      ],
+      "tokens": 10
+    },
+    "hygiene": {
+      "card": "clusters/hygiene.md",
+      "skills": [
+        "repo-hygiene"
+      ],
+      "tokens": 10
+    },
+    "review-panel": {
+      "card": "clusters/review-panel.md",
+      "skills": [
+        "panel-review"
+      ],
+      "tokens": 10
+    }
+  },
+  "templates": {
+    "quick": [
+      "record.md"
+    ],
+    "standard": [
+      "record.md"
+    ],
+    "cm": [
+      "baseline.md"
+    ]
+  },
+  "files": {}
+}

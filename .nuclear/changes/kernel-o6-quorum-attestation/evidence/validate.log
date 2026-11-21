@@ -1,0 +1,8 @@
+=== ng.py validate --strict-custody ===
+OK: .nuclear/changes/kernel-o6-quorum-attestation
+=== tools/check_owner_decisions.py ===
+owner decision check passed
+=== tools/check_public_claims.py ===
+public claims check passed
+=== tools/check_redteam.py ===
+26 red-team cases (2 active, 24 pending)

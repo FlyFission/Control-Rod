@@ -21,10 +21,14 @@ export type Action =
   | "reject"
   | "override-independence";
 
-/** Provider and model that ran an agent. The kernel treats the same provider as the same runtime. */
+export type Grade = "general-service" | "material" | "safety";
+
+/** Runtime provenance for an agent run; optional vendor/family strengthen O6 separation checks. */
 export interface RuntimeIdentity {
   provider: string;
   model: string;
+  vendor?: string;
+  family?: string;
 }
 
 export interface KernelRequest {
@@ -42,6 +46,9 @@ export interface KernelRequest {
   digest_matches?: boolean;
   reason_given?: boolean;
   preparation?: PreparationGuard;
+  grade?: Grade;
+  attestation_verified?: boolean;
+  safety_quorum_met?: boolean;
 }
 
 export interface KernelOutcome {

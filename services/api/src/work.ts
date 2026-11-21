@@ -22,9 +22,9 @@ import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClu
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
-import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
-import { countedProvider, verifyCountedAttestation } from "./run-attestation.js";
-import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
+import { RUNTIME_FAMILIES, type ProbeArtifact, activePin, distinctFamily, recordProbes, verifyO6CheckerQuorum } from "./runtimes.js";
+import { countedProvider, harnessName, verifyCountedAttestation } from "./run-attestation.js";
+import { type Action, type Grade, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
   PACKAGE_ATTEMPT_LIMIT,
   STICKY_FAIL_REASON,
@@ -641,10 +641,44 @@ async function stopQueuedRuns(c: Tx, cfg: WorkConfig, packageId: string, revisio
 
 /** Runtime name for a provider, as the daemon names them. */
 function runtimeName(provider: unknown): string {
-  const p = String(provider ?? "").toLowerCase();
+  const p = String(provider ?? "").trim().toLowerCase();
   if (p === "anthropic" || p === "claude" || p === "claude-code") return "claude";
   if (p === "openai" || p === "codex") return "codex";
   return p;
+}
+
+function harnessRuntime(provider: unknown): string {
+  const h = harnessName(String(provider ?? "").trim());
+  if (h === "gemini" || h === "google") return "agy";
+  return h;
+}
+
+function canonicalizeToken(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const norm = raw.trim().toLowerCase();
+  if (!norm) return undefined;
+  if (norm === "claude" || norm === "anthropic" || norm === "claude-code") return "anthropic";
+  if (norm === "codex" || norm === "openai") return "openai";
+  if (norm === "grok" || norm === "xai" || norm === "grok-cli") return "xai";
+  if (norm === "agy" || norm === "antigravity" || norm === "gemini" || norm === "gemini-cli" || norm === "google") return "google";
+  if (norm === "ollama" || norm === "local-ollama" || norm === "ollama-local") return "ollama-local";
+  return norm;
+}
+
+function modelFamily(model: string): string | undefined {
+  const m = model.trim().toLowerCase();
+  if (!m || m === "default" || m === "any") return undefined;
+  if (m.startsWith("claude")) return "Anthropic";
+  if (m.startsWith("gpt-") || /^o[134](-|$)/.test(m) || m.includes("codex")) return "OpenAI";
+  if (m.startsWith("grok")) return "xAI";
+  if (m.startsWith("gemini")) return "Google";
+  return undefined;
+}
+
+function runtimeTokens(r: RuntimeIdentity): string[] {
+  return [r.provider, r.vendor, r.family]
+    .map(canonicalizeToken)
+    .filter((t): t is string => t !== undefined);
 }
 
 /** Picks the runtime an author or intake run should use from what the daemon has. */
@@ -654,28 +688,110 @@ function pickRuntime(have: string[]): string | null {
 
 /**
  * Picks the runtime for a pre-check: never the author's, unless the owner recorded an override.
- * Nothing falls back to the author's runtime on its own.
+ * When `seenFamilies` is given (e.g., for Safety 2-of-2 quorum), prefers a distinct unused vendor
+ * family first. Nothing falls back to the author's runtime on its own.
  */
-function pickChecker(have: string[], authorRuntime: string, override: boolean): string | null {
-  const other = ["codex", "claude", "fake"].find((r) => have.includes(r) && r !== authorRuntime);
-  if (other) return other;
+function pickChecker(
+  have: string[],
+  authorRuntime: string,
+  override: boolean,
+  seenFamilies?: ReadonlySet<string>,
+): string | null {
+  const authorId = identityOf({ runtime: { provider: authorRuntime, model: "default" } });
+  const candidates = ["codex", "claude", "fake"].filter(
+    (r) => have.includes(r) && !mayBeSameRuntime(authorId, identityOf({ runtime: { provider: r, model: "default" } })),
+  );
+  if (seenFamilies?.size) {
+    const fresh = candidates.find((r) => {
+      const fam = RUNTIME_FAMILIES[harnessRuntime(r)];
+      return fam !== undefined && !seenFamilies.has(fam);
+    });
+    if (fresh) return fresh;
+  }
+  if (candidates[0]) return candidates[0];
   return override && have.includes(authorRuntime) ? authorRuntime : null;
 }
 
 export const WAITING_FOR_INDEPENDENT_RUNTIME =
   "Waiting for an independent runtime: install Codex, or proceed with a recorded owner override.";
 
-/** Provider and model that ran a run: the model the runtime reported, else the one asked for. */
+/** Provider, model, vendor, and family that ran a run: the model the runtime reported, else the one asked for. */
 function identityOf(run: Json, trace?: Json): RuntimeIdentity {
+  const provider = runtimeName(run?.runtime?.provider);
+  const model = String(trace?.reported_model || run?.runtime?.model || "default");
+  const knownVendor = RUNTIME_FAMILIES[harnessRuntime(provider)];
+  const vendor = typeof run?.runtime?.vendor === "string" && run.runtime.vendor.trim()
+    ? run.runtime.vendor.trim()
+    : knownVendor;
+  const family = typeof run?.runtime?.family === "string" && run.runtime.family.trim()
+    ? run.runtime.family.trim()
+    : (modelFamily(model) ?? knownVendor);
   return {
-    provider: runtimeName(run?.runtime?.provider),
-    model: String(trace?.reported_model || run?.runtime?.model || "default"),
+    provider,
+    model,
+    ...(vendor ? { vendor } : {}),
+    ...(family ? { family } : {}),
   };
 }
 
-/** Same rule as the kernel's: the same provider is the same runtime, whatever the models. For the record only. */
+/** Mirrors the kernel's fail-closed `RuntimeIdentity::may_be_same` across provider, vendor, and family. */
 function mayBeSameRuntime(a: RuntimeIdentity, b: RuntimeIdentity): boolean {
-  return a.provider.trim().toLowerCase() === b.provider.trim().toLowerCase();
+  const aTokens = runtimeTokens(a);
+  const bTokens = runtimeTokens(b);
+  if (aTokens.length === 0 || bTokens.length === 0) return true;
+  return aTokens.some((t) => bTokens.includes(t));
+}
+
+async function verifiedSafetyCheckers(
+  q: Db | Tx,
+  pkg: PackageRow,
+  action: string,
+): Promise<{ authorHarness: string; checkerHarnesses: string[]; families: Set<string> } | null> {
+  const current = await currentDeliverable(q, pkg.id, pkg.revision);
+  if (!current) return null;
+  const authorRun = (await q.query<{ body: Json }>("select body from runs where id = $1", [current.runId])).rows[0];
+  if (!authorRun) return null;
+  const authorIdentity = identityOf(authorRun.body, authorRun.body?.trace);
+  const authorHarness = harnessRuntime(authorIdentity.provider);
+  const vers = await q.query<{ body: Json; run_body: Json }>(
+    `select v.body, r.body as run_body
+       from verifications v
+       join runs r on r.id = v.run_id
+      where v.package_id = $1
+        and v.package_revision = $2
+        and r.role = 'pre-check'
+        and r.status = 'succeeded'
+        and v.body->'output'->'digest'->>'value' = $3
+      order by v.created_at, v.run_id`,
+    [pkg.id, pkg.revision, current.digest],
+  );
+  const acceptOnlyPass = action === "accept";
+  const acceptedIdentities: RuntimeIdentity[] = [];
+  const checkerHarnesses: string[] = [];
+  const families = new Set<string>();
+  for (const row of vers.rows) {
+    const v = row.body;
+    const rb = row.run_body;
+    if (v?.attestation_verified !== true && rb?.attestation_verified !== true) continue;
+    if (v?.independence?.runtime === "shared" || v?.independence?.owner_override || rb?.independence_override) continue;
+    if (acceptOnlyPass ? v?.outcome !== "pass" : (v?.outcome !== "pass" && v?.outcome !== "fail")) continue;
+    const checkerIdentity = identityOf(rb, rb?.trace);
+    const checkerHarness = harnessRuntime(checkerIdentity.provider);
+    if (!distinctFamily(authorHarness, checkerHarness)) continue;
+    if (mayBeSameRuntime(authorIdentity, checkerIdentity)) continue;
+    if (acceptedIdentities.some((existing) => mayBeSameRuntime(existing, checkerIdentity))) continue;
+    acceptedIdentities.push(checkerIdentity);
+    checkerHarnesses.push(checkerHarness);
+    const fam = RUNTIME_FAMILIES[checkerHarness];
+    if (fam) families.add(fam);
+  }
+  return { authorHarness, checkerHarnesses, families };
+}
+
+async function safetyQuorumMet(q: Db | Tx, pkg: PackageRow, action: string): Promise<boolean> {
+  const checked = await verifiedSafetyCheckers(q, pkg, action);
+  if (!checked) return false;
+  return verifyO6CheckerQuorum(checked.authorHarness, checked.checkerHarnesses, "safety").ok;
 }
 
 function runtimeRef(name: string) {
@@ -1131,7 +1247,10 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             if (pkg.status !== "in-verification") continue;
             const a = await latestAuthorRun(c, pkg.id, pkg.revision);
             const authorRuntime = runtimeName(a?.body.runtime?.provider);
-            runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body));
+            const seenFamilies = needsOf(pkg.body).grade === "safety"
+              ? (await verifiedSafetyCheckers(c, pkg, "accept-with-findings"))?.families
+              : undefined;
+            runtime = pickChecker(offer, authorRuntime, verifiedOverride(row.body), seenFamilies);
             if (!runtime && offer.includes(authorRuntime)) {
               // Held, not skipped silently: say why on the run and in the office, replacing any older hold.
               await holdRun(c, cfg, row, pkg.id, WAITING_FOR_INDEPENDENT_RUNTIME, "independent-runtime");
@@ -1165,9 +1284,17 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
             continue;
           }
           await releaseHold(c, cfg, row, "budget");
+          const pkgGrade = needsOf(pkg.body).grade;
           if (row.role === "author" && pkg.status === "released") {
             const next = kernel(
-              decide({ status: pkg.status, action: "claim", actor_kind: "agent", actor_id: baseline, ...(preparation?{preparation}:{}) }),
+              decide({
+                status: pkg.status,
+                action: "claim",
+                actor_kind: "agent",
+                actor_id: baseline,
+                ...(pkgGrade ? { grade: pkgGrade } : {}),
+                ...(preparation ? { preparation } : {}),
+              }),
               "claim",
             );
             await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
@@ -1879,6 +2006,7 @@ export async function overrideIndependence(
     const { row, pkg, digest: d } = await overrideTarget(c, packageId, runId, why, true);
     await requireAuthority(c, user, "override-independence", needsOf(pkg.body));
     if (signed) await requireHardwareKey(c, String(signed.assertion.id ?? ""), needsOf(pkg.body));
+    const grade = needsOf(pkg.body).grade;
     kernel(
       decide({
         status: pkg.status,
@@ -1888,6 +2016,7 @@ export async function overrideIndependence(
         assertion_verified: signed !== null,
         digest_matches: signed !== null && signed.subject_digest === d,
         reason_given: true,
+        ...(grade ? { grade } : {}),
       }),
       "override",
     );
@@ -2334,7 +2463,7 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   if (finished.status === "succeeded") {
     if (row.role === "intake") await finishIntake(c, cfg, row, outputs, body, agent);
     else if (row.role === "author") await finishAuthor(c, cfg, row, agent);
-    else if(row.role === "pre-check") await finishPreCheck(c, cfg, row, body, outputs, agent);
+    else if(row.role === "pre-check") await finishPreCheck(c, cfg, { ...row, status: finished.status, body: finished }, body, outputs, agent);
     else throw new Refusal(409,"unsupported-run-role","Unsupported completion role");
   }
   await recordCheckerAttempt(c, cfg.ajv, { ...row, status: finished.status, body: finished });
@@ -2487,7 +2616,8 @@ async function finishAuthor(c: Tx, cfg: WorkConfig, row: Json, agent: Actor) {
   const pkg = await currentPackage(c, row.package_id, true);
   if (!pkg || pkg.revision !== row.package_revision) return;
   const preparation=await preparedExecutionGuard(c,cfg,pkg,row.body);
-  const next = kernel(decide({ status: pkg.status, action: "submit-output", actor_kind: "agent", actor_id: agent.id, ...(preparation?{preparation}:{}) }), "submit output");
+  const grade = needsOf(pkg.body).grade;
+  const next = kernel(decide({ status: pkg.status, action: "submit-output", actor_kind: "agent", actor_id: agent.id, ...(grade ? { grade } : {}), ...(preparation?{preparation}:{}) }), "submit output");
   await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
   await appendEvent(c, "package.output", pkg.id, agent, { revision: pkg.revision, round: row.round, status: next });
   await queueRun(c, cfg, pkg.id, pkg.revision, "pre-check", row.round);
@@ -2574,6 +2704,8 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   const admitted=preparation?await prepareCriterionResults(c,cfg,row,record,body,outputs,sharedRuntime):null;
   if(admitted) record.evidence=admitted.evidence;
   validate(cfg, "VerificationRecord.json", record);
+  const grade = needsOf(pkg.body).grade;
+  const attestationVerified = typeof row.body.attestation_verified === "boolean" ? row.body.attestation_verified : undefined;
   kernel(
     decide({
       status: pkg.status,
@@ -2585,6 +2717,8 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
       author_runtime: authorRuntime,
       checker_runtime: checkerRuntime,
       owner_override_verified: Boolean(override),
+      ...(grade ? { grade } : {}),
+      ...(attestationVerified !== undefined ? { attestation_verified: attestationVerified } : {}),
       ...(preparation?{preparation}:{}),
     }),
     "pre-check",
@@ -2604,7 +2738,15 @@ async function finishPreCheck(c: Tx, cfg: WorkConfig, row: Json, body: Json, out
   });
   if (record.outcome !== "pass" && row.round < MAX_ROUNDS) {
     const next = kernel(
-      decide({ status: pkg.status, action: "revise", actor_kind: "agent", actor_id: author?.body.agent_baseline ?? "author", pre_check: record.outcome, ...(preparation?{preparation}:{}) }),
+      decide({
+        status: pkg.status,
+        action: "revise",
+        actor_kind: "agent",
+        actor_id: author?.body.agent_baseline ?? "author",
+        pre_check: record.outcome,
+        ...(grade ? { grade } : {}),
+        ...(preparation?{preparation}:{}),
+      }),
       "revise",
     );
     await c.query("update packages set status = $3, updated_at = now() where id = $1 and revision = $2", [pkg.id, pkg.revision, next]);
@@ -2699,9 +2841,16 @@ export async function packageActions(db: Db, cfg: WorkConfig, user: string, id: 
         if (e instanceof Refusal) { out.push(refused(base, e.code, e.message)); continue; }
         throw e;
       }
+      const grade = needsOf(pkg.body).grade;
+      const safetyQuorum =
+        grade === "safety" && pkg.status === "in-verification" && (kind === "accept" || kind === "accept-with-findings")
+          ? await safetyQuorumMet(c, pkg, kind)
+          : undefined;
       const outcome = decide({
         status: pkg.status, action: HUMAN_ACTIONS[kind]!, actor_kind: "human", actor_id: user, author_baseline: s.author?.body.agent_baseline,
-        pre_check: s.verification?.outcome, assertion_verified: true, digest_matches: true, reason_given: true, ...(preparation ? { preparation } : {}),
+        pre_check: s.verification?.outcome, assertion_verified: true, digest_matches: true, reason_given: true,
+        ...(grade ? { grade } : {}), ...(safetyQuorum !== undefined ? { safety_quorum_met: safetyQuorum } : {}),
+        ...(preparation ? { preparation } : {}),
       });
       out.push(outcome.allowed ? { ...base, allowed: true } : refused(base, outcome.reason));
     }
@@ -2733,6 +2882,11 @@ export async function applyDecision(
     const s = await subjectOf(c, pkg);
     const preparation = await decisionPreparation(c, cfg, pkg, s, req.kind, true);
     const reason = (req.reason ?? "").trim();
+    const grade = needsOf(pkg.body).grade;
+    const safetyQuorum =
+      grade === "safety" && (req.kind === "accept" || req.kind === "accept-with-findings")
+        ? await safetyQuorumMet(c, pkg, req.kind)
+        : undefined;
     const outcome = decide({
       status: pkg.status,
       action: HUMAN_ACTIONS[req.kind] ?? "reject",
@@ -2743,6 +2897,8 @@ export async function applyDecision(
       assertion_verified: signed !== null,
       digest_matches: signed !== null && signed.subject_digest === s.digest,
       reason_given: reason.length > 0,
+      ...(grade ? { grade } : {}),
+      ...(safetyQuorum !== undefined ? { safety_quorum_met: safetyQuorum } : {}),
       ...(preparation?{preparation}:{}),
     });
     const next = kernel(outcome, req.kind);

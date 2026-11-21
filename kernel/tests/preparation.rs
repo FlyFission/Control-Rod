@@ -55,6 +55,9 @@ fn enrolled_release_defaults_closed_and_requires_complete_guard() {
         digest_matches: true,
         reason_given: false,
         preparation: Some(PreparationGuard::default()),
+        grade: None,
+        attestation_verified: None,
+        safety_quorum_met: None,
     };
     assert!(!decide(&req).decision.is_allowed());
     req.preparation = Some(PreparationGuard {
@@ -98,6 +101,9 @@ fn acceptance_cannot_waive_missing_mandatory_prepared_verification() {
             results_complete: true,
             ..PreparationGuard::default()
         }),
+        grade: None,
+        attestation_verified: None,
+        safety_quorum_met: None,
     };
     assert!(!decide(&req).decision.is_allowed());
     if let Some(g) = req.preparation.as_mut() {
@@ -110,5 +116,47 @@ fn acceptance_cannot_waive_missing_mandatory_prepared_verification() {
     if let Some(g) = req.preparation.as_mut() {
         g.results_pass = true;
     }
+    assert!(decide(&req).decision.is_allowed());
+}
+
+#[test]
+fn prepared_safety_acceptance_still_enforces_fail_closed_quorum() {
+    use controlrod_kernel::preparation::PreparationGuard;
+    use controlrod_kernel::transition::{Action, Grade, PreCheckOutcome, Request, decide};
+    let mut req = Request {
+        status: Status::InVerification,
+        action: Action::Accept,
+        actor_kind: ActorKind::Human,
+        actor_id: "owner".into(),
+        author_baseline: None,
+        checker_baseline: None,
+        author_runtime: None,
+        checker_runtime: None,
+        owner_override_verified: false,
+        pre_check: Some(PreCheckOutcome::Pass),
+        assertion_verified: true,
+        digest_matches: true,
+        reason_given: false,
+        preparation: Some(PreparationGuard {
+            requirements_confirmed: true,
+            ready_for_release: true,
+            basis_current: true,
+            manifest_matches: true,
+            results_complete: true,
+            required_checks_complete: true,
+            results_pass: true,
+        }),
+        grade: Some(Grade::Safety),
+        attestation_verified: None,
+        safety_quorum_met: None,
+    };
+    assert!(!decide(&req).decision.is_allowed());
+    req.action = Action::AcceptWithFindings;
+    req.reason_given = true;
+    assert!(!decide(&req).decision.is_allowed());
+    req.safety_quorum_met = Some(true);
+    assert!(decide(&req).decision.is_allowed());
+    req.action = Action::Accept;
+    req.reason_given = false;
     assert!(decide(&req).decision.is_allowed());
 }

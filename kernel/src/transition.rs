@@ -79,23 +79,71 @@ pub enum PreCheckOutcome {
     Inconclusive,
 }
 
-/// The runtime that ran an agent: provider and model, as the runner reported them.
+/// Package quality grade, matching `WorkPackage.grade` in `spec/records.tsp`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Grade {
+    GeneralService,
+    Material,
+    Safety,
+}
+
+/// Normalizes a runtime provider, vendor, or family token to its canonical vendor slot.
+/// Returns `None` for empty or whitespace-only inputs.
+#[must_use]
+pub fn canonicalize_token(raw: &str) -> Option<String> {
+    let norm = raw.trim().to_ascii_lowercase();
+    if norm.is_empty() {
+        return None;
+    }
+    Some(match norm.as_str() {
+        "claude" | "anthropic" | "claude-code" => "anthropic".to_owned(),
+        "codex" | "openai" => "openai".to_owned(),
+        "grok" | "xai" | "grok-cli" => "xai".to_owned(),
+        "agy" | "antigravity" | "gemini" | "gemini-cli" | "google" => "google".to_owned(),
+        "ollama" | "local-ollama" | "ollama-local" => "ollama-local".to_owned(),
+        _ => norm,
+    })
+}
+
+/// The runtime that ran an agent: provider, model, and optional vendor/family provenance.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeIdentity {
     pub provider: String,
     pub model: String,
+    #[serde(default)]
+    pub vendor: Option<String>,
+    #[serde(default)]
+    pub family: Option<String>,
 }
 
 impl RuntimeIdentity {
-    /// True when both sides count as the same runtime. The provider decides: two models from one
-    /// provider share training, tooling and blind spots, so a different model is not an
-    /// independent check.
+    fn canonical_tokens(&self) -> Vec<String> {
+        [
+            Some(self.provider.as_str()),
+            self.vendor.as_deref(),
+            self.family.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .filter_map(canonicalize_token)
+        .collect()
+    }
+
+    /// True when both sides count as the same runtime or vendor family.
+    /// Fails closed if either side carries zero canonical tokens or any token overlaps;
+    /// extra `vendor`/`family` fields can only make the check stricter, never looser.
     #[must_use]
     pub fn may_be_same(&self, other: &Self) -> bool {
-        self.provider
-            .trim()
-            .eq_ignore_ascii_case(other.provider.trim())
+        let self_tokens = self.canonical_tokens();
+        let other_tokens = other.canonical_tokens();
+        if self_tokens.is_empty() || other_tokens.is_empty() {
+            return true;
+        }
+        self_tokens
+            .iter()
+            .any(|token| other_tokens.iter().any(|other_token| token == other_token))
     }
 }
 
@@ -139,6 +187,15 @@ pub struct Request {
     /// Present only for an enrolled package; facts come from controlled server records.
     #[serde(default)]
     pub preparation: Option<crate::preparation::PreparationGuard>,
+    /// Optional package quality grade, used to enforce Safety-grade floors.
+    #[serde(default)]
+    pub grade: Option<Grade>,
+    /// Server-verified daemon run-attestation verdict for `SubmitPreCheck`.
+    #[serde(default)]
+    pub attestation_verified: Option<bool>,
+    /// Server-verified 2-of-2 distinct checker vendor family quorum for `Accept` / `AcceptWithFindings`.
+    #[serde(default)]
+    pub safety_quorum_met: Option<bool>,
 }
 
 /// The kernel's answer: the decision and, when allowed, the state the package moves to.
@@ -160,6 +217,18 @@ const fn allow(next: Status) -> Outcome {
         decision: Decision::allow(),
         next: Some(next),
     }
+}
+
+const fn attestation_allows(req: &Request) -> bool {
+    !matches!(req.attestation_verified, Some(false))
+        && (!matches!(req.grade, Some(Grade::Safety))
+            || matches!(req.attestation_verified, Some(true)))
+}
+
+const fn safety_quorum_allows(req: &Request) -> bool {
+    !matches!(req.safety_quorum_met, Some(false))
+        && (!matches!(req.grade, Some(Grade::Safety))
+            || matches!(req.safety_quorum_met, Some(true)))
 }
 
 /// Decides one lifecycle transition.
@@ -222,7 +291,9 @@ pub fn decide(req: &Request) -> Outcome {
                 refuse(ReasonCode::NotIndependent)
             }
             (Some(_), Some(_), Some(author), Some(checker)) => {
-                if author.may_be_same(checker) && !req.owner_override_verified {
+                if !attestation_allows(req) {
+                    refuse(ReasonCode::Forbidden)
+                } else if author.may_be_same(checker) && !req.owner_override_verified {
                     refuse(ReasonCode::NotIndependent)
                 } else {
                     allow(S::InVerification)
@@ -236,14 +307,26 @@ pub fn decide(req: &Request) -> Outcome {
             None => refuse(ReasonCode::MissingPreCheck),
         },
         (A::Accept, S::InVerification) => match req.pre_check {
-            Some(PreCheckOutcome::Pass) => allow(S::Accepted),
+            Some(PreCheckOutcome::Pass) => {
+                if safety_quorum_allows(req) {
+                    allow(S::Accepted)
+                } else {
+                    refuse(ReasonCode::Forbidden)
+                }
+            }
             Some(_) => refuse(ReasonCode::ReasonRequired),
             None => refuse(ReasonCode::MissingPreCheck),
         },
         (A::AcceptWithFindings, S::InVerification) => match (req.pre_check, req.reason_given) {
             (None, _) => refuse(ReasonCode::MissingPreCheck),
             (Some(_), false) => refuse(ReasonCode::ReasonRequired),
-            (Some(_), true) => allow(S::Accepted),
+            (Some(_), true) => {
+                if safety_quorum_allows(req) {
+                    allow(S::Accepted)
+                } else {
+                    refuse(ReasonCode::Forbidden)
+                }
+            }
         },
         (A::OverrideIndependence, S::InVerification) => {
             if req.reason_given {
@@ -278,6 +361,22 @@ mod tests {
         RuntimeIdentity {
             provider: provider.into(),
             model: model.into(),
+            vendor: None,
+            family: None,
+        }
+    }
+
+    fn rt_full(
+        provider: &str,
+        model: &str,
+        vendor: Option<&str>,
+        family: Option<&str>,
+    ) -> RuntimeIdentity {
+        RuntimeIdentity {
+            provider: provider.into(),
+            model: model.into(),
+            vendor: vendor.map(Into::into),
+            family: family.map(Into::into),
         }
     }
 
@@ -297,6 +396,9 @@ mod tests {
             digest_matches: true,
             reason_given: false,
             preparation: None,
+            grade: None,
+            attestation_verified: None,
+            safety_quorum_met: None,
         }
     }
 
@@ -525,5 +627,142 @@ mod tests {
     fn unknown_fields_in_a_request_are_rejected() {
         let json = r#"{"status":"draft","action":"release","actor_kind":"human","actor_id":"b","approved_by_agent":true}"#;
         assert!(serde_json::from_str::<Request>(json).is_err());
+    }
+
+    #[test]
+    fn canonicalize_token_normalizes_aliases_and_rejects_empty() {
+        assert_eq!(canonicalize_token(""), None);
+        assert_eq!(canonicalize_token("   \t "), None);
+        for raw in ["claude", "Anthropic", " claude-code "] {
+            assert_eq!(canonicalize_token(raw).as_deref(), Some("anthropic"));
+        }
+        for raw in ["codex", "OPENAI"] {
+            assert_eq!(canonicalize_token(raw).as_deref(), Some("openai"));
+        }
+        for raw in ["grok", "xai", "grok-cli"] {
+            assert_eq!(canonicalize_token(raw).as_deref(), Some("xai"));
+        }
+        for raw in ["agy", "antigravity", "gemini", "gemini-cli", "Google"] {
+            assert_eq!(canonicalize_token(raw).as_deref(), Some("google"));
+        }
+    }
+
+    #[test]
+    fn extra_vendor_or_family_only_tightens_may_be_same_and_empty_fails_closed() {
+        // PR #86 regression: { provider: "anthropic", family: Some("openai") } vs { provider: "anthropic" }
+        let author = rt("anthropic", "claude-opus-4-1");
+        let disguised = rt_full("anthropic", "gpt-5-codex", None, Some("openai"));
+        assert!(author.may_be_same(&disguised));
+        assert!(disguised.may_be_same(&author));
+
+        let mut req = agent(Action::SubmitPreCheck, Status::InVerification);
+        req.checker_baseline = Some("checker-1".into());
+        req.author_runtime = Some(author);
+        req.checker_runtime = Some(disguised);
+        assert_eq!(decide(&req).decision.reason(), ReasonCode::NotIndependent);
+
+        // { provider: "claude", family: Some("openai") } vs { provider: "claude", family: None }
+        let a_claude = rt("claude", "default");
+        let b_claude_openai = rt_full("claude", "default", None, Some("openai"));
+        assert!(a_claude.may_be_same(&b_claude_openai));
+
+        // Cross-field vendor/family overlap (e.g., opencode wrapping anthropic vs claude)
+        let opencode_anthropic = rt_full("opencode", "claude-sonnet-4-5", Some("anthropic"), None);
+        assert!(opencode_anthropic.may_be_same(&a_claude));
+        req.author_runtime = Some(a_claude);
+        req.checker_runtime = Some(opencode_anthropic);
+        assert_eq!(decide(&req).decision.reason(), ReasonCode::NotIndependent);
+
+        // Empty tokens on either side fail closed.
+        let empty = rt("   ", "default");
+        let grok = rt_full("grok", "grok-4", Some("xai"), Some("xai"));
+        assert!(empty.may_be_same(&grok));
+        assert!(grok.may_be_same(&empty));
+
+        // Disjoint provider, vendor, and family are allowed.
+        let claude_full = rt_full(
+            "claude",
+            "claude-sonnet-4-5",
+            Some("anthropic"),
+            Some("anthropic"),
+        );
+        assert!(!claude_full.may_be_same(&grok));
+        req.author_runtime = Some(claude_full);
+        req.checker_runtime = Some(grok);
+        assert!(decide(&req).decision.is_allowed());
+    }
+
+    #[test]
+    fn grade_safety_requires_attestation_on_pre_check_without_override_bypass() {
+        let mut req = agent(Action::SubmitPreCheck, Status::InVerification);
+        req.checker_baseline = Some("checker-1".into());
+        req.grade = Some(Grade::Safety);
+        req.attestation_verified = None;
+        assert!(!decide(&req).decision.is_allowed());
+
+        req.attestation_verified = Some(false);
+        assert!(!decide(&req).decision.is_allowed());
+
+        // Owner independence override never waives attestation.
+        req.owner_override_verified = true;
+        assert!(!decide(&req).decision.is_allowed());
+
+        // Non-safety still refuses explicit Some(false), allows None when runtimes differ.
+        req.grade = Some(Grade::Material);
+        assert!(!decide(&req).decision.is_allowed());
+        req.attestation_verified = None;
+        assert!(decide(&req).decision.is_allowed());
+
+        // Safety with Some(true) allows when other invariants hold.
+        req.grade = Some(Grade::Safety);
+        req.owner_override_verified = false;
+        req.attestation_verified = Some(true);
+        assert!(decide(&req).decision.is_allowed());
+    }
+
+    #[test]
+    fn grade_safety_requires_quorum_on_accept_and_accept_with_findings() {
+        for action in [Action::Accept, Action::AcceptWithFindings] {
+            let mut req = human(action, Status::InVerification);
+            req.reason_given = action == Action::AcceptWithFindings;
+            req.grade = Some(Grade::Safety);
+            req.safety_quorum_met = None;
+            assert!(!decide(&req).decision.is_allowed(), "{action:?} None");
+
+            req.safety_quorum_met = Some(false);
+            assert!(
+                !decide(&req).decision.is_allowed(),
+                "{action:?} Some(false)"
+            );
+
+            // Explicit Some(false) also refuses non-safety grades.
+            req.grade = Some(Grade::GeneralService);
+            assert!(!decide(&req).decision.is_allowed(), "{action:?} gs false");
+
+            req.grade = Some(Grade::Safety);
+            req.safety_quorum_met = Some(true);
+            assert_eq!(decide(&req).next, Some(Status::Accepted), "{action:?} true");
+        }
+    }
+
+    #[test]
+    fn grade_deserializes_with_kebab_case_matching_spec() {
+        let parsed = serde_json::from_str::<Request>(
+            r#"{"status":"in-verification","action":"accept","actor_kind":"human","actor_id":"ben","grade":"general-service"}"#,
+        );
+        assert_eq!(
+            parsed.ok().and_then(|r| r.grade),
+            Some(Grade::GeneralService)
+        );
+
+        let safety = serde_json::from_str::<Request>(
+            r#"{"status":"in-verification","action":"accept","actor_kind":"human","actor_id":"ben","grade":"safety","safety_quorum_met":true}"#,
+        );
+        let safety_req = safety.ok();
+        assert_eq!(
+            safety_req.as_ref().and_then(|r| r.grade),
+            Some(Grade::Safety)
+        );
+        assert_eq!(safety_req.and_then(|r| r.safety_quorum_met), Some(true));
     }
 }

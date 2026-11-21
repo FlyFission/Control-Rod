@@ -63,6 +63,10 @@ export type BoardData = {
   /** Confidence of each header count, from every read that count needs. */
   needsYouCounts: Confidence;
   agentsRunningCounts: Confidence;
+  /** Signed-in user name, or empty string if unknown. */
+  me: string;
+  /** Map of project id to project name from admin view. */
+  projects: Record<string, string>;
 };
 
 /**
@@ -252,6 +256,8 @@ export function useBoardData(): BoardData {
     agentsRunningCounts: packages.data === undefined || runsUnread ? "unknown" : live.status === "unknown" || viewStale || !fresh(packages) ? "last-known" : "current",
     needsYou: cards.filter((c) => c.next.tone === "needs" || c.next.tone === "block").length,
     agentsRunning: cards.filter((c) => c.runActive).length,
+    me: session.data?.user ?? "",
+    projects: Object.fromEntries((admin.data?.projects ?? []).map((p) => [p.id, p.name])),
   };
 }
 

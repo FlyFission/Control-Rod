@@ -1,0 +1,52 @@
+[WebServer] [plugin builtin:vite-reporter] 
+[WebServer] (!) Some chunks are larger than 500 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+Running 6 tests using 1 worker
+
+[WebServer] 1:28:42 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[WebServer] 1:28:43 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+  ✓  1 [chromium] › e2e/board-looks.spec.ts:83:3 › the board has no axe violations in look a, live, with a blocked O6 card, and with the stream unknown (5.1s)
+[WebServer] 1:28:47 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[WebServer] 1:28:48 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+  ✓  2 [chromium] › e2e/board-looks.spec.ts:83:3 › the board has no axe violations in look b, live, with a blocked O6 card, and with the stream unknown (5.3s)
+[WebServer] 1:28:52 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[WebServer] 1:28:53 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+  ✓  3 [chromium] › e2e/board-looks.spec.ts:83:3 › the board has no axe violations in look c, live, with a blocked O6 card, and with the stream unknown (4.9s)
+[WebServer] 1:28:57 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[WebServer] 1:28:58 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+  ✓  4 [chromium] › e2e/board-looks.spec.ts:139:3 › the review drawer's agent panel has no axe violations in look a (1.5s)
+[WebServer] 1:28:59 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[WebServer] 1:29:00 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+  ✓  5 [chromium] › e2e/board-looks.spec.ts:139:3 › the review drawer's agent panel has no axe violations in look b (1.4s)
+[WebServer] 1:29:00 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+[WebServer] 1:29:01 PM [vite] http proxy error: /runtimes
+[WebServer] Error: connect ECONNREFUSED 127.0.0.1:7300
+[WebServer]     at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1637:16)
+  ✓  6 [chromium] › e2e/board-looks.spec.ts:139:3 › the review drawer's agent panel has no axe violations in look c (1.4s)
+
+  6 passed (37.7s)

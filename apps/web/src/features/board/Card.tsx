@@ -54,15 +54,27 @@ export type CardProps = {
   nuclear?: boolean;
   /** The card's actions (primary decision and Move to), shown under the next line. */
   actions?: ReactNode;
+  /** Left-edge color from the active `colorBy` lens (never a meaning token). */
+  edgeColor?: string;
+  /** Compact density hides avatars and grade/context chips, never the next line. */
+  compact?: boolean;
 };
 
 /** A board card: the small fixed core of spec 6.2. No drag; the title opens the package. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
+  const check = needsIndependentCheck(pkg);
   return (
-    <article aria-labelledby={titleId} className={selected ? "bd-card selected" : "bd-card"} data-kind={kinds[0]} data-column={column} data-tone={stream === "live" && !lastKnown ? next.tone : "unknown"}>
+    <article
+      aria-labelledby={titleId}
+      className={selected ? "bd-card selected" : "bd-card"}
+      data-kind={kinds[0]}
+      data-column={column}
+      data-tone={stream === "live" && !lastKnown ? next.tone : "unknown"}
+      style={edgeColor ? { borderLeftColor: edgeColor } : undefined}
+    >
       <div className="bd-kinds">
         {kinds.map((k) => (
           <span key={k} className="bd-kind" data-kind={k}>
@@ -79,28 +91,30 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
       <span className="bd-id mono small muted">
         {pkg.id} rev {pkg.revision}
       </span>
-      <div className="bd-meta">
-        {owner && (
-          <span className="bd-avatar" title={`Owner: ${owner}`}>
-            <span aria-hidden="true">{initials(owner)}</span>
-            <span className="sr-only">Owner {owner}</span>
-          </span>
-        )}
-        {agent && (
-          <span className="bd-avatar bd-agent" title={`Agent: ${agent}`}>
-            <span aria-hidden="true">{initials(agent)}</span>
-            <span className="sr-only">Agent {agent}</span>
-          </span>
-        )}
-        <span className="bd-chip">{pkg.grade ?? "general-service"}</span>
-        {nuclear && <span className="bd-nuclear">Nuclear</span>}
-        {needsIndependentCheck(pkg) && (
-          <span className="bd-check">
-            <span aria-hidden="true">{"◆"} </span>
-            Independent check
-          </span>
-        )}
-      </div>
+      {(!compact || check) && (
+        <div className="bd-meta">
+          {!compact && owner && (
+            <span className="bd-avatar" title={`Owner: ${owner}`}>
+              <span aria-hidden="true">{initials(owner)}</span>
+              <span className="sr-only">Owner {owner}</span>
+            </span>
+          )}
+          {!compact && agent && (
+            <span className="bd-avatar bd-agent" title={`Agent: ${agent}`}>
+              <span aria-hidden="true">{initials(agent)}</span>
+              <span className="sr-only">Agent {agent}</span>
+            </span>
+          )}
+          {!compact && <span className="bd-chip">{pkg.grade ?? "general-service"}</span>}
+          {!compact && nuclear && <span className="bd-nuclear">Nuclear</span>}
+          {check && (
+            <span className="bd-check">
+              <span aria-hidden="true">{"◆"} </span>
+              Independent check
+            </span>
+          )}
+        </div>
+      )}
       <p className="bd-next">
         {stream === "live" && lastKnown ? (
           <span className="muted">Last known: {next.text}</span>

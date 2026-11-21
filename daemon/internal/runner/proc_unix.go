@@ -87,11 +87,22 @@ func processExists(pid int) bool {
 
 // groupExists reports whether a running (not zombie) process is in the group. Used only in process
 // group mode, where a group id reused after the group emptied cannot be told apart (documented
-// limit). On Linux it reads process states, since a zombie still counts as a member to kill(2).
+// limit). It reads process states, since a zombie (such as the run's own leader, held unreaped)
+// still counts as a member to kill(2).
 func groupExists(pgid int) bool {
 	if runtime.GOOS != "linux" {
-		err := syscall.Kill(-pgid, 0)
-		return err == nil || errors.Is(err, syscall.EPERM)
+		states, err := groupStates(pgid)
+		if err != nil {
+			// Unreadable: fall back to kill(2), which errs towards alive.
+			err := syscall.Kill(-pgid, 0)
+			return err == nil || errors.Is(err, syscall.EPERM)
+		}
+		for _, st := range states {
+			if !strings.HasPrefix(st, "Z") {
+				return true
+			}
+		}
+		return false
 	}
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
@@ -171,9 +182,6 @@ func (r SpawnReceipt) freeze(on bool) error {
 	if err := r.signal(sig); err != nil || !on {
 		return err
 	}
-	if runtime.GOOS != "linux" {
-		return errors.New("stopping a process group cannot be confirmed on this platform")
-	}
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		if groupStopped(r.PGID) {
@@ -186,6 +194,18 @@ func (r SpawnReceipt) freeze(on bool) error {
 
 // groupStopped reports whether every running member of a group is stopped (state T).
 func groupStopped(pgid int) bool {
+	if runtime.GOOS != "linux" {
+		states, err := groupStates(pgid)
+		if err != nil {
+			return false
+		}
+		for _, st := range states {
+			if !strings.HasPrefix(st, "T") && !strings.HasPrefix(st, "Z") {
+				return false
+			}
+		}
+		return true
+	}
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return false
@@ -209,6 +229,26 @@ func groupStopped(pgid int) bool {
 		}
 	}
 	return true
+}
+
+// groupStates lists the state of every process in a group, from ps (macOS and the other BSDs have
+// no /proc). States start with Z for a zombie and T for a stopped process.
+func groupStates(pgid int) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ps", "-A", "-o", "pgid=,stat=").Output()
+	if err != nil {
+		return nil, err
+	}
+	want := fmt.Sprint(pgid)
+	var states []string
+	for _, line := range strings.Split(string(out), "\n") {
+		f := strings.Fields(line)
+		if len(f) == 2 && f[0] == want {
+			states = append(states, f[1])
+		}
+	}
+	return states, nil
 }
 
 func (r SpawnReceipt) kill() {

@@ -600,3 +600,86 @@ describe("BoardView", () => {
     await waitFor(() => expect(screen.queryByText("Loading")).toBeNull());
   });
 });
+
+describe("context profile", () => {
+  it("locks Safety grade work to Nuclear with the reason, and badges the card", async () => {
+    api({ packages: [pkg({ id: "WP-S", title: "Relief valve sizing", grade: "safety", context_profile: "light" })] });
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const card = (await screen.findByText("Relief valve sizing")).closest("article")!;
+    expect(within(card).getByText("Nuclear")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Relief valve sizing" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-S" });
+    const group = within(drawer).getByRole("group", { name: "Context" });
+    const nuclear = within(group).getByRole("button", { name: "Nuclear" }) as HTMLButtonElement;
+    expect(nuclear.getAttribute("aria-pressed")).toBe("true");
+    expect(nuclear.disabled).toBe(true);
+    expect((within(group).getByRole("button", { name: "Light" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(drawer).getByText("Safety grade work is always Nuclear")).toBeTruthy();
+  });
+
+  it("shows no badge for Light work and saves a switch to Nuclear through the draft edit", async () => {
+    const p = pkg({ id: "WP-L", title: "Lighting layout", grade: "general-service" });
+    api({ packages: [p] });
+    let sent: { body: WorkPackage; ifMatch: string | null } | undefined;
+    server.use(
+      http.get("*/packages/:id", () => HttpResponse.json({ ...view({}, p), originators: ["ben"], draft_etag: '"tag-1"' })),
+      http.put("*/packages/:id", async ({ request }) => {
+        const body = (await request.json()) as WorkPackage;
+        sent = { body, ifMatch: request.headers.get("if-match") };
+        return HttpResponse.json(body, { headers: { etag: '"tag-2"' } });
+      }),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    const card = (await screen.findByText("Lighting layout")).closest("article")!;
+    expect(within(card).queryByText("Nuclear")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Lighting layout" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-L" });
+    const group = within(drawer).getByRole("group", { name: "Context" });
+    expect(within(group).getByRole("button", { name: "Light" }).getAttribute("aria-pressed")).toBe("true");
+    await waitFor(() => expect((within(group).getByRole("button", { name: "Nuclear" }) as HTMLButtonElement).disabled).toBe(false));
+    await user.click(within(group).getByRole("button", { name: "Nuclear" }));
+    await waitFor(() => expect(sent).toBeDefined());
+    expect(sent!.ifMatch).toBe('"tag-1"');
+    expect(sent!.body.context_profile).toBe("nuclear");
+  });
+
+  it("keeps the switch read-only for a draft in guided preparation, which refuses the draft edit", async () => {
+    const p = pkg({ id: "WP-G", title: "Guided pump study", grade: "general-service" });
+    api({ packages: [p] });
+    let puts = 0;
+    server.use(
+      http.get("*/packages/:id", () => HttpResponse.json({ ...view({}, p), originators: ["ben"], draft_etag: '"tag-1"', preparation_enrolled: true })),
+      http.put("*/packages/:id", () => {
+        puts += 1;
+        return HttpResponse.json({ code: "preparation-edit-required" }, { status: 409 });
+      }),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Guided pump study" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-G" });
+    expect(await within(drawer).findByText("Not editable during guided preparation")).toBeTruthy();
+    const group = within(drawer).getByRole("group", { name: "Context" });
+    const nuclear = within(group).getByRole("button", { name: "Nuclear" }) as HTMLButtonElement;
+    expect(nuclear.disabled).toBe(true);
+    expect((within(group).getByRole("button", { name: "Light" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(nuclear);
+    expect(puts).toBe(0);
+  });
+
+  it("badges a card whose project defaults to Nuclear", async () => {
+    api({ packages: [pkg({ id: "WP-P", title: "Plant work", project: "prj_plant" })] });
+    server.use(
+      http.get("*/admin", () => HttpResponse.json({
+        members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }],
+        registry: { qualifications: [] },
+        projects: [{ id: "prj_plant", org_id: "o", name: "Plant", mode: "capital-projects", default_rigor: "standard", default_context_profile: "nuclear", lanes: ["internal"], qa_overlays: [], autonomy_level: 0, status: "active" }],
+      })),
+    );
+    await renderPage(<Page />);
+    const card = (await screen.findByText("Plant work")).closest("article")!;
+    await waitFor(() => expect(within(card).getByText("Nuclear")).toBeTruthy());
+  });
+});

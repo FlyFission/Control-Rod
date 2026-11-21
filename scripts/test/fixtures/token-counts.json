@@ -1,0 +1,73 @@
+{
+  "recorded_by": "scripts/test/record-token-counts.mjs",
+  "upstream": "https://github.com/FlyFission/nuclear-grade-context-engineering",
+  "commit": "395aa6ed161b773f1cf24abbf85e1c9ff95b969c",
+  "tokens_py": "sha256:d496552b7f0ee04594c6e737adeddc5f805e3ec5479d0895f5370ab2f34b9395",
+  "python": "3.13.18 15.1.0",
+  "cases": [
+    {
+      "text": "",
+      "tokens": 0
+    },
+    {
+      "text": "hello world",
+      "tokens": 4
+    },
+    {
+      "text": "Every claim maps to evidence, a gap, or an explicit non-claim.",
+      "tokens": 21
+    },
+    {
+      "text": "version 0.7.0 shipped on 2026-11-21 with 33 skills",
+      "tokens": 20
+    },
+    {
+      "text": "snake_case_name and __dunder__ and a_b",
+      "tokens": 10
+    },
+    {
+      "text": "`ng validate --strict-custody` -> OK: .nuclear/changes/x",
+      "tokens": 22
+    },
+    {
+      "text": "| # | Skill | What it carries |\n|---|---|---|\n| 1 | [`questioning-attitude`](skills/questioning-attitude/SKILL.md) | x |",
+      "tokens": 48
+    },
+    {
+      "text": "line one\r\nline two\rline three\n",
+      "tokens": 7
+    },
+    {
+      "text": "naïve café façade Ünïcödé",
+      "tokens": 7
+    },
+    {
+      "text": "Ελληνικά кириллица 日本語のテキスト 한국어",
+      "tokens": 8
+    },
+    {
+      "text": "x² + y³ = z¹, ① ② ③, H₂O, ⁴⁵⁶",
+      "tokens": 14
+    },
+    {
+      "text": "١٢٣ ٤٥٦ Arabic-Indic digits and ０１２ fullwidth",
+      "tokens": 14
+    },
+    {
+      "text": "é combining acute, emoji 👍🏽 and 🚀🚀🚀",
+      "tokens": 14
+    },
+    {
+      "text": "tabs\tand nbsp em-space　ideographic\u001cfile-sep",
+      "tokens": 13
+    },
+    {
+      "text": "Ⅻ roman numeral letters ⅰⅱⅲ and ½ ¾",
+      "tokens": 12
+    },
+    {
+      "text": "--- \n name: x\ndescription: \"quoted\"\n---\n",
+      "tokens": 15
+    }
+  ]
+}

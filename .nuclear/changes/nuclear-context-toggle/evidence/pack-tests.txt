@@ -1,0 +1,26 @@
+$ node scripts/generate-nuclear-pack.mjs --check
+nuclear-grade pack check passed: packs/nuclear-grade
+exit 0
+$ pnpm --filter @control-rod/scripts run test
+ok 1 - committed pack matches its manifest (--check)
+ok 2 - manifest names the upstream, license and every card
+ok 3 - check catches a hand edit, an added file and a removed file
+ok 4 - check catches a card edited together with its manifest digest
+ok 5 - regenerating from the NGCE checkout reproduces the committed pack
+ok 6 - fixture was recorded from the current sample list
+ok 7 - countTokens matches the counts NGCE's Python count_tokens recorded
+ok 8 - countTokens matches NGCE's count_tokens run live
+ok 9 - countTokens matches NGCE's count_tokens on every assigned code point # SKIP set NGCE_EXHAUSTIVE=1
+# tests 9
+# pass 8
+# fail 0
+# skipped 1
+$ NGCE_EXHAUSTIVE=1 node --test scripts/test/token-count.test.mjs
+ok 1 - fixture was recorded from the current sample list
+ok 2 - countTokens matches the counts NGCE's Python count_tokens recorded
+ok 3 - countTokens matches NGCE's count_tokens run live
+ok 4 - countTokens matches NGCE's count_tokens on every assigned code point
+# tests 4
+# pass 4
+# fail 0
+# skipped 0

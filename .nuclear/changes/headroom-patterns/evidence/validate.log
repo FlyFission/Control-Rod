@@ -1,0 +1,3 @@
+$ python -I .ng/tools/ng.py validate --strict-custody .nuclear/changes/headroom-patterns/   # .ng = nuclear-grade at 8122269 (ci.yml NUCLEAR_GRADE_SHA)
+OK: .nuclear/changes/headroom-patterns
+exit 0

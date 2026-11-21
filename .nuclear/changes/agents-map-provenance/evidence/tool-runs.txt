@@ -1,0 +1,49 @@
+# Tool runs, 2026-11-16T17:45:46Z, commit base 124f2e6
+
+$ (cd tools && python3 -m unittest -v test_check_agents_map test_check_register)
+test_broken_link_backtick_path_and_import_fail (test_check_agents_map.AgentsMapTests.test_broken_link_backtick_path_and_import_fail) ... ok
+test_budget_refuses_growth_and_allows_shrinking (test_check_agents_map.AgentsMapTests.test_budget_refuses_growth_and_allows_shrinking) ... ok
+test_existing_references_pass (test_check_agents_map.AgentsMapTests.test_existing_references_pass) ... ok
+test_missing_budget_file_fails (test_check_agents_map.AgentsMapTests.test_missing_budget_file_fails) ... ok
+test_urls_placeholders_and_plain_code_are_not_paths (test_check_agents_map.AgentsMapTests.test_urls_placeholders_and_plain_code_are_not_paths) ... ok
+test_code_row_needs_an_existing_provenance_table_that_lists_the_file (test_check_register.RegisterTests.test_code_row_needs_an_existing_provenance_table_that_lists_the_file) ... ok
+test_complete_row_with_retained_license_passes (test_check_register.RegisterTests.test_complete_row_with_retained_license_passes) ... ok
+test_excluded_donor_subdirectory_is_skipped (test_check_register.RegisterTests.test_excluded_donor_subdirectory_is_skipped) ... ok
+test_font_license_is_accepted_for_font_files_only (test_check_register.RegisterTests.test_font_license_is_accepted_for_font_files_only) ... ok
+test_marked_file_without_row_is_refused (test_check_register.RegisterTests.test_marked_file_without_row_is_refused) ... ok
+test_overlap_scan_reports_unregistered_copy_only (test_check_register.RegisterTests.test_overlap_scan_reports_unregistered_copy_only) ... ok
+test_refuses_copyleft_short_commit_missing_path_and_missing_evidence (test_check_register.RegisterTests.test_refuses_copyleft_short_commit_missing_path_and_missing_evidence) ... ok
+test_short_and_comment_lines_do_not_create_overlaps (test_check_register.RegisterTests.test_short_and_comment_lines_do_not_create_overlaps) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.018s
+
+OK
+
+$ python3 tools/check_agents_map.py
+agent map check passed
+exit 0
+
+$ sha256sum AGENTS.md; wc -c AGENTS.md
+7c3fb9f8fe68d19ac9ff4b1c5080f7108eb7adbf59fa60acfa7a1bb2ae2dc2d8  AGENTS.md
+1187 AGENTS.md
+
+$ cat tools/agents_map_budget.json
+{
+  "file": "AGENTS.md",
+  "bytes": 1187,
+  "sha256": "7c3fb9f8fe68d19ac9ff4b1c5080f7108eb7adbf59fa60acfa7a1bb2ae2dc2d8"
+}
+
+$ python3 tools/check_register.py
+apps/web/src/lib/kind.ts: carries a provenance marker but has no register row
+services/api/src/seals.ts: carries a provenance marker but has no register row
+2 register problem(s)
+exit 1
+
+$ git stash; python3 tools/check_register.py (main code)
+apps/web/src/lib/kind.ts: carries a provenance marker but has no register row
+services/api/src/seals.ts: carries a provenance marker but has no register row
+2 register problem(s)
+exit 1
+All checks passed!

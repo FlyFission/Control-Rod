@@ -1,0 +1,7 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AnchorPath.json",
+    "type": "string",
+    "pattern": "^(?!/)(?!.*\\\\)(?!(.*/)?\\.{1,2}(/|$))[^\\u0000]{1,1024}$",
+    "description": "A repository-relative path that cannot leave the snapshot."
+}

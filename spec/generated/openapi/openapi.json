@@ -10179,6 +10179,14 @@
           "default_rigor": {
             "$ref": "#/components/schemas/ControlRod.Records.RigorMode"
           },
+          "default_context_profile": {
+            "type": "string",
+            "enum": [
+              "light",
+              "nuclear"
+            ],
+            "description": "The context profile packages carry when they name none. Absent means light."
+          },
           "lanes": {
             "type": "array",
             "items": {
@@ -11262,6 +11270,14 @@
               "general-service"
             ],
             "description": "The quality grade signers must hold (workbench specification 5.2). Absent means General service,\nas for every package drafted before grades existed."
+          },
+          "context_profile": {
+            "type": "string",
+            "enum": [
+              "light",
+              "nuclear"
+            ],
+            "description": "Which context the brief carries. Absent means the project default; Safety and Material grades\nand trust-surface scopes are always nuclear."
           },
           "status": {
             "$ref": "#/components/schemas/ControlRod.Records.PackageStatus"

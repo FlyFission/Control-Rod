@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -50,11 +51,30 @@ func startUnitNS(t *testing.T, k Container, ns, runID, script, dir string) (Spaw
 	}
 	t.Cleanup(func() {
 		if r.Alive() {
-			r.kill()
+			held(r).kill()
 			waitGone(r, 5*time.Second)
 		}
 	})
 	return r, cmd
+}
+
+// held is the receipt as Execute holds it where the leader cannot be signalled through a stable
+// handle: macOS has no pidfd, so only a leader this daemon keeps unreaped (kqueue, waitid_darwin.go)
+// can be signalled. On Linux the receipt is used as it is, through a pidfd.
+func held(r SpawnReceipt) SpawnReceipt {
+	if runtime.GOOS == "linux" {
+		return r
+	}
+	return r.Pinned()
+}
+
+// needsSetsid skips a test whose script moves a child out of the group with setsid(1), which macOS
+// does not ship.
+func needsSetsid(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("setsid"); err != nil {
+		t.Skip("setsid(1) is not installed here")
+	}
 }
 
 func cgroupMode(t *testing.T) Container {
@@ -87,7 +107,7 @@ func TestReceiptMatchesOnlyItsOwnLiveProcess(t *testing.T) {
 	if reused.Matches() || reboot.Matches() {
 		t.Fatal("another start time or boot is another process")
 	}
-	r.kill()
+	held(r).kill()
 	if !waitGone(r, 5*time.Second) || r.Matches() {
 		t.Fatal("a receipt never matches a process that has exited")
 	}
@@ -116,7 +136,7 @@ func TestAZombieDoesNotCountAsRunning(t *testing.T) {
 func TestProcessGroupStopEndsWithKillForAProcessThatIgnoresTerm(t *testing.T) {
 	r, _ := startUnit(t, Container{Mode: ContainGroup}, "run-c", `trap '' HUP TERM; while true; do sleep 0.05; done`, t.TempDir())
 	time.Sleep(100 * time.Millisecond)
-	if !StopGracefully(r, fast, nil) || r.Alive() {
+	if !StopGracefully(held(r), fast, nil) || r.Alive() {
 		t.Fatal("the group must be gone after the ladder")
 	}
 }
@@ -232,6 +252,9 @@ func TestExecuteFailsClosedWhenTheRunCannotBeOwned(t *testing.T) {
 }
 
 func TestRestartedDaemonStopsOrphansReportsThemAndEndsUnreceiptedScopes(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("an orphan's leader is signalled through a pidfd, which only Linux has; elsewhere it is left for a person to reconcile")
+	}
 	home := t.TempDir()
 	k := DetectContainer(os.Getenv)
 	alive, _ := startUnit(t, k, "run-orphan", "sleep 30", t.TempDir())
@@ -364,6 +387,9 @@ func TestCaptureEnforcesLimitsWhileReadingAndRefusesSymlinks(t *testing.T) {
 }
 
 func TestExecuteReportsUncontainedWhenTheUnitWillNotEmpty(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("the unit here is a cgroup, which only Linux has")
+	}
 	old := killWait
 	killWait = 300 * time.Millisecond
 	defer func() { killWait = old }()
@@ -440,6 +466,7 @@ func TestAReceiptWriteFailureEndsTheWholeUnitIncludingEscapedChildren(t *testing
 }
 
 func TestAnEscapedChildHoldingThePipesMakesTheRunUncontainedNotStuck(t *testing.T) {
+	needsSetsid(t)
 	cmd := exec.Command("bash", "-c", `setsid sleep 30 & exit 0`)
 	k := Container{Mode: ContainGroup}
 	k.Wrap(cmd, UnitName("testns", "run-pipes", 1))

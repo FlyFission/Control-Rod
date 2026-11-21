@@ -1,0 +1,6 @@
+ spec/generated/json-schema/Project.json     | 13 +++++++++++++
+ spec/generated/json-schema/WorkPackage.json | 13 +++++++++++++
+ spec/generated/openapi/openapi.json         | 16 ++++++++++++++++
+ spec/records.tsp                            |  6 ++++++
+ spec/tenancy.tsp                            |  3 +++
+ 5 files changed, 51 insertions(+)

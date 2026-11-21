@@ -867,6 +867,37 @@ select {
 .story-step.failed {
   color: #ffb4a0;
 }
+.agent-panel {
+  display: grid;
+  gap: 8px;
+}
+.agent-panel-head,
+.agent-term-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.agent-term {
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: 8px 8px 8px 0;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  font-family: var(--mono);
+}
+.agent-term .story {
+  margin: 0;
+}
+.agent-term .story-step.said .story-text {
+  font-family: var(--mono);
+  white-space: pre-wrap;
+}
+.agent-panel-foot {
+  display: grid;
+  gap: 4px;
+}
 .story-mark {
   display: inline-block;
   width: 1.4em;

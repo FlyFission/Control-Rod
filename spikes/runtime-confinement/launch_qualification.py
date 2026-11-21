@@ -13,13 +13,17 @@ fails. No real credential or prompt is used: Claude Code talks to the scripted p
 S-0 over loopback with a fixture key; Codex runs `codex sandbox` with no model.
 
 Run: python3 spikes/runtime-confinement/launch_qualification.py --controlrod <built controlrod> \\
-       --claude <native claude> --codex <native codex> --deps <dir with socat-wrap and usr/bin/rg>
+       --claude <native claude> --codex <native codex> [--deps <dir with socat-wrap and usr/bin/rg>]
+--deps is needed on Linux and WSL2, where Claude Code's sandbox runs bubblewrap with socat and
+ripgrep; on macOS both CLIs use Seatbelt and nothing extra is put on the PATH.
 Exits nonzero unless every qualification check passes.
 """
 
 import argparse
+import errno
 import json
 import os
+import platform
 import pathlib
 import shlex
 import socket
@@ -94,9 +98,12 @@ out = {"read": {k: read(v) for k, v in targets["reads"].items()},
 print(json.dumps(out))
 """
 
-READ_REFUSED = {1, 2, 13}            # EPERM, ENOENT, EACCES
-WRITE_REFUSED = {1, 2, 13, 30}       # plus EROFS
-NET_REFUSED = {1, 13, 101, 111, -2, -3, -5}  # EPERM, EACCES, ENETUNREACH, ECONNREFUSED, name resolution
+# The refusals that count, by name: the probe runs on this host, so this host's numbers apply
+# (Linux and macOS number ENETUNREACH, ECONNREFUSED and the resolver errors differently).
+READ_REFUSED = {errno.EPERM, errno.ENOENT, errno.EACCES}
+WRITE_REFUSED = READ_REFUSED | {errno.EROFS}
+NET_REFUSED = {errno.EPERM, errno.EACCES, errno.ENETUNREACH, errno.ECONNREFUSED, errno.EHOSTUNREACH} | {
+    getattr(socket, n) for n in ("EAI_NONAME", "EAI_AGAIN", "EAI_NODATA", "EAI_FAIL") if hasattr(socket, n)}
 
 
 class Listener:
@@ -195,7 +202,7 @@ def claude_run(claude, deps, spec, home, ws, t, weaken=False):
     env = dict(kv.split("=", 1) for kv in spec["env"])
     # The agent environment, plus only what the fixture provider needs: the real launch has neither,
     # because the CLI reads its own login file.
-    env.update({"PATH": s6.tool_path(home.parent, pathlib.Path(deps)), "ANTHROPIC_API_KEY": h.FIXTURE_KEY,
+    env.update({"PATH": s6.tool_path(home.parent, pathlib.Path(deps)) if deps else "/usr/bin:/bin", "ANTHROPIC_API_KEY": h.FIXTURE_KEY,
                 "ANTHROPIC_BASE_URL": f"http://127.0.0.1:{server.server_port}", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"})
     argv += ["--max-turns", "8"]
     argv[argv.index("--model") + 1 if "--model" in argv else len(argv):] = []
@@ -273,14 +280,32 @@ def leg(name, fn, *args):
         return result, listener.got.copy(), host
 
 
+def host_info(args):
+    """What ran: the platform, and each CLI's own --version, so a report names what it qualifies."""
+    def version(exe):
+        try:
+            return subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=60).stdout.strip()
+        except (OSError, subprocess.SubprocessError) as e:
+            return f"unreadable: {type(e).__name__}"
+    rel = ""
+    try:
+        rel = pathlib.Path("/proc/sys/kernel/osrelease").read_text().strip()
+    except OSError:
+        pass
+    return {"system": platform.system(), "release": platform.release(), "machine": platform.machine(),
+            "mac_ver": platform.mac_ver()[0], "osrelease": rel, "claude": version(args.claude), "codex": version(args.codex)}
+
+
 def main():
     a = argparse.ArgumentParser(description=__doc__)
     a.add_argument("--controlrod", required=True)
     a.add_argument("--claude", required=True)
     a.add_argument("--codex", required=True)
-    a.add_argument("--deps", required=True)
+    a.add_argument("--deps", help="Linux and WSL2: a folder with socat-wrap and usr/bin/rg")
     a.add_argument("--out", help="write the full results here as JSON")
     args = a.parse_args()
+    if sys.platform.startswith("linux") and not args.deps:
+        a.error("--deps is required on Linux and WSL2")
 
     def run_claude(home, ws, t, weaken):
         return claude_run(args.claude, args.deps, launch(args.controlrod, "claude", home, ws, POLICY), home, ws, t, weaken)
@@ -314,7 +339,7 @@ def main():
     checks["claude_file_tools_refuse_outside_and_allow_inside"] = (not c["read_unlisted_by_tool"] and not c["read_token_by_tool"]
                                                                    and not c["write_outside_by_tool"] and c["write_inside_by_tool"])
 
-    report = {"checks": checks, "results": results}
+    report = {"host": host_info(args), "checks": checks, "results": results}
     if args.out:
         pathlib.Path(args.out).write_text(json.dumps(report, indent=1))
     print(json.dumps(checks, indent=1))

@@ -7,7 +7,12 @@ import { router } from "./router.js";
 import "./styles.css";
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 5000, refetchOnWindowFocus: true } },
+  defaultOptions: {
+    queries: { retry: 1, staleTime: 5000, refetchOnWindowFocus: true },
+    // An action taken offline fails at once and says so. The default ("online") holds it silently
+    // and sends it whenever the connection returns, which the person never asked for (live break pass).
+    mutations: { networkMode: "always" },
+  },
 });
 
 const root = document.getElementById("root");

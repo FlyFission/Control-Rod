@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "findings": {
+    "fail|@break outages > the daemon dies mid-run: the run is shown lost, and can be retried to success|a lost run offers a way to run again": {
+      "severity": "major",
+      "pass": "break",
+      "title": "a lost run offers a way to run again",
+      "detail": "Error: a lost run offers a way to run again\n\nexpect(locator).toBeVisible() failed\n\nLocator: getByRole('button', { name: /requeue|retry|run again/i }).first()\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n  - a lost run offers a way to run again getByRole('button', { name: /requeue|retry|run again/i }).first() with timeout 30000ms\n  - waiting for getByRole('button', { name: /requeue|retry|run again/i }).first()\n",
+      "test": "@break outages > the daemon dies mid-run: the run is shown lost, and can be retried to success",
+      "browsers": [
+        "chromium"
+      ],
+      "evidence": [
+        "/home/claude/Control-Rod/apps/web/test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/attachments/run-lost-524956d3e454bcc93d3fe0ab04b970f7a0e9babc.png",
+        "/home/claude/Control-Rod/apps/web/test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/test-failed-1.png"
+      ],
+      "status": "fixed",
+      "first_seen": "2026-11-21",
+      "last_seen": "2026-11-21",
+      "seen": 1,
+      "notes": [
+        "2026-11-21: RunLog shows 'Lost: the daemon stopped answering' with no requeue on the case page; the inbox item has the instruction. Overlaps the board-actions work in PR #107.",
+        "2026-11-21: Requeue on the case page; lost runs open on the package page; the signed reconcile is offered when the process may still be alive"
+      ]
+    },
+    "fail|@break outages > the daemon dies mid-run: the run is shown lost, and can be retried to success|within N s the case says the daemon is gone": {
+      "severity": "major",
+      "pass": "break",
+      "title": "within 30 s the case says the daemon is gone",
+      "detail": "Error: within 30 s the case says the daemon is gone\n\nexpect(locator).toBeVisible() failed\n\nLocator: getByText(/daemon (is )?(not|isn't) (running|answering|connected)|no daemon|stopped answering/i).first()\nExpected: visible\nTimeout: 30000ms\nError: element(s) not found\n\nCall log:\n  - within 30 s the case says the daemon is gone getByText(/daemon (is )?(not|isn't) (running|answering|connected)|no daemon|stopped answering/i).first() with timeout 30000ms\n  - waiting for getByText(/daemon (is )?(not|isn't) (running|answering|connected)|no daemon|stopped answering/i).first()\n",
+      "test": "@break outages > the daemon dies mid-run: the run is shown lost, and can be retried to success",
+      "browsers": [
+        "chromium"
+      ],
+      "evidence": [
+        "/home/claude/Control-Rod/apps/web/test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/attachments/run-lost-524956d3e454bcc93d3fe0ab04b970f7a0e9babc.png",
+        "/home/claude/Control-Rod/apps/web/test-results/break--break-outages-the-d-0ad6a-d-can-be-retried-to-success-chromium/test-failed-1.png"
+      ],
+      "status": "fixed",
+      "first_seen": "2026-11-21",
+      "last_seen": "2026-11-21",
+      "seen": 1,
+      "notes": [
+        "2026-11-21: DaemonNotice from /runtimes reported_at: shown within about 25 s"
+      ]
+    },
+    "fail|@break outages > the network drops while adding a card: the line is kept and nothing is lost or doubled|the person is told the card was not added": {
+      "severity": "major",
+      "pass": "break",
+      "title": "the person is told the card was not added",
+      "detail": "Error: the person is told the card was not added\n\nexpect(locator).toBeVisible() failed\n\nLocator: getByRole('alert').first()\nExpected: visible\nTimeout: 15000ms\nError: element(s) not found\n\nCall log:\n  - the person is told the card was not added getByRole('alert').first() with timeout 15000ms\n  - waiting for getByRole('alert').first()\n",
+      "test": "@break outages > the network drops while adding a card: the line is kept and nothing is lost or doubled",
+      "browsers": [
+        "chromium"
+      ],
+      "evidence": [
+        "/home/claude/Control-Rod/apps/web/test-results/break--break-outages-the-n-e757c--nothing-is-lost-or-doubled-chromium/test-failed-1.png"
+      ],
+      "status": "fixed",
+      "first_seen": "2026-11-21",
+      "last_seen": "2026-11-21",
+      "seen": 1,
+      "notes": [
+        "2026-11-21: Mutations run offline and fail with 'Could not reach Control Rod'"
+      ]
+    },
+    "fail|@break sessions and links > a link to a package that does not exist says so|the page says the package does not exist, not that loading failed": {
+      "severity": "major",
+      "pass": "break",
+      "title": "the page says the package does not exist, not that loading failed",
+      "detail": "Error: the page says the package does not exist, not that loading failed\n\nexpect(locator).toBeVisible() failed\n\nLocator: getByText(/not found|no package|does not exist|doesn't exist|could not find/i).first()\nExpected: visible\nTimeout: 2000ms\nError: element(s) not found\n\nCall log:\n  - the page says the package does not exist, not that loading failed getByText(/not found|no package|does not exist|doesn't exist|could not find/i).first() with timeout 2000ms\n  - waiting for getByText(/not found|no package|does not exist|doesn't exist|could not find/i).first()\n",
+      "test": "@break sessions and links > a link to a package that does not exist says so",
+      "browsers": [
+        "chromium"
+      ],
+      "evidence": [
+        "/home/claude/Control-Rod/apps/web/test-results/break--break-sessions-and--9a626-that-does-not-exist-says-so-chromium/attachments/missing-package-1ecdcc7d56b1354ac33824a4fe302ed95930fb6a.png",
+        "/home/claude/Control-Rod/apps/web/test-results/break--break-sessions-and--9a626-that-does-not-exist-says-so-chromium/test-failed-1.png"
+      ],
+      "status": "fixed",
+      "first_seen": "2026-11-21",
+      "last_seen": "2026-11-21",
+      "seen": 1,
+      "notes": [
+        "2026-11-21: PackageLoadError: a 404 says there is no such package"
+      ]
+    },
+    "fail|@persona > a person on a phone reads the board and adds a card|tap targets in the board are at least N px (WCAG N.N.N)": {
+      "severity": "minor",
+      "pass": "persona",
+      "title": "tap targets in the board are at least 24 px (WCAG 2.5.8)",
+      "detail": "Error: tap targets in the board are at least 24 px (WCAG 2.5.8)\n\nexpect(received).toBe(expected) // Object.is equality\n\nExpected: 0\nReceived: 4",
+      "test": "@persona > a person on a phone reads the board and adds a card",
+      "browsers": [
+        "chromium"
+      ],
+      "evidence": [],
+      "status": "fixed",
+      "first_seen": "2026-11-21",
+      "last_seen": "2026-11-21",
+      "seen": 1,
+      "notes": [
+        "2026-11-21: Card titles are at least 24 px tall"
+      ]
+    },
+    "fail|@persona > a person on a phone reads the board and adds a card|the board does not scroll sideways at N px": {
+      "severity": "minor",
+      "pass": "persona",
+      "title": "the board does not scroll sideways at 390 px",
+      "detail": "Error: the board does not scroll sideways at 390 px\n\nexpect(received).toBeLessThanOrEqual(expected)\n\nExpected: <= 1\nReceived:    55",
+      "test": "@persona > a person on a phone reads the board and adds a card",
+      "browsers": [
+        "chromium"
+      ],
+      "evidence": [],
+      "status": "fixed",
+      "first_seen": "2026-11-21",
+      "last_seen": "2026-11-21",
+      "seen": 1,
+      "notes": [
+        "2026-11-21: The board scroller is position: relative, so cards' sr-only text no longer widens the page"
+      ]
+    },
+    "fail|@persona > new user with no agents set up tries to get one thing done|the board explains that nothing can run until an agent and the daemon are set up": {
+      "severity": "minor",
+      "pass": "persona",
+      "title": "the board explains that nothing can run until an agent and the daemon are set up",
+      "detail": "Error: the board explains that nothing can run until an agent and the daemon are set up\n\nexpect(received).toBe(expected) // Object.is equality\n\nExpected: true\nReceived: false",
+      "test": "@persona > new user with no agents set up tries to get one thing done",
+      "browsers": [
+        "chromium"
+      ],
+      "evidence": [],
+      "status": "fixed",
+      "first_seen": "2026-11-21",
+      "last_seen": "2026-11-21",
+      "seen": 1,
+      "notes": [
+        "2026-11-21: DaemonNotice: no run daemon has connected yet, start it with pnpm cr start"
+      ]
+    }
+  }
+}

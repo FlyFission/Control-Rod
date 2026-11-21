@@ -68,6 +68,9 @@ export function Shell({ session, children }: { session: Session; children: React
           target.tagName === "TEXTAREA" ||
           target.tagName === "SELECT" ||
           target.isContentEditable);
+      // The board's quick add claims `c` first (its listener prevents the default). Its state update can
+      // re-render before this listener runs and remove the .bd-add opener, so look at the event too.
+      if (e.defaultPrevented) return;
       const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-quick") !== null;
       if (!inField && !hasBoardQuickAdd && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();

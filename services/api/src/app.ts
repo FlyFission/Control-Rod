@@ -153,6 +153,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     }
     const status = (err as { statusCode?: number }).statusCode;
     if (status && status < 500) return reply.code(status).send({ code: "invalid", message: (err as Error).message });
+    // PostgreSQL stores no U+0000 in text or jsonb. Text that carries one (a paste from a terminal or a
+    // binary file) is the sender's to fix, not a server failure.
+    const pgCode = (err as { code?: unknown }).code;
+    if (pgCode === "22P05" || pgCode === "22021") {
+      return reply.code(400).send({ code: "invalid", message: "The text contains a null character (U+0000), which cannot be stored. Remove it and try again." });
+    }
     (opts.onError ?? ((e) => console.error("[control-rod] unhandled error:", e)))(err);
     return reply.code(500).send({ code: "error", message: "Something went wrong; it is in the server log." });
   });

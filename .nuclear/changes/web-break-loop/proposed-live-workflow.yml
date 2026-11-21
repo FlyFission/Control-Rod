@@ -1,0 +1,41 @@
+# PROPOSED, not active. A workflow is a trust surface (AGENTS.md rule 2): copy this to
+# .github/workflows/live.yml only with the owner's recorded yes. It runs the live suites on all three
+# browsers only when someone presses "Run workflow" (no schedule, by the owner's preference), and
+# keeps the findings, journeys and screenshots as an artifact.
+name: live
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: live-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @control-rod/web exec playwright install --with-deps ${{ matrix.browser }}
+      - name: Live suites
+        working-directory: apps/web
+        run: pnpm exec playwright test -c playwright.live.config.ts --project=${{ matrix.browser }} --trace off
+      - name: Merge findings
+        if: always()
+        run: node tools/break-loop/findings.mjs merge || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: live-${{ matrix.browser }}
+          path: |
+            apps/web/test-results/
+            apps/web/e2e/live/ledger.json
+          retention-days: 14

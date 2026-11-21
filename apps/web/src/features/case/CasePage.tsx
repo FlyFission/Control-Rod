@@ -8,12 +8,14 @@ import { CheckerHistory } from "../../components/CheckerHistory.js";
 import { DecisionBar } from "../../components/DecisionBar.js";
 import { useOfferedActions } from "../../lib/offered.js";
 import { StateMark } from "../../components/StateMark.js";
-import { runState, runStatusText } from "../../components/RunLog.js";
+import { RunActions, outcomeUnknown, runState, runStatusText } from "../../components/RunLog.js";
 import { isVisible } from "../../lib/live.js";
 import { shortDigest } from "../../lib/format.js";
 import { type Presentation, TIER_LABEL, presentation } from "./scaling.js";
 import { story, traceFacts } from "./story.js";
 import { StoryLine, allRunEvents } from "./StoryLine.js";
+import { PackageLoadError } from "../../components/PackageLoadError.js";
+import { DaemonNotice } from "../../components/DaemonNotice.js";
 
 const ROLE_WORDS: Record<string, string> = { intake: "Intake", author: "Author", "pre-check": "Pre-check" };
 
@@ -28,11 +30,7 @@ export function CasePage({ id }: { id: string }) {
   const [everything, setEverything] = useState(false);
   if (q.isLoading) return <p className="muted">Loading</p>;
   if (q.isError || q.data === undefined)
-    return (
-      <p role="alert" className="error">
-        Could not load package {id}.
-      </p>
-    );
+    return <PackageLoadError id={id} error={q.error} retry={() => void q.refetch()} />;
   const view = q.data;
   const pkg = view.package;
   const base = presentation(pkg);
@@ -66,6 +64,7 @@ export function CasePage({ id }: { id: string }) {
           <Asked pkg={pkg} view={view} p={p} />
         </Step>
         <Step n={2} title="Ran" id="ran">
+          <DaemonNotice running={view.runs.filter((r) => r.status === "running").length} />
           <Ran packageId={pkg.id} runs={view.runs} p={p} />
         </Step>
         <Step n={3} title="Checked" id="checked">
@@ -251,6 +250,14 @@ function RunStory({ packageId, run, p, open }: { packageId: string; run: Run; p:
         {run.error !== undefined && (
           <p className="error small" role="note">
             {run.error}
+          </p>
+        )}
+        {/* A lost or failed run can be run again from its case, not only from the package page. */}
+        <RunActions packageId={packageId} run={run} />
+        {outcomeUnknown(run) && (
+          <p className="muted small">
+            Its process may still be running, so it cannot be run again until it is reconciled.{" "}
+            <Link to="/packages/$id" params={{ id: packageId }} hash="runs">Reconcile it on the package page</Link>
           </p>
         )}
         {p.ran === "summary" && !all ? (

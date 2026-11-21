@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { CaptureView, DataLane } from "../../api/types.js";
@@ -30,9 +30,16 @@ export function CaptureCard({ capture }: { capture: CaptureView }) {
   const line = captureLine(capture);
   const titleId = `bd-capture-${capture.id}`;
   const [lane, setLane] = useState<DataLane>("internal");
+  const self = useRef<HTMLElement>(null);
   const classify = useMutation({
     mutationFn: () => api.classifyCapture(capture.id, lane),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["captures"] }),
+    onSuccess: () => {
+      // The lane picker and the Classify button go away once classified; keep a keyboard user's place
+      // on this card instead of dropping focus to the page.
+      const el = self.current;
+      if (el && (el.contains(document.activeElement) || document.activeElement === document.body)) el.focus();
+      void qc.invalidateQueries({ queryKey: ["captures"] });
+    },
   });
   const requeue = useMutation({
     mutationFn: () => api.requeueRun(capture.id, capture.intake!.run_id),
@@ -41,7 +48,7 @@ export function CaptureCard({ capture }: { capture: CaptureView }) {
   const symbol = line.tone === "needs" ? "▲" : line.tone === "block" ? "✕" : "○";
   const word = line.tone === "needs" ? "Needs you" : line.tone === "block" ? "Blocked" : "Waiting";
   return (
-    <article aria-labelledby={titleId} className="bd-card bd-capture" data-tone={line.tone}>
+    <article ref={self} tabIndex={-1} aria-labelledby={titleId} className="bd-card bd-capture" data-tone={line.tone}>
       <div className="bd-kinds">
         <span className="bd-kind">Capture</span>
         {capture.effective_lane !== undefined && <span className="bd-chip">{capture.effective_lane} lane</span>}

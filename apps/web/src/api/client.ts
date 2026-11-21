@@ -62,8 +62,14 @@ export class ApiError extends Error {
 }
 
 /** A refusal in words for people: what happened, then what would change it. */
+/** What a browser's fetch throws when the request never got an answer (Chromium, Firefox, WebKit). */
+const NETWORK_FAILURE = /^(Failed to fetch|NetworkError when attempting to fetch resource\.?|Load failed|The network connection was lost\.?)$/;
+
 export function explain(e: unknown, fallback: string): string {
   if (e instanceof ApiError) return e.change ? `${e.message}. ${e.change}`.replace(/\.\. /, ". ") : e.message;
+  if (e instanceof TypeError && NETWORK_FAILURE.test(e.message)) {
+    return "Could not reach Control Rod. Check your connection and try again.";
+  }
   return e instanceof Error ? e.message : fallback;
 }
 

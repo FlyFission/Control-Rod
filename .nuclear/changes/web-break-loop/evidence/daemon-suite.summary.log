@@ -1,0 +1,21 @@
+The 14 failures below are the bubblewrap sandbox tests. They fail identically on main in this container (root, no user namespaces): see daemon-failures-on-main.txt. Every other package and test passes, including TestClientRereadsTokenFileAfterUnauthorized and TestClientWithoutTokenFileDoesNotRetry.
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	0.174s
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	0.003s
+--- FAIL: TestBubblewrapMountsDeliverablesReadOnly (0.00s)
+--- FAIL: TestCheckerMountBindsTheVerifiedDescriptor (0.00s)
+--- FAIL: TestConfirmSandboxSeesTheBubblewrapChild (0.00s)
+--- FAIL: TestCheckerMountBlocksWritesOutsideScratch (0.00s)
+--- FAIL: TestCheckerCannotReachAHostUnixSocket (0.00s)
+--- FAIL: TestCheckerCannotReachAnAbstractUnixSocket (0.00s)
+--- FAIL: TestCheckerKeepsSocketpairAndTCP (0.00s)
+--- FAIL: TestCheckerRejectsX32AndIoUring (0.00s)
+--- FAIL: TestCheckerRefusesADatagramSocketpair (0.00s)
+--- FAIL: TestCheckerProcDoesNotReachHostProcesses (0.00s)
+--- FAIL: TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath (0.00s)
+--- FAIL: TestCheckerCannotRewriteLoginInstructions (0.00s)
+--- FAIL: TestCheckerSessionSymlinkDoesNotGrantHomeWrites (0.00s)
+--- FAIL: TestPreparedCheckerThroughTheMount (0.00s)
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	18.904s
+FAIL
+exit 1

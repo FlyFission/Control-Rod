@@ -212,6 +212,9 @@
   grid-template-columns: repeat(6, minmax(175px, 1fr));
   gap: 10px;
   overflow-x: auto;
+  /* Holds the cards' absolutely placed screen-reader text inside this scroller; without it those
+     spans sat against the page, and on a phone the whole page scrolled sideways (live phone persona). */
+  position: relative;
   padding-bottom: 6px;
   align-items: start;
 }
@@ -288,6 +291,9 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* WCAG 2.5.8: a one-line title is still a 24 px tap target (live phone persona). */
+  min-height: 24px;
+  overflow-wrap: anywhere;
   text-decoration: underline transparent;
 }
 .bd-title:hover {

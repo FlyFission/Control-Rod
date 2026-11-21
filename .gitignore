@@ -39,3 +39,4 @@ data/
 # Browser test output; retained release evidence is copied explicitly.
 apps/web/test-results/
 apps/web/playwright-report/
+tools/break-loop/.state/

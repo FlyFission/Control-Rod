@@ -19,6 +19,12 @@ function input(over: Partial<Omit<NextInput, "pkg">> & { status?: WorkPackage["s
 }
 
 describe("nextLine", () => {
+  it("says a held pre-check needs an independent runtime or an override, not a return for revision", () => {
+    const line = nextLine(input({ status: "in-work", actions: [allowed("return", "Return for revision")], heldPreCheck: true }));
+    expect(line.tone).toBe("needs");
+    expect(line.text).toMatch(/Pre-check held/);
+    expect(line.command).toBeUndefined();
+  });
   it("names the first allowed decision as the next line", () => {
     expect(nextLine(input({ actions: [refused("accept"), allowed("release", "Release")] }))).toEqual({ tone: "needs", text: "Release", command: "release" });
   });

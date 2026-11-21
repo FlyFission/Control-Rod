@@ -17,6 +17,7 @@ import { adoptHeldRun, enterScramGate, quarantineScramCompletion, refuseIfScramm
 import { networkFor, readRoleTools, resolveSandboxPolicy, runtimesForHosts, toolsFile } from "./sandbox.js";
 import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnded } from "./budgets.js";
 import { bindingSentence } from "./binding.js";
+import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -861,6 +862,45 @@ export function preparedCheckerOutputPaths(runtime: string): {
   };
 }
 
+/**
+ * The Nuclear context a package's author or pre-check brief carries: nothing at all under Light, so
+ * a Light brief is byte for byte what it was before profiles existed. Under Nuclear, the pack's Core
+ * card and selected cluster cards go in the brief, its skills and templates go in as inputs, and the
+ * resolved profile and clusters are recorded on the run as a run.context-profile event.
+ */
+async function nuclearContext(c: Tx, cfg: WorkConfig, run: Json, body: Json): Promise<{ sections: string[]; inputs: Input[] }> {
+  const project = typeof body.project === "string"
+    ? (await c.query<{ body: Json }>("select body from projects where id = $1", [body.project])).rows[0]?.body ?? null
+    : null;
+  const resolved = resolveContextProfile(body, project);
+  if (resolved.profile !== "nuclear") return { sections: [], inputs: [] };
+  const asked = readRoleTools(roleToolText(cfg, run, body));
+  const clusters = selectClusters({
+    tools: asked.tools,
+    hosts: asked.hosts, // already empty for a pre-check: roleToolText drops its network line
+    deliverables: Array.isArray(body.deliverables) ? body.deliverables : [],
+    rigorMode: body.rigor_mode,
+    grade: body.grade,
+    requested: body.nuclear_clusters,
+  });
+  let pack: ReturnType<typeof loadNuclearPack> = null;
+  let problem: string | undefined;
+  try {
+    pack = loadNuclearPack(join(cfg.root, "packs", "nuclear-grade"));
+    if (!pack) problem = "the nuclear-grade pack is not installed on this control plane";
+  } catch (e) {
+    problem = (e as Error).message;
+  }
+  await appendEvent(c, "run.context-profile", run.id, SYSTEM, {
+    package: run.package_id, role: run.role, profile: resolved.profile, locked: resolved.locked,
+    ...(resolved.reason ? { reason: resolved.reason } : {}), clusters,
+    ...(pack ? { pack_commit: pack.commit } : {}), ...(problem ? { problem } : {}),
+  });
+  if (!pack)
+    return { sections: [`## Nuclear-grade context\n\nThis package runs under the Nuclear context profile${resolved.reason ? ` (${resolved.reason})` : ""}, but its cards could not be loaded: ${problem}. Stop and report this; do not proceed as if the cards were given.\n`], inputs: [] };
+  return nuclearBriefSections(pack, clusters, run.role, body.rigor_mode, resolved.reason);
+}
+
 async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, hosts: string[]) {
   const inputs: Input[] = fakeScript(run, runtime);
   const header = `# Control Rod brief\n\nRole: ${run.role} · Package ${run.package_id} revision ${run.package_revision} · Round ${run.round}\n`;
@@ -930,7 +970,9 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
     );
     if (ret.rows[0] && pkg.revision > 0) extra.push(`## Direction from the owner\n\n${ret.rows[0].body.reason ?? ""}\n`);
   }
-  const brief = [header, roleText, `## The work package\n\nSee inputs/PACKAGE.json. Objective: ${pkg.body.objective}\n`, ...extra, RULES].join("\n");
+  const nuclear = await nuclearContext(c, cfg, run, pkg.body);
+  inputs.push(...nuclear.inputs);
+  const brief = [header, roleText, `## The work package\n\nSee inputs/PACKAGE.json. Objective: ${pkg.body.objective}\n`, ...extra, ...nuclear.sections, RULES].join("\n");
   inputs.push(file("BRIEF.md", brief));
   // The role's qualified tools, and its network line only with the hosts the run's sandbox policy
   // allows (plan task 6.1); the daemon derives each CLI's settings from the policy, not this file.

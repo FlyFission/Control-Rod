@@ -120,7 +120,7 @@ func (ef *EgressFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Hijacking not supported", http.StatusInternalServerError)
 		return
 	}
-	clientConn, _, err := hijacker.Hijack()
+	clientConn, buffered, err := hijacker.Hijack()
 	if err != nil {
 		_ = targetConn.Close()
 		return
@@ -139,7 +139,8 @@ func (ef *EgressFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		defer end()
-		_, _ = io.Copy(targetConn, clientConn)
+		// Read through the server's buffer: bytes sent with the CONNECT headers are already in it.
+		_, _ = io.Copy(targetConn, buffered.Reader)
 	}()
 	go func() {
 		defer end()

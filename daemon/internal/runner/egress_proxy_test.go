@@ -125,3 +125,47 @@ func TestEgressFilterCloseEndsOpenTunnels(t *testing.T) {
 		t.Fatal("tunnel was left open after Close")
 	}
 }
+
+// Bytes the client sends in the same write as the CONNECT headers still reach the target.
+func TestEgressFilterForwardsBytesSentWithTheConnect(t *testing.T) {
+	targetLn, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer targetLn.Close()
+	go func() {
+		conn, err := targetLn.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		_, _ = io.Copy(conn, conn)
+	}()
+	target := targetLn.Addr().String()
+	ef, err := StartEgressFilter([]string{target})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ef.Close()
+	conn, err := net.Dial("tcp", ef.Addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_, _ = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\nping", target, target)
+	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	br := bufio.NewReader(conn)
+	if line, err := br.ReadString('\n'); err != nil || !strings.Contains(line, "200") {
+		t.Fatalf("tunnel not opened: %q %v", line, err)
+	}
+	for {
+		line, err := br.ReadString('\n')
+		if err != nil || line == "\r\n" {
+			break
+		}
+	}
+	buf := make([]byte, 4)
+	if _, err := io.ReadFull(br, buf); err != nil || string(buf) != "ping" {
+		t.Fatalf("bytes sent with the CONNECT were lost: %q %v", buf, err)
+	}
+}

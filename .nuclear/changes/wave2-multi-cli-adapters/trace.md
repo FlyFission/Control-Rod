@@ -10,6 +10,7 @@
 | T-06 | OpenCode, Ollama and unknown runtimes never count as a distinct family. | `wave2-assurance.test.ts` "verifyO6CheckerQuorum…" | implemented and tested |
 | T-07 | The egress filter blocks hosts off its allowlist, which the caller builds from the run's policy; the file holds no provider list of its own. | `egress_proxy_test.go` `TestEgressFilterBlocksAndAllowsConnect` | tested (filter not wired on this branch) |
 | T-08 | Closing the filter ends tunnels that are already open. | `TestEgressFilterCloseEndsOpenTunnels` | implemented and tested |
+| T-10 | Bytes sent with the CONNECT headers reach the target. | `TestEgressFilterForwardsBytesSentWithTheConnect` | implemented and tested |
 | T-09 | A pre-check on one of the four new runtimes does not count. | `wave2-assurance.test.ts` "harnessName names the Wave 2 runtimes…" | implemented and tested |
 
 ## Required links

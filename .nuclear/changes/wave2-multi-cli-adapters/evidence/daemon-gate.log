@@ -8,5 +8,7 @@
 --- PASS: TestEgressFilterBlocksAndAllowsConnect (0.00s)
 === RUN   TestEgressFilterCloseEndsOpenTunnels
 --- PASS: TestEgressFilterCloseEndsOpenTunnels (0.00s)
+=== RUN   TestEgressFilterForwardsBytesSentWithTheConnect
+--- PASS: TestEgressFilterForwardsBytesSentWithTheConnect (0.00s)
 PASS
-ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.027s
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.024s

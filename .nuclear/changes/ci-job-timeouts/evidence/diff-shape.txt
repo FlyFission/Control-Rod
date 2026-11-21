@@ -1,0 +1,13 @@
+# Shape of the workflow diff (git diff --numstat, then removed lines)
+9	0	.github/workflows/ci.yml
+removed lines: 0
+added lines:
++    timeout-minutes: 20
++    timeout-minutes: 30
++    timeout-minutes: 15
++    timeout-minutes: 15
++    timeout-minutes: 15
++    timeout-minutes: 10
++      - name: Every workflow job has a bounded timeout
++        run: python3 tools/check_workflow_timeouts.py
++    timeout-minutes: 10

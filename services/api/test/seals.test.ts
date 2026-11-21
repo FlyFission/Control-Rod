@@ -202,6 +202,12 @@ describe("inclusion proofs", () => {
     expect((await edit((x) => delete x.seal_evidence)).problem).toBe("the bundle does not carry what checking the seal's signature needs");
     // Another key, with a signature made by it, would still have to be the key recorded with the seal.
     expect((await edit((x) => (x.seal_evidence.public_key = Buffer.from("not the key").toString("base64url")))).problem).toBe("the key the bundle carries is not the one recorded with the seal");
+    // Entries appended after the seal's recording event, however well linked, are not under the seal.
+    expect((await edit((x) => {
+      const last = x.segment.at(-1);
+      const rest = { seq: last.seq + 1, at: last.at, type: "package.noted", subject: "WP-APPENDED", actor: { kind: "system" as const, id: "t" }, prev: { algorithm: "sha256" as const, value: last.digest.value } };
+      x.segment.push({ ...rest, digest: { algorithm: "sha256", value: eventDigest(rest) } });
+    })).problem).toBe("the segment runs past the event that records its seal");
     // Cut back to the seal's head: its recording event is gone.
     expect((await edit((x) => (x.segment = x.segment.slice(0, x.seal.payload.head_seq)))).problem).toBe("the segment does not record this seal as it stands");
   });
@@ -266,6 +272,9 @@ describe("audit export for a time window", () => {
     expect((await get("/records/export?from=yesterday&to=today")).statusCode).toBe(400);
     expect((await exportOf("2026-11-02T00:00:00Z", "2026-11-01T00:00:00Z")).statusCode).toBe(400);
     expect((await exportOf("2026-11-21T00:00:00.0005Z", "2026-11-21T00:00:00.0015Z")).statusCode).toBe(400);
+    // A date the calendar does not have is refused, not rolled into the next month.
+    expect((await exportOf("2026-02-31T00:00:00Z", "2026-03-05T00:00:00Z")).statusCode).toBe(400);
+    expect((await exportOf("2026-11-01T24:00:00Z", "2026-11-05T00:00:00Z")).statusCode).toBe(400);
     expect((await exportOf("2001-01-01T00:00:00Z", "2001-02-01T00:00:00Z")).statusCode).toBe(404);
   });
 });

@@ -154,8 +154,26 @@ describe("Records", () => {
     expect(await within(region).findByText("3 entries recorded in the window recompute and link through the chain from its first entry.")).toBeTruthy();
     expect(asked!.searchParams.get("from")).toBe(new Date("2026-11-01T00:00").toISOString());
     expect(region.textContent).toContain("Covered by seal seal_1 through entry 30 (End of day).");
-    const link = within(region).getByRole("link", { name: "Download the export" }) as HTMLAnchorElement;
-    expect(link.getAttribute("download")).toMatch(/^audit-export-.*\.json$/);
+    // Saved through an object URL, released after: an export grows with the chain, past what a data address holds.
+    const blobs: Blob[] = [];
+    const saved: string[] = [];
+    const revoked: string[] = [];
+    const create = URL.createObjectURL;
+    const revoke = URL.revokeObjectURL;
+    const click = HTMLAnchorElement.prototype.click;
+    URL.createObjectURL = (b: Blob) => { blobs.push(b); return "blob:export-1"; };
+    URL.revokeObjectURL = (u: string) => { revoked.push(u); };
+    HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) { saved.push(this.download); };
+    try {
+      await user.click(within(region).getByRole("button", { name: "Download the export" }));
+      await waitFor(() => expect(revoked).toEqual(["blob:export-1"]));
+    } finally {
+      URL.createObjectURL = create;
+      URL.revokeObjectURL = revoke;
+      HTMLAnchorElement.prototype.click = click;
+    }
+    expect(saved[0]).toMatch(/^audit-export-.*\.json$/);
+    expect(JSON.parse(await blobs[0]!.text())).toMatchObject({ window: { to: asked!.searchParams.get("to") } });
     expect(region.textContent).toContain("pnpm cr verify audit-export-");
   });
 });

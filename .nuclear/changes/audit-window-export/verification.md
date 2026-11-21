@@ -1,6 +1,6 @@
 # Verification: audit export for a time window
 
-Evidence status: **pass** for E-01 to E-03 on the local machine. **Open** for the owner's signature (A-6) and CI on the pushed head.
+Evidence status: **pass** for E-01 to E-03 on the local machine and in CI. The owner's signature for the `spec/` change is recorded in `ship.md` (A-6 done). Later fixes from automated review (sub-millisecond and impossible-date windows refused; a sealed bundle must end at its seal's recording event) touch no trust surface and are covered by the same tests.
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|

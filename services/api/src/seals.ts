@@ -349,6 +349,8 @@ async function checkCovering(b: Covering, last: number, what: string): Promise<{
   if (!b.seal_evidence) return { authenticated: false, problem: "the bundle does not carry what checking the seal's signature needs" };
   const record = b.segment.find((e) => e.seq > b.seal.payload.head_seq && e.type === "chain.sealed" && e.subject === b.seal.id);
   if (!record || record.data?.seal_digest !== digest(b.seal)) return { authenticated: false, problem: "the segment does not record this seal as it stands" };
+  // Nothing after the seal's recording event: entries there would ride along under a seal that never covered them.
+  if (record.seq !== tail.seq) return { authenticated: false, problem: "the segment runs past the event that records its seal" };
   if (record.data?.key_digest !== keyDigest(Buffer.from(b.seal_evidence.public_key, "base64url"))) return { authenticated: false, problem: "the key the bundle carries is not the one recorded with the seal" };
   const signature = await checkSealSignature(b.seal, b.seal_evidence);
   if (signature !== "valid") return { authenticated: false, problem: signature === "subject-mismatch" ? "the seal's subject is not what its payload signs" : "the seal's signature does not check" };
@@ -368,6 +370,13 @@ export function windowEvents(segment: EventRecord[], from: string, to: string): 
   return segment.filter((e) => { const t = Date.parse(e.at); return t >= a && t < b; }).map((e) => e.seq);
 }
 
+/** A date-time whose calendar date and clock exist as written: `Date.parse` would roll 2026-02-31 into March. */
+function realInstant(v: string): boolean {
+  const [y, mo, d, h, mi, sec] = [v.slice(0, 4), v.slice(5, 7), v.slice(8, 10), v.slice(11, 13), v.slice(14, 16), v.slice(17, 19) || "00"].map(Number);
+  const day = new Date(Date.UTC(y!, mo! - 1, d!));
+  return !Number.isNaN(Date.parse(v)) && day.getUTCFullYear() === y && day.getUTCMonth() === mo! - 1 && day.getUTCDate() === d && h! < 24 && mi! < 60 && sec! < 60;
+}
+
 /**
  * A window an export may name: two ISO date-times, the first before the second. The problem, or null.
  * At most millisecond precision, the precision events record and `Date.parse` keeps: a finer boundary
@@ -375,8 +384,8 @@ export function windowEvents(segment: EventRecord[], from: string, to: string): 
  */
 export function windowProblem(from: unknown, to: unknown): string | null {
   const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/;
-  if (typeof from !== "string" || !iso.test(from) || Number.isNaN(Date.parse(from))) return "from must be a date-time with its time zone and at most millisecond precision, such as 2026-11-01T00:00:00Z";
-  if (typeof to !== "string" || !iso.test(to) || Number.isNaN(Date.parse(to))) return "to must be a date-time with its time zone and at most millisecond precision, such as 2026-12-01T00:00:00Z";
+  if (typeof from !== "string" || !iso.test(from) || !realInstant(from)) return "from must be a date-time with its time zone and at most millisecond precision, such as 2026-11-01T00:00:00Z";
+  if (typeof to !== "string" || !iso.test(to) || !realInstant(to)) return "to must be a date-time with its time zone and at most millisecond precision, such as 2026-12-01T00:00:00Z";
   if (Date.parse(from) >= Date.parse(to)) return "from must be before to";
   return null;
 }

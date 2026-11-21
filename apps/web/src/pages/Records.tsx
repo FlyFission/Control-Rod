@@ -283,6 +283,21 @@ function Proof() {
   );
 }
 
+/**
+ * Saves JSON through an object URL, released once the download starts. An export carries the chain from
+ * its first entry and grows with it, past what a data address holds.
+ */
+function saveJson(value: unknown, file: string) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = file;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 /** A date-time-local value read as the viewer's local time, sent with its zone. */
 const asInstant = (local: string) => (local ? new Date(local).toISOString() : "");
 
@@ -293,7 +308,6 @@ function Export() {
   const [asked, setAsked] = useState<{ from: string; to: string } | null>(null);
   const q = useQuery({ queryKey: ["records-export", asked], queryFn: () => api.recordsExport(asked!.from, asked!.to), enabled: asked !== null });
   const p: WindowExport | undefined = q.data;
-  const href = p ? `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(p.bundle, null, 2))}` : undefined;
   const file = p ? `audit-export-${p.bundle.window.from.slice(0, 10)}-to-${p.bundle.window.to.slice(0, 10)}.json` : "";
   return (
     <section className="panel" aria-labelledby="export-title">
@@ -341,16 +355,12 @@ function Export() {
               : "No seal covers the end of this window yet: seal the chain first if the export is for an audit."}
           </p>
           <p className="muted small">{NOT_WITNESSED}</p>
-          {href && (
-            <a className="btn small" href={href} download={file}>
-              Download the export
-            </a>
-          )}
-          {href && (
-            <p className="muted small">
-              Check it without this app: <code>pnpm cr verify {file}</code>
-            </p>
-          )}
+          <button type="button" className="btn small" onClick={() => saveJson(p.bundle, file)}>
+            Download the export
+          </button>
+          <p className="muted small">
+            Check it without this app: <code>pnpm cr verify {file}</code>
+          </p>
         </div>
       )}
     </section>

@@ -99,7 +99,10 @@ function unquoteC(quoted: string): string {
   for (let i = 0; i < body.length; i++) {
     const c = body[i]!;
     if (c !== "\\") {
-      bytes.push(...new TextEncoder().encode(c));
+      // Encode a whole code point, so a literal character outside the BMP keeps both halves.
+      const point = String.fromCodePoint(body.codePointAt(i)!);
+      bytes.push(...new TextEncoder().encode(point));
+      i += point.length - 1;
       continue;
     }
     const octal = /^[0-7]{3}/u.exec(body.slice(i + 1));

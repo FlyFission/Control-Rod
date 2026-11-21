@@ -226,3 +226,10 @@ describe("diff header paths", () => {
     expect(file?.newPath).toBe("trailing ");
   });
 });
+
+describe("quoted paths with literal characters", () => {
+  it("keeps a literal emoji next to an escape, as git writes with core.quotePath=false", () => {
+    const [file] = parseUnifiedDiff('--- "a/😀\\tx.txt"\n+++ "b/😀\\tx.txt"\n@@ -1 +1 @@\n-a\n+b\n');
+    expect(file?.oldPath).toBe("😀\tx.txt");
+  });
+});

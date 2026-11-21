@@ -62,6 +62,19 @@ class InstructionCheckTests(unittest.TestCase):
         )
         self.assertTrue(ok["passed"])
 
+    def test_only_written_flags_a_deletion_outside_the_allowed_set(self):
+        self.write("AGENTS.md", "rules")
+        before = snapshot(self.dir)
+        (self.dir / "AGENTS.md").unlink()
+        check = evaluate(
+            {"kind": "only_written", "allow": ["out/**"]},
+            self.dir,
+            before,
+            snapshot(self.dir),
+        )
+        self.assertFalse(check["passed"])
+        self.assertIn("AGENTS.md", check["detail"])
+
     def test_unchanged_absent_and_json_checks(self):
         self.write("a.txt", "one")
         before = snapshot(self.dir)

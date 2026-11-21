@@ -151,7 +151,10 @@ def evaluate(
             ok = len(hits) == check["count"] == len(lines)
             detail = f"{len(hits)} of {len(lines)} non-blank lines match"
     elif kind == "only_written":
-        written = sorted(p for p, d in after.items() if before.get(p) != d)
+        # Changed, added or deleted: a deletion outside the allowed set fails too.
+        written = sorted(
+            p for p in set(before) | set(after) if before.get(p) != after.get(p)
+        )
         stray = [p for p in written if not matches(p, check["allow"])]
         ok = not stray
         detail = f"written {written}" + (

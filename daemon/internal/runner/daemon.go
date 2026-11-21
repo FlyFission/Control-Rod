@@ -698,6 +698,43 @@ func copyRunOutputs(a Adapter, ws *Workspace, buf *logBuffer) error {
 	return copier.CopyOutputs(ws)
 }
 
+var startEgressFilter = StartEgressFilter
+
+// authorEgressHosts returns the host:port allowlist for an author egress filter.
+// When a sandbox policy is present, AllowedHosts is respected literally (an empty
+// slice denies all outbound CONNECT); otherwise local Ollama defaults apply.
+func authorEgressHosts(sandbox *SandboxPolicy) []string {
+	if sandbox == nil {
+		return []string{"127.0.0.1:11434", "localhost:11434"}
+	}
+	// Respect AllowedHosts literally: empty slice means deny all outbound CONNECT.
+	hosts := make([]string, 0, len(sandbox.AllowedHosts))
+	for _, h := range sandbox.AllowedHosts {
+		if !strings.Contains(h, ":") {
+			hosts = append(hosts, h+":443")
+		} else {
+			hosts = append(hosts, h)
+		}
+	}
+	return hosts
+}
+
+// wireAuthorEgressFilter starts the local CONNECT egress proxy and injects
+// HTTP_PROXY and HTTPS_PROXY into cmd.Env for author runs when
+// CONTROLROD_EGRESS_FILTER=1. Checker runs and nil commands are skipped.
+func wireAuthorEgressFilter(cmd *exec.Cmd, ws *Workspace, sandbox *SandboxPolicy) (*EgressFilter, error) {
+	if cmd == nil || ws == nil || ws.Checker || os.Getenv("CONTROLROD_EGRESS_FILTER") != "1" {
+		return nil, nil
+	}
+	ef, err := startEgressFilter(authorEgressHosts(sandbox))
+	if err != nil {
+		return nil, fmt.Errorf("start author egress filter: %w", err)
+	}
+	proxyURL := "http://" + ef.Addr()
+	cmd.Env = withEnv(cmd.Env, "HTTP_PROXY="+proxyURL, "HTTPS_PROXY="+proxyURL)
+	return ef, nil
+}
+
 func (b *logBuffer) normalize(line string, now time.Time) []Event {
 	if b.adapt != nil {
 		return b.adapt.Normalize(line, now)
@@ -1216,6 +1253,13 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 			defer verified.Close()
 			verified.Apply(cmd)
 			launched = &verified.Digest
+		}
+	}
+	if err == nil {
+		var ef *EgressFilter
+		ef, err = wireAuthorEgressFilter(cmd, ws, sandbox)
+		if ef != nil {
+			defer ef.Close()
 		}
 	}
 	var (

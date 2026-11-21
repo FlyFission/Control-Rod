@@ -1,0 +1,26 @@
+go version go1.24.7 linux/amd64
+$ gofmt -l .
+$ go vet ./...
+$ go test -v -count=1 ./internal/runner -run ...
+=== RUN   TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun
+--- PASS: TestAuthorEgressFilterStartsAndInjectsProxyEnvDuringRun (0.14s)
+=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip
+=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/disabled_when_env_unset
+=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/checker_workspace_skips_proxy_even_when_enabled
+=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_denies_all_outbound_CONNECT
+=== RUN   TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_AllowedHosts_normalizes_default_port_443_and_preserves_explicit_ports
+--- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip (0.00s)
+    --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/disabled_when_env_unset (0.00s)
+    --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/checker_workspace_skips_proxy_even_when_enabled (0.00s)
+    --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_empty_AllowedHosts_denies_all_outbound_CONNECT (0.00s)
+    --- PASS: TestWireAuthorEgressFilterPoliciesAndCheckerSkip/sandbox_AllowedHosts_normalizes_default_port_443_and_preserves_explicit_ports (0.00s)
+=== RUN   TestCheckerExecuteNeverStartsAuthorEgressProxy
+--- PASS: TestCheckerExecuteNeverStartsAuthorEgressProxy (5.52s)
+=== RUN   TestEgressFilterBlocksAndAllowsConnect
+--- PASS: TestEgressFilterBlocksAndAllowsConnect (0.00s)
+=== RUN   TestEgressFilterCloseEndsOpenTunnels
+--- PASS: TestEgressFilterCloseEndsOpenTunnels (0.00s)
+=== RUN   TestEgressFilterForwardsBytesSentWithTheConnect
+--- PASS: TestEgressFilterForwardsBytesSentWithTheConnect (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	5.725s

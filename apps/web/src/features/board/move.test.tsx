@@ -167,6 +167,32 @@ describe("CardActions", () => {
     expect(document.activeElement).toBe(moveTo);
   });
 
+  it("allows one operation at a time: Move to is disabled while a signature is pending", async () => {
+    let asked = 0;
+    let release: () => void = () => {};
+    server.use(
+      http.post("*/packages/WP-7/decisions/options", async () => {
+        asked += 1;
+        await new Promise<void>((r) => (release = r));
+        return HttpResponse.json({ code: "refused", message: "Refused", change: "Nothing" }, { status: 409 });
+      }),
+    );
+    await renderPage(<CardActions card={card({ runActive: true, activeRunId: "R-9" })} passkeys={passkeys([])} />);
+    const user = userEvent.setup();
+    const accept = screen.getByRole("button", { name: "Accept" });
+    await user.click(accept);
+    expect(await screen.findByText("Waiting for your passkey")).toBeTruthy();
+    const moveTo = screen.getByRole("button", { name: /Move to/ });
+    expect(moveTo).toHaveProperty("disabled", true);
+    expect(accept).toHaveProperty("disabled", true);
+    await user.click(moveTo);
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(asked).toBe(1);
+    release();
+    await screen.findByRole("alert");
+    expect(screen.getByRole("button", { name: /Move to/ })).toHaveProperty("disabled", false);
+  });
+
   it("offers Stop while a run is active and sends the stop request", async () => {
     let stopped = false;
     server.use(

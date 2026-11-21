@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { DecisionKind } from "../../api/types.js";
@@ -26,6 +26,8 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
   const [reason, setReason] = useState("");
   const [busyWith, setBusyWith] = useState<"sign" | "stop" | null>(null);
   const busy = busyWith !== null;
+  // One outstanding operation per card: a ref so a second click in the same tick is refused too.
+  const inFlight = useRef(false);
   const [alert, setAlert] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
@@ -43,6 +45,8 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
   }
 
   async function sign(kind: DecisionKind, why?: string) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusyWith("sign");
     setAlert(null);
     setDone(null);
@@ -60,12 +64,14 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
       void qc.invalidateQueries({ queryKey: ["person-verifications", pkg.id] });
       void qc.invalidateQueries({ queryKey: ["actions", pkg.id] });
     } finally {
+      inFlight.current = false;
       setBusyWith(null);
     }
   }
 
   async function stop() {
-    if (card.activeRunId === undefined) return;
+    if (card.activeRunId === undefined || inFlight.current) return;
+    inFlight.current = true;
     setBusyWith("stop");
     setAlert(null);
     setDone(null);
@@ -76,11 +82,13 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
     } catch (e) {
       setAlert(explain(e, "The stop request was not recorded."));
     } finally {
+      inFlight.current = false;
       setBusyWith(null);
     }
   }
 
   function choose(item: MenuItem) {
+    if (inFlight.current) return;
     setDone(null);
     if (!item.enabled) {
       // A refused item sends nothing: it says why, and what would change it.
@@ -107,7 +115,7 @@ export function CardActions({ card, passkeys = browserPasskeys }: { card: BoardC
             {primary.label}
           </button>
         )}
-        <MoveMenu items={items} onChoose={choose} cardTitle={pkg.title} />
+        <MoveMenu items={items} onChoose={choose} cardTitle={pkg.title} disabled={busy} />
       </div>
       {pending !== null && (
         <div className="bd-reason">

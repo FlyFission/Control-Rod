@@ -6,7 +6,7 @@ import type { MenuItem } from "./actions.js";
  * it on the first item; Up and Down move; Home and End jump; Escape closes and returns focus to the
  * button; Tab closes. Refused items stay focusable (aria-disabled) so their reason can be read.
  */
-export function MoveMenu({ items, onChoose, cardTitle }: { items: MenuItem[]; onChoose: (item: MenuItem) => void; cardTitle: string }) {
+export function MoveMenu({ items, onChoose, cardTitle, disabled = false }: { items: MenuItem[]; onChoose: (item: MenuItem) => void; cardTitle: string; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -14,6 +14,11 @@ export function MoveMenu({ items, onChoose, cardTitle }: { items: MenuItem[]; on
   const menuId = useId();
 
   const itemEls = () => Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? []);
+
+  // While the card has an operation in flight, the menu closes and cannot open.
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,6 +79,7 @@ export function MoveMenu({ items, onChoose, cardTitle }: { items: MenuItem[]; on
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label={`Move to, ${cardTitle}`}
+        disabled={disabled}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown" && !open) {

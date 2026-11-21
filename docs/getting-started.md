@@ -44,7 +44,7 @@ Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_DATA
 
 - In VS Code the app is at <http://localhost:7300> through port forwarding, same as on your own machine.
 - In Codespaces the app is at a forwarded `https://<name>-7300.app.github.dev` address. `pnpm cr start` detects Codespaces and sets the passkey origin to match. A passkey is bound to the address it was created on, so one made in a Codespace does not work anywhere else, and the data goes when the Codespace is deleted. Treat it as a place to try and build, not to keep real records.
-- Agent runs need Claude Code signed in inside the container (`npm i -g @anthropic-ai/claude-code`, then `claude`). Runs also start only on a platform whose sandbox has been qualified, which so far is WSL2; on other platforms the preflight refuses the run and says why. Expect the container to be fine for the web app, the API, and all the tests, and not yet for real agent runs.
+- Agent runs need Claude Code signed in inside the container (`npm i -g @anthropic-ai/claude-code`, then `claude`). The agent sandbox is bubblewrap, and a container often stops bubblewrap from creating the user namespace it needs. `pnpm cr doctor` tests this and says so; when it fails, the preflight refuses agent runs with the reason. Expect the container to be fine for the web app, the API, and all the tests, and use a Linux machine, a Mac or WSL2 for real agent runs.
 - The configuration was checked by running its setup script on a fresh clone as a non-root user and starting the app with Codespaces-style variables. The container image itself has not yet been built by anyone, so report anything that breaks.
 
 ## Check your change
@@ -58,6 +58,10 @@ These mirror the CI jobs in [`.github/workflows/ci.yml`](../.github/workflows/ci
 | Go (daemon) | In `daemon/`: `gofmt -l .` (must print nothing), `go vet ./...`, `go test ./...` |
 | Python (SDK) | In `sdk/python/`: `uv sync --locked`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest -q` |
 | Licences | `node tools/license-gate.mjs` |
+| Lifecycle model | `bash models/generate.sh` when you change `models/` or the kernel's lifecycle; see [`models/README.md`](../models/README.md). The trace replays run in the Rust and TypeScript suites above |
+| Change records (owner decisions) | `python3 tools/check_owner_decisions.py`; see [collaboration.md](collaboration.md#recording-owner-decisions). Not yet in CI |
+| Instruction checks | `python3 tools/instruction_checks/run.py --list`, then a case with `--out <dir>` when you change `AGENTS.md` or a daemon prompt. Runs the real CLI on your login, so never in CI |
+| Agent guide | `python3 tools/check_agents_map.py` when you change `AGENTS.md` or `CLAUDE.md`. Not yet in CI. If the guide must grow, re-record its budget with `--record` in the same change |
 | Change records | `uv run --with pyyaml python tools/check_redteam.py`, and validate your record with `tools/ng.py` from the pinned [nuclear-grade-context-engineering](https://github.com/FlyFission/nuclear-grade-context-engineering) checkout (CI shows the exact command) |
 
 The API tests use a real PostgreSQL 17 and nothing is mocked; [test-database.md](test-database.md) explains how the harness finds or builds one. Run them through `pnpm --filter @control-rod/api test`, not by calling `vitest` directly.

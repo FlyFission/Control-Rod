@@ -13,9 +13,19 @@ How work moves from an idea to `main`. The rules that cannot bend are in [AGENTS
 
 ## Who reviews what
 
-[CODEOWNERS](../.github/CODEOWNERS) lists the trust surfaces: `policies/`, `tests/redteam/`, `.github/`, `kernel/`, `spec/` and `docs/adr/`. A change there needs a maintainer who did not author it. That includes agent-authored changes: the person who prompted the agent counts as the author.
+[CODEOWNERS](../.github/CODEOWNERS) lists the trust surfaces: `policies/`, `tests/redteam/`, `.github/`, `kernel/`, `spec/` and `docs/adr/`. A change there needs a maintainer who did not author it. That includes agent-authored changes: the person who prompted the agent counts as the author. The one exception is [sole-maintainer sign-off](#sole-maintainer-sign-off) below.
 
 The same rule works as a team habit: with two people building, each reviews the other's pull requests. Neither approves their own.
+
+### Sole-maintainer sign-off
+
+While [CODEOWNERS](../.github/CODEOWNERS) names a single maintainer, there is nobody else who could review, so that maintainer's own recorded yes is the human signature for a trust-surface change, including one they prompted an agent to make. It holds only on these conditions:
+
+1. **The yes is the maintainer's own words.** It is given in the maintainer's chat with the agent or in a comment on the pull request, in reply to a question that names the pull request and says it touches a trust surface. A reaction, a relayed summary, an automated reviewer or a second model never counts.
+2. **It covers the pull request as it stood when asked.** If a trust-surface file changes after the yes, ask again.
+3. **It is recorded, not signed for.** The agent fills the change record's `Signature` table in `ship.md` with the decision, the question and the answer word for word, the date and time with its time zone, and where it was given, and marks the entry as recorded by the agent. The agent never types the maintainer's signature or initials.
+4. **Nothing else is waived.** CI is green, every review thread is answered, and the change record validates, as for any other change.
+5. **It lapses when a second maintainer is added** to CODEOWNERS. From then on a trust-surface change needs a maintainer who did not author it. Sign-offs already recorded under this section stand.
 
 Never skip, disable or quarantine a test to get green, and never merge on red. If a failure is environmental, say so in the PR with the output, and add it to [status.md](status.md#known-failures-and-rough-edges).
 
@@ -27,6 +37,21 @@ Agents are expected here; the repository is built for them. The rules that apply
 - It must not edit a trust surface, hand-edit generated code, copy code from a copyleft or source-available project, or type an engineering number. All of these are in [AGENTS.md](../AGENTS.md).
 - Review its diff as you would a colleague's. Run the checks in [getting-started.md](getting-started.md#check-your-change) yourself; do not rely on its report that they passed.
 - Say in the PR when an agent wrote it. Agent PRs carry the same evidence requirement as any other.
+
+### Recording owner decisions
+
+A change record's `basis.md` lists the owner decisions it rests on. The record keeps the owner's own words, so a reader can check the record's reading against what was actually said. The table has these columns:
+
+| Column | Holds |
+| --- | --- |
+| `#` | `D1`, `D2`, ... |
+| `Decision` | The decision, in the record's words. |
+| `Owner's words` | The owner's words, exactly, in double quotes. For a choice the agent made itself: `none: authoring agent's choice, open to the owner`. Never present an agent's choice as the owner's. |
+| `Given` | The date (`YYYY-MM-DD`) and where: the chat session, or a link to the comment. |
+| `Reading` | What the record takes the words to mean. |
+| `Out of scope` | What the words do not cover, so a broad reading cannot grow from a short answer. |
+
+A trust-surface sign-off is recorded in `ship.md`'s `Signature` table instead (see [sole-maintainer sign-off](#sole-maintainer-sign-off)). `python3 tools/check_owner_decisions.py` checks the table in every record dated 2026-11-19 or later. Older records keep the form they were written in.
 
 ## Labels
 

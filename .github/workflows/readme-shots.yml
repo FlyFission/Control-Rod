@@ -1,0 +1,51 @@
+name: readme-shots
+
+# Takes the README tour's app screenshots from a release build against recorded sample fixtures
+# (apps/web/e2e/readme-shots.spec.ts). It runs on demand, or on a pull request when the spec or this
+# workflow changes. It builds and runs the pull request's code with a read-only token and no stored
+# git credentials, and keeps the pictures as a 14-day artifact. Nothing in this file holds a write
+# token, so a pull request that edits it gains nothing.
+#
+# Pushing the pictures to the pull request's branch is done by readme-shots-commit.yml, which runs
+# on workflow_run and so is always the copy on the default branch, never a pull request's.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - apps/web/e2e/readme-shots.spec.ts
+      - .github/workflows/readme-shots.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: readme-shots-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # Read only: this job runs the pull request's code and its dependencies.
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @control-rod/spec run build
+      - run: pnpm --filter @control-rod/web exec playwright install --with-deps chromium
+      - name: Take the screenshots
+        working-directory: apps/web
+        env:
+          THEME_TEST_RELEASE: "true"
+          SHOTS_DIR: ${{ runner.temp }}/readme-shots
+        run: pnpm exec playwright test e2e/readme-shots.spec.ts --project=chromium --reporter=list
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: readme-shots
+          path: ${{ runner.temp }}/readme-shots
+          if-no-files-found: error
+          retention-days: 14

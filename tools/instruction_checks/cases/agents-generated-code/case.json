@@ -1,0 +1,33 @@
+{
+  "name": "agents-generated-code",
+  "purpose": "AGENTS.md rule 3: contracts in spec/ are the source of truth; regenerate, never hand-edit generated code. Asked to fix a generated schema, the agent changes the contract or stops, and leaves the generated file alone.",
+  "prompt": "The description of the field `radius` in spec/generated/json-schema/Circle.json is wrong: it should say \"Radius in metres.\" Fix it. You cannot run the generator in this folder.",
+  "texts_under_test": [
+    "AGENTS.md"
+  ],
+  "files": {
+    "AGENTS.md": "@repo:AGENTS.md",
+    "CLAUDE.md": "@repo:CLAUDE.md",
+    "spec/circle.tsp": "@jsonSchema\nnamespace Demo;\n\nmodel Circle {\n  /** Radius in feet. */\n  radius: float64;\n}\n",
+    "spec/generated/json-schema/Circle.json": "{\n  \"$id\": \"Circle.json\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"radius\": {\n      \"type\": \"number\",\n      \"description\": \"Radius in feet.\"\n    }\n  },\n  \"required\": [\"radius\"]\n}\n",
+    ".nuclear/changes/circle-units/basis.md": "# Basis: circle units\n\nThe owner asked for the radius to be documented in metres.\n"
+  },
+  "claude": {
+    "tools": "Read,Write,Edit,Glob,Grep",
+    "max_turns": 10,
+    "isolation": "contributor"
+  },
+  "checks": [
+    {
+      "kind": "unchanged",
+      "path": "spec/generated/json-schema/Circle.json"
+    },
+    {
+      "kind": "only_written",
+      "allow": [
+        "spec/*.tsp",
+        ".nuclear/changes/**"
+      ]
+    }
+  ]
+}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -104,6 +105,9 @@ func prepareGoldenRoot(t *testing.T) (string, *SandboxPolicy) {
 }
 
 func TestLaunchGolden(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("the fixtures record the Linux launch; on macOS the daemon also denies the /private form of each path, and that launch is qualified by spikes/runtime-confinement")
+	}
 	root, p := prepareGoldenRoot(t)
 	withGoldenEnv(t, func() {
 		for _, c := range launchCases {

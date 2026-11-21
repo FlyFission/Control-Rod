@@ -69,11 +69,11 @@ class OfficeWorldTests(unittest.TestCase):
                 self.assertLessEqual(len(label), 32, label)
                 self.assertIsNone(re.search(r'\d', label), label)
 
-    def test_worlds_are_development_themes_only(self):
+    def test_worlds_are_released_and_listed(self):
         for pid in self.ids:
-            self.assertEqual(self.theme(pid)['availability'], 'development')
+            self.assertEqual(self.theme(pid)['availability'], 'released')
         released = json.loads((ROOT / 'apps/web/src/features/office/themes/released.json').read_text())
-        self.assertFalse(set(released) & set(self.ids))
+        self.assertTrue(set(self.ids) <= set(released))
 
 
 if __name__ == '__main__':

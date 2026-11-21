@@ -19,9 +19,6 @@ func checkerLinksDeliverables() bool { return false }
 // and CODEX_HOME move the credential file as well, so they are not pointed at
 // the disposable directory. Every allowed write path is canonicalized first.
 func checkerMountArgv(cmd *exec.Cmd, ws *Workspace) ([]string, error) {
-	if err := requireSeatbeltQualified(); err != nil {
-		return nil, err
-	}
 	if cmd == nil || len(cmd.Args) == 0 || ws == nil {
 		return nil, fmt.Errorf("the checker has no command to mount, so the check cannot count")
 	}

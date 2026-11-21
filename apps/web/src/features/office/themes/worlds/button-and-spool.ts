@@ -7,7 +7,7 @@ const theme: OfficeThemeV1 = {
   "version": "0.1.0",
   "title": "Thimble Town",
   "description": "A tiny workshop hidden inside the sewing drawer.",
-  "availability": "development",
+  "availability": "released",
   "tokens": {
     "backdrop": "#1e2b37",
     "floor": "#2a3947",
@@ -250,7 +250,7 @@ const theme: OfficeThemeV1 = {
   ],
   "motionProfile": "shared-v1",
   "accessibility": {
-    "notes": "Draft world. Scene art stays beneath opaque semantic plates; texture is sparse and low in contrast, and furniture sits under the seats, away from the name bands."
+    "notes": "Scene art stays beneath opaque semantic plates; texture is sparse and low in contrast, and furniture sits under the seats, away from the name bands."
   },
   "credits": [
     "Original procedural vector illustration (Codex, Claude Code)"

@@ -7,7 +7,7 @@ const theme: OfficeThemeV1 = {
   "version": "0.1.0",
   "title": "Starport Shipyard",
   "description": "Robots, aliens and engineers keeping the fleet flying.",
-  "availability": "development",
+  "availability": "released",
   "tokens": {
     "backdrop": "#111d2a",
     "floor": "#13202f",
@@ -250,7 +250,7 @@ const theme: OfficeThemeV1 = {
   ],
   "motionProfile": "shared-v1",
   "accessibility": {
-    "notes": "Draft world. Scene art stays beneath opaque semantic plates; texture is sparse and low in contrast, and furniture sits under the seats, away from the name bands."
+    "notes": "Scene art stays beneath opaque semantic plates; texture is sparse and low in contrast, and furniture sits under the seats, away from the name bands."
   },
   "credits": [
     "Original procedural vector illustration (Codex, Claude Code)"

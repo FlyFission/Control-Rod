@@ -1,0 +1,19 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AnchoredQuote.json",
+    "type": "object",
+    "properties": {
+        "anchor": {
+            "$ref": "Anchor.json"
+        },
+        "quote": {
+            "type": "string",
+            "maxLength": 4000
+        }
+    },
+    "required": [
+        "anchor"
+    ],
+    "description": "An anchor and the exact text the author says is there. Line anchors need a quote; for a deleted file or a section it is optional.",
+    "unevaluatedProperties": false
+}

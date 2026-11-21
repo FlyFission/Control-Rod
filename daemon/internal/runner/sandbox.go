@@ -477,15 +477,14 @@ func withoutWindowsDrives(path string) string {
 }
 
 // QualifiedPlatform says whether the native sandbox launch has been qualified on this host's
-// platform. Only WSL2 has been (evidence/phase6); ADR 0021 claims macOS and native Linux only once
-// the qualification passes there, so a runtime is not offered on them until then.
+// platform (ADR 0021, per platform). WSL2 was first (evidence/phase6); native Linux and macOS passed
+// the same launch qualification with the same pinned CLIs (.nuclear/changes/mac-linux-agents/). Any
+// other platform is refused until the qualification passes there.
 func QualifiedPlatform() error {
-	if runtime.GOOS == "linux" {
-		if b, err := os.ReadFile("/proc/sys/kernel/osrelease"); err == nil && strings.Contains(strings.ToLower(string(b)), "microsoft") {
-			return nil
-		}
+	if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
+		return nil
 	}
-	return fmt.Errorf("the agent sandbox is qualified only on WSL2 so far, not on %s; run the qualification here (spikes/runtime-confinement) before it is offered", platformName())
+	return fmt.Errorf("the agent sandbox is qualified on WSL2, native Linux and macOS, not on %s; run the qualification here (spikes/runtime-confinement) before it is offered", platformName())
 }
 
 func platformName() string {
@@ -526,6 +525,37 @@ func hostLabel(rt string) string {
 // platformCheck is QualifiedPlatform; tests replace it to exercise the rest of the preflight anywhere.
 var platformCheck = QualifiedPlatform
 
+// sandboxCheck runs bubblewrap once, on Linux and WSL2, the way both CLIs' sandboxes use it (a new
+// user and network namespace over a read-only root), so a host where it is installed but cannot
+// create a sandbox is refused with the fix before any run, not when the CLI starts. Ubuntu 24.04
+// and later block it by default. Tests replace it.
+var sandboxCheck = bubblewrapWorks
+
+func bubblewrapWorks(lookPath func(string) (string, error)) error {
+	if runtime.GOOS != "linux" {
+		return nil
+	}
+	bwrap, err := lookPath("bwrap")
+	if err != nil {
+		return nil // HostNeeds names the missing program and its fix
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, bwrap, "--unshare-user", "--unshare-net", "--ro-bind", "/", "/", "--dev", "/dev", "true").CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	why := strings.TrimSpace(string(out))
+	if why == "" {
+		why = err.Error()
+	}
+	return refuse("bubblewrap is installed but cannot create a sandbox here (%s). This usually means unprivileged user namespaces are turned off, which Ubuntu 24.04 and later do by default. %s.", why, bubblewrapFix)
+}
+
+// bubblewrapFix is the narrow fix: an AppArmor profile that lets bubblewrap alone create user
+// namespaces (docs/daemon.md, "Linux setup").
+const bubblewrapFix = "Allow it for bubblewrap only: see \"Linux setup\" in docs/daemon.md"
+
 // HostNeed is one program a sandbox needs, with the fix when it is missing.
 type HostNeed struct {
 	Program string
@@ -549,6 +579,11 @@ func Preflight(ctx context.Context, rt string, run CommandRunner, lookPath func(
 	codexFeatures func(context.Context) (string, error), managedCodexConfig []string) error {
 	if err := PreflightHost(rt, lookPath, managedCodexConfig); err != nil {
 		return err
+	}
+	if a, ok := AdapterFor(rt); ok && a.SandboxRequired() {
+		if err := sandboxCheck(lookPath); err != nil {
+			return err
+		}
 	}
 	// Bounded like the probe's own commands, so a hung CLI makes its runtime unavailable rather than
 	// holding the daemon's start.

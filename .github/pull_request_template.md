@@ -7,8 +7,10 @@
 ## Trust surfaces touched
 
 - [ ] None
-- [ ] `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major version, or kernel decision functions (needs a maintainer who did not author this change)
+- [ ] `policies/`, `tests/redteam/`, `.github/workflows/`, `spec/` major version, or kernel decision functions (needs a maintainer who did not author this change, or the sole maintainer's recorded yes: see `docs/collaboration.md`)
 
 ## Evidence
 
 Tests, red-team cases and requirement IDs this change adds or relies on.
+
+Not tested: what this change could affect that no test, run or review above covered.

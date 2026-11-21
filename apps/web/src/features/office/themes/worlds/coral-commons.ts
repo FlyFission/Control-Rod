@@ -7,7 +7,7 @@ const theme: OfficeThemeV1 = {
   "version": "0.1.0",
   "title": "Reef Town",
   "description": "An octopus, a seahorse and a very organized crab.",
-  "availability": "development",
+  "availability": "released",
   "tokens": {
     "backdrop": "#12222e",
     "floor": "#152937",
@@ -250,7 +250,7 @@ const theme: OfficeThemeV1 = {
   ],
   "motionProfile": "shared-v1",
   "accessibility": {
-    "notes": "Draft world. Scene art stays beneath opaque semantic plates; texture is sparse and low in contrast, and furniture sits under the seats, away from the name bands."
+    "notes": "Scene art stays beneath opaque semantic plates; texture is sparse and low in contrast, and furniture sits under the seats, away from the name bands."
   },
   "credits": [
     "Original procedural vector illustration (Codex, Claude Code)"

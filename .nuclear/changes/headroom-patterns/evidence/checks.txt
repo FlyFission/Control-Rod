@@ -1,0 +1,6 @@
+$ python3 tools/check_originality.py
+originality check passed
+$ python3 tools/check_public_claims.py
+public claims check passed
+$ git diff --check
+(no output, exit 0)

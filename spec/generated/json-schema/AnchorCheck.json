@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AnchorCheck.json",
+    "type": "object",
+    "properties": {
+        "anchored": {
+            "type": "boolean"
+        },
+        "failure": {
+            "$ref": "AnchorFailure.json"
+        },
+        "outside_change": {
+            "type": "boolean",
+            "description": "Head lines on a diff target that touch no changed hunk: shown as outside the change, not dropped."
+        }
+    },
+    "required": [
+        "anchored"
+    ],
+    "description": "The result of the deterministic check. An unanchored note is never shown as a finding.",
+    "unevaluatedProperties": false
+}

@@ -15,7 +15,7 @@ def row(**cells):
         "Upstream path": "pkg/port.go",
         "License": "MIT",
         "Notice retained": "yes",
-        "Local changes": "renamed types",
+        "Local changes": "renamed types; `.nuclear/changes/port/provenance.md`",
     }
     base.update(cells)
     return "| " + " | ".join(base[c] for c in COLUMNS) + " |\n"
@@ -30,6 +30,9 @@ class RegisterTests(unittest.TestCase):
         lic = self.root / "third_party" / "licenses" / "example__upstream"
         lic.mkdir(parents=True)
         (lic / "LICENSE").write_text("MIT License\n")
+        record = self.root / ".nuclear" / "changes" / "port"
+        record.mkdir(parents=True)
+        (record / "provenance.md").write_text("| `src/port.go` | `pkg/port.go` (abc) | none | renamed types | port_test.go |\n")
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -49,6 +52,31 @@ class RegisterTests(unittest.TestCase):
             with self.subTest(cells=cells):
                 header, rows = parse_register(HEADER + row(**cells))
                 self.assertTrue(any(expected in p for p in check_rows(header, rows, self.root)))
+
+    def test_code_row_needs_an_existing_provenance_table_that_lists_the_file(self):
+        (self.root / ".nuclear" / "changes" / "other").mkdir()
+        (self.root / ".nuclear" / "changes" / "other" / "provenance.md").write_text("| `src/else.go` |\n")
+        for changes, expected in [
+            ("renamed types", "must name the port's provenance.md"),
+            ("renamed; `.nuclear/changes/gone/provenance.md`", "does not exist"),
+            ("renamed; `.nuclear/changes/other/provenance.md`", "has no row for this file"),
+        ]:
+            with self.subTest(changes=changes):
+                header, rows = parse_register(HEADER + row(**{"Local changes": changes}))
+                self.assertIn(expected, "\n".join(check_rows(header, rows, self.root)))
+
+    def test_provenance_needs_an_exact_row_in_a_change_record(self):
+        (self.root / ".nuclear" / "changes" / "near").mkdir()
+        (self.root / ".nuclear" / "changes" / "near" / "provenance.md").write_text("| `src/port.go.bak` | x |\n")
+        (self.root / "docs").mkdir()
+        (self.root / "docs" / "provenance.md").write_text("| `src/port.go` | x |\n")
+        for changes, expected in [
+            ("renamed; `.nuclear/changes/near/provenance.md`", "has no row for this file"),
+            ("renamed; `docs/provenance.md`", "must name the port's provenance.md"),
+        ]:
+            with self.subTest(changes=changes):
+                header, rows = parse_register(HEADER + row(**{"Local changes": changes}))
+                self.assertIn(expected, "\n".join(check_rows(header, rows, self.root)))
 
     def test_font_license_is_accepted_for_font_files_only(self):
         (self.root / "src" / "face.woff2").write_bytes(b"wOF2")

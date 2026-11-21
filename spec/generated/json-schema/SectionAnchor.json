@@ -1,0 +1,42 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "SectionAnchor.json",
+    "type": "object",
+    "properties": {
+        "kind": {
+            "type": "string",
+            "const": "section"
+        },
+        "path": {
+            "$ref": "AnchorPath.json"
+        },
+        "side": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "head"
+                },
+                {
+                    "type": "string",
+                    "const": "base"
+                }
+            ]
+        },
+        "heading_path": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1,
+            "maxItems": 16
+        }
+    },
+    "required": [
+        "kind",
+        "path",
+        "side",
+        "heading_path"
+    ],
+    "description": "A section of a Markdown document, named by its heading path from the outermost heading in.\nSide `base` is for a section the change removed.",
+    "unevaluatedProperties": false
+}

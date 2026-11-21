@@ -1,0 +1,41 @@
+# Tool tests, 2026-11-19T20:47:23Z
+
+$ (cd tools && python3 -m unittest test_instruction_checks test_check_owner_decisions test_check_agents_map test_check_register -v)
+test_every_case_parses_and_resolves_its_texts (test_instruction_checks.InstructionCheckTests.test_every_case_parses_and_resolves_its_texts) ... ok
+test_lines_match_needs_every_line_to_match (test_instruction_checks.InstructionCheckTests.test_lines_match_needs_every_line_to_match) ... ok
+test_only_written_flags_a_write_outside_the_allowed_set (test_instruction_checks.InstructionCheckTests.test_only_written_flags_a_write_outside_the_allowed_set) ... ok
+test_prompts_are_the_daemons_real_constants (test_instruction_checks.InstructionCheckTests.test_prompts_are_the_daemons_real_constants) ... ok
+test_saved_transcripts_drop_account_details (test_instruction_checks.InstructionCheckTests.test_saved_transcripts_drop_account_details) ... ok
+test_unchanged_absent_and_json_checks (test_instruction_checks.InstructionCheckTests.test_unchanged_absent_and_json_checks) ... ok
+test_unknown_check_kind_fails (test_instruction_checks.InstructionCheckTests.test_unknown_check_kind_fails) ... ok
+test_old_header_fails_on_a_new_record (test_check_owner_decisions.OwnerDecisionTests.test_old_header_fails_on_a_new_record) ... ok
+test_older_records_and_records_without_the_section_are_left_alone (test_check_owner_decisions.OwnerDecisionTests.test_older_records_and_records_without_the_section_are_left_alone) ... ok
+test_paraphrase_missing_date_and_empty_cells_fail (test_check_owner_decisions.OwnerDecisionTests.test_paraphrase_missing_date_and_empty_cells_fail) ... ok
+test_quoted_words_and_agent_choices_pass (test_check_owner_decisions.OwnerDecisionTests.test_quoted_words_and_agent_choices_pass) ... ok
+test_broken_link_backtick_path_and_import_fail (test_check_agents_map.AgentsMapTests.test_broken_link_backtick_path_and_import_fail) ... ok
+test_budget_refuses_growth_and_allows_shrinking (test_check_agents_map.AgentsMapTests.test_budget_refuses_growth_and_allows_shrinking) ... ok
+test_existing_references_pass (test_check_agents_map.AgentsMapTests.test_existing_references_pass) ... ok
+test_missing_budget_file_fails (test_check_agents_map.AgentsMapTests.test_missing_budget_file_fails) ... ok
+test_urls_placeholders_and_plain_code_are_not_paths (test_check_agents_map.AgentsMapTests.test_urls_placeholders_and_plain_code_are_not_paths) ... ok
+test_code_row_needs_an_existing_provenance_table_that_lists_the_file (test_check_register.RegisterTests.test_code_row_needs_an_existing_provenance_table_that_lists_the_file) ... ok
+test_complete_row_with_retained_license_passes (test_check_register.RegisterTests.test_complete_row_with_retained_license_passes) ... ok
+test_excluded_donor_subdirectory_is_skipped (test_check_register.RegisterTests.test_excluded_donor_subdirectory_is_skipped) ... ok
+test_font_license_is_accepted_for_font_files_only (test_check_register.RegisterTests.test_font_license_is_accepted_for_font_files_only) ... ok
+test_marked_file_without_row_is_refused (test_check_register.RegisterTests.test_marked_file_without_row_is_refused) ... ok
+test_overlap_scan_reports_unregistered_copy_only (test_check_register.RegisterTests.test_overlap_scan_reports_unregistered_copy_only) ... ok
+test_refuses_copyleft_short_commit_missing_path_and_missing_evidence (test_check_register.RegisterTests.test_refuses_copyleft_short_commit_missing_path_and_missing_evidence) ... ok
+test_short_and_comment_lines_do_not_create_overlaps (test_check_register.RegisterTests.test_short_and_comment_lines_do_not_create_overlaps) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.034s
+
+OK
+
+$ python3 tools/check_owner_decisions.py
+owner decision check passed
+
+$ python3 tools/check_agents_map.py
+agent map check passed
+
+$ ruff check tools/instruction_checks tools/check_owner_decisions.py tools/test_check_owner_decisions.py tools/test_instruction_checks.py
+All checks passed!

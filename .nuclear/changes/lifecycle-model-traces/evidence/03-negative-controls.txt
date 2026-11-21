@@ -1,0 +1,27 @@
+# Negative controls, 2026-11-18T14:13:34Z
+
+## Replays fail on a wrong expectation
+The first missing-pre-check expectation in gen-seed-1-03.json changed to allowed/accepted, then the file restored.
+$ cargo test (tampered)
+1 of 960 steps differ from the model:
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+$ vitest (tampered)
+     × are listed with the digests of the files on disk 8ms
+     × match the compiled kernel at every step 24ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed (2)
+$ cargo test (restored)
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+$ vitest (restored)
+      Tests  2 passed (2)
+
+## Invariants catch planted model bugs
+Mutant A: accept allowed with no pre-check. Mutant B: providers compared exactly, without trim or case folding.
+$ quint run <mutant package-lifecycle.qnt> --backend typescript --seed 1 --max-samples 2000 --max-steps 30 --invariants <all eight>
+[violation] Found an issue (16ms at 63 traces/second).
+  ❌ AcceptanceHasPreCheck
+error: Invariant violated
+$ quint run <mutant package_lifecycle_b.qnt> --backend typescript --seed 1 --max-samples 2000 --max-steps 30 --invariants <all eight>
+[violation] Found an issue (105ms at 38 traces/second).
+  ❌ PreCheckIndependent
+error: Invariant violated

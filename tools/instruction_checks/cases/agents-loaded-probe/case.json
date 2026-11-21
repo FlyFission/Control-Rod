@@ -1,0 +1,36 @@
+{
+  "name": "agents-loaded-probe",
+  "purpose": "Control for agents-generated-code: under the same flags, does the session have AGENTS.md (through CLAUDE.md) in its instructions without being told to read it?",
+  "prompt": "Without reading any file, write to answer.txt the exact text of rule 3 from the project instructions you were given at the start of this session. If you were given none, write NONE.",
+  "texts_under_test": [
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
+  "files": {
+    "AGENTS.md": "@repo:AGENTS.md",
+    "CLAUDE.md": "@repo:CLAUDE.md"
+  },
+  "claude": {
+    "tools": "Write",
+    "max_turns": 3,
+    "isolation": "contributor"
+  },
+  "checks": [
+    {
+      "kind": "exists",
+      "path": "answer.txt"
+    },
+    {
+      "kind": "lines_match",
+      "path": "answer.txt",
+      "pattern": "never hand-edit generated code",
+      "count": 1
+    },
+    {
+      "kind": "only_written",
+      "allow": [
+        "answer.txt"
+      ]
+    }
+  ]
+}

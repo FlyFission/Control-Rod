@@ -6,6 +6,8 @@ Release decision: **pull request for owner review; no merge or release is author
 - **Not claimed:** upstream's deny-by-default repository config policy is not ported (risk R-04). It should be ported, or the runtime mounts shown to keep agents from writing repository config, before `HostGitCommand` gains a caller in a repository an agent can write.
 - **Not run:** Windows; the tests ran on Linux with git 2.43.0.
 
+Provenance: [provenance.md](provenance.md) supersedes the backfill in `wave1-hardened-worktrees` for `git_host.go` and its test.
+
 Rollback: revert the commit. Daemon only; no callers.
 
 Monitoring after merge: none needed until a caller is added.

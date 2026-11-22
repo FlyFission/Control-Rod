@@ -2335,6 +2335,11 @@ export interface components {
              * @enum {string}
              */
             default_context_profile?: "light" | "nuclear";
+            /**
+             * @description The workflow packages carry when they name none. Absent means the playbook.
+             * @enum {string}
+             */
+            default_workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
             lanes: components["schemas"]["ControlRod.Records.DataLane"][];
             qa_overlays: string[];
             /**
@@ -2755,6 +2760,14 @@ export interface components {
              * @enum {string}
              */
             context_profile?: "light" | "nuclear";
+            /**
+             * @description How the work is sequenced: the plain playbook, or a ported skill workflow (Superpowers, Matt
+             *     Pocock's skills, or the hybrid of the two). Absent means the project default, then the playbook.
+             *     Separate from context_profile: a package carries one workflow and one context profile, and
+             *     workflows never stack.
+             * @enum {string}
+             */
+            workflow?: "playbook" | "superpowers" | "pocock" | "pocock-superpowers";
             status: components["schemas"]["ControlRod.Records.PackageStatus"];
             rigor_mode: components["schemas"]["ControlRod.Records.RigorMode"];
             data_lane: components["schemas"]["ControlRod.Records.DataLane"];

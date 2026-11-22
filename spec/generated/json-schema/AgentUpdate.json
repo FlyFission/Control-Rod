@@ -1,0 +1,45 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AgentUpdate.json",
+    "type": "object",
+    "properties": {
+        "agent": {
+            "$ref": "AgentId.json"
+        },
+        "name": {
+            "type": "string",
+            "maxLength": 60
+        },
+        "installed": {
+            "type": "string",
+            "maxLength": 64
+        },
+        "latest": {
+            "type": "string",
+            "maxLength": 64
+        },
+        "command": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "maxItems": 8,
+            "description": "The package-manager command, one argument per item. Absent when the daemon will not run one."
+        },
+        "note": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why there is no command, in a sentence."
+        },
+        "last_attempt": {
+            "$ref": "AgentUpdateAttempt.json"
+        }
+    },
+    "required": [
+        "agent",
+        "name",
+        "latest"
+    ],
+    "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The command is the daemon's own: it is shown so\nthe person sees what will run, and the control plane never sends a command to the daemon.",
+    "unevaluatedProperties": false
+}

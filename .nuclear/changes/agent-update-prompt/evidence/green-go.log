@@ -11,4 +11,22 @@
 === RUN   TestUpdateCheckOff
 --- PASS: TestUpdateCheckOff (0.00s)
 PASS
-ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.010s
+=== RUN   TestNewer
+--- PASS: TestNewer (0.00s)
+=== RUN   TestCheckOffersNpmCommandOnlyForNpmInstalls
+--- PASS: TestCheckOffersNpmCommandOnlyForNpmInstalls (0.00s)
+=== RUN   TestCheckRefusesAVersionThatCouldCarryArguments
+--- PASS: TestCheckRefusesAVersionThatCouldCarryArguments (0.00s)
+=== RUN   TestCheckOfflineIsQuiet
+--- PASS: TestCheckOfflineIsQuiet (0.00s)
+=== RUN   TestRegistryLatest
+--- PASS: TestRegistryLatest (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/agentupdate	0.006s
+=== RUN   TestAgentUpdateRunsOnlyTheDaemonsOwnCommandWhenAsked
+--- PASS: TestAgentUpdateRunsOnlyTheDaemonsOwnCommandWhenAsked (0.01s)
+=== RUN   TestAgentUpdateWaitsWhileARunIsActive
+--- PASS: TestAgentUpdateWaitsWhileARunIsActive (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/internal/runner	0.019s

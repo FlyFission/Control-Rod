@@ -24,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/flyfission/control-rod/daemon/internal/agentupdate"
 	"github.com/flyfission/control-rod/daemon/internal/runner"
 	"github.com/flyfission/control-rod/daemon/internal/version"
 )
@@ -88,11 +89,7 @@ func daemon(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	// Once, at startup, never on a timer: say which agent CLIs have a newer version. Installs nothing.
-	if !*noUpdateCheck && !updateCheckOff(os.Getenv) {
-		go startupUpdateCheck(ctx, logger)
-	}
-	d := runner.New(runner.Config{
+	cfg := runner.Config{
 		API:       api,
 		Token:     token,
 		TokenFile: runner.TokenFile(os.Getenv, home),
@@ -102,7 +99,16 @@ func daemon(args []string) int {
 		Runtimes:  runner.Detect(exec.LookPath, os.Getenv),
 		Version:   version.Version,
 		Logger:    logger,
-	})
+	}
+	// Once, at startup, never on a timer: the daemon says which agent CLIs have a newer version.
+	// It installs one only when an administrator asks from the app, and only with its own command.
+	if !*noUpdateCheck && !updateCheckOff(os.Getenv) {
+		cfg.UpdateCheck = func(ctx context.Context) []agentupdate.Status {
+			return agentupdate.Check(ctx, hostEnv(), agentupdate.Catalog)
+		}
+		cfg.UpdateRun = runUpdate
+	}
+	d := runner.New(cfg)
 	if err := d.Run(ctx); err != nil {
 		logger.Error(err.Error())
 		return 1

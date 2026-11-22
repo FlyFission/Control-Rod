@@ -620,6 +620,15 @@ op runtimes(): {
 
   /** The active pins, per runtime and role. */
   pins: RuntimePin[];
+
+  /**
+   * Agent CLIs with a newer version, as the daemon found when it started. The daemon alone decides
+   * the command; an administrator's `runtime.update` only asks it to run the one shown here.
+   */
+  agent_updates?: Runner.AgentUpdate[];
+
+  /** Agents an administrator asked to update that the daemon has not yet taken. */
+  agent_updates_requested?: Runner.AgentId[];
 };
 
 /**
@@ -1233,6 +1242,38 @@ namespace Runner {
     artifact?: RuntimeArtifact;
   }
 
+  /** A built-in agent CLI the daemon can check for a newer version. */
+  union AgentId { "claude", "codex", "agy", "opencode", "grok" }
+
+  /** How the last update the daemon ran for an agent ended. */
+  @extension("unevaluatedProperties", false)
+  model AgentUpdateAttempt {
+    outcome: "done" | "failed";
+    @maxLength(300) detail?: string;
+    at: utcDateTime;
+  }
+
+  /**
+   * An agent CLI with a newer published version, as the daemon's startup check found it. The check
+   * runs when the daemon starts, never on a timer. The command is the daemon's own: it is shown so
+   * the person sees what will run, and the control plane never sends a command to the daemon.
+   */
+  @extension("unevaluatedProperties", false)
+  model AgentUpdate {
+    agent: AgentId;
+    @maxLength(60) name: string;
+    @maxLength(64) installed?: string;
+    @maxLength(64) latest: string;
+
+    /** The package-manager command, one argument per item. Absent when the daemon will not run one. */
+    @maxItems(8) command?: string[];
+
+    /** Why there is no command, in a sentence. */
+    @maxLength(300) note?: string;
+
+    last_attempt?: AgentUpdateAttempt;
+  }
+
   /**
    * A runtime's native executable and its SHA-256. A runtime whose npm launcher wraps a platform
    * binary with helper files (Codex) is identified by a digest over that whole platform directory.
@@ -1263,6 +1304,9 @@ namespace Runner {
 
     /** The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations. */
     @minValue(1) run_ceiling_seconds?: int32;
+
+    /** Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current. */
+    @maxItems(10) agent_updates?: AgentUpdate[];
   }): Job | {
     @statusCode _: 204;
   } | Refused;
@@ -1285,6 +1329,14 @@ namespace Runner {
      */
     @minValue(0) events_from?: int32;
   }): LogReply | Refused;
+
+  /**
+   * The agents an administrator asked to update, taken by the daemon: each is returned once. The
+   * daemon asks only while it holds an update with a command, and runs only its own command.
+   */
+  @route("/agent-updates/take") @post op takeAgentUpdates(): {
+    agents: AgentId[];
+  } | Refused;
 
   /**
    * After a restart the daemon reports, from its retained receipts, runs whose process it found gone

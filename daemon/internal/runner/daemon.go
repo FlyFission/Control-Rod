@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flyfission/control-rod/daemon/internal/agentupdate"
 	"io"
 	"log/slog"
 	"net"
@@ -74,6 +75,11 @@ type Config struct {
 	Container *Container
 	// Breaker sets the runaway breaker's thresholds; nil means DefaultBreakerPolicy.
 	Breaker *BreakerPolicy
+	// UpdateCheck finds agent CLIs with a newer version. It runs once when the daemon starts and
+	// after an update, never on a timer; nil turns agent updates off.
+	UpdateCheck func(context.Context) []agentupdate.Status
+	// UpdateRun runs a package-manager command and returns its combined output.
+	UpdateRun func(ctx context.Context, name string, args []string) (string, error)
 }
 
 // RunCeiling is the longest a run lasts in this daemon: its timeout, then the graceful stop ladder
@@ -141,6 +147,8 @@ type Daemon struct {
 	ns string
 	// retry spaces out outbox deliveries and evidence reports that keep failing.
 	retry *retryGate
+	// updates is what the startup agent-update check found.
+	updates agentUpdates
 }
 
 // New returns a daemon for cfg, filling defaults.
@@ -261,6 +269,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.sweepOrphans(ctx)
 	d.probe(ctx)
 	go d.probeLoop(ctx)
+	if d.cfg.UpdateCheck != nil {
+		go d.checkAgentUpdates(ctx)
+	}
 	outboxDone := make(chan struct{})
 	go func() { d.outboxLoop(ctx); close(outboxDone) }()
 	jobsCtx, cancelJobs := context.WithCancelCause(context.Background())
@@ -277,7 +288,11 @@ claim:
 		}
 		status := d.runtimeStatus()
 		claimSent := time.Now()
-		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport())
+		job, err := d.client.Claim(ctx, ReadyRuntimes(status), status, d.RunCeiling(), d.subscriptionReport(), d.updates.report()...)
+		if job == nil {
+			// Only while idle: an update never replaces a CLI a run is using.
+			d.takeAgentUpdates(ctx)
+		}
 		if job != nil {
 			job.claimSent = claimSent
 		}

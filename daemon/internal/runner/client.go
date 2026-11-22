@@ -124,15 +124,20 @@ type ClaimRequest struct {
 	RuntimeStatus      []RuntimeStatus     `json:"runtime_status,omitempty"`
 	RunCeilingSeconds  int                 `json:"run_ceiling_seconds,omitempty"`
 	SubscriptionReport *SubscriptionReport `json:"subscription_report,omitempty"`
+	// AgentUpdates is nil until the startup update check finishes; then always sent, even empty.
+	AgentUpdates *[]AgentUpdate `json:"agent_updates,omitempty"`
 }
 
 // Claim asks for one job, offering only ready runtimes. It returns ErrNoWork on HTTP 204. The
 // ceiling is rounded up to a whole second, so a reservation sized from it is never short.
-func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeStatus, runCeiling time.Duration, report *SubscriptionReport) (*Job, error) {
+func (c *Client) Claim(ctx context.Context, runtimes []string, status []RuntimeStatus, runCeiling time.Duration, report *SubscriptionReport, updates ...AgentUpdate) (*Job, error) {
 	if runtimes == nil {
 		runtimes = []string{}
 	}
 	req := ClaimRequest{Runtimes: runtimes, RuntimeStatus: status, RunCeilingSeconds: int((runCeiling + time.Second - 1) / time.Second), SubscriptionReport: report}
+	if updates != nil {
+		req.AgentUpdates = &updates
+	}
 	resp, err := c.post(ctx, "/runner/claim", req, 30*time.Second)
 	if err != nil {
 		return nil, err

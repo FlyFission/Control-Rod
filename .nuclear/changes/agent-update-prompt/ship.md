@@ -3,9 +3,9 @@
 Release decision: **pull request for owner review; no merge or release is authorized by this record.**
 
 - **Proposed:** merge to main.
-- **Not claimed:** no real `npm install` was run in tests; the web panel is not built (basis, "Not in this change").
+- **Not claimed:** no real `npm install` was run in tests; the panel was tested in jsdom, not a real browser; API tests ran on PostgreSQL 16.
 
-Rollback: revert the commit. Daemon CLI only.
+Rollback: revert the commits. The contract additions are optional fields and one new route; an older daemon or app ignores them. Settings rows `agent_updates` and `agent_update_requests` can stay.
 
 Monitoring after merge: reports of a wrong version comparison or a command offered for a non-npm install.
 
@@ -15,7 +15,7 @@ Monitoring after merge: reports of a wrong version comparison or a command offer
 
 ## Exit criteria
 
-AU-01 to AU-04 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
+AU-01 to AU-07 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
 
 ## Source-lineage note
 

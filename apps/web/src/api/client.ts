@@ -21,6 +21,8 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   PersonVerificationEntry,
   Run,
   RuntimeStatus,
+  AgentUpdate,
+  AgentId,
   SubscriptionView,
   Session,
   WorkPackage,
@@ -195,7 +197,8 @@ export const api = {
   office: () => call<OfficeItem[]>("GET", "/office"),
   officeFigures: (presenting: boolean) => call<OfficeFloor>("GET", presenting ? "/office/figures?presenting=true" : "/office/figures"),
   inbox: (since?: number) => call<InboxView>("GET", since === undefined ? "/inbox" : `/inbox?since=${since}`),
-  runtimes: () => call<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: RuntimePin[] }>("GET", "/runtimes"),
+  runtimes: () =>
+    call<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: RuntimePin[]; agent_updates?: AgentUpdate[]; agent_updates_requested?: AgentId[] }>("GET", "/runtimes"),
   subscriptions: () => call<SubscriptionView>("GET", "/subscriptions"),
   admin: () => call<AdminView>("GET", "/admin"),
   roster: () => call<RosterView>("GET", "/roster"),

@@ -50,6 +50,8 @@ export const COMMANDS = {
   "check.request": entry("member", "none", "Request checker attempt"),
   "check.recheck-override": entry("member", "direct", "Override a sticky checker fail"),
   "runtime.report-status": entry("agent-via-daemon", "none", "Probe runtime"),
+  "runtime.report-agent-updates": entry("agent-via-daemon", "none", "Probe runtime (agent updates)"),
+  "runtime.take-agent-updates": entry("agent-via-daemon", "none", "Update runtime (daemon takes request)"),
   "decision.apply": entry("member", "direct", "Release; Verdict", "write"),
   "verification.record-person": entry("member", "direct", "Record person verification"),
 
@@ -90,6 +92,7 @@ export const COMMANDS = {
   "admin.scram-review": entry("member", "direct", "SCRAM (quarantine review)"),
   "admin.scram-restart": entry("member", "direct", "SCRAM (staged restart)"),
   "admin.runtime-rollback": entry("member", "direct", "Pin runtime (rollback)"),
+  "admin.runtime-update": entry("member", "direct", "Update runtime (request)"),
   "admin.marking-propose": entry("member", "none", "Lower or declassify lane (change request)", "write"),
   "admin.marking-approve": entry("member", "direct", "Lower or declassify lane (approval)", "write"),
   "admin.budget-set": entry("member", "direct", "Set budget"),

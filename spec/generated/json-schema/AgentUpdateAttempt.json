@@ -1,0 +1,33 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "AgentUpdateAttempt.json",
+    "type": "object",
+    "properties": {
+        "outcome": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "done"
+                },
+                {
+                    "type": "string",
+                    "const": "failed"
+                }
+            ]
+        },
+        "detail": {
+            "type": "string",
+            "maxLength": 300
+        },
+        "at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "outcome",
+        "at"
+    ],
+    "description": "How the last update the daemon ran for an agent ended.",
+    "unevaluatedProperties": false
+}

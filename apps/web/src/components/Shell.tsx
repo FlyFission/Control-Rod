@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
+import { AgentUpdates } from "./AgentUpdates.js";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
@@ -164,6 +165,7 @@ export function Shell({ session, children }: { session: Session; children: React
       </aside>
 
       <div className="main">
+        <AgentUpdates />
         <header className="topbar">
           <div className="top-left">
             <span className="crumb">{activePlace?.label ?? "Control Rod"}</span>

@@ -2,8 +2,8 @@
 
 - **Mode:** Standard
 - Execution owner: Claude Code under the owner's 2026-11-22 request.
-- Decision owner: Ben Huffer. No protected surface is touched: no kernel decision function, policy, red-team fixture, workflow or spec version. No server, wire, schema or migration change.
-- Scope: `daemon/internal/agentupdate/`, `daemon/cmd/controlrod/agents.go` and the startup hook in `daemon/cmd/controlrod/main.go`, with their tests.
+- Decision owner: Ben Huffer. Spec change: additive (minor) changes to `spec/api.tsp`, made after the owner chose it on 2026-11-22; no spec major version, kernel decision function, policy, red-team fixture or workflow is touched. No database migration (settings rows only).
+- Scope: `daemon/internal/agentupdate/`, `daemon/cmd/controlrod/`, `daemon/internal/runner/updates.go` and the claim loop, `spec/api.tsp` and its generated files, `services/api/src/agent-updates.ts` with the claim, runtimes and admin wiring, `apps/web/src/components/AgentUpdates.tsx` in the shell, with their tests.
 
 | ID | Risk | Control | Stop condition |
 |---|---|---|---|
@@ -12,6 +12,9 @@
 | R-03 | The update replaces a CLI installed by another tool, leaving two copies. | A command is offered only when the executable lies in `node_modules/<package>/`; otherwise the path is shown and nothing runs (test). | A command offered for a non-npm install. |
 | R-04 | An updated runtime is run unchecked. | The daemon already probes every 5 minutes and preflights a new artifact before launch; a pinned runtime refuses the new digest until it is pinned again, and `agents update` says so for Claude Code and Codex. | A run launched on an artifact no probe saw. |
 | R-05 | The check slows startup or runs on a schedule. | It runs once, in a goroutine, bounded by 8 seconds; there is no timer. It can be turned off. | Any repeated check without a person's action. |
+| R-07 | Someone without authority installs software on the daemon's host from the browser. | `runtime.update` is a Direct command: a passkey signature over the exact agent names and administrator authority (test: unsigned refused; panel disables the buttons with the reason). | An update requested without a verified signature. |
+| R-08 | The control plane (or anyone who can write to it) makes the daemon run a command. | Only agent names cross to the daemon; it runs the command it computed itself and refuses a name it holds no command for (test). The API also refuses an agent without a command (test; check removal fails it). | Any command text accepted from the control plane. |
+| R-09 | An update replaces a CLI a run is using. | The daemon takes requests only while no run is active, and claims nothing while a command runs (test; guard removal fails it). | An update started while a run is active. |
 | R-06 | The check sends data to a third party. | One GET per package to the npm registry (or the configured mirror) for the package's latest tag; no identifiers beyond what an HTTP request carries. | Any other outbound call. |
 
 ## Selected mode
@@ -25,7 +28,7 @@
 
 ## Exit criteria
 
-AU-01 to AU-04 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
+AU-01 to AU-07 are implemented with failed-first (mutation) evidence, and the daemon tests pass.
 
 ## Source-lineage note
 

@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -38,14 +37,10 @@ func updateCheckOff(getenv func(string) string) bool {
 	return v == "0" || v == "off" || v == "false" || v == "no"
 }
 
-// startupUpdateCheck logs one notice when any agent has a newer version. It runs once, when the
-// daemon starts, in the background; it installs nothing.
-func startupUpdateCheck(ctx context.Context, logger *slog.Logger) {
-	c, cancel := context.WithTimeout(ctx, agentupdate.CheckTimeout)
-	defer cancel()
-	if msg := agentupdate.Summary(agentupdate.Check(c, hostEnv(), agentupdate.Catalog)); msg != "" {
-		logger.Info(msg)
-	}
+// runUpdate runs a package-manager command for the daemon, with no shell, and returns its output.
+func runUpdate(ctx context.Context, name string, args []string) (string, error) {
+	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
+	return string(out), err
 }
 
 // agents runs `controlrod agents [check]` and `controlrod agents update [--all] [--yes] [agent...]`.

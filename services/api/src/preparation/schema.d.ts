@@ -975,6 +975,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runner/agent-updates/take": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The agents an administrator asked to update, taken by the daemon: each is returned once. The
+         *     daemon asks only while it holds an update with a command, and runs only its own command.
+         */
+        post: operations["Runner_takeAgentUpdates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runner/claim": {
         parameters: {
             query?: never;
@@ -3077,6 +3097,35 @@ export interface components {
                 current: components["schemas"]["ControlRod.Records.Digest"];
                 restore: components["schemas"]["ControlRod.Records.Digest"];
             }[];
+        };
+        /**
+         * @description A built-in agent CLI the daemon can check for a newer version.
+         * @enum {string}
+         */
+        "Runner.AgentId": "claude" | "codex" | "agy" | "opencode" | "grok";
+        /**
+         * @description An agent CLI with a newer published version, as the daemon's startup check found it. The check
+         *     runs when the daemon starts, never on a timer. The command is the daemon's own: it is shown so
+         *     the person sees what will run, and the control plane never sends a command to the daemon.
+         */
+        "Runner.AgentUpdate": {
+            agent: components["schemas"]["Runner.AgentId"];
+            name: string;
+            installed?: string;
+            latest: string;
+            /** @description The package-manager command, one argument per item. Absent when the daemon will not run one. */
+            command?: string[];
+            /** @description Why there is no command, in a sentence. */
+            note?: string;
+            last_attempt?: components["schemas"]["Runner.AgentUpdateAttempt"];
+        };
+        /** @description How the last update the daemon ran for an agent ended. */
+        "Runner.AgentUpdateAttempt": {
+            /** @enum {string} */
+            outcome: "done" | "failed";
+            detail?: string;
+            /** Format: date-time */
+            at: string;
         };
         "Runner.Completion": {
             claim_token: string;
@@ -7393,6 +7442,82 @@ export interface operations {
             };
         };
     };
+    Runner_takeAgentUpdates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        agents: components["schemas"]["Runner.AgentId"][];
+                    };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Runner_claim: {
         parameters: {
             query?: never;
@@ -7413,6 +7538,8 @@ export interface operations {
                      * @description The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations.
                      */
                     run_ceiling_seconds?: number;
+                    /** @description Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current. */
+                    agent_updates?: components["schemas"]["Runner.AgentUpdate"][];
                 };
             };
         };
@@ -7957,6 +8084,13 @@ export interface operations {
                         runtimes: components["schemas"]["Runner.RuntimeStatus"][];
                         /** @description The active pins, per runtime and role. */
                         pins: components["schemas"]["ControlRod.Records.RuntimePin"][];
+                        /**
+                         * @description Agent CLIs with a newer version, as the daemon found when it started. The daemon alone decides
+                         *     the command; an administrator's `runtime.update` only asks it to run the one shown here.
+                         */
+                        agent_updates?: components["schemas"]["Runner.AgentUpdate"][];
+                        /** @description Agents an administrator asked to update that the daemon has not yet taken. */
+                        agent_updates_requested?: components["schemas"]["Runner.AgentId"][];
                     };
                 };
             };

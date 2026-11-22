@@ -5599,6 +5599,96 @@
         }
       }
     },
+    "/runner/agent-updates/take": {
+      "post": {
+        "operationId": "Runner_takeAgentUpdates",
+        "description": "The agents an administrator asked to update, taken by the daemon: each is returned once. The\ndaemon asks only while it holds an update with a command, and runs only its own command.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The request has succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Runner.AgentId"
+                      }
+                    }
+                  },
+                  "required": [
+                    "agents"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The server could not understand the request due to invalid syntax.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Access is unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access is forbidden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The server cannot find the requested resource.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request conflicts with the current state of the server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Client error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/runner/claim": {
       "post": {
         "operationId": "Runner_claim",
@@ -5707,6 +5797,14 @@
                     "format": "int32",
                     "minimum": 1,
                     "description": "The longest a run lasts in the daemon (its timeout and graceful stop ladder), in whole seconds rounded up. Sizes budget reservations."
+                  },
+                  "agent_updates": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Runner.AgentUpdate"
+                    },
+                    "maxItems": 10,
+                    "description": "Agent CLIs with a newer version, from the daemon's startup check. Empty when every agent is current."
                   }
                 },
                 "required": [
@@ -6338,6 +6436,20 @@
                         "$ref": "#/components/schemas/ControlRod.Records.RuntimePin"
                       },
                       "description": "The active pins, per runtime and role."
+                    },
+                    "agent_updates": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Runner.AgentUpdate"
+                      },
+                      "description": "Agent CLIs with a newer version, as the daemon found when it started. The daemon alone decides\nthe command; an administrator's `runtime.update` only asks it to run the one shown here."
+                    },
+                    "agent_updates_requested": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Runner.AgentId"
+                      },
+                      "description": "Agents an administrator asked to update that the daemon has not yet taken."
                     }
                   },
                   "required": [
@@ -12517,6 +12629,84 @@
           }
         },
         "description": "One run role on the Roster: what it does, who has run it, and its pins."
+      },
+      "Runner.AgentId": {
+        "type": "string",
+        "enum": [
+          "claude",
+          "codex",
+          "agy",
+          "opencode",
+          "grok"
+        ],
+        "description": "A built-in agent CLI the daemon can check for a newer version."
+      },
+      "Runner.AgentUpdate": {
+        "type": "object",
+        "required": [
+          "agent",
+          "name",
+          "latest"
+        ],
+        "properties": {
+          "agent": {
+            "$ref": "#/components/schemas/Runner.AgentId"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "installed": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "latest": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "command": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8,
+            "description": "The package-manager command, one argument per item. Absent when the daemon will not run one."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Why there is no command, in a sentence."
+          },
+          "last_attempt": {
+            "$ref": "#/components/schemas/Runner.AgentUpdateAttempt"
+          }
+        },
+        "description": "An agent CLI with a newer published version, as the daemon's startup check found it. The check\nruns when the daemon starts, never on a timer. The command is the daemon's own: it is shown so\nthe person sees what will run, and the control plane never sends a command to the daemon."
+      },
+      "Runner.AgentUpdateAttempt": {
+        "type": "object",
+        "required": [
+          "outcome",
+          "at"
+        ],
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "done",
+              "failed"
+            ]
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "description": "How the last update the daemon ran for an agent ended."
       },
       "Runner.Completion": {
         "type": "object",

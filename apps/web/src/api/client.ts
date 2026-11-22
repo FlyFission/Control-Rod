@@ -128,6 +128,10 @@ export const api = {
   capture: (body: NewCapture) => call<Capture>("POST", "/captures", body),
   /** Classifies a capture's data lane; until then no AI runtime sees it. */
   classifyCapture: (id: string, lane: DataLane) => call<Capture>("POST", `/captures/${enc(id)}/classify`, { lane }),
+  /** Dismisses a pending capture from the board (audited). */
+  dismissCapture: (id: string) => call<Capture>("POST", `/captures/${enc(id)}/dismiss`),
+  /** Closes a package from the board (audited, preserves audit record). */
+  closePackage: (id: string) => call<WorkPackage>("POST", `/packages/${enc(id)}/close`),
 
   refreshPreparationBasis: (id:string,etag:string) => call<PreparationView>("POST",`/packages/${enc(id)}/preparation/basis/refresh`,undefined,{"if-match":etag}),
   preparationConfirmationOptions: (id:string,expected:Digest) => call<{requirements_digest:Digest;options:Record<string,unknown>}>("POST",`/packages/${enc(id)}/preparation/confirm/options`,{expected_requirements_digest:expected}),
@@ -163,6 +167,7 @@ export const api = {
   packageView: (id: string) => call<PackageView>("GET", `/packages/${enc(id)}`),
   /** Saves a draft the caller loaded with `etag`; a stale tag is refused so no edit is lost. */
   updatePackage: (pkg: WorkPackage, etag: string) => callTagged<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg, { "if-match": etag }),
+  activeRuns: () => call<Run[]>("GET", "/runs"),
   runEvents: (id: string, runId: string, after = 0) =>
     call<{ events: { seq: number; event: NormalizedEvent }[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/events${after > 0 ? `?after=${after}` : ""}`),
   runLog: (id: string, runId: string) =>
@@ -198,6 +203,13 @@ export const api = {
   runtimes: () => call<{ reported_at?: string; runtimes: RuntimeStatus[]; pins: RuntimePin[] }>("GET", "/runtimes"),
   subscriptions: () => call<SubscriptionView>("GET", "/subscriptions"),
   admin: () => call<AdminView>("GET", "/admin"),
+  workspaceProjects: () => call<import("../lib/projects.js").WorkspaceProject[]>("GET", "/workspace/projects"),
+  createWorkspaceProject: (body: Record<string, unknown>) =>
+    call<import("../lib/projects.js").WorkspaceProject>("POST", "/workspace/projects", body),
+  updateWorkspaceProject: (id: string, body: Record<string, unknown>) =>
+    call<import("../lib/projects.js").WorkspaceProject>("PATCH", `/workspace/projects/${enc(id)}`, body),
+  archiveWorkspaceProject: (id: string) =>
+    call<{ id: string; status: "archived" }>("POST", `/workspace/projects/${enc(id)}/archive`),
   roster: () => call<RosterView>("GET", "/roster"),
   usage: () => call<UsageView>("GET", "/usage"),
   adminCommandOptions: (name: string, payload: Record<string, unknown>) =>

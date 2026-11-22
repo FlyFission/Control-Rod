@@ -25,6 +25,13 @@ export function runState(run: Run): StateKind {
 
 const ROLE_LABEL: Record<Run["role"], string> = { intake: "Intake", author: "Author", "pre-check": "Pre-check", "requirements-preparer": "Requirements preparation", "technical-preparer": "Technical preparation" };
 
+/** True only when a queued pre-check is specifically held for want of an independent runtime. */
+function isIndependenceHold(run: Run): boolean {
+  if (run.role !== "pre-check" || run.status !== "queued") return false;
+  if (run.waiting_cause !== undefined) return run.waiting_cause === "independent-runtime";
+  return run.waiting_reason !== undefined && /independent runtime/i.test(run.waiting_reason);
+}
+
 /** What the run card says about where a run stands, in plain words. */
 export function runStatusText(run: Run): string {
   switch (run.status) {
@@ -35,7 +42,11 @@ export function runStatusText(run: Run): string {
     case "stopped":
       return "Stopped";
     case "queued":
-      return run.waiting_reason !== undefined ? "Held: waiting for an independent runtime" : (run.label ?? run.status);
+      return run.waiting_reason !== undefined
+        ? `Held: ${run.waiting_reason}`
+        : run.waiting_cause !== undefined
+          ? `Held: ${run.waiting_cause}`
+          : (run.label ?? run.status);
     case "running":
       return run.stop_requested_at !== undefined ? "Stopping: waiting for the daemon to confirm" : (run.label ?? run.status);
     default:
@@ -100,7 +111,7 @@ function IndependenceOverride({ packageId, run, passkeys }: { packageId: string;
     mutationFn: () => signOverride({ packageId, runId: run.id, reason }, passkeys),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["package", packageId] }),
   });
-  if (run.role !== "pre-check" || run.status !== "queued" || run.waiting_reason === undefined) return null;
+  if (!isIndependenceHold(run) || run.waiting_reason === undefined) return null;
   return (
     <div className="run-hold">
       <p className="error">{run.waiting_reason}</p>
@@ -196,6 +207,11 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packag
           </p>
         )}
         <IndependenceOverride packageId={packageId} run={run} passkeys={passkeys} />
+        {run.status === "queued" && (run.waiting_reason !== undefined || run.waiting_cause !== undefined) && !isIndependenceHold(run) && (
+          <div className="run-hold">
+            <p className="error">{run.waiting_reason ?? `Held: ${run.waiting_cause}`}</p>
+          </div>
+        )}
         <RunActions packageId={packageId} run={run} />
         {(live || frozen !== null) && (
           <div className="log-bar">

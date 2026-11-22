@@ -61,10 +61,10 @@ export function AgentPanel({ packageId, runId, showStop = true }: { packageId: s
         <p className="muted small">No agent has run on this card yet.</p>
       </section>
     );
-  return <Transcript key={run.id} packageId={packageId} run={run} showStop={showStop} />;
+  return <RunTranscript key={run.id} packageId={packageId} run={run} showStop={showStop} />;
 }
 
-function Transcript({ packageId, run, showStop }: { packageId: string; run: Run; showStop: boolean }) {
+export function RunTranscript({ packageId, run, showStop }: { packageId: string; run: Run; showStop: boolean }) {
   const qc = useQueryClient();
   const live = isLive(run);
   const key = ["run-events", packageId, run.id, run.status] as const;

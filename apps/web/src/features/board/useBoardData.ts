@@ -203,6 +203,7 @@ export function useBoardData(): BoardData {
         otherQualifiedVerifier: admin.data !== undefined && hasOtherQualified(admin.data, { grade: p.grade ?? "general-service", ...(p.discipline ? { discipline: p.discipline } : {}) }, excluded),
         runActive,
         heldPreCheck: (view?.runs ?? []).some((r) => r.role === "pre-check" && r.status === "queued" && r.waiting_reason !== undefined),
+        runs: view?.runs ?? [],
       });
       offered = offeredNow;
     }

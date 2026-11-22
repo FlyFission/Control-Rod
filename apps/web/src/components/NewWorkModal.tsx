@@ -5,10 +5,13 @@ import type { DataLane } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
+import { useActiveProject } from "../lib/projects.js";
 import {
   CLI_ECOSYSTEMS,
   ecosystemById,
+  formatModelLabel,
   isIndependentCustody,
+  modelsForEcosystem,
   reasoningLevelsFor,
   resolveReasoningForModel,
   type AgentRuntimeSelection,
@@ -71,6 +74,7 @@ interface NewWorkModalProps {
  */
 export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const copy = MODE_COPY[mode];
+  const activeProject = useActiveProject();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const qc = useQueryClient();
 
@@ -137,12 +141,39 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setDefaultsNotice(null);
   }, [mode]);
 
+  // Apply active project defaults (name, bound repo, outfall strategy, lane, author/checker) whenever opened inside a project.
+  useEffect(() => {
+    if (!open || !activeProject) return;
+    setProject(activeProject.name);
+    setRepo(activeProject.repo);
+    setRepoStrategy(activeProject.repoStrategy);
+    if (activeProject.workspaceRoot) setWorkspaceRoot(activeProject.workspaceRoot);
+    setLane(activeProject.lane);
+    setAuthor(activeProject.author);
+    setChecker(activeProject.checker);
+    invalidatePrepared();
+  }, [open, activeProject]);
+
   const trimmedWorkspaceRoot = workspaceRoot.trim();
   const reposQuery = useQuery({
     queryKey: ["repos", trimmedWorkspaceRoot],
     queryFn: () => api.repos(trimmedWorkspaceRoot || undefined),
     enabled: open,
   });
+  const runtimesQuery = useQuery({
+    queryKey: ["runtimes"],
+    queryFn: api.runtimes,
+    enabled: open,
+  });
+  const liveModelsByEco = useMemo(() => {
+    const map: Partial<Record<CliEcosystemId, string[]>> = {};
+    for (const r of runtimesQuery.data?.runtimes ?? []) {
+      if (Array.isArray(r.models) && r.models.length > 0) {
+        map[r.runtime as CliEcosystemId] = r.models;
+      }
+    }
+    return map;
+  }, [runtimesQuery.data]);
 
   const activeWorkspaceRoot = trimmedWorkspaceRoot || reposQuery.data?.workspace_root || "";
   const effectiveBranch = branch.trim() || suggestBranchName(objective);
@@ -176,7 +207,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
         repo: snapshot.repo,
         branch: snapshot.branch,
         strategy: snapshot.repoStrategy,
-        mode: snapshot.mode,
+        mode: snapshot.mode === "capital-projects" ? "capital-projects" : "software",
         ...(snapshot.targetWorkspaceRoot ? { workspace_root: snapshot.targetWorkspaceRoot } : {}),
       });
       return { res, snapshot };
@@ -562,7 +593,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
             </select>
           </label>
           <label className="field">
-            <span>{mode === "capital-projects" ? "Project Stage / Gate" : "Change Type"}</span>
+            <span>{mode === "capital-projects" ? "Project Stage / Gate" : mode === "nuclear-grade" ? "PRO Stage" : "Change Type"}</span>
             <select
               value={stage}
               onChange={(e) => {
@@ -596,6 +627,75 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
           </label>
         </div>
 
+        <fieldset className="cr-custody-fieldset">
+          <legend className="small">Agent Custody &amp; CLI Ecosystem</legend>
+          {detailLevel === "simple" ? (
+            <>
+              <div className="cr-form-grid">
+                <label className="field">
+                  <span>{copy.custodyRoles[0]}</span>
+                  <select
+                    id="author-cli-simple"
+                    aria-label={copy.custodyRoles[0]}
+                    value={author.ecosystem}
+                    onChange={(e) => updateRuntimeSelection("author", { ecosystem: e.target.value as CliEcosystemId })}
+                  >
+                    {CLI_ECOSYSTEMS.map((c) => (
+                      <option key={c.id} value={c.id} disabled={!c.runnable}>
+                        {c.label} ({c.cliCommand}){c.runnable ? "" : " — Not yet runnable"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>{copy.custodyRoles[1]}</span>
+                  <select
+                    id="checker-cli-simple"
+                    aria-label={copy.custodyRoles[1]}
+                    value={checker.ecosystem}
+                    onChange={(e) => updateRuntimeSelection("checker", { ecosystem: e.target.value as CliEcosystemId })}
+                  >
+                    {CLI_ECOSYSTEMS.map((c) => (
+                      <option key={c.id} value={c.id} disabled={!c.runnable}>
+                        {c.label} ({c.cliCommand}){c.runnable ? "" : " — Not yet runnable"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p className="small muted" style={{ margin: "6px 0 0" }}>
+                Uses each CLI&apos;s latest default model ({formatModelLabel(author.model)} → {formatModelLabel(checker.model)}). Switch to Advanced to pick a specific model or reasoning effort.
+              </p>
+            </>
+          ) : (
+            <div className="cr-runtime-grid">
+              <RuntimePickerCard
+                title={copy.custodyRoles[0]}
+                idPrefix="author"
+                value={author}
+                liveModels={liveModelsByEco[author.ecosystem]}
+                onChange={(patch) => updateRuntimeSelection("author", patch)}
+              />
+              <RuntimePickerCard
+                title={copy.custodyRoles[1]}
+                idPrefix="checker"
+                value={checker}
+                liveModels={liveModelsByEco[checker.ecosystem]}
+                onChange={(patch) => updateRuntimeSelection("checker", patch)}
+              />
+            </div>
+          )}
+          <p
+            className={independent ? "small ok" : "small cr-warn-text"}
+            role="status"
+            style={{ margin: "8px 0 0" }}
+          >
+            {independent
+              ? `Distinct ecosystems (baselines checked at run time): ${ecosystemById(author.ecosystem).cliCommand} prepares, ${ecosystemById(checker.ecosystem).cliCommand} verifies.`
+              : `O6 Notice: Author and Checker share the ${ecosystemById(author.ecosystem).cliCommand} CLI — independent runtime or owner override required before acceptance.`}
+          </p>
+        </fieldset>
+
         {detailLevel === "advanced" && (
           <>
             <div className="cr-form-grid">
@@ -609,7 +709,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                 />
               </label>
               <label className="field">
-                <span>{mode === "capital-projects" ? "Issue Purpose" : "Review Target"}</span>
+                <span>{mode === "capital-projects" ? "Issue Purpose" : mode === "nuclear-grade" ? "Packet Type" : "Review Target"}</span>
                 <select
                   value={purpose}
                   onChange={(e) => {
@@ -625,33 +725,6 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
                 </select>
               </label>
             </div>
-
-            <fieldset className="cr-custody-fieldset">
-              <legend className="small">Agent Custody &amp; CLI Ecosystem</legend>
-              <div className="cr-runtime-grid">
-                <RuntimePickerCard
-                  title={copy.custodyRoles[0]}
-                  idPrefix="author"
-                  value={author}
-                  onChange={(patch) => updateRuntimeSelection("author", patch)}
-                />
-                <RuntimePickerCard
-                  title={copy.custodyRoles[1]}
-                  idPrefix="checker"
-                  value={checker}
-                  onChange={(patch) => updateRuntimeSelection("checker", patch)}
-                />
-              </div>
-              <p
-                className={independent ? "small ok" : "small cr-warn-text"}
-                role="status"
-                style={{ margin: "8px 0 0" }}
-              >
-                {independent
-                  ? `Distinct ecosystems (baselines checked at run time): ${ecosystemById(author.ecosystem).cliCommand} prepares, ${ecosystemById(checker.ecosystem).cliCommand} verifies.`
-                  : `O6 Notice: Author and Checker share the ${ecosystemById(author.ecosystem).cliCommand} CLI — independent runtime or owner override required before acceptance.`}
-              </p>
-            </fieldset>
 
             <div className="cr-clarify-bar">
               <span className="small muted">Defaults are saved per mode in this browser.</span>
@@ -684,7 +757,13 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
             Cancel
           </button>
           <button type="submit" className="btn primary" disabled={isCapturing}>
-            {isCapturing ? "Capturing…" : `Capture ${copy.shortLabel === "Software" ? "change" : "deliverable"}`}
+            {isCapturing
+              ? "Capturing…"
+              : mode === "nuclear-grade"
+                ? "Capture packet"
+                : mode === "software"
+                  ? "Capture change"
+                  : "Capture deliverable"}
           </button>
         </div>
       </form>
@@ -692,18 +771,27 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   );
 }
 
+const CUSTOM_MODEL_OPTION = "__custom__";
+
 function RuntimePickerCard({
   title,
   idPrefix,
   value,
+  liveModels,
   onChange,
 }: {
   title: string;
   idPrefix: string;
   value: AgentRuntimeSelection;
+  liveModels?: readonly string[] | undefined;
   onChange: (patch: RuntimeSelectionPatch) => void;
 }) {
-  const eco = ecosystemById(value.ecosystem);
+  const models = modelsForEcosystem(value.ecosystem, liveModels);
+  const isCustomModel = !models.includes(value.model);
+  const [editingCustom, setEditingCustom] = useState(isCustomModel);
+  useEffect(() => {
+    if (!models.includes(value.model)) setEditingCustom(true);
+  }, [value.ecosystem, value.model, models]);
   const reasoningLevels = reasoningLevelsFor(value.ecosystem, value.model);
   return (
     <div className="cr-runtime-card">
@@ -713,7 +801,10 @@ function RuntimePickerCard({
         <select
           id={`${idPrefix}-cli`}
           value={value.ecosystem}
-          onChange={(e) => onChange({ ecosystem: e.target.value as CliEcosystemId })}
+          onChange={(e) => {
+            setEditingCustom(false);
+            onChange({ ecosystem: e.target.value as CliEcosystemId });
+          }}
         >
           {CLI_ECOSYSTEMS.map((c) => (
             <option key={c.id} value={c.id} disabled={!c.runnable}>
@@ -726,16 +817,36 @@ function RuntimePickerCard({
         <span>Model</span>
         <select
           id={`${idPrefix}-model`}
-          value={value.model}
-          onChange={(e) => onChange({ model: e.target.value })}
+          value={editingCustom || isCustomModel ? CUSTOM_MODEL_OPTION : value.model}
+          onChange={(e) => {
+            if (e.target.value === CUSTOM_MODEL_OPTION) {
+              setEditingCustom(true);
+            } else {
+              setEditingCustom(false);
+              onChange({ model: e.target.value });
+            }
+          }}
         >
-          {eco.models.map((m) => (
+          {models.map((m) => (
             <option key={m} value={m}>
-              {m}
+              {formatModelLabel(m)}
             </option>
           ))}
+          <option value={CUSTOM_MODEL_OPTION}>Custom model ID…</option>
         </select>
       </label>
+      {(editingCustom || isCustomModel) && (
+        <label className="field">
+          <span>Custom model ID</span>
+          <input
+            type="text"
+            id={`${idPrefix}-custom-model`}
+            value={value.model === "default" ? "" : value.model}
+            placeholder="e.g. claude-opus-4-6 or gpt-6.2-sol"
+            onChange={(e) => onChange({ model: e.target.value.trim() || "default" })}
+          />
+        </label>
+      )}
       <div className="field" style={{ marginBottom: 0 }}>
         <span>Reasoning effort</span>
         <div className="cr-reason-group" role="group" aria-label={`${title} reasoning level`}>

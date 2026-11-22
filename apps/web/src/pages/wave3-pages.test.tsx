@@ -101,10 +101,17 @@ describe("Wave 3/4 workbench pages", () => {
     expect(screen.getByText("PKG-W3-1@r2")).toBeTruthy();
   });
 
-  it("Today excludes accepted packages from Needs Your Decision and shows retry on error", async () => {
+  it("Today keeps recorded runs available when packages fail and never infers a run from package status", async () => {
     const user = userEvent.setup();
     let fail = true;
     server.use(
+      http.get("*/runs", () => HttpResponse.json([{
+        id: "run-example",
+        package_id: "PKG-W3-1",
+        role: "pre-check",
+        status: "running",
+        runtime: { provider: "codex" },
+      }])),
       http.get("*/packages", () =>
         fail
           ? HttpResponse.json({ code: "error", message: "Backend offline" }, { status: 500 })
@@ -114,13 +121,13 @@ describe("Wave 3/4 workbench pages", () => {
     await renderPage(<Today />);
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByText(/Backend offline/i)).toBeTruthy();
+    expect(await screen.findByRole("link", { name: /run-example/ })).toBeTruthy();
     fail = false;
     await user.click(screen.getByRole("button", { name: /Try again/i }));
 
     expect(await screen.findByText(/Needs Your Decision \(1\)/i)).toBeTruthy();
-    expect(screen.getByText(/Active Execution \(1\)/i)).toBeTruthy();
-    expect(screen.getByText("Bridge Load Calculation")).toBeTruthy();
-    expect(screen.getByText("API Hardening")).toBeTruthy();
+    expect(await screen.findByRole("link", { name: /Bridge Load Calculation.*run-example/ })).toHaveProperty("hash", "#run-run-example");
+    expect(screen.queryByText("API Hardening")).toBeNull();
     expect(screen.queryByText("Settled Calculation")).toBeNull();
   });
 });

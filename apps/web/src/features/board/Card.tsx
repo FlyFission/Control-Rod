@@ -58,10 +58,14 @@ export type CardProps = {
   edgeColor?: string;
   /** Compact density hides avatars and grade/context chips, never the next line. */
   compact?: boolean;
+  /** Quick-close / remove card from board (audited POST /packages/:id/close). */
+  onCloseCard?: () => void;
+  onDragStartCard?: () => void;
+  onDragEndCard?: () => void;
 };
 
-/** A board card: the small fixed core of spec 6.2. No drag; the title opens the package. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false }: CardProps) {
+/** A board card: the small fixed core of spec 6.2. The title opens the review drawer. */
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, onCloseCard, onDragStartCard, onDragEndCard }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
@@ -74,6 +78,13 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
       data-column={column}
       data-tone={stream === "live" && !lastKnown ? next.tone : "unknown"}
       style={edgeColor ? { borderLeftColor: edgeColor } : undefined}
+      draggable={Boolean(onDragStartCard)}
+      onDragStart={(e) => {
+        e.dataTransfer.setData("application/x-cr-card", JSON.stringify({ kind: "package", id: pkg.id }));
+        e.dataTransfer.effectAllowed = "move";
+        onDragStartCard?.();
+      }}
+      onDragEnd={() => onDragEndCard?.()}
     >
       <div className="bd-kinds">
         {kinds.map((k) => (
@@ -84,14 +95,28 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
             {KIND_WORD[k]}
           </span>
         ))}
+        <span className="bd-id mono small muted">
+          {pkg.id} r{pkg.revision}
+        </span>
+        {onCloseCard && (
+          <button
+            type="button"
+            className="bd-card-dismiss"
+            aria-label={`Close ${pkg.id}`}
+            title="Remove card from board"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCloseCard();
+            }}
+          >
+            ×
+          </button>
+        )}
       </div>
       <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
         {pkg.title}
       </button>
-      <span className="bd-id mono small muted">
-        {pkg.id} rev {pkg.revision}
-      </span>
-      {(!compact || check) && (
+      {(!compact || check || nuclear) && (
         <div className="bd-meta">
           {!compact && owner && (
             <span className="bd-avatar" title={`Owner: ${owner}`}>
@@ -105,8 +130,8 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
               <span className="sr-only">Agent {agent}</span>
             </span>
           )}
-          {!compact && <span className="bd-chip">{pkg.grade ?? "general-service"}</span>}
-          {!compact && nuclear && <span className="bd-nuclear">Nuclear</span>}
+          {!compact && pkg.grade && pkg.grade !== "general-service" && <span className="bd-chip">{pkg.grade}</span>}
+          {nuclear && <span className="bd-nuclear">Nuclear</span>}
           {check && (
             <span className="bd-check">
               <span aria-hidden="true">{"◆"} </span>

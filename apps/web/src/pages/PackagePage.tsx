@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ApiError, api } from "../api/client.js";
@@ -8,6 +8,7 @@ import { CriterionCoverage } from "../components/preparation/CriterionCoverage.j
 import { PreparationPanel } from "../components/preparation/PreparationPanel.js";
 import { DecisionBar } from "../components/DecisionBar.js";
 import { OutputItem } from "../components/OutputPreview.js";
+import { RunTranscript } from "../components/AgentPanel.js";
 import { RunCard } from "../components/RunLog.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../lib/format.js";
 import { DECISION_LABEL } from "../lib/decide.js";
@@ -21,10 +22,15 @@ export function PackagePage({ id }: { id: string }) {
   const q = useQuery({ queryKey: ["package", id], queryFn: () => api.packageView(id) });
 
   const hash = useRouterState({ select: (st) => st.location.hash });
+  const focusedRunId = hash.startsWith("run-") ? hash.slice(4) : null;
+  const focusedRun = focusedRunId ? q.data?.runs.find((run) => run.id === focusedRunId) : undefined;
+  const hasPackage = q.data !== undefined && !q.isError;
   useEffect(() => {
-    // Links and the command palette land on a section (#decide, #criteria), also when only the hash changes.
-    if (q.data !== undefined && hash) document.getElementById(hash)?.scrollIntoView({ block: "start" });
-  }, [q.data, hash]);
+    if (!hasPackage || !hash) return;
+    const target = document.getElementById(hash);
+    target?.scrollIntoView?.({ block: "start" });
+    if (focusedRunId) target?.focus({ preventScroll: true });
+  }, [id, hasPackage, hash, focusedRunId]);
 
   if (q.isLoading) return <p className="muted">Loading</p>;
   if (q.isError || q.data === undefined) {
@@ -96,8 +102,21 @@ export function PackagePage({ id }: { id: string }) {
             <h2 id="runs-title">Runs</h2>
             <DaemonNotice running={view.runs.filter((r) => r.status === "running").length} />
             {view.runs.length === 0 && <p className="muted">No runs yet.</p>}
-            {view.runs.map((r) => (
-              <RunCard key={r.id} packageId={pkg.id} run={r} />
+            {focusedRunId ? (
+              <div id={hash} tabIndex={-1} className="focused-run">
+                <p className="focused-run-head">
+                  <strong className="mono">{focusedRunId}</strong>
+                  <Link to="/packages/$id" params={{ id: pkg.id }} hash="runs">All runs</Link>
+                </p>
+                {focusedRun ? (
+                  <Fragment key={focusedRun.id}>
+                    <RunTranscript packageId={pkg.id} run={focusedRun} showStop={false} />
+                    <RunCard packageId={pkg.id} run={focusedRun} />
+                  </Fragment>
+                ) : <p className="muted">This run is unavailable for this package.</p>}
+              </div>
+            ) : view.runs.map((run) => (
+              <RunCard key={run.id} packageId={pkg.id} run={run} />
             ))}
           </section>
         </div>

@@ -32,6 +32,12 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
+import {
+  archiveWorkspaceProject,
+  createWorkspaceProject,
+  listWorkspaceProjects,
+  updateWorkspaceProject,
+} from "./workspace-projects.js";
 import { chainHead, inclusionProof, verifyRecords, windowExport } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
@@ -42,7 +48,9 @@ import {
   claim,
   complete,
   classifyCapture,
+  closePackage,
   createCapture,
+  dismissCapture,
   decisionChallenge,
   decisionSubject,
   listCaptures,
@@ -318,6 +326,25 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   repoRoutes(app, person);
   grantRoutes(app,db,cfg,person);
 
+  /* ---- workspace projects (audited project defaults & soft-archive) ---- */
+  app.get("/workspace/projects", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return listWorkspaceProjects(db, caller.orgId);
+  });
+  app.post<{ Body: Record<string, unknown> }>("/workspace/projects", async (req, reply) => {
+    const caller = await callerFor(db, await person(req));
+    const proj = await createWorkspaceProject(db, caller, req.body ?? {});
+    return reply.code(201).send(proj);
+  });
+  app.patch<{ Params: { id: string }; Body: Record<string, unknown> }>("/workspace/projects/:id", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return updateWorkspaceProject(db, caller, req.params.id, req.body ?? {});
+  });
+  app.post<{ Params: { id: string } }>("/workspace/projects/:id/archive", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return archiveWorkspaceProject(db, caller, req.params.id);
+  });
+
   /* ---- captures ---- */
   app.get("/captures", async (req) => {
     await person(req);
@@ -332,6 +359,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { id: string }; Body: { lane?: string } }>("/captures/:id/classify", async (req) => {
     const user = await person(req);
     return classifyCapture(db, cfg, user, req.params.id, req.body?.lane);
+  });
+  app.post<{ Params: { id: string } }>("/captures/:id/dismiss", async (req) => {
+    const user = await person(req);
+    return dismissCapture(db, cfg, user, req.params.id);
   });
 
   /* ---- packages ---- */
@@ -355,6 +386,12 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const ifMatch = typeof req.headers["if-match"] === "string" ? req.headers["if-match"] : undefined;
     const saved = await updateDraft(db, cfg, user, req.params.id, req.body, ifMatch);
     return reply.header("ETag", saved.etag).header("Cache-Control", "no-store").send(saved.body);
+  });
+  app.post<{ Params: { id: string } }>("/packages/:id/close", async (req) => {
+    const user = await person(req);
+    const caller = await callerFor(db, user);
+    await requireOwnPackage(db, caller.orgId, req.params.id);
+    return closePackage(db, cfg, user, req.params.id);
   });
   app.get<{ Params: { id: string } }>("/packages/:id/actions", async (req) => {
     const user = await person(req);
@@ -648,8 +685,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return subscriptionView(db, (await callerFor(db, await person(req))).orgId);
   });
   app.get("/runs", async (req) => {
-    await person(req);
-    return activeRuns(db);
+    const caller = await callerFor(db, await person(req));
+    return activeRuns(db, caller.orgId);
   });
   app.get("/metrics", async (req) => {
     await person(req);

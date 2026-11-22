@@ -43,17 +43,40 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     label: "Claude Code",
     cliCommand: "claude",
     runnable: true,
-    models: ["claude-sonnet-4-5", "claude-opus-4-1", "claude-haiku-4-5"],
-    reasoningLevels: ["low", "medium", "high", "max"],
+    models: [
+      "default",
+      "claude-sonnet-4-6",
+      "claude-opus-4-6",
+      "claude-haiku-4-5",
+      "claude-sonnet-4-5",
+      "claude-opus-4-5",
+      "claude-sonnet-5-5",
+    ],
+    reasoningLevels: ["default", "low", "medium", "high", "max"],
     modelReasoningLevels: {
+      default: ["default", "low", "medium", "high", "max"],
+      "claude-sonnet-5-5": ["low", "medium", "high", "max"],
+      "claude-sonnet-4-6": ["low", "medium", "high", "max"],
       "claude-sonnet-4-5": ["low", "medium", "high", "max"],
-      "claude-opus-4-1": ["low", "medium", "high", "max"],
+      "claude-opus-4-6": ["low", "medium", "high", "max"],
+      "claude-opus-4-5": ["low", "medium", "high", "max"],
       "claude-haiku-4-5": ["off", "low", "medium", "high"],
+      sonnet: ["low", "medium", "high", "max"],
+      opus: ["low", "medium", "high", "max"],
+      haiku: ["off", "low", "medium", "high"],
     },
-    defaultModel: "claude-sonnet-4-5",
-    defaultReasoning: "medium",
+    defaultModel: "default",
+    defaultReasoning: "default",
     modelDefaultReasoning: {
+      "claude-sonnet-5-5": "medium",
+      "claude-sonnet-4-6": "medium",
+      "claude-sonnet-4-5": "medium",
+      "claude-opus-4-6": "high",
+      "claude-opus-4-5": "high",
       "claude-haiku-4-5": "low",
+      sonnet: "medium",
+      opus: "high",
+      haiku: "low",
     },
   },
   {
@@ -61,16 +84,29 @@ export const CLI_ECOSYSTEMS: readonly CliEcosystem[] = [
     label: "Codex CLI",
     cliCommand: "codex",
     runnable: true,
-    models: ["sol-6.1", "gpt-5.4", "o3", "o4-mini"],
-    reasoningLevels: ["low", "medium", "high", "xhigh"],
+    models: [
+      "default",
+      "gpt-5-codex",
+      "gpt-6.2-sol",
+      "gpt-6.2-astra",
+      "gpt-6.1-sol",
+      "gpt-6.1-terra",
+      "gpt-6-sol",
+      "gpt-6-astra",
+      "gpt-5.6-sol",
+    ],
+    reasoningLevels: ["default", "low", "medium", "high", "xhigh"],
     modelReasoningLevels: {
-      "sol-6.1": ["low", "medium", "high", "xhigh"],
-      "gpt-5.4": ["low", "medium", "high", "xhigh"],
+      default: ["default", "low", "medium", "high", "xhigh"],
       o3: ["low", "medium", "high"],
       "o4-mini": ["low", "medium", "high"],
     },
-    defaultModel: "sol-6.1",
-    defaultReasoning: "medium",
+    defaultModel: "default",
+    defaultReasoning: "default",
+    modelDefaultReasoning: {
+      o3: "medium",
+      "o4-mini": "medium",
+    },
   },
   {
     id: "agy",
@@ -226,6 +262,45 @@ export interface AgentRuntimeSelection {
   ecosystem: CliEcosystemId;
   model: string;
   reasoning: ReasoningLevel;
+}
+
+const SAFE_MODEL_RE = /^[a-zA-Z0-9._:/@-]{1,100}$/;
+
+/** Checks whether a model slug/alias is syntactically safe to pass to a CLI. */
+export function isValidModelName(model: string): boolean {
+  return SAFE_MODEL_RE.test(model);
+}
+
+/**
+ * Merges live CLI-discovered models from the daemon probe with the ecosystem's fallback list,
+ * keeping "default" first when present and deduplicating while preserving order.
+ */
+export function modelsForEcosystem(
+  ecosystemId: CliEcosystemId,
+  liveModels?: readonly string[],
+): string[] {
+  const eco = ecosystemById(ecosystemId);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const add = (m: string) => {
+    const trimmed = m.trim();
+    if (!isValidModelName(trimmed) || seen.has(trimmed)) return;
+    seen.add(trimmed);
+    out.push(trimmed);
+  };
+  if (eco.defaultModel === "default" || liveModels?.includes("default")) {
+    add("default");
+  }
+  if (liveModels && liveModels.length > 0) {
+    for (const m of liveModels) add(m);
+  } else {
+    for (const m of eco.models) add(m);
+  }
+  return out.length > 0 ? out : [eco.defaultModel];
+}
+
+export function formatModelLabel(model: string): string {
+  return model === "default" ? "CLI default (latest)" : model;
 }
 
 export function ecosystemById(id: CliEcosystemId): CliEcosystem {

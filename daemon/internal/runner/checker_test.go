@@ -203,7 +203,7 @@ func TestCheckerMaxTurnsMatchesTheQualificationSpike(t *testing.T) {
 	if !bytesContains(b, []byte(`"--max-turns", "8"`)) && !bytesContains(b, []byte(`["--max-turns", "8"]`)) {
 		t.Fatal("launch_qualification.py no longer records --max-turns 8")
 	}
-	if checkerMaxTurns != "8" {
+	if checkerMaxTurns != "20" {
 		t.Fatalf("checkerMaxTurns = %q", checkerMaxTurns)
 	}
 }

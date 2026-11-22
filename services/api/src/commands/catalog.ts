@@ -35,6 +35,8 @@ export const COMMANDS = {
   // Work.
   "capture.create": entry("member", "none", "Capture", "write"),
   "capture.classify": entry("member", "none", "Classify lane", "write"),
+  "capture.dismiss": entry("member", "none", "Dismiss capture", "write"),
+  "package.close": entry("member", "none", "Close package", "write"),
   "draft.edit": entry("member", "none", "Edit draft", "write"),
   "output.record-mismatch": entry("system", "none", "Submit output (integrity record)"),
   "run.claim": entry("agent-via-daemon", "none", "Claim", "read"),

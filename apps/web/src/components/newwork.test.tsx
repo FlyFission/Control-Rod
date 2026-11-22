@@ -3,11 +3,13 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
+import { pkg } from "../test/fixtures.js";
 import { renderPage } from "../test/render.js";
 import type { Session } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { Shell } from "./Shell.js";
-import { saveMode } from "../lib/mode.js";
+import { MODE_COPY, PRO_LANE_SKILLS, saveMode } from "../lib/mode.js";
+import { captureMatchesScope, loadProjects, packageMatchesScope } from "../lib/projects.js";
 import { loadWorkDefaults, resetWorkDefaults, factoryDefaults } from "../lib/workDefaults.js";
 
 const ben = { registered: true, signed_in: true, user: "ben" } as Session;
@@ -26,7 +28,7 @@ function mockDialogMethods() {
 }
 
 describe("engineering mode toggle and NewWorkModal", () => {
-  it("switches between Software and Capital Projects mode in the shell", async () => {
+  it("switches between Software, Capital Projects, and Nuclear-Grade modes in the shell", async () => {
     saveMode("software");
     server.use(http.get("*/inbox", () => HttpResponse.json({ items: [] })));
     await renderPage(<Shell session={ben}><p>app</p></Shell>);
@@ -35,9 +37,131 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(screen.getByRole("button", { name: /\+ New change/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Software" }).getAttribute("aria-pressed")).toBe("true");
 
+    await user.click(screen.getByLabelText("Software workspace options"));
     await user.click(screen.getByRole("button", { name: "Capital Projects" }));
     expect(screen.getByRole("button", { name: /\+ New deliverable/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Capital Projects" }).getAttribute("aria-pressed")).toBe("true");
+
+    await user.click(screen.getByRole("button", { name: "Nuclear-Grade" }));
+    expect(screen.getByRole("button", { name: /\+ New packet/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Nuclear-Grade" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("maps all 20 Nuclear-Grade PRO skills and supports nuclear-grade scope + ProjectModal", async () => {
+    const ng = MODE_COPY["nuclear-grade"];
+    expect(ng.boardColumns).toEqual({
+      ready: "P · Question & Plan",
+      drafting: "R · Execute",
+      "agent-check": "R · Verify & Probe",
+      "person-verifies": "R · Independent Review",
+      "needs-signature": "R · Decide (Ship/Block)",
+      reached: "O · Baseline & OPEX",
+    });
+    expect(ng.custodyRoles.slice(0, 2)).toEqual(["Executor (Author)", "Independent Verifier"]);
+
+    const uniqueSkills = new Set(Object.values(PRO_LANE_SKILLS).flat().map((s) => s.name));
+    expect(uniqueSkills.size).toBe(20);
+    expect(PRO_LANE_SKILLS["person-verifies"].map((s) => s.name)).toEqual(["proving-claims", "reviewing-code-quality"]);
+
+    localStorage.setItem(
+      "cr.projects.v1",
+      JSON.stringify([
+        {
+          id: "proj-ng",
+          name: "Core Auth",
+          mode: "nuclear-grade",
+          repo: "Control-Rod",
+          repoStrategy: "worktree",
+          workspaceRoot: "",
+          lane: "internal",
+          author: { ecosystem: "claude", model: "default", reasoning: "default" },
+          checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+          laneAgents: { drafting: "claude", "agent-check": "codex" },
+          createdAt: "2026-11-22T00:00:00Z",
+        },
+      ]),
+    );
+    const loaded = loadProjects();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]?.mode).toBe("nuclear-grade");
+    expect(loaded[0]?.laneAgents).toEqual({ drafting: "claude", "agent-check": "codex" });
+
+    expect(
+      captureMatchesScope(
+        { schema_version: "0.1.0", id: "c1", created_at: "2026-11-22T00:00:00Z", lane: "internal", source: "web", text: "[mode:nuclear-grade] [project:Core Auth] Verify" },
+        "nuclear-grade",
+        loaded[0]!,
+      ),
+    ).toBe(true);
+    expect(
+      captureMatchesScope(
+        { schema_version: "0.1.0", id: "c2", created_at: "2026-11-22T00:00:00Z", lane: "internal", source: "web", text: "[mode:software] [project:Core Auth] Verify" },
+        "nuclear-grade",
+        loaded[0]!,
+      ),
+    ).toBe(false);
+    expect(
+      packageMatchesScope(
+        pkg({
+          id: "pkg-1",
+          revision: 1,
+          mode: "software",
+          title: "[mode:nuclear-grade] Check boundary",
+          objective: "Verify boundary",
+          status: "draft",
+          data_lane: "internal",
+          project: "Core Auth",
+        }),
+        "nuclear-grade",
+        loaded[0]!,
+      ),
+    ).toBe(true);
+
+    saveMode("nuclear-grade");
+    mockDialogMethods();
+    const createdBodies: Array<{ name?: string; mode?: string; author?: unknown; checker?: unknown }> = [];
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/workspace/projects", () => HttpResponse.json([])),
+      http.get("*/repos", () =>
+        HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
+      ),
+      http.post("*/workspace/projects", async ({ request }) => {
+        const body = (await request.json()) as { name?: string; mode?: string; author?: unknown; checker?: unknown };
+        createdBodies.push(body);
+        return HttpResponse.json({
+          id: "prj_ng1",
+          name: body.name,
+          mode: body.mode,
+          status: "active",
+          repo: "",
+          repoStrategy: "worktree",
+          workspaceRoot: "",
+          lane: "internal",
+          author: body.author,
+          checker: body.checker,
+          createdAt: "2026-11-22T00:00:00Z",
+        });
+      }),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "New project" }));
+    expect(screen.getByRole("heading", { name: "New project" })).toBeTruthy();
+
+    // Global `c` shortcut is ignored while a dialog[open] is shown
+    fireEvent.keyDown(window, { key: "c" });
+    expect(screen.queryByRole("heading", { name: "New change packet" })).toBeNull();
+
+    const modeSelect = screen.getByLabelText("Board mode") as HTMLSelectElement;
+    expect(modeSelect.value).toBe("nuclear-grade");
+    await user.type(screen.getByLabelText("Project name"), "Safety Boundary");
+    await user.click(screen.getByRole("button", { name: "Create project" }));
+
+    await waitFor(() => expect(createdBodies).toHaveLength(1));
+    expect(createdBodies[0]?.mode).toBe("nuclear-grade");
+    expect(createdBodies[0]?.name).toBe("Safety Boundary");
   });
 
   it("supports Simple vs Advanced mode, auto-inference, runnable-only CLIs, and saved defaults", async () => {
@@ -49,6 +173,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const materializeRequests: Array<{ mode?: string }> = [];
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({
           workspace_root: "/home/flyfission/projects",
@@ -82,13 +215,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(screen.getByRole("heading", { name: "New engineering deliverable" })).toBeTruthy();
     expect(screen.queryByText(/4-choice clarifications/i)).toBeNull();
 
-    // Starts in Simple mode: bare minimum viable controls are visible, advanced-only fields are hidden
+    // Starts in Simple mode: bare minimum viable controls + simplified Author/Checker pickers are visible
     expect(screen.getByRole("button", { name: "Simple" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByLabelText("Repository")).toBeTruthy();
     expect(screen.getByLabelText("Discipline / Area")).toBeTruthy();
     expect(screen.getByLabelText("Project Stage / Gate")).toBeTruthy();
     expect(screen.getByLabelText("Data lane")).toBeTruthy();
     expect(screen.getByLabelText("Grade")).toBeTruthy();
+    expect(screen.getByLabelText("1. Preparer (Drafting)")).toBeTruthy();
+    expect(screen.getByLabelText("2. Checker (O6)")).toBeTruthy();
     expect(screen.queryByLabelText("Issue Purpose")).toBeNull();
     expect(screen.queryByLabelText("Default working location")).toBeNull();
 
@@ -124,8 +259,10 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     await user.selectOptions(cliSelects[0]!, "codex");
     const modelSelects = screen.getAllByLabelText("Model");
-    expect((modelSelects[0] as HTMLSelectElement).value).toBe("sol-6.1");
-    expect((modelSelects[1] as HTMLSelectElement).value).toBe("sol-6.1");
+    expect((modelSelects[0] as HTMLSelectElement).value).toBe("default");
+    expect((modelSelects[1] as HTMLSelectElement).value).toBe("default");
+    // Live CLI-discovered Codex model from /runtimes is selectable
+    expect(Array.from((modelSelects[0] as HTMLSelectElement).options).map((o) => o.value)).toContain("gpt-6.2-sol");
 
     // Same ecosystem triggers O6 Notice, switching back restores Distinct ecosystems message
     expect(screen.getByText(/O6 Notice:/i)).toBeTruthy();
@@ -145,8 +282,8 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(capturedBody!.text).toContain("[workspace:/home/flyfission/projects/.worktrees/Control-Rod/");
     expect(capturedBody!.text).toContain("[stage:Detailed Design (60%)]");
     expect(capturedBody!.text).toContain("[purpose:Issue for Permit (IFP)]");
-    expect(capturedBody!.text).toContain("[author:claude/claude-sonnet-4-5@medium]");
-    expect(capturedBody!.text).toContain("[checker:codex/sol-6.1@medium]");
+    expect(capturedBody!.text).toContain("[author:claude/default@default]");
+    expect(capturedBody!.text).toContain("[checker:codex/default@default]");
   });
 
   it("pairs reasoning effort levels to runnable CLI ecosystems and models", async () => {
@@ -155,6 +292,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
     mockDialogMethods();
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
       ),
@@ -194,6 +340,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
     mockDialogMethods();
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({
           workspace_root: "/home/flyfission/projects",
@@ -217,22 +372,22 @@ describe("engineering mode toggle and NewWorkModal", () => {
       "cr.work-defaults.software",
       JSON.stringify({
         author: { ecosystem: "agy", model: "argon", reasoning: "high" },
-        checker: { ecosystem: "codex", model: "removed-model", reasoning: "xhigh" },
+        checker: { ecosystem: "codex", model: "bad model with spaces", reasoning: "xhigh" },
       }),
     );
 
     const loaded = loadWorkDefaults("software");
-    expect(loaded.author).toEqual({ ecosystem: "claude", model: "claude-sonnet-4-5", reasoning: "medium" });
-    expect(loaded.checker).toEqual({ ecosystem: "codex", model: "sol-6.1", reasoning: "xhigh" });
+    expect(loaded.author).toEqual({ ecosystem: "claude", model: "default", reasoning: "default" });
+    expect(loaded.checker).toEqual({ ecosystem: "codex", model: "default", reasoning: "xhigh" });
 
     localStorage.setItem(
       "cr.work-defaults.software",
       JSON.stringify({
-        author: { ecosystem: "claude", model: "claude-haiku-4-5", reasoning: "max" },
+        author: { ecosystem: "claude", model: "haiku", reasoning: "max" },
       }),
     );
     const loaded2 = loadWorkDefaults("software");
-    expect(loaded2.author).toEqual({ ecosystem: "claude", model: "claude-haiku-4-5", reasoning: "low" });
+    expect(loaded2.author).toEqual({ ecosystem: "claude", model: "haiku", reasoning: "low" });
   });
 
   it("keeps preparedBranch pinned across Simple-mode objective edits and invalidates on branch edit", async () => {
@@ -244,6 +399,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const materializeRequests: Array<{ mode?: string }> = [];
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({
           workspace_root: "/home/flyfission/projects",
@@ -315,6 +479,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({
           workspace_root: "/home/flyfission/projects",
@@ -370,6 +543,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({
           workspace_root: "/home/flyfission/projects",
@@ -437,6 +619,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({
           workspace_root: "/home/flyfission/projects",
@@ -513,6 +704,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
     let capturedBody: { text?: string } | null = null;
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({
           workspace_root: "/home/flyfission/projects",
@@ -594,6 +794,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
     mockDialogMethods();
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
       ),
@@ -612,6 +821,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () => HttpResponse.json({ code: "repo_err", message: "Repository scan failed" }, { status: 500 })),
     );
 
@@ -680,6 +898,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
       ),
@@ -747,6 +974,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
       ),
@@ -794,6 +1030,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
     let captureCalled = false;
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/runtimes", () =>
+        HttpResponse.json({
+          runtimes: [
+            { runtime: "claude", ready: true, login_checked: false, models: ["default", "sonnet", "opus", "haiku"] },
+            { runtime: "codex", ready: true, login_checked: true, models: ["default", "gpt-6.2-sol", "o3"] },
+          ],
+          pins: [],
+        }),
+      ),
       http.get("*/repos", () =>
         HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
       ),

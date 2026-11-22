@@ -419,6 +419,33 @@ func (d *Daemon) probedArtifact(runtime string) *RuntimeArtifact {
 	return nil
 }
 
+// resolveDefaultCheckerModel picks a concrete registered model for a counted checker run when the
+// run asked for "default"/"any" and no pin names a model, preferring the first CLI-probed model
+// admitted by DefaultModels for this harness and grade.
+func (d *Daemon) resolveDefaultCheckerModel(runtime, grade string) string {
+	reg, err := DefaultModels()
+	if err != nil {
+		return ""
+	}
+	for _, s := range d.runtimeStatus() {
+		if s.Runtime == runtime {
+			for _, m := range s.Models {
+				if _, aerr := reg.Admit(m, runtime, grade); aerr == nil {
+					return m
+				}
+			}
+		}
+	}
+	for _, e := range reg.Models {
+		if e.Harness == runtime {
+			if _, aerr := reg.Admit(e.ID, runtime, grade); aerr == nil {
+				return e.ID
+			}
+		}
+	}
+	return ""
+}
+
 // verifiedVersion is the version recorded for the artifact a run launched: the probe's, when the
 // probe saw that same digest, otherwise the pin's. Empty when neither names it.
 func (d *Daemon) verifiedVersion(runtime string, launched *Digest, pin *RuntimePin) string {
@@ -1279,6 +1306,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		frozen, snapshotErr = c, err
 		if err == nil && frozen == nil {
 			frozen = &Captured{Raw: map[string][]byte{}}
+		}
+	}
+	if ws.Checker && RequestedModel(job.Run) == "" && (job.RuntimePin == nil || strings.TrimSpace(job.RuntimePin.Model) == "") {
+		if resolved := d.resolveDefaultCheckerModel(runtime, packageGrade(job.Package)); resolved != "" {
+			job.Run.Runtime.Model = resolved
 		}
 	}
 	cmd, err := Command(runtime, job.Run, ws, sandbox, d.sandboxPaths(ws))

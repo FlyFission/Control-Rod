@@ -5,11 +5,37 @@ import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { BrandMark } from "../pages/SignIn.js";
 import { type Look, saveLook, useLook } from "../lib/kind.js";
-import { MODE_COPY, saveMode, useMode, type EngineeringMode } from "../lib/mode.js";
+import { MODE_COPY, useMode, type EngineeringMode } from "../lib/mode.js";
+import {
+  hydrateServerProjects,
+  selectProject,
+  switchModeAndSyncProject,
+  useActiveProject,
+  useProjects,
+} from "../lib/projects.js";
 import { PLACES, type PlaceGroup } from "../places/places.js";
+import { ActiveRuns } from "./ActiveRuns.js";
 import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
+import { ProjectModal } from "./ProjectModal.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
+import { readString, writeString } from "../lib/storage.js";
+
+const COLLAPSED_GROUPS_KEY = "cr.nav-collapsed";
+const COLLAPSIBLE_GROUPS = new Set<PlaceGroup>(["Audit", "Control"]);
+
+function loadCollapsedGroups(): Record<string, boolean> {
+  const raw = readString(COLLAPSED_GROUPS_KEY);
+  if (!raw) return { Audit: true, Control: true };
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, boolean>)
+      : { Audit: true, Control: true };
+  } catch {
+    return { Audit: true, Control: true };
+  }
+}
 
 const LOOKS: { id: Look; name: string }[] = [
   { id: "a", name: "A Control room" },
@@ -20,6 +46,7 @@ const LOOKS: { id: Look; name: string }[] = [
 const MODES: { id: EngineeringMode; label: string }[] = [
   { id: "software", label: "Software" },
   { id: "capital-projects", label: "Capital Projects" },
+  { id: "nuclear-grade", label: "Nuclear-Grade" },
 ];
 
 const PLACE_GROUPS: readonly PlaceGroup[] = ["Work", "Audit", "Control"];
@@ -39,12 +66,34 @@ export function Shell({ session, children }: { session: Session; children: React
   const qc = useQueryClient();
   // Only what waits on this person counts (OV-01); work waiting on someone else never does.
   const inbox = useQuery({ queryKey: ["inbox", session.user ?? "", "badge"], queryFn: () => api.inbox() });
+  const serverProjects = useQuery({
+    queryKey: ["workspace-projects", session.user ?? ""],
+    queryFn: () => api.workspaceProjects(),
+    retry: false,
+  });
+  useEffect(() => {
+    if (serverProjects.data) {
+      hydrateServerProjects(serverProjects.data);
+    }
+  }, [serverProjects.data]);
   const needs = inbox.data?.items.length ?? 0;
   const [palette, setPalette] = useState(false);
   const [newWorkOpen, setNewWorkOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups);
+  function toggleGroup(group: PlaceGroup) {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [group]: !prev[group] };
+      writeString(COLLAPSED_GROUPS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
   const shortcut = isMac() ? "⌘K" : "Ctrl K";
   const look = useLook();
   const mode = useMode();
+  const projects = useProjects();
+  const activeProject = useActiveProject();
+  const modeProjects = projects.filter((p) => p.mode === mode);
   const modeCopy = MODE_COPY[mode];
   const path = useRouterState({ select: (st) => st.location.pathname });
   const activePlace = PLACES.find((p) => (p.to === "/" ? path === "/" : path.startsWith(p.to)));
@@ -72,7 +121,8 @@ export function Shell({ session, children }: { session: Session; children: React
       // re-render before this listener runs and remove the .bd-add opener, so look at the event too.
       if (e.defaultPrevented) return;
       const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-quick") !== null;
-      if (!inField && !hasBoardQuickAdd && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      const hasOpenOverlay = document.querySelector("dialog[open], .palette") !== null;
+      if (!inField && !hasBoardQuickAdd && !hasOpenOverlay && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
         setNewWorkOpen(true);
       }
@@ -123,31 +173,93 @@ export function Shell({ session, children }: { session: Session; children: React
           <kbd>C</kbd>
         </button>
 
+        <div className="rail-projects" aria-label="Projects">
+          <div className="rail-projects-head">
+            <span className="places-group-label" style={{ padding: 0 }}>
+              Projects
+            </span>
+            <button
+              type="button"
+              className="rail-proj-add"
+              title="New project"
+              aria-label="New project"
+              onClick={() => setNewProjectOpen(true)}
+            >
+              +
+            </button>
+          </div>
+          <ul className="rail-projects-list">
+            <li>
+              <button
+                type="button"
+                className={activeProject === null ? "rail-proj-btn active" : "rail-proj-btn"}
+                aria-pressed={activeProject === null}
+                onClick={() => selectProject(null)}
+              >
+                <span className="rail-proj-name">All {modeCopy.label}</span>
+              </button>
+            </li>
+            {modeProjects.map((proj) => (
+              <li key={proj.id}>
+                <button
+                  type="button"
+                  className={activeProject?.id === proj.id ? "rail-proj-btn active" : "rail-proj-btn"}
+                  aria-pressed={activeProject?.id === proj.id}
+                  onClick={() => selectProject(proj.id)}
+                >
+                  <span className="rail-proj-name">{proj.name}</span>
+                  {proj.repo && <span className="rail-proj-repo mono">{proj.repo.split("/").pop()}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <nav aria-label="Places" className="places nav-scroll">
-          {PLACE_GROUPS.map((group) => (
-            <div key={group} className="places-group">
-              <div className="places-group-label">{group}</div>
-              <ul>
-                {PLACES.filter((p) => p.group === group).map((p) => (
-                  <li key={p.to}>
-                    <Link
-                      to={p.to}
-                      className="place-link"
-                      activeOptions={{ exact: p.to === "/" }}
-                      activeProps={{ className: "place-link active", "aria-current": "page" }}
-                    >
-                      <span>{p.label}</span>
-                      {p.to === "/inbox" && needs > 0 && (
-                        <span className="badge" aria-label={`${needs} waiting on you`}>
-                          {needs}
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {PLACE_GROUPS.map((group) => {
+            const collapsible = COLLAPSIBLE_GROUPS.has(group);
+            const isCollapsed = collapsible && Boolean(collapsedGroups[group]);
+            return (
+              <div key={group} className="places-group">
+                {collapsible ? (
+                  <button
+                    type="button"
+                    className="places-group-toggle"
+                    aria-expanded={!isCollapsed}
+                    onClick={() => toggleGroup(group)}
+                  >
+                    <span>{group}</span>
+                    <span aria-hidden="true" className="places-group-chev">
+                      {isCollapsed ? "▸" : "▾"}
+                    </span>
+                  </button>
+                ) : (
+                  <div className="places-group-label">{group}</div>
+                )}
+                {!isCollapsed && (
+                  <ul>
+                    {PLACES.filter((p) => p.group === group).map((p) => (
+                      <li key={p.to}>
+                        <Link
+                          to={p.to}
+                          className="place-link"
+                          activeOptions={{ exact: p.to === "/" }}
+                          activeProps={{ className: "place-link active", "aria-current": "page" }}
+                        >
+                          <span>{p.label}</span>
+                          {p.to === "/inbox" && needs > 0 && (
+                            <span className="badge" aria-label={`${needs} waiting on you`}>
+                              {needs}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="rail-foot">
@@ -167,43 +279,60 @@ export function Shell({ session, children }: { session: Session; children: React
         <header className="topbar">
           <div className="top-left">
             <span className="crumb">{activePlace?.label ?? "Control Rod"}</span>
-            <span className="stream-pill">
-              <span className="stream-dot" aria-hidden="true" />
-              <span>{modeCopy.label}</span>
-            </span>
+            <details
+              className="workspace-options"
+              onBlur={(event) => {
+                if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+                  event.currentTarget.open = false;
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape" || !event.currentTarget.open) return;
+                event.preventDefault();
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector("summary")?.focus();
+              }}
+            >
+              <summary className="stream-pill" aria-label={`${modeCopy.label} workspace options`}>
+                {modeCopy.label}
+              </summary>
+              <div className="workspace-options-panel">
+                <span className="workspace-option-label">Engineering mode</span>
+                <div className="seg" role="group" aria-label="Engineering mode">
+                  {MODES.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={mode === m.id ? "active" : ""}
+                      aria-pressed={mode === m.id}
+                      onClick={() => switchModeAndSyncProject(m.id)}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+
+                <span className="workspace-option-label">Board look</span>
+                <div className="seg" role="group" aria-label="Board look">
+                  {LOOKS.map((l) => (
+                    <button
+                      key={l.id}
+                      type="button"
+                      className={look === l.id ? "active" : ""}
+                      aria-pressed={look === l.id}
+                      title={l.name}
+                      onClick={() => saveLook(l.id)}
+                    >
+                      <span>{l.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </details>
           </div>
 
           <div className="top-right">
-            <div className="seg" role="group" aria-label="Engineering mode">
-              {MODES.map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={mode === m.id ? "active" : ""}
-                  aria-pressed={mode === m.id}
-                  onClick={() => saveMode(m.id)}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="seg" role="group" aria-label="Board look">
-              {LOOKS.map((l) => (
-                <button
-                  key={l.id}
-                  type="button"
-                  className={look === l.id ? "active" : ""}
-                  aria-pressed={look === l.id}
-                  title={l.name}
-                  onClick={() => saveLook(l.id)}
-                >
-                  <span aria-hidden="true">Look {l.id.toUpperCase()}</span>
-                  <span className="sr-only">Look {l.name}</span>
-                </button>
-              ))}
-            </div>
-
+            <ActiveRuns />
             <button
               type="button"
               className="btn small palette-trigger"
@@ -230,6 +359,7 @@ export function Shell({ session, children }: { session: Session; children: React
 
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
       <NewWorkModal open={newWorkOpen} mode={mode} onClose={() => setNewWorkOpen(false)} />
+      {newProjectOpen && <ProjectModal open={newProjectOpen} defaultMode={mode} onClose={() => setNewProjectOpen(false)} />}
     </div>
   );
 }

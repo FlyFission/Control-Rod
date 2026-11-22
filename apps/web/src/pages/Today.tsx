@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
+import { ActiveRunList } from "../components/ActiveRuns.js";
 
 /**
  * Today (Wave 3): unified attention view highlighting packages waiting for human
- * decisions (`draft` and `in-verification`) and packages in active execution.
+ * decisions (`draft` and `in-verification`) and recorded active runs.
  */
 export function Today() {
   const packagesQuery = useQuery({
@@ -14,15 +15,13 @@ export function Today() {
   const packages = packagesQuery.data;
   const awaitingHuman =
     packages?.filter((p) => p.status === "in-verification" || p.status === "draft") ?? [];
-  const activeWork =
-    packages?.filter((p) => p.status === "released" || p.status === "in-work") ?? [];
 
   return (
     <div className="place">
       <header className="place-head">
         <h1>Today</h1>
         <p className="muted">
-          Items requiring your attention across Software and Capital Projects workstreams.
+          Review work awaiting a decision and see which agent runs are active.
         </p>
       </header>
 
@@ -40,8 +39,8 @@ export function Today() {
         </div>
       )}
 
-      {packages !== undefined && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+      <div className="today-grid">
+        {packages !== undefined && (
           <section className="panel">
             <h2>Needs Your Decision ({awaitingHuman.length})</h2>
             {awaitingHuman.length === 0 ? (
@@ -59,26 +58,11 @@ export function Today() {
               </ul>
             )}
           </section>
-
-          <section className="panel">
-            <h2>Active Execution ({activeWork.length})</h2>
-            {activeWork.length === 0 ? (
-              <p className="muted">No active author or intake runs.</p>
-            ) : (
-              <ul style={{ paddingLeft: "1.2rem" }}>
-                {activeWork.map((p) => (
-                  <li key={p.id}>
-                    <Link to="/packages/$id" params={{ id: p.id }}>
-                      {p.title || p.id}
-                    </Link>{" "}
-                    <span className="pill">{p.status}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-      )}
+        )}
+        <section className="panel" aria-label="Active runs">
+          <ActiveRunList />
+        </section>
+      </div>
     </div>
   );
 }

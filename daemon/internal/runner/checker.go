@@ -1015,6 +1015,22 @@ func loginSessionDirs(runtime string) []string {
 	return keep.LoginSessionDirs()
 }
 
+type isolatedLoginHomer interface {
+	IsolatedLoginHomeEnv() string
+}
+
+func isolatedLoginHomeEnv(runtime string) string {
+	a, ok := AdapterFor(runtime)
+	if !ok {
+		return ""
+	}
+	h, ok := a.(isolatedLoginHomer)
+	if !ok {
+		return ""
+	}
+	return h.IsolatedLoginHomeEnv()
+}
+
 // loginPlan is how a checker sees the active login directory. The real directory
 // stays read-only. Credential is the host credential file when it is a regular
 // file owned by this user and contained in the login directory. Each overlay is
@@ -1229,7 +1245,7 @@ func hashOneProtected(h io.Writer, name, path string) error {
 		payload = hex.EncodeToString(sum[:])
 	case st.IsDir():
 		kind = "dir"
-		payload, err = TreeDigest(path)
+		payload, err = hashProtectedDir(path)
 		if err != nil {
 			return err
 		}
@@ -1249,6 +1265,87 @@ func hashOneProtected(h io.Writer, name, path string) error {
 		return err
 	}
 	return writePrefixed(h, []byte(payload))
+}
+
+func streamSHA256File(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	fh := sha256.New()
+	if _, err := io.Copy(fh, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(fh.Sum(nil)), nil
+}
+
+// hashProtectedDir streams a deterministic SHA-256 over a protected login subdirectory without
+// loading file contents into memory, so large plugin caches or git packfiles still hash cleanly.
+func hashProtectedDir(root string) (string, error) {
+	h := sha256.New()
+	var walk func(rel string) error
+	walk = func(rel string) error {
+		dir := root
+		if rel != "" {
+			dir = filepath.Join(root, rel)
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return err
+		}
+		sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+		for _, e := range entries {
+			childRel := e.Name()
+			if rel != "" {
+				childRel = rel + "/" + e.Name()
+			}
+			full := filepath.Join(dir, e.Name())
+			st, err := os.Lstat(full)
+			if err != nil {
+				return err
+			}
+			if err := writePrefixed(h, []byte(childRel)); err != nil {
+				return err
+			}
+			if err := writePrefixed(h, []byte(modeOctal(st.Mode()))); err != nil {
+				return err
+			}
+			switch {
+			case st.Mode()&os.ModeSymlink != 0:
+				target, err := os.Readlink(full)
+				if err != nil {
+					return err
+				}
+				sum := sha256.Sum256([]byte(target))
+				if err := writePrefixed(h, []byte("link:"+hex.EncodeToString(sum[:]))); err != nil {
+					return err
+				}
+			case st.IsDir():
+				if err := writePrefixed(h, []byte("dir")); err != nil {
+					return err
+				}
+				if err := walk(childRel); err != nil {
+					return err
+				}
+			case st.Mode().IsRegular():
+				sum, err := streamSHA256File(full)
+				if err != nil {
+					return err
+				}
+				if err := writePrefixed(h, []byte("file:"+sum)); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("%s is not a file or directory", childRel)
+			}
+		}
+		return nil
+	}
+	if err := walk(""); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func modeOctal(m os.FileMode) string {

@@ -5,11 +5,11 @@ import { http, HttpResponse } from "msw/http";
 import { server } from "../test/server.js";
 import { pkg } from "../test/fixtures.js";
 import { renderPage } from "../test/render.js";
-import type { Session } from "../api/types.js";
+import type { Session, WorkspaceProject } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { Shell } from "./Shell.js";
 import { MODE_COPY, PRO_LANE_SKILLS, saveMode } from "../lib/mode.js";
-import { captureMatchesScope, hydrateServerProjects, loadProjects, packageMatchesScope } from "../lib/projects.js";
+import { captureMatchesScope, hydrateServerProjects, loadProjects, packageMatchesScope, selectProject } from "../lib/projects.js";
 import { browserPasskeys } from "../lib/decide.js";
 import { loadWorkDefaults, resetWorkDefaults, factoryDefaults } from "../lib/workDefaults.js";
 
@@ -36,6 +36,8 @@ describe("engineering mode toggle and NewWorkModal", () => {
   afterEach(() => {
     localStorage.removeItem("cr.projects.v1");
     localStorage.removeItem("cr.active-project");
+    localStorage.removeItem("cr.projects.v1:ben");
+    localStorage.removeItem("cr.active-project:ben");
   });
 
   it("switches between Software, Capital Projects, and Nuclear-Grade modes in the shell", async () => {
@@ -204,7 +206,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     mockDialogMethods();
 
     const defaults = factoryDefaults("software");
-    const project = {
+    const project: WorkspaceProject = {
       id: "proj-launcher",
       name: "Release tools",
       mode: "software",
@@ -212,12 +214,14 @@ describe("engineering mode toggle and NewWorkModal", () => {
       repoStrategy: "worktree",
       workspaceRoot: "/home/flyfission/projects",
       lane: "client-confidential",
-      author: defaults.checker,
-      checker: defaults.author,
+      status: "active",
+      author: defaults.author,
+      checker: defaults.checker,
+      laneAgents: { drafting: "codex", "agent-check": "claude" },
       createdAt: "2026-11-15T12:00:00Z",
     };
-    localStorage.setItem("cr.projects.v1", JSON.stringify([project]));
-    localStorage.setItem("cr.active-project", project.id);
+    hydrateServerProjects("ben", [project]);
+    selectProject("ben", project.id);
     const captures: { text: string; lane: string }[] = [];
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),

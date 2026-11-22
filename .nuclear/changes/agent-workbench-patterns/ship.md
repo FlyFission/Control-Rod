@@ -2,9 +2,15 @@
 
 Release decision: **for owner review; no merge is authorized by this record.**
 
+**Merge condition (`docs/patterns/README.md`):** before merge, a person who did not write `docs/patterns/agent-workbenches.md` compares it with the source documentation for copied wording, and their name, the date and the result are recorded here. The six-word script (E-03) is a pre-check and does not meet this condition.
+
+| Reviewer | Date | Result |
+|---|---|---|
+| not yet assigned (gap) | deferred | deferred |
+
 - **Proposed:** merge the note, AW1 to AW4 and this packet.
 - **Not claimed:** a real-browser pass. Notifications, the title and the shortcut list were exercised in jsdom with a stand-in `Notification`. Before relying on AW2, turn it on from the Inbox in the browser you use, hide the tab, and have someone return a package to you.
-- **Not claimed:** a person's read of the note for copied wording (D3); a script ran instead (E-03).
+- **Not claimed:** a person's read of the note for copied wording (D3); a script ran instead (E-03), and the person's check is the merge condition above.
 - **Not claimed:** any change to what counts as waiting on a person. AW1 and AW2 read the same `GET /inbox` as the rail badge.
 - **Found, not fixed:** the Today page counts every `draft` and `in-verification` package as "Needs Your Decision", including work waiting on someone else, so it can disagree with the Inbox and the new tab count. Recorded as AW5 and proposed as the next change.
 - **Owner decisions requested:** accept the note or return it with changes; confirm D2 and D3; pick the next items (proposed: AW5, then AW7).

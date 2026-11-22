@@ -22,7 +22,7 @@ Evidence status: **pass** for the checks below on this host (macOS, Node with pn
 | E-02 | coupled: implementing agent | coupled: implementation session | separated: deterministic local validators | separated: owner retains merge decision | coupled: local machine | self-check | format checks only  [Ship limits](ship.md) |
 | E-03 | coupled: implementing agent | coupled: implementation session | separated: deterministic script | separated: owner retains merge decision | coupled: local machine | self-check | script, not a person's read  [Ship limits](ship.md) |
 
-No independent review was done.
+No independent review was done. The person's wording comparison the pattern-note rule requires is still to come; merge waits on it (see [ship](ship.md)).
 
 ## Required links
 

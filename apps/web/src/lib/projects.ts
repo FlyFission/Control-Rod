@@ -77,22 +77,10 @@ export function switchModeAndSyncProject(user: string | undefined, nextMode: Eng
   notify();
 }
 
-export function updateProject(
-  user: string | undefined,
-  id: string,
-  patch: Partial<Omit<WorkspaceProject, "id" | "createdAt">>,
-): WorkspaceProject | null {
-  if (!user) return null;
+/** Stores the full project returned by the server after a signed edit. */
+export function replaceProject(user: string, project: WorkspaceProject): void {
   const list = loadProjects(user);
-  let updated: WorkspaceProject | null = null;
-  const next = list.map((p) => {
-    if (p.id !== id) return p;
-    updated = { ...p, ...patch };
-    return updated;
-  });
-  if (!updated) return null;
-  persistProjects(user, next);
-  return updated;
+  persistProjects(user, list.map((entry) => entry.id === project.id ? project : entry));
 }
 
 export function hydrateServerProjects(user: string | undefined, serverList: WorkspaceProject[]): void {

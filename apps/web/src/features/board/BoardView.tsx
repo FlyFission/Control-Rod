@@ -2,7 +2,9 @@ import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, us
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, explain } from "../../api/client.js";
+import type { WorkspaceProjectArchivePayload, WorkspaceProjectUpdatePayload } from "../../api/types.js";
 import { COLUMNS } from "../../lib/board.js";
+import { browserPasskeys } from "../../lib/decide.js";
 import { type Kind, useLook } from "../../lib/kind.js";
 import {
   COLOR_BY_LABEL,
@@ -20,10 +22,11 @@ import { type EngineeringMode, MODE_COPY, PRO_LANE_SKILLS, useMode } from "../..
 import {
   captureMatchesScope,
   deleteProject,
+  loadProjects,
   packageMatchesScope,
+  replaceProject,
   selectProject,
   switchModeAndSyncProject,
-  updateProject,
   useActiveProject,
   WorkspaceProjectUser,
 } from "../../lib/projects.js";
@@ -44,6 +47,9 @@ import "./board.css";
 
 const VIEW_MODE_KEY = "cr.board-view";
 type BoardViewMode = "board" | "list";
+type ProjectChange =
+  | { command: "project.workspace-update"; payload: WorkspaceProjectUpdatePayload }
+  | { command: "project.workspace-archive"; payload: WorkspaceProjectArchivePayload };
 function loadViewMode(): BoardViewMode {
   return readString(VIEW_MODE_KEY) === "list" ? "list" : "board";
 }
@@ -102,6 +108,39 @@ export function BoardView() {
     (m) => m !== mode,
   );
   const [projectError, setProjectError] = useState<string | null>(null);
+  const [projectPending, setProjectPending] = useState(false);
+
+  async function applyProjectChange(change: ProjectChange, fallback: string) {
+    if (!projectUser || projectPending) return;
+    const startedUnder = sessionGeneration();
+    const queryKey = ["workspace-projects", projectUser];
+    setProjectError(null);
+    setProjectPending(true);
+    try {
+      const { options } = await api.adminCommandOptions(change.command, change.payload);
+      if (!stillCurrent(startedUnder)) return;
+      const assertion = await browserPasskeys.get(options);
+      if (!stillCurrent(startedUnder)) return;
+      const saved = change.command === "project.workspace-update"
+        ? await api.updateWorkspaceProject(change.payload, assertion)
+        : await api.archiveWorkspaceProject(change.payload, assertion);
+      if (!stillCurrent(startedUnder)) return;
+      await qc.cancelQueries({ queryKey });
+      if (!stillCurrent(startedUnder)) return;
+      if ("name" in saved) {
+        replaceProject(projectUser, saved);
+      } else {
+        deleteProject(projectUser, saved.id);
+      }
+      qc.setQueryData(queryKey, loadProjects(projectUser));
+      void qc.invalidateQueries({ queryKey });
+      void qc.invalidateQueries({ queryKey: ["admin"] });
+    } catch (err) {
+      if (stillCurrent(startedUnder)) setProjectError(explain(err, fallback));
+    } finally {
+      if (stillCurrent(startedUnder)) setProjectPending(false);
+    }
+  }
 
   const projectReposQuery = useQuery({
     queryKey: ["repos", activeProject?.workspaceRoot ?? ""],
@@ -359,35 +398,19 @@ export function BoardView() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const handleLaneAgentChange = useCallback(
-    (colId: "drafting" | "agent-check", eco: "claude" | "codex") => {
-      if (!activeProject) return;
-      const prevLaneAgents = activeProject.laneAgents ?? {};
-      const otherCol = colId === "drafting" ? "agent-check" : "drafting";
-      const otherEco = eco === "claude" ? "codex" : "claude";
-      const tentative = { ...prevLaneAgents, [colId]: eco };
-      const effectiveAuthor = tentative.drafting ?? activeProject.author.ecosystem;
-      const effectiveChecker = tentative["agent-check"] ?? activeProject.checker.ecosystem;
-      const nextLaneAgents: Record<string, string> =
-        effectiveAuthor === effectiveChecker
-          ? { ...prevLaneAgents, [colId]: eco, [otherCol]: otherEco }
-          : tentative;
-      setProjectError(null);
-      const startedUnder = sessionGeneration();
-      updateProject(projectUser, activeProject.id, { laneAgents: nextLaneAgents });
-      void api
-        .updateWorkspaceProject(activeProject.id, { laneAgents: nextLaneAgents })
-        .then(() => {
-          if (stillCurrent(startedUnder)) return qc.invalidateQueries({ queryKey: ["workspace-projects", projectUser] });
-        })
-        .catch((err) => {
-          if (!stillCurrent(startedUnder)) return;
-          updateProject(projectUser, activeProject.id, { laneAgents: prevLaneAgents });
-          setProjectError(explain(err, "Could not update lane agent oversight."));
-        });
-    },
-    [activeProject, projectUser, qc],
-  );
+  function handleLaneAgentChange(colId: "drafting" | "agent-check", eco: "claude" | "codex") {
+    if (!activeProject) return;
+    const laneAgents = { ...activeProject.laneAgents, [colId]: eco };
+    const effectiveAuthor = laneAgents.drafting ?? activeProject.author.ecosystem;
+    const effectiveChecker = laneAgents["agent-check"] ?? activeProject.checker.ecosystem;
+    if (effectiveAuthor === effectiveChecker) {
+      laneAgents[colId === "drafting" ? "agent-check" : "drafting"] = eco === "claude" ? "codex" : "claude";
+    }
+    void applyProjectChange({
+      command: "project.workspace-update",
+      payload: { project_id: activeProject.id, patch: { laneAgents } },
+    }, "Could not update lane agent oversight.");
+  }
 
   const COLUMN_FOLD_LIMIT = 8;
 
@@ -417,6 +440,7 @@ export function BoardView() {
                   aria-label={`Agent oversight for ${copy.boardColumns[c.id]}`}
                   title={`Agent runtime for ${copy.boardColumns[c.id]}`}
                   value={laneAgentValue}
+                  disabled={projectPending}
                   onChange={(e) => handleLaneAgentChange(laneAgentCol, e.target.value as "claude" | "codex")}
                 >
                   <option value="claude">Claude</option>
@@ -579,22 +603,12 @@ export function BoardView() {
                   aria-label="Project default repository"
                   className="bd-lens-select"
                   value={activeProject.repo}
+                  disabled={projectPending}
                   onChange={(e) => {
-                    const nextRepo = e.target.value;
-                    const prevRepo = activeProject.repo;
-                    setProjectError(null);
-                    const startedUnder = sessionGeneration();
-                    updateProject(projectUser, activeProject.id, { repo: nextRepo });
-                    void api
-                      .updateWorkspaceProject(activeProject.id, { repo: nextRepo })
-                      .then(() => {
-                        if (stillCurrent(startedUnder)) return qc.invalidateQueries({ queryKey: ["workspace-projects", projectUser] });
-                      })
-                      .catch((err) => {
-                        if (!stillCurrent(startedUnder)) return;
-                        updateProject(projectUser, activeProject.id, { repo: prevRepo });
-                        setProjectError(explain(err, "Could not update default repository."));
-                      });
+                    void applyProjectChange({
+                      command: "project.workspace-update",
+                      payload: { project_id: activeProject.id, patch: { repo: e.target.value } },
+                    }, "Could not update default repository.");
                   }}
                 >
                   <option value="">No default repo</option>
@@ -635,21 +649,11 @@ export function BoardView() {
               <button
                 type="button"
                 className="btn small"
-                onClick={() => {
-                  setProjectError(null);
-                  const startedUnder = sessionGeneration();
-                  void api
-                    .archiveWorkspaceProject(activeProject.id)
-                    .then(() => {
-                      if (!stillCurrent(startedUnder)) return;
-                      deleteProject(projectUser, activeProject.id);
-                      void qc.invalidateQueries({ queryKey: ["workspace-projects", projectUser] });
-                    })
-                    .catch((err) => {
-                      if (!stillCurrent(startedUnder)) return;
-                      setProjectError(explain(err, "Could not archive project."));
-                    });
-                }}
+                disabled={projectPending}
+                onClick={() => void applyProjectChange({
+                  command: "project.workspace-archive",
+                  payload: { project_id: activeProject.id },
+                }, "Could not archive project.")}
               >
                 Archive project
               </button>

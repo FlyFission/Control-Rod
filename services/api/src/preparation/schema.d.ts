@@ -3397,6 +3397,9 @@ export interface components {
             local_rule: string;
             pins: components["schemas"]["SubscriptionPin"][];
         };
+        "WorkspaceProjects.ArchiveProjectPayload": {
+            project_id: string;
+        };
         "WorkspaceProjects.ArchivedProject": {
             id: string;
             /** @enum {string} */
@@ -3429,6 +3432,20 @@ export interface components {
             model: string;
             reasoning: string;
         };
+        /** @description The project.workspace-archive admin challenge binds the project ID. */
+        "WorkspaceProjects.SignedProjectArchive": {
+            payload: components["schemas"]["WorkspaceProjects.ArchiveProjectPayload"];
+            assertion: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description The project.workspace-update admin challenge binds the project ID and patch. */
+        "WorkspaceProjects.SignedProjectUpdate": {
+            payload: components["schemas"]["WorkspaceProjects.UpdateProjectPayload"];
+            assertion: {
+                [key: string]: unknown;
+            };
+        };
         "WorkspaceProjects.UpdateProject": {
             repo?: string;
             /** @enum {string} */
@@ -3441,6 +3458,10 @@ export interface components {
             laneAgents?: {
                 [key: string]: string;
             } | null;
+        };
+        "WorkspaceProjects.UpdateProjectPayload": {
+            project_id: string;
+            patch: components["schemas"]["WorkspaceProjects.UpdateProject"];
         };
         "WorkspaceProjects.WorkspaceProject": {
             id: string;
@@ -8620,7 +8641,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["WorkspaceProjects.UpdateProject"];
+                "application/json": components["schemas"]["WorkspaceProjects.SignedProjectUpdate"];
             };
         };
         responses: {
@@ -8698,7 +8719,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceProjects.SignedProjectArchive"];
+            };
+        };
         responses: {
             /** @description The request has succeeded. */
             200: {

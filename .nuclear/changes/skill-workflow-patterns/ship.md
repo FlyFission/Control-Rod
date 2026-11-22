@@ -1,13 +1,19 @@
 # Ship: skill workflow pattern note
 
-Release decision: **pattern note for owner review; no implementation authorized by this record.**
+Release decision: **pattern note for owner review; merge is conditional on the wording check below; no implementation authorized by this record.**
+
+**Merge condition (`docs/patterns/README.md`):** before merge, a person who did not write the note compares it with the upstream skills at the pins for copied wording, and their name, the date and the result are recorded here. The six-word script (E-01) is a pre-check and does not meet this condition.
+
+| Reviewer | Date | Result |
+|---|---|---|
+| not yet assigned (gap) | deferred | deferred |
 
 - **Proposed:** merge the note and this packet as documentation only.
-- **Not claimed:** that either workflow runs in Control Rod; any brief size (not measured); a person's read for copied wording (a script ran, E-01); that the shipped name may use the authors' names.
+- **Not claimed:** that either workflow runs in Control Rod; any brief size (not measured); a person's read for copied wording (a script ran, E-01; the person's check is the merge condition above); that the shipped name may use the authors' names.
 - **Depends on open work:** #117 rewires the composer and roles this plan builds on; whichever merges second rebases onto the other.
 - **Corrected before review:** the first draft said packages had no dependency field. They do (`depends_on`, cleared only on acceptance), so tasks and tickets need no contract or control-plane change.
 - **Owner decisions requested:**
-  1. Accept the note or return it with changes; confirm D5 (two packs plus a hybrid that references them).
+  1. Accept the note or return it with changes; confirm D5 (two packs plus a hybrid that references them); name who does the wording check.
   2. Give the signed yes for the contract step when it comes (a per-card workflow field beside `context_profile`).
   3. Pick the first build: the proposal is the Superpowers pack (step 2) and the interview stage (step 4) in parallel, since they need no new contract to prototype.
 

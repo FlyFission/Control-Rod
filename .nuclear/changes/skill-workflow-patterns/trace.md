@@ -2,10 +2,10 @@
 
 | Requirement | Change | Tests and checks | Disposition |
 |---|---|---|---|
-| SW-01 Every skill in scope at the pins is mapped to a stage or listed as skipped. | `docs/patterns/skill-workflows.md` stage maps | coverage script run in this session: no skill uncovered (E-02) | written |
+| SW-01 Every skill in scope at the pins is mapped to a stage or listed as skipped. | `docs/patterns/skill-workflows.md` stage maps | `evidence/coverage.py`: 15 and 27 skills, none missing (E-02) | written |
 | SW-02 The note says how each conflict with ADR 0020, ADR 0023, G-04, pre-check independence and the brief-only rule is ported. | conflicts C1 to C5 | owner review | written; review open |
 | SW-03 The hybrid names its source for each stage and why. | hybrid table H1 to H7 | owner review | written; review open |
-| SW-04 The note is in our own words. | whole note | six-word overlap check (E-01) | pass with one kept run |
+| SW-04 The note is in our own words. | whole note | six-word overlap check (E-01, a pre-check); a person's comparison with the sources before merge | script pass; person's check open |
 
 ## Required links
 

@@ -214,39 +214,90 @@ test("switches directly between active attempts and keeps finished history addre
   });
   const first = makeRun("R-first", "claude", "running");
   const second = makeRun("R-second", "codex", "queued");
-  let running = [first, second];
+  const third = { ...makeRun("R-third", "claude", "queued"), package_id: "WP-2" };
+  const fourth = { ...makeRun("R-fourth", "codex", "running"), package_id: "WP-1" };
+  let running = [first, second, third, fourth];
+  let currentRevision = 0;
   let failRefresh = false;
   let runReads = 0;
-  await page.route("**/runs", (r) => {
+  const exactReads: string[] = [];
+  let packageReads = 0;
+  await page.route("**/packages", (r) => {
+    packageReads++;
+    return r.fulfill({ json: packages });
+  });
+  await page.route("**/runs/active", (r) => {
     runReads++;
-    return failRefresh ? r.fulfill({ status: 500, json: { message: "Offline" } }) : r.fulfill({ json: running });
+    return failRefresh ? r.fulfill({ status: 500, json: { message: "Offline" } }) : r.fulfill({ json: running.map((run) => ({ ...run, title: run.package_id === "WP-3" || run.package_id === "WP-2" ? "Same title" : "Relief valve sizing" })) });
   });
   await page.route("**/runtimes", (r) => r.fulfill({ json: { runtimes: [], reported_at: "2026-11-21T10:00:00Z" } }));
-  await page.route("**/packages/WP-3", (r) => r.fulfill({ json: {
-    package: packages.find((pkg) => pkg.id === "WP-3"),
-    runs: [{ ...first, status: running.includes(first) ? "running" : "succeeded" }, second],
+  await page.route("**/packages/WP-3", (r) => r.request().isNavigationRequest() ? r.continue() : r.fulfill({ json: {
+    package: { ...packages.find((pkg) => pkg.id === "WP-3"), revision: currentRevision },
+    runs: currentRevision === 0 ? [{ ...first, status: running.includes(first) ? "running" : "succeeded" }, second] : [],
     outputs: [],
     decisions: [],
     subject_digest: { algorithm: "sha256", value: "0".repeat(64) },
     originators: ["ben"],
   } }));
+  await page.route(/\/packages\/WP-3\/runs\/[^/?]+$/, (r) => {
+    const id = new URL(r.request().url()).pathname.split("/").at(-1)!;
+    exactReads.push(id);
+    const run = id === first.id ? { ...first, status: running.includes(first) ? "running" : "succeeded" } : id === second.id ? second : undefined;
+    return r.fulfill(run ? { json: run } : { status: 404, json: { message: "No such run" } });
+  });
   await page.route("**/packages/WP-3/runs/*/events**", (r) => {
     const id = new URL(r.request().url()).pathname.split("/")[4];
     return r.fulfill({ json: { events: [{ seq: 1, event: { kind: "message", at: first.started_at, text: `Transcript for ${id}` } }] } });
   });
-  await page.route("**/packages/WP-3/runs/*/log", (r) => r.fulfill({ json: { lines: [] } }));
+  let rawLogReads = 0;
+  await page.route("**/packages/WP-3/runs/*/log", (r) => {
+    rawLogReads++;
+    return r.fulfill({ json: { lines: [] } });
+  });
+
+  let outputLists = 0;
+  let outputPreviews = 0;
+  const output = { path: "review.patch", digest: { algorithm: "sha256", value: "a".repeat(64) }, size_bytes: 22 };
+  await page.route("**/packages/WP-3/runs/*/outputs", (r) => {
+    outputLists++;
+    return r.fulfill({ json: [output] });
+  });
+  await page.route("**/packages/WP-3/runs/*/outputs/preview?*", (r) => {
+    outputPreviews++;
+    return r.fulfill({ json: { ...output, content: "<script>saved as text</script>" } });
+  });
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Board" })).toBeVisible();
   expect(runReads).toBe(0);
+  const readsBeforeOpening = packageReads;
   const trigger = page.locator(".active-runs summary");
   await trigger.press("Enter");
   const list = page.getByRole("region", { name: "Active runs" });
-  await expect(list.getByText("Claude Code")).toBeVisible();
-  await expect(list.getByText("Codex CLI")).toBeVisible();
+  await expect(list.getByRole("link")).toHaveCount(4);
+  await expect(list.getByText("Claude Code")).toHaveCount(2);
+  await expect(list.getByText("Codex CLI")).toHaveCount(2);
+  expect(exactReads).toEqual([]);
+  expect(runReads).toBe(1);
+  expect(packageReads).toBe(readsBeforeOpening);
   await expect(list.getByRole("link", { name: /R-second/ })).toHaveAttribute("href", "/packages/WP-3#run-R-second");
   await list.getByRole("link", { name: /R-first/ }).click();
   await expect(page.getByRole("log", { name: "Author transcript" })).toContainText("Transcript for R-first");
+
+  await expect(page.getByRole("button", { name: "Stop this run" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pause updates" })).toHaveCount(1);
+  expect(rawLogReads).toBe(0);
+  expect(outputLists).toBe(0);
+  expect(outputPreviews).toBe(0);
+  await page.getByText("Recorded outputs", { exact: true }).click();
+  await expect(page.getByText("Outputs appear after a successful run.")).toBeVisible();
+  expect(outputLists).toBe(0);
+  running = [second];
+  await expect(page.getByRole("combobox", { name: "File", exact: true })).toBeVisible({ timeout: 11000 });
+  expect(outputLists).toBe(1);
+  expect(outputPreviews).toBe(0);
+  await page.getByRole("combobox", { name: "File", exact: true }).selectOption("0");
+  await expect(page.getByLabel("Preview of review.patch")).toHaveText("<script>saved as text</script>");
 
   await trigger.click();
   await list.getByRole("link", { name: /R-second/ }).click();
@@ -254,14 +305,28 @@ test("switches directly between active attempts and keeps finished history addre
   await expect(page.getByText("Transcript for R-first")).toHaveCount(0);
 
   running = [second];
+  currentRevision = 1;
+  await page.reload();
   await page.goto("/packages/WP-3#run-R-first");
   await expect(page.getByRole("log", { name: "Author transcript" })).toContainText("Transcript for R-first");
+  await page.getByText("Recorded outputs", { exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "File", exact: true })).toHaveValue("0");
+  await expect(page.getByLabel("Preview of review.patch")).toBeVisible();
+  await expect(page.getByText("A verified repository comparison is unavailable.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Run revision 0")).toBeVisible();
+  expect(rawLogReads).toBe(0);
+  await page.getByText("Run details and raw log", { exact: true }).click();
+  await expect(page.getByLabel("Author log", { exact: true })).toBeVisible();
+  await expect.poll(() => rawLogReads).toBe(1);
+  await expect(page.getByRole("link", { name: "Review current revision" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Stop this run" })).toHaveCount(0);
   await page.goto("/packages/WP-3#run-missing");
   await expect(page.getByText("This run is unavailable for this package.")).toBeVisible();
   await expect(page.getByRole("log", { name: "Author transcript" })).toHaveCount(0);
 
   await trigger.click();
   await expect(list.getByRole("link", { name: /R-second/ })).toBeVisible();
+  await expect(list.getByText("Codex CLI", { exact: true })).toBeVisible();
   failRefresh = true;
   await expect(list.getByText("Last known")).toBeVisible({ timeout: 12000 });
   await list.getByRole("button", { name: "Retry" }).focus();

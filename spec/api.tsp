@@ -184,6 +184,18 @@ model PackageView {
   binds?: string;
 }
 
+/** Metadata for a stored author output. The digest is verified when its bytes are read. */
+model RunOutput {
+  ...Artifact;
+  size_bytes: int32;
+}
+
+/** An integrity-checked, bounded UTF-8 preview. Render its content as plain text. */
+model RunOutputPreview {
+  ...Artifact;
+  content: string;
+}
+
 @route("/packages")
 namespace Packages {
   @get op list(): WorkPackage[];
@@ -206,16 +218,37 @@ namespace Packages {
   @route("/{id}/verification-evidence/{runId}/{name}") @get
   op verificationEvidence(@path id: string, @path runId: string, @path name: string): { @header contentType: string; @body body: bytes; } | Refused;
 
+  /** The exact attempt, including attempts from earlier revisions. */
+  @route("/{id}/runs/{runId}")
+  @get
+  op run(@path id: string, @path runId: string): Run | Refused;
+
+  /** Read at most 200 admitted files from the exact author attempt, ordered by path. */
+  @route("/{id}/runs/{runId}/outputs")
+  @get
+  op runOutputs(@path id: string, @path runId: string, @query after?: string): RunOutput[] | Refused;
+
+  @route("/{id}/runs/{runId}/outputs/preview")
+  @get
+  op runOutputPreview(@path id: string, @path runId: string, @query path: string): RunOutputPreview | Refused;
+
   @route("/{id}/runs/{runId}/log")
   @get
   op runLog(@path id: string, @path runId: string): {
     lines: string[];
   } | Refused;
 
-  /** The run's story: its normalized events in order, after a sequence number. */
+  /** Events in chronological order. Choose at most one of after, before, or recent. */
   @route("/{id}/runs/{runId}/events")
   @get
-  op runEvents(@path id: string, @path runId: string, @query after?: int32): {
+  op runEvents(
+    @path id: string,
+    @path runId: string,
+    @query @minValue(0) after?: int32,
+    @query @minValue(1) before?: int32,
+    @query recent?: boolean,
+    @query @minValue(1) @maxValue(2000) limit?: int32
+  ): {
     events: { seq: int32; event: NormalizedEvent }[];
   } | Refused;
 
@@ -1133,6 +1166,19 @@ op scram(@path id: string): {
 @route("/runs")
 @get
 op activeRuns(): Run[];
+
+/** A bounded projection for the workspace. The title describes the run's recorded package revision. */
+model ActiveRunSummary {
+  ...PickProperties<Run, "id" | "package_id" | "package_revision" | "role" | "runtime" | "label" | "waiting_reason" | "waiting_cause" | "stop_requested_at">;
+  status: "queued" | "running";
+
+  /** The beginning of the recorded package title, bounded for the switcher. */
+  @maxLength(120) title?: string;
+}
+
+@route("/runs/active")
+@get
+op activeRunSummaries(): ActiveRunSummary[] | Refused;
 
 @route("/events")
 namespace Events {

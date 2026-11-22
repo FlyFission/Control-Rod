@@ -20,6 +20,9 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   PackageView,
   PersonVerificationEntry,
   Run,
+  ActiveRunSummary,
+  RunOutput,
+  RunOutputPreview,
   RuntimeStatus,
   SubscriptionView,
   Session,
@@ -167,7 +170,15 @@ export const api = {
   packageView: (id: string) => call<PackageView>("GET", `/packages/${enc(id)}`),
   /** Saves a draft the caller loaded with `etag`; a stale tag is refused so no edit is lost. */
   updatePackage: (pkg: WorkPackage, etag: string) => callTagged<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg, { "if-match": etag }),
-  activeRuns: () => call<Run[]>("GET", "/runs"),
+  activeRuns: () => call<ActiveRunSummary[]>("GET", "/runs/active"),
+  exactRun: (id: string, runId: string) => call<Run>("GET", `/packages/${enc(id)}/runs/${enc(runId)}`),
+  runOutputs: (id: string, runId: string, after = "") => call<RunOutput[]>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/outputs${after ? `?after=${enc(after)}` : ""}`),
+  runOutputPreview: (id: string, runId: string, path: string) =>
+    call<RunOutputPreview>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/outputs/preview?path=${enc(path)}`),
+  transcriptWindow: (id: string, runId: string, page: { recent: true } | { before: number } | { after: number }, limit: number) => {
+    const search = new URLSearchParams(Object.entries({ ...page, limit }).map(([name, value]) => [name, String(value)]));
+    return call<{ events: { seq: number; event: NormalizedEvent }[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/events?${search}`);
+  },
   runEvents: (id: string, runId: string, after = 0) =>
     call<{ events: { seq: number; event: NormalizedEvent }[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/events${after > 0 ? `?after=${after}` : ""}`),
   runLog: (id: string, runId: string) =>

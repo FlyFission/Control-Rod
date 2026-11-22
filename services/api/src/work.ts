@@ -20,6 +20,7 @@ import { bindingSentence } from "./binding.js";
 import { RULES, briefHeader, composeBrief, nuclearProStageSkillsSection } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { Refusal } from "./refusal.js";
+import { verifyRecordedOutput } from "./run-outputs.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
@@ -525,15 +526,7 @@ export async function packageOutput(db: Db, id: string, name: string) {
   ]);
   const row = r.rows[0];
   if (!row) throw new Refusal(404, "not-found", "No such output");
-  // Bytes are re-hashed on every read. A stored file that no longer matches its recorded digest
-  // is never served; the mismatch goes on the record.
-  const actual = sha256(row.bytes);
-  if (actual !== row.sha256) {
-    await command(db, "output.record-mismatch", (c) =>
-      appendEvent(c, "output.mismatch", pkg.id, SYSTEM, { revision: pkg.revision, run: author.id, name, recorded: row.sha256, actual }),
-    );
-    throw new Refusal(409, "output-changed", "This output changed since it was recorded, so it is not served. The mismatch is on the record.");
-  }
+  await verifyRecordedOutput(db, { packageId: id, revision: pkg.revision, runId: author.id, path: name }, row);
   return row.bytes;
 }
 
@@ -1503,15 +1496,6 @@ async function recordRunEvents(c: Tx, cfg: WorkConfig, row: RunRow, raw: unknown
   }
 }
 
-/** A run's normalized events after a sequence number, in order (the run story; the raw log is beside it). */
-export async function runEvents(db: Db, packageId: string, runId: string, after = 0) {
-  const r = await db.query<{ package_id: string }>("select package_id from runs where id = $1", [runId]);
-  if (!r.rows[0] || r.rows[0].package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
-  const ev = await db.query<{ seq: number; body: Json }>(
-    "select seq, body from run_events where run_id = $1 and seq > $2 order by seq limit 2000", [runId, Math.max(0, Math.floor(after))]);
-  return { events: ev.rows.map((x) => ({ seq: x.seq, event: x.body })) };
-}
-
 /** At most this many lease renewals without a heartbeat; a heartbeat resets the count. */
 const MAX_GRACE_RENEWALS = 1;
 
@@ -2245,12 +2229,6 @@ export async function checkerAttempts(db: Db, packageId: string, query?: { limit
     ...(limit !== undefined ? { limit } : {}),
     ...(before !== undefined ? { before } : {}),
   });
-}
-
-export async function runLogLines(db: Db, packageId: string, runId: string) {
-  const r = await db.query<{ log: string[] }>("select log from runs where id = $1 and package_id = $2", [runId, packageId]);
-  if (!r.rows[0]) throw new Refusal(404, "not-found", "No such run");
-  return r.rows[0].log;
 }
 
 const SAFE_OUTPUT = /^[A-Za-z0-9._-][A-Za-z0-9._/ ()-]{0,200}$/;
@@ -3131,19 +3109,6 @@ export async function metrics(db: Db, orgId: string) {
   if (mr !== undefined) out.median_review_minutes = mr;
   if (md !== undefined) out.median_minutes_to_done = md;
   return out;
-}
-
-export async function activeRuns(db: Db, orgId: string) {
-  const r = await db.query<{ body: Json; status: string }>(
-    `select r.body, r.status from runs r
-       join object_owners ro on ro.object_kind = 'run' and ro.object_id = r.id and ro.org_id = $1
-       join object_owners o on o.object_kind = (case when r.role = 'intake' then 'capture' else 'package' end)
-         and o.object_id = r.package_id and o.org_id = $1
-      where r.status in ('queued', 'running')
-      order by r.created_at, r.id limit 200`,
-    [orgId],
-  );
-  return r.rows.map((x) => ({ ...x.body, status: x.status }));
 }
 
 export async function listCaptures(db: Db, orgId: string) {

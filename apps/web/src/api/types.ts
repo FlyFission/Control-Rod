@@ -13,6 +13,9 @@ export type PackageView = S["PackageView"];
 /** A recorded person verification with the package revision it verified. */
 export type PersonVerificationEntry = S["PersonVerificationEntry"];
 export type Run = S["ControlRod.Records.Run"];
+export type ActiveRunSummary = S["ActiveRunSummary"];
+export type RunOutput = S["RunOutput"];
+export type RunOutputPreview = S["RunOutputPreview"];
 export type Artifact = S["ControlRod.Records.Artifact"];
 export type Digest = S["ControlRod.Records.Digest"];
 export type DataLane = S["ControlRod.Records.DataLane"];

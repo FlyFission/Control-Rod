@@ -2083,3 +2083,30 @@ select {
     width: min(250px, calc(100vw - 24px));
   }
 }
+
+.run-workbench {
+  display: grid;
+  align-items: start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.run-workbench > * {
+  min-width: 0;
+}
+.run-outputs[open] {
+  padding: 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.run-outputs summary {
+  list-style: none;
+}
+.run-outputs summary::-webkit-details-marker {
+  display: none;
+}
+@media (min-width: 1180px) {
+  .run-workbench:has(.run-outputs[open]) {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+}

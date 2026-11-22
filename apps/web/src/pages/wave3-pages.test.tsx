@@ -105,9 +105,10 @@ describe("Wave 3/4 workbench pages", () => {
     const user = userEvent.setup();
     let fail = true;
     server.use(
-      http.get("*/runs", () => HttpResponse.json([{
+      http.get("*/runs/active", () => HttpResponse.json([{
         id: "run-example",
         package_id: "PKG-W3-1",
+        title: "Bridge Load Calculation",
         role: "pre-check",
         status: "running",
         runtime: { provider: "codex" },

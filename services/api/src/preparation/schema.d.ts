@@ -657,6 +657,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/packages/{id}/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The exact attempt, including attempts from earlier revisions. */
+        get: operations["Packages_run"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/packages/{id}/runs/{runId}/events": {
         parameters: {
             query?: never;
@@ -664,7 +681,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The run's story: its normalized events in order, after a sequence number. */
+        /** @description Events in chronological order. Choose at most one of after, before, or recent. */
         get: operations["Packages_runEvents"];
         put?: never;
         post?: never;
@@ -682,6 +699,39 @@ export interface paths {
             cookie?: never;
         };
         get: operations["Packages_runLog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packages/{id}/runs/{runId}/outputs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Read at most 200 admitted files from the exact author attempt, ordered by path. */
+        get: operations["Packages_runOutputs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/packages/{id}/runs/{runId}/outputs/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["Packages_runOutputPreview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1092,6 +1142,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runs/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["activeRunSummaries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runtimes": {
         parameters: {
             query?: never;
@@ -1230,6 +1296,33 @@ export interface components {
             reason?: string;
             change?: string;
             floor?: boolean;
+        };
+        /** @description A bounded projection for the workspace. The title describes the run's recorded package revision. */
+        ActiveRunSummary: {
+            id: string;
+            package_id: string;
+            /** Format: int32 */
+            package_revision: number;
+            role: components["schemas"]["ControlRod.Records.RunRole"];
+            runtime: components["schemas"]["ControlRod.Records.RuntimeRef"];
+            /** @description Short label the runner writes for the office view. Never raw model text. */
+            label?: string;
+            /**
+             * Format: date-time
+             * @description The owner asked to stop this run. It shows as stopping until the daemon confirms.
+             */
+            stop_requested_at?: string;
+            /** @description Why a queued run is not being handed out, in plain words. */
+            waiting_reason?: string;
+            /**
+             * @description The kind of hold, so it reaches whoever may resolve it (the Inbox routes on it).
+             * @enum {string}
+             */
+            waiting_cause?: "scram" | "lane" | "runtime-pin" | "independent-runtime" | "preparation" | "budget" | "sandbox";
+            /** @enum {string} */
+            status: "queued" | "running";
+            /** @description The beginning of the recorded package title, bounded for the switcher. */
+            title?: string;
         };
         /** @description An administrative command and what it needs (specification 10.2). */
         AdminCommandInfo: {
@@ -3077,6 +3170,19 @@ export interface components {
                 current: components["schemas"]["ControlRod.Records.Digest"];
                 restore: components["schemas"]["ControlRod.Records.Digest"];
             }[];
+        };
+        /** @description Metadata for a stored author output. The digest is verified when its bytes are read. */
+        RunOutput: {
+            path: string;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
+            /** Format: int32 */
+            size_bytes: number;
+        };
+        /** @description An integrity-checked, bounded UTF-8 preview. Render its content as plain text. */
+        RunOutputPreview: {
+            path: string;
+            digest: components["schemas"]["ControlRod.Records.Digest"];
+            content: string;
         };
         "Runner.Completion": {
             claim_token: string;
@@ -6060,10 +6166,90 @@ export interface operations {
             };
         };
     };
+    Packages_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ControlRod.Records.Run"];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     Packages_runEvents: {
         parameters: {
             query?: {
                 after?: number;
+                before?: number;
+                recent?: boolean;
+                limit?: number;
             };
             header?: never;
             path: {
@@ -6166,6 +6352,164 @@ export interface operations {
                     "application/json": {
                         lines: string[];
                     };
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_runOutputs: {
+        parameters: {
+            query?: {
+                after?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOutput"][];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    Packages_runOutputPreview: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+                runId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOutputPreview"];
                 };
             };
             /** @description The server could not understand the request due to invalid syntax. */
@@ -7932,6 +8276,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ControlRod.Records.Run"][];
+                };
+            };
+        };
+    };
+    activeRunSummaries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveRunSummary"][];
+                };
+            };
+            /** @description The server could not understand the request due to invalid syntax. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Access is forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The server cannot find the requested resource. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description The request conflicts with the current state of the server. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Client error */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
                 };
             };
         };

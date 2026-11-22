@@ -1,6 +1,8 @@
 # Release disposition
 
-Release decision remains with the owner. The plan is available for review, with AGY feedback still open. Rollback of planning changes affects documentation only. Monitoring for implementation should follow the per-slice evidence gates, including provider qualification and the browser acceptance trace.
+Local implementation is available in the isolated execution worktree. The release decision remains with the owner. Verified checkout comparison, a clean-repo release walkthrough and the full four-provider matrix remain open. The original worktree and deployed systems retain their existing state. [Execution results and outstanding dependencies](evidence/execution.md).
+
+Rollback is local to the execution branch. Before release, monitoring should distinguish stale feed data, transcript paging failures, preview integrity failures, and provider readiness from observed run outcomes.
 
 ## Required links
 

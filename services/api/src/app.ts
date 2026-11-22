@@ -54,7 +54,6 @@ import {
   decisionChallenge,
   decisionSubject,
   listCaptures,
-  activeRuns,
   listPackages,
   metrics,
   office,
@@ -74,16 +73,16 @@ import {
   recordRuntimeStatus,
   requeueRun,
   runLog,
-  runLogLines,
   runtimeStatus,
   stopRun,
   sweepLost,
   runEvidence,
-  runEvents,
   reconcileSubject,
   reconcileRun,
   updateDraft,
 } from "./work.js";
+import { activeRuns, activeRunSummaries, runDetail, runEvents, runLogLines, type RunEventQuery } from "./run-reads.js";
+import { runOutputPreview, runOutputs } from "./run-outputs.js";
 
 export const VERSION = "0.1.0";
 
@@ -438,13 +437,27 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     reply.header("content-type",type??"application/octet-stream").header("x-content-type-options","nosniff").header("content-security-policy",OUTPUT_CSP);
     if(!type)reply.header("content-disposition","attachment");return reply.send(bytes);
   });
-  app.get<{ Params: { id: string; runId: string }; Querystring: { after?: string } }>("/packages/:id/runs/:runId/events", async (req) => {
-    await runUser(req, req.params.id, req.params.runId);
-    return runEvents(db, req.params.id, req.params.runId, Number(req.query.after ?? 0) || 0);
+  app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return runDetail(db, caller.orgId, req.params.id, req.params.runId);
+  });
+  app.get<{ Params: { id: string; runId: string }; Querystring: RunEventQuery }>("/packages/:id/runs/:runId/events", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return runEvents(db, caller.orgId, req.params.id, req.params.runId, req.query);
+  });
+  app.get<{ Params: { id: string; runId: string }; Querystring: { after?: string } }>("/packages/:id/runs/:runId/outputs", async (req, reply) => {
+    const caller = await callerFor(db, await person(req));
+    reply.header("cache-control", "private, no-store");
+    return runOutputs(db, caller.orgId, req.params.id, req.params.runId, req.query.after);
+  });
+  app.get<{ Params: { id: string; runId: string }; Querystring: { path?: string } }>("/packages/:id/runs/:runId/outputs/preview", async (req, reply) => {
+    const caller = await callerFor(db, await person(req));
+    reply.header("cache-control", "private, no-store");
+    return runOutputPreview(db, caller.orgId, req.params.id, req.params.runId, req.query.path);
   });
   app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/log", async (req) => {
-    await runUser(req, req.params.id, req.params.runId);
-    return { lines: await runLogLines(db, req.params.id, req.params.runId) };
+    const caller = await callerFor(db, await person(req));
+    return { lines: await runLogLines(db, caller.orgId, req.params.id, req.params.runId) };
   });
 
   interface DecisionBody {
@@ -706,6 +719,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.get("/runs", async (req) => {
     const caller = await callerFor(db, await person(req));
     return activeRuns(db, caller.orgId);
+  });
+  app.get("/runs/active", async (req) => {
+    const caller = await callerFor(db, await person(req));
+    return activeRunSummaries(db, caller.orgId);
   });
   app.get("/metrics", async (req) => {
     const caller = await callerFor(db, await person(req));

@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api } from "../api/client.js";
 import { useLiveStatus } from "../lib/live.js";
+import { recentRuns } from "../lib/runPreferences.js";
+import { sessionIdentity } from "../lib/session.js";
 import { CLI_ECOSYSTEMS } from "../lib/runtimes.js";
 import { runStatusText } from "./RunLog.js";
 
@@ -32,28 +34,27 @@ export function ActiveRuns() {
     >
       <summary className="btn small" ref={summary}>Runs</summary>
       <section className="active-runs-panel" aria-label="Active runs">
-        <ActiveRunList enabled={open} onSelect={close} />
+        <ActiveRunList enabled={open} onSelect={close} showRecent />
       </section>
     </details>
   );
 }
 
-export function ActiveRunList({ enabled = true, onSelect }: { enabled?: boolean; onSelect?: () => void }) {
+export function ActiveRunList({ enabled = true, onSelect, showRecent = false }: { enabled?: boolean; onSelect?: () => void; showRecent?: boolean }) {
   const live = useLiveStatus();
+  const session = useQuery({ queryKey: ["session"], queryFn: api.session, enabled: false });
   const runs = useQuery({
     queryKey: ["active-runs"],
     queryFn: api.activeRuns,
     enabled,
     refetchInterval: enabled ? 5000 : false,
   });
-  const packages = useQuery({
-    queryKey: ["packages"],
-    queryFn: api.packages,
-    enabled: enabled && (runs.data ?? []).some((run) => run.role !== "intake"),
-  });
-  const titles = new Map(packages.data?.map((pkg) => [pkg.id, pkg.title]));
   const lastKnown = live.status === "unknown" || runs.isError ||
     (live.droppedAt !== undefined && runs.dataUpdatedAt <= live.droppedAt);
+
+  const recent = showRecent ? recentRuns(sessionIdentity(session.data)).filter(
+    (visited) => !runs.data?.some((run) => run.id === visited.runId && run.package_id === visited.packageId),
+  ) : [];
 
   return (
     <>
@@ -87,8 +88,8 @@ export function ActiveRunList({ enabled = true, onSelect }: { enabled?: boolean;
                   className="active-run-link"
                   onClick={onSelect}
                 >
-                  <strong>{titles.get(run.package_id) || run.package_id}</strong>
-                  <span className="small muted"><span className="mono">{run.id}</span> · {run.role}</span>
+                  <strong>{run.title || run.package_id}</strong>
+                  <span className="small muted"><span className="mono">{run.package_id} · {run.id}</span> · {run.role}</span>
                 </Link>
               )}
               <div className="active-run-status small">
@@ -98,6 +99,26 @@ export function ActiveRunList({ enabled = true, onSelect }: { enabled?: boolean;
             </li>
           ))}
         </ul>
+      )}
+      {recent.length > 0 && (
+        <>
+          <div className="active-runs-head"><h2>Recent runs</h2></div>
+          <ul className="active-runs-list">
+            {recent.map((visited) => (
+              <li key={`${visited.packageId}/${visited.runId}`}>
+                <Link
+                  to="/packages/$id"
+                  params={{ id: visited.packageId }}
+                  hash={`run-${visited.runId}`}
+                  className="active-run-link mono small"
+                  onClick={onSelect}
+                >
+                  {visited.packageId} · {visited.runId}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </>
   );

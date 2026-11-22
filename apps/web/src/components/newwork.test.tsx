@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -26,8 +26,17 @@ function mockDialogMethods() {
     };
   }
 }
+async function openCaptureSettings(user: ReturnType<typeof userEvent.setup>) {
+  const disclosure = screen.getByRole("button", { name: "Capture settings" });
+  if (disclosure.getAttribute("aria-expanded") !== "true") await user.click(disclosure);
+}
 
 describe("engineering mode toggle and NewWorkModal", () => {
+  afterEach(() => {
+    localStorage.removeItem("cr.projects.v1");
+    localStorage.removeItem("cr.active-project");
+  });
+
   it("switches between Software, Capital Projects, and Nuclear-Grade modes in the shell", async () => {
     saveMode("software");
     server.use(http.get("*/inbox", () => HttpResponse.json({ items: [] })));
@@ -164,7 +173,86 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(createdBodies[0]?.name).toBe("Safety Boundary");
   });
 
-  it("supports Simple vs Advanced mode, auto-inference, runnable-only CLIs, and saved defaults", async () => {
+  it("captures with resolved project preferences and keeps overrides behind one keyboard-accessible disclosure", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+
+    const defaults = factoryDefaults("software");
+    const project = {
+      id: "proj-launcher",
+      name: "Release tools",
+      mode: "software",
+      repo: "FlyFission/Release",
+      repoStrategy: "worktree",
+      workspaceRoot: "/home/flyfission/projects",
+      lane: "client-confidential",
+      author: defaults.checker,
+      checker: defaults.author,
+      createdAt: "2026-11-15T12:00:00Z",
+    };
+    localStorage.setItem("cr.projects.v1", JSON.stringify([project]));
+    localStorage.setItem("cr.active-project", project.id);
+    const captures: { text: string; lane: string }[] = [];
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/workspace/projects", () => HttpResponse.json([project])),
+      http.get("*/runtimes", () => HttpResponse.json({ runtimes: [], pins: [] })),
+      http.get("*/repos", () => HttpResponse.json({
+        workspace_root: project.workspaceRoot,
+        local: [],
+        github: [],
+      })),
+      http.post("*/captures", async ({ request }) => {
+        const capture = (await request.json()) as { text: string; lane: string };
+        captures.push(capture);
+        return HttpResponse.json({ id: "cap-launcher", ...capture });
+      }),
+    );
+
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+
+    const summary = screen.getByRole("region", { name: "Capture defaults" });
+    expect(summary.textContent).toContain(project.name);
+    expect(summary.textContent).toContain(project.repo);
+    expect(summary.textContent).toContain("Author · Codex CLI");
+    expect(summary.textContent).toContain("Checker · Claude Code");
+    expect((screen.getByLabelText("Data lane") as HTMLSelectElement).value).toBe("client-confidential");
+    expect(screen.queryByLabelText("CLI Ecosystem")).toBeNull();
+    expect(screen.queryByLabelText("Repository")).toBeNull();
+
+    const disclosure = screen.getByRole("button", { name: "Capture settings" });
+    disclosure.focus();
+    await user.keyboard("[Space]");
+    expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+    expect((screen.getByLabelText("Repository") as HTMLSelectElement).value).toBe(project.repo);
+    expect(screen.getAllByLabelText("CLI Ecosystem")).toHaveLength(2);
+    await user.clear(screen.getByLabelText("Project / Workstream"));
+    await user.type(screen.getByLabelText("Project / Workstream"), "One request");
+    expect(summary.textContent).toContain("One request");
+    await user.click(screen.getByRole("button", { name: "Reset" }));
+    expect(summary.textContent).toContain(project.name);
+    expect((screen.getByLabelText("Data lane") as HTMLSelectElement).value).toBe("client-confidential");
+    disclosure.focus();
+    await user.keyboard("[Enter]");
+    expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(disclosure);
+
+    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Write release notes");
+    expect(summary.textContent).toContain("cr/write-release-notes");
+    await user.click(screen.getByRole("button", { name: "Capture change" }));
+    await waitFor(() => expect(captures).toHaveLength(1));
+    expect(captures[0]!.lane).toBe("client-confidential");
+    expect(captures[0]!.text).toContain("[project:Release tools]");
+    expect(captures[0]!.text).toContain("[repo:FlyFission/Release]");
+    expect(captures[0]!.text).toContain("[author:codex/default@default]");
+    expect(captures[0]!.text).not.toContain("[workspace:");
+
+  });
+
+  it("supports capture settings, auto-inference, runnable-only CLIs, and saved defaults", async () => {
     saveMode("capital-projects");
     resetWorkDefaults("capital-projects");
     mockDialogMethods();
@@ -215,32 +303,27 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(screen.getByRole("heading", { name: "New engineering deliverable" })).toBeTruthy();
     expect(screen.queryByText(/4-choice clarifications/i)).toBeNull();
 
-    // Starts in Simple mode: bare minimum viable controls + simplified Author/Checker pickers are visible
-    expect(screen.getByRole("button", { name: "Simple" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByLabelText("Repository")).toBeTruthy();
-    expect(screen.getByLabelText("Discipline / Area")).toBeTruthy();
-    expect(screen.getByLabelText("Project Stage / Gate")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Capture settings" }).getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByLabelText("Data lane")).toBeTruthy();
-    expect(screen.getByLabelText("Grade")).toBeTruthy();
-    expect(screen.getByLabelText("1. Preparer (Drafting)")).toBeTruthy();
-    expect(screen.getByLabelText("2. Checker (O6)")).toBeTruthy();
-    expect(screen.queryByLabelText("Issue Purpose")).toBeNull();
-    expect(screen.queryByLabelText("Default working location")).toBeNull();
+    expect(screen.queryByLabelText("Repository")).toBeNull();
+    expect(screen.queryByLabelText("Grade")).toBeNull();
+    expect(screen.queryByLabelText("CLI Ecosystem")).toBeNull();
 
     // Typing a safety-critical process scope auto-infers discipline, stage, and grade
     await user.type(screen.getByLabelText("Design basis & acceptance criteria"), "Verify ASME relief valve orifice sizing.");
     expect(screen.getByText(/Auto-matched: Safety-critical process scope detected/i)).toBeTruthy();
 
-    // Pick repository and prepare local workspace right from Simple or Advanced mode
-    const repoSelect = await screen.findByLabelText("Repository");
+    // Repository preparation is an optional operation within capture settings
+    await openCaptureSettings(user);
+    const repoSelect = screen.getByLabelText("Repository");
+    await within(repoSelect).findByRole("option", { name: /FlyFission\/Control-Rod/i });
     await user.selectOptions(repoSelect, "FlyFission/Control-Rod");
-    expect(screen.getByText(/Cycle 2/i)).toBeTruthy();
+    expect(screen.getByText(/Prepare a local checkout for manual use/i)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
-    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod/i)).toBeTruthy();
+    expect(await screen.findByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod/i)).toBeTruthy();
     expect(materializeRequests.at(-1)?.mode).toBe("capital-projects");
 
-    // Switch to Advanced mode and inspect Issue Purpose, CLI ecosystems, and Save defaults
-    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    // The same disclosure exposes issue metadata and the CLI controls
 
     const stageSelect = screen.getByLabelText("Project Stage / Gate") as HTMLSelectElement;
     expect(stageSelect.value).toBe("Detailed Design (60%)");
@@ -267,13 +350,15 @@ describe("engineering mode toggle and NewWorkModal", () => {
     // Same ecosystem triggers O6 Notice, switching back restores Distinct ecosystems message
     expect(screen.getByText(/O6 Notice:/i)).toBeTruthy();
     await user.selectOptions(cliSelects[0]!, "claude");
-    expect(screen.getByText(/Distinct ecosystems \(baselines checked at run time\):/i)).toBeTruthy();
+    expect(screen.getByText(/Distinct ecosystems \(baselines checked at run time\)/i)).toBeTruthy();
 
     // Save defaults
     await user.click(screen.getByRole("button", { name: "Save as my defaults" }));
     expect(screen.getByText(/Saved defaults for Capital Projects mode/i)).toBeTruthy();
 
-    // Submit and verify metadata
+    // Closing settings preserves the capture fields and the prepared branch
+    await user.click(screen.getByRole("button", { name: "Capture settings" }));
+    expect(screen.queryByLabelText("CLI Ecosystem")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Capture deliverable" }));
     await waitFor(() => expect(capturedBody).not.toBeNull());
     expect(capturedBody!.text).toContain("[mode:capital-projects]");
@@ -310,7 +395,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    await openCaptureSettings(user);
 
     const cliSelects = screen.getAllByLabelText("CLI Ecosystem");
     const authorCli = cliSelects[0] as HTMLSelectElement;
@@ -363,6 +448,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await openCaptureSettings(user);
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("gh auth status failed: not logged in");
   });
@@ -390,7 +476,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(loaded2.author).toEqual({ ecosystem: "claude", model: "haiku", reasoning: "low" });
   });
 
-  it("keeps preparedBranch pinned across Simple-mode objective edits and invalidates on branch edit", async () => {
+  it("keeps the prepared branch pinned across objective edits and invalidates on branch edit", async () => {
     saveMode("software");
     resetWorkDefaults("software");
     mockDialogMethods();
@@ -441,30 +527,32 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const objectiveBox = screen.getByLabelText("Scope & acceptance criteria");
     await user.type(objectiveBox, "Initial task");
 
+    await openCaptureSettings(user);
     const repoSelect = await screen.findByLabelText("Repository");
     await user.selectOptions(repoSelect, "Control-Rod");
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
-    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-initial-task/i)).toBeTruthy();
+    expect(await screen.findByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-initial-task/i)).toBeTruthy();
     expect(materializeRequests.at(-1)?.mode).toBe("software");
 
-    // Editing objective in Simple mode preserves preparedPath and pinned branch
+    // Editing the objective preserves preparedPath and pinned branch
     await user.type(objectiveBox, " with extra details");
-    expect(screen.getByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-initial-task/i)).toBeTruthy();
+    expect(screen.getByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-initial-task/i)).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Capture change" }));
     await waitFor(() => expect(capturedBody).not.toBeNull());
     expect(capturedBody!.text).toContain("[branch:cr/initial-task]");
     expect(capturedBody!.text).toContain("[workspace:/home/flyfission/projects/.worktrees/Control-Rod/cr-initial-task]");
 
-    // Re-open, prepare again, then change explicit branch in Advanced mode -> clears preparedPath
+    // Re-open, prepare again, then change explicit branch in capture settings -> clears preparedPath
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
     await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Second task");
+    await openCaptureSettings(user);
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
-    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-second-task/i)).toBeTruthy();
+    expect(await screen.findByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-second-task/i)).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    await openCaptureSettings(user);
     await user.type(screen.getByLabelText("Branch name"), "cr/custom-branch");
-    expect(screen.queryByText(/Ready:/i)).toBeNull();
+    expect(screen.queryByText(/Local checkout prepared:/i)).toBeNull();
   });
 
   it("discards a delayed /repos/materialize response when repo changes mid-flight", async () => {
@@ -506,6 +594,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await openCaptureSettings(user);
     const repoSelect = await screen.findByLabelText("Repository");
     await user.selectOptions(repoSelect, "Repo-A");
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
@@ -528,7 +617,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     );
 
     await waitFor(() => expect((screen.getByRole("button", { name: "Prepare local workspace" }) as HTMLButtonElement).disabled).toBe(false));
-    expect(screen.queryByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Repo-A/i)).toBeNull();
+    expect(screen.queryByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Repo-A/i)).toBeNull();
   });
 
   it("allows preparing Repo-B while delayed Repo-A request is still in flight", async () => {
@@ -580,6 +669,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await openCaptureSettings(user);
     const repoSelect = await screen.findByLabelText("Repository");
     await user.selectOptions(repoSelect, "Repo-A");
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
@@ -590,7 +680,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(prepareBtn.disabled).toBe(false);
 
     await user.click(prepareBtn);
-    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Repo-B/i)).toBeTruthy();
+    expect(await screen.findByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Repo-B/i)).toBeTruthy();
 
     // Delayed Repo-A settles afterwards and does not clobber Repo-B's ready state
     resolveRepoA(
@@ -602,8 +692,8 @@ describe("engineering mode toggle and NewWorkModal", () => {
         local_path: "/home/flyfission/projects/.worktrees/Repo-A/cr-work-package",
       }),
     );
-    await waitFor(() => expect(screen.getByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Repo-B/i)).toBeTruthy());
-    expect(screen.queryByText(/Ready:.*Repo-A/i)).toBeNull();
+    await waitFor(() => expect(screen.getByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Repo-B/i)).toBeTruthy());
+    expect(screen.queryByText(/Local checkout prepared:.*Repo-A/i)).toBeNull();
   });
 
   it("clears error, defaultsNotice, and prepared state on close and ignores in-flight materialize", async () => {
@@ -654,12 +744,13 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await openCaptureSettings(user);
     const repoSelect = await screen.findByLabelText("Repository");
     await user.selectOptions(repoSelect, "Control-Rod");
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
-    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod/i)).toBeTruthy();
+    expect(await screen.findByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod/i)).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    await openCaptureSettings(user);
     await user.click(screen.getByRole("button", { name: "Save as my defaults" }));
     expect(screen.getByText(/Saved defaults for Software mode/i)).toBeTruthy();
 
@@ -670,11 +761,12 @@ describe("engineering mode toggle and NewWorkModal", () => {
     // Close via Cancel and reopen -> stale preparedPath, defaultsNotice, and error are cleared
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
-    expect(screen.queryByText(/Ready:/i)).toBeNull();
+    expect(screen.queryByText(/Local checkout prepared:/i)).toBeNull();
     expect(screen.queryByText(/Saved defaults for Software mode/i)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
 
     // Start a second materialize, close via Esc while pending, resolve it, then reopen
+    await openCaptureSettings(user);
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect(screen.getByRole("button", { name: "Preparing workspace…" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Esc" }));
@@ -690,9 +782,10 @@ describe("engineering mode toggle and NewWorkModal", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await openCaptureSettings(user);
     const btnAfterReopen = screen.getByRole("button", { name: "Prepare local workspace" }) as HTMLButtonElement;
     expect(btnAfterReopen.disabled).toBe(false);
-    expect(screen.queryByText(/Ready:/i)).toBeNull();
+    expect(screen.queryByText(/Local checkout prepared:/i)).toBeNull();
   });
 
   it("clears previously succeeded preparedPath and preparedBranch when re-prepare fails", async () => {
@@ -746,15 +839,16 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
     await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Fix bug");
+    await openCaptureSettings(user);
     const repoSelect = await screen.findByLabelText("Repository");
     await user.selectOptions(repoSelect, "Control-Rod");
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
-    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-server-assigned-branch/i)).toBeTruthy();
+    expect(await screen.findByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-server-assigned-branch/i)).toBeTruthy();
 
     // Re-prepare fails -> prior Ready path and preparedBranch must be cleared
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
     expect((await screen.findByRole("alert")).textContent).toContain("git worktree add failed");
-    expect(screen.queryByText(/Ready:/i)).toBeNull();
+    expect(screen.queryByText(/Local checkout prepared:/i)).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Capture change" }));
     await waitFor(() => expect(capturedBody).not.toBeNull());
@@ -837,6 +931,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await openCaptureSettings(user);
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Repository scan failed");
   });
@@ -849,25 +944,26 @@ describe("engineering mode toggle and NewWorkModal", () => {
     );
     mockDialogMethods();
 
-    let resolveRepos!: (val: Response) => void;
-    const reposPromise = new Promise<Response>((res) => {
+    let resolveRepos!: () => void;
+    const reposPromise = new Promise<void>((res) => {
       resolveRepos = res;
     });
 
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
-      http.get("*/repos", async () => reposPromise),
+      http.get("*/repos", async () => {
+        await reposPromise;
+        return HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [{ name: "Control-Rod", path: "/home/flyfission/projects/Control-Rod", branch: "main", remote_url: null, dirty: false }],
+          github: [],
+          github_error: null,
+        });
+      }),
       http.post("*/repos/materialize", async ({ request }) => {
         const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch" };
         // Resolve /repos with a server workspace_root right as materialize completes
-        resolveRepos(
-          HttpResponse.json({
-            workspace_root: "/home/flyfission/projects",
-            local: [{ name: "Control-Rod", path: "/home/flyfission/projects/Control-Rod", branch: "main", remote_url: null, dirty: false }],
-            github: [],
-            github_error: null,
-          }),
-        );
+        resolveRepos();
         return HttpResponse.json({
           ok: true,
           strategy: body.strategy,
@@ -881,8 +977,9 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await renderPage(<Shell session={ben}><p>app</p></Shell>);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await openCaptureSettings(user);
     await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
-    expect(await screen.findByText(/Ready: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-work-package/i)).toBeTruthy();
+    expect(await screen.findByText(/Local checkout prepared: \/home\/flyfission\/projects\/\.worktrees\/Control-Rod\/cr-work-package/i)).toBeTruthy();
   });
 
   it("isolates in-flight /captures success when modal is closed and reopened", async () => {

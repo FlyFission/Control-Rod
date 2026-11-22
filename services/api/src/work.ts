@@ -105,12 +105,16 @@ function safeName(name: string): string {
 
 export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string, lane?: unknown) {
   const files: { name: string; bytes: Buffer }[] = [];
+  const names = new Set<string>();
   const visible = text
     .replace(FENCE, (_m, name: string, b64: string) => {
+      const safe = safeName(name);
+      if (names.has(safe)) throw new Refusal(400, "invalid", `Duplicate attachment name: ${safe}`);
       const bytes = Buffer.from(b64.replace(/\s+/g, ""), "base64");
       if (bytes.length > MAX_ATTACHMENT) throw new Refusal(400, "too-large", `${name} is over 5 MB`);
-      files.push({ name: safeName(name), bytes });
-      return `[attachment: ${safeName(name)}]`;
+      names.add(safe);
+      files.push({ name: safe, bytes });
+      return `[attachment: ${safe}]`;
     })
     .trim();
   if (!visible) throw new Refusal(400, "invalid", "Say what needs doing");
@@ -154,11 +158,14 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
  * first classification releases the capture to intake; a later one may only raise the lane, since
  * lowering it is a declassification that needs a signed change request.
  */
-export async function classifyCapture(db: Db, cfg: WorkConfig, user: string, id: string, lane: unknown) {
+export async function classifyCapture(db: Db, cfg: WorkConfig, { userName: user, orgId }: { userName: string; orgId: string }, id: string, lane: unknown) {
   if (!isLane(lane)) throw new Refusal(400, "invalid", "Choose a data lane");
   return command(db, "capture.classify", async (c) => {
     if (!(await hasLaneAuthority(c, user))) throw new Refusal(403, "authority-missing", "Classifying a data lane needs lane authority");
-    const r = await c.query<{ body: Json }>("select body from captures where id = $1 for update", [id]);
+    const r = await c.query<{ body: Json }>(
+      `select c.body from captures c
+         join object_owners o on o.object_kind = 'capture' and o.object_id = c.id and o.org_id = $2
+        where c.id = $1 for update of c`, [id, orgId]);
     const cap = r.rows[0]?.body;
     if (!cap) throw new Refusal(404, "not-found", "No such capture");
     // Measured against the effective lane, which a declassification may have lowered.
@@ -1850,15 +1857,16 @@ export async function sweepLost(db: Db, cfg: WorkConfig): Promise<string[]> {
     }
     const active = (await c.query<{ n: number }>("select count(*)::int as n from runs where status = 'running'")).rows[0]?.n ?? 0;
     let candidates = [...definite, ...doubtful];
+    const lookingDead = candidates.length;
     // An outage heartbeats already recognized still holds for the sweep, within its window.
     const recognized = sup?.outageUntil !== undefined && Date.now() < sup.outageUntil;
-    if (sup && doubtful.length > 0 && ((active >= 3 && doubtful.length * 2 > active) || recognized)) {
+    if (sup && doubtful.length > 0 && ((active >= 3 && lookingDead * 2 > active) || recognized)) {
       for (const row of doubtful) await renewLease(c, cfg, row, "a recovery lease: most active runs stopped answering at once, which looks like an outage");
       const until = Date.now() + leaseSeconds(cfg) * 1000;
       afterCommit(c, () => (sup.outageUntil = until));
       if (!sup.outage) {
         afterCommit(c, () => (sup.outage = true));
-        await appendEvent(c, "runs.sweep-outage", "runs", SYSTEM, { active, looking_dead: doubtful.length });
+        await appendEvent(c, "runs.sweep-outage", "runs", SYSTEM, { active, looking_dead: lookingDead });
       }
       candidates = definite;
     } else if (sup) {
@@ -2414,7 +2422,6 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
   }
   if (body.trace) finished.trace = body.trace;
   takeReceipt(cfg, row, finished, body);
-  holdIfUnproven(row, finished, body);
   const counting = body.verification != null || body.criterion_results !== undefined;
   if (row.role === "pre-check" && countedProvider(row.body?.runtime?.provider) && counting) {
     const pkg = await currentPackage(c, row.package_id, true);
@@ -2454,7 +2461,6 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
       finished.attestation_reason = verdict.reason.slice(0, 500);
     }
   }
-  validate(cfg, "Run.json", finished);
   if (row.role === "pre-check" && finished.status === "succeeded") {
     const claimed = typeof body.verification?.output?.digest?.value === "string" ? body.verification.output.digest.value : null;
     const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, claimed, "admit");
@@ -2468,9 +2474,10 @@ async function applyCompletion(c: Tx, cfg: WorkConfig, row: RunRow, key: string,
           : gate === "sticky"
             ? "A fail on this deliverable still stands, and this check had no signed override, so the result was not admitted."
             : "This check was stopped before its result was admitted.";
-      validate(cfg, "Run.json", finished);
     }
   }
+  holdIfUnproven(row, finished, body);
+  validate(cfg, "Run.json", finished);
   // Events the last log post could not deliver arrive with the completion.
   if (body.events !== undefined) await recordRunEvents(c, cfg, row, body.events, body.events_from);
   await c.query("update runs set status = $2, body = $3 where id = $1", [runId, finished.status, finished]);
@@ -2589,6 +2596,8 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
   const prefix = capture.id.slice(2).toUpperCase();
   const idMap = new Map<string, string>();
   for (const d of drafts) idMap.set(String(d.id), `${prefix}-${String(d.id).replace(/[^A-Za-z0-9-]/g, "").slice(0, 40)}`);
+  if (new Set(idMap.values()).size !== drafts.length)
+    throw new Refusal(400, "invalid", "Intake package IDs must be distinct after normalization");
   const created: string[] = [];
   // Packages drafted together may depend on each other: insert each after the ones it waits for.
   const ordered: Json[] = [];
@@ -3079,11 +3088,12 @@ const median = (xs: number[]) => {
   return (s.length % 2 ? hi : (lo + hi) / 2).toFixed(1);
 };
 
-export async function metrics(db: Db) {
+export async function metrics(db: Db, orgId: string) {
   const accepted = await db.query<{ id: string; revision: number; capture_id: string | null; decided: Date }>(
     `select p.id, p.revision, p.capture_id, d.created_at as decided from packages p
+     join object_owners o on o.object_kind = 'package' and o.object_id = p.id and o.org_id = $1
      join decisions d on d.package_id = p.id and d.package_revision = p.revision and d.kind in ('accept', 'accept-with-findings')
-     where p.status = 'accepted'`,
+     where p.status = 'accepted'`, [orgId],
   );
   let firstPass = 0;
   let caught = 0;
@@ -3099,11 +3109,17 @@ export async function metrics(db: Db) {
     const last = vers.rows.at(-1);
     if (last) review.push((a.decided.getTime() - last.created_at.getTime()) / 60000);
     if (a.capture_id) {
-      const cap = await db.query<{ created_at: Date }>("select created_at from captures where id = $1", [a.capture_id]);
+      const cap = await db.query<{ created_at: Date }>(
+        `select c.created_at from captures c
+           join object_owners o on o.object_kind = 'capture' and o.object_id = c.id and o.org_id = $2
+          where c.id = $1`, [a.capture_id, orgId]);
       if (cap.rows[0]) done.push((a.decided.getTime() - cap.rows[0].created_at.getTime()) / 60000);
     }
   }
-  const answered = await db.query<{ n: string }>("select count(*) as n from captures where body->>'disposition' = 'answered'");
+  const answered = await db.query<{ n: string }>(
+    `select count(*) as n from captures c
+       join object_owners o on o.object_kind = 'capture' and o.object_id = c.id and o.org_id = $1
+      where c.body->>'disposition' = 'answered'`, [orgId]);
   const out: Json = {
     packages_accepted: accepted.rows.length,
     first_pass_accepted: firstPass,
@@ -3120,11 +3136,9 @@ export async function metrics(db: Db) {
 export async function activeRuns(db: Db, orgId: string) {
   const r = await db.query<{ body: Json; status: string }>(
     `select r.body, r.status from runs r
-       join object_owners r_owner on r_owner.object_kind = 'run'
-        and r_owner.object_id = r.id and r_owner.org_id = $1
-       join object_owners subject_owner on subject_owner.object_id = r.package_id
-        and subject_owner.object_kind = case when r.role = 'intake' then 'capture' else 'package' end
-        and subject_owner.org_id = r_owner.org_id
+       join object_owners ro on ro.object_kind = 'run' and ro.object_id = r.id and ro.org_id = $1
+       join object_owners o on o.object_kind = (case when r.role = 'intake' then 'capture' else 'package' end)
+         and o.object_id = r.package_id and o.org_id = $1
       where r.status in ('queued', 'running')
       order by r.created_at, r.id limit 200`,
     [orgId],
@@ -3132,18 +3146,23 @@ export async function activeRuns(db: Db, orgId: string) {
   return r.rows.map((x) => ({ ...x.body, status: x.status }));
 }
 
-export async function listCaptures(db: Db) {
+export async function listCaptures(db: Db, orgId: string) {
   const r = await db.query<{ body: Json; run_id: string | null; run_status: string | null; run_body: Json | null }>(
     `select c.body, r.id as run_id, r.status as run_status, r.body as run_body
        from captures c
+       join object_owners o on o.object_kind = 'capture' and o.object_id = c.id and o.org_id = $1
        left join lateral (
-         select id, status, body from runs
-          where package_id = c.id and role = 'intake'
-          order by created_at desc, id desc limit 1
+         select r.id, r.status, r.body from runs r
+           join object_owners ro on ro.object_kind = 'run' and ro.object_id = r.id and ro.org_id = $1
+          where r.package_id = c.id and r.role = 'intake'
+          order by r.created_at desc, r.id desc limit 1
        ) r on true
-      order by c.created_at desc limit 200`,
+      order by c.created_at desc limit 200`, [orgId],
   );
-  const links=await db.query<{capture_id:string;id:string}>("select distinct capture_id,id from packages where capture_id=any($1::text[]) order by id",[r.rows.map(x=>x.body.id)]);
+  const links = await db.query<{ capture_id: string; id: string }>(
+    `select distinct p.capture_id, p.id from packages p
+       join object_owners o on o.object_kind = 'package' and o.object_id = p.id and o.org_id = $2
+      where p.capture_id = any($1::text[]) order by p.id`, [r.rows.map((x) => x.body.id), orgId]);
   const marked = await db.query<{ id: string; lane: DataLane }>(
     `select distinct on (object_id) object_id as id, coalesce(body->>'effective_lane', body->>'lane') as lane
        from object_markings where object_kind = 'capture' and object_id = any($1::text[]) order by object_id, version desc`,

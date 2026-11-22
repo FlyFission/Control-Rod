@@ -139,22 +139,33 @@ func (ef *EgressFilter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = targetConn.Close()
 		return
 	}
-	_, _ = clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
-
-	end := func() {
+	defer func() {
 		_ = targetConn.Close()
 		_ = clientConn.Close()
 		ef.untrack(clientConn, targetConn)
+	}()
+	if _, err := clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n")); err != nil {
+		return
 	}
+	copyHalf := func(dst net.Conn, src io.Reader) {
+		_, err := io.Copy(dst, src)
+		if err == nil {
+			if half, ok := dst.(interface{ CloseWrite() error }); ok && half.CloseWrite() == nil {
+				return
+			}
+		}
+		// A transport error or an unsupported half-close ends the entire tunnel.
+		_ = targetConn.Close()
+		_ = clientConn.Close()
+	}
+	done := make(chan struct{})
 	go func() {
-		defer end()
+		defer close(done)
 		// Read through the server's buffer: bytes sent with the CONNECT headers are already in it.
-		_, _ = io.Copy(targetConn, buffered.Reader)
+		copyHalf(targetConn, buffered.Reader)
 	}()
-	go func() {
-		defer end()
-		_, _ = io.Copy(clientConn, targetConn)
-	}()
+	copyHalf(clientConn, targetConn)
+	<-done
 }
 
 var hopByHopHeaders = map[string]bool{

@@ -91,6 +91,37 @@ describe("access", () => {
 });
 
 describe("a quick question is answered without a package", () => {
+  it("refuses attachments that normalize to the same name", async () => {
+    const attachment = (name: string) => '\`\`\`attachment name="' + name + '" encoding="base64"\n' + b64("Report") + "\n\`\`\`";
+    const r = await asOwner("POST", "/captures", {
+      lane: "internal",
+      text: ["Review these reports.", attachment("a/report.pdf"), attachment("b/report.pdf")].join("\n"),
+    });
+    expect(r.statusCode, r.body).toBe(400);
+    expect(r.json().message).toContain("Duplicate attachment name");
+  });
+
+  it("records a stable intake refusal for draft IDs that normalize to the same package ID", async () => {
+    const capture = await asOwner("POST", "/captures", { lane: "internal", text: "Draft two pump packages" });
+    expect(capture.statusCode, capture.body).toBe(201);
+    const job = await claim();
+    const url = `/runner/runs/${job.run.id}/complete`;
+    const completion = {
+      status: "succeeded",
+      idempotency_key: "duplicate-drafts",
+      outputs: ["pump.a", "pumpa"].map((id, index) => ({
+        name: `packages/${index}.json`, content_base64: b64(JSON.stringify(draft(id))),
+      })),
+    };
+    const first = await asDaemon(url, completion);
+    expect(first.statusCode, first.body).toBe(200);
+    expect(first.json()).toMatchObject({ status: "failed", refusal: {
+      code: "invalid", message: "Intake package IDs must be distinct after normalization",
+    } });
+    expect((await asDaemon(url, completion)).json()).toEqual(first.json());
+    expect((await h.db.query("select 1 from packages where capture_id = $1", [capture.json().id])).rowCount).toBe(0);
+  });
+
   it("answers and counts it", async () => {
     const c = await asOwner("POST", "/captures", { lane: "internal", text: "What does IFD stand for?" });
     expect(c.statusCode).toBe(201);

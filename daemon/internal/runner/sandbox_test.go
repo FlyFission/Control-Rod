@@ -246,6 +246,7 @@ func TestPreflightRefusesWithTheFixAndNeverFallsBack(t *testing.T) {
 		`[features]` + "\n" + `apps = true`: "features", `[mcp_servers.x]` + "\n" + `command = "y"`: "mcp_servers",
 		`approval_policy = "on-request"`: "approval_policy", `[x.y]` + "\n" + `sandbox_mode = "z"`: "x.y.sandbox_mode",
 		`notify = ["python3", "out/notify.py"]`: "notify",
+		`x = [{features = {}}]`:                 "x.features", `x = [[{features = {}}]]`: "x.features",
 	} {
 		managed := filepath.Join(t.TempDir(), "managed_config.toml")
 		if err := os.WriteFile(managed, []byte("# sandbox_mode in a comment is fine\nmodel = \"x\"\n"+line+"\n"), 0o600); err != nil {

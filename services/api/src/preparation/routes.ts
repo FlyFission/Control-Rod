@@ -183,6 +183,7 @@ export function preparationRoutes(
         req.params.id,
         req.query.before === undefined ? undefined : Number(req.query.before),
         req.query.limit === undefined ? 20 : Number(req.query.limit),
+        cfg,
       );
     },
   );

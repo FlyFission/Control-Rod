@@ -894,17 +894,27 @@ func (b *logBuffer) addEvents(events []Event) {
 	if b.breaker != nil {
 		verdict = b.breaker.Observe(events, now)
 	}
+	at := now.UTC().Format(time.RFC3339Nano)
+	// Admission and indexing use the same order across both output streams.
+	b.mu.Lock()
 	if b.admit != nil {
 		events = b.admit.Admit(events, now)
 	}
-	at := now.UTC().Format(time.RFC3339Nano)
 	for _, w := range verdict.Warnings {
 		events = append(events, Event{Kind: EvNotice, At: at, Text: "Breaker warning: " + w})
 	}
 	if verdict.Trip != "" {
 		events = append(events, Event{Kind: EvNotice, At: at, Text: "Breaker tripped: " + verdict.Trip + ". The run is being stopped."})
 	}
-	b.mu.Lock()
+	b.appendEventsLocked(events)
+	b.mu.Unlock()
+	if verdict.Trip != "" && b.onTrip != nil {
+		b.onTrip(verdict.Trip)
+	}
+}
+
+// appendEventsLocked assigns indexes to events already admitted, including final verdicts.
+func (b *logBuffer) appendEventsLocked(events []Event) {
 	for i := range events {
 		events[i].idx = b.nextIdx
 		b.nextIdx++
@@ -916,10 +926,6 @@ func (b *logBuffer) addEvents(events []Event) {
 		b.events = b.events[over:]
 	}
 	b.dirty = true
-	b.mu.Unlock()
-	if verdict.Trip != "" && b.onTrip != nil {
-		b.onTrip(verdict.Trip)
-	}
 }
 
 func (b *logBuffer) reportedModel() string {
@@ -996,15 +1002,18 @@ func (b *logBuffer) sent(batch LogBatch) {
 }
 
 // leftEvents takes the events no post delivered, for the completion: the newest consecutive run
-// of at most MaxEventBatch (the exit event is last), placed by the index of its first. Older ones
-// left out show as a gap, which the control plane records as dropped.
-func (b *logBuffer) leftEvents() ([]Event, int) {
+// of at most MaxEventBatch, including any checker notices and verdicts appended at completion.
+// Older events left out show as a gap, which the control plane records as dropped.
+func (b *logBuffer) leftEvents(final ...Event) ([]Event, int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if len(final) > 0 {
+		b.appendEventsLocked(final)
+	}
 	events := b.events
 	b.events = nil
 	if len(events) == 0 {
-		return nil, 0
+		return nil, b.nextIdx
 	}
 	start := len(events) - 1
 	for start > 0 && len(events)-start < MaxEventBatch && events[start-1].idx == events[start].idx-1 {
@@ -1147,7 +1156,7 @@ func (d *Daemon) Handle(ctx context.Context, job *Job) {
 	if errors.Is(err, ErrUncontained) {
 		// Not over: keep the receipt and send nothing. The lease lapses, the control plane holds the
 		// outcome as unknown, and the orphan sweep keeps trying until the unit is confirmed empty.
-		d.log.Error("processes of the run could not be confirmed stopped; keeping its receipt and sending no completion", "run", job.Run.ID)
+		d.log.Error("run completion withheld because its processes could not be confirmed stopped", "run", job.Run.ID, "err", err)
 		return
 	}
 	comp.ClaimToken = job.Claim.Token
@@ -1354,6 +1363,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		deliverableBefore string
 		cwdBefore         map[string]string
 		checkerReady      bool
+		admittedArgs      []string
 	)
 	if err == nil && ws.Checker {
 		var herr error
@@ -1383,6 +1393,8 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		if err == nil && cmd != nil {
 			if aerr := CheckerAdmissionJob(job, cmd, launched); aerr != nil {
 				err = aerr
+			} else {
+				admittedArgs = slices.Clone(cmd.Args)
 			}
 		}
 		if err == nil && cmd != nil {
@@ -1431,7 +1443,10 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					}
 					r, rerr := NewReceipt(job.Run.ID, job.Claim.Token, pid, max(job.Run.Generation, 1), u)
 					if errors.Is(rerr, ErrNoIdentity) {
-						d.log.Warn("no process identity on this platform; the run can only be stopped by this daemon", "run", job.Run.ID)
+						d.log.Warn("no process identity on this platform; ending the launch", "run", job.Run.ID)
+						if u.Mode == ContainCgroup {
+							return &SpawnReceipt{Containment: u.Mode, Unit: u.Name, Cgroup: u.Cgroup, PGID: pid}, rerr
+						}
 						return nil, nil
 					}
 					if rerr != nil {
@@ -1499,15 +1514,12 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		}
 		buf.sent(batch)
 	}
-	leftover, leftFrom := buf.leftEvents()
 	if errors.Is(err, ErrUncontained) {
-		return Completion{}, ErrUncontained
+		return Completion{}, err
 	}
 
-	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}, Events: leftover}
-	if len(leftover) > 0 {
-		comp.EventsFrom = leftFrom
-	}
+	comp := Completion{Status: "succeeded", Outputs: []NamedFile{}}
+	var finalEvents []Event
 	switch {
 	case cmd == nil:
 		comp.Containment = "none"
@@ -1563,7 +1575,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		comp.Verification = attach("verification.json")
 	}
 	if ws.Checker && !checkerReady {
-		comp.Events = append(comp.Events, checkerBlockedNotice(err, time.Now()))
+		finalEvents = append(finalEvents, checkerBlockedNotice(err, time.Now()))
 	}
 	if checkerReady {
 		result := settleChecker(ws, deliverableBefore, cwdBefore, time.Now())
@@ -1579,7 +1591,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				result.Counts = false
 				result.Error = "the check has no executable digest, so it cannot count"
 				result.Verification = nil
-			} else if att, aerr := BuildCheckerAttestation(job, cmd, *launched, ws.Deliverables, deliverableBefore, result.After, buf.observedModels(), result.Verification, result.Criterion, result.EvidenceArts); aerr != nil {
+			} else if att, aerr := BuildCheckerAttestation(job, admittedArgs, *launched, ws.Deliverables, deliverableBefore, result.After, buf.observedModels(), result.Verification, result.Criterion, result.EvidenceArts); aerr != nil {
 				result.Counts = false
 				result.Error = aerr.Error()
 				result.Verification = nil
@@ -1587,7 +1599,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 				comp.Attestation = &att
 			}
 		}
-		comp.Events = append(comp.Events, result.Events...)
+		finalEvents = append(finalEvents, result.Events...)
 		if !result.Counts || comp.Status != "succeeded" {
 			comp.Verification = nil
 			if comp.Status == "succeeded" {
@@ -1648,6 +1660,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		AllowedTools:    launch.AllowedTools,
 		Sandbox:         launch.Sandbox,
 	}
+	comp.Events, comp.EventsFrom = buf.leftEvents(finalEvents...)
 	return comp, nil
 }
 

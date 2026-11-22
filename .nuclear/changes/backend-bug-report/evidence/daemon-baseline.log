@@ -1,0 +1,5 @@
+--- FAIL: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.35s)
+    sandbox_test.go:307: the installed Codex leaves unqualified features on: [code_mode_host_grpc code_mode_host_output_truncation guardian_include_additional_context incremental_tools_legacy incremental_tools_legacy_gcp retain_client_tool_outputs tui_workspace unified_image_budget untrusted_as_tool_output]
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	0.362s
+FAIL

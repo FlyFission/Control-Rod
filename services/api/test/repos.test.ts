@@ -342,6 +342,50 @@ describe("repos Wave 1 hardening", () => {
     });
   });
 
+  it.each(["core.gitProxy", "core.alternateRefsCommand"])("refuses a local %s before materializing", async (key) => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    execFileSync("git", ["config", key, "test-placeholder"], { cwd: repoDir });
+
+    await withTestApp(async (app) => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/repos/materialize",
+        payload: { repo: "sample-repo", branch: "feat/local-config", strategy: "worktree", workspace_root: workspaceRoot },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ code: "invalid-workspace-root", message: expect.stringContaining(key.toLowerCase()) });
+    });
+  });
+
+  it("checkpoints conflicted working text without changing the real index", async () => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repoDir, encoding: "utf8" });
+    const commitText = (text: string) => {
+      writeFileSync(join(repoDir, "README.md"), text);
+      git("commit", "-am", text.trim());
+    };
+    git("checkout", "-b", "side");
+    commitText("side\n");
+    git("checkout", "main");
+    commitText("main\n");
+    expect(() => git("merge", "side")).toThrow();
+    const unmerged = git("ls-files", "-u");
+    expect(unmerged).not.toBe("");
+    const conflicted = git("diff", "--name-only", "--diff-filter=U");
+    expect(conflicted.trim()).toBe("README.md");
+    const checkpoint = await createCheckpoint({ repoDir, workspaceRoot });
+    expect(git("show", checkpoint.commit_sha + ":README.md")).toContain("<<<<<<< HEAD");
+    expect(git("ls-files", "-u")).toBe(unmerged);
+  });
+
+  it.each(["v1..v2", ".hidden", "...", "v1.2"])("checkpoints under a valid Git ref for label %s", async (label) => {
+    const { workspaceRoot, repoDir } = makeTempRepo();
+    const checkpoint = await createCheckpoint({ repoDir, workspaceRoot, label });
+    expect(execFileSync("git", ["rev-parse", checkpoint.ref], { cwd: repoDir, encoding: "utf8" }).trim())
+      .toBe(checkpoint.commit_sha);
+    if (label === "v1.2") expect(checkpoint.ref).toContain("/v1.2-");
+  });
+
   it("createCheckpoint clears --assume-unchanged in tempIndex while preserving it in real index", async () => {
     const { workspaceRoot, repoDir } = makeTempRepo();
     writeFileSync(join(repoDir, "note file.txt"), "original\n");

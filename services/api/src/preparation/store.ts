@@ -100,7 +100,7 @@ export async function head(
 async function view(
   c: Tx,
   s: PreparationSnapshot,
-  p: PackageRow,
+  p: Pick<PackageRow, "id" | "revision" | "status" | "body">,
   cfg: ReadConfig = {},
 ): Promise<PreparationView> {
   const subjects = preparationSubjects(s);
@@ -596,6 +596,7 @@ export async function preparationHistory(
   id: string,
   before?: number,
   limit = 20,
+  cfg: ReadConfig = {},
 ) {
   if (
     !Number.isInteger(limit) ||
@@ -609,17 +610,20 @@ export async function preparationHistory(
       "History limit is 1–50 and before is a nonnegative revision",
     );
   return readTx(db, async (c) => {
-    const p = await snapshotPackage(c, id);
+    await snapshotPackage(c, id);
     if (!(await head(c, id, false)))
       throw new Refusal(404, "not-enrolled", "This package has no preparation");
     const rows = (
-      await c.query<{ body: PreparationSnapshot }>(
-        "select body from preparation_snapshots where package_id=$1 and ($2::int is null or revision<$2) order by revision desc limit $3",
+      await c.query<{ snapshot: PreparationSnapshot } & Pick<PackageRow, "id" | "revision" | "status" | "body">>(
+        `select s.body as snapshot,p.id,p.revision,p.status,p.body
+         from preparation_snapshots s join packages p on p.id=s.package_id and p.revision=s.package_revision
+         where s.package_id=$1 and ($2::int is null or s.revision<$2)
+         order by s.revision desc limit $3`,
         [id, before ?? null, limit + 1],
       )
     ).rows;
     const revisions = await Promise.all(
-      rows.slice(0, limit).map((r) => view(c, r.body, p)),
+      rows.slice(0, limit).map((r) => view(c, r.snapshot, r, cfg)),
     );
     return {
       revisions,

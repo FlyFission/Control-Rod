@@ -635,12 +635,11 @@ func digestOfHex(sum string) (Digest, error) {
 	return Digest{Algorithm: "sha256", Value: sum}, nil
 }
 
-// BuildCheckerAttestation assembles and signs the statement for a check that
-// is otherwise allowed to count. The probe result is not-run until a qualified
-// in-run probe exists.
-func BuildCheckerAttestation(job *Job, cmd *exec.Cmd, artifact Digest, deliverableRoot, before, after string, observed []string, verification, criterion json.RawMessage, evidence []Artifact) (RunAttestation, error) {
-	if job == nil || cmd == nil {
-		return RunAttestation{}, errors.New("a counted check is missing its job, so it cannot count")
+// BuildCheckerAttestation signs the statement using the runtime arguments as admitted,
+// before any launch wrappers. The probe result is not-run until a qualified in-run probe exists.
+func BuildCheckerAttestation(job *Job, admittedArgs []string, artifact Digest, deliverableRoot, before, after string, observed []string, verification, criterion json.RawMessage, evidence []Artifact) (RunAttestation, error) {
+	if job == nil || len(admittedArgs) == 0 {
+		return RunAttestation{}, errors.New("a counted check is missing its job or admitted command, so it cannot count")
 	}
 	if before == "" || before != after {
 		return RunAttestation{}, errors.New("the workspace hashes do not match, so the check cannot count")
@@ -649,7 +648,7 @@ func BuildCheckerAttestation(job *Job, cmd *exec.Cmd, artifact Digest, deliverab
 	if err != nil {
 		return RunAttestation{}, err
 	}
-	model, err := modelForCheck(job.Run, job.RuntimePin, RuntimeFor(job.Run.Runtime.Provider), cmd.Args)
+	model, err := modelForCheck(job.Run, job.RuntimePin, RuntimeFor(job.Run.Runtime.Provider), admittedArgs)
 	if err != nil {
 		return RunAttestation{}, err
 	}
@@ -667,7 +666,7 @@ func BuildCheckerAttestation(job *Job, cmd *exec.Cmd, artifact Digest, deliverab
 	if err != nil || job.SandboxPolicyDigest.Algorithm != "sha256" {
 		return RunAttestation{}, errors.New("the sandbox policy digest is not sha256, so the check cannot count")
 	}
-	cfg, err := effectiveConfigDigest(RuntimeFor(job.Run.Runtime.Provider), cmd.Args)
+	cfg, err := effectiveConfigDigest(RuntimeFor(job.Run.Runtime.Provider), admittedArgs)
 	if err != nil {
 		return RunAttestation{}, err
 	}

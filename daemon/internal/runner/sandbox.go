@@ -726,27 +726,33 @@ func managedWidening(path string) (string, error) {
 	if _, err := toml.Decode(string(b), &doc); err != nil {
 		return "", err
 	}
-	var find func(m map[string]any, at string) string
-	find = func(m map[string]any, at string) string {
-		keys := make([]string, 0, len(m))
-		for k := range m {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			if widening[k] {
-				return at + k
+	var find func(value any, at string) string
+	find = func(value any, at string) string {
+		switch v := value.(type) {
+		case map[string]any:
+			keys := make([]string, 0, len(v))
+			for k := range v {
+				keys = append(keys, k)
 			}
-			switch v := m[k].(type) {
-			case map[string]any:
-				if f := find(v, at+k+"."); f != "" {
+			sort.Strings(keys)
+			for _, k := range keys {
+				if widening[k] {
+					return at + k
+				}
+				if f := find(v[k], at+k+"."); f != "" {
 					return f
 				}
-			case []map[string]any:
-				for _, t := range v {
-					if f := find(t, at+k+"."); f != "" {
-						return f
-					}
+			}
+		case []map[string]any:
+			for _, t := range v {
+				if f := find(t, at); f != "" {
+					return f
+				}
+			}
+		case []any:
+			for _, t := range v {
+				if f := find(t, at); f != "" {
+					return f
 				}
 			}
 		}

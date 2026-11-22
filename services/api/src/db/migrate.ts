@@ -25,6 +25,7 @@ import { CHECKER_QUEUED_DIGESTS_SQL } from "./migrations/021-checker-queued-dige
 import { CHECKER_NO_TRUNCATE_SQL } from "./migrations/022-checker-no-truncate.js";
 import { RUN_ATTESTATION_SQL } from "./migrations/023-run-attestation.js";
 import { CONTEXT_PROFILE_SQL } from "./migrations/024-context-profile.js";
+import { DEPENDENCY_PROVENANCE_SQL } from "./migrations/025-dependency-provenance.js";
 export const MIGRATIONS = [
   { version: "000-legacy-baseline", sql: SCHEMA },
   { version: "001-preparation", sql: PREPARATION_SQL },
@@ -51,6 +52,7 @@ export const MIGRATIONS = [
   { version: "022-checker-no-truncate", sql: CHECKER_NO_TRUNCATE_SQL },
   { version: "023-run-attestation", sql: RUN_ATTESTATION_SQL },
   { version: "024-context-profile", sql: CONTEXT_PROFILE_SQL },
+  { version: "025-dependency-provenance", sql: DEPENDENCY_PROVENANCE_SQL },
 ] as const;
 
 /** Transactional, ordered and checksum-locked. Unknown newer migrations refuse startup. */

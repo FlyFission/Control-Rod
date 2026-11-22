@@ -233,3 +233,35 @@ describe("quoted paths with literal characters", () => {
     expect(file?.oldPath).toBe("😀\tx.txt");
   });
 });
+
+describe("anchor boundaries", () => {
+  it("keeps headings after an invalid backtick fence opener", () => {
+    const doc = "# Intro\n\n```npm install``` installs it.\n\n# Usage\n\ntext\n";
+    expect(sections(doc, ["Usage"])).toEqual(["# Usage\n\ntext"]);
+  });
+
+  it("anchors the first surviving line at a deletion at the start of a file", () => {
+    const diff = parseUnifiedDiff("--- a/x\n+++ b/x\n@@ -1 +0,0 @@\n-gone");
+    expect(checkAnchor({ anchor: { kind: "head-lines", path: "x", start: 1, end: 1 }, quote: "survives" },
+      { head: () => "survives\n", diff })).toEqual({ anchored: true, outside_change: false });
+  });
+
+  it("ends hunks at their declared lengths across file headers and a mail trailer", () => {
+    const diff = parseUnifiedDiff([
+      "--- a/x", "+++ b/x", "@@ -1 +1 @@", "-a", "+b",
+      "--- a/y", "+++ b/y", "@@ -1 +1 @@", "-c", "+d", "-- ", "2.48.1",
+    ].join("\n"));
+    expect(diff.map(({ newPath, hunks }) => [newPath, hunks.map(({ removed, added }) => ({ removed, added }))]))
+      .toEqual([["x", [{ removed: [1], added: [1] }]], ["y", [{ removed: [1], added: [1] }]]]);
+  });
+
+  it.each([
+    { side: "Head", heading_path: ["Intro"] },
+    { side: "head", heading_path: "Intro" },
+    { side: "head" },
+    { side: "head", heading_path: [42] },
+  ])("refuses malformed section anchors %j", (section) => {
+    const input = { anchor: { kind: "section", path: "x", ...section } } as AnchoredQuote;
+    expect(checkAnchor(input, { head: () => "# Intro" })).toEqual({ anchored: false, failure: "section-missing" });
+  });
+});

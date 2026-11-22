@@ -17,6 +17,7 @@ import { CHECKER_QUEUED_DIGESTS_DOWN_SQL } from "../src/db/migrations/021-checke
 import { CHECKER_NO_TRUNCATE_DOWN_SQL } from "../src/db/migrations/022-checker-no-truncate.js";
 import { RUN_ATTESTATION_DOWN_SQL } from "../src/db/migrations/023-run-attestation.js";
 import { CONTEXT_PROFILE_DOWN_SQL } from "../src/db/migrations/024-context-profile.js";
+import { DEPENDENCY_PROVENANCE_DOWN_SQL } from "../src/db/migrations/025-dependency-provenance.js";
 import { verifyChain } from "../src/events.js";
 import { digest } from "../src/kernel.js";
 import {
@@ -64,6 +65,7 @@ describe("migration 009", () => {
     expect((await verifyChain(h.db)).ok).toBe(true);
 
     // Migrations reverse newest first: the workbench tables depend on tenancy.
+    await h.admin.query(DEPENDENCY_PROVENANCE_DOWN_SQL);
     await h.admin.query(CONTEXT_PROFILE_DOWN_SQL);
     await h.admin.query(RUN_ATTESTATION_DOWN_SQL);
     await h.admin.query(CHECKER_NO_TRUNCATE_DOWN_SQL);

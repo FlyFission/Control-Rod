@@ -33,6 +33,7 @@ This page is a map, not a ledger. The evidence for each item is in its change re
 These are failures recorded in merged or open pull requests, not guesses.
 
 - `command-boundary` SEC-01 and SEC-03 in the API suite fail against a test database that uses trust authentication. They fail the same way on `main`, so they are an environment issue; see [test-database.md](test-database.md).
+- `TestInstalledCodexLeavesOnlyQualifiedFeatures` fails with the local Codex CLI 0.171.0 because it leaves features enabled outside the qualified set. The same test fails on the backend report baseline. [Verification record](../.nuclear/changes/backend-bug-report/verification.md)
 - The browser test `phase3-exit.spec.ts:117` fails: the first Tab stop is "Office" instead of the skip link. It predates recent changes.
 - Firefox and WebKit have not been run for the browser suite; Chromium has.
 - Real Claude Code and Codex runs with a real login are verified only on the owner's WSL2 machine. On native Linux and macOS the same launch is qualified against a scripted provider in CI.

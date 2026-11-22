@@ -251,6 +251,25 @@ func TestExecuteFailsClosedWhenTheRunCannotBeOwned(t *testing.T) {
 	}
 }
 
+func TestExecuteStopsTheLauncherGroupWhenReceiptIsUnavailable(t *testing.T) {
+	dir := t.TempDir()
+	cmd := exec.Command("bash", "-c", `sleep 5 & echo $! > child.pid; wait`)
+	cmd.Dir = dir
+	setProcessGroup(cmd)
+	err := Execute(context.Background(), cmd, func(string) {}, ExecHooks{
+		Started: func(int) (*SpawnReceipt, error) {
+			waitFile(t, filepath.Join(dir, "child.pid"))
+			return nil, nil
+		},
+	})
+	if !errors.Is(err, ErrUncontained) {
+		t.Fatalf("got %v, want ErrUncontained", err)
+	}
+	if groupExists(cmd.Process.Pid) {
+		t.Fatal("the launcher's group still has a running process")
+	}
+}
+
 func TestRestartedDaemonStopsOrphansReportsThemAndEndsUnreceiptedScopes(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("an orphan's leader is signalled through a pidfd, which only Linux has; elsewhere it is left for a person to reconcile")
@@ -383,6 +402,26 @@ func TestCaptureEnforcesLimitsWhileReadingAndRefusesSymlinks(t *testing.T) {
 	}
 	if _, err := Capture(src, MaxOutputFile, MaxOutputTotal); err == nil {
 		t.Fatal("a symlink in the outputs must be refused")
+	}
+}
+
+func TestCaptureRefusesANonDirectoryRoot(t *testing.T) {
+	root := t.TempDir()
+	link := filepath.Join(root, "out-link")
+	if err := os.Symlink(t.TempDir(), link); err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range []string{link, link + string(filepath.Separator)} {
+		if _, err := Capture(dir, MaxOutputFile, MaxOutputTotal); err == nil || !strings.Contains(err.Error(), "is a symlink") {
+			t.Fatalf("symlink root: %v", err)
+		}
+	}
+	file := filepath.Join(root, "out-file")
+	if err := os.WriteFile(file, []byte("data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Capture(file, MaxOutputFile, MaxOutputTotal); err == nil || !strings.Contains(err.Error(), "is not a directory") {
+		t.Fatalf("file root: %v", err)
 	}
 }
 

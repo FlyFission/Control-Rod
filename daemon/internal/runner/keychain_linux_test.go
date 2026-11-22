@@ -43,13 +43,18 @@ func TestSecretToolCreatesOnlyWhenStderrIsEmpty(t *testing.T) {
 	if err != nil || !bytes.Equal(first, again) {
 		t.Fatalf("second init: %v", err)
 	}
-	keyCommand = func(name string, args []string, stdin []byte) ([]byte, []byte, int, error) {
-		if len(args) > 0 && args[0] == "store" {
-			t.Fatal("a D-Bus failure replaced the key")
+	for _, message := range []string{
+		"GDBus.Error: org.freedesktop.DBus.Error.ServiceUnknown",
+		"Object does not exist at path /org/freedesktop/secrets/collection/login",
+	} {
+		keyCommand = func(name string, args []string, stdin []byte) ([]byte, []byte, int, error) {
+			if len(args) > 0 && args[0] == "store" {
+				t.Fatal("a D-Bus failure replaced the key")
+			}
+			return nil, []byte(message), 1, nil
 		}
-		return nil, []byte("GDBus.Error: org.freedesktop.DBus.Error.ServiceUnknown"), 1, nil
-	}
-	if _, err := InitSigningKey(); !errors.Is(err, errKeychainUnavailable) || errors.Is(err, errKeyNotFound) {
-		t.Fatal(err)
+		if _, err := InitSigningKey(); !errors.Is(err, errKeychainUnavailable) || errors.Is(err, errKeyNotFound) {
+			t.Fatal(err)
+		}
 	}
 }

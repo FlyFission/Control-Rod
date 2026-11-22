@@ -535,6 +535,8 @@ function isDangerousLocalGitConfig(rawKey: string, rawValue: string): string | n
     key === "core.worktree" ||
     key === "core.hookspath" ||
     key === "core.askpass" ||
+    key === "core.gitproxy" ||
+    key === "core.alternaterefscommand" ||
     key === "diff.external" ||
     key === "credential.helper" ||
     (key.startsWith("credential.") && key.endsWith(".helper")) ||
@@ -1112,13 +1114,13 @@ async function prepareTempIndexFlags(
   const records = splitNullRecords(raw);
   if (records.length === 0) return;
 
-  const allPaths: Buffer[] = [];
+  const assumedUnchangedPaths: Buffer[] = [];
   const presentSkipPaths: Buffer[] = [];
   for (const rec of records) {
     if (rec.length < 3) continue;
     const tag = String.fromCharCode(rec[0]!);
     const pathBuf = rec.subarray(2);
-    allPaths.push(pathBuf);
+    if (/^[a-z]$/.test(tag)) assumedUnchangedPaths.push(pathBuf);
     if (tag === "S" || tag === "s") {
       const relPath = pathBuf.toString("utf8");
       if (pathExistsAny(join(repoDir, relPath))) {
@@ -1127,12 +1129,12 @@ async function prepareTempIndexFlags(
     }
   }
 
-  if (allPaths.length > 0) {
+  if (assumedUnchangedPaths.length > 0) {
     await gitWithBytes(["update-index", "--no-assume-unchanged", "-z", "--stdin"], {
       cwd: repoDir,
       workspaceRoot,
       extraEnv: indexEnv,
-      input: Buffer.concat([...allPaths.map((p) => Buffer.concat([p, Buffer.from([0])]))]),
+      input: Buffer.concat([...assumedUnchangedPaths.map((p) => Buffer.concat([p, Buffer.from([0])]))]),
     });
   }
   if (presentSkipPaths.length > 0) {
@@ -1381,7 +1383,7 @@ export async function createCheckpoint(opts: {
     }
     await stageRawWorkingTreeBlobs(repoDir, workspaceRoot, indexEnv);
     const treeSha = await git(["write-tree"], { cwd: repoDir, workspaceRoot, extraEnv: indexEnv });
-    const labelSlug = safeSlug(opts.label ?? "snapshot");
+    const labelSlug = safeSlug(safeSlug(opts.label ?? "snapshot").replace(/^\.+|\.{2,}/g, "-"));
     const stamp = Date.now().toString(36);
     const ref = `refs/cr-checkpoints/${labelSlug}-${stamp}-${randomUUID()}`;
     const commitArgs = [

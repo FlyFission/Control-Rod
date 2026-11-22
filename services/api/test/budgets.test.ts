@@ -1,3 +1,4 @@
+import { checkBudget } from "../src/budgets.js";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -73,6 +74,10 @@ const retire = async (id: string) => h.admin.query("update budgets set body = js
 const sweep = async () => { await get("/office"); };
 
 describe("setting a budget", () => {
+  it.each(["toString", "constructor"])("rejects inherited budget units %s", (unit) => {
+    expect(() => checkBudget({ mode: "track", period: "P1M", limit: { value: "100", unit } })).toThrow(/budget's unit/);
+  });
+
   it("refuses a hard cap on anything Control Rod cannot reserve before work starts, and malformed limits and periods", async () => {
     const o = await org();
     const base = { scope: "organization", scope_id: o, period: "P1M" };

@@ -19,7 +19,7 @@ import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnde
 import { bindingSentence } from "./binding.js";
 import { RULES, briefHeader, composeBrief } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
-import { type PackWorkflow, type Workflow, type WorkflowPacks, captureProject, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
+import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureProject, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -2541,10 +2541,17 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
   if (new Set(idMap.values()).size !== drafts.length)
     throw new Refusal(400, "invalid", "Intake package IDs must be distinct after normalization");
   const created: string[] = [];
-  // An agent never picks a workflow. Drafts take the workflow intake itself ran under (the request's
-  // tag, else its project's default), so the tickets and their authoring follow the same workflow.
-  const intakeRan = await intakeWorkflow(c, String(capture.id), capture.text);
-  const taggedWorkflow = intakeRan.reason ? intakeRan.workflow : undefined;
+  // An agent never picks a workflow. Drafts take the workflow this intake run was launched under, as
+  // its run.workflow event recorded it then, so a project default changed mid-run cannot relabel
+  // tickets shaped for another workflow. A playbook launch records no event; then only the request's
+  // own tag, which cannot change, is read.
+  const launched = (await c.query<{ workflow: string | null }>(
+    `select body->'data'->>'workflow' as workflow from events
+      where body->>'type' = 'run.workflow' and body->>'subject' = $1 and not (body->'data' ? 'problem')
+      order by seq desc limit 1`, [row.id])).rows[0]?.workflow;
+  const taggedWorkflow = (WORKFLOWS as readonly string[]).includes(launched ?? "")
+    ? (launched as Workflow)
+    : captureWorkflow(capture.text);
   // Packages drafted together may depend on each other: insert each after the ones it waits for.
   const ordered: Json[] = [];
   const placing = new Set<string>();

@@ -291,7 +291,7 @@ describe("workflows at intake", () => {
     expect((await bodyOf(await idEnding("TAGB"))).workflow).toBe("pocock-superpowers");
   });
 
-  it("gives an untagged request its named project's default workflow, and stamps that on every draft", async () => {
+  it("gives an untagged request its named project's default workflow, and stamps the launch-time choice on every draft", async () => {
     const text = "[mode:software] [project:Plant Works] [stage:design]\n\nBuild the thing";
     const cap = await asOwner("POST", "/captures", { lane: "internal", text });
     expect(cap.statusCode, cap.body).toBe(201);
@@ -308,6 +308,8 @@ describe("workflows at intake", () => {
     expect(await workflowEvents(job.run.id)).toEqual([
       expect.objectContaining({ role: "intake", workflow: "pocock", reason: "The project default is pocock (the request names project Plant Works)" }),
     ]);
+    // The administrator changes the default while the run is working: the drafts keep the launch-time choice.
+    await h.admin.query("update projects set body = body || $2::jsonb where id = $1", ["prj_wf_plant", JSON.stringify({ default_workflow: "superpowers" })]);
     const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
       status: "succeeded",
       outputs: [{ name: "packages/a.json", content_base64: b64(JSON.stringify(draft("PROJA", "standard", { workflow: "superpowers" }))) }],

@@ -12,6 +12,6 @@ This request runs under Matt Pocock's workflow. Read `inputs/workflow/pocock/gri
 - `depends_on`: the ticket's blocking edges, and nothing else. Tickets with no blockers run in parallel.
 - `design_inputs`: the tickets and the glossary package this one relies on.
 
-**Last, the retro.** Add one final package that depends on every ticket. Its objective is the retro in `inputs/workflow/pocock/retro/SKILL.md`, run over the accepted tickets' outputs; its deliverable is `RETRO.md`; its role is `general-author`.
+**Last, the retro.** Add one final package that depends on every ticket and lists every one of them in `design_inputs`, so their outputs reach it. Its objective is the retro in `inputs/workflow/pocock/retro/SKILL.md`, run over the accepted tickets' outputs; its deliverable is `RETRO.md`; its role is `general-author`.
 
 Set no `workflow` field yourself; the server sets it from the request. Do not publish anything to an issue tracker, and do not commit, push or open pull requests.

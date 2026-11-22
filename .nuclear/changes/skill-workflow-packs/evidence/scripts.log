@@ -1,0 +1,30 @@
+✔ every fixture's Light and Nuclear brief stays within its recorded budget (38.347834ms)
+✔ budgets.json records its measured inputs and budgets equal to measurements (0.151334ms)
+✔ a brief one token over its budget is reported (10.397625ms)
+✔ the committed workflow budgets hold for every workflow and stage (55.688416ms)
+✔ a stage that grows past its budget, or changed inputs, fails the check (21.373042ms)
+✔ committed pack matches its manifest (--check) (16.068292ms)
+✔ manifest names the upstream, license and every card (0.291083ms)
+✔ check catches a hand edit, an added file and a removed file (30.757416ms)
+✔ check catches a card edited together with its manifest digest (29.552875ms)
+﹣ regenerating from the NGCE checkout reproduces the committed pack (0.065167ms) # no NGCE checkout at /home/claude/ngce
+﹣ regenerating keeps budgets.json and check does not count it as a pack file (0.031541ms) # no NGCE checkout at /home/claude/ngce
+✔ fixture was recorded from the current sample list (0.5055ms)
+✔ countTokens matches the counts NGCE's Python count_tokens recorded (4.092208ms)
+﹣ countTokens matches NGCE's count_tokens run live (0.055458ms) # no NGCE checkout at /home/claude/ngce
+﹣ countTokens matches NGCE's count_tokens on every assigned code point (0.037334ms) # no NGCE checkout at /home/claude/ngce
+✔ generation normalizes Markdown and license bytes and preserves controller files (259.104375ms)
+✔ generation rejects pin mismatch, duplicate skills and absent SKILL.md (535.058167ms)
+✔ check aggregates manifest, reference and stage problems (228.39125ms)
+✔ check refuses a skill list without digests and a pinned pack without a manifest (221.784417ms)
+✔ sync reports additions, removals, both rename rules, line counts and unresolved stages (445.226583ms)
+✔ committed workflow packs pass --check (83.901709ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 4
+ℹ todo 0
+ℹ duration_ms 1878.374875
+scripts exit 0

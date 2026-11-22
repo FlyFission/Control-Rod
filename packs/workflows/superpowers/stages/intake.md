@@ -12,6 +12,6 @@ This request runs under the Superpowers workflow. Read `inputs/workflow/superpow
 - `depends_on`: only the tasks that truly must be accepted first. Independent tasks run in parallel.
 - Size each task as writing-plans' right-sizing section says. The plan's global constraints go into every task's criteria that they bind.
 
-**Last, the whole-branch review.** Add one final package that depends on every task package. Its objective is the review subagent-driven-development runs over the whole branch at the end; its deliverable is `REVIEW.md`; its role is `general-author`.
+**Last, the whole-branch review.** Add one final package that depends on every task package and lists every one of them in `design_inputs`, so their outputs reach it. Its objective is the review subagent-driven-development runs over the whole branch at the end; its deliverable is `REVIEW.md`; its role is `general-author`.
 
 Set no `workflow` field yourself; the server sets it from the request. Do not create worktrees or branches, and do not commit, push or open pull requests.

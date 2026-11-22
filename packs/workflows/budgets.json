@@ -1,0 +1,140 @@
+{
+  "note": "Measured by scripts/measure-workflow-briefs.mjs. brief_tokens: what the workflow adds inline to BRIEF.md; input_tokens: the upstream skills shipped under inputs/workflow/. Each budget is the measured count. Do not edit by hand.",
+  "counter": "scripts/lib/token-count.mjs",
+  "inputs": [
+    {
+      "path": "scripts/measure-workflow-briefs.mjs",
+      "sha256": "101c27cdd3ec2bb561b5161f07c29982c98bf15568cee6dbc142179c79790b01"
+    },
+    {
+      "path": "scripts/lib/token-count.mjs",
+      "sha256": "f2cf8e8467166ecac6cf882efcd783d64746fe8e0a27fc8cca9f02964784031c"
+    },
+    {
+      "path": "services/api/src/workflow.ts",
+      "sha256": "881e0ce24c895cb652a1b0944fba768e365b441f285cabf1541b7b25a5cf1c6d"
+    },
+    {
+      "path": "packs/workflows/superpowers/workflow.json",
+      "sha256": "7a4fb909117e338f53cf0ae7e282512347efc8d7cbf91f2b68bd41c0a5a649e9"
+    },
+    {
+      "path": "packs/workflows/superpowers/stages/author.md",
+      "sha256": "cff14ccb790a9befd4614486530849b2d20cc1389999536ee788430edbe3f16c"
+    },
+    {
+      "path": "packs/workflows/superpowers/stages/intake.md",
+      "sha256": "875e8f63135c0934c894f77bf435fecb959ebf917b45b20b465d32a210f8bdfb"
+    },
+    {
+      "path": "packs/workflows/superpowers/stages/pre-check.md",
+      "sha256": "d09d3e09cc30291d44c67745592dbc12dfb6b8a0f512d239eb70b980e489ebe2"
+    },
+    {
+      "path": "packs/workflows/superpowers/manifest.json",
+      "sha256": "6cc5299cd531468241fe60f1b0024dda6dc0de164ad4cb0ecd1bd7799c58a74c"
+    },
+    {
+      "path": "packs/workflows/pocock/workflow.json",
+      "sha256": "528d8a419119957d2fb52fea184215b30337466e0431c7ab62d74b705b587df4"
+    },
+    {
+      "path": "packs/workflows/pocock/stages/author.md",
+      "sha256": "8f2bc6433a7099063e36a53e5c07e0703f38340c17136835bc1b6485ef1f7125"
+    },
+    {
+      "path": "packs/workflows/pocock/stages/intake.md",
+      "sha256": "11a98e445dfa9b51bd58d93790d56559dc5a21e779f96771499aee6beb512b5a"
+    },
+    {
+      "path": "packs/workflows/pocock/stages/pre-check.md",
+      "sha256": "59b924f2ebab5a0404cd21fe207b239d3fe68c833d64347ee7aa4f96ea0b1ed6"
+    },
+    {
+      "path": "packs/workflows/pocock/manifest.json",
+      "sha256": "f1df4eda07484c46f103b99f8a4f8c3a1cbe2a7d91a6beb8f2011cabe8be0212"
+    },
+    {
+      "path": "packs/workflows/pocock-superpowers/workflow.json",
+      "sha256": "f77282dbc10fc8778adaaa3a41046a829b23bb5b5012ab8b0d9f4551b1427d64"
+    },
+    {
+      "path": "packs/workflows/pocock-superpowers/stages/author.md",
+      "sha256": "384e3c48677102670f7d94cd15141b8bf0dc6e2458306e134f8ed78ba0baf7e9"
+    },
+    {
+      "path": "packs/workflows/pocock-superpowers/stages/intake.md",
+      "sha256": "d223891080404b8c1fadbd0bf55874964d59f97f30f8a56f95bd19be5f7361f9"
+    },
+    {
+      "path": "packs/workflows/pocock-superpowers/stages/pre-check.md",
+      "sha256": "ec77a08ad603f45950ff3623b45eb89796e77bf49c84a010316ab6ab92c69421"
+    }
+  ],
+  "inputs_sha256": "a8aa4f2990aa124c8854c3e98acd7d9d62fc1737034b81e282e72833a626086f",
+  "stages": [
+    {
+      "workflow": "superpowers",
+      "stage": "intake",
+      "brief_tokens": 630,
+      "input_files": 4,
+      "input_tokens": 12199
+    },
+    {
+      "workflow": "superpowers",
+      "stage": "author",
+      "brief_tokens": 502,
+      "input_files": 18,
+      "input_tokens": 28396
+    },
+    {
+      "workflow": "superpowers",
+      "stage": "pre-check",
+      "brief_tokens": 440,
+      "input_files": 14,
+      "input_tokens": 18726
+    },
+    {
+      "workflow": "pocock",
+      "stage": "intake",
+      "brief_tokens": 704,
+      "input_files": 7,
+      "input_tokens": 7149
+    },
+    {
+      "workflow": "pocock",
+      "stage": "author",
+      "brief_tokens": 603,
+      "input_files": 11,
+      "input_tokens": 13043
+    },
+    {
+      "workflow": "pocock",
+      "stage": "pre-check",
+      "brief_tokens": 322,
+      "input_files": 1,
+      "input_tokens": 2054
+    },
+    {
+      "workflow": "pocock-superpowers",
+      "stage": "intake",
+      "brief_tokens": 703,
+      "input_files": 18,
+      "input_tokens": 24208
+    },
+    {
+      "workflow": "pocock-superpowers",
+      "stage": "author",
+      "brief_tokens": 595,
+      "input_files": 20,
+      "input_tokens": 24803
+    },
+    {
+      "workflow": "pocock-superpowers",
+      "stage": "pre-check",
+      "brief_tokens": 431,
+      "input_files": 13,
+      "input_tokens": 18062
+    }
+  ]
+}

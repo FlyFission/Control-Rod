@@ -1,0 +1,29 @@
+[test-api] PostgreSQL fixture binaries: /opt/homebrew/bin
+
+ RUN  v5.1.0 <worktree>/services/api
+
+Switched to a new branch 'side'
+Switched to branch 'main'
+Cloning into '/private/var/folders/lk/d0cpcmyx4bgbwthnjtvfdw8r0000gn/T/cr-repos-test-N66xF0/projects/sample-repo/sub'...
+done.
+HEAD is now at 78286f8 Fixture
+(node:12087) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Cloning into '/private/var/folders/lk/d0cpcmyx4bgbwthnjtvfdw8r0000gn/T/cr-repos-test-wCikoT/projects/sample-repo/sub'...
+done.
+Cloning into '/private/var/folders/lk/d0cpcmyx4bgbwthnjtvfdw8r0000gn/T/cr-repos-test-wCikoT/projects/.worktrees/sample-repo/feat-lfs-sub-guard/sub'...
+done.
+Preparing worktree (new branch 'feat/wt-idx')
+Preparing worktree (new branch 'feat/wt-rm')
+Preparing worktree (new branch 'feat/wt-stale')
+Preparing worktree (new branch 'feat/wt-other-missing')
+Preparing worktree (new branch 'feat/wt-locked-missing')
+[control-rod] the database dropped an idle reader connection (terminating connection due to administrator command); a new one opens on next use
+[control-rod] the database dropped an idle writer connection (terminating connection due to administrator command); a new one opens on next use
+
+ Test Files  73 passed (73)
+      Tests  879 passed (879)
+   Start at  15:23:06
+   Duration  34.67s (tests 94%, import 6%)
+
+api exit 0

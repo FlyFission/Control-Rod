@@ -10,6 +10,6 @@ This request runs under the hybrid: Matt Pocock's ends and Jesse Vincent's middl
 - `depends_on`: the ticket's blocking edges, and nothing else.
 - `design_inputs`: the tickets and glossary package it relies on.
 
-**Last, review and retro.** Add one final package that depends on every ticket. Its objective is two things in one report: the whole-branch review subagent-driven-development runs at the end, and then the retro in `inputs/workflow/pocock/retro/SKILL.md`. Its deliverable is `REVIEW-AND-RETRO.md`; its role is `general-author`.
+**Last, review and retro.** Add one final package that depends on every ticket and lists every one of them in `design_inputs`, so their outputs reach it. Its objective is two things in one report: the whole-branch review subagent-driven-development runs at the end, and then the retro in `inputs/workflow/pocock/retro/SKILL.md`. Its deliverable is `REVIEW-AND-RETRO.md`; its role is `general-author`.
 
 Set no `workflow` field yourself; the server sets it from the request. Do not publish to an issue tracker, and do not commit, push or open pull requests.

@@ -86,6 +86,8 @@ The hybrid takes the Pocock stages at both ends and the Superpowers stages in th
 
 ## Build plan
 
+**Status:** steps 1 to 8 are built in change record `skill-workflow-packs`; the hybrid's display name is still a working name.
+
 Each step is its own change record. Steps 2 to 4 can run in parallel, one worker each.
 
 1. **Contract** (needs the owner's signed yes for `spec/`): an optional per-card workflow field (`playbook`, `superpowers`, `pocock`, `hybrid`) with a project default, separate from `context_profile`. Safety and Material grade still lock Nuclear; every workflow's briefs are measured against the Nuclear budget too.

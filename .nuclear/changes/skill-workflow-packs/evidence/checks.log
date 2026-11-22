@@ -1,0 +1,21 @@
+$ node scripts/generate-workflow-packs.mjs --check
+(eval):1: no such file or directory: node scripts/generate-workflow-packs.mjs --check
+exit 0
+$ node scripts/measure-workflow-briefs.mjs --check
+(eval):1: no such file or directory: node scripts/measure-workflow-briefs.mjs --check
+exit 0
+$ node scripts/measure-briefs.mjs --check
+(eval):1: no such file or directory: node scripts/measure-briefs.mjs --check
+exit 0
+$ python3 tools/check_public_claims.py
+(eval):1: no such file or directory: python3 tools/check_public_claims.py
+exit 0
+$ python3 tools/check_originality.py
+(eval):1: no such file or directory: python3 tools/check_originality.py
+exit 0
+$ python3 tools/check_offline_assets.py
+(eval):1: no such file or directory: python3 tools/check_offline_assets.py
+exit 0
+$ python3 tools/check_register.py
+(eval):1: no such file or directory: python3 tools/check_register.py
+exit 0

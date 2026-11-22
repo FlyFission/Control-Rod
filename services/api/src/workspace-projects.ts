@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import type { Db, Tx } from "./db/index.js";
-import { command } from "./commands/executor.js";
 import { appendEvent } from "./events.js";
 import type { Caller } from "./admin.js";
 import { checkSchema, createProject, type DataLane } from "./tenancy.js";
@@ -70,8 +69,9 @@ async function readPrefsMap(q: { query: Db["query"] }, orgId: string): Promise<R
   }
 }
 
-async function writePrefsMap(q: { query: Db["query"] }, orgId: string, map: Record<string, Partial<ProjectWorkspacePrefs>>): Promise<void> {
-  await q.query(
+// Creation and update hold runAdmin's organization lock across the map read and write.
+async function writePrefsMap(c: Tx, orgId: string, map: Record<string, Partial<ProjectWorkspacePrefs>>): Promise<void> {
+  await c.query(
     "insert into settings (key, value) values ($1, $2) on conflict (key) do update set value = excluded.value",
     [prefsKey(orgId), JSON.stringify(map)],
   );
@@ -255,7 +255,7 @@ export async function createWorkspaceProject(
 
 /** Updates a project's workspace defaults (never mutating mode) with an audited hash-chain event. */
 export async function updateWorkspaceProject(
-  db: Db,
+  c: Tx,
   caller: Caller,
   projectId: string,
   patch: Record<string, unknown>,
@@ -264,79 +264,75 @@ export async function updateWorkspaceProject(
     throw new Refusal(409, "mode-immutable", "A project's engineering mode cannot be changed after creation");
   }
   const actor = { kind: "human" as const, id: caller.userName };
-  return command(db, "admin.project-update", async (c) => {
-    const r = await c.query<{ body: Record<string, unknown>; created_at: Date }>(
-      "select body, created_at from projects where id = $1 and org_id = $2 for update",
-      [projectId, caller.orgId],
-    );
-    if (!r.rows[0]) throw new Refusal(404, "not-found", "No such project");
-    const map = await readPrefsMap(c, caller.orgId);
-    const current = mergePrefs(map[projectId]);
-    const { laneAgents: currentLaneAgents, ...baseCurrent } = current;
-    const nextLaneAgents =
-      patch.laneAgents === null
-        ? undefined
-        : patch.laneAgents !== undefined
-          ? (patch.laneAgents as Record<string, string>)
-          : currentLaneAgents;
-    const next = mergePrefs({
-      ...baseCurrent,
-      ...(typeof patch.repo === "string" ? { repo: patch.repo } : {}),
-      ...(typeof patch.repoStrategy === "string" ? { repoStrategy: patch.repoStrategy as RepoOutfallStrategy } : {}),
-      ...(typeof patch.workspaceRoot === "string" ? { workspaceRoot: patch.workspaceRoot } : {}),
-      ...(typeof patch.lane === "string" ? { lane: patch.lane as DataLane } : {}),
-      ...(patch.author !== undefined ? { author: patch.author as AgentRuntimeSelection } : {}),
-      ...(patch.checker !== undefined ? { checker: patch.checker as AgentRuntimeSelection } : {}),
-      ...(nextLaneAgents !== undefined ? { laneAgents: nextLaneAgents } : {}),
-    });
-    assertO6Independence(next);
-    map[projectId] = next;
-    await writePrefsMap(c, caller.orgId, map);
-    await appendEvent(c, "project.workspace-updated", projectId, actor, {
-      repo: next.repo,
-      repo_strategy: next.repoStrategy,
-      lane: next.lane,
-      author: next.author.ecosystem,
-      checker: next.checker.ecosystem,
-      ...(next.laneAgents ? { lane_agents: next.laneAgents } : {}),
-    });
-    return {
-      id: projectId,
-      name: String(r.rows[0].body.name ?? projectId),
-      mode: resolveWorkspaceMode(r.rows[0].body),
-      status: String(r.rows[0].body.status ?? "active"),
-      ...next,
-      createdAt: r.rows[0].created_at instanceof Date ? r.rows[0].created_at.toISOString() : String(r.rows[0].created_at),
-    };
+  const r = await c.query<{ body: Record<string, unknown>; created_at: Date }>(
+    "select body, created_at from projects where id = $1 and org_id = $2 for update",
+    [projectId, caller.orgId],
+  );
+  if (!r.rows[0]) throw new Refusal(404, "not-found", "No such project");
+  const map = await readPrefsMap(c, caller.orgId);
+  const current = mergePrefs(map[projectId]);
+  const { laneAgents: currentLaneAgents, ...baseCurrent } = current;
+  const nextLaneAgents =
+    patch.laneAgents === null
+      ? undefined
+      : patch.laneAgents !== undefined
+        ? (patch.laneAgents as Record<string, string>)
+        : currentLaneAgents;
+  const next = mergePrefs({
+    ...baseCurrent,
+    ...(typeof patch.repo === "string" ? { repo: patch.repo } : {}),
+    ...(typeof patch.repoStrategy === "string" ? { repoStrategy: patch.repoStrategy as RepoOutfallStrategy } : {}),
+    ...(typeof patch.workspaceRoot === "string" ? { workspaceRoot: patch.workspaceRoot } : {}),
+    ...(typeof patch.lane === "string" ? { lane: patch.lane as DataLane } : {}),
+    ...(patch.author !== undefined ? { author: patch.author as AgentRuntimeSelection } : {}),
+    ...(patch.checker !== undefined ? { checker: patch.checker as AgentRuntimeSelection } : {}),
+    ...(nextLaneAgents !== undefined ? { laneAgents: nextLaneAgents } : {}),
   });
+  assertO6Independence(next);
+  map[projectId] = next;
+  await writePrefsMap(c, caller.orgId, map);
+  await appendEvent(c, "project.workspace-updated", projectId, actor, {
+    repo: next.repo,
+    repo_strategy: next.repoStrategy,
+    lane: next.lane,
+    author: next.author.ecosystem,
+    checker: next.checker.ecosystem,
+    ...(next.laneAgents ? { lane_agents: next.laneAgents } : {}),
+  });
+  return {
+    id: projectId,
+    name: String(r.rows[0].body.name ?? projectId),
+    mode: resolveWorkspaceMode(r.rows[0].body),
+    status: String(r.rows[0].body.status ?? "active"),
+    ...next,
+    createdAt: r.rows[0].created_at instanceof Date ? r.rows[0].created_at.toISOString() : String(r.rows[0].created_at),
+  };
 }
 
 /** Soft-archives a project (refusing if any package in the project awaits a signature). */
-export async function archiveWorkspaceProject(db: Db, caller: Caller, projectId: string): Promise<{ id: string; status: "archived" }> {
+export async function archiveWorkspaceProject(c: Tx, caller: Caller, projectId: string): Promise<{ id: string; status: "archived" }> {
   const actor = { kind: "human" as const, id: caller.userName };
-  return command(db, "admin.project-update", async (c) => {
-    const r = await c.query<{ body: Record<string, unknown> }>(
-      "select body from projects where id = $1 and org_id = $2 for update",
-      [projectId, caller.orgId],
-    );
-    const project = r.rows[0]?.body;
-    if (!project) throw new Refusal(404, "not-found", "No such project");
-    if (project.status === "retired") return { id: projectId, status: "archived" as const };
-    const name = String(project.name ?? "");
-    const pending = await c.query<{ count: string }>(
-      `select count(*)::text as count from packages p
-       join object_owners o on o.object_kind = 'package' and o.object_id = p.id and o.org_id = $1
-       where (p.body->>'project' = $2 or lower(p.body->>'project') = lower($3))
-         and p.status in ('in-verification', 'awaiting-acceptance')`,
-      [caller.orgId, projectId, name],
-    );
-    if (Number(pending.rows[0]?.count ?? 0) > 0) {
-      throw new Refusal(409, "pending-signatures", "Cannot archive a project while packages are awaiting verification or signature");
-    }
-    const next = { ...project, status: "retired" };
-    checkSchema("Project.json", next);
-    await c.query("update projects set body = $2 where id = $1", [projectId, next]);
-    await appendEvent(c, "project.archived", projectId, actor, { name });
-    return { id: projectId, status: "archived" as const };
-  });
+  const r = await c.query<{ body: Record<string, unknown> }>(
+    "select body from projects where id = $1 and org_id = $2 for update",
+    [projectId, caller.orgId],
+  );
+  const project = r.rows[0]?.body;
+  if (!project) throw new Refusal(404, "not-found", "No such project");
+  if (project.status === "retired") return { id: projectId, status: "archived" as const };
+  const name = String(project.name ?? "");
+  const pending = await c.query<{ count: string }>(
+    `select count(*)::text as count from packages p
+     join object_owners o on o.object_kind = 'package' and o.object_id = p.id and o.org_id = $1
+     where (p.body->>'project' = $2 or lower(p.body->>'project') = lower($3))
+       and p.status in ('in-verification', 'awaiting-acceptance')`,
+    [caller.orgId, projectId, name],
+  );
+  if (Number(pending.rows[0]?.count ?? 0) > 0) {
+    throw new Refusal(409, "pending-signatures", "Cannot archive a project while packages are awaiting verification or signature");
+  }
+  const next = { ...project, status: "retired" };
+  checkSchema("Project.json", next);
+  await c.query("update projects set body = $2 where id = $1", [projectId, next]);
+  await appendEvent(c, "project.archived", projectId, actor, { name });
+  return { id: projectId, status: "archived" as const };
 }

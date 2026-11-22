@@ -797,7 +797,8 @@ function resolveRunModel(
   projEco?: string,
   projModel?: string,
 ): string | undefined {
-  if (capTag && runtimeName(capTag.ecosystem) === runtime && capTag.model) {
+  // A matching capture tag may deliberately leave the choice to the runtime.
+  if (capTag && runtimeName(capTag.ecosystem) === runtime) {
     return normalizeRunModel(runtime, capTag.model);
   }
   if (!projEco || runtimeName(projEco) === runtime) {

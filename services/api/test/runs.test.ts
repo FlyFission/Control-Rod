@@ -901,6 +901,45 @@ describe("capture provenance", () => {
     expect(packages.find((p) => p.id.endsWith("-PROJECTBINDING"))?.project).toBe(projects[1]);
   });
 
+  it("preserves explicit CLI default while inheriting the project model for untagged captures", async () => {
+    const pinnedModel = "claude-opus-4-6";
+    const payload = {
+      name: "Model defaults",
+      author: { ecosystem: "claude", model: pinnedModel, reasoning: "default" },
+    };
+    const options = await asOwner("POST", "/admin/commands/project.workspace-create/options", { payload });
+    expect(options.statusCode, options.body).toBe(200);
+    const create = await asOwner("POST", "/workspace/projects", { payload, assertion: passkey.assert(options.json().options) });
+    expect(create.statusCode, create.body).toBe(201);
+    const projectId = create.json().id as string;
+
+    for (const [name, selection, expected] of [
+      ["MODELDEFAULT", " [author:claude/default@default]", "default"],
+      ["MODELINHERIT", "", pinnedModel],
+    ] as const) {
+      const captured = await asOwner("POST", "/captures", {
+        lane: "internal", text: `[mode:software] [project-id:${projectId}]${selection}\n\nDraft ${name}.`,
+      });
+      expect(captured.statusCode, captured.body).toBe(201);
+      const intake = await claim();
+      expect(intake?.run.package_id).toBe(captured.json().id);
+      const pkg = { ...draft(name), mode: "software", project: projectId };
+      const completion = await asDaemon(`/runner/runs/${intake!.run.id}/complete`, {
+        status: "succeeded", outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(pkg)) }],
+      });
+      expect(completion.json().status, completion.body).toBe("succeeded");
+      const packages = (await asOwner("GET", "/packages")).json() as { id: string }[];
+      const id = packages.find((p) => p.id.endsWith(`-${name}`))?.id;
+      if (!id) throw new Error("package not drafted");
+      expect((await decide(id, "release", 0)).statusCode).toBe(201);
+
+      const author = await claim(["claude"]);
+      expect(author?.run.package_id).toBe(id);
+      expect(author?.run.runtime).toMatchObject({ provider: "claude", model: expected });
+      await asDaemon(`/runner/runs/${author!.run.id}/complete`, { status: "failed", error: "fixture complete", outputs: [] });
+    }
+  });
+
   it("keeps captures with the same four-character prefix in distinct package namespaces", async () => {
     for (const captureId of ["C-abcd1111", "C-abcd2222"]) {
       const created = await asOwner("POST", "/captures", { lane: "internal", text: "Same local package name" });

@@ -179,12 +179,14 @@ func runCheckCLIWith(args []string, base runner.CheckConfig, stdin io.Reader, st
 	diffFile := fs.String("diff", "", "path to unified diff/patch file, or - for stdin")
 	baseRef := fs.String("base", "", "base git ref when computing a diff with git")
 	headRef := fs.String("head", "HEAD", "head git ref when using --base (default HEAD)")
+	headSHA := fs.String("head-sha", "", "optional PR head commit SHA for receipt binding when using --diff")
 	repoDir := fs.String("repo", ".", "git repository directory when using --base")
 	criteriaFile := fs.String("criteria", "", "path to acceptance criteria file")
 	criteriaRef := fs.String("criteria-ref", "", "optional git ref to read --criteria from via git show (prevents PR edits to criteria)")
 	criteriaText := fs.String("criteria-text", "", "inline acceptance criteria text")
 	grade := fs.String("grade", "general-service", "grade: general-service, material, or safety")
 	packageID := fs.String("package-id", "standalone", "label for the target in the verdict and receipt")
+	revision := fs.Int("revision", 0, "optional package revision number for receipt binding")
 	output := fs.String("output", "text", "output format: text, json, or markdown")
 	receiptOut := fs.String("receipt-out", "", "optional path to write the Markdown PR receipt")
 	verdictOut := fs.String("verdict-out", "", "optional path to write the JSON verdict")
@@ -210,12 +212,14 @@ func runCheckCLIWith(args []string, base runner.CheckConfig, stdin io.Reader, st
 	cfg.DiffFile = *diffFile
 	cfg.BaseRef = *baseRef
 	cfg.HeadRef = *headRef
+	cfg.HeadSHA = *headSHA
 	cfg.RepoDir = *repoDir
 	cfg.CriteriaFile = *criteriaFile
 	cfg.CriteriaRef = *criteriaRef
 	cfg.CriteriaText = *criteriaText
 	cfg.Grade = *grade
 	cfg.PackageID = *packageID
+	cfg.Revision = *revision
 	cfg.Timeout = *timeout
 	cfg.Stdin = stdin
 

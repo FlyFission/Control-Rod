@@ -4,6 +4,9 @@ Release decision: **draft PR pending blind checker, Ben's product decisions on s
 
 - **Proposed:** `controlrod check` CLI, reusable composite GitHub Action under `packages/check-action/`, bundle PR receipt formatter and `pnpm cr receipt`, and the R1.8 threat model row.
 - **Not claimed:** that `.github/workflows/` runs the Action yet (protected path; left untouched for owner sign-off), that standalone CLI/Action checks carry human passkey acceptance or a `pnpm cr verify` inclusion proof, that `--author-runtime` in standalone mode is verified rather than caller-declared, that an offline bundle verified only against a bundle-supplied key proves key ownership or per-decision WebAuthn passkey acceptance without external `trustedSealKeys` + decision assertions, that `packages/check-action/action.yml` was executed on a live GitHub Actions runner, or that live Claude Code / Codex runs were executed in this session.
+- **Known limits (out of scope for R1.8, tracked separately):**
+  - The Linux checker sandbox leaves non-home paths readable, mirroring [sandbox.ts](../../services/api/src/sandbox.ts); restricting non-home OS-level egress belongs to rows R3.10 and R3.11.
+  - Claude Code vendor telemetry in `daemon/internal/runner/adapter_claude.go` pre-dates R1.8 and is tracked separately.
 - **Open product questions for Ben:**
   1. What a standalone `controlrod check` / GitHub Action receipt may claim when no person has accepted the change and no inclusion proof exists for `pnpm cr verify`.
   2. How an author identity the caller declared via `--author-runtime` (and nobody verified) should be labelled (`caller-declared, unverified` vs dropping the author line or requiring attested author runs).

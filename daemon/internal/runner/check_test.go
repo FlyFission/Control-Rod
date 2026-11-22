@@ -473,3 +473,100 @@ func TestRunCheckGitDiffBoundsMemoryOnOversizedDiff(t *testing.T) {
 		t.Fatalf("err=%q does not mention 512 byte limit", err.Error())
 	}
 }
+
+func TestRunCheckRefusesDirectoryAndSymlinkCriteriaAtRef(t *testing.T) {
+	t.Setenv("CONTROLROD_ALLOW_FAKE", "1")
+	repo := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		c := exec.Command("git", args...)
+		c.Dir = repo
+		c.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.com",
+			"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.com",
+		)
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	git("init")
+	if err := os.MkdirAll(filepath.Join(repo, "docs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "docs", "acceptance.md"), []byte("1. Regular criteria file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("docs/acceptance.md", filepath.Join(repo, "link.md")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "src.txt"), []byte("v1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "docs/acceptance.md", "link.md", "src.txt")
+	git("commit", "-m", "base")
+
+	if err := os.WriteFile(filepath.Join(repo, "src.txt"), []byte("v2\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "src.txt")
+	git("commit", "-m", "head")
+
+	for _, tc := range []struct {
+		name string
+		path string
+		want string
+	}{
+		{name: "directory tree", path: "docs", want: "not a regular file"},
+		{name: "git symlink", path: "link.md", want: "not a regular file"},
+		{name: "missing path", path: "missing.md", want: "not found"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := RunCheck(context.Background(), CheckConfig{
+				AuthorRuntime:  "claude",
+				CheckerRuntime: "fake",
+				BaseRef:        "HEAD~1",
+				HeadRef:        "HEAD",
+				RepoDir:        repo,
+				CriteriaFile:   tc.path,
+				CriteriaRef:    "HEAD",
+				Home:           t.TempDir(),
+			})
+			if !errors.Is(err, ErrCheckUsage) {
+				t.Fatalf("got err=%v, want ErrCheckUsage", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err=%q does not contain %q", err.Error(), tc.want)
+			}
+		})
+	}
+
+	script := `cat > out/verification.json <<'EOF'
+{"outcome":"pass","findings":[]}
+EOF
+echo '{"type":"result","subtype":"success"}'
+`
+	res, err := RunCheck(context.Background(), CheckConfig{
+		AuthorRuntime:  "claude",
+		CheckerRuntime: "fake",
+		BaseRef:        "HEAD~1",
+		HeadRef:        "HEAD",
+		RepoDir:        repo,
+		CriteriaFile:   "docs/acceptance.md",
+		CriteriaRef:    "HEAD",
+		PackageID:      "PR #7",
+		Revision:       3,
+		Home:           t.TempDir(),
+		ExtraInputs:    []NamedFile{{Name: "FAKE.sh", ContentBase64: b64(script)}},
+	})
+	if err != nil {
+		t.Fatalf("regular file under docs failed: %v", err)
+	}
+	if res.Revision != 3 || res.HeadSHA == "" || res.BaseSHA == "" {
+		t.Fatalf("expected revision/base/head SHA populated, got rev=%d base=%q head=%q", res.Revision, res.BaseSHA, res.HeadSHA)
+	}
+	if !strings.Contains(res.ReceiptMarkdown, "<!-- controlrod-check-binding:") ||
+		!strings.Contains(res.ReceiptMarkdown, res.DiffDigest.Value) ||
+		!strings.Contains(res.ReceiptMarkdown, "pnpm cr verify --receipt") {
+		t.Fatalf("receipt missing binding/verify link:\n%s", res.ReceiptMarkdown)
+	}
+}

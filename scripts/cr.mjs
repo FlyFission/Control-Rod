@@ -250,15 +250,37 @@ function receipt(file) {
   process.exit(r.status ?? 1);
 }
 
+function resolveCliArgs(argv) {
+  const cwd = process.env.INIT_CWD ?? process.cwd();
+  const out = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--receipt") {
+      out.push(a);
+      if (i + 1 < argv.length) out.push(resolve(cwd, argv[++i]));
+      continue;
+    }
+    if (a === "--diff-sha256" || a === "--head-sha" || a === "--revision") {
+      out.push(a);
+      if (i + 1 < argv.length) out.push(argv[++i]);
+      continue;
+    }
+    if (a.startsWith("-")) {
+      out.push(a);
+      continue;
+    }
+    out.push(resolve(cwd, a));
+  }
+  return out;
+}
+
 const cmd = process.argv[2] ?? "start";
 if (cmd === "doctor") process.exit(doctor() ? 0 : 1);
 else if (cmd === "setup") setup();
 else if (cmd === "start") await start();
-else if (cmd === "verify") verify(process.argv.slice(3).map((f) => resolve(process.env.INIT_CWD ?? process.cwd(), f)));
-else if (cmd === "receipt") {
-  const f = process.argv[3];
-  receipt(f ? resolve(process.env.INIT_CWD ?? process.cwd(), f) : undefined);
-} else {
+else if (cmd === "verify") verify(resolveCliArgs(process.argv.slice(3)));
+else if (cmd === "receipt") receipt(process.argv[3] ? resolveCliArgs(process.argv.slice(3))[0] : undefined);
+else {
   console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>|receipt <inclusion-proof.json>]");
   process.exit(2);
 }

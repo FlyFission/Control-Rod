@@ -236,6 +236,12 @@ describe("PR receipt", () => {
     expect(untrusted.markdown).toContain("**Accepted by:** unverified claim naming `mem_owner`");
     expect(untrusted.markdown).not.toContain("passkey decision");
     expect(untrusted.markdown).toContain("bundle key, ownership unconfirmed");
+    const signedHead = sealed.segment.find((e) => e.seq === sealed.seal!.payload.head_seq)!;
+    const sealRecordEvent = sealed.segment.at(-1)!;
+    expect(sealRecordEvent.type).toBe("chain.sealed");
+    expect(sealRecordEvent.seq).toBe(signedHead.seq + 1);
+    expect(untrusted.markdown).toContain(`head #${signedHead.seq} \`${signedHead.digest.value.slice(0, 12)}\``);
+    expect(untrusted.markdown).not.toContain(`head #${signedHead.seq} \`${sealRecordEvent.digest.value.slice(0, 12)}\``);
 
     // With external trustedSealKeys matching the enrolled key_digest, key ownership is verified
     // while still honestly noting the per-decision WebAuthn assertion is absent from the bundle.
@@ -244,6 +250,8 @@ describe("PR receipt", () => {
       trustedSealKeys: new Map([["mem_owner", sealKeyDigest]]),
     });
     expect(trusted.code, trusted.lines.join("\n")).toBe(0);
+    expect(trusted.markdown).toContain(`head #${signedHead.seq} \`${signedHead.digest.value.slice(0, 12)}\``);
+    expect(trusted.markdown).not.toContain(`head #${signedHead.seq} \`${sealRecordEvent.digest.value.slice(0, 12)}\``);
     expect(trusted.markdown).not.toContain("UNVERIFIED SEAL KEY");
     expect(trusted.markdown).toContain("**Accepted by:** recorded `mem_owner` (decision `D-1`, subject `sha256:eeeeeeeeeeee`, under trusted seal of `mem_owner`, per-decision WebAuthn assertion not in bundle)");
     expect(trusted.markdown).not.toContain("passkey decision");

@@ -264,18 +264,65 @@ function isSealKeyTrusted(bundle: InclusionBundle, authenticated: boolean, opts?
   return expectedDigest.trim().toLowerCase() === actualDigest.toLowerCase();
 }
 
-function extractReceiptFromBundle(
+export interface ReceiptBindingExpectation {
+  packageId?: string | undefined;
+  expectedRevision?: number | undefined;
+  expectedDiffSha256?: string | undefined;
+  expectedHeadSha?: string | undefined;
+  headShaRequired?: boolean | undefined;
+  receiptText?: string | undefined;
+}
+
+export interface BundleInspection {
+  input: PrReceiptInput;
+  currentRevision?: number | undefined;
+  preCheckRevision?: number | undefined;
+  authorOutputDigests: string[];
+  recordedHeadShas: string[];
+}
+
+function addHexDigest(target: Set<string>, raw: unknown) {
+  const hex = readSubjectDigest(raw);
+  if (hex) target.add(hex.toLowerCase());
+}
+
+function collectOutputsAndRefs(
+  data: Record<string, unknown>,
+  digests: Set<string>,
+  headShas: Set<string>,
+) {
+  addHexDigest(digests, data.diff_sha256);
+  if (Array.isArray(data.outputs)) {
+    for (const o of data.outputs) {
+      if (o && typeof o === "object") {
+        const rec = o as Record<string, unknown>;
+        addHexDigest(digests, rec.sha256 ?? rec.digest);
+      }
+    }
+  }
+  for (const key of ["head_sha", "commit_sha"] as const) {
+    const val = data[key];
+    if (typeof val === "string" && /^[0-9a-f]{7,64}$/i.test(val.trim())) {
+      headShas.add(val.trim().toLowerCase());
+    }
+  }
+}
+
+export function extractBundleInspection(
   bundle: InclusionBundle,
   authenticated: boolean,
   sealKeyTrusted: boolean,
   bundlePath: string,
   bundleDigest: string,
-): PrReceiptInput {
+): BundleInspection {
   const events: EventRecord[] = bundle.segment;
   const pkgId = bundle.package_id;
 
   let currentRevision: number | undefined;
   const authorByRound = new Map<number, string>();
+  const authorOutputsByRound = new Map<number, Set<string>>();
+  let latestOutputs = new Set<string>();
+  const recordedHeadShas = new Set<string>();
   let latestAuthorOutput: string | undefined;
   let preCheckRevision: number | undefined;
   let checker: PrReceiptChecker | undefined;
@@ -285,6 +332,9 @@ function extractReceiptFromBundle(
   const resetForRevision = (nextRev: number) => {
     currentRevision = nextRev;
     authorByRound.clear();
+    authorOutputsByRound.clear();
+    latestOutputs = new Set<string>();
+    recordedHeadShas.clear();
     latestAuthorOutput = undefined;
     preCheckRevision = undefined;
     checker = undefined;
@@ -301,17 +351,30 @@ function extractReceiptFromBundle(
       else if (data.revision < currentRevision) continue;
     }
 
+    if (e.subject === pkgId && (e.type === "package.created" || e.type === "package.drafted")) {
+      collectOutputsAndRefs(data, latestOutputs, recordedHeadShas);
+    }
+
     // Only credit authorship from succeeded author runs with outputs or package.output, never run.started.
     if (e.type === "run.succeeded" && data.package === pkgId && data.role === "author") {
       const hasOutputs = !Array.isArray(data.outputs) || data.outputs.length > 0;
       if (hasOutputs && typeof e.actor?.id === "string" && e.actor.id) {
         latestAuthorOutput = e.actor.id;
-        if (typeof data.round === "number") authorByRound.set(data.round, e.actor.id);
+        const roundDigests = new Set<string>();
+        collectOutputsAndRefs(data, roundDigests, recordedHeadShas);
+        if (roundDigests.size > 0) latestOutputs = new Set(roundDigests);
+        if (typeof data.round === "number") {
+          authorByRound.set(data.round, e.actor.id);
+          authorOutputsByRound.set(data.round, roundDigests);
+        }
       }
     }
 
     if ((e.type === "run.failed" || e.type === "run.stopped" || e.type === "run.lost") && data.package === pkgId && data.role === "author") {
-      if (typeof data.round === "number") authorByRound.delete(data.round);
+      if (typeof data.round === "number") {
+        authorByRound.delete(data.round);
+        authorOutputsByRound.delete(data.round);
+      }
     }
 
     if (e.type === "package.edited" && e.subject === pkgId) {
@@ -322,7 +385,17 @@ function extractReceiptFromBundle(
     if (e.type === "package.output" && e.subject === pkgId) {
       if (typeof e.actor?.id === "string" && e.actor.id) {
         latestAuthorOutput = e.actor.id;
-        if (typeof data.round === "number") authorByRound.set(data.round, e.actor.id);
+        const outDigests = new Set<string>();
+        collectOutputsAndRefs(data, outDigests, recordedHeadShas);
+        for (const d of outDigests) latestOutputs.add(d);
+        if (typeof data.round === "number") {
+          authorByRound.set(data.round, e.actor.id);
+          if (outDigests.size > 0) {
+            const existing = authorOutputsByRound.get(data.round) ?? new Set<string>();
+            for (const d of outDigests) existing.add(d);
+            authorOutputsByRound.set(data.round, existing);
+          }
+        }
       }
       preCheckRevision = undefined;
       checker = undefined;
@@ -343,7 +416,10 @@ function extractReceiptFromBundle(
       preCheckRevision = rev;
       if (round !== undefined) {
         latestAuthorOutput = authorByRound.get(round);
+        const rDigests = authorOutputsByRound.get(round);
+        if (rDigests && rDigests.size > 0) latestOutputs = new Set(rDigests);
       }
+      collectOutputsAndRefs(data, latestOutputs, recordedHeadShas);
       const outcome =
         data.outcome === "pass" || data.outcome === "fail" || data.outcome === "inconclusive"
           ? data.outcome
@@ -388,6 +464,7 @@ function extractReceiptFromBundle(
           acceptance = undefined;
           continue;
         }
+        collectOutputsAndRefs(data, latestOutputs, recordedHeadShas);
         acceptance = {
           acceptedBy: e.actor.id,
           decisionId,
@@ -403,29 +480,159 @@ function extractReceiptFromBundle(
   }
 
   const tail = events.at(-1);
+  let headSeq = tail?.seq;
+  let headDigest = tail?.digest.value;
+  if (authenticated && bundle.seal) {
+    const sealedSeq = Number(bundle.seal.payload?.head_seq ?? tail?.seq ?? 0);
+    const sealedEvent = events.find((ev) => ev.seq === sealedSeq);
+    const sealedDigest = readSubjectDigest(bundle.seal.payload?.head_digest) ?? sealedEvent?.digest.value;
+    headSeq = sealedSeq;
+    headDigest = sealedDigest;
+  }
+
   return {
-    packageId: pkgId,
-    ...(currentRevision !== undefined ? { revision: currentRevision } : {}),
-    author: { provider: latestAuthorOutput ?? "unknown" },
-    ...(checker ? { checker } : {}),
-    ...(acceptance ? { acceptance } : {}),
-    ...(unauthenticatedAcceptancePresent ? { unauthenticatedAcceptancePresent: true } : {}),
-    proof: {
-      bundlePath,
-      authenticated,
-      sealKeyTrusted,
-      bundleDigest,
-      ...(tail ? { headSeq: tail.seq, headDigest: tail.digest.value } : {}),
-      ...(authenticated && bundle.seal
-        ? {
-            sealedBy: String(bundle.seal.id ?? ""),
-            sealedAt: String(bundle.seal.payload?.sealed_at ?? ""),
-            headSeq: Number(bundle.seal.payload?.head_seq ?? tail?.seq ?? 0),
-          }
-        : {}),
-      witnessed: false,
+    currentRevision,
+    preCheckRevision,
+    authorOutputDigests: [...latestOutputs],
+    recordedHeadShas: [...recordedHeadShas],
+    input: {
+      packageId: pkgId,
+      ...(currentRevision !== undefined ? { revision: currentRevision } : {}),
+      author: { provider: latestAuthorOutput ?? "unknown" },
+      ...(checker ? { checker } : {}),
+      ...(acceptance ? { acceptance } : {}),
+      ...(unauthenticatedAcceptancePresent ? { unauthenticatedAcceptancePresent: true } : {}),
+      proof: {
+        bundlePath,
+        authenticated,
+        sealKeyTrusted,
+        bundleDigest,
+        ...(headSeq !== undefined ? { headSeq } : {}),
+        ...(headDigest ? { headDigest } : {}),
+        ...(authenticated && bundle.seal
+          ? {
+              sealedBy: String(bundle.seal.id ?? ""),
+              sealedAt: String(bundle.seal.payload?.sealed_at ?? ""),
+            }
+          : {}),
+        witnessed: false,
+      },
     },
   };
+}
+
+export function parseReceiptBinding(text: string): ReceiptBindingExpectation | null {
+  const trimmed = text.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const obj = JSON.parse(trimmed) as Record<string, unknown>;
+      const diffObj = obj.diff_digest as Record<string, unknown> | undefined;
+      const diffVal = readSubjectDigest(diffObj?.value ?? obj.diff_sha256);
+      const rev = typeof obj.revision === "number" && Number.isInteger(obj.revision) && obj.revision > 0 ? obj.revision : undefined;
+      const headSha = typeof obj.head_sha === "string" && /^[0-9a-f]{7,64}$/i.test(obj.head_sha.trim()) ? obj.head_sha.trim().toLowerCase() : undefined;
+      const packageId = typeof obj.package_id === "string" && obj.package_id ? obj.package_id : undefined;
+      if (diffVal || rev !== undefined || headSha) {
+        return { packageId, expectedRevision: rev, expectedDiffSha256: diffVal?.toLowerCase(), expectedHeadSha: headSha };
+      }
+    } catch {
+      return null;
+    }
+  }
+  const m = text.match(/<!--\s*controlrod-check-binding:\s*(\{[^\r\n]*?\})\s*-->/);
+  if (m?.[1]) {
+    try {
+      const obj = JSON.parse(m[1]) as Record<string, unknown>;
+      const diffVal = readSubjectDigest(obj.diff_sha256);
+      const rev = typeof obj.revision === "number" && Number.isInteger(obj.revision) && obj.revision > 0 ? obj.revision : undefined;
+      const headSha = typeof obj.head_sha === "string" && /^[0-9a-f]{7,64}$/i.test(obj.head_sha.trim()) ? obj.head_sha.trim().toLowerCase() : undefined;
+      const packageId = typeof obj.package_id === "string" && obj.package_id ? obj.package_id : undefined;
+      if (diffVal || rev !== undefined || headSha) {
+        return { packageId, expectedRevision: rev, expectedDiffSha256: diffVal?.toLowerCase(), expectedHeadSha: headSha };
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+export function checkBundleReceiptBinding(
+  bundle: InclusionBundle,
+  authenticated: boolean,
+  expect: ReceiptBindingExpectation,
+): { problem?: string; summary?: string } {
+  const hasChecks =
+    expect.expectedRevision !== undefined ||
+    expect.expectedDiffSha256 !== undefined ||
+    expect.expectedHeadSha !== undefined ||
+    expect.receiptText !== undefined;
+  if (!hasChecks) return {};
+
+  let resolved = expect;
+  if (expect.receiptText !== undefined) {
+    const parsed = parseReceiptBinding(expect.receiptText);
+    if (!parsed) {
+      return { problem: "the receipt or verdict file contains no valid controlrod-check-binding metadata" };
+    }
+    resolved = {
+      packageId: expect.packageId ?? parsed.packageId,
+      expectedRevision: expect.expectedRevision ?? parsed.expectedRevision,
+      expectedDiffSha256: expect.expectedDiffSha256 ?? parsed.expectedDiffSha256,
+      expectedHeadSha: expect.expectedHeadSha ?? parsed.expectedHeadSha,
+      headShaRequired: expect.headShaRequired,
+    };
+  }
+
+  if (!authenticated) {
+    return { problem: "the bundle is unsealed, so no authenticated human acceptance covers this PR revision or diff" };
+  }
+
+  const inspection = extractBundleInspection(bundle, authenticated, false, "", "");
+  const acceptance = inspection.input.acceptance;
+  if (!acceptance) {
+    return { problem: "the bundle has no active authenticated human acceptance matching its current pre-check and revision" };
+  }
+
+  if (resolved.expectedRevision !== undefined && inspection.currentRevision !== resolved.expectedRevision) {
+    return {
+      problem: `acceptance covers package revision ${inspection.currentRevision ?? "unknown"}, not expected revision ${resolved.expectedRevision}`,
+    };
+  }
+
+  if (resolved.expectedDiffSha256 !== undefined) {
+    const want = resolved.expectedDiffSha256.toLowerCase();
+    const recorded = inspection.authorOutputDigests.map((d) => d.toLowerCase());
+    if (!recorded.includes(want)) {
+      const got = recorded.length ? recorded.map((d) => `sha256:${shortDigest(d)}`).join(", ") : "none";
+      return {
+        problem: `accepted deliverables (${got}) do not cover receipt diff sha256:${want}`,
+      };
+    }
+  }
+
+  if (resolved.expectedHeadSha !== undefined) {
+    const wantHead = resolved.expectedHeadSha.toLowerCase();
+    const recordedHeads = inspection.recordedHeadShas.map((s) => s.toLowerCase());
+    if (recordedHeads.length > 0 && !recordedHeads.includes(wantHead)) {
+      return {
+        problem: `accepted bundle commit (${recordedHeads.join(", ")}) does not match head commit ${wantHead}`,
+      };
+    }
+    if (resolved.headShaRequired && !recordedHeads.includes(wantHead)) {
+      return {
+        problem: `accepted bundle records no head commit matching ${wantHead}`,
+      };
+    }
+  }
+
+  const detail = [
+    inspection.currentRevision !== undefined ? `revision ${inspection.currentRevision}` : "",
+    acceptance.decisionId ? `decision ${acceptance.decisionId}` : "",
+    resolved.expectedDiffSha256 ? `diff sha256:${shortDigest(resolved.expectedDiffSha256)}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  return { summary: `Acceptance link holds (${detail}).` };
 }
 
 /**
@@ -453,8 +660,8 @@ export async function prReceiptFromBundleText(
   }
   const sealKeyTrusted = isSealKeyTrusted(bundle, check.authenticated, opts);
   const bundleDigest = createHash("sha256").update(text, "utf8").digest("hex");
-  const input = extractReceiptFromBundle(bundle, check.authenticated, sealKeyTrusted, bundlePath, bundleDigest);
-  const markdown = formatPrReceipt(input);
+  const inspection = extractBundleInspection(bundle, check.authenticated, sealKeyTrusted, bundlePath, bundleDigest);
+  const markdown = formatPrReceipt(inspection.input);
   return { code: 0, markdown, lines: [markdown.trimEnd()] };
 }
 

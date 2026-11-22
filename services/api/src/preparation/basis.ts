@@ -38,11 +38,96 @@ export interface ResolvedBasis {
   kind: string;
   artifacts?: { path: string; sha256: string; bytes: Buffer }[];
 }
+type BasisConfig = Partial<
+  Pick<WorkConfig, "root" | "preparationSources" | "preparationRepositories">
+>;
+
+/** Reads a configured working file only when it matches the explicitly named HEAD blob. */
+export async function readRepositoryBasis(
+  cfg: BasisConfig,
+  b: Pick<PreparationContent["basis"][number], "reference" | "revision" | "path" | "commit">,
+) {
+  const configured =
+    cfg.preparationRepositories?.[b.reference] ??
+    (b.reference === "repository:control-rod" ? cfg.root : undefined);
+  if (
+    !configured ||
+    !b.path ||
+    !/^[0-9a-f]{40,64}$/.test(b.commit ?? "") ||
+    b.path.split(/[\\/]/).some((s) => s === ".." || s === ".git") ||
+    isAbsolute(b.path) ||
+    /^[A-Za-z]:/.test(b.path) ||
+    b.path.includes("\\")
+  )
+    throw new Refusal(
+      409,
+      "basis-unverified",
+      `${b.reference}: repository access is not configured or path is invalid`,
+    );
+  const root = await realpath(configured);
+  const path = await realpath(resolve(root, b.path));
+  const rel = relative(root, path);
+  if (
+    rel.startsWith("..") ||
+    isAbsolute(rel) ||
+    !(await stat(path)).isFile()
+  )
+    throw new Refusal(
+      409,
+      "basis-unverified",
+      `${b.reference}: path is outside the allowed repository`,
+    );
+  const options = {
+    timeout: 5000,
+    maxBuffer: MAX_SOURCE,
+    env: {
+      ...process.env,
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_NO_REPLACE_OBJECTS: "1",
+      GIT_NO_LAZY_FETCH: "1",
+      GIT_OPTIONAL_LOCKS: "0",
+      GIT_TERMINAL_PROMPT: "0",
+    },
+  };
+  const before = (
+    await exec(
+      "git",
+      ["-C", root, "rev-parse", "--verify", "HEAD"],
+      options,
+    )
+  ).stdout.trim();
+  if (before !== b.commit || b.revision !== b.commit)
+    throw new Refusal(
+      409,
+      "basis-unverified",
+      `${b.reference}: repository HEAD changed`,
+    );
+  const pinned = await exec(
+    "git",
+    ["-C", root, "cat-file", "blob", `${b.commit}:${b.path}`],
+    { ...options, encoding: "buffer" },
+  );
+  const bytes = await readBasisFile(path);
+  const sourceDigest = rawSha256(bytes);
+  const after = (
+    await exec(
+      "git",
+      ["-C", root, "rev-parse", "--verify", "HEAD"],
+      options,
+    )
+  ).stdout.trim();
+  if (before !== after || rawSha256(pinned.stdout) !== sourceDigest)
+    throw new Refusal(
+      409,
+      "basis-unverified",
+      `${b.reference}: working bytes differ from the pinned blob`,
+    );
+  return { bytes, sourceDigest };
+}
 export async function resolveBasis(
   q: Db | Tx,
-  cfg: Partial<
-    Pick<WorkConfig, "root" | "preparationSources" | "preparationRepositories">
-  >,
+  cfg: BasisConfig,
   basis: PreparationContent["basis"],
   lock = false,
 ): Promise<ResolvedBasis[]> {
@@ -156,82 +241,7 @@ export async function resolveBasis(
             `${b.reference}: stored attachment changed`,
           );
       } else if (b.kind === "repository") {
-        const configured =
-          cfg.preparationRepositories?.[b.reference] ??
-          (b.reference === "repository:control-rod" ? cfg.root : undefined);
-        if (
-          !configured ||
-          !b.path ||
-          !/^[0-9a-f]{40,64}$/.test(b.commit ?? "") ||
-          b.path.split(/[\\/]/).some((s) => s === ".." || s === ".git") ||
-          isAbsolute(b.path) ||
-          /^[A-Za-z]:/.test(b.path) ||
-          b.path.includes("\\")
-        )
-          throw new Refusal(
-            409,
-            "basis-unverified",
-            `${b.reference}: repository access is not configured or path is invalid`,
-          );
-        const root = await realpath(configured),
-          path = await realpath(resolve(root, b.path)),
-          rel = relative(root, path);
-        if (
-          rel.startsWith("..") ||
-          isAbsolute(rel) ||
-          !(await stat(path)).isFile()
-        )
-          throw new Refusal(
-            409,
-            "basis-unverified",
-            `${b.reference}: path is outside the allowed repository`,
-          );
-        const options = {
-          timeout: 5000,
-          maxBuffer: MAX_SOURCE,
-          env: {
-            ...process.env,
-            GIT_CONFIG_NOSYSTEM: "1",
-            GIT_CONFIG_GLOBAL: "/dev/null",
-            GIT_NO_REPLACE_OBJECTS: "1",
-            GIT_NO_LAZY_FETCH: "1",
-            GIT_OPTIONAL_LOCKS: "0",
-            GIT_TERMINAL_PROMPT: "0",
-          },
-        };
-        const before = (
-          await exec(
-            "git",
-            ["-C", root, "rev-parse", "--verify", "HEAD"],
-            options,
-          )
-        ).stdout.trim();
-        if (before !== b.commit || b.revision !== b.commit)
-          throw new Refusal(
-            409,
-            "basis-unverified",
-            `${b.reference}: repository HEAD changed`,
-          );
-        const pinned = await exec(
-          "git",
-          ["-C", root, "cat-file", "blob", `${b.commit}:${b.path}`],
-          { ...options, encoding: "buffer" },
-        );
-        bytes = await readBasisFile(path);
-        sourceDigest = rawSha256(bytes);
-        const after = (
-          await exec(
-            "git",
-            ["-C", root, "rev-parse", "--verify", "HEAD"],
-            options,
-          )
-        ).stdout.trim();
-        if (before !== after || rawSha256(pinned.stdout) !== sourceDigest)
-          throw new Refusal(
-            409,
-            "basis-unverified",
-            `${b.reference}: working bytes differ from the pinned blob`,
-          );
+        ({ bytes, sourceDigest } = await readRepositoryBasis(cfg, b));
       } else {
         const source = cfg.preparationSources?.[b.reference];
         if (!source || source.kind !== b.kind || source.revision !== b.revision)

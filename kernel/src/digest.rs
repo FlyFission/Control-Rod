@@ -10,7 +10,7 @@
 //! - no object has the same key twice;
 //! - containers nest at most [`MAX_DEPTH`] deep.
 
-use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
+use serde::de::{DeserializeSeed, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
 use sha2::{Digest as _, Sha256};
 use std::collections::HashSet;
 use std::fmt::{self, Write as _};
@@ -138,8 +138,13 @@ impl<'de> Visitor<'de> for Check {
         Ok(Some(DigestError::NumberNotAllowed(self.at())))
     }
 
+    // Beyond the profile limit, validate syntax with serde_json's iterative value skipper.
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let mut first = self.container();
+        if let Some(problem) = self.container() {
+            while seq.next_element::<IgnoredAny>()?.is_some() {}
+            return Ok(Some(problem));
+        }
+        let mut first = None;
         let mut index = 0usize;
         while let Some(found) = seq.next_element_seed(self.child(&index.to_string()))? {
             first = first.or(found);
@@ -149,7 +154,11 @@ impl<'de> Visitor<'de> for Check {
     }
 
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-        let mut first = self.container();
+        if let Some(problem) = self.container() {
+            while map.next_entry::<IgnoredAny, IgnoredAny>()?.is_some() {}
+            return Ok(Some(problem));
+        }
+        let mut first = None;
         let mut seen = HashSet::new();
         while let Some(key) = map.next_key::<String>()? {
             let child = self.child(&key);
@@ -224,6 +233,25 @@ mod tests {
                 other => assert_eq!(other, "a known error kind", "{name}"),
             }
         }
+    }
+
+    #[test]
+    fn excess_nesting_keeps_the_profile_error_past_the_parser_recursion_limit() {
+        let depth = 160;
+        let array = format!("{}0{}", "[".repeat(depth), "]".repeat(depth));
+        let object = format!("{}0{}", r#"{"child":"#.repeat(depth), "}".repeat(depth));
+        assert_eq!(
+            canonical_sha256(&array),
+            Err(DigestError::TooDeep("/0".repeat(MAX_DEPTH)))
+        );
+        assert_eq!(
+            canonical_sha256(&object),
+            Err(DigestError::TooDeep("/child".repeat(MAX_DEPTH)))
+        );
+        assert!(matches!(
+            canonical_sha256(&array[..array.len() - 1]),
+            Err(DigestError::InvalidJson(_))
+        ));
     }
 
     fn hex(bytes: &[u8]) -> String {

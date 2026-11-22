@@ -405,6 +405,31 @@ describe("an author run with no output", () => {
 });
 
 describe("stopping a run", () => {
+  it("holds requeue after a stopped pre-check's successful exit is refused", async () => {
+    const id = await releasedPackage("STOPCHECK");
+    const author = (await claim()) as Job;
+    await asDaemon(`/runner/runs/${author.run.id}/complete`, {
+      status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("ok") }],
+    });
+    const check = (await claim(["codex"])) as Job;
+    expect(check.run.package_id).toBe(id);
+    expect(check.run.role).toBe("pre-check");
+    const stop = await asOwner("POST", `/packages/${id}/runs/${check.run.id}/stop`);
+    expect(stop.statusCode, stop.body).toBe(200);
+    const complete = await asDaemon(`/runner/runs/${check.run.id}/complete`, {
+      status: "succeeded", containment: "process-group", outputs: [],
+    });
+    expect(complete.statusCode, complete.body).toBe(200);
+    expect(complete.json().status).toBe("failed");
+    const row = await h.db.query("select body from runs where id = $1", [check.run.id]);
+    expect(row.rows[0]!.body).toMatchObject({
+      label: "Not admitted",
+      outcome_unknown: { reason: expect.stringContaining("process group containment") },
+    });
+    const requeue = await asOwner("POST", `/packages/${id}/runs/${check.run.id}/requeue`, {});
+    expect(requeue.statusCode, requeue.body).toBe(409);
+    expect(requeue.json().code).toBe("outcome-unknown");
+  });
   it("records the stop first, tells the daemon in its log reply, and lands as stopped when the daemon confirms", async () => {
     const id = await releasedPackage("STOP");
     const job = (await claim()) as Job;

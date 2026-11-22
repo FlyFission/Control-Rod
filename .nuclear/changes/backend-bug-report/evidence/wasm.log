@@ -1,0 +1,34 @@
+   Compiling unicode-ident v1.0.27
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling wasm-bindgen-shared v0.2.104
+   Compiling typenum v1.20.1
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling rustversion v1.0.23
+   Compiling serde_json v1.0.154
+   Compiling serde v1.0.229
+   Compiling bumpalo v3.20.3
+   Compiling log v0.4.34
+   Compiling const-oid v0.10.2
+   Compiling memchr v2.8.3
+   Compiling cfg-if v1.0.5
+   Compiling itoa v1.0.18
+   Compiling ryu-js v1.0.3
+   Compiling once_cell v1.21.4
+   Compiling hybrid-array v0.4.15
+   Compiling wasm-bindgen v0.2.104
+   Compiling syn v2.0.119
+   Compiling syn v3.0.9
+   Compiling block-buffer v0.12.1
+   Compiling crypto-common v0.2.2
+   Compiling digest v0.11.3
+   Compiling sha2 v0.11.1
+   Compiling serde_derive v1.0.229
+   Compiling wasm-bindgen-backend v0.2.104
+   Compiling wasm-bindgen-macro-support v0.2.104
+   Compiling wasm-bindgen-macro v0.2.104
+   Compiling serde_json_canonicalizer v0.4.1
+   Compiling controlrod-kernel v0.0.0 (/home/flyfission/worktrees/control-rod-backend-bugs/kernel)
+   Compiling controlrod-kernel-wasm v0.0.0 (/home/flyfission/worktrees/control-rod-backend-bugs/kernel/bindings/wasm)
+    Finished `release` profile [optimized] target(s) in 4.75s

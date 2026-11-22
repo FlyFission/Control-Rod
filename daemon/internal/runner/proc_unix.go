@@ -323,8 +323,8 @@ func StopGracefully(r SpawnReceipt, t StopTimings, snapshot func()) bool {
 	return waitGone(r, killWait)
 }
 
-// killProcessGroup kills the agent and everything it started. Used only for this daemon's own
-// unreaped child, whose id cannot have been reused.
+// killProcessGroup kills processes still in the launcher group. Used only for this daemon's
+// own unreaped child, whose id cannot have been reused.
 func killProcessGroup(cmd *exec.Cmd) {
 	if cmd.Process == nil {
 		return

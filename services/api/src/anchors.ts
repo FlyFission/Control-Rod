@@ -155,6 +155,8 @@ export function parseUnifiedDiff(text: string): DiffFile[] {
   let hunk: Hunk | undefined;
   let oldLine = 0;
   let newLine = 0;
+  let oldRemaining = 0;
+  let newRemaining = 0;
   // A file added or deleted empty has a `diff --git` header and a mode line but no `---`/`+++`.
   let header: { path: string | null; mode: "deleted" | "new" | undefined; seen: boolean } | undefined;
   const flushHeader = () => {
@@ -200,19 +202,27 @@ export function parseUnifiedDiff(text: string): DiffFile[] {
       file.hunks.push(hunk);
       oldLine = hunk.oldStart;
       newLine = hunk.newStart;
+      oldRemaining = hunk.oldLines;
+      newRemaining = hunk.newLines;
+      if (oldRemaining === 0 && newRemaining === 0) hunk = undefined;
       continue;
     }
-    if (!hunk) continue;
-    if (line.startsWith("-")) hunk.removed.push(oldLine++);
-    else if (line.startsWith("+")) hunk.added.push(newLine++);
-    else if (line.startsWith(" ") || line === "") {
+    if (!hunk || line.startsWith("\\")) continue; // "\\ No newline at end of file"
+    if (line.startsWith("-") && oldRemaining > 0) {
+      hunk.removed.push(oldLine++);
+      oldRemaining--;
+    } else if (line.startsWith("+") && newRemaining > 0) {
+      hunk.added.push(newLine++);
+      newRemaining--;
+    } else if ((line.startsWith(" ") || line === "") && oldRemaining > 0 && newRemaining > 0) {
       oldLine++;
       newLine++;
-    } else if (line.startsWith("\\")) {
-      // "\ No newline at end of file"
+      oldRemaining--;
+      newRemaining--;
     } else {
       hunk = undefined;
     }
+    if (oldRemaining === 0 && newRemaining === 0) hunk = undefined;
   }
   flushHeader();
   return files;
@@ -222,11 +232,11 @@ const overlaps = (a: number, b: number, c: number, d: number) => a <= d && c <= 
 
 /** True when head lines start..end touch a hunk of the change: an added line, or the place of a deletion. */
 function touchesChange(file: DiffFile, start: number, end: number): boolean {
-  return file.hunks.some(
-    (h) =>
-      h.added.some((n) => n >= start && n <= end) ||
-      (h.removed.length > 0 && overlaps(start, end, h.newStart, h.newStart + Math.max(h.newLines, 1) - 1)),
-  );
+  return file.hunks.some((h) => {
+    const firstHeadLine = Math.max(h.newStart, 1);
+    return h.added.some((n) => n >= start && n <= end) ||
+      (h.removed.length > 0 && overlaps(start, end, firstHeadLine, firstHeadLine + Math.max(h.newLines, 1) - 1));
+  });
 }
 
 interface Heading {
@@ -245,11 +255,11 @@ export function headings(doc: string): Heading[] {
     const f = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(text);
     if (f) {
       const run = f[1]!;
-      if (!fence) {
+      if (!fence && !(run[0] === "`" && f[2]!.includes("`"))) {
         fence = { char: run[0]!, length: run.length };
         return;
       }
-      if (run[0] === fence.char && run.length >= fence.length && f[2]!.trim() === "") {
+      if (fence && run[0] === fence.char && run.length >= fence.length && f[2]!.trim() === "") {
         fence = undefined;
         return;
       }
@@ -295,8 +305,9 @@ function checkLines(text: string | undefined, start: number, end: number, quote:
 
 /** Checks one anchored quote against a snapshot. Never throws for bad input; it fails closed. */
 export function checkAnchor(q: AnchoredQuote, s: Snapshot): AnchorCheck {
-  const a = q.anchor;
-  if (!validPath(a.path)) return fail("bad-path");
+  const a = q?.anchor;
+  if (!a || typeof a.path !== "string" || !validPath(a.path)) return fail("bad-path");
+  if (q.quote !== undefined && typeof q.quote !== "string") return fail("missing-quote");
   const fileIn = (side: "old" | "new") =>
     s.diff?.find((f) => (side === "old" ? f.oldPath : f.newPath) === a.path);
 
@@ -328,7 +339,10 @@ export function checkAnchor(q: AnchoredQuote, s: Snapshot): AnchorCheck {
       return { anchored: true };
     }
     case "section": {
-      if (a.heading_path.length === 0) return fail("section-missing");
+      if ((a.side !== "head" && a.side !== "base") || !Array.isArray(a.heading_path) ||
+          a.heading_path.length === 0 || !a.heading_path.every((part) => typeof part === "string")) {
+        return fail("section-missing");
+      }
       if (a.side === "base" && (!s.diff || !s.base)) return fail("not-a-diff");
       const doc = a.side === "head" ? s.head(a.path) : s.base!(a.path);
       if (doc === undefined) return fail("path-missing");

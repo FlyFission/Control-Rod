@@ -167,6 +167,7 @@ func Collect(dir string, maxFile, maxTotal int64) ([]NamedFile, []Artifact, erro
 // never read whole). A stop captures while the run is frozen, so the result is the outputs exactly
 // as they stood when write authority ended (specification 22).
 func Capture(dir string, maxFile, maxTotal int64) (*Captured, error) {
+	dir = filepath.Clean(dir)
 	var names []string
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -176,6 +177,12 @@ func Capture(dir string, maxFile, maxTotal int64) (*Captured, error) {
 			return err
 		}
 		if p == dir {
+			if d.Type()&fs.ModeSymlink != 0 {
+				return fmt.Errorf("output root %q is a symlink", dir)
+			}
+			if !d.IsDir() {
+				return fmt.Errorf("output root %q is not a directory", dir)
+			}
 			return nil
 		}
 		rel, _ := filepath.Rel(dir, p)

@@ -84,7 +84,7 @@ export function windowStart(period: string, now: Date): Date {
 /** Refuses a budget Control Rod could not honour: an unknown unit or period, or a cap on a unit it cannot reserve. */
 export function checkBudget(b: { mode: string; limit: Json; period: string }): void {
   const unit = b.limit?.unit;
-  if (!(unit in BUDGET_UNITS)) throw new Refusal(400, "invalid", "A budget's unit is minute (agent run time), token or USD");
+  if (typeof unit !== "string" || !Object.hasOwn(BUDGET_UNITS, unit)) throw new Refusal(400, "invalid", "A budget's unit is minute (agent run time), token or USD");
   if (typeof b.limit?.value !== "string" || !/^[0-9]+(\.[0-9]+)?$/.test(b.limit.value) || Number(b.limit.value) <= 0)
     throw new Refusal(400, "invalid", "A budget's limit is a positive number");
   if (!parsePeriod(b.period)) throw new Refusal(400, "invalid", "A budget's period is a whole number of days, weeks, months or years, such as P1M");

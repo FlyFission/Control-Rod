@@ -18,6 +18,8 @@ export type BoardCard = {
   owner?: string;
   /** An agent run on this revision is queued or running. */
   runActive: boolean;
+  /** True when a queued pre-check is held waiting for an independent runtime or override. */
+  heldPreCheck?: boolean;
   /** Set when a read behind the next line failed: reads it again. */
   retry?: () => void;
   /** A read behind this card has not succeeded since the latest stream drop: what it shows is last known. */
@@ -160,6 +162,7 @@ export function useBoardData(): BoardData {
     const owner = view?.originators?.[0];
     const activeRun = (view?.runs ?? []).find((r) => r.status === "running" || r.status === "queued");
     const runActive = activeRun !== undefined;
+    const heldPreCheck = (view?.runs ?? []).some((r) => r.role === "pre-check" && r.status === "queued" && r.waiting_reason !== undefined);
     const waitingOnVerifs = verifQ?.isPending === true && verifQ.fetchStatus !== "idle";
     let next: NextLine;
     let retry: (() => void) | undefined;
@@ -202,7 +205,7 @@ export function useBoardData(): BoardData {
         originators,
         otherQualifiedVerifier: admin.data !== undefined && hasOtherQualified(admin.data, { grade: p.grade ?? "general-service", ...(p.discipline ? { discipline: p.discipline } : {}) }, excluded),
         runActive,
-        heldPreCheck: (view?.runs ?? []).some((r) => r.role === "pre-check" && r.status === "queued" && r.waiting_reason !== undefined),
+        heldPreCheck,
       });
       offered = offeredNow;
     }
@@ -217,6 +220,7 @@ export function useBoardData(): BoardData {
       next,
       ...(owner ? { owner } : {}),
       runActive,
+      ...(heldPreCheck ? { heldPreCheck: true } : {}),
       ...(retry ? { retry } : {}),
       lastKnown: !cardFresh,
       nuclear,

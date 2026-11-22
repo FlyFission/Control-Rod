@@ -4,6 +4,7 @@ import type { ColumnId } from "../../lib/board.js";
 import { needsIndependentCheck } from "../../lib/board.js";
 import type { Kind } from "../../lib/kind.js";
 import type { NextLine } from "../../lib/next.js";
+import { cardStatusReadiness, shouldSpinStatus, type StatusReadiness } from "./boardPolish.js";
 
 const KIND_WORD: Record<Kind, string> = { code: "Code", doc: "Document" };
 const KIND_ICON: Record<Kind, string> = { code: "</>", doc: "☰" };
@@ -58,14 +59,20 @@ export type CardProps = {
   edgeColor?: string;
   /** Compact density hides avatars and grade/context chips, never the next line. */
   compact?: boolean;
+  /** True when an agent run on this revision is queued or running. */
+  runActive?: boolean;
+  /** Readiness state used to gate any spinning activity indicator honestly. */
+  readiness?: StatusReadiness;
 };
 
 /** A board card: the small fixed core of spec 6.2. No drag; the title opens the package. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, runActive = false, readiness }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
   const check = needsIndependentCheck(pkg);
+  const effectiveReadiness = readiness ?? cardStatusReadiness({ next, runActive, lastKnown }, stream);
+  const spin = shouldSpinStatus(effectiveReadiness, runActive);
   return (
     <article
       aria-labelledby={titleId}
@@ -120,6 +127,7 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
           <span className="muted">Last known: {next.text}</span>
         ) : stream === "live" ? (
           <>
+            {spin && <span className="bd-spin" aria-hidden="true" />}
             <span className="bd-sym">
               <span aria-hidden="true">{tone.symbol} </span>
               {tone.word ? <span className="bd-word">{tone.word}: </span> : null}

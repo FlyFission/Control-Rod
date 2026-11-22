@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { COLUMNS } from "../../lib/board.js";
 import { type Kind, useLook } from "../../lib/kind.js";
@@ -22,6 +22,7 @@ import { LensBar } from "./LensBar.js";
 import { QuickAdd } from "./QuickAdd.js";
 import { type SavedView, deleteView, loadViews, saveView } from "./savedViews.js";
 import { DaemonNotice } from "../../components/DaemonNotice.js";
+import { cardStatusReadiness, filterBoardCards, shouldYieldBoardFind, sortLaneCards } from "./boardPolish.js";
 import { type BoardCard, useBoardData } from "./useBoardData.js";
 import "./board.css";
 
@@ -42,6 +43,9 @@ export function BoardView() {
   const [lens, setLens] = useState<Lens>(readInitialLens);
   const [views, setViews] = useState<SavedView[]>(() => loadViews(data.me));
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearch = useDeferredValue(searchQuery);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -90,6 +94,11 @@ export function BoardView() {
     [data.cards, lens, data.me],
   );
 
+  const searchedCards = useMemo(
+    () => filterBoardCards(filteredCards, deferredSearch, data.projects),
+    [filteredCards, deferredSearch, data.projects],
+  );
+
   const lanes: Swimlane[] = useMemo(() => {
     if (lens.groupBy === "none") return [];
     if (lens.groupBy === "kind") {
@@ -101,13 +110,13 @@ export function BoardView() {
         .map((d) => ({
           key: d.key,
           label: d.label,
-          cards: filteredCards.filter((c) => (lens.kind !== "all" ? lens.kind === d.key : c.kinds[0] === d.key)),
+          cards: searchedCards.filter((c) => (lens.kind !== "all" ? lens.kind === d.key : c.kinds[0] === d.key)),
         }))
         .filter((l) => l.cards.length > 0);
     }
     if (lens.groupBy === "person") {
       const map = new Map<string, BoardCard[]>();
-      for (const c of filteredCards) {
+      for (const c of searchedCards) {
         const k = c.owner ?? "";
         map.set(k, [...(map.get(k) ?? []), c]);
       }
@@ -120,7 +129,7 @@ export function BoardView() {
         .map(([k, cards]) => ({ key: k || "__unassigned", label: k || "Unassigned", cards }));
     }
     const map = new Map<string, BoardCard[]>();
-    for (const c of filteredCards) {
+    for (const c of searchedCards) {
       const k = c.pkg.project || "";
       map.set(k, [...(map.get(k) ?? []), c]);
     }
@@ -133,11 +142,11 @@ export function BoardView() {
         return la.localeCompare(lb);
       })
       .map(([k, cards]) => ({ key: k || "__none", label: (k && data.projects[k]) || k || "No project", cards }));
-  }, [filteredCards, lens.groupBy, lens.kind, data.projects]);
+  }, [searchedCards, lens.groupBy, lens.kind, data.projects]);
 
   const legendItems = useMemo(
-    () => legendEntries(filteredCards, lens, copy.boardColumns),
-    [filteredCards, lens, copy.boardColumns],
+    () => legendEntries(searchedCards, lens, copy.boardColumns),
+    [searchedCards, lens, copy.boardColumns],
   );
 
   const selectedCard = useMemo(
@@ -154,17 +163,27 @@ export function BoardView() {
     }
   }, []);
 
+  // Scoped Cmd/Ctrl+F focuses the board search input, yielding to inputs, select, editable regions, and dialogs.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+      if (e.key.toLowerCase() !== "f") return;
+      if (shouldYieldBoardFind(e.target)) return;
+      const input = searchInputRef.current;
+      if (!input) return;
+      e.preventDefault();
+      input.focus();
+      input.select();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // J / K keyboard navigation across visible board card titles.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const inField =
-        target !== null &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.isContentEditable);
-      if (inField || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (shouldYieldBoardFind(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       const key = e.key.toLowerCase();
       if (key !== "j" && key !== "k") return;
       const titles = Array.from(document.querySelectorAll<HTMLButtonElement>(".bd-board button.bd-title"));
@@ -187,7 +206,7 @@ export function BoardView() {
 
   const renderColumns = (cards: BoardCard[], includeReadyExtras: boolean, Heading: "h2" | "h3", idPrefix: string) =>
     COLUMNS.map((c) => {
-      const here = cards.filter((x) => x.column === c.id);
+      const here = sortLaneCards(cards.filter((x) => x.column === c.id));
       const headingId = `${idPrefix}-${c.id}`;
       return (
         <section key={c.id} className="bd-col" aria-labelledby={headingId}>
@@ -214,6 +233,8 @@ export function BoardView() {
               stream={data.status}
               lastKnown={x.lastKnown}
               nuclear={x.nuclear}
+              runActive={x.runActive}
+              readiness={cardStatusReadiness(x, data.status)}
               selected={selectedId === x.pkg.id}
               edgeColor={edgeColor(x, lens)}
               compact={lens.density === "compact"}
@@ -257,6 +278,39 @@ export function BoardView() {
           ) : (
             <p className="bd-counts">Counts unknown until the work is read</p>
           )}
+          <div className="bd-search">
+            <label className="sr-only" htmlFor="bd-search-input">
+              Filter board cards
+            </label>
+            <input
+              ref={searchInputRef}
+              id="bd-search-input"
+              type="search"
+              className="bd-search-input"
+              placeholder="Filter cards…"
+              aria-keyshortcuts="Control+F Meta+F"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && searchQuery.length > 0) {
+                  e.preventDefault();
+                  setSearchQuery("");
+                }
+              }}
+            />
+            {searchQuery.length > 0 && (
+              <button
+                type="button"
+                className="btn small ghost bd-search-clear"
+                onClick={() => {
+                  setSearchQuery("");
+                  searchInputRef.current?.focus();
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
         <LensBar
           lens={lens}
@@ -324,6 +378,21 @@ export function BoardView() {
           </div>
         </section>
       )}
+      {!empty && deferredSearch.trim().length > 0 && searchedCards.length === 0 && (
+        <div className="bd-search-empty" role="status">
+          <span className="small muted">No cards match "{deferredSearch.trim()}".</span>
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => {
+              setSearchQuery("");
+              searchInputRef.current?.focus();
+            }}
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
       <div className={selectedId ? "bd-workspace has-drawer" : "bd-workspace"}>
         {lens.groupBy !== "none" && lanes.length > 0 ? (
           <div className="bd-lanes">
@@ -340,7 +409,7 @@ export function BoardView() {
             ))}
           </div>
         ) : (
-          <div className="bd-board">{renderColumns(filteredCards, true, "h2", "bd-col")}</div>
+          <div className="bd-board">{renderColumns(searchedCards, true, "h2", "bd-col")}</div>
         )}
         {selectedId && (
           <BoardReviewDrawer
@@ -363,8 +432,8 @@ export function BoardView() {
           {data.counts === "unknown"
             ? "Counts unknown"
             : data.counts === "last-known"
-              ? `Last known: ${filteredCards.length} of ${data.cards.length}`
-              : `${filteredCards.length} of ${data.cards.length}`}
+              ? `Last known: ${searchedCards.length} of ${data.cards.length}`
+              : `${searchedCards.length} of ${data.cards.length}`}
         </span>
       </div>
     </div>

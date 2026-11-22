@@ -185,6 +185,43 @@ async function eventsOf(subject: string) {
   return all.filter((e) => e.subject === subject);
 }
 
+describe("capture dismissal", () => {
+  it("stops queued intake and keeps the dismissal on a repeated request", async () => {
+    const captured = await asOwner("POST", "/captures", { lane: "internal", text: "A queued request" });
+    expect(captured.statusCode, captured.body).toBe(201);
+    const { id } = captured.json();
+    const dismissed = await asOwner("POST", `/captures/${id}/dismiss`);
+    expect(dismissed.statusCode, dismissed.body).toBe(200);
+    expect(dismissed.json()).toMatchObject({ id, disposition: "answered", answer: "Dismissed by ben." });
+    const repeated = await asOwner("POST", `/captures/${id}/dismiss`);
+    expect(repeated.json()).toEqual(dismissed.json());
+    expect(await claim()).toBeNull();
+    expect((await h.db.query("select status from runs where package_id = $1 and role = 'intake'", [id])).rows).toEqual([{ status: "stopped" }]);
+    expect((await eventsOf(id)).filter((event) => event.type === "capture.dismissed")).toHaveLength(1);
+  });
+
+  it("requests the daemon stop running intake and preserves the dismissal if completion arrives first", async () => {
+    const captured = await asOwner("POST", "/captures", { lane: "internal", text: "A request that starts before dismissal" });
+    expect(captured.statusCode, captured.body).toBe(201);
+    const { id } = captured.json();
+    const job = await claim();
+    expect(job?.run).toMatchObject({ role: "intake", package_id: id });
+    const runId = job!.run.id;
+    const dismissed = await asOwner("POST", `/captures/${id}/dismiss`);
+    expect(dismissed.statusCode, dismissed.body).toBe(200);
+    expect((await eventsOf(runId)).some((event) => event.type === "run.stop-requested")).toBe(true);
+    const result = await asDaemon(`/runner/runs/${runId}/complete`, {
+      status: "succeeded",
+      outputs: [{ name: "answer.md", content_base64: b64("Result already in flight") }],
+    });
+    expect(result.statusCode, result.body).toBe(200);
+    expect(result.json()).toMatchObject({ status: "stopped" });
+    const captures = (await asOwner("GET", "/captures")).json() as { id: string }[];
+    expect(captures.find((capture) => capture.id === id)).toMatchObject({ disposition: "answered", answer: "Dismissed by ben." });
+    expect(await claim()).toBeNull();
+  });
+});
+
 describe("what actually ran", () => {
   it("keeps runtime mode and models in the trace and flags a model the run did not ask for", async () => {
     await asOwner("POST", "/captures", { lane: "internal", text: "Which model ran?" });

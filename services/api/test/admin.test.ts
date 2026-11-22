@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { qualificationIdFor } from "../src/admin.js";
 import { currentFloor } from "../src/authority.js";
-import { memberIdFor } from "../src/tenancy.js";
+import { tx } from "../src/db/index.js";
+import { createOrganization, createProject, LOCAL_ORG, memberIdFor } from "../src/tenancy.js";
+import { projectRuntimePrefs } from "../src/workspace-projects.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, addOwnPasskey, logIn, registerWithInvitation, signIn, startHarness } from "./harness.js";
 
 /** Administrative commands (workbench plan task 1.5; specification 10.2). */
@@ -121,6 +123,45 @@ describe("authority", () => {
 });
 
 describe("commands", () => {
+  it("creates a workspace project with a signed administrator command and archives it", async () => {
+    const payload = {
+      name: "Signed workspace",
+      mode: "nuclear-grade",
+      lane: "internal",
+      repo: "workspace-repo",
+      author: { ecosystem: "codex", model: "default", reasoning: "default" },
+      checker: { ecosystem: "claude", model: "default", reasoning: "default" },
+    };
+    const options = await post(ben, "/admin/commands/project.workspace-create/options", { payload });
+    expect(options.statusCode, options.body).toBe(200);
+    const created = await post(ben, "/workspace/projects", { payload, assertion: benKey.assert(options.json().options) });
+    expect(created.statusCode, created.body).toBe(201);
+    const { id } = created.json();
+    expect(created.json()).toMatchObject({ ...payload, status: "active" });
+    const audit = await h.db.query("select body->'data' as data from events where body->>'type' = 'admin.command' and body->>'subject' = 'project.workspace-create'");
+    expect(audit.rows[0]?.data).toMatchObject({ signature: "direct", subject_digest: options.json().subject_digest.value });
+
+    const otherOrg = "org_workspace-fixture";
+    const actor = { kind: "human" as const, id: BEN };
+    await tx(h.admin, async (c) => {
+      await createOrganization(c, { id: otherOrg, name: "Workspace fixture", status: "suspended" }, actor);
+      await createProject(c, {
+        id: "prj_workspace-fixture", org_id: otherOrg, name: payload.name, mode: "software",
+        default_rigor: "standard", lanes: ["internal"], qa_overlays: [], autonomy_level: 0, status: "active",
+      }, actor);
+    });
+    expect(await projectRuntimePrefs(h.db, LOCAL_ORG, payload.name.toLowerCase())).toMatchObject({ author: "codex", checker: "claude" });
+    expect(await projectRuntimePrefs(h.db, otherOrg, payload.name)).toMatchObject({ author: "claude", checker: "codex" });
+
+    const archived = await post(ben, `/workspace/projects/${id}/archive`, {});
+    expect(archived.statusCode, archived.body).toBe(200);
+    expect(archived.json()).toEqual({ id, status: "archived" });
+    const stored = await h.db.query("select body->>'status' as status from projects where id = $1", [id]);
+    expect(stored.rows[0]?.status).toBe("retired");
+    expect(await projectRuntimePrefs(h.db, LOCAL_ORG, payload.name)).toBeNull();
+    expect(await projectRuntimePrefs(h.db, otherOrg, payload.name)).toMatchObject({ author: "claude", checker: "codex" });
+  });
+
   let project: string;
   it("creates and updates a project and refuses unsafe autonomy", async () => {
     const created = await signed(ben, benKey, "project.create", { name: "Plant", mode: "capital-projects", default_rigor: "standard", lanes: ["internal", "proprietary"], qa_overlays: ["nqa-1"] });

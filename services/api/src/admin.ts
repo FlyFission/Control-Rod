@@ -21,6 +21,7 @@ import { sealChain } from "./seals.js";
 import { checkBudget } from "./budgets.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
+import { createWorkspaceProject } from "./workspace-projects.js";
 
 /**
  * Administrative commands (specification 10.2; workbench plan task 1.5). Each declares how it is
@@ -413,6 +414,12 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
         ...(p.default_context_profile !== undefined ? { default_context_profile: str(p, "default_context_profile")! as never } : {}),
       }, actorOf(caller));
     },
+  },
+
+  "project.workspace-create": {
+    label: "Create a workspace project",
+    catalog: "admin.project-create", signature: "direct", need: "administrator",
+    run: createWorkspaceProject,
   },
 
   "project.update": {

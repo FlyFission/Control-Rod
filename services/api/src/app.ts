@@ -34,7 +34,6 @@ import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
 import {
   archiveWorkspaceProject,
-  createWorkspaceProject,
   listWorkspaceProjects,
   updateWorkspaceProject,
 } from "./workspace-projects.js";
@@ -48,7 +47,6 @@ import {
   claim,
   complete,
   classifyCapture,
-  closePackage,
   createCapture,
   dismissCapture,
   decisionChallenge,
@@ -322,17 +320,20 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const options = await assertionOptions(db, auth, "admin", { command: req.params.name, member: caller.memberId, subject_digest: subject, nonce }, challenge, caller.userName);
     return { subject_digest: { algorithm: "sha256", value: subject }, options };
   });
-  app.post<{ Params: { name: string }; Body: { payload?: Record<string, unknown>; assertion?: Record<string, unknown> } }>("/admin/commands/:name", async (req) => {
+  type AdminCommandBody = { payload?: Record<string, unknown>; assertion?: Record<string, unknown> };
+  async function executeAdminCommand(req: FastifyRequest<{ Body: AdminCommandBody }>, name: string) {
     const user = await person(req);
     const caller = await callerFor(db, user);
     let signed: { subject: string; credentialId: string; nonce: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
       const ok = await assertionVerify(db, auth, "admin", req.body.assertion as never);
-      if (ok && ok.user === user && ok.data.command === req.params.name && ok.data.member === caller.memberId)
+      if (ok && ok.user === user && ok.data.command === name && ok.data.member === caller.memberId)
         signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, nonce: String(ok.data.nonce), assertion: req.body.assertion };
     }
-    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, req.params.name, caller, req.body?.payload ?? {}, signed);
-  });
+    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, req.body?.payload ?? {}, signed);
+  }
+  app.post<{ Params: { name: string }; Body: AdminCommandBody }>("/admin/commands/:name", async (req) =>
+    executeAdminCommand(req, req.params.name));
 
   preparationRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { id: string }).id), auth);
   repoRoutes(app, person);
@@ -343,9 +344,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const caller = await callerFor(db, await person(req));
     return listWorkspaceProjects(db, caller.orgId);
   });
-  app.post<{ Body: Record<string, unknown> }>("/workspace/projects", async (req, reply) => {
-    const caller = await callerFor(db, await person(req));
-    const proj = await createWorkspaceProject(db, caller, req.body ?? {});
+  app.post<{ Body: AdminCommandBody }>("/workspace/projects", async (req, reply) => {
+    const proj = await executeAdminCommand(req, "project.workspace-create");
     return reply.code(201).send(proj);
   });
   app.patch<{ Params: { id: string }; Body: Record<string, unknown> }>("/workspace/projects/:id", async (req) => {
@@ -373,8 +373,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return classifyCapture(db, cfg, caller, req.params.id, req.body?.lane);
   });
   app.post<{ Params: { id: string } }>("/captures/:id/dismiss", async (req) => {
-    const user = await person(req);
-    return dismissCapture(db, cfg, user, req.params.id);
+    const caller = await callerFor(db, await person(req));
+    return dismissCapture(db, cfg, caller, req.params.id);
   });
 
   /* ---- packages ---- */
@@ -398,12 +398,6 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const ifMatch = typeof req.headers["if-match"] === "string" ? req.headers["if-match"] : undefined;
     const saved = await updateDraft(db, cfg, user, req.params.id, req.body, ifMatch);
     return reply.header("ETag", saved.etag).header("Cache-Control", "no-store").send(saved.body);
-  });
-  app.post<{ Params: { id: string } }>("/packages/:id/close", async (req) => {
-    const user = await person(req);
-    const caller = await callerFor(db, user);
-    await requireOwnPackage(db, caller.orgId, req.params.id);
-    return closePackage(db, cfg, user, req.params.id);
   });
   app.get<{ Params: { id: string } }>("/packages/:id/actions", async (req) => {
     const user = await packageUser(req, req.params.id);

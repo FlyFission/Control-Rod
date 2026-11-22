@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { Db } from "./db/index.js";
+import type { Db, Tx } from "./db/index.js";
 import { command } from "./commands/executor.js";
 import { appendEvent } from "./events.js";
 import type { Caller } from "./admin.js";
 import { checkSchema, createProject, type DataLane } from "./tenancy.js";
-import { Refusal } from "./work.js";
+import { Refusal } from "./refusal.js";
 
 const projectIdFor = () => `prj_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 
@@ -140,9 +140,10 @@ function mergePrefs(raw?: Partial<ProjectWorkspacePrefs>): ProjectWorkspacePrefs
   };
 }
 
-/** Looks up a project's configured author/checker CLI ecosystems, models, and lane overrides by project id or name (case-insensitive). */
+/** Looks up runtime preferences by project ID or case-insensitive name within its owning organization. */
 export async function projectRuntimePrefs(
   q: { query: Db["query"] },
+  orgId: string,
   projectRef: string,
 ): Promise<{
   author?: string;
@@ -153,17 +154,18 @@ export async function projectRuntimePrefs(
 } | null> {
   const ref = projectRef.trim();
   if (!ref) return null;
-  const r = await q.query<{ id: string; org_id: string }>(
-    `select id, org_id
+  const r = await q.query<{ id: string }>(
+    `select id
        from projects
-      where coalesce(body->>'status', 'active') = 'active'
-        and (id = $1 or lower(body->>'name') = lower($1))
+      where org_id = $1 and coalesce(body->>'status', 'active') = 'active'
+        and (id = $2 or lower(body->>'name') = lower($2))
+      order by (id = $2) desc, created_at, id
       limit 1`,
-    [ref],
+    [orgId, ref],
   );
   const row = r.rows[0];
-  if (!row || !row.org_id) return null;
-  const prefsMap = await readPrefsMap(q, row.org_id);
+  if (!row) return null;
+  const prefsMap = await readPrefsMap(q, orgId);
   const prefs = mergePrefs(prefsMap[row.id]);
   return {
     author: prefs.author.ecosystem,
@@ -195,9 +197,9 @@ export async function listWorkspaceProjects(db: Db, orgId: string): Promise<Work
   });
 }
 
-/** Creates an audited project record in Postgres and stores its workspace defaults. */
+/** Creates a project and stores its defaults inside the signed administrative command. */
 export async function createWorkspaceProject(
-  db: Db,
+  c: Tx,
   caller: Caller,
   input: Record<string, unknown>,
 ): Promise<WorkspaceProjectView> {
@@ -217,40 +219,38 @@ export async function createWorkspaceProject(
   });
   assertO6Independence(prefs);
   const actor = { kind: "human" as const, id: caller.userName };
-  return command(db, "admin.project-create", async (c) => {
-    const id = projectIdFor();
-    await createProject(c, {
-      id,
-      org_id: caller.orgId,
-      name,
-      mode: mode === "nuclear-grade" ? "software" : mode,
-      ...(mode === "nuclear-grade" ? { default_context_profile: "nuclear" as const } : {}),
-      default_rigor: "standard",
-      lanes: [prefs.lane],
-      qa_overlays: mode === "nuclear-grade" ? ["nuclear-grade"] : [],
-      autonomy_level: 0,
-      status: "active",
-    }, actor);
-    const map = await readPrefsMap(c, caller.orgId);
-    map[id] = prefs;
-    await writePrefsMap(c, caller.orgId, map);
-    await appendEvent(c, "project.workspace-updated", id, actor, {
-      repo: prefs.repo,
-      repo_strategy: prefs.repoStrategy,
-      lane: prefs.lane,
-      author: prefs.author.ecosystem,
-      checker: prefs.checker.ecosystem,
-      ...(prefs.laneAgents ? { lane_agents: prefs.laneAgents } : {}),
-    });
-    return {
-      id,
-      name,
-      mode,
-      status: "active",
-      ...prefs,
-      createdAt: new Date().toISOString(),
-    };
+  const id = projectIdFor();
+  await createProject(c, {
+    id,
+    org_id: caller.orgId,
+    name,
+    mode: mode === "nuclear-grade" ? "software" : mode,
+    ...(mode === "nuclear-grade" ? { default_context_profile: "nuclear" as const } : {}),
+    default_rigor: "standard",
+    lanes: [prefs.lane],
+    qa_overlays: mode === "nuclear-grade" ? ["nuclear-grade"] : [],
+    autonomy_level: 0,
+    status: "active",
+  }, actor);
+  const map = await readPrefsMap(c, caller.orgId);
+  map[id] = prefs;
+  await writePrefsMap(c, caller.orgId, map);
+  await appendEvent(c, "project.workspace-updated", id, actor, {
+    repo: prefs.repo,
+    repo_strategy: prefs.repoStrategy,
+    lane: prefs.lane,
+    author: prefs.author.ecosystem,
+    checker: prefs.checker.ecosystem,
+    ...(prefs.laneAgents ? { lane_agents: prefs.laneAgents } : {}),
   });
+  return {
+    id,
+    name,
+    mode,
+    status: "active",
+    ...prefs,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 /** Updates a project's workspace defaults (never mutating mode) with an audited hash-chain event. */
@@ -319,19 +319,21 @@ export async function archiveWorkspaceProject(db: Db, caller: Caller, projectId:
       "select body from projects where id = $1 and org_id = $2 for update",
       [projectId, caller.orgId],
     );
-    if (!r.rows[0]) throw new Refusal(404, "not-found", "No such project");
-    const name = String(r.rows[0].body.name ?? "");
+    const project = r.rows[0]?.body;
+    if (!project) throw new Refusal(404, "not-found", "No such project");
+    if (project.status === "retired") return { id: projectId, status: "archived" as const };
+    const name = String(project.name ?? "");
     const pending = await c.query<{ count: string }>(
-      `select count(*)::text as count from packages
-       where org_id = $1
-         and (body->>'project' = $2 or body->>'project' = $3)
-         and status in ('in-verification', 'awaiting-acceptance')`,
+      `select count(*)::text as count from packages p
+       join object_owners o on o.object_kind = 'package' and o.object_id = p.id and o.org_id = $1
+       where (p.body->>'project' = $2 or lower(p.body->>'project') = lower($3))
+         and p.status in ('in-verification', 'awaiting-acceptance')`,
       [caller.orgId, projectId, name],
     );
     if (Number(pending.rows[0]?.count ?? 0) > 0) {
       throw new Refusal(409, "pending-signatures", "Cannot archive a project while packages are awaiting verification or signature");
     }
-    const next = { ...r.rows[0].body, status: "archived" };
+    const next = { ...project, status: "retired" };
     checkSchema("Project.json", next);
     await c.query("update projects set body = $2 where id = $1", [projectId, next]);
     await appendEvent(c, "project.archived", projectId, actor, { name });

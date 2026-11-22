@@ -24,6 +24,7 @@ import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, loc
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
 import { projectRuntimePrefs } from "./workspace-projects.js";
+import { ownerOf } from "./tenancy.js";
 import { countedProvider, verifyCountedAttestation } from "./run-attestation.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
@@ -179,49 +180,39 @@ export async function classifyCapture(db: Db, cfg: WorkConfig, { userName: user,
     // Only a capture still waiting for its first classification goes on to intake. A capture from
     // before lanes existed has no lane but may already have been through intake: answered, or made
     // into packages. Classifying it records its lane and leaves that work alone.
-    if (cap.lane === undefined && !(await intakeStarted(c, id))) await queueRun(c, cfg, id, 0, "intake", 1);
+    if (cap.lane === undefined && pendingIntake(cap) && !(await intakeStarted(c, id))) await queueRun(c, cfg, id, 0, "intake", 1);
     await appendEvent(c, "capture.classified", id, { kind: "human", id: user }, { lane, ...(cap.lane ? { from: cap.lane } : {}) });
     return next;
   });
 }
 
-/** Dismisses a pending capture from the board (audited; stops any queued intake run). */
-export async function dismissCapture(db: Db, cfg: WorkConfig, user: string, id: string) {
+function pendingIntake(capture: Json): boolean {
+  return Boolean(capture && (capture.disposition ?? "pending") === "pending");
+}
+
+/** Dismisses an owned capture and stops its intake. */
+export async function dismissCapture(db: Db, cfg: WorkConfig, { userName: user, orgId }: { userName: string; orgId: string }, id: string) {
   return command(db, "capture.dismiss", async (c) => {
-    const r = await c.query<{ body: Json }>("select body from captures where id = $1 for update", [id]);
+    const r = await c.query<{ body: Json }>(
+      `select c.body from captures c
+         join object_owners o on o.object_kind = 'capture' and o.object_id = c.id and o.org_id = $2
+        where c.id = $1 for update of c`, [id, orgId]);
     const cap = r.rows[0]?.body;
     if (!cap) throw new Refusal(404, "not-found", "No such capture");
-    if (cap.disposition && cap.disposition !== "pending") return cap;
+    if (!pendingIntake(cap)) return cap;
     const next = { ...cap, disposition: "answered", answer: `Dismissed by ${user}.` };
     validate(cfg, "Capture.json", next);
     await c.query("update captures set body = $2 where id = $1", [id, next]);
-    await stopQueuedRuns(c, cfg, id, undefined, `Stopped because the capture was dismissed by ${user}.`);
+    const runs = await c.query<RunRow>(
+      `select r.* from runs r
+         join object_owners o on o.object_kind = 'run' and o.object_id = r.id and o.org_id = $2
+        where r.package_id = $1 and r.role = 'intake' and r.status in ('queued', 'running')
+        for update of r`, [id, orgId]);
+    for (const run of runs.rows) {
+      if (run.status === "queued") await stopQueuedRun(c, cfg, run, `Stopped because the capture was dismissed by ${user}.`);
+      else await requestRunningStop(c, cfg, user, run);
+    }
     await appendEvent(c, "capture.dismissed", id, { kind: "human", id: user }, { previous_disposition: cap.disposition ?? "pending" });
-    return next;
-  });
-}
-
-/** Closes a package from the active board (audited; stops any queued runs and preserves the record). */
-export async function closePackage(db: Db, cfg: WorkConfig, user: string, id: string) {
-  return command(db, "package.close", async (c) => {
-    const r = await c.query<PackageRow>(
-      "select * from packages where id = $1 order by revision desc limit 1 for update",
-      [id],
-    );
-    const pkg = r.rows[0];
-    if (!pkg) throw new Refusal(404, "not-found", "No such package");
-    if (pkg.status === "closed") return pkg.body;
-    const next = { ...pkg.body, status: "closed" };
-    await c.query("update packages set status = 'closed', body = $3, updated_at = now() where id = $1 and revision = $2", [
-      pkg.id,
-      pkg.revision,
-      next,
-    ]);
-    await stopQueuedRuns(c, cfg, pkg.id, undefined, `Stopped because the package was closed by ${user}.`);
-    await appendEvent(c, "package.closed", pkg.id, { kind: "human", id: user }, {
-      revision: pkg.revision,
-      previous_status: pkg.status,
-    });
     return next;
   });
 }
@@ -1273,10 +1264,9 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           }
           await releaseHold(c, cfg, row, "sandbox");
           const offer = net.offer;
-          const projPrefs: ProjectRuntimePrefs | null =
-            typeof pkg.body?.project === "string" && pkg.body.project
-              ? await projectRuntimePrefs(c, pkg.body.project)
-              : null;
+          const project = pkg.body?.project;
+          const owner = typeof project === "string" && project ? await ownerOf(c, "package", pkg.id) : null;
+          const projPrefs: ProjectRuntimePrefs | null = owner ? await projectRuntimePrefs(c, owner.org_id, project) : null;
           const capText = pkg.capture_id
             ? ((await c.query<{ text: string | null }>("select body->>'text' as text from captures where id = $1", [pkg.capture_id])).rows[0]?.text ?? null)
             : null;
@@ -1348,8 +1338,12 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         }
         // Intake reads the capture and its attachments: only a runtime its lane admits may.
         // The shared marking lock covers marked captures; the row lock also covers an unmarked one.
-        const bodyLane = (await c.query<{ lane: string | null }>("select body->>'lane' as lane from captures where id = $1 for share", [row.package_id])).rows[0]?.lane;
-        const capLane = await laneOf(c, "capture", row.package_id, bodyLane);
+        const capture = (await c.query<{ body: Json }>("select body from captures where id = $1 for share", [row.package_id])).rows[0]?.body;
+        if (!pendingIntake(capture)) {
+          await stopQueuedRun(c, cfg, row, "Stopped because the capture is no longer pending.");
+          continue;
+        }
+        const capLane = await laneOf(c, "capture", row.package_id, capture.lane);
         const admittedIntake = admitted(capLane, runtimes);
         if (admittedIntake.length === 0) {
           // An unclassified capture has no lane to be admitted to: its hold is its own.
@@ -1926,6 +1920,11 @@ export async function requeueRun(db: Db, cfg: WorkConfig, user: string, packageI
     const row = await lockRun(c, runId);
     requireLegacyRun(row);
     if (row.package_id !== packageId) throw new Refusal(404, "not-found", "No such run");
+    if (row.role === "intake") {
+      // Requeue holds the shared marking lock, which serializes the check with capture dismissal.
+      const result = await c.query<{ body: Json }>("select body from captures where id = $1", [packageId]);
+      if (!pendingIntake(result.rows[0]?.body)) throw new Refusal(409, "wrong-state", "The capture is no longer pending; there is nothing to requeue");
+    }
     if (row.body.requeued_as) {
       const again = await c.query<{ body: Json; status: string }>("select body, status from runs where id = $1", [row.body.requeued_as]);
       if (again.rows[0]) return { ...again.rows[0].body, status: again.rows[0].status };
@@ -1984,13 +1983,17 @@ export async function stopRun(db: Db, cfg: WorkConfig, user: string, packageId: 
       await recordCheckerAttempt(c, cfg.ajv, { ...row, status: "stopped", body });
       return body;
     }
-    if (row.status !== "running" || row.body.stop_requested_at) return { ...row.body, status: row.status };
-    const body = { ...row.body, stop_requested_at: now(), stop_requested_by: user, label: "Stopping" };
-    validate(cfg, "Run.json", body);
-    await c.query("update runs set body = $2 where id = $1", [runId, body]);
-    await appendEvent(c, "run.stop-requested", runId, human, { package: row.package_id, role: row.role, round: row.round });
-    return body;
+    return requestRunningStop(c, cfg, user, row);
   });
+}
+
+async function requestRunningStop(c: Tx, cfg: WorkConfig, user: string, row: RunRow) {
+  if (row.status !== "running" || row.body.stop_requested_at) return { ...row.body, status: row.status };
+  const body = { ...row.body, stop_requested_at: now(), stop_requested_by: user, label: "Stopping" };
+  validate(cfg, "Run.json", body);
+  await c.query("update runs set body = $2 where id = $1", [row.id, body]);
+  await appendEvent(c, "run.stop-requested", row.id, { kind: "human", id: user }, { package: row.package_id, role: row.role, round: row.round });
+  return body;
 }
 
 /** The run and package an override would apply to, and the digest the owner signs. */
@@ -2569,7 +2572,7 @@ async function recordRefused(db: Db, cfg: WorkConfig, runId: string, key: string
 async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: string; bytes: Buffer }[], body: Json, agent: Actor) {
   const capRes = await c.query<{ body: Json }>("select body from captures where id = $1 for update", [row.package_id]);
   const capture = capRes.rows[0]?.body;
-  if (!capture) return;
+  if (!pendingIntake(capture)) throw new Refusal(409, "stopped", "The capture is no longer pending; the intake result was not applied");
   const answer = outputs.find((o) => o.name === "answer.md");
   const drafts: Json[] = [];
   for (const o of outputs) {

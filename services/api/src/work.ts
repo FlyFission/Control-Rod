@@ -19,7 +19,7 @@ import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnde
 import { bindingSentence } from "./binding.js";
 import { RULES, briefHeader, composeBrief } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
-import { type PackWorkflow, type Workflow, type WorkflowPacks, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
+import { type PackWorkflow, type Workflow, type WorkflowPacks, captureProject, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -963,12 +963,30 @@ type WorkflowResolution = {
  * tag line in its capture (`body` is undefined), because no agent has drafted anything yet. The
  * playbook reads no pack.
  */
+/**
+ * The workflow an intake run follows: the request's own `[workflow:...]` tag; else the default of the
+ * project its tag line names, found in the capture's own organization by id or exact name; else the
+ * playbook. Only the person's tag line is read, never agent output.
+ */
+async function intakeWorkflow(c: Tx, captureId: string, text: unknown): Promise<ReturnType<typeof resolveWorkflow>> {
+  const tagged = captureWorkflow(text);
+  if (tagged) return { workflow: tagged, reason: `The request is tagged [workflow:${tagged}]` };
+  const named = captureProject(text);
+  if (!named) return { workflow: "playbook" };
+  const rows = (await c.query<{ body: Json }>(
+    `select p.body from projects p
+       join object_owners o on o.object_kind = 'capture' and o.object_id = $1 and o.org_id = p.org_id
+      where p.id = $2 or p.body->>'name' = $2`, [captureId, named])).rows;
+  if (rows.length !== 1) return { workflow: "playbook" };
+  const r = resolveWorkflow(undefined, rows[0]!.body);
+  return r.reason ? { ...r, reason: `${r.reason} (the request names project ${named})` } : r;
+}
+
 async function resolveRunWorkflow(c: Tx, cfg: WorkConfig, run: Json, body: Json | undefined): Promise<WorkflowResolution> {
   let resolved: ReturnType<typeof resolveWorkflow>;
   if (run.role === "intake") {
     const cap = (await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id])).rows[0]?.body;
-    const tagged = captureWorkflow(cap?.text);
-    resolved = tagged ? { workflow: tagged, reason: `The request is tagged [workflow:${tagged}]` } : { workflow: "playbook" };
+    resolved = await intakeWorkflow(c, String(run.package_id), cap?.text);
   } else {
     const project = typeof body?.project === "string"
       ? (await c.query<{ body: Json }>("select body from projects where id = $1", [body.project])).rows[0]?.body ?? null
@@ -2523,8 +2541,10 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
   if (new Set(idMap.values()).size !== drafts.length)
     throw new Refusal(400, "invalid", "Intake package IDs must be distinct after normalization");
   const created: string[] = [];
-  // An agent never picks a workflow: the request's own tag is the only source (see captureWorkflow).
-  const taggedWorkflow = captureWorkflow(capture.text);
+  // An agent never picks a workflow. Drafts take the workflow intake itself ran under (the request's
+  // tag, else its project's default), so the tickets and their authoring follow the same workflow.
+  const intakeRan = await intakeWorkflow(c, String(capture.id), capture.text);
+  const taggedWorkflow = intakeRan.reason ? intakeRan.workflow : undefined;
   // Packages drafted together may depend on each other: insert each after the ones it waits for.
   const ordered: Json[] = [];
   const placing = new Set<string>();

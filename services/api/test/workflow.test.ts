@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { composeBrief } from "../src/brief.js";
-import { captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "../src/workflow.js";
+import { captureProject, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "../src/workflow.js";
 
 /** Workflows without a database: resolution, the capture tag, pack loading and the brief sections, against fixture packs. */
 const fixtures = fileURLToPath(new URL("./fixtures/workflows/", import.meta.url));
@@ -23,6 +23,19 @@ describe("resolveWorkflow", () => {
   it("ignores values that are not a workflow", () => {
     expect(resolveWorkflow({ workflow: "Pocock" }, { default_workflow: 7 })).toEqual({ workflow: "playbook" });
     expect(resolveWorkflow({ workflow: "heavy" }, { default_workflow: "pocock" })).toMatchObject({ workflow: "pocock" });
+  });
+});
+
+describe("captureProject", () => {
+  it("reads the project from the header line, spaces included", () => {
+    expect(captureProject("[mode:software] [project:Plant Works] [stage:design]\n\nx")).toBe("Plant Works");
+    expect(captureProject("[project:prj_1]")).toBe("prj_1");
+  });
+  it("reads nothing past the first line, and two different projects are none", () => {
+    expect(captureProject("[mode:software]\n[project:prj_1]")).toBeUndefined();
+    expect(captureProject("[project:a] [project:b]")).toBeUndefined();
+    expect(captureProject("[project:  ]")).toBeUndefined();
+    expect(captureProject(undefined)).toBeUndefined();
   });
 });
 

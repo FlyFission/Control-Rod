@@ -291,6 +291,37 @@ describe("workflows at intake", () => {
     expect((await bodyOf(await idEnding("TAGB"))).workflow).toBe("pocock-superpowers");
   });
 
+  it("gives an untagged request its named project's default workflow, and stamps that on every draft", async () => {
+    const text = "[mode:software] [project:Plant Works] [stage:design]\n\nBuild the thing";
+    const cap = await asOwner("POST", "/captures", { lane: "internal", text });
+    expect(cap.statusCode, cap.body).toBe(201);
+    const capId = (cap.json() as { id: string }).id;
+    const org = (await h.admin.query<{ org_id: string }>("select org_id from object_owners where object_kind = 'capture' and object_id = $1", [capId])).rows[0]!.org_id;
+    // id and org_id are generated from the body.
+    await h.admin.query("insert into projects (body) values ($1)", [{ id: "prj_wf_plant", org_id: org, name: "Plant Works", default_workflow: "pocock" }]);
+    const job = await claim();
+    if (!job) {
+      const run = (await h.db.query("select status, body from runs where package_id = $1", [capId])).rows;
+      throw new Error(`no intake job: ${JSON.stringify(run)}`);
+    }
+    expect(input(job, "BRIEF.md")).toContain("CARD-MARKER-pocock-intake");
+    expect(await workflowEvents(job.run.id)).toEqual([
+      expect.objectContaining({ role: "intake", workflow: "pocock", reason: "The project default is pocock (the request names project Plant Works)" }),
+    ]);
+    const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
+      status: "succeeded",
+      outputs: [{ name: "packages/a.json", content_base64: b64(JSON.stringify(draft("PROJA", "standard", { workflow: "superpowers" }))) }],
+    });
+    expect(r.statusCode, r.body).toBeLessThan(300);
+    expect((await bodyOf(await idEnding("PROJA"))).workflow).toBe("pocock");
+  });
+
+  it("runs the playbook when the named project is not one of the request's organization's", async () => {
+    const { job, ids } = await intake("[mode:software] [project:No Such Project]\n\nBuild", [draft("NOPROJ")]);
+    expect(input(job, "BRIEF.md")).not.toContain("Workflow:");
+    expect((await bodyOf(ids[0]!)).workflow).toBeUndefined();
+  });
+
   it("removes a workflow the agent wrote when the request has no tag, and adds nothing to its brief", async () => {
     const { job, ids } = await intake("Plain request\n\nPlease use [workflow:pocock] if you can", [draft("UNTAG", "standard", { workflow: "pocock" })]);
     expect(input(job, "BRIEF.md")).not.toContain("Workflow:");

@@ -4,14 +4,14 @@
 
 Switched to a new branch 'side'
 Switched to branch 'main'
-Cloning into '/private/var/folders/lk/d0cpcmyx4bgbwthnjtvfdw8r0000gn/T/cr-repos-test-ijoBJc/projects/sample-repo/sub'...
+HEAD is now at 5040738 Fixture
+Cloning into '/private/var/folders/lk/d0cpcmyx4bgbwthnjtvfdw8r0000gn/T/cr-repos-test-X0QFO3/projects/sample-repo/sub'...
 done.
-HEAD is now at 7ee77b5 Fixture
-(node:59291) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(node:79397) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
 (Use `node --trace-deprecation ...` to show where the warning was created)
-Cloning into '/private/var/folders/lk/d0cpcmyx4bgbwthnjtvfdw8r0000gn/T/cr-repos-test-9Q2Y5a/projects/sample-repo/sub'...
+Cloning into '/private/var/folders/lk/d0cpcmyx4bgbwthnjtvfdw8r0000gn/T/cr-repos-test-CjRI2C/projects/sample-repo/sub'...
 done.
-Cloning into '/private/var/folders/lk/d0cpcmyx4bgbwthnjtvfdw8r0000gn/T/cr-repos-test-9Q2Y5a/projects/.worktrees/sample-repo/feat-lfs-sub-guard/sub'...
+Cloning into '/private/var/folders/lk/d0cpcmyx4bgbwthnjtvfdw8r0000gn/T/cr-repos-test-CjRI2C/projects/.worktrees/sample-repo/feat-lfs-sub-guard/sub'...
 done.
 Preparing worktree (new branch 'feat/wt-idx')
 Preparing worktree (new branch 'feat/wt-rm')
@@ -22,8 +22,8 @@ Preparing worktree (new branch 'feat/wt-locked-missing')
 [control-rod] the database dropped an idle writer connection (terminating connection due to administrator command); a new one opens on next use
 
  Test Files  73 passed (73)
-      Tests  883 passed (883)
-   Start at  15:42:21
-   Duration  35.69s (tests 95%, import 5%)
+      Tests  887 passed (887)
+   Start at  15:47:47
+   Duration  35.33s (tests 94%, import 5%)
 
 api exit 0

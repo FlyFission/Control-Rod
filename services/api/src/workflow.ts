@@ -51,6 +51,18 @@ export function captureWorkflow(text: unknown): Workflow | undefined {
   return found.size === 1 ? [...found][0] : undefined;
 }
 
+/**
+ * The project a capture's tag line names (`[project:<code or name>]`, written by the New work form),
+ * or undefined. The value may contain spaces, so the whole bracket is read; two different project
+ * tokens on the line are no project at all. Only the first line is read.
+ */
+export function captureProject(text: unknown): string | undefined {
+  if (typeof text !== "string") return undefined;
+  const first = text.split(/\r?\n/, 1)[0] ?? "";
+  const found = new Set([...first.matchAll(/\[project:([^\]]+)\]/g)].map((m) => m[1]!.trim()).filter(Boolean));
+  return found.size === 1 ? [...found][0] : undefined;
+}
+
 export type PackWorkflow = Exclude<Workflow, "playbook">;
 export type Stage = "intake" | "author" | "pre-check";
 const STAGES: readonly Stage[] = ["intake", "author", "pre-check"];

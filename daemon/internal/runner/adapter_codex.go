@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 type codexAdapter struct {
@@ -34,9 +36,18 @@ func (codexAdapter) LoginWritableFiles() []string { return []string{"auth.json"}
 
 func (codexAdapter) LoginSessionDirs() []string { return []string{"sessions", "log"} }
 
-func (codexAdapter) ID() string                  { return RuntimeCodex }
-func (codexAdapter) Binary() string              { return "codex" }
-func (codexAdapter) DisplayName() string         { return "Codex" }
+func (codexAdapter) ID() string          { return RuntimeCodex }
+func (codexAdapter) Binary() string      { return "codex" }
+func (codexAdapter) DisplayName() string { return "Codex" }
+func (codexAdapter) BinarySpec() binaryutil.BinarySpec {
+	return binaryutil.BinarySpec{
+		Label:         "Codex",
+		Names:         []string{"codex"},
+		UnixPaths:     []string{"/opt/homebrew/bin/codex", "/usr/local/bin/codex"},
+		UnixHomePaths: []string{".local/bin/codex", ".npm-global/bin/codex"},
+		NodeManaged:   true,
+	}
+}
 func (codexAdapter) Family() string              { return "OpenAI" }
 func (codexAdapter) AuthorLaunchQualified() bool { return true }
 func (codexAdapter) ListOnSubscriptions() bool   { return true }

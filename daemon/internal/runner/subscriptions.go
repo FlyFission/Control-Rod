@@ -3,9 +3,14 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
+
+	"github.com/flyfission/control-rod/daemon/internal/authprobe"
+	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 // Auth states a subscription probe may report. The words are fixed. The CLI's
@@ -249,12 +254,90 @@ func authOf(ctx context.Context, a Adapter, run CommandRunner) (string, string) 
 	}
 	_, code, err := call(auth.AuthStatusArgs()...)
 	if err != nil {
-		return authUnknown, noteNotRun
+		return AuthStateFromProbe(authprobe.Unknown, authprobe.AuthDiagnostic{Code: "exec_error"})
 	}
 	if code == 0 {
-		return authSignedIn, noteSignedIn
+		return AuthStateFromProbe(authprobe.Authorized, authprobe.AuthDiagnostic{Code: "signed_in"})
 	}
-	return authSignedOut, noteSignedOut
+	return AuthStateFromProbe(authprobe.Unauthorized, authprobe.AuthDiagnostic{Code: "signed_out"})
+}
+
+// AuthStateFromProbe maps a secret-free authprobe result to the subscription
+// probe's fixed auth state and note strings.
+func AuthStateFromProbe(status authprobe.AuthStatus, diag authprobe.AuthDiagnostic) (string, string) {
+	switch status {
+	case authprobe.Authorized, authprobe.Configured:
+		return authSignedIn, noteSignedIn
+	case authprobe.Unauthorized:
+		return authSignedOut, noteSignedOut
+	default:
+		switch diag.Code {
+		case "no_auth_command":
+			return authUnknown, noteNoCommand
+		case "not_installed":
+			return authUnknown, noteNotInstalled
+		default:
+			return authUnknown, noteNotRun
+		}
+	}
+}
+
+// ProbeAdapterAuth resolves a's binary via BinarySpec inside AgentEnv(environ)
+// and runs its auth status check through authprobe.ProbeCommand, discarding
+// stdout and stderr so credentials can never leak.
+func ProbeAdapterAuth(ctx context.Context, a Adapter, environ []string) (authprobe.AuthStatus, authprobe.AuthDiagnostic) {
+	auth, ok := a.(authStatusCommand)
+	if !ok || len(auth.AuthStatusArgs()) == 0 {
+		return authprobe.Unknown, authprobe.AuthDiagnostic{
+			Method:   authprobe.MethodCommand,
+			Code:     "no_auth_command",
+			ExitCode: -1,
+		}
+	}
+	binPath, err := ResolveAdapterBinary(ctx, a, environ)
+	if err != nil {
+		code := "not_installed"
+		if errors.Is(err, binaryutil.ErrBinaryIdentityUnknown) {
+			code = "identity_unknown"
+		}
+		return authprobe.Unknown, authprobe.AuthDiagnostic{
+			Method:   authprobe.MethodCommand,
+			Code:     code,
+			ExitCode: -1,
+		}
+	}
+	probeEnv := AgentEnv(environ)
+	if binaryutil.IsNodeLaunchBinary(binPath) {
+		probeEnv = withAugmentedNodePATH(probeEnv, binPath)
+	}
+	confirmCall := func(args ...string) (string, int, error) {
+		c, cancel := context.WithTimeout(ctx, probeTimeout)
+		defer cancel()
+		cmd := exec.CommandContext(c, binPath, args...)
+		cmd.Env = probeEnv
+		out, rerr := cmd.CombinedOutput()
+		var exitErr *exec.ExitError
+		if errors.As(rerr, &exitErr) {
+			return string(out), exitErr.ExitCode(), nil
+		}
+		if rerr != nil {
+			return "", -1, rerr
+		}
+		return string(out), 0, nil
+	}
+	if !auth.ConfirmAuthCommand(confirmCall) {
+		return authprobe.Unknown, authprobe.AuthDiagnostic{
+			Method:   authprobe.MethodCommand,
+			Code:     "no_auth_command",
+			ExitCode: -1,
+		}
+	}
+	return authprobe.ProbeCommand(ctx, binPath, auth.AuthStatusArgs(), probeEnv, func(code int) (authprobe.AuthStatus, string) {
+		if code == 0 {
+			return authprobe.Authorized, "signed_in"
+		}
+		return authprobe.Unauthorized, "signed_out"
+	})
 }
 
 func checkerModels() []SubscriptionChecker {

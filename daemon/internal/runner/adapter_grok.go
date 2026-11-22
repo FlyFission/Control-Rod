@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 type grokAdapter struct{ sandboxedBase }
@@ -27,7 +29,16 @@ func (grokAdapter) ConfinementGap() string {
 func (grokAdapter) ID() string          { return RuntimeGrok }
 func (grokAdapter) Binary() string      { return "grok" }
 func (grokAdapter) DisplayName() string { return "Grok CLI" }
-func (grokAdapter) Family() string      { return "xAI" }
+func (grokAdapter) BinarySpec() binaryutil.BinarySpec {
+	return binaryutil.BinarySpec{
+		Label:         "Grok CLI",
+		Names:         []string{"grok"},
+		UnixPaths:     []string{"/opt/homebrew/bin/grok", "/usr/local/bin/grok"},
+		UnixHomePaths: []string{".local/bin/grok", ".npm-global/bin/grok"},
+		NodeManaged:   true,
+	}
+}
+func (grokAdapter) Family() string { return "xAI" }
 
 func (grokAdapter) Providers() []string {
 	return []string{"grok", "xai", "grok-cli"}

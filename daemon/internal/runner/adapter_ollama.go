@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"os/exec"
+
+	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 // PinnedOllamaHost enforces local-only loopback execution for Ollama.
@@ -19,7 +21,14 @@ func (ollamaAdapter) ConfinementGap() string {
 func (ollamaAdapter) ID() string          { return RuntimeOllama }
 func (ollamaAdapter) Binary() string      { return "ollama" }
 func (ollamaAdapter) DisplayName() string { return "Ollama (Local)" }
-func (ollamaAdapter) Family() string      { return "Ollama-Local" }
+func (ollamaAdapter) BinarySpec() binaryutil.BinarySpec {
+	return binaryutil.BinarySpec{
+		Label:     "Ollama (Local)",
+		Names:     []string{"ollama"},
+		UnixPaths: []string{"/opt/homebrew/bin/ollama", "/usr/local/bin/ollama", "/usr/bin/ollama"},
+	}
+}
+func (ollamaAdapter) Family() string { return "Ollama-Local" }
 
 func (ollamaAdapter) Providers() []string {
 	return []string{"ollama", "local-ollama"}

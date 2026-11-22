@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/flyfission/control-rod/daemon/internal/binaryutil"
 )
 
 // Config is everything the daemon needs. The token is held here and in the client only.
@@ -1092,6 +1094,14 @@ func (d *Daemon) heartbeat(job *Job) time.Duration {
 	return hb
 }
 
+func (d *Daemon) secretValues() []string {
+	secrets := envSecretValues(os.Environ())
+	if d.cfg.Token != "" {
+		secrets = append(secrets, d.cfg.Token)
+	}
+	return secrets
+}
+
 func failText(err error) string {
 	var exit *exec.ExitError
 	switch {
@@ -1461,6 +1471,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		exit.Text = "ended by the daemon after the end of its turn"
 	}
 	if err != nil {
+		err = binaryutil.RedactError(err, d.secretValues())
 		exit.Text = failText(err)
 	}
 	buf.addEvents([]Event{exit})

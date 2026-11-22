@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw/http";
@@ -7,6 +7,7 @@ import { renderPage } from "../test/render.js";
 import { view } from "../test/fixtures.js";
 import type { AttentionItem, InboxView } from "../api/types.js";
 import { Inbox } from "./Inbox.js";
+import { readNotifyChoice } from "../lib/attention.js";
 
 function attentionItem(over: Partial<AttentionItem> & { package_id: string }): AttentionItem {
   return {
@@ -117,5 +118,54 @@ describe("Inbox", () => {
     await screen.findByText("Third item");
     expect(screen.queryByRole("complementary", { name: /Review / })).toBeNull();
     expect(container.querySelector(".inbox-has-drawer")).toBeNull();
+  });
+});
+
+describe("Inbox notifications opt-in", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    window.localStorage.clear();
+  });
+
+  function stubNotification(start: NotificationPermission, answer: NotificationPermission) {
+    const requestPermission = vi.fn(async () => {
+      Fake.permission = answer;
+      return answer;
+    });
+    const Fake = { permission: start, requestPermission };
+    vi.stubGlobal("Notification", Fake);
+    return requestPermission;
+  }
+
+  it("asks the browser only when the person chooses, then offers to turn it off", async () => {
+    const ask = stubNotification("default", "granted");
+    mockInboxApi(() => []);
+    await renderPage(<Inbox />);
+    const user = userEvent.setup();
+    const on = await screen.findByRole("button", { name: "Notify me in this browser" });
+    expect(ask).not.toHaveBeenCalled();
+    await user.click(on);
+    expect(ask).toHaveBeenCalledTimes(1);
+    await user.click(await screen.findByRole("button", { name: "Turn off notifications" }));
+    expect(readNotifyChoice("ben")).toBe(false);
+    expect(await screen.findByRole("button", { name: "Notify me in this browser" })).toBeTruthy();
+  });
+
+  it("says when the browser blocks notifications, and stays off", async () => {
+    stubNotification("default", "denied");
+    mockInboxApi(() => []);
+    await renderPage(<Inbox />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Notify me in this browser" }));
+    expect(await screen.findByText(/Notifications are blocked for this site/)).toBeTruthy();
+    expect(readNotifyChoice("ben")).toBe(false);
+  });
+
+  it("offers nothing in a browser without notifications", async () => {
+    vi.stubGlobal("Notification", undefined);
+    mockInboxApi(() => []);
+    await renderPage(<Inbox />);
+    await screen.findByText(/Nothing waits on you/);
+    expect(screen.queryByRole("button", { name: "Notify me in this browser" })).toBeNull();
   });
 });

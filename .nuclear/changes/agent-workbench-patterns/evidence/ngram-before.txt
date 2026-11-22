@@ -1,0 +1,6 @@
+n=6 note=agent-workbenches.before.md sources=['Paradev.README.md', 'vibe-kanban.README.md', 'agent-orchestrator.README.md', 'ao-arch.md']
+shared 6-word grams: 12; maximal runs: 4
+- (6 words) whatever needs you is on top
+- (8 words) a failed probe is a fact not a
+- (12 words) to the worker that owns the branch until the pr is approved
+- (6 words) run agents on a schedule or

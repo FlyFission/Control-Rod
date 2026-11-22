@@ -167,6 +167,8 @@ export function BoardView() {
   const [expandedCols, setExpandedCols] = useState<Record<string, boolean>>({});
   const [draggingCard, setDraggingCard] = useState<string | null>(null);
   const [trashOver, setTrashOver] = useState(false);
+  // What N said when no card on the view carries a Needs you or Blocked mark (pattern AW3).
+  const [jumpNote, setJumpNote] = useState<string | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
   const handleDismissCapture = useCallback(
@@ -366,7 +368,7 @@ export function BoardView() {
     }
   }, []);
 
-  // J / K keyboard navigation across visible board card titles.
+  // J / K move across visible board card titles; N jumps to the next one marked Needs you or Blocked.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -379,11 +381,29 @@ export function BoardView() {
       if (inField || e.metaKey || e.ctrlKey || e.altKey) return;
       if (document.querySelector("dialog[open], .palette")) return;
       const key = e.key.toLowerCase();
-      if (key !== "j" && key !== "k") return;
+      if (key !== "j" && key !== "k" && key !== "n") return;
       const titles = Array.from(document.querySelectorAll<HTMLButtonElement>(".bd-board button.bd-title, .bd-list button.bd-title"));
+      const idx = titles.indexOf(document.activeElement as HTMLButtonElement);
+      if (key === "n") {
+        e.preventDefault();
+        // The tone is shown only while the stream is live and the card's reads are current, so a card
+        // whose state is unknown is never offered as needing you.
+        const marked = titles.filter((t) => {
+          const tone = t.closest<HTMLElement>("article.bd-card")?.dataset["tone"];
+          return tone === "needs" || tone === "block";
+        });
+        const next = marked.find((t) => titles.indexOf(t) > idx) ?? marked[0];
+        if (next === undefined) {
+          setJumpNote("No card on this view is marked Needs you or Blocked.");
+          return;
+        }
+        setJumpNote(null);
+        next.focus();
+        return;
+      }
       if (titles.length === 0) return;
       e.preventDefault();
-      const idx = titles.indexOf(document.activeElement as HTMLButtonElement);
+      setJumpNote(null);
       const nextIdx =
         key === "j"
           ? idx < 0
@@ -692,6 +712,14 @@ export function BoardView() {
           </p>
         )}
       </header>
+      <p className="sr-only" role="status">
+        {jumpNote ?? ""}
+      </p>
+      {jumpNote !== null && (
+        <p className="bd-jump-note muted small" aria-hidden="true">
+          {jumpNote}
+        </p>
+      )}
       {hiddenProtected > 0 && (
         <div className="bd-guard" role="status">
           <span>

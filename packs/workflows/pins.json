@@ -1,0 +1,14 @@
+{
+  "superpowers": {
+    "upstream": "https://github.com/obra/superpowers",
+    "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+    "license": "MIT",
+    "sources": ["skills"]
+  },
+  "pocock": {
+    "upstream": "https://github.com/mattpocock/skills",
+    "commit": "abeeaf95660ba9e8b7c753eb38f441ca707a8823",
+    "license": "MIT",
+    "sources": ["skills/engineering", "skills/productivity"]
+  }
+}

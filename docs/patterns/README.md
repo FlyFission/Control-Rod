@@ -15,6 +15,7 @@ Each pattern file starts with a provenance header: the source, its license, the 
 
 ## Files
 
+- `agent-orchestrator.md`: Agent Orchestrator (`OrchestratorInc/agent-orchestrator`), an agent orchestrator and daemon (Apache-2.0, commit `7c65ce3`). Ideas only: 16 patterns (`AO-1`–`AO-16`) covering worktree teardown/recovery, adapter isolation, hidden-ref snapshots, controller-owned PR checks, UI de-slopping, and battle-scar tests mapped to `#118`–`#133` and `M5`–`M8`. Change record: `agent-orchestrator-patterns`.
 - `headroom.md`: Headroom, a local layer that shrinks what coding agents send to a model (Apache-2.0). Ideas on instruction files written from transcripts, fail-closed release evidence, paired benchmarks and byte-for-byte gateway forwarding; read only part of the repo. Change record: `headroom-patterns`.
 - `kandev.md`: Kandev, an open workbench for coding agents (AGPL-3.0). Decision: ADR 0019.
 - `openharness.md`: openharness, a multi-agent harness (MIT, with some GPL and AGPL parts). Plan to port a few pinned pieces; see the build plan in the file.

@@ -807,7 +807,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     await sweep();
     // The daemon's run ceiling sizes budget reservations; one it did not report is never guessed.
     const ceiling = req.body?.run_ceiling_seconds;
-    const job = await claim(db, cfg, runtimes, artifacts, Number.isInteger(ceiling) && (ceiling as number) > 0 ? (ceiling as number) : undefined);
+    const reportedModels = new Map(status.filter((s) => s.ready && s.models).map((s) => [s.runtime, s.models!]));
+    const job = await claim(
+      db, cfg, runtimes, artifacts, Number.isInteger(ceiling) && (ceiling as number) > 0 ? (ceiling as number) : undefined, reportedModels,
+    );
     if (!job) return reply.code(204).send();
     return job;
   });

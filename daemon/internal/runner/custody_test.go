@@ -28,6 +28,16 @@ func claimedJob(id, script string) *Job {
 	return j
 }
 
+func TestCheckerRequiresTheControlPlaneToBindAModel(t *testing.T) {
+	d := New(Config{Home: t.TempDir(), Runtimes: []string{RuntimeCodex}})
+	run := testRun("run-unbound-model", "pre-check")
+	run.Runtime.Provider = RuntimeCodex
+	completion, err := d.execute(context.Background(), &Job{Run: run})
+	if err != nil || completion.Status != "failed" || !strings.Contains(completion.Error, "did not bind a concrete checker model") {
+		t.Fatalf("unbound checker: status %q, completion error %q, execute error %v", completion.Status, completion.Error, err)
+	}
+}
+
 func TestFinalFlushSendsEveryLineBeforeCompletion(t *testing.T) {
 	job := claimedJob("run-final-logs", `i=0; while [ "$i" -lt 1201 ]; do echo "line-$i"; i=$((i+1)); done; echo report > out/report.md`)
 	api, srv := newFakeAPI(t, job)

@@ -25,7 +25,7 @@ import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
 import { projectRuntimePrefs } from "./workspace-projects.js";
 import { ownerOf } from "./tenancy.js";
-import { countedProvider, verifyCountedAttestation } from "./run-attestation.js";
+import { countedProvider, defaultCheckerModel, verifyCountedAttestation } from "./run-attestation.js";
 import { type Action, type KernelOutcome, type RuntimeIdentity, type Status, decide, digest } from "./kernel.js";
 import {
   PACKAGE_ATTEMPT_LIMIT,
@@ -1179,7 +1179,10 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
   return out.length || !blocked.length ? { offer: out } : { offer: out, reason: `${blocked.join("; ")}. An administrator pins the installed version, or the pinned one is reinstalled.` };
 }
 
-export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(), runCeilingSeconds?: number) {
+export async function claim(
+  db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(),
+  runCeilingSeconds?: number, reportedModels: ReadonlyMap<string, readonly string[]> = new Map(),
+) {
   // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
   // one lease (when a completion that never comes makes it lost), from the claim to the recorded finish.
   const ceiling = runCeilingSeconds === undefined ? undefined : { runSeconds: runCeilingSeconds, marginSeconds: heartbeatSeconds(cfg) + leaseSeconds(cfg) };
@@ -1297,6 +1300,13 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           }
           if (!runtime) continue;
           if (row.role === "pre-check") {
+            if (!model && countedProvider(runtime)) {
+              model = defaultCheckerModel(runtime, needsOf(pkg.body).grade, reportedModels.get(runtime));
+              if (!model) {
+                await holdRun(c, cfg, row, pkg.id, `No registered checker model is available for ${runtime} and this grade.`, "runtime-pin");
+                continue;
+              }
+            }
             const gate = await preCheckClaimGate(c, row.package_id, row.package_revision, row.id, null, "claim");
             if (gate !== "ok") {
               await stopQueuedRun(

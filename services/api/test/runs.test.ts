@@ -40,8 +40,8 @@ interface Job {
   claim: { token: string; lease_expires_at: string; heartbeat_seconds: number };
 }
 
-async function claim(runtimes = ["fake"]): Promise<Job | null> {
-  const r = await asDaemon("/runner/claim", { runtimes });
+async function claim(runtimes = ["fake"], runtimeStatus?: { runtime: string; ready: boolean; models: string[] }[]): Promise<Job | null> {
+  const r = await asDaemon("/runner/claim", { runtimes, runtime_status: runtimeStatus });
   if (r.statusCode === 204) return null;
   const job = r.json() as Job;
   claims.set(job.run.id, job.claim.token);
@@ -584,8 +584,12 @@ describe("pre-check independence", () => {
     const id = await releasedPackage("INDEP2");
     const author = (await claim()) as Job;
     await asDaemon(`/runner/runs/${author.run.id}/complete`, { status: "succeeded", outputs: [{ name: "r.md", content_base64: b64("ok") }] });
-    const check = (await claim(["fake", "codex"])) as Job;
-    expect(check.run.runtime.provider).toBe("codex");
+    const check = (await claim(["fake", "codex"], [
+      { runtime: "codex", ready: true, models: ["default", "gpt-5-codex"] },
+    ])) as Job;
+    expect(check.run.runtime).toMatchObject({ provider: "codex", model: "gpt-5-codex" });
+    const recorded = (await asOwner("GET", `/packages/${id}/runs/${check.run.id}`)).json();
+    expect(recorded.runtime).toMatchObject(check.run.runtime);
     await asDaemon(`/runner/runs/${check.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
     const ind = (await asOwner("GET", `/packages/${id}`)).json().pre_check.independence;
     expect(ind.runtime).toBe("independent");

@@ -2628,6 +2628,17 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
     ordered.push(d);
   };
   for (const d of drafts) place(d);
+  // A workspace ID in the capture header binds the intake result to the owning project's record.
+  // Intake's draft can still supply a legacy project name when the capture has no workspace ID.
+  const projectId = /^\[mode:[^\]]+\] \[project-id:([^\]]+)\]/.exec(String(capture.text ?? ""))?.[1];
+  if (projectId) {
+    const owner = await ownerOf(c, "capture", capture.id);
+    const project = await c.query(
+      "select id from projects where id = $1 and org_id = $2 and coalesce(body->>'status', 'active') = 'active'",
+      [projectId, owner?.org_id],
+    );
+    if (!project.rowCount) throw new Refusal(409, "wrong-state", "The selected workspace project is unavailable for this capture");
+  }
   const captureIsNuclear = /\[mode:nuclear-grade\]/i.test(String(capture.text ?? ""));
   for (const d of ordered) {
     const rawMode = String(d.mode ?? "");
@@ -2640,6 +2651,7 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
       revision: 0,
       status: "draft",
       mode: normalizedMode,
+      ...(projectId ? { project: projectId } : {}),
       ...(isNuclearDraft ? { context_profile: "nuclear" } : {}),
       design_inputs: (d.design_inputs ?? []).map((x: Json) => (idMap.has(x.doc) ? { ...x, doc: idMap.get(x.doc) } : x)),
       ...(Array.isArray(d.depends_on)

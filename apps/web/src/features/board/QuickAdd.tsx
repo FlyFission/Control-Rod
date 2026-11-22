@@ -70,7 +70,7 @@ export function QuickAdd() {
       batchProgress.current = { titles, sent: 0 };
       const prefix = `[mode:${mode}]${
         activeProject
-          ? ` [project:${activeProject.name}]${activeProject.repo ? ` [repo:${activeProject.repo}]` : ""}`
+          ? ` [project-id:${activeProject.id}]${activeProject.repo ? ` [repo:${activeProject.repo}]` : ""}`
           : ""
       }\n\n`;
       // Cards are posted in the order typed, one request at a time, so a failure says which one stopped.

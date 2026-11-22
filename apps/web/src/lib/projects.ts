@@ -123,6 +123,18 @@ export function extractBracketTag(text: string | undefined, key: string): string
   return m?.[1]?.trim();
 }
 
+export function projectCaptureTag(name: string, activeProject: WorkspaceProject | null): string | null {
+  const value = name.trim();
+  if (!value) return null;
+  if (activeProject && value.toLowerCase() === activeProject.name.toLowerCase()) return `[project-id:${activeProject.id}]`;
+  return `[project:${value}]`;
+}
+
+/** Names are display text. Historical records may have a name in place of an ID. */
+export function projectDisplayName(reference: string, projects: readonly WorkspaceProject[]): string {
+  return projects.find((project) => project.id === reference)?.name ?? reference;
+}
+
 /** Determines whether a capture belongs on the board for the active mode and optional project. */
 export function captureMatchesScope(
   capture: CaptureView,
@@ -134,6 +146,8 @@ export function captureMatchesScope(
     if (taggedMode !== mode) return false;
   }
   if (!activeProject) return true;
+  const taggedId = extractBracketTag(capture.text, "project-id");
+  if (taggedId) return taggedId === activeProject.id;
   const taggedProj = extractBracketTag(capture.text, "project");
   if (
     taggedProj &&

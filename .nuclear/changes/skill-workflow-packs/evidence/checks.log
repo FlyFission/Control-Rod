@@ -1,21 +1,23 @@
 $ node scripts/generate-workflow-packs.mjs --check
-(eval):1: no such file or directory: node scripts/generate-workflow-packs.mjs --check
+workflow pack check passed: <worktree>/packs/workflows
 exit 0
 $ node scripts/measure-workflow-briefs.mjs --check
-(eval):1: no such file or directory: node scripts/measure-workflow-briefs.mjs --check
+workflow budgets hold (9 stages)
 exit 0
 $ node scripts/measure-briefs.mjs --check
-(eval):1: no such file or directory: node scripts/measure-briefs.mjs --check
+brief budget check passed: 4 fixtures
 exit 0
 $ python3 tools/check_public_claims.py
-(eval):1: no such file or directory: python3 tools/check_public_claims.py
+public claims check passed
 exit 0
 $ python3 tools/check_originality.py
-(eval):1: no such file or directory: python3 tools/check_originality.py
+originality check passed
 exit 0
 $ python3 tools/check_offline_assets.py
-(eval):1: no such file or directory: python3 tools/check_offline_assets.py
+offline assets check passed
 exit 0
 $ python3 tools/check_register.py
-(eval):1: no such file or directory: python3 tools/check_register.py
-exit 0
+apps/web/src/lib/kind.ts: carries a provenance marker but has no register row
+services/api/src/seals.ts: carries a provenance marker but has no register row
+2 register problem(s)
+exit 1

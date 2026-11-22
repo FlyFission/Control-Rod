@@ -238,12 +238,27 @@ function verify(files) {
   process.exit(r.status ?? 1);
 }
 
+/**
+ * Builds an honest Markdown PR receipt from a downloaded package inclusion proof offline.
+ */
+function receipt(file) {
+  if (!existsSync(join(root, "node_modules"))) run("pnpm", ["install", "--frozen-lockfile"]);
+  if (newer(join(root, "services", "api", "src"), join(root, "services", "api", "dist", "pr-receipt.js"))) {
+    run("pnpm", ["--filter", "@control-rod/api", "build"]);
+  }
+  const r = spawnSync("node", [join(root, "services", "api", "dist", "pr-receipt.js"), ...(file ? [file] : [])], { stdio: "inherit" });
+  process.exit(r.status ?? 1);
+}
+
 const cmd = process.argv[2] ?? "start";
 if (cmd === "doctor") process.exit(doctor() ? 0 : 1);
 else if (cmd === "setup") setup();
 else if (cmd === "start") await start();
 else if (cmd === "verify") verify(process.argv.slice(3).map((f) => resolve(process.env.INIT_CWD ?? process.cwd(), f)));
-else {
-  console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>]");
+else if (cmd === "receipt") {
+  const f = process.argv[3];
+  receipt(f ? resolve(process.env.INIT_CWD ?? process.cwd(), f) : undefined);
+} else {
+  console.log("Usage: pnpm cr [doctor|setup|start|verify <inclusion-proof.json>|receipt <inclusion-proof.json>]");
   process.exit(2);
 }

@@ -60,6 +60,15 @@ export function countedProvider(provider: unknown): boolean {
   return n === "claude" || n === "codex";
 }
 
+/** A probe can order eligible checker models. The registry remains the admission authority. */
+export function defaultCheckerModel(provider: string, grade: string | undefined, reported: readonly string[] = []): string | undefined {
+  const high = grade === "safety" || grade === "material";
+  const admitted = loadModelRegistry().models.filter(
+    (model) => model.harness === harnessName(provider) && model.hosts.length > 0 && (!high || (model.deciding && !model.local)),
+  );
+  return reported.find((id) => admitted.some((model) => model.id === id)) ?? admitted[0]?.id;
+}
+
 export interface AttestationVerdict {
   verified: boolean;
   code: string;

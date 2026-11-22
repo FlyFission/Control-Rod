@@ -9,7 +9,7 @@
 | Browser defaults | Project cache and active selection are scoped by signed-in user. New Work starts from the effective board lane runtimes. Project controls wait for the server-confirmed result after signing. | Browser session, modal, and runtime selection checks. |
 | Contracts | TypeSpec and generated artifacts include project operations, capture dismissal, exact runs and runtime model lists. | Regeneration and typechecking. |
 | Checker isolation | Linux binds credentials read-only and gives the CLI writable disposable state. Protected login hashing stays within existing per-file, total byte, and entry limits. | Daemon suite and Bubblewrap checks using synthetic login files. |
-| Registry | The API registry test compares with the checked-in daemon registry. | Attestation test. |
+| Registry and checker dispatch | The API registry test compares with the checked-in daemon registry. Before dispatch, the control plane selects and stores the approved concrete model for a default checker. The worker uses that same binding. | Claim and stored-run comparison, grade admission checks, and daemon preflight check. |
 
 Live provider login refresh with read-only credential mounts remains unverified. Provider qualification and worktree binding remain separate from these fixes. The desktop follow-up stays stacked until the reviewed board changes land on main.
 

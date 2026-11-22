@@ -1412,6 +1412,54 @@ export function scaffoldCapitalProjectDirs(targetDir: string): string[] {
   return created;
 }
 
+/** Validate explicit capture input, never text headers, before recording checkout authority. */
+export async function bindCheckout(selection: unknown) {
+  const body = asBodyRecord(selection);
+  if (typeof body.repo !== "string" || !isSafeRepoIdentifier(body.repo) ||
+      typeof body.local_path !== "string" || !isAbsolute(body.local_path) ||
+      typeof body.branch !== "string") {
+    throw new Refusal(400, "invalid-repo-path", "Specify a prepared repository path, repository and branch.");
+  }
+  const root = resolveSafeWorkspaceRoot(body.workspace_root);
+  const path = resolveWithoutSymlinks(body.local_path);
+  if (path === root || !isContainedIn(root, path)) {
+    throw new Refusal(400, "invalid-repo-path", "The checkout must be inside its workspace root.");
+  }
+  const branch = assertValidBranch(body.branch);
+  const repo = body.repo;
+  const isGithub = SAFE_OWNER_REPO.test(repo);
+  const repoName = isGithub ? repo.split("/")[1]!.replace(/\.git$/i, "") : repo;
+  const base = join(root, repoName);
+  const linked = join(root, ".worktrees", repoName, safeSlug(branch));
+  const fresh = join(root, `${repoName}-${safeSlug(branch)}`);
+  if (![base, linked, fresh].includes(path)) {
+    throw new Refusal(409, "repo-identity-mismatch", "The checkout path does not match the prepared repository and branch.");
+  }
+  return withGitRefusal(async () => {
+    await validateExistingRepoDir(path, root, isGithub);
+    const opts = { cwd: path, workspaceRoot: root };
+    const actualBranch = await git(["symbolic-ref", "--short", "HEAD"], opts);
+    if (actualBranch !== branch) {
+      throw new Refusal(409, "invalid-branch", "The prepared checkout is on a different branch. Prepare it again.");
+    }
+    if (isGithub) {
+      const origin = await git(["remote", "get-url", "origin"], opts);
+      if (parseGithubOwnerRepoFromUrl(origin) !== repo.replace(/\.git$/i, "").toLowerCase()) {
+        throw new Refusal(409, "repo-identity-mismatch", "The checkout points to a different repository.");
+      }
+    }
+    const head = await git(["rev-parse", "--verify", "HEAD^{commit}"], opts);
+    const gitDir = await git(["rev-parse", "--absolute-git-dir"], opts);
+    const commonDir = await git(["rev-parse", "--path-format=absolute", "--git-common-dir"], opts);
+    for (const dir of [gitDir, commonDir]) {
+      if (!isContainedIn(root, resolveWithoutSymlinks(dir))) {
+        throw new Refusal(400, "invalid-repo-path", "Git administration must stay inside the workspace root.");
+      }
+    }
+    return { repo, root, path, branch, head, git_dir: gitDir, common_dir: commonDir };
+  });
+}
+
 interface MaterializeContext {
   repo: string;
   repoName: string;

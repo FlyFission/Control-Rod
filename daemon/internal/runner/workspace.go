@@ -34,6 +34,9 @@ type Workspace struct {
 	Dir    string
 	Inputs string
 	Out    string
+	// releaseCheckout holds exclusive host-side custody until output collection ends.
+	releaseCheckout func()
+	Checkout        *CheckoutBinding
 	// HookFile, when set, is where a Claude Code PermissionRequest hook appends what it saw
 	// (interim waiting detection, plan task 2.9). It lives outside the workspace.
 	HookFile string
@@ -120,9 +123,42 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 		}
 		paths[i], data[i] = p, b
 	}
-	if err := os.RemoveAll(dir); err != nil {
-		return nil, fmt.Errorf("clear workspace: %w", err)
+	if job.Run.Checkout != nil {
+		if job.Run.Role != "author" {
+			return nil, errors.New("only an author run may carry a checkout binding")
+		}
+		if err := validateCheckout(job.Run.Checkout); err != nil {
+			return nil, err
+		}
+		release, err := lockCheckout(filepath.Join(job.Run.Checkout.GitDir, "controlrod-run.lock"))
+		if err != nil {
+			return nil, fmt.Errorf("checkout is unavailable or already in use: %w", err)
+		}
+		if err := validateCheckout(job.Run.Checkout); err != nil {
+			release()
+			return nil, err
+		}
+		// No directory in the selected checkout is cleared, reused or followed.
+		dir = filepath.Join(job.Run.Checkout.Path, ".controlrod-run-"+job.Run.ID)
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			release()
+			return nil, fmt.Errorf("reserve checkout run directory: %w", err)
+		}
+		ws = &Workspace{Dir: job.Run.Checkout.Path, Inputs: filepath.Join(dir, "inputs"), Out: filepath.Join(dir, "out"), Checkout: job.Run.Checkout, releaseCheckout: release}
+		for i, in := range job.Inputs {
+			paths[i], _ = inputPath(ws.Inputs, in.Name) // already validated above
+		}
+	} else {
+		if err := os.RemoveAll(dir); err != nil {
+			return nil, fmt.Errorf("clear workspace: %w", err)
+		}
 	}
+	prepared := false
+	defer func() {
+		if !prepared && ws.releaseCheckout != nil {
+			ws.releaseCheckout()
+		}
+	}()
 	for _, d := range []string{ws.Inputs, ws.Out} {
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			return nil, fmt.Errorf("create workspace: %w", err)
@@ -136,6 +172,7 @@ func Prepare(root string, job *Job) (*Workspace, error) {
 			return nil, fmt.Errorf("write input: %w", err)
 		}
 	}
+	prepared = true
 	return ws, nil
 }
 

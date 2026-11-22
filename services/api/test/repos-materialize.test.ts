@@ -18,6 +18,7 @@ import { Refusal } from "../src/refusal.js";
 import { teach } from "../src/refusals.js";
 import {
   HOST_GIT_ARGS,
+  bindCheckout,
   defaultWorkspaceRoot,
   hostGitEnv,
   isContainedIn,
@@ -139,6 +140,34 @@ describe("repos.ts hardening", () => {
       else process.env[key] = value;
     }
     rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  describe("checkout binding", () => {
+    it("records the branch, commit and Git directories of a linked worktree", async () => {
+      const root = join(tempHome, "projects");
+      const base = join(root, "demo");
+      const path = join(root, ".worktrees", "demo", "topic");
+      gitInitRepo(base);
+      mkdirSync(join(path, ".."), { recursive: true });
+      execFileSync("git", ["worktree", "add", "-b", "topic", path], { cwd: base, stdio: "ignore" });
+      const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: path, encoding: "utf8" }).trim();
+
+      await expect(bindCheckout({ repo: "demo", local_path: path, branch: "topic", workspace_root: root })).resolves.toEqual({
+        repo: "demo", root, path, branch: "topic", head,
+        git_dir: join(base, ".git", "worktrees", "topic"),
+        common_dir: join(base, ".git"),
+      });
+    });
+
+    it("refuses a different branch or a repository with the wrong GitHub origin", async () => {
+      const root = join(tempHome, "projects");
+      const path = join(root, "demo");
+      gitInitRepo(path, "https://github.com/other/demo.git");
+      const selection = { local_path: path, workspace_root: root };
+
+      await expect(bindCheckout({ ...selection, repo: "demo", branch: "topic" })).rejects.toBeInstanceOf(Refusal);
+      await expect(bindCheckout({ ...selection, repo: "org/demo", branch: "main" })).rejects.toBeInstanceOf(Refusal);
+    });
   });
 
   async function assertPlainDirIgnoresAncestorGit(ancestorDir: string, originUrl?: string): Promise<void> {

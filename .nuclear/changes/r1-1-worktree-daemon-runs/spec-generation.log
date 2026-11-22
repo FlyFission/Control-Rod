@@ -1,0 +1,35 @@
+f=$(mktemp); { git diff --name-only; git ls-files --others --exclude-standard; } | awk '/^(spec\/generated\/|daemon\/internal\/wire\/schemas\/|services\/api\/src\/preparation\/schema.d.ts)/' | sort | xargs shasum -a 256 > "$f" && pnpm spec && shasum -a 256 -c "$f"
+
+> control-rod@ spec <workspace>
+> pnpm --filter @control-rod/spec run build && node scripts/generate-runner-schemas.mjs && pnpm --filter @control-rod/web exec openapi-typescript ../../spec/generated/openapi/openapi.json -o ../../services/api/src/preparation/schema.d.ts
+
+
+> @control-rod/spec@ build <workspace>/spec
+> tsp compile .
+
+TypeSpec compiler v1.18.0
+
+
+Compilation completed successfully.
+
+Embedded 54 TypeSpec-generated runner schemas
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → ../../services/api/src/preparation/schema.d.ts [67ms]
+daemon/internal/wire/schemas/Capture.json: OK
+daemon/internal/wire/schemas/CheckoutBinding.json: OK
+daemon/internal/wire/schemas/ExecutionTrace.json: OK
+daemon/internal/wire/schemas/Run.json: OK
+services/api/src/preparation/schema.d.ts: OK
+spec/generated/json-schema/Capture.json: OK
+spec/generated/json-schema/CheckoutBinding.json: OK
+spec/generated/json-schema/ExecutionTrace.json: OK
+spec/generated/json-schema/Run.json: OK
+spec/generated/openapi/openapi.json: OK
+- Compiling...
+✔ Compiling
+- Running @typespec/json-schema...
+✔ @typespec/json-schema 41ms generated/json-schema/
+- Running @typespec/openapi3...
+✔ @typespec/openapi3 40ms generated/openapi/
+
+Exit: 0

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
-import type { DataLane } from "../api/types.js";
+import type { DataLane, NewCapture } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
@@ -36,11 +36,11 @@ function suggestBranchName(text: string): string {
 
 const STRATEGY_NOTE: Record<RepoOutfallStrategy, string> = {
   worktree:
-    "Selected strategy (worktree) prepares the local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2.",
+    "Selected strategy (worktree) prepares an isolated checkout for author runs.",
   "fresh-clone":
-    "Selected strategy (fresh-clone) prepares a fresh local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2.",
+    "Selected strategy (fresh-clone) prepares a fresh checkout for author runs.",
   branch:
-    "Selected strategy (branch in base clone) prepares the local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2.",
+    "Selected strategy (branch in base clone) prepares the local checkout for author runs.",
 };
 
 interface PrepareSnapshot {
@@ -228,8 +228,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   }, [open]);
 
   const send = useMutation({
-    mutationFn: ({ body, lane: submittedLane }: { body: string; lane: DataLane; session: number }) =>
-      api.capture({ text: body, source: "web", lane: submittedLane }),
+    mutationFn: ({ body, lane: submittedLane, checkout }: { body: string; lane: DataLane; session: number; checkout?: NewCapture["checkout"] }) =>
+      api.capture({ text: body, source: "web", lane: submittedLane, ...(checkout ? { checkout } : {}) }),
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["captures"] });
       if (vars.session !== modalSessionRef.current) return;
@@ -313,7 +313,6 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       repo ? `[repo:${repo}]` : null,
       repo ? `[branch:${submittedBranch}]` : null,
       repo ? `[outfall:${repoStrategy}]` : null,
-      preparedPath ? `[workspace:${preparedPath}]` : null,
       `[stage:${stage}]`,
       `[purpose:${purpose}]`,
       discipline && discipline !== "Unspecified" ? `[discipline:${discipline}]` : null,
@@ -333,7 +332,10 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     }
     const session = modalSessionRef.current;
     setPendingCaptureSession(session);
-    send.mutate({ body, lane, session });
+    send.mutate({ body, lane, session, ...(preparedPath ? { checkout: {
+      repo, local_path: preparedPath, branch: submittedBranch,
+      ...(activeWorkspaceRoot ? { workspace_root: activeWorkspaceRoot } : {}),
+    } } : {}) });
   }
 
   const independent = isIndependentCustody(author, checker);
@@ -540,7 +542,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
           <p className="small muted" style={{ margin: "8px 0 0" }}>
             {repo
               ? STRATEGY_NOTE[repoStrategy]
-              : "Preparing a repository creates the local git checkout now; direct runtime & workspace binding to daemon runs lands in Cycle 2."}
+              : "Prepare a repository to use its local checkout for the author run."}
           </p>
         </fieldset>
 

@@ -38,6 +38,8 @@ These are failures recorded in merged or open pull requests, not guesses.
 - Firefox and WebKit have not been run for the browser suite; Chromium has.
 - Real Claude Code and Codex runs with a real login are verified only on the owner's WSL2 machine. On native Linux and macOS the same launch is qualified against a scripted provider in CI.
 
+R1.1 author-session verification was limited by this workspace: API dispatch and the daemon suite could not bind loopback, the API suite could not start its test database, and the daemon integration could not inspect its child process. These checks need a host rerun; see the [R1.1 verification record](../.nuclear/changes/r1-1-worktree-daemon-runs/verification.md).
+
 ## Dependency holds
 
 Some Dependabot bumps are deliberately not merged. They are tracked in the [collaboration guide](collaboration.md#dependabot).

@@ -1423,6 +1423,8 @@ export interface components {
             text: string;
             /** @enum {string} */
             source: "web" | "cli" | "voice" | "chat";
+            /** @description Validated structured input; capture text cannot grant checkout access. */
+            checkout?: components["schemas"]["ControlRod.Records.CheckoutBinding"];
             /** Format: date-time */
             created_at: string;
             /**
@@ -1461,6 +1463,13 @@ export interface components {
             text: string;
             /** @enum {string} */
             source?: "web" | "cli" | "voice" | "chat";
+            /** @description An explicitly prepared checkout. The API validates it and records its Git identity. */
+            checkout?: {
+                repo: string;
+                local_path: string;
+                branch: string;
+                workspace_root?: string;
+            };
             /** @description Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
             lane?: components["schemas"]["ControlRod.Records.DataLane"];
         };
@@ -1862,6 +1871,8 @@ export interface components {
             text: string;
             /** @enum {string} */
             source: "web" | "cli" | "voice" | "chat";
+            /** @description Validated structured input; capture text cannot grant checkout access. */
+            checkout?: components["schemas"]["ControlRod.Records.CheckoutBinding"];
             /** Format: date-time */
             created_at: string;
             /**
@@ -1984,6 +1995,16 @@ export interface components {
          * @enum {string}
          */
         "ControlRod.Records.CheckerAttemptOutcome": "pass" | "fail" | "inconclusive" | "timeout" | "error" | "quota" | "cancelled";
+        /** @description A host-validated checkout selection. Only author runs may use it as their working directory. */
+        "ControlRod.Records.CheckoutBinding": {
+            repo: string;
+            root: string;
+            path: string;
+            branch: string;
+            head: string;
+            git_dir: string;
+            common_dir: string;
+        };
         "ControlRod.Records.CodeOrStandard": {
             code: string;
             edition: string;
@@ -2118,6 +2139,8 @@ export interface components {
              *     before plan Phase 6 carry the request they made then ("workspace-write" and the like).
              */
             sandbox?: string;
+            /** @description Verified repository checkout selected for this execution, when bound. */
+            checkout?: components["schemas"]["ControlRod.Records.CheckoutBinding"];
         };
         "ControlRod.Records.Finding": {
             id: string;
@@ -2415,6 +2438,8 @@ export interface components {
             role: components["schemas"]["ControlRod.Records.RunRole"];
             agent_baseline: string;
             runtime: components["schemas"]["ControlRod.Records.RuntimeRef"];
+            /** @description Frozen when queued, for an author only. A daemon must refuse an unavailable or changed checkout. */
+            checkout?: components["schemas"]["ControlRod.Records.CheckoutBinding"];
             /**
              * Format: int32
              * @description Author and pre-check rounds start at 1; round 3 escalates a dispute to a person.
@@ -7406,6 +7431,8 @@ export interface operations {
                     /** @description Runtimes ready for work. The control plane picks only from these. */
                     runtimes: string[];
                     runtime_status?: components["schemas"]["Runner.RuntimeStatus"][];
+                    /** @description Required to claim an author run with a checkout binding; omitted means unsupported. */
+                    supports_checkouts?: boolean;
                     /** @description Provider CLI probes for Settings. Output of a status command is not included. */
                     subscription_report?: components["schemas"]["SubscriptionReport"];
                     /**

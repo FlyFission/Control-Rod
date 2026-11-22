@@ -1,0 +1,22 @@
+
+> @control-rod/web@0.0.0 test <workspace>/apps/web
+> pnpm gen:api && vitest run
+
+
+> @control-rod/web@0.0.0 gen:api <workspace>/apps/web
+> openapi-typescript ../../spec/generated/openapi/openapi.json -o src/api/schema.d.ts
+
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [67.2ms]
+
+ RUN  v5.1.0 <workspace>/apps/web
+
+
+ Test Files  52 passed (52)
+      Tests  699 passed (699)
+   Start at  11:19:55
+   Duration  8.30s (environment 39%, tests 35%, setup 14%, import 10%, transform 2%)
+
+    Isolate  52 workers spawned · ~750ms startup each (spawn + environment, per file)
+             at least ~595ms faster with isolate: false — reuses workers across files instead of one per file
+

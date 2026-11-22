@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -35,13 +35,14 @@ const asDaemon = async (url: string, payload: unknown): Promise<DaemonReply> => 
 };
 
 interface Job {
+  capture?: Record<string, unknown>;
   run: { id: string; role: string; package_id: string; round: number; agent_baseline: string; runtime: { provider: string; model: string } };
   inputs: { name: string; content_base64: string }[];
   claim: { token: string; lease_expires_at: string; heartbeat_seconds: number };
 }
 
-async function claim(runtimes = ["fake"]): Promise<Job | null> {
-  const r = await asDaemon("/runner/claim", { runtimes });
+async function claim(runtimes = ["fake"], supportsCheckouts = false): Promise<Job | null> {
+  const r = await asDaemon("/runner/claim", { runtimes, ...(supportsCheckouts ? { supports_checkouts: true } : {}) });
   if (r.statusCode === 204) return null;
   const job = r.json() as Job;
   claims.set(job.run.id, job.claim.token);
@@ -85,12 +86,19 @@ async function decide(id: string, kind: string, revision: number, reason?: strin
   return asOwner("POST", `/packages/${id}/decisions`, { kind, package_revision: revision, ...(reason ? { reason } : {}), assertion });
 }
 
+type CheckoutSelection = { repo: string; branch: string; local_path: string; workspace_root: string };
+
 /** Captures a request, lets intake draft one package with the given role, and releases it. */
-async function releasedPackage(key: string, role = "general-author"): Promise<string> {
-  const c = await asOwner("POST", "/captures", { lane: "internal", text: `Make ${key}` });
+async function releasedPackage(key: string, role = "general-author", checkout?: CheckoutSelection): Promise<string> {
+  const c = await asOwner("POST", "/captures", { lane: "internal", text: `Make ${key}`, ...(checkout ? { checkout } : {}) });
   expect(c.statusCode, c.body).toBe(201);
   const job = await claim();
   if (!job) throw new Error("no intake job");
+  if (checkout) {
+    expect(job.run).not.toHaveProperty("checkout");
+    expect(job.capture).toBeDefined();
+    expect(job.capture).not.toHaveProperty("checkout");
+  }
   const r = await asDaemon(`/runner/runs/${job.run.id}/complete`, {
     status: "succeeded",
     outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(draft(key, role))) }],
@@ -104,6 +112,38 @@ async function releasedPackage(key: string, role = "general-author"): Promise<st
 }
 
 describe("launch inputs", () => {
+  it("dispatches a bound checkout only to a capable author daemon", async () => {
+    // The capture route requires an explicit workspace root beneath the current home.
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-bound-run-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      const id = await releasedPackage("CHECKOUT", "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
+      expect(await claim()).toBeNull();
+      const author = await claim(["fake"], true);
+      expect(author?.run).toMatchObject({
+        role: "author", package_id: id,
+        checkout: { repo: "demo", root, path, branch: "topic", head: git(path, "rev-parse", "HEAD"),
+          git_dir: git(path, "rev-parse", "--absolute-git-dir"), common_dir: git(path, "rev-parse", "--path-format=absolute", "--git-common-dir") },
+      });
+      const completed = await asDaemon(`/runner/runs/${author!.run.id}/complete`, { status: "succeeded", outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+      expect(completed.statusCode, completed.body).toBeLessThan(300);
+      const checker = await claim(["codex"], true);
+      expect(checker?.run).toMatchObject({ role: "pre-check", package_id: id });
+      expect(checker?.run).not.toHaveProperty("checkout");
+      const checked = await asDaemon(`/runner/runs/${checker!.run.id}/complete`, { status: "succeeded", outputs: [], verification: { outcome: "pass", findings: [] } });
+      expect(checked.statusCode, checked.body).toBeLessThan(300);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("holds a role that needs named hosts when only Codex is offered, saying why, and dispatches it once a runtime can limit them", async () => {
     const id = await releasedPackage("HOSTS", "pump-survey");
     expect(await claim(["codex"])).toBeNull();

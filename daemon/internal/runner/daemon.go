@@ -1222,6 +1222,9 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 	if err != nil {
 		return fail(err.Error()), nil
 	}
+	if ws.releaseCheckout != nil {
+		defer ws.releaseCheckout()
+	}
 	_, inArts, err := Collect(ws.Inputs, MaxOutputTotal, 1<<40)
 	if err != nil {
 		return fail("read inputs: " + err.Error()), nil
@@ -1399,6 +1402,11 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 					}
 					if !time.Now().Before(lease.deadline()) {
 						return errOutOfContact
+					}
+					if ws.Checkout != nil {
+						if err := validateCheckout(ws.Checkout); err != nil {
+							return err
+						}
 					}
 					return verified.Ready()
 				},
@@ -1627,6 +1635,7 @@ func (d *Daemon) execute(ctx context.Context, job *Job) (Completion, error) {
 		PermissionMode:  launch.PermissionMode,
 		AllowedTools:    launch.AllowedTools,
 		Sandbox:         launch.Sandbox,
+		Checkout:        ws.Checkout,
 	}
 	comp.Events, comp.EventsFrom = buf.leftEvents(finalEvents...)
 	return comp, nil

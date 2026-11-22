@@ -95,6 +95,10 @@
             "type": "string",
             "maxLength": 100,
             "description": "The sandbox the run was launched under: `native-cli:<policy id>@v<version>` for an agent CLI\nunder its recorded sandbox policy (plan task 6.2), or \"none\" for the test runtime. Runs recorded\nbefore plan Phase 6 carry the request they made then (\"workspace-write\" and the like)."
+        },
+        "checkout": {
+            "$ref": "CheckoutBinding.json",
+            "description": "Verified repository checkout selected for this execution, when bound."
         }
     },
     "required": [

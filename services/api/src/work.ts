@@ -20,6 +20,7 @@ import { bindingSentence } from "./binding.js";
 import { RULES, briefHeader, composeBrief } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
 import { Refusal } from "./refusal.js";
+import { bindCheckout } from "./repos.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
 import { type ProbeArtifact, activePin, recordProbes } from "./runtimes.js";
@@ -102,7 +103,8 @@ function safeName(name: string): string {
   return base;
 }
 
-export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string, lane?: unknown) {
+export async function createCapture(db: Db, cfg: WorkConfig, user: string, text: string, source: string, lane?: unknown, checkoutSelection?: unknown) {
+  const checkout = checkoutSelection === undefined ? undefined : await bindCheckout(checkoutSelection);
   const files: { name: string; bytes: Buffer }[] = [];
   const names = new Set<string>();
   const visible = text
@@ -122,6 +124,7 @@ export async function createCapture(db: Db, cfg: WorkConfig, user: string, text:
     id: `C-${randomUUID().slice(0, 8)}`,
     text: visible.slice(0, 20000),
     source,
+    ...(checkout ? { checkout } : {}),
     created_at: now(),
     disposition: "pending",
   };
@@ -562,6 +565,11 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
     }
   }
   const manifest=(await c.query<{digest:string}>("select digest from preparation_release_manifests where package_id=$1 and package_revision=$2",[packageId,revision])).rows[0];
+  // Only author runs inherit explicit checkout authority. Capture text is untrusted context.
+  const checkout = role === "author" ? (await c.query<{ checkout: Json | null }>(
+    "select c.body->'checkout' as checkout from captures c join packages p on p.capture_id=c.id where p.id=$1 and p.revision=$2",
+    [packageId, revision],
+  )).rows[0]?.checkout : undefined;
   // The generation fence: each attempt at this revision, role and round is numbered.
   const attempts = await c.query<{ n: number }>(
     "select count(*)::int as n from runs where package_id = $1 and package_revision = $2 and role = $3 and round = $4",
@@ -575,6 +583,7 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
     role,
     agent_baseline: "unassigned",
     runtime: { kind: "local", provider: "any", model: "any" },
+    ...(checkout ? { checkout } : {}),
     round,
     status: "queued",
     queued_at: now(),
@@ -955,7 +964,8 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
   const header = briefHeader(run);
   if (run.role === "intake") {
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id]);
-    const capture = cap.rows[0]?.body;
+    const capture = cap.rows[0] ? { ...cap.rows[0].body } : undefined;
+    if (capture) delete capture.checkout;
     const brief = [
       header,
       findRole(cfg, "intake") ?? "",
@@ -1048,7 +1058,7 @@ async function pinnedOffer(c: Tx, offer: string[], role: string, artifacts: Map<
   return out.length || !blocked.length ? { offer: out } : { offer: out, reason: `${blocked.join("; ")}. An administrator pins the installed version, or the pinned one is reinstalled.` };
 }
 
-export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(), runCeilingSeconds?: number) {
+export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifacts: Map<string, string> = new Map(), runCeilingSeconds?: number, supportsCheckouts = false) {
   // A run's reservation: the daemon's ceiling, plus one heartbeat (when the run learns of a stop) and
   // one lease (when a completion that never comes makes it lost), from the claim to the recorded finish.
   const ceiling = runCeilingSeconds === undefined ? undefined : { runSeconds: runCeilingSeconds, marginSeconds: heartbeatSeconds(cfg) + leaseSeconds(cfg) };
@@ -1074,6 +1084,7 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
       if (last) cursor = { at: last.created_key, id: last.id };
       for (const candidate of queued.rows) {
         let row=candidate;
+        if (row.body.checkout && !supportsCheckouts) continue;
         if(!legacyRun(row)) continue;
         // SCRAM holds everything in its scope: nothing there is handed out until a restart lifts it.
         const scram = await scramHolding(c, await runSubject(c, row));
@@ -1565,7 +1576,7 @@ async function startRun(c: Tx, cfg: WorkConfig, row: Json, runtime: string, base
     tokenHash(token).toString("hex"),
     lease,
   ]);
-  await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round, lease_expires_at: lease });
+  await appendEvent(c, "run.started", row.id, { kind: "agent", id: baseline }, { package: row.package_id, role: row.role, round: row.round, lease_expires_at: lease, ...(body.checkout ? { checkout: body.checkout } : {}) });
   issuedLease(c, cfg, row.id);
   const job = await buildJob(c, cfg, body, runtime, hosts);
   const pin = await activePin(c, runtime, row.role);

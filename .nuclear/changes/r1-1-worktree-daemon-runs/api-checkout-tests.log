@@ -1,0 +1,9 @@
+
+ RUN  v5.1.0 <workspace>/services/api
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 26 skipped (28)
+   Start at  11:21:21
+   Duration  310ms (tests 82%, import 14%, transform 4%, worker 1%)
+

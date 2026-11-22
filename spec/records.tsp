@@ -323,6 +323,8 @@ model ExecutionTrace {
    */
   @maxLength(100)
   sandbox?: string;
+  /** Verified repository checkout selected for this execution, when bound. */
+  checkout?: CheckoutBinding;
 }
 
 /** Independence of one axis of the actor and evidence coupling profile. */

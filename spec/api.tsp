@@ -95,6 +95,14 @@ namespace Captures {
 
     source?: "web" | "cli" | "voice" | "chat";
 
+    /** An explicitly prepared checkout. The API validates it and records its Git identity. */
+    checkout?: {
+      repo: string;
+      local_path: string;
+      branch: string;
+      workspace_root?: string;
+    };
+
     /** Classifies the capture at once when the sender holds lane authority; otherwise it waits unclassified. */
     lane?: ControlRod.Records.DataLane;
   }
@@ -1257,6 +1265,9 @@ namespace Runner {
     runtimes: string[];
 
     runtime_status?: RuntimeStatus[];
+
+    /** Required to claim an author run with a checkout binding; omitted means unsupported. */
+    supports_checkouts?: boolean;
 
     /** Provider CLI probes for Settings. Output of a status command is not included. */
     subscription_report?: ControlRod.Api.SubscriptionReport;

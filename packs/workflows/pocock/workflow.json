@@ -1,0 +1,11 @@
+{
+  "id": "pocock",
+  "name": "Pocock",
+  "author": "Matt Pocock",
+  "upstream": "https://github.com/mattpocock/skills",
+  "stages": {
+    "intake": { "card": "stages/intake.md", "skills": ["pocock:grilling", "pocock:domain-modeling", "pocock:to-spec", "pocock:to-tickets", "pocock:retro"] },
+    "author": { "card": "stages/author.md", "skills": ["pocock:implement", "pocock:tdd", "pocock:diagnosing-bugs", "pocock:domain-modeling", "pocock:retro", "pocock:writing-for-agents"] },
+    "pre-check": { "card": "stages/pre-check.md", "skills": ["pocock:code-review"] }
+  }
+}

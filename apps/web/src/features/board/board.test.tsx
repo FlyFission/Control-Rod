@@ -6,9 +6,11 @@ import { http, HttpResponse } from "msw/http";
 import { server } from "../../test/server.js";
 import { renderPage } from "../../test/render.js";
 import { pkg, view } from "../../test/fixtures.js";
-import type { ActionDescriptor, WorkPackage } from "../../api/types.js";
+import type { ActionDescriptor, WorkPackage, WorkspaceProject } from "../../api/types.js";
+import { browserPasskeys } from "../../lib/decide.js";
 import { resetLiveStatus, useLiveEvents, useLiveStatus } from "../../lib/live.js";
 import { saveMode } from "../../lib/mode.js";
+import { hydrateServerProjects, selectProject, WorkspaceProjectUser } from "../../lib/projects.js";
 import { BoardView } from "./BoardView.js";
 
 /** The board as home (redesign task 4; spec 6.2). */
@@ -77,6 +79,81 @@ afterEach(() => {
 });
 
 describe("BoardView", () => {
+  it.each([
+    { action: "repository", command: "project.workspace-update", patch: { repo: "RepoA" } },
+    { action: "lane agent", command: "project.workspace-update", patch: { laneAgents: { drafting: "codex", "agent-check": "claude" } } },
+    { action: "archive", command: "project.workspace-archive", patch: undefined },
+  ])("applies the $action change only after a bound passkey assertion succeeds", async ({ action, command, patch }) => {
+    api({ packages: [] });
+    const project: WorkspaceProject = {
+      id: "prj_test", name: "Project", mode: "software", status: "active", repo: "",
+      repoStrategy: "worktree", workspaceRoot: "", lane: "internal",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+      createdAt: "2026-11-22T00:00:00Z",
+    };
+    hydrateServerProjects("ben", [project]);
+    selectProject("ben", project.id);
+    const payload = patch ? { project_id: project.id, patch } : { project_id: project.id };
+    const signed = { id: "signed-assertion" };
+    const optionBodies: unknown[] = [];
+    const writeBodies: unknown[] = [];
+    let finishPasskey!: (assertion: Record<string, unknown>) => void;
+    let finishWrite!: () => void;
+    const passkey = vi.spyOn(browserPasskeys, "get").mockImplementation(
+      () => new Promise((resolve) => { finishPasskey = resolve; }),
+    );
+    const write = async ({ request }: { request: Request }) => {
+      writeBodies.push(await request.json());
+      await new Promise<void>((resolve) => { finishWrite = resolve; });
+      return HttpResponse.json(patch ? { ...project, ...patch } : { id: project.id, status: "archived" });
+    };
+    server.use(
+      http.get("*/repos", () => HttpResponse.json({
+        workspace_root: "", local: [{ name: "RepoA", branch: "main" }], github: [], github_error: null,
+      })),
+      http.post(`*/admin/commands/${command}/options`, async ({ request }) => {
+        optionBodies.push(await request.json());
+        return HttpResponse.json({ options: { challenge: "project-change" } });
+      }),
+      patch ? http.patch("*/workspace/projects/prj_test", write) : http.post("*/workspace/projects/prj_test/archive", write),
+    );
+    try {
+      await renderPage(<WorkspaceProjectUser value="ben"><Page /></WorkspaceProjectUser>);
+      const user = userEvent.setup();
+      const region = screen.getByRole("region", { name: "Active project settings" });
+      const repo = within(region).getByLabelText("Project default repository") as HTMLSelectElement;
+      const author = screen.getByLabelText("Agent oversight for Implementing") as HTMLSelectElement;
+      if (action === "repository") {
+        await within(repo).findByRole("option", { name: "RepoA (main)" });
+        await user.selectOptions(repo, "RepoA");
+      } else if (action === "lane agent") {
+        await user.selectOptions(author, "codex");
+      } else {
+        await user.click(within(region).getByRole("button", { name: "Archive project" }));
+      }
+
+      await waitFor(() => expect(passkey).toHaveBeenCalledWith({ challenge: "project-change" }));
+      expect(optionBodies).toEqual([{ payload }]);
+      expect(writeBodies).toEqual([]);
+      act(() => finishPasskey(signed));
+      await waitFor(() => expect(writeBodies).toEqual([{ payload, assertion: signed }]));
+      expect(repo.value).toBe("");
+      expect(author.value).toBe("claude");
+      expect(screen.getByRole("region", { name: "Active project settings" })).toBe(region);
+      act(() => finishWrite());
+      if (action === "repository") {
+        await waitFor(() => expect(repo.value).toBe("RepoA"));
+      } else if (action === "lane agent") {
+        await waitFor(() => expect(author.value).toBe("codex"));
+      } else {
+        await waitFor(() => expect(screen.queryByRole("region", { name: "Active project settings" })).toBeNull());
+      }
+    } finally {
+      passkey.mockRestore();
+    }
+  });
+
   it("renders the six column headings in order", async () => {
     api({ packages: [pkg({ id: "WP-1" })] });
     await renderPage(<Page />);

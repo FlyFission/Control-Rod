@@ -29,8 +29,9 @@ import type { ActionDescriptor, AdminView, RosterView, UsageView, DataLane, Inbo
   WorkPackage,
   WorkspaceProject,
   WorkspaceProjectArchive,
+  WorkspaceProjectArchivePayload,
   WorkspaceProjectCreatePayload,
-  WorkspaceProjectUpdate,
+  WorkspaceProjectUpdatePayload,
   LocalRepoInfo,
   GithubRepoInfo,
   ReposResponse,
@@ -220,10 +221,10 @@ export const api = {
   workspaceProjects: () => call<WorkspaceProject[]>("GET", "/workspace/projects"),
   createWorkspaceProject: (payload: WorkspaceProjectCreatePayload, assertion: Record<string, unknown>) =>
     call<WorkspaceProject>("POST", "/workspace/projects", { payload, assertion }),
-  updateWorkspaceProject: (id: string, body: WorkspaceProjectUpdate) =>
-    call<WorkspaceProject>("PATCH", `/workspace/projects/${enc(id)}`, body),
-  archiveWorkspaceProject: (id: string) =>
-    call<WorkspaceProjectArchive>("POST", `/workspace/projects/${enc(id)}/archive`),
+  updateWorkspaceProject: (payload: WorkspaceProjectUpdatePayload, assertion: Record<string, unknown>) =>
+    call<WorkspaceProject>("PATCH", `/workspace/projects/${enc(payload.project_id)}`, { payload, assertion }),
+  archiveWorkspaceProject: (payload: WorkspaceProjectArchivePayload, assertion: Record<string, unknown>) =>
+    call<WorkspaceProjectArchive>("POST", `/workspace/projects/${enc(payload.project_id)}/archive`, { payload, assertion }),
   roster: () => call<RosterView>("GET", "/roster"),
   usage: () => call<UsageView>("GET", "/usage"),
   adminCommandOptions: (name: string, payload: Record<string, unknown>) =>

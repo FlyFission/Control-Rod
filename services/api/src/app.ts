@@ -32,11 +32,7 @@ import { roster } from "./roster.js";
 import { adminRegistry, isAdministrator } from "./registry.js";
 import { usageView } from "./budgets.js";
 import { recordSubscriptionReport, subscriptionView } from "./subscriptions.js";
-import {
-  archiveWorkspaceProject,
-  listWorkspaceProjects,
-  updateWorkspaceProject,
-} from "./workspace-projects.js";
+import { listWorkspaceProjects } from "./workspace-projects.js";
 import { chainHead, inclusionProof, verifyRecords, windowExport } from "./seals.js";
 import { ADMIN_COMMANDS, adminActions, adminCatalog, adminSubject, bundledThemes, callerFor, needsBootstrap, runAdmin } from "./admin.js";
 import { DEFAULT_HARDWARE_FORMATS, currentPolicySet, currentQualification } from "./tenancy.js";
@@ -319,16 +315,20 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { subject_digest: { algorithm: "sha256", value: subject }, options };
   });
   type AdminCommandBody = { payload?: Record<string, unknown>; assertion?: Record<string, unknown> };
-  async function executeAdminCommand(req: FastifyRequest<{ Body: AdminCommandBody }>, name: string) {
+  async function executeAdminCommand(req: FastifyRequest<{ Body: AdminCommandBody }>, name: string, projectId?: string) {
     const user = await person(req);
     const caller = await callerFor(db, user);
+    const payload = req.body?.payload ?? {};
+    if (projectId !== undefined && payload.project_id !== projectId) {
+      throw new Refusal(400, "invalid", "The project ID in the request must match the path");
+    }
     let signed: { subject: string; credentialId: string; nonce: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
       const ok = await assertionVerify(db, auth, "admin", req.body.assertion as never);
       if (ok && ok.user === user && ok.data.command === name && ok.data.member === caller.memberId)
         signed = { subject: String(ok.data.subject_digest), credentialId: ok.credentialId, nonce: String(ok.data.nonce), assertion: req.body.assertion };
     }
-    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, req.body?.payload ?? {}, signed);
+    return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, name, caller, payload, signed);
   }
   app.post<{ Params: { name: string }; Body: AdminCommandBody }>("/admin/commands/:name", async (req) =>
     executeAdminCommand(req, req.params.name));
@@ -346,14 +346,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     const proj = await executeAdminCommand(req, "project.workspace-create");
     return reply.code(201).send(proj);
   });
-  app.patch<{ Params: { id: string }; Body: Record<string, unknown> }>("/workspace/projects/:id", async (req) => {
-    const caller = await callerFor(db, await person(req));
-    return updateWorkspaceProject(db, caller, req.params.id, req.body ?? {});
-  });
-  app.post<{ Params: { id: string } }>("/workspace/projects/:id/archive", async (req) => {
-    const caller = await callerFor(db, await person(req));
-    return archiveWorkspaceProject(db, caller, req.params.id);
-  });
+  app.patch<{ Params: { id: string }; Body: AdminCommandBody }>("/workspace/projects/:id", async (req) =>
+    executeAdminCommand(req, "project.workspace-update", req.params.id));
+  app.post<{ Params: { id: string }; Body: AdminCommandBody }>("/workspace/projects/:id/archive", async (req) =>
+    executeAdminCommand(req, "project.workspace-archive", req.params.id));
 
   /* ---- captures ---- */
   app.get("/captures", async (req) => {

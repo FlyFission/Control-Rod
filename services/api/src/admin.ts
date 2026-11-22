@@ -21,7 +21,7 @@ import { sealChain } from "./seals.js";
 import { checkBudget } from "./budgets.js";
 import { getObject, recordObject, transition } from "./workbench.js";
 import { Refusal } from "./work.js";
-import { createWorkspaceProject } from "./workspace-projects.js";
+import { archiveWorkspaceProject, createWorkspaceProject, updateWorkspaceProject } from "./workspace-projects.js";
 
 /**
  * Administrative commands (specification 10.2; workbench plan task 1.5). Each declares how it is
@@ -420,6 +420,25 @@ export const ADMIN_COMMANDS: Record<string, AdminCommand> = {
     label: "Create a workspace project",
     catalog: "admin.project-create", signature: "direct", need: "administrator",
     run: createWorkspaceProject,
+  },
+
+  "project.workspace-update": {
+    label: "Update workspace project defaults",
+    catalog: "admin.project-update", signature: "direct", need: "administrator",
+    async run(c, caller, p) {
+      const id = str(p, "project_id")!;
+      const { patch } = p;
+      if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+        throw new Refusal(400, "invalid", "A workspace project update needs a patch object");
+      }
+      return updateWorkspaceProject(c, caller, id, patch as Record<string, unknown>);
+    },
+  },
+
+  "project.workspace-archive": {
+    label: "Archive a workspace project",
+    catalog: "admin.project-update", signature: "direct", need: "administrator",
+    run: (c, caller, p) => archiveWorkspaceProject(c, caller, str(p, "project_id")!),
   },
 
   "project.update": {

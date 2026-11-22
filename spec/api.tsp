@@ -140,6 +140,27 @@ namespace WorkspaceProjects {
     assertion: Record<unknown>;
   }
 
+  model ArchiveProjectPayload {
+    project_id: string;
+  }
+
+  model UpdateProjectPayload {
+    ...ArchiveProjectPayload;
+    patch: UpdateProject;
+  }
+
+  /** The project.workspace-update admin challenge binds the project ID and patch. */
+  model SignedProjectUpdate {
+    payload: UpdateProjectPayload;
+    assertion: Record<unknown>;
+  }
+
+  /** The project.workspace-archive admin challenge binds the project ID. */
+  model SignedProjectArchive {
+    payload: ArchiveProjectPayload;
+    assertion: Record<unknown>;
+  }
+
   model ArchivedProject {
     id: string;
     status: "archived";
@@ -150,8 +171,8 @@ namespace WorkspaceProjects {
     @statusCode _: 201;
     @body project: WorkspaceProject;
   } | Refused;
-  @route("/{id}") @patch op update(@path id: string, @body body: UpdateProject): WorkspaceProject | Refused;
-  @route("/{id}/archive") @post op archive(@path id: string): ArchivedProject | Refused;
+  @route("/{id}") @patch op update(@path id: string, @body body: SignedProjectUpdate): WorkspaceProject | Refused;
+  @route("/{id}/archive") @post op archive(@path id: string, @body body: SignedProjectArchive): ArchivedProject | Refused;
 }
 
 @route("/captures")

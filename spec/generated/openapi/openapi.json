@@ -7592,7 +7592,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WorkspaceProjects.UpdateProject"
+                "$ref": "#/components/schemas/WorkspaceProjects.SignedProjectUpdate"
               }
             }
           }
@@ -7680,6 +7680,16 @@
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
                 }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceProjects.SignedProjectArchive"
               }
             }
           }
@@ -14197,6 +14207,17 @@
           }
         }
       },
+      "WorkspaceProjects.ArchiveProjectPayload": {
+        "type": "object",
+        "required": [
+          "project_id"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          }
+        }
+      },
       "WorkspaceProjects.ArchivedProject": {
         "type": "object",
         "required": [
@@ -14301,6 +14322,40 @@
           }
         }
       },
+      "WorkspaceProjects.SignedProjectArchive": {
+        "type": "object",
+        "required": [
+          "payload",
+          "assertion"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/components/schemas/WorkspaceProjects.ArchiveProjectPayload"
+          },
+          "assertion": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "description": "The project.workspace-archive admin challenge binds the project ID."
+      },
+      "WorkspaceProjects.SignedProjectUpdate": {
+        "type": "object",
+        "required": [
+          "payload",
+          "assertion"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/components/schemas/WorkspaceProjects.UpdateProjectPayload"
+          },
+          "assertion": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "description": "The project.workspace-update admin challenge binds the project ID and patch."
+      },
       "WorkspaceProjects.UpdateProject": {
         "type": "object",
         "properties": {
@@ -14340,6 +14395,21 @@
               }
             ],
             "description": "Null clears the configured lane overrides."
+          }
+        }
+      },
+      "WorkspaceProjects.UpdateProjectPayload": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "patch"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "patch": {
+            "$ref": "#/components/schemas/WorkspaceProjects.UpdateProject"
           }
         }
       },

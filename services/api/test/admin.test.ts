@@ -20,10 +20,13 @@ const post = (cookie: string, url: string, payload: unknown) =>
   h.app.inject({ method: "POST", url, headers: { cookie, origin: ORIGIN }, payload: payload as object });
 
 /** Signs and runs a Direct command: options over the exact payload, a passkey assertion, then the command. */
-async function signed(cookie: string, key: VirtualAuthenticator, name: string, payload: Json) {
+async function signedPayload(cookie: string, key: VirtualAuthenticator, name: string, payload: Json) {
   const o = await post(cookie, `/admin/commands/${name}/options`, { payload });
   expect(o.statusCode, o.body).toBe(200);
-  return post(cookie, `/admin/commands/${name}`, { payload, assertion: key.assert(o.json().options) });
+  return { payload, assertion: key.assert(o.json().options) };
+}
+async function signed(cookie: string, key: VirtualAuthenticator, name: string, payload: Json) {
+  return post(cookie, `/admin/commands/${name}`, await signedPayload(cookie, key, name, payload));
 }
 const unsigned = (cookie: string, name: string, payload: Json) => post(cookie, `/admin/commands/${name}`, { payload });
 
@@ -123,7 +126,7 @@ describe("authority", () => {
 });
 
 describe("commands", () => {
-  it("creates a workspace project with a signed administrator command and archives it", async () => {
+  it("creates and archives a workspace project with signed administrator commands", async () => {
     const payload = {
       name: "Signed workspace",
       mode: "nuclear-grade",
@@ -153,13 +156,40 @@ describe("commands", () => {
     expect(await projectRuntimePrefs(h.db, LOCAL_ORG, payload.name.toLowerCase())).toMatchObject({ author: "codex", checker: "claude" });
     expect(await projectRuntimePrefs(h.db, otherOrg, payload.name)).toMatchObject({ author: "claude", checker: "codex" });
 
-    const archived = await post(ben, `/workspace/projects/${id}/archive`, {});
+    const archive = await signedPayload(ben, benKey, "project.workspace-archive", { project_id: id });
+    const archived = await post(ben, `/workspace/projects/${id}/archive`, archive);
     expect(archived.statusCode, archived.body).toBe(200);
     expect(archived.json()).toEqual({ id, status: "archived" });
     const stored = await h.db.query("select body->>'status' as status from projects where id = $1", [id]);
     expect(stored.rows[0]?.status).toBe("retired");
     expect(await projectRuntimePrefs(h.db, LOCAL_ORG, payload.name)).toBeNull();
     expect(await projectRuntimePrefs(h.db, otherOrg, payload.name)).toMatchObject({ author: "claude", checker: "codex" });
+  });
+
+  it("preserves concurrent signed edits to distinct workspace projects", async () => {
+    const spare = new VirtualAuthenticator();
+    expect((await addOwnPasskey(h.app, ben, benKey, spare)).statusCode).toBe(200);
+    const first = await signed(ben, benKey, "project.workspace-create", { name: "First workspace edit" });
+    const second = await signed(ben, spare, "project.workspace-create", { name: "Second workspace edit" });
+    expect(first.statusCode, first.body).toBe(200);
+    expect(second.statusCode, second.body).toBe(200);
+    const { id: firstId } = first.json();
+    const { id: secondId } = second.json();
+    const update = async (id: string, key: VirtualAuthenticator, repo: string) => {
+      const payload = await signedPayload(ben, key, "project.workspace-update", { project_id: id, patch: { repo } });
+      const response = await h.app.inject({
+        method: "PATCH", url: `/workspace/projects/${id}`, headers: { cookie: ben, origin: ORIGIN }, payload,
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      expect(response.json()).toMatchObject({ id, repo });
+    };
+    await Promise.all([update(firstId, benKey, "first-repo"), update(secondId, spare, "second-repo")]);
+    const projects = await h.app.inject({ method: "GET", url: "/workspace/projects", headers: { cookie: ben } });
+    expect(projects.statusCode, projects.body).toBe(200);
+    expect(projects.json()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: firstId, repo: "first-repo" }),
+      expect.objectContaining({ id: secondId, repo: "second-repo" }),
+    ]));
   });
 
   let project: string;

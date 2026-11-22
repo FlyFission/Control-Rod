@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { api, explain } from "../../api/client.js";
@@ -25,7 +25,9 @@ import {
   switchModeAndSyncProject,
   updateProject,
   useActiveProject,
+  WorkspaceProjectUser,
 } from "../../lib/projects.js";
+import { sessionGeneration, stillCurrent } from "../../lib/session.js";
 import { BoardListView } from "./BoardListView.js";
 import { BoardReviewDrawer } from "./BoardReviewDrawer.js";
 import { Card, sinceText } from "./Card.js";
@@ -93,6 +95,7 @@ export function BoardView() {
   const data = useBoardData();
   const look = useLook();
   const mode = useMode();
+  const projectUser = useContext(WorkspaceProjectUser);
   const activeProject = useActiveProject();
   const copy = MODE_COPY[mode];
   const otherModes: EngineeringMode[] = (["software", "capital-projects", "nuclear-grade"] as const).filter(
@@ -370,16 +373,20 @@ export function BoardView() {
           ? { ...prevLaneAgents, [colId]: eco, [otherCol]: otherEco }
           : tentative;
       setProjectError(null);
-      updateProject(activeProject.id, { laneAgents: nextLaneAgents });
+      const startedUnder = sessionGeneration();
+      updateProject(projectUser, activeProject.id, { laneAgents: nextLaneAgents });
       void api
         .updateWorkspaceProject(activeProject.id, { laneAgents: nextLaneAgents })
-        .then(() => qc.invalidateQueries({ queryKey: ["workspace-projects"] }))
+        .then(() => {
+          if (stillCurrent(startedUnder)) return qc.invalidateQueries({ queryKey: ["workspace-projects", projectUser] });
+        })
         .catch((err) => {
-          updateProject(activeProject.id, { laneAgents: prevLaneAgents });
+          if (!stillCurrent(startedUnder)) return;
+          updateProject(projectUser, activeProject.id, { laneAgents: prevLaneAgents });
           setProjectError(explain(err, "Could not update lane agent oversight."));
         });
     },
-    [activeProject, qc],
+    [activeProject, projectUser, qc],
   );
 
   const COLUMN_FOLD_LIMIT = 8;
@@ -576,12 +583,16 @@ export function BoardView() {
                     const nextRepo = e.target.value;
                     const prevRepo = activeProject.repo;
                     setProjectError(null);
-                    updateProject(activeProject.id, { repo: nextRepo });
+                    const startedUnder = sessionGeneration();
+                    updateProject(projectUser, activeProject.id, { repo: nextRepo });
                     void api
                       .updateWorkspaceProject(activeProject.id, { repo: nextRepo })
-                      .then(() => qc.invalidateQueries({ queryKey: ["workspace-projects"] }))
+                      .then(() => {
+                        if (stillCurrent(startedUnder)) return qc.invalidateQueries({ queryKey: ["workspace-projects", projectUser] });
+                      })
                       .catch((err) => {
-                        updateProject(activeProject.id, { repo: prevRepo });
+                        if (!stillCurrent(startedUnder)) return;
+                        updateProject(projectUser, activeProject.id, { repo: prevRepo });
                         setProjectError(explain(err, "Could not update default repository."));
                       });
                   }}
@@ -618,7 +629,7 @@ export function BoardView() {
               </span>
             </div>
             <div className="bd-project-bar-actions">
-              <button type="button" className="btn small" onClick={() => selectProject(null)}>
+              <button type="button" className="btn small" onClick={() => selectProject(projectUser, null)}>
                 All {copy.label}
               </button>
               <button
@@ -626,13 +637,16 @@ export function BoardView() {
                 className="btn small"
                 onClick={() => {
                   setProjectError(null);
+                  const startedUnder = sessionGeneration();
                   void api
                     .archiveWorkspaceProject(activeProject.id)
                     .then(() => {
-                      deleteProject(activeProject.id);
-                      void qc.invalidateQueries({ queryKey: ["workspace-projects"] });
+                      if (!stillCurrent(startedUnder)) return;
+                      deleteProject(projectUser, activeProject.id);
+                      void qc.invalidateQueries({ queryKey: ["workspace-projects", projectUser] });
                     })
                     .catch((err) => {
+                      if (!stillCurrent(startedUnder)) return;
                       setProjectError(explain(err, "Could not archive project."));
                     });
                 }}
@@ -684,10 +698,10 @@ export function BoardView() {
             className="btn small"
             onClick={() => {
               setSearchQuery("");
-              selectProject(null);
+              selectProject(projectUser, null);
               updateLens(revealHidden(lens));
               if (hiddenInMode <= 0 && nextReviewMode) {
-                switchModeAndSyncProject(nextReviewMode);
+                switchModeAndSyncProject(projectUser, nextReviewMode);
               }
             }}
           >
@@ -708,7 +722,7 @@ export function BoardView() {
                 key={g.mode}
                 type="button"
                 className="btn small"
-                onClick={() => switchModeAndSyncProject(g.mode)}
+                onClick={() => switchModeAndSyncProject(projectUser, g.mode)}
               >
                 Switch to {g.label}
               </button>

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
-import type { DataLane } from "../api/types.js";
+import type { DataLane, WorkspaceProjectCreatePayload } from "../api/types.js";
+import { browserPasskeys } from "../lib/decide.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
-import { hydrateServerProjects, selectProject } from "../lib/projects.js";
+import { hydrateServerProjects, loadProjects, selectProject, WorkspaceProjectUser } from "../lib/projects.js";
 import {
   CLI_ECOSYSTEMS,
   defaultAuthorSelection,
@@ -12,6 +13,7 @@ import {
   type CliEcosystemId,
 } from "../lib/runtimes.js";
 import type { RepoOutfallStrategy } from "../lib/workDefaults.js";
+import { sessionGeneration, stillCurrent } from "../lib/session.js";
 import { LanePicker } from "./LanePicker.js";
 
 interface ProjectModalProps {
@@ -26,6 +28,7 @@ interface ProjectModalProps {
  */
 export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) {
   const qc = useQueryClient();
+  const projectUser = useContext(WorkspaceProjectUser);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState("");
   const [mode, setMode] = useState<EngineeringMode>(defaultMode);
@@ -64,10 +67,10 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
   }, [open]);
 
   const createMut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (startedUnder: number) => {
       const aEco = ecosystemById(authorEco);
       const cEco = ecosystemById(checkerEco);
-      return api.createWorkspaceProject({
+      const payload: WorkspaceProjectCreatePayload = {
         name: name.trim(),
         mode,
         repo,
@@ -76,21 +79,28 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
         lane,
         author: { ecosystem: aEco.id, model: aEco.defaultModel, reasoning: aEco.defaultReasoning },
         checker: { ecosystem: cEco.id, model: cEco.defaultModel, reasoning: cEco.defaultReasoning },
-      });
+      };
+      const { options } = await api.adminCommandOptions("project.workspace-create", payload);
+      if (!stillCurrent(startedUnder)) return;
+      const assertion = await browserPasskeys.get(options);
+      if (!stillCurrent(startedUnder)) return;
+      return api.createWorkspaceProject(payload, assertion);
     },
-    onSuccess: async (created) => {
-      const fresh = await api.workspaceProjects().catch(() => [created]);
-      hydrateServerProjects(fresh);
-      selectProject(created.id);
-      void qc.invalidateQueries({ queryKey: ["workspace-projects"] });
+    onSuccess: async (created, startedUnder) => {
+      if (!created || !stillCurrent(startedUnder)) return;
+      const fresh = await api.workspaceProjects().catch(() => loadProjects(projectUser));
+      if (!stillCurrent(startedUnder)) return;
+      hydrateServerProjects(projectUser, fresh.some((project) => project.id === created.id) ? fresh : [...fresh, created]);
+      selectProject(projectUser, created.id);
+      void qc.invalidateQueries({ queryKey: ["workspace-projects", projectUser] });
       void qc.invalidateQueries({ queryKey: ["admin"] });
       setName("");
       setRepo("");
       setError(null);
       onClose();
     },
-    onError: (e) => {
-      setError(explain(e, "Could not create project."));
+    onError: (e, startedUnder) => {
+      if (stillCurrent(startedUnder)) setError(explain(e, "Could not create project."));
     },
   });
 
@@ -105,7 +115,7 @@ export function ProjectModal({ open, defaultMode, onClose }: ProjectModalProps) 
       return;
     }
     setError(null);
-    createMut.mutate();
+    createMut.mutate(sessionGeneration());
   }
 
   const copy = MODE_COPY[mode];

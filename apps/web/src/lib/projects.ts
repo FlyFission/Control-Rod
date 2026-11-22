@@ -1,27 +1,7 @@
-import { useSyncExternalStore } from "react";
-import type { CaptureView, DataLane, WorkPackage } from "../api/types.js";
+import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import type { CaptureView, WorkPackage, WorkspaceProject } from "../api/types.js";
 import { loadMode, saveMode, type EngineeringMode } from "./mode.js";
-import {
-  defaultAuthorSelection,
-  defaultCheckerSelection,
-  type AgentRuntimeSelection,
-} from "./runtimes.js";
 import { readString, writeString } from "./storage.js";
-import type { RepoOutfallStrategy } from "./workDefaults.js";
-
-export interface WorkspaceProject {
-  id: string;
-  name: string;
-  mode: EngineeringMode;
-  repo: string;
-  repoStrategy: RepoOutfallStrategy;
-  workspaceRoot: string;
-  lane: DataLane;
-  author: AgentRuntimeSelection;
-  checker: AgentRuntimeSelection;
-  laneAgents?: Record<string, string>;
-  createdAt: string;
-}
 
 function isEngineeringMode(value: unknown): value is EngineeringMode {
   return value === "software" || value === "capital-projects" || value === "nuclear-grade";
@@ -29,31 +9,27 @@ function isEngineeringMode(value: unknown): value is EngineeringMode {
 
 const PROJECTS_KEY = "cr.projects.v1";
 const ACTIVE_PROJECT_KEY = "cr.active-project";
+const scopedKey = (key: string, user: string) => `${key}:${encodeURIComponent(user)}`;
+
+/** The Shell supplies the verified session user for every workspace view. */
+export const WorkspaceProjectUser = createContext<string | undefined>(undefined);
 
 const listeners = new Set<() => void>();
-let cachedRaw: string | null | undefined;
-let cachedProjects: WorkspaceProject[] = [];
 
 function notify() {
-  cachedRaw = undefined;
   for (const fn of listeners) fn();
 }
 
-export function loadProjects(): WorkspaceProject[] {
-  const raw = readString(PROJECTS_KEY);
-  if (raw === cachedRaw) return cachedProjects;
-  cachedRaw = raw;
-  if (!raw) {
-    cachedProjects = [];
-    return cachedProjects;
-  }
+function readProjects(user: string | undefined): string | undefined {
+  return user ? readString(scopedKey(PROJECTS_KEY, user)) : undefined;
+}
+
+function parseProjects(raw: string | undefined): WorkspaceProject[] {
+  if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      cachedProjects = [];
-      return cachedProjects;
-    }
-    cachedProjects = parsed.filter(
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
       (item): item is WorkspaceProject =>
         Boolean(item) &&
         typeof item === "object" &&
@@ -61,98 +37,53 @@ export function loadProjects(): WorkspaceProject[] {
         typeof (item as WorkspaceProject).name === "string" &&
         isEngineeringMode((item as WorkspaceProject).mode),
     );
-    return cachedProjects;
   } catch {
-    cachedProjects = [];
-    return cachedProjects;
+    return [];
   }
 }
 
-function persistProjects(list: WorkspaceProject[]) {
-  writeString(PROJECTS_KEY, JSON.stringify(list));
+export function loadProjects(user: string | undefined): WorkspaceProject[] {
+  return parseProjects(readProjects(user));
+}
+
+function persistProjects(user: string, list: WorkspaceProject[]) {
+  writeString(scopedKey(PROJECTS_KEY, user), JSON.stringify(list));
   notify();
 }
 
-export function loadActiveProjectId(): string | null {
-  const v = readString(ACTIVE_PROJECT_KEY);
-  if (!v) return null;
-  const list = loadProjects();
-  return list.some((p) => p.id === v) ? v : null;
+function readActiveProjectId(user: string | undefined): string | undefined {
+  return user ? readString(scopedKey(ACTIVE_PROJECT_KEY, user)) : undefined;
 }
 
-export function selectProject(id: string | null): void {
-  if (!id) {
-    writeString(ACTIVE_PROJECT_KEY, "");
-    notify();
-    return;
-  }
-  const target = loadProjects().find((p) => p.id === id);
-  if (!target) {
-    writeString(ACTIVE_PROJECT_KEY, "");
-    notify();
-    return;
-  }
-  writeString(ACTIVE_PROJECT_KEY, target.id);
-  if (loadMode() !== target.mode) {
+export function selectProject(user: string | undefined, id: string | null): void {
+  if (!user) return;
+  const target = id ? loadProjects(user).find((p) => p.id === id) : undefined;
+  writeString(scopedKey(ACTIVE_PROJECT_KEY, user), target?.id ?? "");
+  if (target && loadMode() !== target.mode) {
     saveMode(target.mode);
   }
   notify();
 }
 
-export function switchModeAndSyncProject(nextMode: EngineeringMode): void {
-  const activeId = loadActiveProjectId();
-  if (activeId) {
-    const active = loadProjects().find((p) => p.id === activeId);
+export function switchModeAndSyncProject(user: string | undefined, nextMode: EngineeringMode): void {
+  const activeId = readActiveProjectId(user);
+  if (user && activeId) {
+    const active = loadProjects(user).find((p) => p.id === activeId);
     if (active && active.mode !== nextMode) {
-      writeString(ACTIVE_PROJECT_KEY, "");
+      writeString(scopedKey(ACTIVE_PROJECT_KEY, user), "");
     }
   }
   saveMode(nextMode);
   notify();
 }
 
-export function createProject(input: {
-  name: string;
-  mode: EngineeringMode;
-  repo?: string;
-  repoStrategy?: RepoOutfallStrategy;
-  workspaceRoot?: string;
-  lane?: DataLane;
-  author?: AgentRuntimeSelection;
-  checker?: AgentRuntimeSelection;
-  laneAgents?: Record<string, string>;
-}): WorkspaceProject {
-  const trimmed = input.name.trim();
-  const slug = trimmed
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 32);
-  const id = `proj-${slug || "work"}-${Math.random().toString(36).slice(2, 6)}`;
-  const proj: WorkspaceProject = {
-    id,
-    name: trimmed || "Untitled project",
-    mode: input.mode,
-    repo: (input.repo ?? "").trim(),
-    repoStrategy: input.repoStrategy ?? "worktree",
-    workspaceRoot: (input.workspaceRoot ?? "").trim(),
-    lane: input.lane ?? "internal",
-    author: input.author ?? defaultAuthorSelection(),
-    checker: input.checker ?? defaultCheckerSelection(),
-    ...(input.laneAgents && Object.keys(input.laneAgents).length > 0 ? { laneAgents: input.laneAgents } : {}),
-    createdAt: new Date().toISOString(),
-  };
-  const next = [...loadProjects(), proj];
-  persistProjects(next);
-  selectProject(proj.id);
-  return proj;
-}
-
 export function updateProject(
+  user: string | undefined,
   id: string,
   patch: Partial<Omit<WorkspaceProject, "id" | "createdAt">>,
 ): WorkspaceProject | null {
-  const list = loadProjects();
+  if (!user) return null;
+  const list = loadProjects(user);
   let updated: WorkspaceProject | null = null;
   const next = list.map((p) => {
     if (p.id !== id) return p;
@@ -160,48 +91,39 @@ export function updateProject(
     return updated;
   });
   if (!updated) return null;
-  persistProjects(next);
+  persistProjects(user, next);
   return updated;
 }
 
-export function hydrateServerProjects(serverList: WorkspaceProject[]): void {
-  if (!Array.isArray(serverList)) return;
-  persistProjects(serverList);
+export function hydrateServerProjects(user: string | undefined, serverList: WorkspaceProject[]): void {
+  if (!user || !Array.isArray(serverList)) return;
+  persistProjects(user, serverList);
 }
 
-export function deleteProject(id: string): void {
-  const next = loadProjects().filter((p) => p.id !== id);
-  if (loadActiveProjectId() === id) {
-    writeString(ACTIVE_PROJECT_KEY, "");
+export function deleteProject(user: string | undefined, id: string): void {
+  if (!user) return;
+  const next = loadProjects(user).filter((p) => p.id !== id);
+  if (readActiveProjectId(user) === id) {
+    writeString(scopedKey(ACTIVE_PROJECT_KEY, user), "");
   }
-  persistProjects(next);
+  persistProjects(user, next);
+}
+
+function subscribe(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => void listeners.delete(fn);
 }
 
 export function useProjects(): WorkspaceProject[] {
-  return useSyncExternalStore(
-    (fn) => {
-      listeners.add(fn);
-      return () => void listeners.delete(fn);
-    },
-    loadProjects,
-    () => [],
-  );
-}
-
-export function useActiveProjectId(): string | null {
-  return useSyncExternalStore(
-    (fn) => {
-      listeners.add(fn);
-      return () => void listeners.delete(fn);
-    },
-    loadActiveProjectId,
-    () => null,
-  );
+  const user = useContext(WorkspaceProjectUser);
+  const raw = useSyncExternalStore(subscribe, () => readProjects(user), () => undefined);
+  return useMemo(() => parseProjects(raw), [raw]);
 }
 
 export function useActiveProject(): WorkspaceProject | null {
+  const user = useContext(WorkspaceProjectUser);
   const projects = useProjects();
-  const activeId = useActiveProjectId();
+  const activeId = useSyncExternalStore(subscribe, () => readActiveProjectId(user), () => undefined);
   return activeId ? (projects.find((p) => p.id === activeId) ?? null) : null;
 }
 

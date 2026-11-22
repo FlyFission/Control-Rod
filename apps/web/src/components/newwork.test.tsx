@@ -9,7 +9,8 @@ import type { Session } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { Shell } from "./Shell.js";
 import { MODE_COPY, PRO_LANE_SKILLS, saveMode } from "../lib/mode.js";
-import { captureMatchesScope, loadProjects, packageMatchesScope } from "../lib/projects.js";
+import { captureMatchesScope, hydrateServerProjects, loadProjects, packageMatchesScope } from "../lib/projects.js";
+import { browserPasskeys } from "../lib/decide.js";
 import { loadWorkDefaults, resetWorkDefaults, factoryDefaults } from "../lib/workDefaults.js";
 
 const ben = { registered: true, signed_in: true, user: "ben" } as Session;
@@ -63,13 +64,14 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(uniqueSkills.size).toBe(20);
     expect(PRO_LANE_SKILLS["person-verifies"].map((s) => s.name)).toEqual(["proving-claims", "reviewing-code-quality"]);
 
-    localStorage.setItem(
-      "cr.projects.v1",
-      JSON.stringify([
+    hydrateServerProjects(
+      "ben",
+      [
         {
           id: "proj-ng",
           name: "Core Auth",
           mode: "nuclear-grade",
+          status: "active",
           repo: "Control-Rod",
           repoStrategy: "worktree",
           workspaceRoot: "",
@@ -79,9 +81,9 @@ describe("engineering mode toggle and NewWorkModal", () => {
           laneAgents: { drafting: "claude", "agent-check": "codex" },
           createdAt: "2026-11-22T00:00:00Z",
         },
-      ]),
+      ],
     );
-    const loaded = loadProjects();
+    const loaded = loadProjects("ben");
     expect(loaded).toHaveLength(1);
     expect(loaded[0]?.mode).toBe("nuclear-grade");
     expect(loaded[0]?.laneAgents).toEqual({ drafting: "claude", "agent-check": "codex" });
@@ -119,29 +121,42 @@ describe("engineering mode toggle and NewWorkModal", () => {
 
     saveMode("nuclear-grade");
     mockDialogMethods();
-    const createdBodies: Array<{ name?: string; mode?: string; author?: unknown; checker?: unknown }> = [];
+    const challengedPayloads: unknown[] = [];
+    const createdBodies: Array<{
+      payload: { name?: string; mode?: string; author?: unknown; checker?: unknown };
+      assertion: unknown;
+    }> = [];
+    const createdProjects: unknown[] = [];
     server.use(
       http.get("*/inbox", () => HttpResponse.json({ items: [] })),
-      http.get("*/workspace/projects", () => HttpResponse.json([])),
+      http.get("*/workspace/projects", () => HttpResponse.json(createdProjects)),
       http.get("*/repos", () =>
         HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null }),
       ),
+      http.post("*/admin/commands/project.workspace-create/options", async ({ request }) => {
+        const body = (await request.json()) as { payload: unknown };
+        challengedPayloads.push(body.payload);
+        return HttpResponse.json({ options: { challenge: "project-challenge" } });
+      }),
       http.post("*/workspace/projects", async ({ request }) => {
-        const body = (await request.json()) as { name?: string; mode?: string; author?: unknown; checker?: unknown };
+        const body = (await request.json()) as (typeof createdBodies)[number];
         createdBodies.push(body);
-        return HttpResponse.json({
+        const { payload } = body;
+        const project = {
           id: "prj_ng1",
-          name: body.name,
-          mode: body.mode,
+          name: payload.name,
+          mode: payload.mode,
           status: "active",
           repo: "",
           repoStrategy: "worktree",
           workspaceRoot: "",
           lane: "internal",
-          author: body.author,
-          checker: body.checker,
+          author: payload.author,
+          checker: payload.checker,
           createdAt: "2026-11-22T00:00:00Z",
-        });
+        };
+        createdProjects.push(project);
+        return HttpResponse.json(project, { status: 201 });
       }),
     );
 
@@ -157,11 +172,21 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const modeSelect = screen.getByLabelText("Board mode") as HTMLSelectElement;
     expect(modeSelect.value).toBe("nuclear-grade");
     await user.type(screen.getByLabelText("Project name"), "Safety Boundary");
-    await user.click(screen.getByRole("button", { name: "Create project" }));
-
-    await waitFor(() => expect(createdBodies).toHaveLength(1));
-    expect(createdBodies[0]?.mode).toBe("nuclear-grade");
-    expect(createdBodies[0]?.name).toBe("Safety Boundary");
+    const passkey = vi.spyOn(browserPasskeys, "get").mockImplementation(async (options) =>
+      ({ id: "credential", challenge: options.challenge }),
+    );
+    try {
+      await user.click(screen.getByRole("button", { name: "Create project" }));
+      await waitFor(() => expect(createdBodies).toHaveLength(1));
+      expect(createdBodies[0]?.payload).toMatchObject({ name: "Safety Boundary", mode: "nuclear-grade" });
+      expect(challengedPayloads).toEqual([createdBodies[0]?.payload]);
+      expect(createdBodies[0]?.assertion).toEqual({ id: "credential", challenge: "project-challenge" });
+      const created = await screen.findByRole("button", { name: "Safety Boundary", pressed: true });
+      expect(created.getAttribute("aria-pressed")).toBe("true");
+      await user.click(screen.getByRole("button", { name: "All Nuclear-Grade" }));
+    } finally {
+      passkey.mockRestore();
+    }
   });
 
   it("supports Simple vs Advanced mode, auto-inference, runnable-only CLIs, and saved defaults", async () => {

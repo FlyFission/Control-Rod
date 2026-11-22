@@ -1,0 +1,14 @@
+=== RUN   TestUpdateRunsNothingWithoutYes
+--- PASS: TestUpdateRunsNothingWithoutYes (0.00s)
+=== RUN   TestUpdateOneAgentByName
+--- PASS: TestUpdateOneAgentByName (0.00s)
+=== RUN   TestUpdateAllAsksOnceForExactlyTheShownCommands
+--- PASS: TestUpdateAllAsksOnceForExactlyTheShownCommands (0.00s)
+=== RUN   TestUpdateRefusesWithoutTerminalOrYes
+--- PASS: TestUpdateRefusesWithoutTerminalOrYes (0.00s)
+=== RUN   TestUpdateSkipsAgentWithNoCommand
+--- PASS: TestUpdateSkipsAgentWithNoCommand (0.00s)
+=== RUN   TestUpdateCheckOff
+--- PASS: TestUpdateCheckOff (0.00s)
+PASS
+ok  	github.com/flyfission/control-rod/daemon/cmd/controlrod	0.008s

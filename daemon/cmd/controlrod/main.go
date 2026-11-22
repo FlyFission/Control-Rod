@@ -4,6 +4,7 @@
 //	controlrod daemon [--parallel N] [--timeout 45m]
 //	controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR [--home DIR] [--daemon-home DIR]
 //	controlrod attestation-public
+//	controlrod agents [check] | controlrod agents update [--all] [--yes] [agent...]
 //
 // The daemon claims jobs from the control plane, runs an agent runtime in a per-job workspace
 // and reports outputs with an execution trace. It never makes a decision.
@@ -27,7 +28,7 @@ import (
 	"github.com/flyfission/control-rod/daemon/internal/version"
 )
 
-const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR | controlrod attestation-public"
+const usage = "usage: controlrod version | controlrod daemon [--parallel N] [--timeout 45m] | controlrod sandbox-args --runtime claude|codex --policy FILE --workspace DIR | controlrod attestation-public | controlrod agents [check|update]"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -43,6 +44,8 @@ func main() {
 		os.Exit(sandboxArgs(os.Args[2:]))
 	case "attestation-public":
 		os.Exit(attestationPublic())
+	case "agents":
+		os.Exit(agents(os.Args[2:]))
 	default:
 		fmt.Fprintln(os.Stderr, usage)
 		os.Exit(2)
@@ -64,6 +67,7 @@ func daemon(args []string) int {
 	fs := flag.NewFlagSet("daemon", flag.ContinueOnError)
 	parallel := fs.Int("parallel", 3, "jobs to run at once")
 	timeout := fs.Duration("timeout", 45*time.Minute, "longest a single run may take")
+	noUpdateCheck := fs.Bool("no-update-check", false, "do not check agent CLIs for newer versions at startup (also CONTROLROD_UPDATE_CHECK=0)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -84,6 +88,10 @@ func daemon(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// Once, at startup, never on a timer: say which agent CLIs have a newer version. Installs nothing.
+	if !*noUpdateCheck && !updateCheckOff(os.Getenv) {
+		go startupUpdateCheck(ctx, logger)
+	}
 	d := runner.New(runner.Config{
 		API:       api,
 		Token:     token,

@@ -423,3 +423,53 @@ func TestResolveCheckerRuntimeAutoSelectsDistinctReadyRuntime(t *testing.T) {
 		t.Fatalf("auto-selected %q, want %q", id, RuntimeFake)
 	}
 }
+
+func TestRunCheckGitDiffBoundsMemoryOnOversizedDiff(t *testing.T) {
+	t.Setenv("CONTROLROD_ALLOW_FAKE", "1")
+	prevLimit := maxGitInputBytes
+	maxGitInputBytes = 512
+	t.Cleanup(func() { maxGitInputBytes = prevLimit })
+
+	repo := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		c := exec.Command("git", args...)
+		c.Dir = repo
+		c.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.com",
+			"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.com",
+		)
+		if out, err := c.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	git("init")
+	if err := os.WriteFile(filepath.Join(repo, "big.txt"), []byte("start\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "big.txt")
+	git("commit", "-m", "base")
+
+	bigPayload := strings.Repeat("oversized-diff-line-0123456789abcdef\n", 200)
+	if err := os.WriteFile(filepath.Join(repo, "big.txt"), []byte(bigPayload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "big.txt")
+	git("commit", "-m", "oversized")
+
+	_, err := RunCheck(context.Background(), CheckConfig{
+		AuthorRuntime:  "claude",
+		CheckerRuntime: "fake",
+		BaseRef:        "HEAD~1",
+		HeadRef:        "HEAD",
+		RepoDir:        repo,
+		CriteriaText:   "1. Must enforce diff cap",
+		Home:           t.TempDir(),
+	})
+	if !errors.Is(err, ErrCheckUsage) {
+		t.Fatalf("got err=%v, want ErrCheckUsage", err)
+	}
+	if !strings.Contains(err.Error(), "diff exceeds 512 byte limit") {
+		t.Fatalf("err=%q does not mention 512 byte limit", err.Error())
+	}
+}

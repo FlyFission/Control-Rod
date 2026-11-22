@@ -3,10 +3,11 @@
 Release decision: **draft PR pending blind checker, Ben's product decisions on standalone receipt/author labelling, and owner review.**
 
 - **Proposed:** `controlrod check` CLI, reusable composite GitHub Action under `packages/check-action/`, bundle PR receipt formatter and `pnpm cr receipt`, and the R1.8 threat model row.
-- **Not claimed:** that `.github/workflows/` runs the Action yet (protected path; left untouched for owner sign-off), that standalone CLI/Action checks carry human passkey acceptance or a `pnpm cr verify` inclusion proof, that `--author-runtime` in standalone mode is verified rather than caller-declared, that `packages/check-action/action.yml` was executed on a live GitHub Actions runner, or that live Claude Code / Codex runs were executed in this session.
+- **Not claimed:** that `.github/workflows/` runs the Action yet (protected path; left untouched for owner sign-off), that standalone CLI/Action checks carry human passkey acceptance or a `pnpm cr verify` inclusion proof, that `--author-runtime` in standalone mode is verified rather than caller-declared, that an offline bundle verified only against a bundle-supplied key proves key ownership or per-decision WebAuthn passkey acceptance without external `trustedSealKeys` + decision assertions, that `packages/check-action/action.yml` was executed on a live GitHub Actions runner, or that live Claude Code / Codex runs were executed in this session.
 - **Open product questions for Ben:**
   1. What a standalone `controlrod check` / GitHub Action receipt may claim when no person has accepted the change and no inclusion proof exists for `pnpm cr verify`.
   2. How an author identity the caller declared via `--author-runtime` (and nobody verified) should be labelled (`caller-declared, unverified` vs dropping the author line or requiring attested author runs).
+  3. Which external trust anchors should identify a person's key when verifying offline bundles (`pnpm cr verify` / `pnpm cr receipt`): e.g. enrolled `key_digest`s exported from Control Rod org state, an owner-signed keyring / Sigstore-style identity mapping, or requiring inclusion of the per-decision WebAuthn assertion?
 - **Next steps needing the owner's yes (trust surfaces):** wiring `packages/check-action/` into `.github/workflows/` when ready; integrating `formatPrReceipt` into Control Rod's `Create PR` workflow (R2.5).
 
 Rollback: revert the branch commit(s). No database migrations, `spec/` changes, or kernel changes are included.

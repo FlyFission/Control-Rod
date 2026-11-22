@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EventRecord } from "./events.js";
 import { RUNTIME_FAMILIES, distinctFamily } from "./runtimes.js";
-import { type InclusionBundle, NOT_WITNESSED, verifyInclusion } from "./seals.js";
+import { type InclusionBundle, NOT_WITNESSED, keyDigest, verifyInclusion } from "./seals.js";
 
 /**
  * PR receipt formatter and offline inclusion-proof-to-receipt generator (R1.8).
@@ -34,11 +34,18 @@ export interface PrReceiptAcceptance {
   acceptedAt?: string;
   subjectDigest?: string;
   kind?: "accept" | "accept-with-findings";
+  /** True only when the control plane itself verified the WebAuthn assertion for this decision. */
+  passkeyVerified?: boolean;
+  /** Distinguishes an external trust-anchored seal from a self-supplied bundle key. */
+  sealTrust?: "trusted-key" | "bundle-key-only";
+  /** Signer ID named on the covering seal when derived from a bundle. */
+  sealedBySigner?: string;
 }
 
 export interface PrReceiptProof {
   bundlePath: string;
   authenticated?: boolean;
+  sealKeyTrusted?: boolean;
   bundleDigest?: string;
   headSeq?: number;
   headDigest?: string;
@@ -57,6 +64,14 @@ export interface PrReceiptInput {
   proof?: PrReceiptProof;
 }
 
+export interface BundleReceiptOptions {
+  /**
+   * External trust anchors supplied outside the bundle: maps `signer_id` to
+   * the expected hex SHA-256 `keyDigest(public_key)` of that person's enrolled key.
+   */
+  trustedSealKeys?: ReadonlyMap<string, string>;
+}
+
 const PROVIDER_ALIASES: Record<string, string> = {
   anthropic: "claude",
   "claude-code": "claude",
@@ -71,9 +86,20 @@ const PROVIDER_ALIASES: Record<string, string> = {
   fake: "fake",
 };
 
-/** Normalizes runtime aliases to canonical runtime IDs before vendor-family checks. */
+const ROLE_PREFIXES = ["author-", "checker-", "intake-", "cli-checker-"];
+
+/**
+ * Normalizes control-plane baseline actor IDs (`author-claude`, `checker-codex`)
+ * and runtime aliases (`anthropic`, `openai`) to canonical runtime IDs.
+ */
 export function normalizeProvider(provider: string): string {
-  const key = provider.trim().toLowerCase();
+  let key = provider.trim().toLowerCase();
+  for (const prefix of ROLE_PREFIXES) {
+    if (key.startsWith(prefix)) {
+      key = key.slice(prefix.length);
+      break;
+    }
+  }
   return PROVIDER_ALIASES[key] ?? key;
 }
 
@@ -118,9 +144,13 @@ function formatRuntime(rt: { provider: string; model?: string; family?: string }
 export function formatPrReceipt(input: PrReceiptInput): string {
   const lines: string[] = ["<!-- controlrod-pr-receipt:v1 -->", "### Control Rod receipt"];
   const isUnauthenticatedProof = input.proof && input.proof.authenticated !== true;
+  const isUntrustedSealKey = input.proof && input.proof.authenticated === true && input.proof.sealKeyTrusted !== true;
   if (isUnauthenticatedProof) {
     lines.push("> **UNAUTHENTICATED (unsealed bundle):** no passkey seal authenticates the events below.");
+  } else if (isUntrustedSealKey) {
+    lines.push("> **UNVERIFIED SEAL KEY:** seal signature checks only against a public key supplied inside the bundle; key ownership and per-decision passkey assertions are not verified here.");
   }
+
   const rev = input.revision !== undefined ? ` (rev ${input.revision})` : "";
   lines.push(`- **Package:** \`${sanitizeCode(input.packageId)}\`${rev}`);
   lines.push(`- **Written by:** ${formatRuntime(input.author)}`);
@@ -147,14 +177,35 @@ export function formatPrReceipt(input: PrReceiptInput): string {
   if (input.acceptance && (!input.proof || input.proof.authenticated === true)) {
     const a = input.acceptance;
     const kind = a.kind === "accept-with-findings" ? "accept-with-findings" : "passkey decision";
-    const meta = [
-      a.decisionId ? `${kind} \`${sanitizeCode(a.decisionId)}\`` : kind,
-      a.subjectDigest ? `subject \`sha256:${shortDigest(a.subjectDigest)}\`` : "",
-      a.acceptedAt ? sanitizeInline(a.acceptedAt) : "",
-    ]
-      .filter(Boolean)
-      .join(", ");
-    lines.push(`- **Accepted by:** \`${sanitizeCode(a.acceptedBy)}\` (${meta})`);
+    if (a.passkeyVerified) {
+      const meta = [
+        a.decisionId ? `${kind} \`${sanitizeCode(a.decisionId)}\`` : kind,
+        a.subjectDigest ? `subject \`sha256:${shortDigest(a.subjectDigest)}\`` : "",
+        a.acceptedAt ? sanitizeInline(a.acceptedAt) : "",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      lines.push(`- **Accepted by:** \`${sanitizeCode(a.acceptedBy)}\` (${meta})`);
+    } else if (a.sealTrust === "trusted-key") {
+      const meta = [
+        a.decisionId ? `decision \`${sanitizeCode(a.decisionId)}\`` : "",
+        a.subjectDigest ? `subject \`sha256:${shortDigest(a.subjectDigest)}\`` : "",
+        a.sealedBySigner ? `under trusted seal of \`${sanitizeCode(a.sealedBySigner)}\`` : "under trusted seal",
+        "per-decision WebAuthn assertion not in bundle",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      lines.push(`- **Accepted by:** recorded \`${sanitizeCode(a.acceptedBy)}\` (${meta})`);
+    } else {
+      const meta = [
+        a.decisionId ? `decision \`${sanitizeCode(a.decisionId)}\`` : "",
+        a.subjectDigest ? `subject \`sha256:${shortDigest(a.subjectDigest)}\`` : "",
+        "bundle-key sealed only; seal key ownership and passkey assertion not verified from bundle",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      lines.push(`- **Accepted by:** unverified claim naming \`${sanitizeCode(a.acceptedBy)}\` (${meta})`);
+    }
   } else if (input.unauthenticatedAcceptancePresent || (input.acceptance && isUnauthenticatedProof)) {
     lines.push("- **Accepted by:** unauthenticated (bundle is unsealed; human acceptance cannot be verified)");
   } else {
@@ -165,7 +216,7 @@ export function formatPrReceipt(input: PrReceiptInput): string {
     const p = input.proof;
     const sealText =
       p.authenticated && p.sealedBy
-        ? `sealed by \`${sanitizeCode(p.sealedBy)}\`${p.headSeq !== undefined ? ` at entry ${p.headSeq}` : ""}`
+        ? `sealed by \`${sanitizeCode(p.sealedBy)}\`${p.headSeq !== undefined ? ` at entry ${p.headSeq}` : ""} (${p.sealKeyTrusted ? "trusted key" : "bundle key, ownership unconfirmed"})`
         : "UNSEALED — nothing authenticates this bundle yet";
     const digests = [
       p.bundleDigest ? `bundle \`sha256:${shortDigest(p.bundleDigest)}\`` : "",
@@ -201,9 +252,22 @@ function readSubjectDigest(raw: unknown): string | undefined {
   return undefined;
 }
 
+function isSealKeyTrusted(bundle: InclusionBundle, authenticated: boolean, opts?: BundleReceiptOptions): boolean {
+  if (!authenticated || !bundle.seal || !bundle.seal_evidence?.public_key || !opts?.trustedSealKeys) {
+    return false;
+  }
+  const signerId = String(bundle.seal.payload?.signer_id ?? "");
+  if (!signerId) return false;
+  const expectedDigest = opts.trustedSealKeys.get(signerId);
+  if (!expectedDigest) return false;
+  const actualDigest = keyDigest(Buffer.from(bundle.seal_evidence.public_key, "base64url"));
+  return expectedDigest.trim().toLowerCase() === actualDigest.toLowerCase();
+}
+
 function extractReceiptFromBundle(
   bundle: InclusionBundle,
   authenticated: boolean,
+  sealKeyTrusted: boolean,
   bundlePath: string,
   bundleDigest: string,
 ): PrReceiptInput {
@@ -212,7 +276,7 @@ function extractReceiptFromBundle(
 
   let currentRevision: number | undefined;
   const authorByRound = new Map<number, string>();
-  let latestAuthorInRevision: string | undefined;
+  let latestAuthorOutput: string | undefined;
   let preCheckRevision: number | undefined;
   let checker: PrReceiptChecker | undefined;
   let acceptance: PrReceiptAcceptance | undefined;
@@ -221,7 +285,7 @@ function extractReceiptFromBundle(
   const resetForRevision = (nextRev: number) => {
     currentRevision = nextRev;
     authorByRound.clear();
-    latestAuthorInRevision = undefined;
+    latestAuthorOutput = undefined;
     preCheckRevision = undefined;
     checker = undefined;
     acceptance = undefined;
@@ -237,11 +301,17 @@ function extractReceiptFromBundle(
       else if (data.revision < currentRevision) continue;
     }
 
-    if ((e.type === "run.started" || e.type === "run.succeeded") && data.package === pkgId && data.role === "author") {
-      if (typeof e.actor?.id === "string" && e.actor.id) {
-        latestAuthorInRevision = e.actor.id;
+    // Only credit authorship from succeeded author runs with outputs or package.output, never run.started.
+    if (e.type === "run.succeeded" && data.package === pkgId && data.role === "author") {
+      const hasOutputs = !Array.isArray(data.outputs) || data.outputs.length > 0;
+      if (hasOutputs && typeof e.actor?.id === "string" && e.actor.id) {
+        latestAuthorOutput = e.actor.id;
         if (typeof data.round === "number") authorByRound.set(data.round, e.actor.id);
       }
+    }
+
+    if ((e.type === "run.failed" || e.type === "run.stopped" || e.type === "run.lost") && data.package === pkgId && data.role === "author") {
+      if (typeof data.round === "number") authorByRound.delete(data.round);
     }
 
     if (e.type === "package.edited" && e.subject === pkgId) {
@@ -250,6 +320,10 @@ function extractReceiptFromBundle(
     }
 
     if (e.type === "package.output" && e.subject === pkgId) {
+      if (typeof e.actor?.id === "string" && e.actor.id) {
+        latestAuthorOutput = e.actor.id;
+        if (typeof data.round === "number") authorByRound.set(data.round, e.actor.id);
+      }
       preCheckRevision = undefined;
       checker = undefined;
       acceptance = undefined;
@@ -267,8 +341,8 @@ function extractReceiptFromBundle(
       if (rev !== undefined && currentRevision !== undefined && rev < currentRevision) continue;
       if (rev !== undefined) currentRevision = rev;
       preCheckRevision = rev;
-      if (round !== undefined && authorByRound.has(round)) {
-        latestAuthorInRevision = authorByRound.get(round);
+      if (round !== undefined) {
+        latestAuthorOutput = authorByRound.get(round);
       }
       const outcome =
         data.outcome === "pass" || data.outcome === "fail" || data.outcome === "inconclusive"
@@ -320,6 +394,9 @@ function extractReceiptFromBundle(
           acceptedAt: e.at,
           subjectDigest,
           kind: e.type === "decision.accept-with-findings" ? "accept-with-findings" : "accept",
+          passkeyVerified: false,
+          sealTrust: sealKeyTrusted ? "trusted-key" : "bundle-key-only",
+          ...(bundle.seal?.payload?.signer_id ? { sealedBySigner: String(bundle.seal.payload.signer_id) } : {}),
         };
       }
     }
@@ -329,13 +406,14 @@ function extractReceiptFromBundle(
   return {
     packageId: pkgId,
     ...(currentRevision !== undefined ? { revision: currentRevision } : {}),
-    author: { provider: latestAuthorInRevision ?? "unknown" },
+    author: { provider: latestAuthorOutput ?? "unknown" },
     ...(checker ? { checker } : {}),
     ...(acceptance ? { acceptance } : {}),
     ...(unauthenticatedAcceptancePresent ? { unauthenticatedAcceptancePresent: true } : {}),
     proof: {
       bundlePath,
       authenticated,
+      sealKeyTrusted,
       bundleDigest,
       ...(tail ? { headSeq: tail.seq, headDigest: tail.digest.value } : {}),
       ...(authenticated && bundle.seal
@@ -357,6 +435,7 @@ function extractReceiptFromBundle(
 export async function prReceiptFromBundleText(
   text: string,
   bundlePath = "inclusion-proof.json",
+  opts?: BundleReceiptOptions,
 ): Promise<{ code: 0 | 1 | 2; markdown?: string; lines: string[] }> {
   let parsed: unknown;
   try {
@@ -372,8 +451,9 @@ export async function prReceiptFromBundleText(
   if (!check.ok) {
     return { code: 1, lines: [`FAIL  ${bundle.package_id}: ${check.problem ?? "the proof does not hold"}.`] };
   }
+  const sealKeyTrusted = isSealKeyTrusted(bundle, check.authenticated, opts);
   const bundleDigest = createHash("sha256").update(text, "utf8").digest("hex");
-  const input = extractReceiptFromBundle(bundle, check.authenticated, bundlePath, bundleDigest);
+  const input = extractReceiptFromBundle(bundle, check.authenticated, sealKeyTrusted, bundlePath, bundleDigest);
   const markdown = formatPrReceipt(input);
   return { code: 0, markdown, lines: [markdown.trimEnd()] };
 }

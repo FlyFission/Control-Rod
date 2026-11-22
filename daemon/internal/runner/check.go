@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -486,7 +487,10 @@ func RunCheck(ctx context.Context, cfg CheckConfig) (CheckResult, error) {
 		evidenceArts = settled.EvidenceArts
 
 		if launched == nil {
-			return res, errors.New("the check has no executable digest, so it cannot count")
+			res.Outcome = "inconclusive"
+			res.Error = "the check has no executable digest, so it cannot count"
+			res.ReceiptMarkdown = FormatCheckReceipt(res)
+			return res, errors.New(res.Error)
 		}
 		att, aerr := BuildCheckerAttestation(job, admittedArgs, *launched, ws.Deliverables, deliverableBefore, settled.After, buf.observedModels(), verificationRaw, criterionRaw, evidenceArts)
 		if aerr != nil {
@@ -664,6 +668,10 @@ func runtimeKind(a Adapter) string {
 	return "subscription"
 }
 
+// maxGitInputBytes bounds streaming reads from host-side git diff/show so an
+// oversized diff stops before buffering unbounded memory. Tests override it.
+var maxGitInputBytes int64 = MaxOutputFile
+
 func loadDiff(ctx context.Context, cfg CheckConfig) ([]byte, error) {
 	var raw []byte
 	var err error
@@ -673,7 +681,7 @@ func loadDiff(ctx context.Context, cfg CheckConfig) ([]byte, error) {
 		if r == nil {
 			r = os.Stdin
 		}
-		raw, err = io.ReadAll(io.LimitReader(r, MaxOutputFile+1))
+		raw, err = io.ReadAll(io.LimitReader(r, maxGitInputBytes+1))
 		if err != nil {
 			return nil, fmt.Errorf("read diff from stdin: %w", err)
 		}
@@ -702,20 +710,74 @@ func loadDiff(ctx context.Context, cfg CheckConfig) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("prepare git diff: %w", err)
 		}
-		raw, err = cmd.Output()
+		raw, err = runGitOutputCapped(cmd, maxGitInputBytes, "diff")
 		if err != nil {
-			return nil, fmt.Errorf("git diff %s..%s: %w", base, head, err)
+			return nil, err
 		}
 	default:
 		return nil, fmt.Errorf("%w: --diff <file> or --base <ref> is required", ErrCheckUsage)
 	}
-	if int64(len(raw)) > MaxOutputFile {
-		return nil, fmt.Errorf("%w: diff exceeds %d byte limit", ErrCheckUsage, MaxOutputFile)
+	if int64(len(raw)) > maxGitInputBytes {
+		return nil, fmt.Errorf("%w: diff exceeds %d byte limit", ErrCheckUsage, maxGitInputBytes)
 	}
 	if len(strings.TrimSpace(string(raw))) == 0 {
 		return nil, fmt.Errorf("%w: diff is empty; nothing to check", ErrCheckUsage)
 	}
 	return raw, nil
+}
+
+// runGitOutputCapped streams a HostGitCmd's stdout up to limit+1 bytes so huge
+// diffs never exhaust memory, kills the child early on overflow, and still runs
+// HostGitCmd's post-run repository config stability verification.
+func runGitOutputCapped(cmd *HostGitCmd, limit int64, label string) ([]byte, error) {
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("pipe git %s: %w", label, err)
+	}
+	var errBuf limitedWriter
+	errBuf.limit = 64 << 10
+	cmd.Stderr = &errBuf
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("start git %s: %w", label, err)
+	}
+	out, readErr := io.ReadAll(io.LimitReader(stdout, limit+1))
+	if int64(len(out)) > limit {
+		_ = stdout.Close()
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		_ = cmd.Wait()
+		return nil, fmt.Errorf("%w: %s exceeds %d byte limit", ErrCheckUsage, label, limit)
+	}
+	waitErr := cmd.Wait()
+	if err := cmd.after(waitErr); err != nil {
+		msg := strings.TrimSpace(errBuf.buf.String())
+		if msg != "" {
+			return nil, fmt.Errorf("git %s: %w (%s)", label, err, msg)
+		}
+		return nil, fmt.Errorf("git %s: %w", label, err)
+	}
+	if readErr != nil {
+		return nil, fmt.Errorf("read git %s: %w", label, readErr)
+	}
+	return out, nil
+}
+
+type limitedWriter struct {
+	buf   bytes.Buffer
+	limit int
+}
+
+func (w *limitedWriter) Write(p []byte) (int, error) {
+	rem := w.limit - w.buf.Len()
+	if rem > 0 {
+		if len(p) > rem {
+			_, _ = w.buf.Write(p[:rem])
+		} else {
+			_, _ = w.buf.Write(p)
+		}
+	}
+	return len(p), nil
 }
 
 func validateGitRef(ref string) error {
@@ -746,12 +808,9 @@ func loadCriteria(ctx context.Context, cfg CheckConfig) ([]byte, string, error) 
 		if err != nil {
 			return nil, "", fmt.Errorf("prepare git show criteria: %w", err)
 		}
-		b, err := cmd.Output()
+		b, err := runGitOutputCapped(cmd, maxGitInputBytes, "criteria")
 		if err != nil {
 			return nil, "", fmt.Errorf("%w: read criteria %s at ref %s: %v", ErrCheckUsage, rel, ref, err)
-		}
-		if int64(len(b)) > MaxOutputFile {
-			return nil, "", fmt.Errorf("%w: criteria exceeds %d byte limit", ErrCheckUsage, MaxOutputFile)
 		}
 		if len(strings.TrimSpace(string(b))) == 0 {
 			return nil, "", fmt.Errorf("%w: criteria %s at ref %s is empty", ErrCheckUsage, rel, ref)

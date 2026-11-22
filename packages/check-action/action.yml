@@ -126,8 +126,9 @@ runs:
         PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: |
         set -uo pipefail
-        VERDICT_FILE="$RUNNER_TEMP/controlrod-verdict.json"
-        RECEIPT_FILE="$RUNNER_TEMP/controlrod-receipt.md"
+        WORK_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/controlrod-check.XXXXXX")"
+        VERDICT_FILE="$WORK_DIR/verdict.json"
+        RECEIPT_FILE="$WORK_DIR/receipt.md"
         BASE="${BASE_REF:-${PR_BASE_SHA:-HEAD~1}}"
         ARGS=(check --author-runtime "$AUTHOR_RUNTIME" --grade "$GRADE" --timeout "$TIMEOUT" --output text --verdict-out "$VERDICT_FILE" --receipt-out "$RECEIPT_FILE")
 
@@ -165,9 +166,11 @@ runs:
 
         OUTCOME="error"
         FINDINGS_COUNT="0"
+        HAS_ERROR="true"
         if [ -f "$VERDICT_FILE" ]; then
           OUTCOME="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("outcome","error"))' "$VERDICT_FILE" 2>/dev/null || echo error)"
           FINDINGS_COUNT="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get("findings") or []))' "$VERDICT_FILE" 2>/dev/null || echo 0)"
+          HAS_ERROR="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print("true" if (d.get("error") or "").strip() else "false")' "$VERDICT_FILE" 2>/dev/null || echo true)"
         fi
         if [ -f "$RECEIPT_FILE" ] && [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
           cat "$RECEIPT_FILE" >> "$GITHUB_STEP_SUMMARY"
@@ -175,8 +178,17 @@ runs:
 
         echo "outcome=$OUTCOME" >> "$GITHUB_OUTPUT"
         echo "findings-count=$FINDINGS_COUNT" >> "$GITHUB_OUTPUT"
-        echo "receipt=$RECEIPT_FILE" >> "$GITHUB_OUTPUT"
-        echo "verdict-file=$VERDICT_FILE" >> "$GITHUB_OUTPUT"
+        echo "has-error=$HAS_ERROR" >> "$GITHUB_OUTPUT"
+        if [ -f "$RECEIPT_FILE" ]; then
+          echo "receipt=$RECEIPT_FILE" >> "$GITHUB_OUTPUT"
+        else
+          echo "receipt=" >> "$GITHUB_OUTPUT"
+        fi
+        if [ -f "$VERDICT_FILE" ]; then
+          echo "verdict-file=$VERDICT_FILE" >> "$GITHUB_OUTPUT"
+        else
+          echo "verdict-file=" >> "$GITHUB_OUTPUT"
+        fi
         echo "exit-code=$RC" >> "$GITHUB_OUTPUT"
 
     - name: Post PR receipt comment
@@ -193,8 +205,8 @@ runs:
           echo "::warning::post-comment is true but github-token is empty; skipping PR comment"
           exit 0
         fi
-        if [ -f "$RECEIPT_FILE" ]; then
-          COMMENT_FILE="$RUNNER_TEMP/controlrod-comment.md"
+        if [ -n "$RECEIPT_FILE" ] && [ -f "$RECEIPT_FILE" ]; then
+          COMMENT_FILE="$(dirname "$RECEIPT_FILE")/comment.md"
           python3 -c 'import pathlib, sys; raw = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace"); limit = 60000; out = raw[:limit] + "\n\n*(truncated to fit GitHub comment limit)*\n" if len(raw) > limit else raw; pathlib.Path(sys.argv[2]).write_text(out, encoding="utf-8")' "$RECEIPT_FILE" "$COMMENT_FILE"
           if ! gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file "$COMMENT_FILE"; then
             echo "::warning::gh pr comment failed (for example read-only token on a fork PR)"
@@ -207,6 +219,7 @@ runs:
       env:
         RC: ${{ steps.run.outputs.exit-code }}
         OUTCOME: ${{ steps.run.outputs.outcome }}
+        HAS_ERROR: ${{ steps.run.outputs.has-error }}
         FAIL_ON_FAIL: ${{ inputs.fail-on-fail }}
       run: |
         if [ -z "${RC:-}" ]; then
@@ -216,8 +229,11 @@ runs:
         if [ "$RC" -eq 2 ]; then
           exit 2
         fi
-        if [ "$OUTCOME" = "error" ] && [ "$RC" -ne 0 ]; then
-          exit "$RC"
+        if [ "${HAS_ERROR:-true}" = "true" ] || [ "$OUTCOME" = "error" ]; then
+          if [ "$RC" -ne 0 ]; then
+            exit "$RC"
+          fi
+          exit 1
         fi
         if [ "$RC" -ne 0 ] && [ "$FAIL_ON_FAIL" = "true" ]; then
           exit "$RC"

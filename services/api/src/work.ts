@@ -19,6 +19,7 @@ import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnde
 import { bindingSentence } from "./binding.js";
 import { RULES, briefHeader, composeBrief } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
+import { type PackWorkflow, type Workflow, type WorkflowPacks, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -950,19 +951,95 @@ async function nuclearContext(c: Tx, cfg: WorkConfig, run: Json, body: Json): Pr
   return nuclearBriefSections(n.pack, n.clusters, run.role, body.rigor_mode, n.resolved.reason);
 }
 
+type WorkflowResolution = {
+  resolved: ReturnType<typeof resolveWorkflow>;
+  packs: WorkflowPacks;
+  problem?: string;
+};
+
+/**
+ * The workflow a run resolves to and, for a pack workflow, the loaded and verified packs, or why
+ * they could not be loaded. A package run reads its card and project; an intake run reads only the
+ * tag line in its capture (`body` is undefined), because no agent has drafted anything yet. The
+ * playbook reads no pack.
+ */
+async function resolveRunWorkflow(c: Tx, cfg: WorkConfig, run: Json, body: Json | undefined): Promise<WorkflowResolution> {
+  let resolved: ReturnType<typeof resolveWorkflow>;
+  if (run.role === "intake") {
+    const cap = (await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id])).rows[0]?.body;
+    const tagged = captureWorkflow(cap?.text);
+    resolved = tagged ? { workflow: tagged, reason: `The request is tagged [workflow:${tagged}]` } : { workflow: "playbook" };
+  } else {
+    const project = typeof body?.project === "string"
+      ? (await c.query<{ body: Json }>("select body from projects where id = $1", [body.project])).rows[0]?.body ?? null
+      : null;
+    resolved = resolveWorkflow(body, project);
+  }
+  if (resolved.workflow === "playbook") return { resolved, packs: {} };
+  const which = resolved.workflow as PackWorkflow;
+  try {
+    const packs = loadWorkflowPacks(join(cfg.root, "packs", "workflows"), which);
+    return packs[which] ? { resolved, packs } : { resolved, packs, problem: `the ${which} workflow pack is not installed on this control plane` };
+  } catch (e) {
+    return { resolved, packs: {}, problem: (e as Error).message };
+  }
+}
+
+async function workflowEvent(c: Tx, run: Json, n: WorkflowResolution) {
+  await appendEvent(c, "run.workflow", run.id, SYSTEM, {
+    package: run.package_id, role: run.role, workflow: n.resolved.workflow,
+    ...(n.resolved.reason ? { reason: n.resolved.reason } : {}),
+    pack_commits: workflowPackCommits(n.packs, n.resolved.workflow),
+    ...(n.problem ? { problem: n.problem } : {}),
+  });
+}
+
+/**
+ * Before a run launches: a pack-workflow run whose pack is missing or fails its checks never
+ * starts. Like a Nuclear run without its pack, it fails while still queued, with the reason on the
+ * run, and the run.workflow event records the problem. Returns true when the run was blocked.
+ */
+async function blockedByWorkflowPack(c: Tx, cfg: WorkConfig, row: RunLike, body: Json | undefined): Promise<boolean> {
+  const run = { ...row.body, id: row.id, package_id: row.package_id, role: row.role };
+  const n = await resolveRunWorkflow(c, cfg, run, body);
+  if (n.resolved.workflow === "playbook" || !n.problem) return false;
+  await workflowEvent(c, run, n);
+  await failQueuedRun(c, cfg, row,
+    `Not started: this ${row.role === "intake" ? "request" : "package"} runs the ${n.resolved.workflow} workflow${n.resolved.reason ? ` (${n.resolved.reason})` : ""}, but its pack could not be loaded: ${n.problem}`.slice(0, 2000));
+  return true;
+}
+
+/**
+ * The workflow context a run's brief carries: nothing at all under the playbook, so a playbook brief
+ * is byte for byte what it was before workflows existed. For a pack workflow, the stage card goes in
+ * the brief, the skills it names go in as inputs, and the choice is recorded on the run as a
+ * run.workflow event. The claim already refused a run without a good pack; one that fails here (the
+ * pack changed in between) throws, so the claim rolls back rather than launch without its card.
+ */
+async function workflowContext(c: Tx, cfg: WorkConfig, run: Json, body: Json | undefined): Promise<{ sections: string[]; inputs: Input[] }> {
+  const n = await resolveRunWorkflow(c, cfg, run, body);
+  if (n.resolved.workflow === "playbook") return { sections: [], inputs: [] };
+  if (n.problem) throw new Error(`workflow pack unavailable at launch: ${n.problem}`);
+  await workflowEvent(c, run, n);
+  return workflowBriefSections(n.packs, n.resolved.workflow as Workflow, run.role);
+}
+
 async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, hosts: string[]) {
   const inputs: Input[] = fakeScript(run, runtime);
   const header = briefHeader(run);
   if (run.role === "intake") {
     const cap = await c.query<{ body: Json }>("select body from captures where id = $1", [run.package_id]);
     const capture = cap.rows[0]?.body;
+    const workflow = await workflowContext(c, cfg, run, undefined);
     const brief = [
       header,
       findRole(cfg, "intake") ?? "",
       ...jobIntakeGuides(cfg),
+      ...workflow.sections,
       `## The request\n\n${capture?.text ?? ""}\n`,
       RULES,
     ].join("\n");
+    inputs.push(...workflow.inputs);
     inputs.push(file("BRIEF.md", brief), file("TOOLS.txt", toolsFile(readRoleTools(INTAKE_TOOLS).tools, hosts)));
     inputs.push(...(await attachmentsFor(c, run.package_id)));
     return { run, capture, inputs };
@@ -1019,9 +1096,11 @@ async function buildJob(c: Tx, cfg: WorkConfig, run: Json, runtime: string, host
     );
     if (ret.rows[0] && pkg.revision > 0) extra.push(`## Direction from the owner\n\n${ret.rows[0].body.reason ?? ""}\n`);
   }
+  const workflow = await workflowContext(c, cfg, run, pkg.body);
+  inputs.push(...workflow.inputs);
   const nuclear = await nuclearContext(c, cfg, run, pkg.body);
   inputs.push(...nuclear.inputs);
-  const brief = composeBrief({ header, roleText, objective: pkg.body.objective, extra, nuclear: nuclear.sections });
+  const brief = composeBrief({ header, roleText, objective: pkg.body.objective, extra, workflow: workflow.sections, nuclear: nuclear.sections });
   inputs.push(file("BRIEF.md", brief));
   // The role's qualified tools, and its network line only with the hosts the run's sandbox policy
   // allows (plan task 6.1); the daemon derives each CLI's settings from the policy, not this file.
@@ -1163,6 +1242,8 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
           }
           // A Nuclear run without its verified pack fails here, before any budget or claim is taken.
           if (await blockedByNuclearPack(c, cfg, row, pkg.body)) continue;
+          // Likewise a pack-workflow run without its verified pack.
+          if (await blockedByWorkflowPack(c, cfg, row, pkg.body)) continue;
           const baseline = `${row.role === "pre-check" ? "checker" : "author"}-${runtime}`;
           // Budgets: the run's reservation is taken before anything moves, or a hard cap holds it here
           // and the package stays where it was (plan task 5.2).
@@ -1212,6 +1293,8 @@ export async function claim(db: Db, cfg: WorkConfig, runtimes: string[], artifac
         const locked=await c.query<typeof row>("select *,created_at::text as created_key from runs where id=$1 and status='queued' for update skip locked",[row.id]);
         if(!locked.rows[0]) continue;row=locked.rows[0];
           if(!legacyRun(row)) continue;
+        // An intake run whose capture is tagged for a workflow needs that pack, or it fails here.
+        if (await blockedByWorkflowPack(c, cfg, row, undefined)) continue;
         const budget = await reserveForRun(c, row, `intake-${runtime}`, ceiling);
         if ("held" in budget) {
           await holdRun(c, cfg, row, row.package_id, budget.held.reason.slice(0, 300), "budget", `budget:${budget.held.budget}`);
@@ -2440,6 +2523,8 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
   if (new Set(idMap.values()).size !== drafts.length)
     throw new Refusal(400, "invalid", "Intake package IDs must be distinct after normalization");
   const created: string[] = [];
+  // An agent never picks a workflow: the request's own tag is the only source (see captureWorkflow).
+  const taggedWorkflow = captureWorkflow(capture.text);
   // Packages drafted together may depend on each other: insert each after the ones it waits for.
   const ordered: Json[] = [];
   const placing = new Set<string>();
@@ -2475,6 +2560,8 @@ async function finishIntake(c: Tx, cfg: WorkConfig, row: Json, outputs: { name: 
         required_custody: { decisive_evidence_generated_by: "verifier", preparer_may_present: false },
       },
     };
+    delete pkg.workflow;
+    if (taggedWorkflow) pkg.workflow = taggedWorkflow;
     // An agent never lowers a lane: a package is at least as sensitive as the request it came from.
     const capLane = await laneOf(c, "capture", capture.id, capture.lane);
     if (capLane && isLane(pkg.data_lane) && !covers(pkg.data_lane, capLane)) pkg.data_lane = capLane;

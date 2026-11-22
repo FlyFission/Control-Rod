@@ -18,15 +18,16 @@ export function briefHeader(run: { role: string; package_id: string; package_rev
 
 /**
  * BRIEF.md for an author or pre-check run: header, role text, the package line, any extra
- * sections (findings, owner direction, prepared-run notes), the Nuclear sections (none under
- * Light), then the rules.
+ * sections (findings, owner direction, prepared-run notes), the workflow sections (none under the
+ * playbook), the Nuclear sections (none under Light), then the rules.
  */
-export function composeBrief(parts: { header: string; roleText: string; objective: unknown; extra?: string[]; nuclear?: string[] }): string {
+export function composeBrief(parts: { header: string; roleText: string; objective: unknown; extra?: string[]; workflow?: string[]; nuclear?: string[] }): string {
   return [
     parts.header,
     parts.roleText,
     `## The work package\n\nSee inputs/PACKAGE.json. Objective: ${parts.objective}\n`,
     ...(parts.extra ?? []),
+    ...(parts.workflow ?? []),
     ...(parts.nuclear ?? []),
     RULES,
   ].join("\n");

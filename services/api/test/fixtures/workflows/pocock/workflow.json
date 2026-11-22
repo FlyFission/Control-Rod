@@ -1,0 +1,27 @@
+{
+  "id": "pocock",
+  "name": "Pocock",
+  "upstream": "https://example.test/pocock",
+  "stages": {
+    "intake": {
+      "card": "stages/intake.md",
+      "skills": [
+        "pocock:grilling",
+        "pocock:to-tickets"
+      ]
+    },
+    "author": {
+      "card": "stages/author.md",
+      "skills": [
+        "pocock:tdd",
+        "pocock:retro"
+      ]
+    },
+    "pre-check": {
+      "card": "stages/pre-check.md",
+      "skills": [
+        "pocock:code-review"
+      ]
+    }
+  }
+}

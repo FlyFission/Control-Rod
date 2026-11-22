@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
@@ -9,6 +9,8 @@ import { MODE_COPY, saveMode, useMode, type EngineeringMode } from "../lib/mode.
 import { PLACES, type PlaceGroup } from "../places/places.js";
 import { CommandPalette } from "./CommandPalette.js";
 import { NewWorkModal } from "./NewWorkModal.js";
+import { ShortcutHelp } from "./ShortcutHelp.js";
+import { useAttentionSignals } from "../lib/useAttentionSignals.js";
 import { adoptSession, sessionGeneration, stillCurrent } from "../lib/session.js";
 
 const LOOKS: { id: Look; name: string }[] = [
@@ -42,6 +44,10 @@ export function Shell({ session, children }: { session: Session; children: React
   const needs = inbox.data?.items.length ?? 0;
   const [palette, setPalette] = useState(false);
   const [newWorkOpen, setNewWorkOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const navigate = useNavigate();
+  // The tab title count and opt-in notifications read the same Inbox as the rail badge (pattern AW1, AW2).
+  useAttentionSignals(session.user, inbox, () => void navigate({ to: "/inbox" }));
   const shortcut = isMac() ? "⌘K" : "Ctrl K";
   const look = useLook();
   const mode = useMode();
@@ -71,6 +77,11 @@ export function Shell({ session, children }: { session: Session; children: React
       // The board's quick add claims `c` first (its listener prevents the default). Its state update can
       // re-render before this listener runs and remove the .bd-add opener, so look at the event too.
       if (e.defaultPrevented) return;
+      if (!inField && e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        setHelpOpen((open) => !open);
+        return;
+      }
       const hasBoardQuickAdd = document.querySelector(".bd-add, .bd-quick") !== null;
       if (!inField && !hasBoardQuickAdd && e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
@@ -157,6 +168,9 @@ export function Shell({ session, children }: { session: Session; children: React
             </span>
             <span>{session.user ?? "Signed in"}</span>
           </div>
+          <button type="button" className="btn small rail-shortcuts" aria-keyshortcuts="?" onClick={() => setHelpOpen(true)}>
+            Shortcuts <kbd>?</kbd>
+          </button>
           <button type="button" className="btn small" disabled={pendingSignOut} onClick={() => void logout()}>
             Sign out
           </button>
@@ -230,6 +244,7 @@ export function Shell({ session, children }: { session: Session; children: React
 
       <CommandPalette open={palette} onClose={() => setPalette(false)} />
       <NewWorkModal open={newWorkOpen} mode={mode} onClose={() => setNewWorkOpen(false)} />
+      <ShortcutHelp open={helpOpen} mac={isMac()} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

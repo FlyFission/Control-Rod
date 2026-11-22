@@ -289,9 +289,15 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   font-size: var(--fs-label);
   color: var(--muted);
+}
+.rail-shortcuts {
+  order: 3;
+  width: 100%;
+  justify-content: space-between;
 }
 .user-chip {
   display: inline-flex;
@@ -540,6 +546,44 @@ kbd {
 }
 .palette-detail p {
   margin: 0 0 4px;
+}
+/* Keyboard shortcut list (pattern AW4) */
+.shortcut-help {
+  padding: 16px;
+  gap: 12px;
+  overflow: auto;
+}
+.shortcut-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.shortcut-help-head h2 {
+  margin: 0;
+}
+.shortcut-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-ui);
+}
+.shortcut-table th {
+  text-align: left;
+  font-size: var(--fs-label);
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0 8px 6px 0;
+}
+.shortcut-table td {
+  border-top: 1px solid var(--line);
+  padding: 7px 8px 7px 0;
+  vertical-align: top;
+}
+.shortcut-table td:first-child {
+  white-space: nowrap;
+}
+.shortcut-help p {
+  margin: 0;
 }
 .who {
   display: flex;
@@ -1836,4 +1880,9 @@ select {
   color: var(--text);
   font-size: var(--fs-small);
   overflow-wrap: anywhere;
+}
+
+/* Inbox notification opt-in (pattern AW2) */
+.notify-toggle {
+  margin: 0 0 12px;
 }

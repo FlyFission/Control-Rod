@@ -706,3 +706,8 @@
   margin-left: auto;
   color: var(--muted);
 }
+
+/* The N key's note when nothing on the view is marked Needs you or Blocked (pattern AW3). */
+.bd-jump-note {
+  margin: 0 0 10px;
+}

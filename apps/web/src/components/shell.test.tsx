@@ -84,3 +84,64 @@ describe("signing out", () => {
     expect(qc.getQueryData(["session"])).toMatchObject({ signed_in: false });
   });
 });
+
+describe("keyboard shortcut list", () => {
+  it("opens with ? from anywhere outside a field, lists N, and closes with Escape", async () => {
+    server.use(http.get("*/inbox", () => HttpResponse.json({ items: [], waiting_on_others: [], digest: { head: 0, lines: [] } })));
+    await renderPage(<Shell session={ben}><input aria-label="Notes" /></Shell>);
+    const user = userEvent.setup();
+    await user.keyboard("?");
+    const dialog = await screen.findByRole("dialog", { name: "Keyboard shortcuts" });
+    expect(dialog.textContent).toContain("Next card marked Needs you or Blocked");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+
+    await user.click(screen.getByLabelText("Notes"));
+    await user.keyboard("?");
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+    expect((screen.getByLabelText("Notes") as HTMLInputElement).value).toBe("?");
+  });
+
+  it("keeps other shortcuts from firing behind it, and closes again with ?", async () => {
+    server.use(http.get("*/inbox", () => HttpResponse.json({ items: [], waiting_on_others: [], digest: { head: 0, lines: [] } })));
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.keyboard("?");
+    await screen.findByRole("dialog", { name: "Keyboard shortcuts" });
+    await user.keyboard("c");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    await user.keyboard("?");
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+  });
+
+  it("opens from the Shortcuts button in the rail", async () => {
+    server.use(http.get("*/inbox", () => HttpResponse.json({ items: [], waiting_on_others: [], digest: { head: 0, lines: [] } })));
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Shortcuts/ }));
+    expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog", { name: "Keyboard shortcuts" })).toBeNull();
+  });
+});
+
+describe("tab title", () => {
+  it("counts what waits on the signed-in person", async () => {
+    document.title = "Control Rod";
+    server.use(
+      http.get("*/inbox", () =>
+        HttpResponse.json({
+          items: [
+            { kind: "accept", package_id: "WP-1", package_revision: 1, title: "Accept WP-1", detail: "", since: "2026-11-22T10:00:00Z", risk: { rank: 5, label: "decision" }, href: { to: "/inbox" } },
+          ],
+          waiting_on_others: [],
+          digest: { head: 0, lines: [] },
+        }),
+      ),
+    );
+    const { unmount } = await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    await waitFor(() => expect(document.title).toBe("(1) Control Rod"));
+    unmount();
+    expect(document.title).toBe("Control Rod");
+  });
+});

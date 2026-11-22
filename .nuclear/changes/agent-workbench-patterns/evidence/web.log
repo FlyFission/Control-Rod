@@ -1,0 +1,20 @@
+# base d0a4cc6 + this change's working tree, 2026-11-22T19:40:17Z (local worktree path replaced with <worktree>)
+## tsc
+✨ openapi-typescript 7.13.0
+🚀 ../../spec/generated/openapi/openapi.json → src/api/schema.d.ts [79.6ms]
+tsc exit 0
+## vitest
+
+ RUN  v5.1.0 <worktree>/apps/web
+
+
+ Test Files  54 passed (54)
+      Tests  723 passed (723)
+   Start at  14:40:21
+   Duration  9.33s (environment 45%, tests 23%, setup 19%, import 11%, transform 2%)
+
+Environment  jsdom was created 54 times · 48.98s total, 45% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
+vitest exit 0

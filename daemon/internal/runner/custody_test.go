@@ -164,6 +164,36 @@ func TestARefusedCompletionIsNotRetriedAndIsKeptAsEvidence(t *testing.T) {
 	}
 }
 
+func TestOutboxSnapshotDoesNotResendASettledCompletion(t *testing.T) {
+	api, srv := newFakeAPI(t)
+	api.completeStatus = http.StatusConflict
+	d := custodyDaemon(t, srv, t.TempDir(), io.Discard)
+	entry := OutboxEntry{
+		RunID: "run-stale-snapshot",
+		Completion: Completion{
+			ClaimToken: "claim-snapshot", IdempotencyKey: "0123456789abcdef",
+			Status: "failed", Outputs: []NamedFile{},
+		},
+	}
+	if err := d.outbox.Put(entry); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := d.outbox.List()
+	if err != nil || len(snapshot) != 1 {
+		t.Fatalf("outbox snapshot: %d entries, error %v", len(snapshot), err)
+	}
+	for _, e := range []OutboxEntry{entry, snapshot[0]} {
+		if done, err := d.deliver(e, true); !done || err != nil {
+			t.Fatalf("settling completion: done %v, error %v", done, err)
+		}
+	}
+	api.mu.Lock()
+	defer api.mu.Unlock()
+	if n := len(api.attempts[entry.RunID]); n != 1 {
+		t.Fatalf("sent a settled completion %d times", n)
+	}
+}
+
 func TestARunTheControlPlaneNoLongerHoldsIsEnded(t *testing.T) {
 	job := claimedJob("run-gone", "echo started; sleep 30")
 	api, srv := newFakeAPI(t, job)

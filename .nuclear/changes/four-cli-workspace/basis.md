@@ -9,6 +9,8 @@ The owner wants a desktop web workspace that preserves the usefulness of several
 
 The parent board branch omitted three user-facing project refusal explanations, and its attestation test still expected the original two-entry model registry. Add the explanations and check the API copy against the checked-in daemon registry. Apply the formatter to the existing daemon policy string construction without changing its generated arguments.
 
+The full Go suite also exposed a timing-dependent completion replay. A worker and the outbox could each hold a snapshot from before a terminal response. After taking the existing per-run delivery guard, a durable delivery now checks that its pending file remains. A deterministic test attempts the saved snapshot after a refusal and checks that no second request occurs. This addresses one recovery case from #120.
+
 ## Required links
 
 [risk](risk.md), [plan](plan.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

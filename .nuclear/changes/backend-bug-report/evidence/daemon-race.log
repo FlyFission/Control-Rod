@@ -1,0 +1,21 @@
+?   	github.com/flyfission/control-rod/daemon/cmd/controlrod	[no test files]
+ok  	github.com/flyfission/control-rod/daemon/internal/confinement	2.689s
+ok  	github.com/flyfission/control-rod/daemon/internal/digest	1.017s
+2026/11/21 20:18:35 ERROR host-side git: repository config changed while the command ran dir=/tmp/TestHostGitCmdDetectsFilterConfigChange1290719878/002/repo args="[git -c core.hooksPath=/dev/null -c core.fsmonitor=false -c core.pager=cat -c protocol.ext.allow=never -c protocol.file.allow=user -c submodule.recurse=false -c fetch.recurseSubmodules=false -c merge.verifySignatures=false -c commit.gpgsign=false -c tag.gpgsign=false config filter.late.smudge x]" error="the repository's git config changed while host-side git ran: repository filter drivers differ"
+2026/11/21 20:18:35 ERROR host-side git: repository config changed while the command ran dir=/tmp/TestHostGitCmdDetectsFilterConfigChange1290719878/002/repo args="[git -c core.hooksPath=/dev/null -c core.fsmonitor=false -c core.pager=cat -c protocol.ext.allow=never -c protocol.file.allow=user -c submodule.recurse=false -c fetch.recurseSubmodules=false -c merge.verifySignatures=false -c commit.gpgsign=false -c tag.gpgsign=false config filter.late.smudge y]" error="the repository's git config changed while host-side git ran: repository filter drivers differ"
+2026/11/21 20:18:35 ERROR host-side git: repository config changed while the command ran dir=/tmp/TestHostGitCommandRefusesConditionalInclude595837011/007/repo args="[git -c core.hooksPath=/dev/null -c core.fsmonitor=false -c core.pager=cat -c protocol.ext.allow=never -c protocol.file.allow=user -c submodule.recurse=false -c fetch.recurseSubmodules=false -c merge.verifySignatures=false -c commit.gpgsign=false -c tag.gpgsign=false config includeIf.onbranch:main.path /tmp/TestHostGitCommandRefusesConditionalInclude595837011/009/absent]" error="the repository's git config changed while host-side git ran: a conditional include appeared"
+--- FAIL: TestARuntimeRefusedAtLaunchIsNeverExecuted (5.03s)
+    runner_test.go:674: no completion; daemon log:
+        time=2026-11-21T20:18:45.905-05:00 level=INFO msg="daemon started" api=http://127.0.0.1:34625 runtimes=claude,fake parallel=1 containment=cgroup
+        time=2026-11-21T20:18:45.912-05:00 level=INFO msg="run started" run=run-refused role=author runtime=claude workspace=/tmp/TestARuntimeRefusedAtLaunchIsNeverExecuted3605803464/003/work/WP-0007/r2/author-1-run-refused
+--- FAIL: TestAnUnpinnedRuntimeThatChangedIsWithdrawnWithoutRunningIt (5.04s)
+    runner_test.go:723: no completion; daemon log:
+        time=2026-11-21T20:18:50.950-05:00 level=INFO msg="daemon started" api=http://127.0.0.1:35103 runtimes=claude,fake parallel=1 containment=cgroup
+        time=2026-11-21T20:18:50.961-05:00 level=INFO msg="run started" run=run-changed role=author runtime=claude workspace=/tmp/TestAnUnpinnedRuntimeThatChangedIsWithdrawnWithoutRunningIt107908782/003/work/WP-0007/r2/author-1-run-changed
+--- FAIL: TestInstalledCodexLeavesOnlyQualifiedFeatures (0.51s)
+    sandbox_test.go:308: the installed Codex leaves unqualified features on: [code_mode_host_grpc code_mode_host_output_truncation guardian_include_additional_context incremental_tools_legacy incremental_tools_legacy_gcp retain_client_tool_outputs tui_workspace unified_image_budget untrusted_as_tool_output]
+FAIL
+FAIL	github.com/flyfission/control-rod/daemon/internal/runner	40.487s
+?   	github.com/flyfission/control-rod/daemon/internal/version	[no test files]
+?   	github.com/flyfission/control-rod/daemon/internal/wire	[no test files]
+FAIL

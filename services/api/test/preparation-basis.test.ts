@@ -43,6 +43,57 @@ afterAll(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 describe("prepared execution basis barriers", () => {
+  it("uses the deployed basis verification in preparation history", async () => {
+    const p = await f.draft([
+      {
+        kind: "document",
+        reference: "document:test",
+        revision: "A",
+        digest: { algorithm: "sha256", value: sha("Controlled source") },
+      },
+    ]);
+    expect(p.view.readiness).toBe("ready");
+    expect((await f.owner("GET", p.url + "/history")).json().revisions[0]).toEqual(p.view);
+    writeFileSync(file, "Changed document");
+    try {
+      const current = (await f.owner("GET", p.url)).json();
+      const history = (await f.owner("GET", p.url + "/history")).json();
+      expect(current.blockers).toContainEqual(expect.objectContaining({ code: "basis-unverified" }));
+      expect(history.revisions[0]).toEqual(current);
+    } finally {
+      writeFileSync(file, "Controlled source");
+    }
+  });
+  it("refreshes a repository pin from the explicitly declared new HEAD", async () => {
+    const head = () => execFileSync("git", ["-C", repository, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    const first = head();
+    const p = await f.draft([
+      { kind: "repository", reference: "repository:test", revision: first, commit: first, path: "source.md",
+        digest: { algorithm: "sha256", value: sha("Pinned source") } },
+    ]);
+    writeFileSync(join(repository, "source.md"), "Revised source");
+    execFileSync("git", ["-C", repository, "add", "source.md"]);
+    execFileSync("git", ["-C", repository, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+      "commit", "--no-gpg-sign", "-qm", "Refresh fixture"]);
+    try {
+      const revision = head();
+      const next = preparationContent(p.view.snapshot);
+      next.package_contract.design_inputs = [{ doc: "repository:test", revision, use: "source" }];
+      const edit = await f.owner("PUT", p.url, next, { "if-match": `"${p.view.content_digest.value}"` });
+      expect(edit.statusCode, edit.body).toBe(200);
+      const refreshed = await f.owner("POST", p.url + "/basis/refresh", undefined, {
+        "if-match": `"${edit.json().content_digest.value}"`,
+      });
+      expect(refreshed.statusCode, refreshed.body).toBe(200);
+      expect(refreshed.json().snapshot.basis).toContainEqual(expect.objectContaining({
+        reference: "repository:test", revision, commit: revision,
+        digest: { algorithm: "sha256", value: sha("Revised source") },
+      }));
+      expect(refreshed.json().blockers.map((b: { code: string }) => b.code)).not.toContain("basis-unverified");
+    } finally {
+      execFileSync("git", ["-C", repository, "-c", "advice.detachedHead=false", "checkout", "--detach", first]);
+    }
+  });
   it("claims a released run with immutable basis bytes and denies a changed package basis before claim", async () => {
     const p = await f.draft();
     await f.release(p.id);
@@ -212,6 +263,11 @@ describe("prepared execution basis barriers", () => {
     expect(v.snapshot.package_revision).toBe(1);
     expect(v.confirmed).toBe(false);
     expect(v.snapshot.id).toBe(p.view.snapshot.id);
+    const history = (await f.owner("GET", p.url + "/history")).json();
+    expect(history.revisions[0]).toEqual(v);
+    expect(history.revisions.find((r: { snapshot: { revision: number } }) =>
+      r.snapshot.revision === p.view.snapshot.revision
+    )).toMatchObject({ confirmed: true, manifest: { package_revision: 0 } });
   });
   it("linearizes a signed return racing with completion without publishing into the new revision", async () => {
     const p = await f.draft();

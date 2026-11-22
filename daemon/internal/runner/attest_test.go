@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -133,6 +134,45 @@ func TestAttestationSignsAndRejectsTamper(t *testing.T) {
 	other, _, _ := ed25519.GenerateKey(rand.Reader)
 	if err := VerifyAttestationSignature(signed, other); err == nil {
 		t.Fatal("unknown key verified")
+	}
+}
+
+func TestCheckerAttestationUsesAdmittedRuntimeArguments(t *testing.T) {
+	job := countedJob(t)
+	cmd := fakeCmd(mustCodexArgs(t, job))
+	artifact := Digest{Algorithm: "sha256", Value: registerJobHarness(t, job)}
+	if err := CheckerAdmissionJob(job, cmd, &artifact); err != nil {
+		t.Fatal(err)
+	}
+	admitted := slices.Clone(cmd.Args)
+	// Seatbelt's -p selects its sandbox profile. It never reaches the runtime.
+	cmd.Args = append([]string{"sandbox-exec", "-p", "(version 1)"}, cmd.Args...)
+	if _, err := effectiveConfigDigest(RuntimeCodex, cmd.Args); err == nil {
+		t.Fatal("the wrapped command was accepted as a runtime command")
+	}
+
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "key")
+	if err := os.WriteFile(path, priv, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CONTROLROD_TEST_ATTESTATION_KEY", path)
+	t.Setenv("CONTROLROD_ALLOW_FAKE", "1")
+	before := job.SandboxPolicyDigest.Value
+	att, err := BuildCheckerAttestation(job, admitted, artifact, t.TempDir(), before, before,
+		[]string{"gpt-5-codex"}, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantConfig, err := effectiveConfigDigest(RuntimeCodex, admitted)
+	if err != nil || att.EffectiveConfigDigest != wantConfig {
+		t.Fatalf("attested config %+v, want %+v: %v", att.EffectiveConfigDigest, wantConfig, err)
+	}
+	if err := VerifyAttestationSignature(att, pub); err != nil {
+		t.Fatal(err)
 	}
 }
 

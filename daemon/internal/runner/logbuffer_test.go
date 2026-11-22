@@ -166,6 +166,44 @@ func TestHeldEventOverflowLeavesAGapAndBatchesStayConsecutive(t *testing.T) {
 	}
 }
 
+func TestCheckerCompletionEventsFollowDeliveredIndexes(t *testing.T) {
+	buf := &logBuffer{}
+	buf.addEvents([]Event{{Kind: EvMessage}, {Kind: EvExit}})
+	batch, _ := buf.take()
+	buf.sent(batch)
+	events, from := buf.leftEvents(Event{Kind: EvNotice, Text: "checker verdict"})
+	if from != 2 || len(events) != 1 || events[0].Text != "checker verdict" {
+		t.Fatalf("got %+v from %d", events, from)
+	}
+	if events, from := buf.leftEvents(); len(events) != 0 || from != 3 {
+		t.Fatalf("empty remainder: got %+v from %d", events, from)
+	}
+}
+
+func TestCheckerCompletionKeepsExitAndVerdictWithinBatchLimit(t *testing.T) {
+	buf := &logBuffer{}
+	many := make([]Event, MaxEventBatch)
+	for i := range many {
+		many[i] = Event{Kind: EvMessage}
+	}
+	many[len(many)-1] = Event{Kind: EvExit}
+	buf.addEvents(many)
+	batch, _ := buf.take()
+	buf.putBackEvents(batch.Events)
+	events, from := buf.leftEvents(Event{Kind: EvNotice, Text: "checker verdict"})
+	if len(events) != MaxEventBatch || from != 1 {
+		t.Fatalf("got %d events from %d", len(events), from)
+	}
+	if events[len(events)-2].Kind != EvExit || events[len(events)-1].Text != "checker verdict" {
+		t.Fatal("the completion lost its exit or verdict")
+	}
+	for i, event := range events {
+		if event.idx != from+i {
+			t.Fatalf("event %d is indexed %d", i, event.idx)
+		}
+	}
+}
+
 func TestACompletionAlwaysSendsWhereItsEventsStart(t *testing.T) {
 	b, err := json.Marshal(Completion{Status: "failed", Outputs: []NamedFile{}, Events: []Event{{Kind: EvExit}}})
 	if err != nil {

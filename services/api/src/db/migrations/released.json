@@ -19,6 +19,12 @@
     "016-chain-seals": "9c7b4a99120ccab8207fcd3b53f6d2ca946919e4f299b46402481296a0adf6e8",
     "017-usage-once": "08d86f03905f5b418a351420d53f98fb334eb0251834578b4d8e2e2520576864",
     "018-session-credentials": "b329c05e0f12279fdde7270cbeaa44918c3b82bd14e98dc206c2dc46200aca8f",
-    "019-workbench-links": "f5307d9011c977956b5bd615b368470323d734ea6c2bb1c61aa05b7ba0cd9cd7"
+    "019-workbench-links": "f5307d9011c977956b5bd615b368470323d734ea6c2bb1c61aa05b7ba0cd9cd7",
+    "020-checker-attempts": "443e0133bdee59ec04d828fe9e22762ab40b5d180ca46482db1260321020a39f",
+    "021-checker-queued-digests": "5c2721f53266e1cb085edd83efff68bf38a2250d4112e38acdc92ac30da6d0f6",
+    "022-checker-no-truncate": "decc2317d97ae8ea5c7cba6930510bc1208df83d1edb799a974fecddcf83d02d",
+    "023-run-attestation": "a6514e7f3914477239bfc8f8080320d76f34ade8cd96d03889e0a6d3eb4537b6",
+    "024-context-profile": "b28e3e8f43b486e1f1bc5b1eb6fd713200630392c7ca7ee9688f2d2c8e32871e",
+    "025-dependency-provenance": "c41ce2bc51834dfcb17cb44147542f9acc8aef8a4022f90210eb326beb144fa0"
   }
 }

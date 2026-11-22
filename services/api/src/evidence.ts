@@ -101,6 +101,8 @@ export function answer(e: CriterionEvidence): Readiness {
   const fresh = e.freshness === "current";
   if (!fresh) reasons.push("an input or basis changed since the evidence was produced");
 
+  if (e.mandatory_inconclusive) { reasons.push("a mandatory check was inconclusive; no disposition can clear it"); return no(); }
+
   // N/A with an approved basis applies only to a criterion with no mandatory check: E-1 makes a
   // mandatory check's missing result unwaivable, so a basis cannot stand in for it. It needs no
   // executed evidence, but it still needs current freshness and the grade's independence.
@@ -111,7 +113,6 @@ export function answer(e: CriterionEvidence): Readiness {
     if (e.independence_required && !e.independence.separated) { reasons.push(`not independent: ${e.independence.unseparated.join("; ")}`); return no(); }
     return fresh ? { criterion_id: e.criterion_id, answer: "N/A WITH APPROVED BASIS", reasons, mapping_version: MAPPING_VERSION } : no();
   }
-  if (e.mandatory_inconclusive) { reasons.push("a mandatory check was inconclusive; no disposition can clear it"); return no(); }
   // E-1: missing results and missing retained evidence are never waivable, by any disposition.
   if (e.completeness === "missing") {
     reasons.push(e.disposition === "deferred" ? "the check was deferred; a deferral is never a result" : "a required result is missing");
@@ -174,12 +175,12 @@ export function combine(results: Mapped[]): Mapped & { inconclusive_present: boo
  * Whether an accept with findings may cover these criteria (E-3): only completed adverse results the
  * floors allow, never incompleteness. Returns the reasons it may not.
  */
-export function acceptWithFindingsBlockers(criteria: Pick<CriterionEvidence, "criterion_id" | "completeness" | "evidence_retained" | "mandatory" | "outcome">[]): string[] {
+export function acceptWithFindingsBlockers(criteria: Pick<CriterionEvidence, "criterion_id" | "completeness" | "evidence_retained" | "mandatory" | "outcome" | "mandatory_inconclusive">[]): string[] {
   const out: string[] = [];
   for (const c of criteria) {
     if (c.completeness === "missing") out.push(`${c.criterion_id}: a result is missing`);
     else if (!c.evidence_retained) out.push(`${c.criterion_id}: its evidence is not retained`);
-    else if (c.mandatory && c.outcome === "inconclusive") out.push(`${c.criterion_id}: a mandatory check was inconclusive`);
+    else if (c.mandatory_inconclusive || (c.mandatory && c.outcome === "inconclusive")) out.push(`${c.criterion_id}: a mandatory check was inconclusive`);
   }
   return out;
 }

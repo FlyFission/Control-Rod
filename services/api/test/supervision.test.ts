@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
+import { fileURLToPath } from "node:url";
+import { loadValidator } from "../src/schemas.js";
+import { sweepLost } from "../src/work.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, claims, daemonHeaders, signIn, startHarness, withClaim } from "./harness.js";
 
 /** Run supervision (workbench plan tasks 2.1 to 2.4; specification 22, WB-10). */
@@ -124,6 +127,28 @@ describe("outcome unknown and reconcile", () => {
 });
 
 describe("ordering races", () => {
+  it("counts a second lapse towards an outage without granting that run another lease", async () => {
+    const jobs = [await claimed("WP-MIXED-1"), await claimed("WP-MIXED-2"), await claimed("WP-MIXED-3"), await claimed("WP-MIXED-4")];
+    const ids = jobs.map((j) => j.run.id);
+    await h.admin.query("update runs set status = 'stopped' where status = 'running' and id <> all($1::text[])", [ids]);
+    await h.admin.query("update runs set body = jsonb_set(body, '{grace_renewals}', '1') where id = $1", [ids[0]]);
+    for (const id of ids.slice(0, 3)) await expire(id);
+    try {
+      const lost = await sweepLost(h.db, {
+        root: fileURLToPath(new URL("../../../", import.meta.url)),
+        ajv: loadValidator(),
+        supervision: { startedAt: Date.now(), sweepSeconds: 0, issued: new Set(ids) },
+      });
+      expect(lost).toEqual([ids[0]]);
+      expect((await run(ids[0])).status).toBe("lost");
+      for (const id of ids.slice(1, 3)) {
+        expect(await run(id)).toMatchObject({ status: "running", body: { grace_renewals: 1 } });
+      }
+      expect((await run(ids[3])).status).toBe("running");
+    } finally {
+      await h.admin.query("update runs set status = 'stopped' where status = 'running' and id = any($1::text[])", [ids]);
+    }
+  });
   it("honors a heartbeat that reaches a lease from before a restart ahead of the first sweep", async () => {
     // A run an earlier controller started, whose daemon is alive and heartbeats first.
     await h.admin.query("insert into packages (id, revision, status, body) values ('WP-SUP-HB', 0, 'in-work', $1)",

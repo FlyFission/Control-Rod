@@ -94,10 +94,30 @@ func TestAdmissionCountsWhatItRefuses(t *testing.T) {
 	if len(first) != 3 {
 		t.Fatalf("admitted %d, want the burst of 3", len(first))
 	}
-	// Five seconds later five tokens are back: one goes to the dropped notice, four to events.
+	// Five seconds later the bucket is full: one token goes to the notice and one to the event.
 	later := a.Admit([]Event{{Kind: EvMessage, At: "y"}}, t0.Add(5*time.Second))
 	if len(later) != 2 || later[0].Kind != EvDropped || later[0].Dropped != 7 || later[1].Kind != EvMessage {
 		t.Fatalf("got %+v", later)
+	}
+}
+
+func TestAdmissionReportsGapBeforeResuming(t *testing.T) {
+	message := Event{Kind: EvMessage}
+	a := NewAdmission(1, 3)
+	a.Admit([]Event{message, message, message, message, message}, t0)
+	if got := a.Admit([]Event{message}, t0.Add(1500*time.Millisecond)); len(got) != 0 {
+		t.Fatalf("event came before its gap: %+v", got)
+	}
+	if got := a.Admit([]Event{message}, t0.Add(2*time.Second)); len(got) != 2 ||
+		got[0].Kind != EvDropped || got[0].Dropped != 3 || got[1].Kind != EvMessage {
+		t.Fatalf("gap must precede the next message: %+v", got)
+	}
+
+	small := NewAdmission(1, 1)
+	small.Admit([]Event{message, message}, t0)
+	if got := small.Admit([]Event{message}, t0.Add(time.Second)); len(got) != 2 ||
+		got[0].Kind != EvDropped || got[0].Dropped != 1 || got[1].Kind != EvMessage {
+		t.Fatalf("one-token bucket did not recover: %+v", got)
 	}
 }
 

@@ -80,6 +80,56 @@ func TestEgressFilterBlocksAndAllowsConnect(t *testing.T) {
 	}
 }
 
+func TestEgressFilterForwardsReplyAfterClientHalfCloses(t *testing.T) {
+	targetLn, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer targetLn.Close()
+	go func() {
+		conn, err := targetLn.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		if msg, err := io.ReadAll(conn); err == nil {
+			_, _ = fmt.Fprintf(conn, "reply:%s", msg)
+		}
+	}()
+
+	target := targetLn.Addr().String()
+	ef, err := StartEgressFilter([]string{target})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ef.Close()
+	conn, err := net.DialTimeout("tcp", ef.Addr(), 2*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := conn.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", target, target); err != nil {
+		t.Fatal(err)
+	}
+	br := bufio.NewReader(conn)
+	resp, err := http.ReadResponse(br, nil)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("CONNECT response: %v, %v", resp, err)
+	}
+	if _, err := io.WriteString(conn, "hello"); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.(*net.TCPConn).CloseWrite(); err != nil {
+		t.Fatal(err)
+	}
+	if reply, err := io.ReadAll(br); err != nil || string(reply) != "reply:hello" {
+		t.Fatalf("reply %q: %v", reply, err)
+	}
+}
+
 // Closing the filter ends a tunnel that is already open, so no traffic outlives it.
 func TestEgressFilterCloseEndsOpenTunnels(t *testing.T) {
 	targetLn, err := net.Listen("tcp", "127.0.0.1:0")

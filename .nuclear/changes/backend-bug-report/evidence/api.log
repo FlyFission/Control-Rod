@@ -1,0 +1,31 @@
+
+> @control-rod/api@0.0.0 test /home/flyfission/worktrees/control-rod-backend-bugs/services/api
+> node ../../tools/test-api.mjs --maxWorkers=4
+
+[test-api] PostgreSQL fixture binaries: /home/flyfission/.cache/controlrod-test-postgres/078a03516dcdbdb705fecaf415ea3d13a956c589e46f09fed68a06fb00598c90/install/bin
+
+ RUN  v5.1.0 /home/flyfission/worktrees/control-rod-backend-bugs/services/api
+
+HEAD is now at 81b11a3 Fixture
+(node:170960) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Switched to a new branch 'side'
+Switched to branch 'main'
+[control-rod] the database dropped an idle reader connection (terminating connection due to administrator command); a new one opens on next use
+[control-rod] the database dropped an idle writer connection (terminating connection due to administrator command); a new one opens on next use
+Cloning into '/tmp/cr-repos-test-rALppU/projects/sample-repo/sub'...
+done.
+Cloning into '/tmp/cr-repos-test-r0ErS0/projects/sample-repo/sub'...
+done.
+Cloning into '/tmp/cr-repos-test-r0ErS0/projects/.worktrees/sample-repo/feat-lfs-sub-guard/sub'...
+done.
+Preparing worktree (new branch 'feat/wt-idx')
+Preparing worktree (new branch 'feat/wt-rm')
+Preparing worktree (new branch 'feat/wt-stale')
+Preparing worktree (new branch 'feat/wt-other-missing')
+Preparing worktree (new branch 'feat/wt-locked-missing')
+
+ Test Files  70 passed (70)
+      Tests  832 passed (832)
+   Start at  20:19:44
+   Duration  89.80s (tests 94%, import 6%)

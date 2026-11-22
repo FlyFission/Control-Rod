@@ -83,6 +83,10 @@ func classifyKeychain(code int, stderr []byte) error {
 	}
 	text := strings.TrimSpace(string(stderr))
 	low := strings.ToLower(text)
+	if strings.Contains(low, "dbus") || strings.Contains(low, "d-bus") || strings.Contains(low, "gerror") ||
+		strings.Contains(low, "org.freedesktop") || strings.Contains(low, "/org/freedesktop/") {
+		return fmt.Errorf("%w: %s", errKeychainUnavailable, text)
+	}
 	if strings.Contains(low, "could not be found") || strings.Contains(low, "does not exist") || strings.Contains(low, "item not found") {
 		return errKeyNotFound
 	}

@@ -221,7 +221,9 @@ pub fn decide(req: &Request) -> Outcome {
             (Some(author), Some(checker), _, _) if author == checker => {
                 refuse(ReasonCode::NotIndependent)
             }
-            (Some(_), Some(_), Some(author), Some(checker)) => {
+            (Some(_), Some(_), Some(author), Some(checker))
+                if !author.provider.trim().is_empty() && !checker.provider.trim().is_empty() =>
+            {
                 if author.may_be_same(checker) && !req.owner_override_verified {
                     refuse(ReasonCode::NotIndependent)
                 } else {
@@ -401,6 +403,26 @@ mod tests {
                 .decision
                 .is_allowed()
         );
+    }
+
+    #[test]
+    fn pre_check_requires_nonblank_runtime_providers_even_with_an_override() {
+        let mut request = agent(Action::SubmitPreCheck, Status::InVerification);
+        request.actor_id = "checker-1".into();
+        request.checker_baseline = Some("checker-1".into());
+        for owner_override_verified in [false, true] {
+            request.owner_override_verified = owner_override_verified;
+            for (author, checker) in [
+                ("", "codex"),
+                ("claude", ""),
+                (" \t", "codex"),
+                ("claude", " \n"),
+            ] {
+                request.author_runtime = Some(rt(author, "default"));
+                request.checker_runtime = Some(rt(checker, "default"));
+                assert_eq!(decide(&request).decision.reason(), ReasonCode::Forbidden);
+            }
+        }
     }
 
     #[test]

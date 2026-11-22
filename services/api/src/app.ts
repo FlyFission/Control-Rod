@@ -16,7 +16,7 @@ import {
   startSession,
 } from "./auth.js";
 import type { Db } from "./db/index.js";
-import { bus, type EventRecord, listEvents, verifyChain } from "./events.js";
+import { bus, eventPosition, listEvents, verifyOrganizationEvents } from "./events.js";
 import { verificationEvidence } from "./preparation/results.js";
 import { grantRoutes } from "./preparation/grant-routes.js";
 import { preparationRoutes } from "./preparation/routes.js";
@@ -186,6 +186,24 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     if (!user) throw new Refusal(401, "signed-out", "Sign in with your passkey");
     return user;
   };
+  const packageUser = async (req: FastifyRequest, id: string) => {
+    const user = await person(req);
+    await requireOwnPackage(db, (await callerFor(db, user)).orgId, id);
+    return user;
+  };
+  const runUser = async (req: FastifyRequest, id: string, runId: string) => {
+    const user = await person(req);
+    const { orgId } = await callerFor(db, user);
+    // Intake routes use the capture ID in the package position.
+    const own = await db.query(
+      `select 1 from runs r
+         join object_owners o on o.object_kind = (case when r.role = 'intake' then 'capture' else 'package' end)
+           and o.object_id = r.package_id and o.org_id = $3
+         join object_owners ro on ro.object_kind = 'run' and ro.object_id = r.id and ro.org_id = $3
+        where r.id = $2 and r.package_id = $1`, [id, runId, orgId]);
+    if (!own.rowCount) throw new Refusal(404, "not-found", "No such run");
+    return user;
+  };
   const daemon = (req: FastifyRequest) => {
     if (!isDaemon(auth, req)) throw new Refusal(401, "unauthorized", "Daemon token required");
   };
@@ -314,14 +332,14 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return runAdmin(db, { root: cfg.root, ...(cfg.preparationLanes ? { preparationLanes: cfg.preparationLanes } : {}) }, req.params.name, caller, req.body?.payload ?? {}, signed);
   });
 
-  preparationRoutes(app, db, cfg, person, auth);
+  preparationRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { id: string }).id), auth);
   repoRoutes(app, person);
-  grantRoutes(app,db,cfg,person);
+  grantRoutes(app, db, cfg, (req) => packageUser(req, (req.params as { packageId: string }).packageId));
 
   /* ---- captures ---- */
   app.get("/captures", async (req) => {
-    await person(req);
-    return listCaptures(db);
+    const caller = await callerFor(db, await person(req));
+    return listCaptures(db, caller.orgId);
   });
   app.post<{ Body: { text?: string; source?: string; lane?: string } }>("/captures", async (req, reply) => {
     const user = await person(req);
@@ -330,8 +348,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return reply.code(201).send(capture);
   });
   app.post<{ Params: { id: string }; Body: { lane?: string } }>("/captures/:id/classify", async (req) => {
-    const user = await person(req);
-    return classifyCapture(db, cfg, user, req.params.id, req.body?.lane);
+    const caller = await callerFor(db, await person(req));
+    return classifyCapture(db, cfg, caller, req.params.id, req.body?.lane);
   });
 
   /* ---- packages ---- */
@@ -351,17 +369,17 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { ...view, originators: who, preparation_enabled: cfg.guidedPreparation };
   });
   app.put<{ Params: { id: string } }>("/packages/:id", async (req, reply) => {
-    const user = await person(req);
+    const user = await packageUser(req, req.params.id);
     const ifMatch = typeof req.headers["if-match"] === "string" ? req.headers["if-match"] : undefined;
     const saved = await updateDraft(db, cfg, user, req.params.id, req.body, ifMatch);
     return reply.header("ETag", saved.etag).header("Cache-Control", "no-store").send(saved.body);
   });
   app.get<{ Params: { id: string } }>("/packages/:id/actions", async (req) => {
-    const user = await person(req);
+    const user = await packageUser(req, req.params.id);
     return packageActions(db, cfg, user, req.params.id);
   });
   app.get<{ Params: { id: string; "*": string } }>("/packages/:id/outputs/*", async (req, reply: FastifyReply) => {
-    await person(req);
+    await packageUser(req, req.params.id);
     const name = req.params["*"];
     const bytes = await packageOutput(db, req.params.id, name);
     const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
@@ -377,17 +395,18 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return reply.send(bytes);
   });
   app.get<{Params:{id:string;runId:string;"*":string}}>("/packages/:id/verification-evidence/:runId/*",async(req,reply)=>{
-    await person(req);const name=req.params["*"],bytes=await verificationEvidence(db,req.params.id,req.params.runId,name);
+    await runUser(req, req.params.id, req.params.runId);
+    const name=req.params["*"],bytes=await verificationEvidence(db,req.params.id,req.params.runId,name);
     const ext=name.slice(name.lastIndexOf(".")).toLowerCase(),type=MIME[ext];
     reply.header("content-type",type??"application/octet-stream").header("x-content-type-options","nosniff").header("content-security-policy",OUTPUT_CSP);
     if(!type)reply.header("content-disposition","attachment");return reply.send(bytes);
   });
   app.get<{ Params: { id: string; runId: string }; Querystring: { after?: string } }>("/packages/:id/runs/:runId/events", async (req) => {
-    await person(req);
+    await runUser(req, req.params.id, req.params.runId);
     return runEvents(db, req.params.id, req.params.runId, Number(req.query.after ?? 0) || 0);
   });
   app.get<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/log", async (req) => {
-    await person(req);
+    await runUser(req, req.params.id, req.params.runId);
     return { lines: await runLogLines(db, req.params.id, req.params.runId) };
   });
 
@@ -399,7 +418,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     expected_subject_digest?: { algorithm: string; value: string };
   }
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions/options", async (req) => {
-    const issuedTo = await person(req);
+    const issuedTo = await packageUser(req, req.params.id);
     const { kind, package_revision: revision } = req.body ?? ({} as DecisionBody);
     const s = await decisionSubject(db, req.params.id, String(kind), Number(revision), cfg, issuedTo);
     const shown = req.body?.expected_subject_digest?.value;
@@ -418,7 +437,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
   });
   app.post<{ Params: { id: string }; Body: DecisionBody }>("/packages/:id/decisions", async (req, reply) => {
-    const user = await person(req);
+    const user = await packageUser(req, req.params.id);
     const body = req.body ?? ({} as DecisionBody);
     let signed: { subject_digest: string; assertion: Record<string, unknown>; nonce?: string } | null = null;
     if (body.assertion) {
@@ -467,13 +486,13 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/stop", async (req) => {
-    const user = await person(req);
+    const user = await runUser(req, req.params.id, req.params.runId);
     return stopRun(db, cfg, user, req.params.id, req.params.runId);
   });
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>(
     "/packages/:id/runs/:runId/override-independence/options",
     async (req) => {
-      const issuedTo = await person(req);
+      const issuedTo = await runUser(req, req.params.id, req.params.runId);
       const s = await overrideSubject(db, req.params.id, req.params.runId, req.body?.reason, issuedTo);
       const nonce = randomBytes(16).toString("hex");
       const options = await assertionOptions(
@@ -490,7 +509,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string; assertion?: Record<string, unknown> } }>(
     "/packages/:id/runs/:runId/override-independence",
     async (req) => {
-      const user = await person(req);
+      const user = await runUser(req, req.params.id, req.params.runId);
       const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
       let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
       if (req.body?.assertion) {
@@ -547,7 +566,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
   /* ---- reconcile an unknown outcome (specification 22) ---- */
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string } }>("/packages/:id/runs/:runId/reconcile/options", async (req) => {
-    const issuedTo = await person(req);
+    const issuedTo = await runUser(req, req.params.id, req.params.runId);
     const s = await reconcileSubject(db, issuedTo, req.params.id, req.params.runId, req.body?.reason);
     const nonce = randomBytes(16).toString("hex");
     const options = await assertionOptions(db, auth, "reconcile", { package_id: req.params.id, run_id: req.params.runId, subject_digest: s.digest, nonce },
@@ -555,7 +574,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return { subject_digest: { algorithm: "sha256", value: s.digest }, options };
   });
   app.post<{ Params: { id: string; runId: string }; Body: { reason?: string; assertion?: Record<string, unknown> } }>("/packages/:id/runs/:runId/reconcile", async (req) => {
-    const user = await person(req);
+    const user = await runUser(req, req.params.id, req.params.runId);
     let signed: { subject_digest: string; assertion: Record<string, unknown> } | null = null;
     if (req.body?.assertion) {
       const ok = await assertionVerify(db, auth, "reconcile", req.body.assertion as never);
@@ -566,7 +585,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   });
 
   app.post<{ Params: { id: string; runId: string } }>("/packages/:id/runs/:runId/requeue", async (req, reply) => {
-    const user = await person(req);
+    const user = await runUser(req, req.params.id, req.params.runId);
     return reply.code(201).send(await requeueRun(db, cfg, user, req.params.id, req.params.runId));
   });
 
@@ -648,22 +667,23 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     return subscriptionView(db, (await callerFor(db, await person(req))).orgId);
   });
   app.get("/runs", async (req) => {
-    await person(req);
-    return activeRuns(db);
+    const caller = await callerFor(db, await person(req));
+    return activeRuns(db, caller.orgId);
   });
   app.get("/metrics", async (req) => {
-    await person(req);
-    return metrics(db);
+    const caller = await callerFor(db, await person(req));
+    return metrics(db, caller.orgId);
   });
 
   /* ---- events ---- */
   app.get<{ Querystring: { after?: string } }>("/events", async (req) => {
-    await person(req);
-    return listEvents(db, Number(req.query.after ?? 0) || 0);
+    const caller = await callerFor(db, await person(req));
+    const after = Number(req.query.after ?? 0) || 0;
+    return listEvents(db, caller.orgId, Number.isSafeInteger(after) && after >= 0 ? after : 0);
   });
   app.get("/events/verify", async (req) => {
-    await person(req);
-    return verifyChain(db);
+    const caller = await callerFor(db, await person(req));
+    return verifyOrganizationEvents(db, caller.orgId);
   });
   /**
    * The event stream (specification 27). Durable frames are chain events, each with its sequence as
@@ -679,7 +699,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
    */
   const replayMax = opts.streamReplayMax ?? STREAM_REPLAY_MAX;
   app.get<{ Querystring: { after?: string } }>("/events/stream", async (req, reply) => {
-    await person(req);
+    const caller = await callerFor(db, await person(req));
     const raw = req.headers["last-event-id"] ?? req.query.after;
     const after = raw === undefined || raw === "" ? undefined : Number(raw);
     reply.hijack();
@@ -691,7 +711,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     let closed = false;
     let draining = false;
     let again = false;
-    // Sends every committed event after lastSent, in order. One drain runs at a time; a wakeup
+    // Sends every visible committed event after lastSent, in order. One drain runs at a time; a wakeup
     // during a drain makes it look again before it stops.
     const drain = async () => {
       if (!ready || closed) return;
@@ -704,13 +724,13 @@ export function buildApp(opts: AppOptions): FastifyInstance {
         do {
           again = false;
           for (;;) {
-            const rows = (await db.query<{ body: EventRecord }>("select body from events where seq > $1 order by seq limit 500", [lastSent])).rows;
+            const events = await listEvents(db, caller.orgId, lastSent);
             if (closed) return;
-            for (const r of rows) {
-              lastSent = r.body.seq;
-              res.write(`id: ${r.body.seq}\nevent: event\ndata: ${JSON.stringify(r.body)}\n\n`);
+            for (const event of events) {
+              lastSent = event.seq;
+              res.write(`id: ${event.seq}\nevent: event\ndata: ${JSON.stringify(event)}\n\n`);
             }
-            if (rows.length < 500) break;
+            if (events.length < 500) break;
           }
         } while (again && !closed);
       } catch (e) {
@@ -730,10 +750,10 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       clearInterval(ping);
       bus.off("event", onEvent);
     });
-    const head = (await db.query<{ n: number }>("select coalesce(max(seq), 0)::int as n from events")).rows[0]!.n;
+    const { head, pending } = await eventPosition(db, caller.orgId, after, replayMax + 1);
     if (after !== undefined) {
       const valid = Number.isInteger(after) && after >= 0 && after <= head;
-      if (!valid || head - after > replayMax) {
+      if (!valid || pending > replayMax) {
         res.write(`id: ${head}\nevent: loss\ndata: ${JSON.stringify({ after: raw, resume_from: head, reason: valid ? "too far behind to replay" : "no such position in this event log" })}\n\n`);
         lastSent = head;
       } else {

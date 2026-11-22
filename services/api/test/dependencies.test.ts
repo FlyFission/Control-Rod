@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { migrate } from "../src/db/migrate.js";
+import { MIGRATIONS, migrate } from "../src/db/migrate.js";
 import { DEPENDENCIES_DOWN_SQL } from "../src/db/migrations/013-dependencies.js";
 import { RUN_EVENTS_DOWN_SQL } from "../src/db/migrations/014-run-events.js";
 import { SCRAM_DOWN_SQL } from "../src/db/migrations/015-scram.js";
@@ -14,6 +14,7 @@ import { CHECKER_QUEUED_DIGESTS_DOWN_SQL } from "../src/db/migrations/021-checke
 import { CHECKER_NO_TRUNCATE_DOWN_SQL } from "../src/db/migrations/022-checker-no-truncate.js";
 import { RUN_ATTESTATION_DOWN_SQL } from "../src/db/migrations/023-run-attestation.js";
 import { CONTEXT_PROFILE_DOWN_SQL } from "../src/db/migrations/024-context-profile.js";
+import { DEPENDENCY_PROVENANCE_DOWN_SQL } from "../src/db/migrations/025-dependency-provenance.js";
 import { type Harness, ORIGIN, VirtualAuthenticator, daemonHeaders, signIn, startHarness } from "./harness.js";
 
 /** Explicit package dependencies (workbench plan task 1.8; specification 7 "depends on"). */
@@ -114,6 +115,7 @@ describe("editing a draft", () => {
 describe("migration 013", () => {
   it("classifies design inputs that named a package before it as dependencies, and later revisions inherit them", async () => {
     // Later migrations come off first, as a real rollback would take them.
+    await h.admin.query(DEPENDENCY_PROVENANCE_DOWN_SQL);
     await h.admin.query(CONTEXT_PROFILE_DOWN_SQL);
     await h.admin.query(RUN_ATTESTATION_DOWN_SQL);
     await h.admin.query(CHECKER_NO_TRUNCATE_DOWN_SQL);
@@ -134,6 +136,8 @@ describe("migration 013", () => {
         { doc: "SOME-STANDARD", revision: "3", use: "criteria" },
       ],
     });
+    await migrate(h.admin, MIGRATIONS.slice(0, -1));
+    expect(await rows("WP-OLD")).toEqual([{ depends_on: "WP-OLD-BASE", source: "classified-design-input", package_revision: 0 }]);
     await migrate(h.admin);
     expect(await rows("WP-OLD")).toEqual([{ depends_on: "WP-OLD-BASE", source: "classified-design-input", package_revision: 0 }]);
     // Packages that already said what they depend on keep those rows, and the trigger is back.
@@ -144,7 +148,18 @@ describe("migration 013", () => {
     expect((await rows("WP-OLD")).filter((r) => r.package_revision === 1)).toEqual([
       { depends_on: "WP-OLD-BASE", source: "classified-design-input", package_revision: 1 },
     ]);
-    // An explicit dependency on the same target takes over the classified row and survives the citation.
+    // Removing either declaration preserves the remaining dependency.
+    const citation = { design_inputs: [{ doc: "WP-OLD-BASE", revision: "0", use: "loads" }] };
+    const explicit = { depends_on: [{ package_id: "WP-OLD-BASE" }] };
+    await h.admin.query("update packages set body = $1 where id = 'WP-OLD' and revision = 1",
+      [{ ...body("WP-OLD", { ...citation, ...explicit }), revision: 1 }]);
+    await h.admin.query("update packages set body = $1 where id = 'WP-OLD' and revision = 1",
+      [{ ...body("WP-OLD", citation), revision: 1 }]);
+    expect((await rows("WP-OLD")).filter((r) => r.package_revision === 1)).toEqual([
+      { depends_on: "WP-OLD-BASE", source: "classified-design-input", package_revision: 1 },
+    ]);
+
+    // An explicit dependency on the same target survives the citation.
     await insert("WP-OLD-KEEP", "draft", { design_inputs: [{ doc: "WP-OLD-BASE", revision: "0", use: "loads" }] });
     await h.admin.query("update packages set body = $1 where id = 'WP-OLD-KEEP'",
       [body("WP-OLD-KEEP", { design_inputs: [{ doc: "WP-OLD-BASE", revision: "0", use: "loads" }], depends_on: [{ package_id: "WP-OLD-BASE" }] })]);

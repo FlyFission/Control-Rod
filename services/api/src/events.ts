@@ -83,12 +83,98 @@ export async function appendEvent(
   return record;
 }
 
-export async function listEvents(db: Db, after = 0, limit = 500): Promise<EventRecord[]> {
+// Resolve the organization through the event's typed subject. A human actor can act on behalf of
+// another organization, so only the subjectless administrative command uses the actor's membership.
+// The installation-wide chain remains intact for single-organization installs and internal proof
+// verification. With multiple organizations, unrecognized subjects and installation events are private.
+const organizationEvents = `from events e
+  cross join lateral (select e.body->>'type' as type, e.body->>'subject' as subject) event
+  where (not exists (select 1 from organizations where id <> $1) or case
+    when event.type = 'admin.command' then e.body->'actor'->>'kind' = 'human' and exists
+      (select 1 from members where id = e.body->'actor'->>'id' and org_id = $1)
+    when event.type like 'organization.%' then event.subject = $1
+    when event.type like 'package.%' or event.type like 'decision.%' or event.type = 'output.mismatch'
+      or (event.type like 'preparation.%' and event.type not like 'preparation.grant-%' and event.type <> 'preparation.output-quarantined')
+      then exists (select 1 from object_owners where object_kind = 'package' and object_id = event.subject and org_id = $1)
+    when event.type like 'run.%' or event.type in ('scram.quarantined', 'preparation.output-quarantined')
+      then exists (select 1 from object_owners where object_kind = 'run' and object_id = event.subject and org_id = $1)
+    when event.type like 'capture.%' then exists
+      (select 1 from object_owners where object_kind = 'capture' and object_id = event.subject and org_id = $1)
+    when event.type like 'preparation.grant-%' then exists
+      (select 1 from object_owners where object_kind = 'grant' and object_id = event.subject and org_id = $1)
+    when event.type = 'marking.declassified' then exists (select 1 from object_owners
+      where object_kind = split_part(event.subject, '/', 1) and object_id = substr(event.subject, strpos(event.subject, '/') + 1) and org_id = $1)
+    ${Object.entries({
+      member: "members",
+      "signer-qualification": "signer_qualifications",
+      "authenticator-credential": "authenticator_credentials",
+      delegation: "delegations",
+      project: "projects",
+      "repo-binding": "repo_bindings",
+      "policy-set": "policy_sets",
+      machine: "machines",
+      "runtime-probe": "runtime_probes",
+      "runtime-artifact-version": "runtime_artifact_versions",
+      "runtime-pin": "runtime_pins",
+      "sandbox-policy": "sandbox_policies",
+      "candidate-assignment": "candidate_assignments",
+      "person-verification": "person_verifications",
+      "change-request": "change_requests",
+      budget: "budgets",
+      "budget-reservation": "budget_reservations",
+      "usage-record": "usage_records",
+      "scram-event": "scram_events",
+      scram: "scram_events",
+      "quarantine-review": "quarantine_reviews",
+      "scram-restart": "scram_restarts",
+      "chain-seal": "chain_seals",
+      chain: "chain_seals",
+    }).map(([family, table]) =>
+      `when event.type like '${family}.%' then exists (select 1 from ${table} where id = event.subject and org_id = $1)`
+    ).join("\n    ")}
+    else false end)`;
+
+export async function eventPosition(db: Db, orgId: string, after?: number, replayLimit?: number) {
+  const r = await db.query<{ head: number; pending: number }>(
+    `with visible as not materialized (select e.seq ${organizationEvents})
+     select coalesce((select seq from visible order by seq desc limit 1), 0) as head,
+       (select count(*)::int from (select 1 from visible where seq > $2::bigint limit $3) replay) as pending`,
+    [orgId, Number.isSafeInteger(after) ? after : null, replayLimit ?? null],
+  );
+  return r.rows[0]!;
+}
+
+export async function listEvents(db: Db, orgId: string, after = 0, limit = 500): Promise<EventRecord[]> {
   const r = await db.query<{ body: EventRecord }>(
-    "select body from events where seq > $1 order by seq limit $2",
-    [after, limit],
+    `select e.body ${organizationEvents} and e.seq > $2::bigint order by e.seq limit $3`,
+    [orgId, after, limit],
   );
   return r.rows.map((x) => x.body);
+}
+
+export async function eventsForDigest(db: Db, orgId: string, after: number, through: number) {
+  return (await db.query<{ type: string; subject: string; actor: string; signature: string | null }>(
+    `select event.type, event.subject, e.body->'actor'->>'kind' as actor, e.body->'data'->>'signature' as signature
+      ${organizationEvents} and e.seq > $2 and e.seq <= $3 order by e.seq`,
+    [orgId, after, through],
+  )).rows;
+}
+
+/** Verifies each visible event against its stored digest and its real predecessor in the chain. */
+export async function verifyOrganizationEvents(db: Db, orgId: string) {
+  const r = await db.query<{ seq: number; body: EventRecord; digest: string; previous: string | null }>(
+    `select e.seq, e.body, e.digest, (select digest from events where seq = e.seq - 1) as previous
+      ${organizationEvents} order by e.seq`,
+    [orgId],
+  );
+  for (const row of r.rows) {
+    const { digest: d, ...rest } = row.body;
+    if (rest.seq !== row.seq || (row.seq > 1 && row.previous === null) ||
+        eventDigest(rest) !== d.value || d.value !== row.digest || rest.prev?.value !== (row.previous ?? undefined)) {
+      return { ok: false, count: r.rows.length, broken_at: row.seq };
+    }
+  }
+  return { ok: true, count: r.rows.length };
 }
 
 export interface SemanticViolation {

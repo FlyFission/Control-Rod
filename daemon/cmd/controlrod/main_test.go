@@ -135,4 +135,18 @@ echo '{"type":"result","subtype":"success"}'
 	if code != 0 || !strings.Contains(out.String(), "Control Rod check: PASS") {
 		t.Fatalf("text output code=%d out=%s err=%s", code, out.String(), errOut.String())
 	}
+
+	// --criteria-ref rejects invalid ref syntax with exit 2.
+	out.Reset()
+	errOut.Reset()
+	code = runCheckCLI([]string{
+		"--author-runtime", "claude",
+		"--checker", "fake",
+		"--diff", diffPath,
+		"--criteria", "acceptance.md",
+		"--criteria-ref", "-badref",
+	}, nil, &out, &errOut)
+	if code != 2 {
+		t.Fatalf("invalid --criteria-ref exit = %d, want 2 (stderr=%s)", code, errOut.String())
+	}
 }

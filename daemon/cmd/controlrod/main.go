@@ -181,6 +181,7 @@ func runCheckCLIWith(args []string, base runner.CheckConfig, stdin io.Reader, st
 	headRef := fs.String("head", "HEAD", "head git ref when using --base (default HEAD)")
 	repoDir := fs.String("repo", ".", "git repository directory when using --base")
 	criteriaFile := fs.String("criteria", "", "path to acceptance criteria file")
+	criteriaRef := fs.String("criteria-ref", "", "optional git ref to read --criteria from via git show (prevents PR edits to criteria)")
 	criteriaText := fs.String("criteria-text", "", "inline acceptance criteria text")
 	grade := fs.String("grade", "general-service", "grade: general-service, material, or safety")
 	packageID := fs.String("package-id", "standalone", "label for the target in the verdict and receipt")
@@ -211,6 +212,7 @@ func runCheckCLIWith(args []string, base runner.CheckConfig, stdin io.Reader, st
 	cfg.HeadRef = *headRef
 	cfg.RepoDir = *repoDir
 	cfg.CriteriaFile = *criteriaFile
+	cfg.CriteriaRef = *criteriaRef
 	cfg.CriteriaText = *criteriaText
 	cfg.Grade = *grade
 	cfg.PackageID = *packageID

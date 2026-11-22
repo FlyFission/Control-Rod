@@ -1,16 +1,22 @@
+import { createHash, generateKeyPairSync, randomBytes, sign } from "node:crypto";
+import { isoCBOR } from "@simplewebauthn/server/helpers";
 import { describe, expect, it } from "vitest";
 import { type EventRecord, eventDigest } from "../src/events.js";
-import { formatPrReceipt, prReceiptFromBundleText } from "../src/pr-receipt.js";
+import { digest } from "../src/kernel.js";
+import { formatPrReceipt, normalizeProvider, prReceiptFromBundleText } from "../src/pr-receipt.js";
+import { type InclusionBundle, keyDigest, sealChallenge, sealSubject } from "../src/seals.js";
 
 type Json = Record<string, any>;
 
-function chain(specs: { type: string; subject: string; actor?: { kind: "human" | "agent" | "system"; id: string }; data?: Json }[]): EventRecord[] {
+function chain(
+  specs: { type: string; subject: string; actor?: { kind: "human" | "agent" | "system"; id: string }; data?: Json }[],
+): EventRecord[] {
   const out: EventRecord[] = [];
   for (const [i, s] of specs.entries()) {
     const prev = out.at(-1)?.digest;
     const rest = {
       seq: i + 1,
-      at: `2026-11-22T00:00:0${i}.000Z`,
+      at: `2026-11-22T00:00:${String(i).padStart(2, "0")}.000Z`,
       type: s.type,
       subject: s.subject,
       actor: s.actor ?? { kind: "system" as const, id: "test" },
@@ -22,43 +28,165 @@ function chain(specs: { type: string; subject: string; actor?: { kind: "human" |
   return out;
 }
 
+function makeSealedBundle(
+  pkgId: string,
+  specs: { type: string; subject: string; actor?: { kind: "human" | "agent" | "system"; id: string }; data?: Json }[],
+): InclusionBundle {
+  const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const jwk = publicKey.export({ format: "jwk" }) as { x: string; y: string };
+  const cose = Buffer.from(
+    isoCBOR.encode(
+      new Map<number, number | Uint8Array>([
+        [1, 2],
+        [3, -7],
+        [-1, 1],
+        [-2, Buffer.from(jwk.x, "base64url")],
+        [-3, Buffer.from(jwk.y, "base64url")],
+      ]),
+    ),
+  );
+  const credentialId = Buffer.from(randomBytes(16)).toString("base64url");
+  const orgId = "org_test";
+  const memberId = "mem_owner";
+  const pubB64 = cose.toString("base64url");
+  const preEvents = chain(specs);
+  const head = preEvents[specs.length - 1]!;
+  const sealedAt = new Date().toISOString();
+  const req = { head_seq: head.seq, head_digest: head.digest.value, purpose: "PR bundle", sealed_at: sealedAt };
+  const subjectDigest = sealSubject(memberId, orgId, req);
+  const nonce = "0123456789abcdef0123456789abcdef";
+  const challenge = sealChallenge(subjectDigest, nonce);
+  const rpId = "localhost";
+  const origin = "http://localhost:7300";
+  const clientData = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge, origin }));
+  const rpHash = createHash("sha256").update(rpId).digest();
+  const counter = Buffer.alloc(4);
+  counter.writeUInt32BE(1);
+  const authData = Buffer.concat([rpHash, Buffer.from([0x01 | 0x04]), counter]);
+  const clientHash = createHash("sha256").update(clientData).digest();
+  const signature = sign("sha256", Buffer.concat([authData, clientHash]), privateKey);
+
+  const seal = {
+    id: "seal_test123",
+    org_id: orgId,
+    payload: {
+      head_seq: head.seq,
+      head_digest: { algorithm: "sha256", value: head.digest.value },
+      org_id: orgId,
+      sealed_at: sealedAt,
+      signer_id: memberId,
+      purpose: "PR bundle",
+    },
+    subject_digest: { algorithm: "sha256", value: subjectDigest },
+    nonce,
+    assertion: {
+      credential_id: credentialId,
+      authenticator_data: authData.toString("base64url"),
+      client_data_json: clientData.toString("base64url"),
+      signature: signature.toString("base64url"),
+    },
+  };
+  const sealDigest = digest(seal);
+  const fullSegment = chain([
+    ...specs,
+    {
+      type: "chain.sealed",
+      subject: seal.id,
+      actor: { kind: "human", id: memberId },
+      data: {
+        head_seq: head.seq,
+        head_digest: head.digest.value,
+        purpose: "PR bundle",
+        seal_digest: sealDigest,
+        key_digest: keyDigest(cose),
+      },
+    },
+  ]);
+  return {
+    package_id: pkgId,
+    segment: fullSegment,
+    seal,
+    seal_evidence: {
+      public_key: pubB64,
+      rp_id: rpId,
+      origins: [origin],
+    },
+    witnessed: false,
+    statement: "Local chain, not witnessed",
+  };
+}
+
 describe("PR receipt", () => {
-  it("formats a full Control Rod PR receipt with offline verify command", () => {
+  it("formats an authenticated Control Rod PR receipt with digest binding and offline verify command", () => {
     const md = formatPrReceipt({
       packageId: "WP-0042",
       revision: 3,
       author: { provider: "claude", model: "claude-sonnet-4-5" },
       checker: { provider: "codex", model: "gpt-5-codex", outcome: "pass", findingsCount: 0, independent: true },
-      acceptance: { acceptedBy: "mem_ben", decisionId: "dec_1234", acceptedAt: "2026-11-22T12:00:00Z" },
-      proof: { bundlePath: "WP-0042-inclusion-proof.json", sealedBy: "seal_abc", headSeq: 15, witnessed: false },
+      acceptance: {
+        acceptedBy: "mem_ben",
+        decisionId: "dec_1234",
+        subjectDigest: "a".repeat(64),
+        acceptedAt: "2026-11-22T12:00:00Z",
+      },
+      proof: {
+        bundlePath: "WP-0042-inclusion-proof.json",
+        authenticated: true,
+        bundleDigest: "b".repeat(64),
+        headSeq: 15,
+        headDigest: "c".repeat(64),
+        sealedBy: "seal_abc",
+        witnessed: false,
+      },
     });
     expect(md).toContain("<!-- controlrod-pr-receipt:v1 -->");
     expect(md).toContain("`WP-0042` (rev 3)");
     expect(md).toContain("**Written by:** `claude` (`Anthropic`, model `claude-sonnet-4-5`)");
     expect(md).toContain("**Checked blind by:** `codex` (`OpenAI`, model `gpt-5-codex`) — **PASS** (0 findings)");
-    expect(md).toContain("**Accepted by:** `mem_ben` (passkey decision `dec_1234`, 2026-11-22T12:00:00Z)");
+    expect(md).toContain("**Accepted by:** `mem_ben` (passkey decision `dec_1234`, subject `sha256:aaaaaaaaaaaa`, 2026-11-22T12:00:00Z)");
     expect(md).toContain("`pnpm cr verify WP-0042-inclusion-proof.json`");
+    expect(md).toContain("bundle `sha256:bbbbbbbbbbbb`");
+    expect(md).toContain("head #15 `cccccccccccc`");
     expect(md).toContain("Local chain, not witnessed");
   });
 
-  it("refuses to claim blind checking when author and checker share a family", () => {
-    const md = formatPrReceipt({
-      packageId: "WP-0043",
-      author: { provider: "claude" },
-      checker: { provider: "claude", outcome: "pass", findingsCount: 1, independent: true },
-    });
-    expect(md).not.toContain("**Checked blind by:**");
-    expect(md).toContain("**Checked by:**");
-    expect(md).toContain("shared or unknown vendor family");
-    expect(md).toContain("**Accepted by:** not yet accepted");
+  it("fails closed on canClaimBlind for aliases, unknown, opencode, ollama, and empty providers", () => {
+    expect(normalizeProvider("Anthropic")).toBe("claude");
+    expect(normalizeProvider("OpenAI")).toBe("codex");
+    const pairs: [string, string][] = [
+      ["claude", "claude"],
+      ["Anthropic", "claude-code"],
+      ["unknown", "codex"],
+      ["claude", "unknown"],
+      ["opencode", "codex"],
+      ["claude", "opencode"],
+      ["ollama", "codex"],
+      ["claude", "ollama"],
+      ["", "codex"],
+    ];
+    for (const [author, checker] of pairs) {
+      const md = formatPrReceipt({
+        packageId: "WP-0043",
+        author: { provider: author },
+        checker: { provider: checker, outcome: "pass", findingsCount: 1, independent: true },
+      });
+      expect(md, `author=${author} checker=${checker}`).not.toContain("**Checked blind by:**");
+      expect(md, `author=${author} checker=${checker}`).toContain("**Checked by:**");
+      expect(md, `author=${author} checker=${checker}`).toContain("shared or unknown vendor family");
+    }
   });
 
-  it("derives an honest receipt from a valid inclusion proof bundle and rejects tampered bundles", async () => {
+  it("never claims human passkey acceptance for an unsealed bundle", async () => {
     const segment = chain([
       { type: "package.created", subject: "WP-99" },
       { type: "run.started", subject: "R-auth", actor: { kind: "agent", id: "claude" }, data: { package: "WP-99", role: "author", round: 1 } },
       { type: "package.pre-checked", subject: "WP-99", actor: { kind: "agent", id: "codex" }, data: { revision: 1, round: 1, outcome: "pass", findings: 0, shared_runtime: false } },
-      { type: "decision.accept", subject: "WP-99", actor: { kind: "human", id: "mem_owner" }, data: { revision: 1, decision: "dec_99" } },
+      {
+        type: "decision.accept",
+        subject: "WP-99",
+        actor: { kind: "human", id: "mem_owner" },
+        data: { revision: 1, decision: "dec_99", subject_digest: { algorithm: "sha256", value: "d".repeat(64) } },
+      },
     ]);
     const bundle = {
       package_id: "WP-99",
@@ -71,11 +199,11 @@ describe("PR receipt", () => {
 
     const ok = await prReceiptFromBundleText(JSON.stringify(bundle), "WP-99-proof.json");
     expect(ok.code).toBe(0);
-    expect(ok.markdown).toContain("**Written by:** `claude`");
-    expect(ok.markdown).toContain("**Checked blind by:** `codex`");
-    expect(ok.markdown).toContain("**Accepted by:** `mem_owner`");
+    expect(ok.markdown).toContain("UNAUTHENTICATED (unsealed bundle)");
+    expect(ok.markdown).toContain("**Accepted by:** unauthenticated (bundle is unsealed");
+    expect(ok.markdown).not.toContain("passkey decision");
     expect(ok.markdown).toContain("pnpm cr verify WP-99-proof.json");
-    expect(ok.markdown).toContain("unsealed");
+    expect(ok.markdown).toContain("UNSEALED");
 
     const tampered = structuredClone(bundle) as Json;
     tampered.segment[2].data.outcome = "fail";
@@ -83,5 +211,53 @@ describe("PR receipt", () => {
     expect(bad.code).toBe(1);
     expect(bad.markdown).toBeUndefined();
     expect(bad.lines[0]).toContain("FAIL  WP-99");
+  });
+
+  it("verifies authenticated seal, human actor, matching revision/round, and latest decision", async () => {
+    const digestVal = { algorithm: "sha256", value: "e".repeat(64) };
+    const sealed = makeSealedBundle("WP-SEAL-1", [
+      { type: "package.created", subject: "WP-SEAL-1" },
+      { type: "run.started", subject: "R-1", actor: { kind: "agent", id: "claude" }, data: { package: "WP-SEAL-1", role: "author", round: 1 } },
+      { type: "package.pre-checked", subject: "WP-SEAL-1", actor: { kind: "agent", id: "codex" }, data: { revision: 2, round: 1, outcome: "pass", findings: 0, shared_runtime: false } },
+      { type: "decision.accept", subject: "WP-SEAL-1", actor: { kind: "human", id: "mem_owner" }, data: { revision: 2, decision: "D-1", subject_digest: digestVal } },
+    ]);
+    const res1 = await prReceiptFromBundleText(JSON.stringify(sealed), "sealed.json");
+    expect(res1.code, res1.lines.join("\n")).toBe(0);
+    expect(res1.markdown).not.toContain("UNAUTHENTICATED");
+    expect(res1.markdown).toContain("**Written by:** `claude` (`Anthropic`)");
+    expect(res1.markdown).toContain("**Checked blind by:** `codex` (`OpenAI`) — **PASS**");
+    expect(res1.markdown).toContain("**Accepted by:** `mem_owner` (passkey decision `D-1`, subject `sha256:eeeeeeeeeeee`");
+    expect(res1.markdown).toContain("sealed by `seal_test123`");
+
+    const agentAccept = makeSealedBundle("WP-SEAL-2", [
+      { type: "package.created", subject: "WP-SEAL-2" },
+      { type: "run.started", subject: "R-1", actor: { kind: "agent", id: "claude" }, data: { package: "WP-SEAL-2", role: "author", round: 1 } },
+      { type: "package.pre-checked", subject: "WP-SEAL-2", actor: { kind: "agent", id: "codex" }, data: { revision: 1, round: 1, outcome: "pass", findings: 0, shared_runtime: false } },
+      { type: "decision.accept", subject: "WP-SEAL-2", actor: { kind: "agent", id: "claude" }, data: { revision: 1, decision: "D-2", subject_digest: digestVal } },
+    ]);
+    const resAgent = await prReceiptFromBundleText(JSON.stringify(agentAccept), "agent.json");
+    expect(resAgent.code).toBe(0);
+    expect(resAgent.markdown).toContain("**Accepted by:** not yet accepted");
+
+    const superseded = makeSealedBundle("WP-SEAL-3", [
+      { type: "package.created", subject: "WP-SEAL-3" },
+      { type: "run.started", subject: "R-1", actor: { kind: "agent", id: "claude" }, data: { package: "WP-SEAL-3", role: "author", round: 1 } },
+      { type: "package.pre-checked", subject: "WP-SEAL-3", actor: { kind: "agent", id: "codex" }, data: { revision: 1, round: 1, outcome: "pass", findings: 0, shared_runtime: false } },
+      { type: "decision.accept", subject: "WP-SEAL-3", actor: { kind: "human", id: "mem_owner" }, data: { revision: 1, decision: "D-3", subject_digest: digestVal } },
+      { type: "decision.reject", subject: "WP-SEAL-3", actor: { kind: "human", id: "mem_owner" }, data: { revision: 1, decision: "D-4", subject_digest: digestVal } },
+    ]);
+    const resSup = await prReceiptFromBundleText(JSON.stringify(superseded), "sup.json");
+    expect(resSup.code).toBe(0);
+    expect(resSup.markdown).toContain("**Accepted by:** not yet accepted");
+
+    const mismatchedRev = makeSealedBundle("WP-SEAL-4", [
+      { type: "package.created", subject: "WP-SEAL-4" },
+      { type: "run.started", subject: "R-1", actor: { kind: "agent", id: "claude" }, data: { package: "WP-SEAL-4", role: "author", round: 1 } },
+      { type: "package.pre-checked", subject: "WP-SEAL-4", actor: { kind: "agent", id: "codex" }, data: { revision: 2, round: 1, outcome: "pass", findings: 0, shared_runtime: false } },
+      { type: "decision.accept", subject: "WP-SEAL-4", actor: { kind: "human", id: "mem_owner" }, data: { revision: 1, decision: "D-5", subject_digest: digestVal } },
+    ]);
+    const resRev = await prReceiptFromBundleText(JSON.stringify(mismatchedRev), "rev.json");
+    expect(resRev.code).toBe(0);
+    expect(resRev.markdown).toContain("**Accepted by:** not yet accepted");
   });
 });

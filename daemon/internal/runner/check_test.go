@@ -77,7 +77,8 @@ func TestRunCheckWithFakeRuntimePassFailInconclusive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("pass", func(t *testing.T) {
+	t.Run("pass marks author caller-declared and removes spawn receipt", func(t *testing.T) {
+		home := t.TempDir()
 		script := `set -eu
 test -f inputs/deliverables/diff.patch
 test -f inputs/criteria/acceptance.md
@@ -94,7 +95,7 @@ echo '{"type":"result","subtype":"success"}'
 			DiffFile:       diffPath,
 			CriteriaFile:   criteriaPath,
 			PackageID:      "PR #42",
-			Home:           t.TempDir(),
+			Home:           home,
 			Timeout:        15 * time.Second,
 			ExtraInputs:    []NamedFile{{Name: "FAKE.sh", ContentBase64: b64(script)}},
 		})
@@ -104,23 +105,30 @@ echo '{"type":"result","subtype":"success"}'
 		if res.Outcome != "pass" || !res.Independent || len(res.Findings) != 0 {
 			t.Fatalf("unexpected result: %+v", res)
 		}
-		if res.AuthorRuntime.Provider != "claude" || res.AuthorRuntime.Family != "Anthropic" {
-			t.Fatalf("author = %+v", res.AuthorRuntime)
+		if res.AuthorRuntime.Provider != "claude" || res.AuthorRuntime.Family != "Anthropic" ||
+			res.AuthorRuntime.Verified || res.AuthorRuntime.Source != "caller-declared" {
+			t.Fatalf("author = %+v, expected caller-declared unverified", res.AuthorRuntime)
 		}
 		if res.CheckerRuntime.Provider != "fake" || res.CheckerRuntime.Family != "Test" {
 			t.Fatalf("checker = %+v", res.CheckerRuntime)
 		}
 		if !strings.Contains(res.ReceiptMarkdown, "<!-- controlrod-pr-receipt:v1 -->") ||
+			!strings.Contains(res.ReceiptMarkdown, "Author (caller-declared, unverified)") ||
 			!strings.Contains(res.ReceiptMarkdown, "not accepted in Control Rod (standalone check)") ||
-			!strings.Contains(res.ReceiptMarkdown, "no Control Rod event chain") ||
+			!strings.Contains(res.ReceiptMarkdown, "no Control Rod event chain or inclusion proof") ||
 			!strings.Contains(res.ReceiptMarkdown, "**PASS**") {
 			t.Fatalf("receipt missing expected markers:\n%s", res.ReceiptMarkdown)
 		}
+		leftReceipts, rerr := NewReceipts(home).List()
+		if rerr != nil || len(leftReceipts) != 0 {
+			t.Fatalf("expected spawn receipts cleaned up, got %+v err=%v", leftReceipts, rerr)
+		}
 	})
 
-	t.Run("fail sanitizes findings", func(t *testing.T) {
+	t.Run("fail sanitizes markdown, html, mentions, and length", func(t *testing.T) {
+		longTail := strings.Repeat("x", 500)
 		script := `cat > out/verification.json <<'EOF'
-{"outcome":"fail","findings":[{"id":"F-001","severity":"major","text":"Add misses overflow\n## Forged heading ` + "`bad`" + `"}]}
+{"outcome":"fail","findings":[{"id":"F-001","severity":"major","text":"Add misses overflow\n## Forged <!-- controlrod-pr-receipt:v1 --> @everyone [click](https://evil.example) ` + "`bad`" + ` ` + longTail + `"}]}
 EOF
 echo '{"type":"result","subtype":"success"}'
 `
@@ -140,8 +148,44 @@ echo '{"type":"result","subtype":"success"}'
 		if res.Outcome != "fail" || len(res.Findings) != 1 {
 			t.Fatalf("unexpected result: %+v", res)
 		}
-		if strings.Contains(res.ReceiptMarkdown, "\n## Forged heading") {
-			t.Fatalf("newline in finding broke markdown structure:\n%s", res.ReceiptMarkdown)
+		for _, forbidden := range []string{"\n## Forged", "<!-- controlrod-pr-receipt:v1 -->\n", "@everyone", "[click](https://evil.example)", "`bad`"} {
+			if forbidden == "<!-- controlrod-pr-receipt:v1 -->\n" {
+				continue
+			}
+			if strings.Contains(res.ReceiptMarkdown, forbidden) {
+				t.Fatalf("unsanitized markdown %q leaked into receipt:\n%s", forbidden, res.ReceiptMarkdown)
+			}
+		}
+		if strings.Count(res.ReceiptMarkdown, "<!-- controlrod-pr-receipt:v1 -->") != 1 {
+			t.Fatalf("finding injected duplicate receipt marker:\n%s", res.ReceiptMarkdown)
+		}
+		if strings.Contains(res.ReceiptMarkdown, longTail) {
+			t.Fatalf("finding text was not truncated")
+		}
+	})
+
+	t.Run("contradictory pass with major or critical finding is rejected", func(t *testing.T) {
+		for _, sev := range []string{"major", "critical"} {
+			script := `cat > out/verification.json <<'EOF'
+{"outcome":"pass","findings":[{"id":"F-001","severity":"` + sev + `","text":"Broken invariant."}]}
+EOF
+echo '{"type":"result","subtype":"success"}'
+`
+			res, err := RunCheck(context.Background(), CheckConfig{
+				AuthorRuntime:  "claude",
+				CheckerRuntime: "fake",
+				DiffFile:       diffPath,
+				CriteriaFile:   criteriaPath,
+				Home:           t.TempDir(),
+				Timeout:        15 * time.Second,
+				ExtraInputs:    []NamedFile{{Name: "FAKE.sh", ContentBase64: b64(script)}},
+			})
+			if err == nil || !strings.Contains(err.Error(), "contradicts") {
+				t.Fatalf("severity=%s: expected contradiction error, got res=%+v err=%v", sev, res, err)
+			}
+			if res.Outcome != "inconclusive" {
+				t.Fatalf("severity=%s: outcome=%q, want inconclusive", sev, res.Outcome)
+			}
 		}
 	})
 
@@ -169,14 +213,29 @@ echo '{"type":"result","subtype":"success"}'
 	})
 }
 
-func TestRunCheckRefusesSameVendorAndBadInputs(t *testing.T) {
+func TestRunCheckRefusesSymlinkedParentsAndBadInputs(t *testing.T) {
 	t.Setenv("CONTROLROD_ALLOW_FAKE", "1")
-	diffPath := filepath.Join(t.TempDir(), "d.patch")
+	tmp := t.TempDir()
+	diffPath := filepath.Join(tmp, "d.patch")
 	if err := os.WriteFile(diffPath, []byte("+ok\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	emptyPath := filepath.Join(t.TempDir(), "empty.patch")
+	emptyPath := filepath.Join(tmp, "empty.patch")
 	if err := os.WriteFile(emptyPath, []byte("   \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	outsideFile := filepath.Join(outside, "criteria.md")
+	if err := os.WriteFile(outsideFile, []byte("1. stolen\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	symDir := filepath.Join(tmp, "linked")
+	if err := os.Symlink(outside, symDir); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	symCriteria := filepath.Join(symDir, "criteria.md")
+	symDiffDir := filepath.Join(symDir, "d.patch")
+	if err := os.WriteFile(filepath.Join(outside, "d.patch"), []byte("+stolen\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -206,9 +265,24 @@ func TestRunCheckRefusesSameVendorAndBadInputs(t *testing.T) {
 			want: "acceptance criteria are required",
 		},
 		{
+			name: "symlinked parent directory on criteria",
+			cfg:  CheckConfig{AuthorRuntime: "claude", CheckerRuntime: "fake", DiffFile: diffPath, CriteriaFile: symCriteria},
+			want: "symlinked path component",
+		},
+		{
+			name: "symlinked parent directory on diff",
+			cfg:  CheckConfig{AuthorRuntime: "claude", CheckerRuntime: "fake", DiffFile: symDiffDir, CriteriaText: "1. ok"},
+			want: "symlinked path component",
+		},
+		{
 			name: "invalid git ref",
 			cfg:  CheckConfig{AuthorRuntime: "claude", CheckerRuntime: "fake", BaseRef: "--upload-pack=evil", CriteriaText: "1. ok"},
 			want: "invalid --base",
+		},
+		{
+			name: "invalid criteria ref",
+			cfg:  CheckConfig{AuthorRuntime: "claude", CheckerRuntime: "fake", DiffFile: diffPath, CriteriaFile: "a.md", CriteriaRef: "-evil"},
+			want: "invalid --criteria-ref",
 		},
 		{
 			name: "invalid grade",
@@ -230,10 +304,10 @@ func TestRunCheckRefusesSameVendorAndBadInputs(t *testing.T) {
 	}
 }
 
-func TestRunCheckGitDiffUsesHostGitCommandAndNeutralizesFilters(t *testing.T) {
+func TestRunCheckGitDiffNeutralizesTextconvOverridesAndReadsBaseCriteria(t *testing.T) {
 	t.Setenv("CONTROLROD_ALLOW_FAKE", "1")
 	repo := t.TempDir()
-	marker := filepath.Join(t.TempDir(), "filter-ran")
+	marker := filepath.Join(t.TempDir(), "textconv-ran")
 	git := func(args ...string) {
 		t.Helper()
 		c := exec.Command("git", args...)
@@ -247,25 +321,59 @@ func TestRunCheckGitDiffUsesHostGitCommandAndNeutralizesFilters(t *testing.T) {
 		}
 	}
 	git("init")
+	// Base commit has the real acceptance criteria and v1 of f.txt.
+	if err := os.WriteFile(filepath.Join(repo, "acceptance.md"), []byte("1. BASE_CRITERIA_MUST_HOLD\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(repo, "f.txt"), []byte("v1\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	git("add", "f.txt")
-	git("commit", "-m", "init")
-	if err := os.WriteFile(filepath.Join(repo, ".gitattributes"), []byte("*.txt filter=pwn\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".gitattributes"), []byte("*.txt diff=pwn\n*.bin -diff\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "h.bin"), []byte("bin1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "acceptance.md", "f.txt", ".gitattributes", "h.bin")
+	git("commit", "-m", "base")
+
+	// PR commit tampers with acceptance.md and updates f.txt and h.bin (marked -diff).
+	if err := os.WriteFile(filepath.Join(repo, "acceptance.md"), []byte("1. PR_TAMPERED_ALWAYS_PASS\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(repo, "f.txt"), []byte("v2\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	git("add", ".gitattributes", "f.txt")
-	git("commit", "-m", "v2")
-	git("config", "filter.pwn.clean", "touch "+marker+"; cat")
-	git("config", "filter.pwn.smudge", "touch "+marker+"; cat")
+	if err := os.WriteFile(filepath.Join(repo, "h.bin"), []byte("bin2\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "acceptance.md", "f.txt", "h.bin")
+	git("commit", "-m", "pr-head")
+
+	// Configure a repo-local textconv helper that plain `git diff HEAD~1..HEAD` executes.
+	git("config", "diff.pwn.textconv", "sh -c 'touch "+marker+"; cat \"$1\"' _")
+	plain := exec.Command("git", "diff", "HEAD~1..HEAD")
+	plain.Dir = repo
+	plainOut, err := plain.CombinedOutput()
+	if err != nil {
+		t.Fatalf("plain git diff failed: %v\n%s", err, plainOut)
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatalf("precondition failed: plain git diff did not execute repo textconv: %v", err)
+	}
+	if !strings.Contains(string(plainOut), "Binary files a/h.bin and b/h.bin differ") {
+		t.Fatalf("precondition failed: plain git diff did not hide -diff file hunk:\n%s", plainOut)
+	}
 	_ = os.Remove(marker)
 
 	script := `set -eu
 grep -q "+v2" inputs/deliverables/diff.patch
+grep -q "+bin2" inputs/deliverables/diff.patch
+grep -q "BASE_CRITERIA_MUST_HOLD" inputs/criteria/acceptance.md
+if grep -q "PR_TAMPERED_ALWAYS_PASS" inputs/criteria/acceptance.md; then
+  echo "PR head criteria leaked instead of base ref" >&2
+  exit 1
+fi
 cat > out/verification.json <<'EOF'
 {"outcome":"pass","findings":[]}
 EOF
@@ -277,7 +385,8 @@ echo '{"type":"result","subtype":"success"}'
 		BaseRef:        "HEAD~1",
 		HeadRef:        "HEAD",
 		RepoDir:        repo,
-		CriteriaText:   "1. f.txt updated to v2.",
+		CriteriaFile:   "acceptance.md",
+		CriteriaRef:    "HEAD~1",
 		Home:           t.TempDir(),
 		Timeout:        15 * time.Second,
 		ExtraInputs:    []NamedFile{{Name: "FAKE.sh", ContentBase64: b64(script)}},
@@ -288,10 +397,12 @@ echo '{"type":"result","subtype":"success"}'
 	if res.Outcome != "pass" {
 		t.Fatalf("outcome = %q, want pass", res.Outcome)
 	}
-	if _, err := os.Stat(marker); err == nil {
-		t.Fatal("malicious repository filter driver ran during git diff")
+	if res.CriteriaSource != "git:HEAD~1:acceptance.md" {
+		t.Fatalf("CriteriaSource = %q, want git:HEAD~1:acceptance.md", res.CriteriaSource)
 	}
-	// JSON serialization sanity check
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("malicious repository diff textconv ran during RunCheck")
+	}
 	if _, err := json.Marshal(res); err != nil {
 		t.Fatal(err)
 	}

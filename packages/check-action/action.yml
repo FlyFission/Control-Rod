@@ -3,7 +3,7 @@ description: Run Control Rod's independent blind checker on a diff and acceptanc
 
 inputs:
   author-runtime:
-    description: Runtime or vendor family that authored the diff (e.g. claude, codex, grok, agy)
+    description: Caller-declared runtime or vendor family that authored the diff (e.g. claude, codex, grok, agy)
     required: true
   checker-runtime:
     description: Checker runtime from a different vendor family (auto-selected from installed runtimes if omitted)
@@ -26,9 +26,13 @@ inputs:
     required: false
     default: "HEAD"
   criteria:
-    description: Path to acceptance criteria file
+    description: Path to acceptance criteria file (read from the base ref by default so PRs cannot edit their own criteria)
     required: false
     default: ""
+  criteria-from-base:
+    description: Read the criteria file from the base git ref instead of the PR working tree (set false only if criteria lives outside the PR branch)
+    required: false
+    default: "true"
   criteria-text:
     description: Inline acceptance criteria text (used when criteria file is omitted)
     required: false
@@ -38,7 +42,7 @@ inputs:
     required: false
     default: "general-service"
   package-id:
-    description: Target label for the verdict and PR receipt
+    description: Target label for the verdict and summary
     required: false
     default: ""
   controlrod-bin:
@@ -46,7 +50,7 @@ inputs:
     required: false
     default: ""
   fail-on-fail:
-    description: Fail the action step when the verdict is fail or inconclusive
+    description: Fail the action step when the verdict is fail or inconclusive (infrastructure/usage errors always fail)
     required: false
     default: "true"
   timeout:
@@ -54,7 +58,7 @@ inputs:
     required: false
     default: "15m"
   post-comment:
-    description: Post the standalone PR receipt as a pull request comment (requires github-token)
+    description: Post the standalone check summary as a pull request comment (requires github-token)
     required: false
     default: "false"
   github-token:
@@ -70,7 +74,7 @@ outputs:
     description: Number of findings reported by the checker
     value: ${{ steps.run.outputs.findings-count }}
   receipt:
-    description: Path to the generated Markdown PR receipt file
+    description: Path to the generated standalone Markdown check summary file
     value: ${{ steps.run.outputs.receipt }}
   verdict-file:
     description: Path to the generated JSON verdict file
@@ -113,6 +117,7 @@ runs:
         BASE_REF: ${{ inputs.base-ref }}
         HEAD_REF: ${{ inputs.head-ref }}
         CRITERIA_FILE: ${{ inputs.criteria }}
+        CRITERIA_FROM_BASE: ${{ inputs.criteria-from-base }}
         CRITERIA_TEXT: ${{ inputs.criteria-text }}
         GRADE: ${{ inputs.grade }}
         PACKAGE_ID: ${{ inputs.package-id }}
@@ -123,6 +128,7 @@ runs:
         set -uo pipefail
         VERDICT_FILE="$RUNNER_TEMP/controlrod-verdict.json"
         RECEIPT_FILE="$RUNNER_TEMP/controlrod-receipt.md"
+        BASE="${BASE_REF:-${PR_BASE_SHA:-HEAD~1}}"
         ARGS=(check --author-runtime "$AUTHOR_RUNTIME" --grade "$GRADE" --timeout "$TIMEOUT" --output text --verdict-out "$VERDICT_FILE" --receipt-out "$RECEIPT_FILE")
 
         if [ -n "$CHECKER_RUNTIME" ]; then
@@ -139,17 +145,23 @@ runs:
         if [ -n "$DIFF_FILE" ]; then
           ARGS+=(--diff "$DIFF_FILE")
         else
-          BASE="${BASE_REF:-${PR_BASE_SHA:-HEAD~1}}"
           ARGS+=(--base "$BASE" --head "$HEAD_REF")
         fi
         if [ -n "$CRITERIA_FILE" ]; then
           ARGS+=(--criteria "$CRITERIA_FILE")
+          if [ "$CRITERIA_FROM_BASE" = "true" ]; then
+            ARGS+=(--criteria-ref "$BASE")
+          fi
         elif [ -n "$CRITERIA_TEXT" ]; then
           ARGS+=(--criteria-text "$CRITERIA_TEXT")
         fi
 
+        # Disable errexit around the CLI call so nonzero verdicts (exit 1/2)
+        # still export outputs and step summary before Enforce verdict decides.
+        set +e
         "$CONTROLROD_BIN" "${ARGS[@]}"
         RC=$?
+        set -e
 
         OUTCOME="error"
         FINDINGS_COUNT="0"
@@ -176,23 +188,36 @@ runs:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         RECEIPT_FILE: ${{ steps.run.outputs.receipt }}
       run: |
-        set -euo pipefail
+        set -uo pipefail
         if [ -z "$GH_TOKEN" ]; then
-          echo "post-comment is true but github-token is empty" >&2
-          exit 2
+          echo "::warning::post-comment is true but github-token is empty; skipping PR comment"
+          exit 0
         fi
         if [ -f "$RECEIPT_FILE" ]; then
-          gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file "$RECEIPT_FILE"
+          COMMENT_FILE="$RUNNER_TEMP/controlrod-comment.md"
+          python3 -c 'import pathlib, sys; raw = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace"); limit = 60000; out = raw[:limit] + "\n\n*(truncated to fit GitHub comment limit)*\n" if len(raw) > limit else raw; pathlib.Path(sys.argv[2]).write_text(out, encoding="utf-8")' "$RECEIPT_FILE" "$COMMENT_FILE"
+          if ! gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file "$COMMENT_FILE"; then
+            echo "::warning::gh pr comment failed (for example read-only token on a fork PR)"
+          fi
         fi
 
     - name: Enforce verdict
+      if: ${{ always() }}
       shell: bash
       env:
         RC: ${{ steps.run.outputs.exit-code }}
+        OUTCOME: ${{ steps.run.outputs.outcome }}
         FAIL_ON_FAIL: ${{ inputs.fail-on-fail }}
       run: |
+        if [ -z "${RC:-}" ]; then
+          echo "controlrod check did not produce an exit code" >&2
+          exit 1
+        fi
         if [ "$RC" -eq 2 ]; then
           exit 2
+        fi
+        if [ "$OUTCOME" = "error" ] && [ "$RC" -ne 0 ]; then
+          exit "$RC"
         fi
         if [ "$RC" -ne 0 ] && [ "$FAIL_ON_FAIL" = "true" ]; then
           exit "$RC"

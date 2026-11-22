@@ -1,10 +1,13 @@
 # Ship: controlrod check CLI, reusable GitHub Action, and PR receipt (R1.8)
 
-Release decision: **draft PR pending blind checker and owner review.**
+Release decision: **draft PR pending blind checker, Ben's product decisions on standalone receipt/author labelling, and owner review.**
 
-- **Proposed:** `controlrod check` CLI, reusable composite GitHub Action under `packages/check-action/`, PR receipt formatter and `pnpm cr receipt`, and the R1.8 threat model row.
-- **Not claimed:** that `.github/workflows/` runs the Action yet (protected path; left untouched for owner sign-off), that standalone CLI checks carry passkey acceptance or an inclusion proof, or that live Claude Code / Codex runs were executed in this session unless explicitly recorded in `verification.md`.
-- **Next steps needing the owner's yes (trust surfaces):** wiring `packages/check-action/` into `.github/workflows/` when ready.
+- **Proposed:** `controlrod check` CLI, reusable composite GitHub Action under `packages/check-action/`, bundle PR receipt formatter and `pnpm cr receipt`, and the R1.8 threat model row.
+- **Not claimed:** that `.github/workflows/` runs the Action yet (protected path; left untouched for owner sign-off), that standalone CLI/Action checks carry human passkey acceptance or a `pnpm cr verify` inclusion proof, that `--author-runtime` in standalone mode is verified rather than caller-declared, that `packages/check-action/action.yml` was executed on a live GitHub Actions runner, or that live Claude Code / Codex runs were executed in this session.
+- **Open product questions for Ben:**
+  1. What a standalone `controlrod check` / GitHub Action receipt may claim when no person has accepted the change and no inclusion proof exists for `pnpm cr verify`.
+  2. How an author identity the caller declared via `--author-runtime` (and nobody verified) should be labelled (`caller-declared, unverified` vs dropping the author line or requiring attested author runs).
+- **Next steps needing the owner's yes (trust surfaces):** wiring `packages/check-action/` into `.github/workflows/` when ready; integrating `formatPrReceipt` into Control Rod's `Create PR` workflow (R2.5).
 
 Rollback: revert the branch commit(s). No database migrations, `spec/` changes, or kernel changes are included.
 
@@ -16,9 +19,9 @@ Monitoring after merge: `daemon/internal/runner/check_test.go`, `daemon/cmd/cont
 
 ## Exit criteria
 
-1. `controlrod check` runs the blind checker on a diff (file, stdin, or `HostGitCommand` git diff) plus acceptance criteria using a different vendor family from the author, reusing existing checker confinement/admission/settlement code, and prints the verdict (`0` pass, `1` fail/inconclusive, `2` refusal/invalid input).
-2. `packages/check-action/action.yml` ships a self-contained reusable composite GitHub Action invoking `controlrod check` with no `.github/workflows/` edits, no secrets leaked to agent env, and no scheduled triggers.
-3. `services/api/src/pr-receipt.ts` (and `pnpm cr receipt`) formats honest PR receipts for Control Rod packages/bundles (verifiable via `pnpm cr verify`) and standalone checks.
+1. `controlrod check` runs the blind checker on a diff (file, stdin, or `HostGitCommand` git diff) plus acceptance criteria (file, inline, or base git ref via `--criteria-ref`) using a different vendor family from the caller-declared author, reusing existing checker confinement/admission/ownership/settlement code, and prints the verdict (`0` pass, `1` fail/inconclusive, `2` refusal/invalid input).
+2. `packages/check-action/action.yml` ships a self-contained reusable composite GitHub Action invoking `controlrod check` (reading criteria from base ref by default, capturing nonzero verdicts cleanly, isolating comment errors, and failing on infrastructure errors) with no `.github/workflows/` edits, no secrets leaked to agent env, and no scheduled triggers.
+3. `services/api/src/pr-receipt.ts` (and `pnpm cr receipt`) formats honest PR receipts for Control Rod packages/bundles verified via `verifyInclusion` (requiring authenticated seal, human actor, matching revision, and latest non-superseded decision), while standalone CLI/Action runs emit unaccepted standalone summaries pending Ben's decision on standalone receipt wording and R2.5 PR opening.
 4. `docs/threat-model.md` includes the R1.8 threat model row.
 5. Go, TypeScript, and repository checks pass (noting any environment-only pre-existing failures).
 

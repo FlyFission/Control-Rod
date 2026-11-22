@@ -47,10 +47,6 @@
       "reference/improve-codebase-architecture/HTML-REPORT.md",
       "reference/improve-codebase-architecture/SKILL.md"
     ],
-    "pr": [
-      "reference/pr/CREDITS.md",
-      "reference/pr/SKILL.md"
-    ],
     "prototype": [
       "reference/prototype/LOGIC.md",
       "reference/prototype/SKILL.md",
@@ -110,6 +106,9 @@
       "reference/writing-for-agents/SKILL.md"
     ]
   },
+  "excluded": {
+    "pr": "Its Summary section reproduces Dex Horthy's show-me skill from humanlayer/humanlayer (Apache-2.0) almost word for word, per its CREDITS.md; its stage (opening a pull request) is out of scope for this version."
+  },
   "files": {
     "LICENSE": "sha256:0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5",
     "reference/ask-matt/PHASE-BOUNDARIES.md": "sha256:a8aa20158609ef39e2b308b6ba0660c91066838d07a867202e63a7744a88a3ed",
@@ -130,8 +129,6 @@
     "reference/implement/SKILL.md": "sha256:483bdc4ccf4ac31d86ac7beeaa0d0db80313e71e120bb8c59b3196ae5decd53d",
     "reference/improve-codebase-architecture/HTML-REPORT.md": "sha256:581e8bb5a521e46bbda8ca7e19b15948bed882187108092ebb90c62513b77528",
     "reference/improve-codebase-architecture/SKILL.md": "sha256:35b03a3db61e0f5aa333ea59b54963e45a3d2ace6649b2ef4f9576603e2582a6",
-    "reference/pr/CREDITS.md": "sha256:a7a087127665d7298a72280ef6e19c41ad8404523712a788c8dc3ab414bc2497",
-    "reference/pr/SKILL.md": "sha256:ab63f1cf78647389edcd386c9427c5dfca27ed2836930c24773ffee834c19bcd",
     "reference/prototype/LOGIC.md": "sha256:f61c7d249e786a79ef289018901c348271e1798dd0b0bc5607b5c6f4d4a01ab9",
     "reference/prototype/SKILL.md": "sha256:714de632d116bb73f65cdb5a882db15b9369a6713b9a47c0fad827848f0bfbe3",
     "reference/prototype/UI.md": "sha256:723211e878acbc7b6ff09755263f3295cde724ba902ff0064da41eed51d45ad3",

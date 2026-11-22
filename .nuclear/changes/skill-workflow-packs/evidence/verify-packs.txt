@@ -1,2 +1,2 @@
-superpowers: upstream md=65 shipped=65 missing=0 extra=0 differing=0
-pocock: upstream md=50 shipped=50 missing=0 extra=0 differing=0
+superpowers: excluded=['writing-skills'] leaked=0 upstream md=57 shipped=57 missing=0 extra=0 differing=0
+pocock: excluded=['pr'] leaked=0 upstream md=48 shipped=48 missing=0 extra=0 differing=0

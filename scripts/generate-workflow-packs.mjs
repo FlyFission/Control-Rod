@@ -76,6 +76,12 @@ export function generate({ pack, from, out = DEFAULT_OUT, pins = readJson(join(o
   const commit = checkoutHead(from);
   if (commit !== pin.commit) throw new Error(`${pack}: checkout HEAD ${commit} != pin ${pin.commit}`);
   const { upstream, license, sources } = pin;
+  // Skills a person decided not to ship (third-party material under another licence, for one),
+  // each with its reason; recorded in the manifest so the gap is visible.
+  const exclude = record(pin.exclude) ? pin.exclude : {};
+  for (const [skill, reason] of Object.entries(exclude)) {
+    if (typeof reason !== "string" || !reason.trim()) throw new Error(`${pack}: exclusion of ${skill} needs a reason`);
+  }
   const repo = upstream.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)$/);
   if (!repo) throw new Error(`${pack}: invalid upstream URL ${upstream}`);
   const evidence = join(LICENSES, `${repo[1]}__${repo[2]}`);
@@ -97,6 +103,7 @@ export function generate({ pack, from, out = DEFAULT_OUT, pins = readJson(join(o
       bySkill.set(skill, [...(bySkill.get(skill) ?? []), rest.slice(slash + 1)]);
     }
     for (const skill of [...bySkill.keys()].sort()) {
+      if (Object.hasOwn(exclude, skill)) continue;
       if (skills.has(skill)) throw new Error(`${pack}: duplicate skill ${skill}`);
       const markdown = bySkill.get(skill).filter((path) => path.endsWith(".md")).sort();
       if (!markdown.includes("SKILL.md")) throw new Error(`${source}/${skill}: missing SKILL.md`);
@@ -115,6 +122,7 @@ export function generate({ pack, from, out = DEFAULT_OUT, pins = readJson(join(o
   const manifest = {
     workflow: pack, upstream, commit, license, generated_by: GENERATED_BY,
     skills: Object.fromEntries([...skills.keys()].sort().map((skill) => [skill, skills.get(skill)])),
+    excluded: Object.fromEntries(Object.keys(exclude).sort().map((skill) => [skill, exclude[skill]])),
     files: Object.fromEntries(sortedPaths.map((path) => [path, digest(files.get(path))])),
   };
   const destination = join(out, pack);
@@ -126,6 +134,7 @@ export function generate({ pack, from, out = DEFAULT_OUT, pins = readJson(join(o
     writeFileSync(target, files.get(path));
   }
   writeJson(join(destination, "manifest.json"), manifest);
+  writeLock(out);
   mkdirSync(evidence, { recursive: true });
   writeFileSync(join(evidence, "LICENSE"), files.get("LICENSE"));
   const lines = [
@@ -154,6 +163,30 @@ export function readManifests(out, problems) {
   return manifests;
 }
 
+/**
+ * The files a workflow brief is composed from that are not upstream copies: each pack's manifest,
+ * each workflow.json and each stage card. lock.json, one level above the packs, records their
+ * digests, and the API refuses a pack whose files differ from it. A change to a card or map is
+ * then a deliberate act (`--lock`) that shows up in review next to the change itself.
+ */
+export function lockedFiles(out) {
+  const files = [];
+  for (const pack of listDirectories(out)) {
+    const base = join(out, pack);
+    for (const name of ["manifest.json", "workflow.json"]) if (existsSync(join(base, name))) files.push(`${pack}/${name}`);
+    if (existsSync(join(base, "stages"))) for (const card of listFiles(join(base, "stages"), "stages/")) files.push(`${pack}/${card}`);
+  }
+  return files.sort();
+}
+
+export function lockOf(out) {
+  return { note: "Digests of every manifest, workflow map and stage card the API composes briefs from. Written by `node scripts/generate-workflow-packs.mjs --lock`; never edit by hand.", files: Object.fromEntries(lockedFiles(out).map((f) => [f, digest(readFileSync(join(out, f)))])) };
+}
+
+export function writeLock(out) {
+  writeJson(join(out, "lock.json"), lockOf(out));
+}
+
 export function checkWorkflows(out, manifests) {
   const problems = [];
   const unresolved = [];
@@ -161,10 +194,13 @@ export function checkWorkflows(out, manifests) {
     const base = join(out, pack);
     const path = join(base, "workflow.json");
     const cards = new Set();
+    // A pinned pack and the hybrid each need a complete map, or the API refuses them at run time.
+    if ((manifests.has(pack) || existsSync(join(base, "stages"))) && !existsSync(path)) problems.push(`${pack}: no workflow.json`);
     if (existsSync(path)) {
       try {
         const { stages } = readJson(path);
         if (!record(stages)) throw new Error("expected a stages map");
+        for (const required of STAGES) if (!Object.hasOwn(stages, required)) problems.push(`${pack}/workflow.json: no ${required} stage`);
         for (const [name, stage] of Object.entries(stages)) {
           const label = `${pack}/workflow.json (${name})`;
           if (!STAGES.has(name)) problems.push(`${label}: unknown stage`);
@@ -242,15 +278,37 @@ export function check({ out = DEFAULT_OUT } = {}) {
       }
     }
   }
+  for (const [pack, manifest] of manifests) {
+    for (const skill of Object.keys(record(manifest.excluded) ? manifest.excluded : {})) {
+      if (Object.hasOwn(manifest.skills, skill)) problems.push(`${pack}: ${skill} is both shipped and excluded`);
+    }
+    const want = record(pins[pack]?.exclude) ? Object.keys(pins[pack].exclude).sort() : [];
+    const have = Object.keys(record(manifest.excluded) ? manifest.excluded : {}).sort();
+    if (want.join() !== have.join()) problems.push(`${pack}: manifest exclusions [${have}] differ from pins.json [${want}]; regenerate`);
+  }
   const stages = checkWorkflows(out, manifests);
+  const lockPath = join(out, "lock.json");
+  if (!existsSync(lockPath)) problems.push("lock.json is missing; run --lock and review the diff");
+  else {
+    const want = lockOf(out).files;
+    const have = readJson(lockPath).files ?? {};
+    for (const f of new Set([...Object.keys(want), ...Object.keys(have)])) {
+      if (want[f] !== have[f]) problems.push(`lock.json: ${f} ${have[f] ? (want[f] ? "changed" : "is gone") : "is not locked"}; run --lock and review the diff`);
+    }
+  }
   return [...problems, ...stages.problems, ...stages.unresolved];
 }
 
 function main() {
   const { values } = parseArgs({ options: {
-    check: { type: "boolean" }, pack: { type: "string" }, from: { type: "string" }, out: { type: "string" },
+    check: { type: "boolean" }, lock: { type: "boolean" }, pack: { type: "string" }, from: { type: "string" }, out: { type: "string" },
   } });
   const out = resolve(values.out ?? DEFAULT_OUT);
+  if (values.lock) {
+    writeLock(out);
+    console.log(`wrote ${join(out, "lock.json")} (${lockedFiles(out).length} files)`);
+    return;
+  }
   if (values.check) {
     const problems = check({ out });
     if (problems.length) throw new Error(problems.join("\ngenerate-workflow-packs: "));

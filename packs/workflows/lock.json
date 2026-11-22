@@ -1,0 +1,19 @@
+{
+  "note": "Digests of every manifest, workflow map and stage card the API composes briefs from. Written by `node scripts/generate-workflow-packs.mjs --lock`; never edit by hand.",
+  "files": {
+    "pocock-superpowers/stages/author.md": "sha256:384e3c48677102670f7d94cd15141b8bf0dc6e2458306e134f8ed78ba0baf7e9",
+    "pocock-superpowers/stages/intake.md": "sha256:d223891080404b8c1fadbd0bf55874964d59f97f30f8a56f95bd19be5f7361f9",
+    "pocock-superpowers/stages/pre-check.md": "sha256:ec77a08ad603f45950ff3623b45eb89796e77bf49c84a010316ab6ab92c69421",
+    "pocock-superpowers/workflow.json": "sha256:f77282dbc10fc8778adaaa3a41046a829b23bb5b5012ab8b0d9f4551b1427d64",
+    "pocock/manifest.json": "sha256:7636dc8f7448e872b5d0ffacbf2461babf6eb6a89610d030b46585e888ba3589",
+    "pocock/stages/author.md": "sha256:8f2bc6433a7099063e36a53e5c07e0703f38340c17136835bc1b6485ef1f7125",
+    "pocock/stages/intake.md": "sha256:11a98e445dfa9b51bd58d93790d56559dc5a21e779f96771499aee6beb512b5a",
+    "pocock/stages/pre-check.md": "sha256:59b924f2ebab5a0404cd21fe207b239d3fe68c833d64347ee7aa4f96ea0b1ed6",
+    "pocock/workflow.json": "sha256:528d8a419119957d2fb52fea184215b30337466e0431c7ab62d74b705b587df4",
+    "superpowers/manifest.json": "sha256:218caa0dd95ae60f14060b3a5b0a0a06e7ddb8404038fcfbc64bef8c3b4cc60f",
+    "superpowers/stages/author.md": "sha256:cff14ccb790a9befd4614486530849b2d20cc1389999536ee788430edbe3f16c",
+    "superpowers/stages/intake.md": "sha256:875e8f63135c0934c894f77bf435fecb959ebf917b45b20b465d32a210f8bdfb",
+    "superpowers/stages/pre-check.md": "sha256:d09d3e09cc30291d44c67745592dbc12dfb6b8a0f512d239eb70b980e489ebe2",
+    "superpowers/workflow.json": "sha256:7a4fb909117e338f53cf0ae7e282512347efc8d7cbf91f2b68bd41c0a5a649e9"
+  }
+}

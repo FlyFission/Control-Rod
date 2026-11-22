@@ -42,8 +42,11 @@ export function captureWorkflow(text: unknown): Workflow | undefined {
   const first = text.split(/\r?\n/, 1)[0] ?? "";
   const found = new Set<Workflow>();
   for (const token of first.trim().split(/\s+/)) {
-    const m = /^\[workflow:([^\]\s]+)\]$/.exec(token);
-    if (m && isWorkflow(m[1])) found.add(m[1]);
+    const m = /^\[workflow:([^\]\s]*)\]$/.exec(token);
+    if (!m) continue;
+    // A token in the tag's syntax with an id nobody knows makes the whole tag line ambiguous.
+    if (!isWorkflow(m[1])) return undefined;
+    found.add(m[1]);
   }
   return found.size === 1 ? [...found][0] : undefined;
 }
@@ -105,8 +108,35 @@ function verified(dir: string, root: string, files: Json, rel: string, label: st
 
 const NAME = /^[a-z0-9][a-z0-9._-]*$/i;
 
-function readJson(dir: string, root: string, rel: string, label: string): Json {
-  const v = JSON.parse(readFileSync(inside(dir, root, rel, label), "utf8"));
+/**
+ * lock.json, one level above the packs: the digest of every manifest, workflow map and stage card.
+ * Those files are ours or generated, not upstream copies, so the manifest cannot vouch for them;
+ * the lock does, and every one is checked against it before use.
+ */
+type Lock = { files: Record<string, string>; dir: string } | null;
+
+/** Null when there is no lock.json; any read that needs it then fails, so an empty packs folder still reads as not installed. */
+function readLock(dir: string): Lock {
+  const path = join(dir, "lock.json");
+  if (!existsSync(path)) return null;
+  const v = JSON.parse(readFileSync(path, "utf8"));
+  if (!v || typeof v.files !== "object" || Array.isArray(v.files)) throw new Error("workflow packs: lock.json has no file digests");
+  return { files: v.files as Record<string, string>, dir };
+}
+
+/** A manifest, map or card, read inside its pack and checked against the lock. */
+function lockedBytes(dir: string, root: string, rel: string, lock: Lock, label: string): Buffer {
+  if (!lock) throw new Error(`${label}: lock.json is missing beside the packs`);
+  const bytes = readFileSync(inside(dir, root, rel, label));
+  const key = relative(lock.dir, join(dir, rel)).split(sep).join("/");
+  const want = lock.files[key];
+  if (typeof want !== "string") throw new Error(`${label}: ${rel} is not in lock.json`);
+  if (`sha256:${createHash("sha256").update(bytes).digest("hex")}` !== want) throw new Error(`${label}: ${rel} does not match lock.json`);
+  return bytes;
+}
+
+function readJson(dir: string, root: string, rel: string, label: string, lock: Lock): Json {
+  const v = JSON.parse(lockedBytes(dir, root, rel, lock, label).toString("utf8"));
   if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error(`${label}: ${rel} is not an object`);
   return v as Json;
 }
@@ -116,7 +146,7 @@ function readJson(dir: string, root: string, rel: string, label: string): Json {
  * bare name means the pack's own (never in the hybrid, which owns none). `allowed` is the packs a
  * stage may name.
  */
-function readStages(dir: string, root: string, w: Json, allowed: readonly string[], own: string | undefined, label: string): Record<Stage, StageCard> {
+function readStages(dir: string, root: string, w: Json, allowed: readonly string[], own: string | undefined, label: string, lock: Lock): Record<Stage, StageCard> {
   const out = {} as Record<Stage, StageCard>;
   for (const stage of STAGES) {
     const s = w.stages?.[stage];
@@ -130,7 +160,7 @@ function readStages(dir: string, root: string, w: Json, allowed: readonly string
       if (!allowed.includes(pack)) throw new Error(`${label}: ${stage} skill ${raw} names pack ${pack}, which this workflow does not use`);
       if (!skills.some((x) => x.pack === pack && x.skill === skill)) skills.push({ pack, skill });
     }
-    out[stage] = { card: readFileSync(inside(dir, root, s.card, label), "utf8"), skills };
+    out[stage] = { card: lockedBytes(dir, root, s.card, lock, label).toString("utf8"), skills };
   }
   return out;
 }
@@ -141,16 +171,16 @@ const refsOf = (stages: Record<Stage, StageCard>) => STAGES.flatMap((s) => stage
  * Reads one base pack (superpowers or pocock): the skills its stages name plus any `extra` skills
  * the hybrid takes from it. Returns null when the pack has no manifest (not installed).
  */
-function readBasePack(dir: string, id: (typeof BASE_PACKS)[number], extra: Set<string>): WorkflowPack | null {
+function readBasePack(dir: string, id: (typeof BASE_PACKS)[number], extra: Set<string>, lock: Lock): WorkflowPack | null {
   const label = `workflow pack ${id}`;
   if (!existsSync(join(dir, "manifest.json"))) return null;
   const root = realpathSync(dir);
-  const m = readJson(dir, root, "manifest.json", label);
+  const m = readJson(dir, root, "manifest.json", label, lock);
   if (!m.files || typeof m.files !== "object" || Array.isArray(m.files)) throw new Error(`${label}: manifest has no file digests`);
   if (!m.skills || typeof m.skills !== "object" || Array.isArray(m.skills)) throw new Error(`${label}: manifest has no skills`);
-  const w = readJson(dir, root, "workflow.json", label);
+  const w = readJson(dir, root, "workflow.json", label, lock);
   if (w.id !== id) throw new Error(`${label}: workflow.json names ${String(w.id)}`);
-  const stages = readStages(dir, root, w, [id], id, label);
+  const stages = readStages(dir, root, w, [id], id, label, lock);
   const names = new Set([...refsOf(stages).map((r) => r.skill), ...extra]);
   const skills: WorkflowPack["skills"] = {};
   for (const skill of [...names].sort()) {
@@ -170,25 +200,27 @@ function readBasePack(dir: string, id: (typeof BASE_PACKS)[number], extra: Set<s
  * that workflow needs, so a damaged pack stops its own runs and no others. A pack that is not
  * installed is null. Throws when a file a pack ships is missing, outside the pack (by name or
  * through a symlink), or differs from its manifest digest, or when a stage names a skill that does
- * not resolve. Cards and workflow.json are ours and carry no digest; they are still kept inside.
+ * not resolve. Manifests, workflow maps and cards are checked against lock.json; the upstream files
+ * each manifest lists are checked against the manifest.
  */
 export function loadWorkflowPacks(dir: string, only?: PackWorkflow): WorkflowPacks {
   const out: WorkflowPacks = {};
+  const lock = readLock(dir);
   const wantHybrid = !only || only === HYBRID;
   const extra: Record<string, Set<string>> = { superpowers: new Set(), pocock: new Set() };
   let hybrid: { root: string; w: Json; dir: string } | null = null;
   const hdir = join(dir, HYBRID);
   if (wantHybrid && existsSync(join(hdir, "workflow.json"))) {
     const root = realpathSync(hdir);
-    hybrid = { root, dir: hdir, w: readJson(hdir, root, "workflow.json", `workflow pack ${HYBRID}`) };
+    hybrid = { root, dir: hdir, w: readJson(hdir, root, "workflow.json", `workflow pack ${HYBRID}`, lock) };
     // The hybrid's skills are read in the packs they live in, so find them before reading those.
-    const stages = readStages(hdir, root, hybrid.w, [...BASE_PACKS], undefined, `workflow pack ${HYBRID}`);
+    const stages = readStages(hdir, root, hybrid.w, [...BASE_PACKS], undefined, `workflow pack ${HYBRID}`, lock);
     for (const r of refsOf(stages)) extra[r.pack]!.add(r.skill);
   }
   for (const id of BASE_PACKS) {
     if (only && only !== id && !(hybrid && only === HYBRID)) continue;
     const bdir = join(dir, id);
-    out[id] = existsSync(bdir) ? readBasePack(bdir, id, extra[id]!) : null;
+    out[id] = existsSync(bdir) ? readBasePack(bdir, id, extra[id]!, lock) : null;
   }
   if (!wantHybrid) return out;
   if (!hybrid) {
@@ -198,7 +230,7 @@ export function loadWorkflowPacks(dir: string, only?: PackWorkflow): WorkflowPac
   const label = `workflow pack ${HYBRID}`;
   const uses = Array.isArray(hybrid.w.hybrid_of) ? (hybrid.w.hybrid_of as unknown[]) : [];
   if (uses.length === 0 || uses.some((u) => !(BASE_PACKS as readonly string[]).includes(String(u)))) throw new Error(`${label}: hybrid_of must name superpowers and pocock`);
-  const stages = readStages(hybrid.dir, hybrid.root, hybrid.w, uses as string[], undefined, label);
+  const stages = readStages(hybrid.dir, hybrid.root, hybrid.w, uses as string[], undefined, label, lock);
   const commits: Record<string, string> = {};
   for (const u of uses as (typeof BASE_PACKS)[number][]) {
     const base = out[u];

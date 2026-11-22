@@ -15,8 +15,8 @@ Monitoring after merge: run one small request under each workflow and read the b
 
 | Field | Entry |
 |---|---|
-| Decision | Pending: the two optional `spec/` fields (`WorkPackage.workflow`, `Project.default_workflow`) |
-| Question | To be asked in the session chat, naming the pull request |
+| Decision | **Pending. Merge is blocked until this row records the owner's yes.** The two optional `spec/` fields (`WorkPackage.workflow`, `Project.default_workflow`) |
+| Question | Asked in the Orchestrator.inc session chat on 2026-11-22, naming pull request #148 and saying it touches `spec/`; to be quoted here with the owner's answer |
 | Answer | Not yet given |
 | Head when asked | To be recorded |
 

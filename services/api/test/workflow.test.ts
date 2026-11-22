@@ -1,4 +1,5 @@
-import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -50,6 +51,12 @@ describe("captureWorkflow", () => {
     expect(captureWorkflow(42)).toBeUndefined();
   });
 
+  it("treats a known tag beside an unknown one as no tag, so an ambiguous request runs the playbook", () => {
+    expect(captureWorkflow("[workflow:pocock] [workflow:unknown]\n\nBuild")).toBeUndefined();
+    expect(captureWorkflow("[workflow:unknown] [workflow:pocock]")).toBeUndefined();
+    expect(captureWorkflow("[workflow:] [workflow:superpowers]")).toBeUndefined();
+  });
+
   it("treats two different tags on the first line as no tag", () => {
     expect(captureWorkflow("[workflow:pocock] [workflow:superpowers]\n\nBuild")).toBeUndefined();
   });
@@ -64,6 +71,43 @@ function copyOfFixtures(): string {
 }
 afterEach(() => {
   for (const d of scratch.splice(0)) rmSync(d, { recursive: true, force: true });
+});
+
+/** Re-records lock.json for a copy, so a test can reach the check behind the lock. */
+function relock(dir: string): void {
+  const lock = JSON.parse(readFileSync(join(dir, "lock.json"), "utf8"));
+  for (const f of Object.keys(lock.files)) if (existsSync(join(dir, f))) lock.files[f] = `sha256:${createHash("sha256").update(readFileSync(join(dir, f))).digest("hex")}`;
+  writeFileSync(join(dir, "lock.json"), JSON.stringify(lock));
+}
+
+describe("lock.json", () => {
+  it("refuses a stage card, a workflow map or a manifest that differs from lock.json", () => {
+    for (const [file, re] of [
+      ["superpowers/stages/author.md", /stages\/author\.md does not match lock\.json/],
+      ["pocock/workflow.json", /workflow\.json does not match lock\.json/],
+      ["pocock/manifest.json", /manifest\.json does not match lock\.json/],
+    ] as const) {
+      const dir = copyOfFixtures();
+      writeFileSync(join(dir, file), readFileSync(join(dir, file), "utf8").replace(/\n$/, " \n"));
+      expect(() => loadWorkflowPacks(dir), file).toThrow(re);
+    }
+  });
+
+  it("refuses a manifest whose upstream digests were edited to match a tampered file, since the manifest itself is locked", () => {
+    const dir = copyOfFixtures();
+    const skill = join(dir, "superpowers", "reference", "brainstorming", "SKILL.md");
+    writeFileSync(skill, "# swapped instructions\n");
+    const m = JSON.parse(readFileSync(join(dir, "superpowers", "manifest.json"), "utf8"));
+    m.files["reference/brainstorming/SKILL.md"] = `sha256:${createHash("sha256").update(readFileSync(skill)).digest("hex")}`;
+    writeFileSync(join(dir, "superpowers", "manifest.json"), JSON.stringify(m));
+    expect(() => loadWorkflowPacks(dir)).toThrow(/manifest\.json does not match lock\.json/);
+  });
+
+  it("refuses an installed pack when lock.json is gone", () => {
+    const dir = copyOfFixtures();
+    rmSync(join(dir, "lock.json"));
+    expect(() => loadWorkflowPacks(dir)).toThrow(/lock\.json is missing/);
+  });
 });
 
 describe("loadWorkflowPacks", () => {
@@ -108,6 +152,7 @@ describe("loadWorkflowPacks", () => {
     const m = JSON.parse(readFileSync(join(dir, "pocock", "manifest.json"), "utf8"));
     delete m.files["reference/retro/SKILL.md"];
     writeFileSync(join(dir, "pocock", "manifest.json"), JSON.stringify(m));
+    relock(dir);
     expect(() => loadWorkflowPacks(dir)).toThrow(/reference\/retro\/SKILL\.md has no digest in the manifest/);
   });
 
@@ -116,9 +161,11 @@ describe("loadWorkflowPacks", () => {
     const m = JSON.parse(readFileSync(join(dir, "pocock", "manifest.json"), "utf8"));
     m.skills.retro = ["reference/retro/../../../superpowers/LICENSE"];
     writeFileSync(join(dir, "pocock", "manifest.json"), JSON.stringify(m));
+    relock(dir);
     expect(() => loadWorkflowPacks(dir)).toThrow(/not under reference\/retro\/|leaves the pack/);
     m.skills.retro = ["/etc/hosts"];
     writeFileSync(join(dir, "pocock", "manifest.json"), JSON.stringify(m));
+    relock(dir);
     expect(() => loadWorkflowPacks(dir)).toThrow(/not under reference\/retro\//);
   });
 
@@ -137,6 +184,7 @@ describe("loadWorkflowPacks", () => {
     const w = JSON.parse(readFileSync(join(dir, "superpowers", "workflow.json"), "utf8"));
     w.stages.author.card = "../pocock/stages/author.md";
     writeFileSync(join(dir, "superpowers", "workflow.json"), JSON.stringify(w));
+    relock(dir);
     expect(() => loadWorkflowPacks(dir)).toThrow(/leaves the pack/);
   });
 
@@ -145,6 +193,7 @@ describe("loadWorkflowPacks", () => {
     const w = JSON.parse(readFileSync(join(dir, "pocock", "workflow.json"), "utf8"));
     w.stages.author.skills.push("pocock:no-such-skill");
     writeFileSync(join(dir, "pocock", "workflow.json"), JSON.stringify(w));
+    relock(dir);
     expect(() => loadWorkflowPacks(dir, "pocock")).toThrow(/stage skill pocock:no-such-skill does not resolve/);
   });
 
@@ -153,10 +202,12 @@ describe("loadWorkflowPacks", () => {
     const w = JSON.parse(readFileSync(join(dir, "pocock-superpowers", "workflow.json"), "utf8"));
     w.stages.intake.skills.push("superpowers:grilling");
     writeFileSync(join(dir, "pocock-superpowers", "workflow.json"), JSON.stringify(w));
+    relock(dir);
     expect(() => loadWorkflowPacks(dir, "pocock-superpowers")).toThrow(/superpowers:grilling does not resolve/);
     w.stages.intake.skills.pop();
     w.stages.intake.skills.push("other:thing");
     writeFileSync(join(dir, "pocock-superpowers", "workflow.json"), JSON.stringify(w));
+    relock(dir);
     expect(() => loadWorkflowPacks(dir, "pocock-superpowers")).toThrow(/names pack other, which this workflow does not use/);
   });
 

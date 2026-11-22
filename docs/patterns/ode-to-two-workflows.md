@@ -24,7 +24,7 @@ Then it holds a retro, and the retro changes the environment, not the code: the 
 
 ## How Control Rod carries them
 
-Both workflows are MIT licensed, and both authors are credited in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md) and in each pack's own `LICENSE`. Their skill files ship in Control Rod as they wrote them, pinned to a commit and checked by digest, so an agent reads Jesse's and Matt's words, not a paraphrase.
+Both workflows are MIT licensed, and both authors are credited in [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md) and in each pack's own `LICENSE`. Their skill files ship in Control Rod as they wrote them, pinned to a commit and checked by digest, so an agent reads Jesse's and Matt's words, not a paraphrase. Two skills stay out: Matt's `pr` and Jesse's `writing-skills` each carry someone else's writing under another licence, and credit should go where the words came from.
 
 A card picks one workflow: the plain playbook, **Superpowers**, **Pocock**, or the hybrid, **Pocock Superpowers** (a working name until both authors have seen it). They never stack. Their plans, reviews and test rules disagree in small ways, and an agent handed both would have to choose, which is the person's job. The workflow is also a separate choice from the Nuclear-grade context: Nuclear sets how much evidence and decision discipline a run carries, and the workflow sets how the work is sequenced.
 

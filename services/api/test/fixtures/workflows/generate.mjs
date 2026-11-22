@@ -9,10 +9,13 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const sha = (t) => `sha256:${createHash("sha256").update(t).digest("hex")}`;
+// Every manifest, map and card the API composes from goes in lock.json, as the real packs do.
+const locked = {};
 const write = (rel, text) => {
   const p = join(here, rel);
   mkdirSync(dirname(p), { recursive: true });
   writeFileSync(p, text);
+  if (/\/(manifest|workflow)\.json$|\/stages\//.test(rel)) locked[rel] = sha(text);
 };
 
 const packs = {
@@ -82,3 +85,4 @@ for (const [stage, list] of Object.entries(hybrid)) {
   hstages[stage] = { card: `stages/${stage}.md`, skills: list };
 }
 write("pocock-superpowers/workflow.json", JSON.stringify({ id: "pocock-superpowers", name: "Pocock Superpowers", hybrid_of: ["pocock", "superpowers"], stages: hstages }, null, 2) + "\n");
+writeFileSync(join(here, "lock.json"), JSON.stringify({ note: "fixture lock, written by generate.mjs", files: Object.fromEntries(Object.keys(locked).sort().map((k) => [k, locked[k]])) }, null, 2) + "\n");

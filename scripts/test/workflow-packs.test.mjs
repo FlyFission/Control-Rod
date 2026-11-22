@@ -66,15 +66,17 @@ function setup(t) {
 test("generation normalizes Markdown and license bytes and preserves controller files", (t) => {
   const { root, localPack, cli, args, head } = setup(t);
   const controller = {
-    "workflow.json": '{"stages":{"author":{"card":"stages/author.md","skills":["pocock:keep"]}}}\n',
+    "workflow.json": '{"stages":{"intake":{"card":"stages/intake.md","skills":[]},"author":{"card":"stages/author.md","skills":["pocock:keep"]},"pre-check":{"card":"stages/pre-check.md","skills":[]}}}\n',
+    "stages/intake.md": "Intake card\n",
     "stages/author.md": "Author card\n",
+    "stages/pre-check.md": "Pre-check card\n",
     "budgets.json": "{}\n",
   };
   for (const [path, contents] of Object.entries(controller)) put(join(localPack, path), contents);
   put(join(localPack, "reference/stale/legacy.md"), "stale");
   cli(generator, args);
   const manifest = JSON.parse(readFileSync(join(localPack, "manifest.json"), "utf8"));
-  assert.deepEqual(Object.keys(manifest), ["workflow", "upstream", "commit", "license", "generated_by", "skills", "files"]);
+  assert.deepEqual(Object.keys(manifest), ["workflow", "upstream", "commit", "license", "generated_by", "skills", "excluded", "files"]);
   assert.equal(manifest.commit, head);
   assert.deepEqual(manifest.skills.keep, ["reference/keep/SKILL.md", "reference/keep/nested/notes.md"]);
   assert.equal(readFileSync(join(localPack, manifest.skills.keep[0]), "utf8"), "before\ncommon\n");
@@ -171,7 +173,10 @@ test("check refuses a skill list without digests and a pinned pack without a man
 });
 
 test("sync reports additions, removals, both rename rules, line counts and unresolved stages", (t) => {
-  const { root, out, from, cli, args, head, commit, skill, pinsPath } = setup(t);
+  const { root, out, from, localPack, cli, args, head, commit, skill, pinsPath } = setup(t);
+  // A real pack always carries a complete map; this one names a skill that survives the sync.
+  put(join(localPack, "workflow.json"), '{"stages":{"intake":{"card":"stages/card.md","skills":[]},"author":{"card":"stages/card.md","skills":["pocock:keep"]},"pre-check":{"card":"stages/card.md","skills":[]}}}');
+  put(join(localPack, "stages/card.md"), "Card\n");
   cli(generator, args);
   for (const name of ["old-name", "old-body", "gone"]) {
     rmSync(join(from, "skills/engineering", name), { recursive: true });
@@ -181,7 +186,7 @@ test("sync reports additions, removals, both rename rules, line counts and unres
   skill("added", "new only\n");
   skill("keep", "after\ncommon\nadditional\n");
   const next = commit();
-  put(join(out, "hybrid/workflow.json"), '{"hybrid_of":["pocock"],"stages":{"author":{"card":"stages/author.md","skills":["pocock:gone"]}}}');
+  put(join(out, "hybrid/workflow.json"), '{"hybrid_of":["pocock"],"stages":{"intake":{"card":"stages/author.md","skills":[]},"author":{"card":"stages/author.md","skills":["pocock:gone"]},"pre-check":{"card":"stages/author.md","skills":[]}}}');
   put(join(out, "hybrid/stages/author.md"), "Card");
   const reportPath = join(root, "sync.md");
   cli(synchronizer, [...args, "--report", reportPath], 2);
@@ -195,6 +200,39 @@ test("sync reports additions, removals, both rename rules, line counts and unres
   rmSync(join(out, "hybrid"), { recursive: true });
   assert.match(cli(synchronizer, args), /Stage skills that no longer resolve\n\nNone/);
   cli(generator, ["--check"]);
+});
+
+test("excluded skills are not shipped, are recorded with their reason, and must match pins.json", (t) => {
+  const { out, localPack, cli, args, pins, pinsPath } = setup(t);
+  pins[pack].exclude = { "old-body": "third-party material under another licence" };
+  put(pinsPath, JSON.stringify(pins));
+  cli(generator, args);
+  const manifest = JSON.parse(readFileSync(join(localPack, "manifest.json"), "utf8"));
+  assert.equal(existsSync(join(localPack, "reference/old-body")), false);
+  assert.equal(Object.hasOwn(manifest.skills, "old-body"), false);
+  assert.deepEqual(manifest.excluded, { "old-body": "third-party material under another licence" });
+  pins[pack].exclude = {};
+  put(pinsPath, JSON.stringify(pins));
+  assert.match(cli(generator, ["--check", "--out", out], 1), /manifest exclusions \[old-body\] differ from pins\.json/);
+  pins[pack].exclude = { keep: " " };
+  put(pinsPath, JSON.stringify(pins));
+  assert.match(cli(generator, args, 1), /exclusion of keep needs a reason/);
+});
+
+test("check requires a complete map and a current lock.json", (t) => {
+  const { out, localPack, cli, args } = setup(t);
+  cli(generator, args);
+  // No map at all for a generated pack.
+  assert.match(cli(generator, ["--check", "--out", out], 1), /pocock: no workflow\.json/);
+  put(join(localPack, "workflow.json"), '{"stages":{"author":{"card":"stages/author.md","skills":["pocock:keep"]}}}');
+  put(join(localPack, "stages/author.md"), "Author card\n");
+  cli(generator, ["--lock", "--out", out]);
+  const partial = cli(generator, ["--check", "--out", out], 1);
+  assert.match(partial, /no intake stage/);
+  assert.match(partial, /no pre-check stage/);
+  // A card edited after locking is reported until --lock is run again.
+  put(join(localPack, "stages/author.md"), "Edited card\n");
+  assert.match(cli(generator, ["--check", "--out", out], 1), /lock\.json: pocock\/stages\/author\.md changed; run --lock/);
 });
 
 test("committed workflow packs pass --check", () => {

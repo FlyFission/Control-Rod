@@ -1,32 +1,34 @@
-✔ every fixture's Light and Nuclear brief stays within its recorded budget (34.574292ms)
-✔ budgets.json records its measured inputs and budgets equal to measurements (0.139417ms)
-✔ a brief one token over its budget is reported (7.534584ms)
-✔ the committed workflow budgets hold for every workflow and stage (51.615208ms)
-✔ a stage that grows past its budget, or changed inputs, fails the check (18.835042ms)
-✔ committed pack matches its manifest (--check) (14.143375ms)
-✔ manifest names the upstream, license and every card (0.225708ms)
-✔ check catches a hand edit, an added file and a removed file (23.542542ms)
-✔ check catches a card edited together with its manifest digest (19.051ms)
-﹣ regenerating from the NGCE checkout reproduces the committed pack (0.049458ms) # no NGCE checkout at /home/claude/ngce
-﹣ regenerating keeps budgets.json and check does not count it as a pack file (0.030834ms) # no NGCE checkout at /home/claude/ngce
-✔ fixture was recorded from the current sample list (0.471125ms)
-✔ countTokens matches the counts NGCE's Python count_tokens recorded (3.66825ms)
-﹣ countTokens matches NGCE's count_tokens run live (0.061ms) # no NGCE checkout at /home/claude/ngce
-﹣ countTokens matches NGCE's count_tokens on every assigned code point (0.035958ms) # no NGCE checkout at /home/claude/ngce
-✔ generation normalizes Markdown and license bytes and preserves controller files (257.666709ms)
-✔ generation rejects pin mismatch, duplicate skills and absent SKILL.md (568.563667ms)
-✔ check aggregates manifest, reference and stage problems (253.853416ms)
-✔ generation ships the pinned commit, never local edits or untracked files in the checkout (164.028916ms)
-✔ generation refuses a symlink committed under a skill (158.398875ms)
-✔ check refuses a skill list without digests and a pinned pack without a manifest (237.37175ms)
-✔ sync reports additions, removals, both rename rules, line counts and unresolved stages (510.288833ms)
-✔ committed workflow packs pass --check (78.039375ms)
-ℹ tests 23
+✔ every fixture's Light and Nuclear brief stays within its recorded budget (34.893625ms)
+✔ budgets.json records its measured inputs and budgets equal to measurements (0.153666ms)
+✔ a brief one token over its budget is reported (8.480458ms)
+✔ the committed workflow budgets hold for every workflow and stage (52.091084ms)
+✔ a stage that grows past its budget, or changed inputs, fails the check (20.441959ms)
+✔ committed pack matches its manifest (--check) (13.119875ms)
+✔ manifest names the upstream, license and every card (0.268458ms)
+✔ check catches a hand edit, an added file and a removed file (24.691791ms)
+✔ check catches a card edited together with its manifest digest (21.534042ms)
+﹣ regenerating from the NGCE checkout reproduces the committed pack (0.053375ms) # no NGCE checkout at /home/claude/ngce
+﹣ regenerating keeps budgets.json and check does not count it as a pack file (0.0305ms) # no NGCE checkout at /home/claude/ngce
+✔ fixture was recorded from the current sample list (0.48075ms)
+✔ countTokens matches the counts NGCE's Python count_tokens recorded (3.686959ms)
+﹣ countTokens matches NGCE's count_tokens run live (0.057958ms) # no NGCE checkout at /home/claude/ngce
+﹣ countTokens matches NGCE's count_tokens on every assigned code point (0.036625ms) # no NGCE checkout at /home/claude/ngce
+✔ generation normalizes Markdown and license bytes and preserves controller files (258.782458ms)
+✔ generation rejects pin mismatch, duplicate skills and absent SKILL.md (544.307375ms)
+✔ check aggregates manifest, reference and stage problems (237.97075ms)
+✔ generation ships the pinned commit, never local edits or untracked files in the checkout (183.444375ms)
+✔ generation refuses a symlink committed under a skill (197.085458ms)
+✔ check refuses a skill list without digests and a pinned pack without a manifest (258.084833ms)
+✔ sync reports additions, removals, both rename rules, line counts and unresolved stages (516.374083ms)
+✔ excluded skills are not shipped, are recorded with their reason, and must match pins.json (311.280167ms)
+✔ check requires a complete map and a current lock.json (467.979709ms)
+✔ committed workflow packs pass --check (79.49975ms)
+ℹ tests 25
 ℹ suites 0
-ℹ pass 19
+ℹ pass 21
 ℹ fail 0
 ℹ cancelled 0
 ℹ skipped 4
 ℹ todo 0
-ℹ duration_ms 2326.546583
+ℹ duration_ms 3152.952416
 scripts exit 0

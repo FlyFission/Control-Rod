@@ -735,7 +735,10 @@ describe("workflow", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Plant work" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-P" });
-    await waitFor(() => expect((within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement).value).toBe("superpowers"));
+    const select = within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement;
+    // An inheriting card shows the inheritance choice, naming what it resolves to.
+    await waitFor(() => expect(select.selectedOptions[0]?.textContent).toBe("Project default (Superpowers)"));
+    expect(select.value).toBe("");
     expect(within(drawer).getByText(/The project default is Superpowers\./)).toBeTruthy();
   });
 
@@ -756,12 +759,36 @@ describe("workflow", () => {
     await user.click(await screen.findByRole("button", { name: "Relief valve" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-W" });
     const select = within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement;
-    expect(select.value).toBe("playbook");
+    expect(select.value).toBe("");
+    expect(select.selectedOptions[0]?.textContent).toBe("Project default (Playbook)");
     await waitFor(() => expect(select.disabled).toBe(false));
     await user.selectOptions(select, "pocock");
     await waitFor(() => expect(sent).toBeDefined());
     expect(sent!.ifMatch).toBe('"tag-1"');
     expect(sent!.body.workflow).toBe("pocock");
+  });
+
+  it("returns a card to its project's default by clearing its own value", async () => {
+    const p = pkg({ id: "WP-C", title: "Cooling loop", workflow: "pocock" });
+    api({ packages: [p] });
+    let sent: WorkPackage | undefined;
+    server.use(
+      http.get("*/packages/:id", () => HttpResponse.json({ ...view({}, p), originators: ["ben"], draft_etag: '"tag-1"' })),
+      http.put("*/packages/:id", async ({ request }) => {
+        sent = (await request.json()) as WorkPackage;
+        return HttpResponse.json(sent, { headers: { etag: '"tag-2"' } });
+      }),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Cooling loop" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-C" });
+    const select = within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe("pocock"));
+    await waitFor(() => expect(select.disabled).toBe(false));
+    await user.selectOptions(select, "");
+    await waitFor(() => expect(sent).toBeDefined());
+    expect(Object.hasOwn(sent!, "workflow")).toBe(false);
   });
 
   it("is read-only for a draft in guided preparation, and for a package that is not a draft", async () => {

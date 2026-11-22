@@ -19,7 +19,11 @@ export function WorkflowSwitch({ pkg, view, projectDefault }: WorkflowSwitchProp
   const qc = useQueryClient();
   const wf = resolveWorkflow(pkg, projectDefault);
   const save = useMutation({
-    mutationFn: (workflow: Workflow) => api.updatePackage({ ...view!.package, workflow }, view!.draft_etag!),
+    // An empty choice clears the card's own value, so the package follows its project's default again.
+    mutationFn: (workflow: Workflow | "") => {
+      const { workflow: _own, ...rest } = view!.package;
+      return api.updatePackage(workflow ? { ...rest, workflow } : rest, view!.draft_etag!);
+    },
     onMutate: () => ({ startedUnder: sessionGeneration() }),
     onSuccess: ({ data, etag }, _workflow, context) => {
       if (context?.startedUnder !== sessionGeneration()) return;
@@ -49,14 +53,15 @@ export function WorkflowSwitch({ pkg, view, projectDefault }: WorkflowSwitchProp
         <select
           id={selectId}
           className="bd-wf-select"
-          value={wf.workflow}
+          value={pkg.workflow ?? ""}
           disabled={disabled}
           aria-describedby={note ? `${descId} ${noteId}` : descId}
           onChange={(e) => {
-            const next = e.target.value as Workflow;
-            if (next !== wf.workflow) save.mutate(next);
+            const next = e.target.value as Workflow | "";
+            if (next !== (pkg.workflow ?? "")) save.mutate(next);
           }}
         >
+          <option value="">Project default ({WORKFLOW_LABEL[projectDefault ?? "playbook"]})</option>
           {WORKFLOWS.map((w) => (
             <option key={w} value={w}>
               {WORKFLOW_LABEL[w]}

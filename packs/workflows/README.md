@@ -11,6 +11,8 @@ A package runs one workflow: the plain playbook (no pack), or one of these. A wo
 ## What is generated and what is ours
 
 - **Generated, never hand-edited:** each pack's `reference/` (the upstream skill folders, Markdown only, byte for byte), its `LICENSE`, and `manifest.json` (the upstream commit and a sha256 for every generated file). `scripts/generate-workflow-packs.mjs` writes them from a pinned checkout; `--check` fails on any hand edit.
+- **Not shipped:** a skill `pins.json` excludes, with its reason, recorded again in the manifest's `excluded`. Today that is Superpowers' `writing-skills` (it reproduces Anthropic documentation not under the MIT licence) and Pocock's `pr` (it reproduces part of humanlayer/humanlayer, Apache-2.0). Neither is used by any stage.
+- **Locked:** `lock.json` holds the digest of every manifest, `workflow.json` and stage card; the API refuses a pack whose files differ from it. After editing a card or map, run `node scripts/generate-workflow-packs.mjs --lock` and commit the change with it.
 - **Ours, reviewed like policy:** `workflow.json` (which upstream skills each stage ships) and `stages/<role>.md` (the card that goes into the intake, author or pre-check brief), and `budgets.json` (measured brief sizes).
 
 At run time the composer puts the stage's card in the brief and ships the skills the stage names as `inputs/workflow/<pack>/<skill>/...`, after checking each file against the manifest.

@@ -12,7 +12,7 @@
     },
     {
       "path": "services/api/src/workflow.ts",
-      "sha256": "881e0ce24c895cb652a1b0944fba768e365b441f285cabf1541b7b25a5cf1c6d"
+      "sha256": "9c12a8039f2fb4e7af7574361594686327dc03b6c298ae3ff8e92649929ca56e"
     },
     {
       "path": "packs/workflows/superpowers/workflow.json",
@@ -32,7 +32,7 @@
     },
     {
       "path": "packs/workflows/superpowers/manifest.json",
-      "sha256": "6cc5299cd531468241fe60f1b0024dda6dc0de164ad4cb0ecd1bd7799c58a74c"
+      "sha256": "218caa0dd95ae60f14060b3a5b0a0a06e7ddb8404038fcfbc64bef8c3b4cc60f"
     },
     {
       "path": "packs/workflows/pocock/workflow.json",
@@ -52,7 +52,7 @@
     },
     {
       "path": "packs/workflows/pocock/manifest.json",
-      "sha256": "f1df4eda07484c46f103b99f8a4f8c3a1cbe2a7d91a6beb8f2011cabe8be0212"
+      "sha256": "7636dc8f7448e872b5d0ffacbf2461babf6eb6a89610d030b46585e888ba3589"
     },
     {
       "path": "packs/workflows/pocock-superpowers/workflow.json",
@@ -71,7 +71,7 @@
       "sha256": "ec77a08ad603f45950ff3623b45eb89796e77bf49c84a010316ab6ab92c69421"
     }
   ],
-  "inputs_sha256": "a8aa4f2990aa124c8854c3e98acd7d9d62fc1737034b81e282e72833a626086f",
+  "inputs_sha256": "fc509470771406d3307c679de87006a80cd87f90cf62bfd1258b9ee4e790b149",
   "stages": [
     {
       "workflow": "superpowers",

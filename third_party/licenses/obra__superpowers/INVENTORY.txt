@@ -62,11 +62,3 @@ skills/using-superpowers/references/muse-tools.md | superpowers/reference/using-
 skills/using-superpowers/references/pi-tools.md | superpowers/reference/using-superpowers/references/pi-tools.md | 703dbc83d23ecab9c6f388460c38abc482e9dee2fe6772a8c7a255152ad3a4d5
 skills/verification-before-completion/SKILL.md | superpowers/reference/verification-before-completion/SKILL.md | 2befe7fc55bcadaa3d97dd9e8efeb633d2561c0ebe74c5a8b17c4d9e7e4520b3
 skills/writing-plans/SKILL.md | superpowers/reference/writing-plans/SKILL.md | a6c67c1900064347c2a329990dd3c555657c51c3ec53b259a08aa01a2c26139a
-skills/writing-skills/SKILL.md | superpowers/reference/writing-skills/SKILL.md | 8cb3ac68c6d8c4bb46886b998b09af7989643cab8bd0e46ee86dd62e64546bbe
-skills/writing-skills/references/CLAUDE_MD_TESTING.md | superpowers/reference/writing-skills/references/CLAUDE_MD_TESTING.md | 0b379a3415e185d3c434b3ad283d8aa132f3022c2a4f210f168865b5986bcef0
-skills/writing-skills/references/anthropic-best-practices.md | superpowers/reference/writing-skills/references/anthropic-best-practices.md | 217629b356c09c9bd11017c9788e8fc654ca1b32c92d4a51cd490e16dd65e59a
-skills/writing-skills/references/bulletproofing.md | superpowers/reference/writing-skills/references/bulletproofing.md | 9397023e6bc85b556a57f3097371363bf03e28e755c57f403f470bcda90e0a23
-skills/writing-skills/references/discovery.md | superpowers/reference/writing-skills/references/discovery.md | c6bbc74af3be90f693f7cbc986af6fa94e8df75f65109b52e96032587f5b92af
-skills/writing-skills/references/flowcharts.md | superpowers/reference/writing-skills/references/flowcharts.md | 8b1f542391f274f0d33f3457ac099a3d317d6877eaa3b8d3b1ebef151b55fda7
-skills/writing-skills/references/persuasion-principles.md | superpowers/reference/writing-skills/references/persuasion-principles.md | a51bc9bf75189ea73a27b3fb504a2fdfdb966fb1f7f1cdf03203230a216ccc03
-skills/writing-skills/references/testing-skills-with-subagents.md | superpowers/reference/writing-skills/references/testing-skills-with-subagents.md | ed8a6862c085900135962390530d9dc7637ad6d650b4324ce3b051287a5c3f22

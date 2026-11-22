@@ -45,8 +45,8 @@ Roles are those of `packs/software/roles/` and `packs/general/roles/`. Pull requ
 | S2 Plan | writing-plans | Intake role: the plan is the package's first deliverable, in the format two of Control Rod's own plans already use (the board redesign and overlay themes plans: Global Constraints, Review Focus, tasks with files and tests) | none |
 | S3 Build | subagent-driven-development (implementer template), test-driven-development, systematic-debugging, verification-before-completion | Author role; each plan task is its own package, chained by `depends_on` where order matters, so each task gets its own author run; the four statuses (DONE, DONE_WITH_CONCERNS, BLOCKED, NEEDS_CONTEXT) become the run's report; BLOCKED and NEEDS_CONTEXT become records for a person | none: intake already writes one package per draft with `depends_on`, and a package starts only once its dependencies are accepted |
 | S4 Task review | subagent-driven-development (task reviewer template), requesting-code-review | Pre-check role per task, independent runtime | none |
-| S5 Branch review | subagent-driven-development (final review) | Pre-check over the whole revision | none |
-| S6 Finish | finishing-a-development-branch | Accept, then "Open pull request" | G-04 |
+| S5 Branch review | subagent-driven-development (final review) | A final package that depends on every task and lists each in `design_inputs`; its author run writes the whole-branch review as `REVIEW.md`, and its own pre-check reviews that | none |
+| S6 Finish | finishing-a-development-branch | Accept, a person's act. Opening a pull request is **out of scope for this version**: no run role does it today (runs are `intake`, `author` and `pre-check`) | a new run role and command for G-04, with its own record |
 | Skipped | using-superpowers, using-git-worktrees, executing-plans, dispatching-parallel-agents, writing-skills, diagnosing-superpowers, receiving-code-review | The brief, the daemon and the control plane already do these (executing-plans is the same plan run inline by one agent, which per-task runs replace); receiving-code-review is advice to the author on a Return and may become a card later | none |
 
 ### Pocock workflow
@@ -58,8 +58,8 @@ Roles are those of `packs/software/roles/` and `packs/general/roles/`. Pull requ
 | P3 Tickets | to-tickets | Intake role proposes several packages, each naming what blocks it in `depends_on` | none: `depends_on` exists, and a dependency clears only on acceptance |
 | P4 Build | implement, tdd, diagnosing-bugs (bugfix playbook) | Author role, one run per ticket-package | none |
 | P5 Review | code-review | Pre-check role with two axes: Standards (the repo's written standards and the smell baseline) and Spec (the package's criteria) | none |
-| P6 PR body | pr | The "Open pull request" run's body | G-04 |
-| P7 Retro | retro | A run after Accept that proposes changes to packs, standards or checks; it never applies them | none |
+| P6 PR body | pr | **Out of scope for this version**: it shapes the body of a pull request that no run opens yet | the G-04 run role and command, with its own record |
+| P7 Retro | retro | A final package that depends on every ticket and lists each in `design_inputs`; its author run reads their outputs and writes proposals as `RETRO.md`; a person decides which to adopt. No post-Accept run is needed | none |
 | Skipped | setup-matt-pocock-skills, ask-matt, handoff, wizard, triage, wayfinder, prototype, teach, wait-what, grill-me, to-questionnaire, research, codebase-design, improve-codebase-architecture, implement-spec, writing-for-agents | Setup and routing are the composer's job; handoff is unnecessary because every run starts fresh; `implement-spec`'s parallel frontier is the P3 dependency work; writing-for-agents is guidance for writing skills and instruction files, useful to whoever maintains the packs; the rest are later candidates, not part of the main flow | none |
 
 ### Hybrid workflow
@@ -73,8 +73,8 @@ The hybrid takes the Pocock stages at both ends and the Superpowers stages in th
 | H3 Plan | Superpowers S2 | Exact files, signatures and tests per task make one-shot author runs reliable; two of the repo's own plans already use this shape. |
 | H4 Build | Superpowers S3 with Pocock's `tdd` card | Superpowers' report statuses give the control plane something to act on; Pocock's vertical-slice test rule is the clearer of the two test rules. One test card only: the two disagree on throwing away code written before its test. |
 | H5 Review | Pocock P5 per task, Superpowers S5 at the end | The Spec axis maps directly onto the package's acceptance criteria; a whole-revision pass still catches what per-task reviews miss. |
-| H6 Finish | Superpowers S6 with Pocock P6 for the body | Accept stays the person's act either way. |
-| H7 Retro | Pocock P7 | Neither Superpowers stage covers this. |
+| H6 Finish | Superpowers S6 (Pocock P6 later, with G-04) | Accept stays the person's act; the pull request step waits for G-04, as in both parents. |
+| H7 Retro | Pocock P7, in the same final package as S5 | Neither Superpowers stage covers this; one final package carries the whole-branch review and then the retro. |
 
 **Display name.** "Pocock Superpowers" is the working name. Before it appears in the shipped UI, check with both authors: it names a person, and it could read as an endorsement they have not given. Their licence notices go in `THIRD_PARTY_NOTICES.md` either way.
 

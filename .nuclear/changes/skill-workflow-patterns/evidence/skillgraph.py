@@ -3,6 +3,8 @@ from pathlib import Path
 root = Path(sys.argv[1])
 files = sorted(p for p in root.rglob("SKILL.md") if "in-progress" not in p.parts and "misc" not in p.parts)
 names = {p.parent.name for p in files}
+if not files:
+    sys.exit(f"no SKILL.md found under {root}")
 H = re.compile(r"your human partner|ask the user|wait for (the user|approval|your human)|user approv|one question at a time|interview|confirm with|get approval", re.I)
 for p in files:
     t = p.read_text()

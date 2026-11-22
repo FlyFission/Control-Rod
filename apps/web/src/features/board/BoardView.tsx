@@ -123,7 +123,7 @@ export function BoardView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedCaptureId, setSelectedCaptureId] = useState<string | null>(null);
   const [expandedCols, setExpandedCols] = useState<Record<string, boolean>>({});
-  const [draggingCard, setDraggingCard] = useState<{ kind: "capture" | "package"; id: string } | null>(null);
+  const [draggingCard, setDraggingCard] = useState<string | null>(null);
   const [trashOver, setTrashOver] = useState(false);
   const triggerRef = useRef<HTMLElement | null>(null);
 
@@ -139,20 +139,6 @@ export function BoardView() {
       }
     },
     [qc, selectedCaptureId],
-  );
-
-  const handleClosePackage = useCallback(
-    async (id: string) => {
-      setProjectError(null);
-      try {
-        await api.closePackage(id);
-        if (selectedId === id) setSelectedId(null);
-        for (const key of ["packages", "office", "inbox"]) void qc.invalidateQueries({ queryKey: [key] });
-      } catch (err) {
-        setProjectError(explain(err, "Could not close card."));
-      }
-    },
-    [qc, selectedId],
   );
 
   function changeViewMode(next: BoardViewMode) {
@@ -462,7 +448,7 @@ export function BoardView() {
                 capture={cap}
                 selected={selectedCaptureId === cap.id}
                 onDismiss={() => void handleDismissCapture(cap.id)}
-                onDragStartCard={() => setDraggingCard({ kind: "capture", id: cap.id })}
+                onDragStartCard={() => setDraggingCard(cap.id)}
                 onDragEndCard={() => {
                   setDraggingCard(null);
                   setTrashOver(false);
@@ -488,12 +474,6 @@ export function BoardView() {
               edgeColor={edgeColor(x, lens)}
               compact={lens.density === "compact"}
               actions={<CardActions card={x} />}
-              onCloseCard={() => void handleClosePackage(x.pkg.id)}
-              onDragStartCard={() => setDraggingCard({ kind: "package", id: x.pkg.id })}
-              onDragEndCard={() => {
-                setDraggingCard(null);
-                setTrashOver(false);
-              }}
               {...(data.unknownSince ? { unknownSince: data.unknownSince } : {})}
               {...(x.owner ? { owner: x.owner } : {})}
               {...(x.retry ? { onRetry: x.retry } : {})}
@@ -837,7 +817,7 @@ export function BoardView() {
         <div
           className={trashOver ? "bd-trash-zone active" : "bd-trash-zone"}
           role="region"
-          aria-label="Drop card here to remove from board"
+          aria-label="Drop capture here to dismiss"
           onDragOver={(e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";
@@ -847,31 +827,15 @@ export function BoardView() {
           onDrop={(e) => {
             e.preventDefault();
             setTrashOver(false);
-            let target = draggingCard;
-            try {
-              const raw = e.dataTransfer.getData("application/x-cr-card");
-              if (raw) {
-                const parsed = JSON.parse(raw) as { kind?: "capture" | "package"; id?: string };
-                if ((parsed.kind === "capture" || parsed.kind === "package") && parsed.id) {
-                  target = { kind: parsed.kind, id: parsed.id };
-                }
-              }
-            } catch {
-              /* fall back to draggingCard state */
-            }
             setDraggingCard(null);
-            if (target.kind === "capture") {
-              void handleDismissCapture(target.id);
-            } else {
-              void handleClosePackage(target.id);
-            }
+            void handleDismissCapture(draggingCard);
           }}
         >
           <span aria-hidden="true">🗑</span>
           <span>
             {trashOver
-              ? `Release to remove ${draggingCard.id} from the board`
-              : `Drop here to dismiss / close ${draggingCard.id}`}
+              ? `Release to dismiss ${draggingCard}`
+              : `Drop here to dismiss ${draggingCard}`}
           </span>
         </div>
       )}

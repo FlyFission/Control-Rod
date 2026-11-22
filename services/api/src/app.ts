@@ -81,7 +81,7 @@ import {
   reconcileRun,
   updateDraft,
 } from "./work.js";
-import { activeRuns, activeRunSummaries, runDetail, runEvents, runLogLines, type RunEventQuery } from "./run-reads.js";
+import { activeRuns, activeRunSummaries, requireOwnedRun, runDetail, runEvents, runLogLines, type RunEventQuery } from "./run-reads.js";
 import { runOutputPreview, runOutputs } from "./run-outputs.js";
 
 export const VERSION = "0.1.0";
@@ -201,14 +201,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
   const runUser = async (req: FastifyRequest, id: string, runId: string) => {
     const user = await person(req);
     const { orgId } = await callerFor(db, user);
-    // Intake routes use the capture ID in the package position.
-    const own = await db.query(
-      `select 1 from runs r
-         join object_owners o on o.object_kind = (case when r.role = 'intake' then 'capture' else 'package' end)
-           and o.object_id = r.package_id and o.org_id = $3
-         join object_owners ro on ro.object_kind = 'run' and ro.object_id = r.id and ro.org_id = $3
-        where r.id = $2 and r.package_id = $1`, [id, runId, orgId]);
-    if (!own.rowCount) throw new Refusal(404, "not-found", "No such run");
+    await requireOwnedRun(db, orgId, id, runId);
     return user;
   };
   const daemon = (req: FastifyRequest) => {

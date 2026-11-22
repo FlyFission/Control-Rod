@@ -22,3 +22,7 @@ Record the reviewed plan, reviewer findings, and any outstanding review status.
 ## Source-lineage note
 
 Local planning evidence based on the Control Rod repository and user direction. [Workflow source map](https://github.com/FlyFission/nuclear-grade-context-engineering/blob/main/docs/00-standards-foundation/source-map.md).
+
+## PR #117 review follow-up
+
+The board work is integrated with the existing authority rules. Package removal uses the signed decision surface. Pending captures keep their own dismissal action. Exact-attempt reads use the same organization ownership checks as the other run routes and can open older revisions. Project lane choices set New Work's initial runtime defaults, with per-capture edits still available. The checker and project changes restore deployment limits and authorization expected by the existing design.

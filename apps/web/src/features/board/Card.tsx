@@ -58,14 +58,10 @@ export type CardProps = {
   edgeColor?: string;
   /** Compact density hides avatars and grade/context chips, never the next line. */
   compact?: boolean;
-  /** Quick-close / remove card from board (audited POST /packages/:id/close). */
-  onCloseCard?: () => void;
-  onDragStartCard?: () => void;
-  onDragEndCard?: () => void;
 };
 
 /** A board card: the small fixed core of spec 6.2. The title opens the review drawer. */
-export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false, onCloseCard, onDragStartCard, onDragEndCard }: CardProps) {
+export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live", unknownSince, onRetry, lastKnown = false, selected = false, nuclear = false, actions, edgeColor, compact = false }: CardProps) {
   const agent = pkg.agent_assignment[0]?.agent_baseline;
   const tone = TONE[next.tone];
   const titleId = `bd-card-${pkg.id}`;
@@ -78,13 +74,6 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
       data-column={column}
       data-tone={stream === "live" && !lastKnown ? next.tone : "unknown"}
       style={edgeColor ? { borderLeftColor: edgeColor } : undefined}
-      draggable={Boolean(onDragStartCard)}
-      onDragStart={(e) => {
-        e.dataTransfer.setData("application/x-cr-card", JSON.stringify({ kind: "package", id: pkg.id }));
-        e.dataTransfer.effectAllowed = "move";
-        onDragStartCard?.();
-      }}
-      onDragEnd={() => onDragEndCard?.()}
     >
       <div className="bd-kinds">
         {kinds.map((k) => (
@@ -98,20 +87,6 @@ export function Card({ pkg, kinds, next, column, onOpen, owner, stream = "live",
         <span className="bd-id mono small muted">
           {pkg.id} r{pkg.revision}
         </span>
-        {onCloseCard && (
-          <button
-            type="button"
-            className="bd-card-dismiss"
-            aria-label={`Close ${pkg.id}`}
-            title="Remove card from board"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCloseCard();
-            }}
-          >
-            ×
-          </button>
-        )}
       </div>
       <button type="button" id={titleId} className="bd-title" onClick={onOpen}>
         {pkg.title}

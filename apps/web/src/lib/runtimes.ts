@@ -307,6 +307,13 @@ export function ecosystemById(id: CliEcosystemId): CliEcosystem {
   return CLI_ECOSYSTEMS.find((c) => c.id === id) ?? CLI_ECOSYSTEMS[0]!;
 }
 
+/** Match the project board's lane choice while preserving custom settings for the same CLI. */
+export function laneRuntimeSelection(base: AgentRuntimeSelection, laneEcosystem?: string): AgentRuntimeSelection {
+  const override = CLI_ECOSYSTEMS.find((entry) => entry.id === laneEcosystem && entry.runnable);
+  if (!override || override.id === base.ecosystem) return base;
+  return { ecosystem: override.id, model: override.defaultModel, reasoning: override.defaultReasoning };
+}
+
 /** Valid reasoning levels for a given CLI ecosystem and model pair. */
 export function reasoningLevelsFor(
   ecosystemId: CliEcosystemId,

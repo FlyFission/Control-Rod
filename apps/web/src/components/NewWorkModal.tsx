@@ -11,6 +11,7 @@ import {
   ecosystemById,
   formatModelLabel,
   isIndependentCustody,
+  laneRuntimeSelection,
   modelsForEcosystem,
   reasoningLevelsFor,
   resolveReasoningForModel,
@@ -125,8 +126,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setRepoStrategy(preferences.repoStrategy);
     setWorkspaceRoot(preferences.workspaceRoot || defaultRoot);
     setLane(preferences.lane);
-    setAuthor(preferences.author);
-    setChecker(preferences.checker);
+    setAuthor(laneRuntimeSelection(preferences.author, preferences.laneAgents?.drafting));
+    setChecker(laneRuntimeSelection(preferences.checker, preferences.laneAgents?.["agent-check"]));
   }
 
   // Load saved defaults whenever Engineering Mode toggles (skip redundant mount run).

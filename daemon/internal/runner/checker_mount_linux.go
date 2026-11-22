@@ -20,9 +20,8 @@ func checkerLinksDeliverables() bool { return false }
 //   - scratch, the only checker output
 //   - a tmpfs on /tmp, so a write never reaches the host temporary directory;
 //     the child TMPDIR is /tmp inside that tmpfs
-//   - the active CLI's credential file, when it is a regular file inside the
-//     login directory, and empty per-run directories mounted over the real
-//     session directories (planCheckerLogin)
+//   - the active CLI's disposable login state and empty per-run directories
+//     mounted over the real session directories (planCheckerLogin)
 //   - /dev via --dev, so /dev/null and the tty devices work
 //
 // After the tmpfs, the staged Codex tree (StageRoot) is read-only again, and so
@@ -289,9 +288,9 @@ func gpgHomes(cmd *exec.Cmd) []string {
 
 // loginMounts keeps the real login directory read-only, including when it lives
 // under /tmp and the tmpfs would otherwise hide it or expose a writable copy.
-// The credential file is then bound writable. Each session directory that is a
-// real directory is covered by an empty per-run directory. Missing session
-// directories are not created on the host. A symlink is not a mount point.
+// Each real session directory is covered by an empty per-run directory.
+// Missing session directories are not created on the host. A symlink is not a
+// mount point.
 func loginMounts(plan loginPlan) []string {
 	if plan.Root == "" {
 		return nil
@@ -301,9 +300,6 @@ func loginMounts(plan loginPlan) []string {
 		return nil
 	}
 	out := []string{"--ro-bind", plan.Root, plan.Root}
-	if plan.Credential != "" {
-		out = append(out, "--bind", plan.Credential, plan.Credential)
-	}
 	for _, o := range plan.Overlays {
 		out = append(out, "--bind", o.Host, o.Dest)
 	}
@@ -311,7 +307,7 @@ func loginMounts(plan loginPlan) []string {
 }
 
 // mountIsolatedLoginHome creates a per-run writable directory under the checker's disposable
-// login parent, bind-mounts only the verified credential file inside it, and points envName
+// login parent, bind-mounts the verified credential file read-only inside it, and points envName
 // (e.g. CODEX_HOME) at it so the CLI's ephemeral app-server/SQLite state works while the host
 // login directory remains strictly read-only.
 func mountIsolatedLoginHome(cmd *exec.Cmd, ws *Workspace, plan loginPlan, envName string) ([]string, error) {
@@ -334,7 +330,7 @@ func mountIsolatedLoginHome(cmd *exec.Cmd, ws *Workspace, plan loginPlan, envNam
 		if err := os.WriteFile(dest, nil, 0o600); err != nil {
 			return nil, err
 		}
-		out = append(out, "--bind", plan.Credential, dest)
+		out = append(out, "--ro-bind", plan.Credential, dest)
 	}
 	prefix := envName + "="
 	filtered := make([]string, 0, len(cmd.Env)+1)

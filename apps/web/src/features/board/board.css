@@ -382,6 +382,15 @@
 .bd-ctx-note {
   margin: 4px 0 0;
 }
+.bd-wf-select {
+  padding: 2px 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-label);
+}
 .bd-next {
   display: flex;
   gap: 6px;

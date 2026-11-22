@@ -149,6 +149,40 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(capturedBody!.text).toContain("[checker:codex/sol-6.1@medium]");
   });
 
+  it("adds a [workflow:<id>] tag only when a workflow is chosen", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+    const bodies: string[] = [];
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () => HttpResponse.json({ workspace_root: "/home/flyfission/projects", local: [], github: [], github_error: null })),
+      http.post("*/captures", async ({ request }) => {
+        const b = (await request.json()) as { text?: string; lane?: string };
+        bodies.push(b.text ?? "");
+        return HttpResponse.json({ id: "cap-w", received_at: "2026-11-15T12:00:00Z", lane: b.lane ?? "internal", source: "web", text: b.text ?? "" });
+      }),
+    );
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    const select = screen.getByLabelText("Workflow") as HTMLSelectElement;
+    expect(select.value).toBe("");
+    expect(Array.from(select.options).map((o) => o.textContent)).toEqual(["Project default", "Playbook", "Superpowers", "Pocock", "Pocock Superpowers"]);
+    await user.type(screen.getByLabelText(/Acceptance criteria|Design basis/i), "Add a retry to the sync job.");
+    await user.click(screen.getByRole("button", { name: /^Capture/ }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).not.toContain("[workflow:");
+
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.selectOptions(screen.getByLabelText("Workflow"), "pocock");
+    await user.type(screen.getByLabelText(/Acceptance criteria|Design basis/i), "Add a retry to the sync job.");
+    await user.click(screen.getByRole("button", { name: /^Capture/ }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toContain("[workflow:pocock]");
+  });
+
   it("pairs reasoning effort levels to runnable CLI ecosystems and models", async () => {
     saveMode("software");
     resetWorkDefaults("software");

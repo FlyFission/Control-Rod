@@ -4,6 +4,7 @@ import { api, explain } from "../api/client.js";
 import type { DataLane } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
+import { WORKFLOWS, WORKFLOW_DESCRIPTION, WORKFLOW_LABEL, type Workflow } from "../lib/workflow.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
 import {
   CLI_ECOSYSTEMS,
@@ -92,6 +93,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
   const [preparedBranch, setPreparedBranch] = useState<string | null>(null);
   const [pendingPrepareSeq, setPendingPrepareSeq] = useState<number | null>(null);
   const [pendingCaptureSession, setPendingCaptureSession] = useState<number | null>(null);
+  const [workflow, setWorkflow] = useState<Workflow | "">("");
   const [pinnedFields, setPinnedFields] = useState(false);
 
   const [objective, setObjective] = useState("");
@@ -234,6 +236,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       void qc.invalidateQueries({ queryKey: ["captures"] });
       if (vars.session !== modalSessionRef.current) return;
       setObjective("");
+      setWorkflow("");
       setBranch("");
       invalidatePrepared();
       setPinnedFields(false);
@@ -314,6 +317,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       repo ? `[branch:${submittedBranch}]` : null,
       repo ? `[outfall:${repoStrategy}]` : null,
       preparedPath ? `[workspace:${preparedPath}]` : null,
+      workflow ? `[workflow:${workflow}]` : null,
       `[stage:${stage}]`,
       `[purpose:${purpose}]`,
       discipline && discipline !== "Unspecified" ? `[discipline:${discipline}]` : null,
@@ -545,6 +549,20 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
         </fieldset>
 
         <div className="cr-form-grid">
+          <div className="field">
+            <label htmlFor="new-work-workflow"><span>Workflow</span></label>
+            <select id="new-work-workflow" value={workflow} onChange={(e) => setWorkflow(e.target.value as Workflow | "")} aria-describedby="new-work-workflow-help">
+              <option value="">Project default</option>
+              {WORKFLOWS.map((w) => (
+                <option key={w} value={w}>
+                  {WORKFLOW_LABEL[w]}
+                </option>
+              ))}
+            </select>
+            <span id="new-work-workflow-help" className="small muted">
+              {workflow ? WORKFLOW_DESCRIPTION[workflow] : "The project's workflow, else Playbook."}
+            </span>
+          </div>
           <label className="field">
             <span>Discipline / Area</span>
             <select

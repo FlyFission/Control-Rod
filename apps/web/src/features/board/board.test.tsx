@@ -697,7 +697,7 @@ describe("context profile", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Guided pump study" }));
     const drawer = await screen.findByRole("complementary", { name: "Review WP-G" });
-    expect(await within(drawer).findByText("Not editable during guided preparation")).toBeTruthy();
+    expect((await within(drawer).findAllByText("Not editable during guided preparation")).length).toBeGreaterThan(0);
     const group = within(drawer).getByRole("group", { name: "Context" });
     const nuclear = within(group).getByRole("button", { name: "Nuclear" }) as HTMLButtonElement;
     expect(nuclear.disabled).toBe(true);
@@ -718,6 +718,76 @@ describe("context profile", () => {
     await renderPage(<Page />);
     const card = (await screen.findByText("Plant work")).closest("article")!;
     await waitFor(() => expect(within(card).getByText("Nuclear")).toBeTruthy());
+  });
+});
+
+describe("workflow", () => {
+  it("shows the resolved workflow and reason, from the project default", async () => {
+    api({ packages: [pkg({ id: "WP-P", title: "Plant work", project: "prj_plant" })] });
+    server.use(
+      http.get("*/admin", () => HttpResponse.json({
+        members: [{ id: "mem_ben", org_id: "o", user_name: "ben", display_name: "Ben", status: "active" }],
+        registry: { qualifications: [] },
+        projects: [{ id: "prj_plant", org_id: "o", name: "Plant", mode: "capital-projects", default_rigor: "standard", default_workflow: "superpowers", lanes: ["internal"], qa_overlays: [], autonomy_level: 0, status: "active" }],
+      })),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Plant work" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-P" });
+    await waitFor(() => expect((within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement).value).toBe("superpowers"));
+    expect(within(drawer).getByText(/The project default is Superpowers\./)).toBeTruthy();
+  });
+
+  it("saves a change through the draft edit with If-Match, and is not locked by grade", async () => {
+    const p = pkg({ id: "WP-W", title: "Relief valve", grade: "safety" });
+    api({ packages: [p] });
+    let sent: { body: WorkPackage; ifMatch: string | null } | undefined;
+    server.use(
+      http.get("*/packages/:id", () => HttpResponse.json({ ...view({}, p), originators: ["ben"], draft_etag: '"tag-1"' })),
+      http.put("*/packages/:id", async ({ request }) => {
+        const body = (await request.json()) as WorkPackage;
+        sent = { body, ifMatch: request.headers.get("if-match") };
+        return HttpResponse.json(body, { headers: { etag: '"tag-2"' } });
+      }),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Relief valve" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-W" });
+    const select = within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement;
+    expect(select.value).toBe("playbook");
+    await waitFor(() => expect(select.disabled).toBe(false));
+    await user.selectOptions(select, "pocock");
+    await waitFor(() => expect(sent).toBeDefined());
+    expect(sent!.ifMatch).toBe('"tag-1"');
+    expect(sent!.body.workflow).toBe("pocock");
+  });
+
+  it("is read-only for a draft in guided preparation, and for a package that is not a draft", async () => {
+    const p = pkg({ id: "WP-G", title: "Guided pump study" });
+    api({ packages: [p] });
+    server.use(
+      http.get("*/packages/:id", () => HttpResponse.json({ ...view({}, p), originators: ["ben"], draft_etag: '"tag-1"', preparation_enrolled: true })),
+    );
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Guided pump study" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-G" });
+    expect(await within(drawer).findAllByText("Not editable during guided preparation")).toBeTruthy();
+    expect((within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement).disabled).toBe(true);
+  });
+
+  it("is read-only outside a draft", async () => {
+    const p = pkg({ id: "WP-A", title: "Approved scope", status: "in-work" });
+    api({ packages: [p] });
+    server.use(http.get("*/packages/:id", () => HttpResponse.json(view({}, p))));
+    await renderPage(<Page />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Approved scope" }));
+    const drawer = await screen.findByRole("complementary", { name: "Review WP-A" });
+    expect(await within(drawer).findByText("Only a draft's workflow can change")).toBeTruthy();
+    expect((within(drawer).getByRole("combobox", { name: "Workflow" }) as HTMLSelectElement).disabled).toBe(true);
   });
 });
 

@@ -1,17 +1,18 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useContext, useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import type { Session } from "../api/types.js";
 import { BrandMark } from "../pages/SignIn.js";
 import { type Look, saveLook, useLook } from "../lib/kind.js";
-import { MODE_COPY, useMode, type EngineeringMode } from "../lib/mode.js";
+import { MODE_COPY, saveMode, useMode, type EngineeringMode } from "../lib/mode.js";
 import {
   hydrateServerProjects,
   selectProject,
   switchModeAndSyncProject,
   useActiveProject,
   useProjects,
+  WorkspaceProjectUser,
 } from "../lib/projects.js";
 import { PLACES, type PlaceGroup } from "../places/places.js";
 import { ActiveRuns } from "./ActiveRuns.js";
@@ -63,19 +64,29 @@ function userInitial(name: string | undefined): string {
  * scrollable workspace, Inbox count, mode/look switchers, and command palette (Ctrl+K / Cmd+K).
  */
 export function Shell({ session, children }: { session: Session; children: ReactNode }) {
+  return (
+    <WorkspaceProjectUser value={session.signed_in ? session.user : undefined}>
+      <WorkspaceShell session={session}>{children}</WorkspaceShell>
+    </WorkspaceProjectUser>
+  );
+}
+
+function WorkspaceShell({ session, children }: { session: Session; children: ReactNode }) {
   const qc = useQueryClient();
+  const projectUser = useContext(WorkspaceProjectUser);
   // Only what waits on this person counts (OV-01); work waiting on someone else never does.
   const inbox = useQuery({ queryKey: ["inbox", session.user ?? "", "badge"], queryFn: () => api.inbox() });
   const serverProjects = useQuery({
-    queryKey: ["workspace-projects", session.user ?? ""],
+    queryKey: ["workspace-projects", projectUser],
     queryFn: () => api.workspaceProjects(),
+    enabled: Boolean(projectUser),
     retry: false,
   });
   useEffect(() => {
     if (serverProjects.data) {
-      hydrateServerProjects(serverProjects.data);
+      hydrateServerProjects(projectUser, serverProjects.data);
     }
-  }, [serverProjects.data]);
+  }, [projectUser, serverProjects.data]);
   const needs = inbox.data?.items.length ?? 0;
   const [palette, setPalette] = useState(false);
   const [newWorkOpen, setNewWorkOpen] = useState(false);
@@ -93,6 +104,10 @@ export function Shell({ session, children }: { session: Session; children: React
   const mode = useMode();
   const projects = useProjects();
   const activeProject = useActiveProject();
+  const activeProjectMode = activeProject?.mode;
+  useEffect(() => {
+    if (activeProjectMode) saveMode(activeProjectMode);
+  }, [activeProjectMode]);
   const modeProjects = projects.filter((p) => p.mode === mode);
   const modeCopy = MODE_COPY[mode];
   const path = useRouterState({ select: (st) => st.location.pathname });
@@ -194,7 +209,7 @@ export function Shell({ session, children }: { session: Session; children: React
                 type="button"
                 className={activeProject === null ? "rail-proj-btn active" : "rail-proj-btn"}
                 aria-pressed={activeProject === null}
-                onClick={() => selectProject(null)}
+                onClick={() => selectProject(projectUser, null)}
               >
                 <span className="rail-proj-name">All {modeCopy.label}</span>
               </button>
@@ -205,7 +220,7 @@ export function Shell({ session, children }: { session: Session; children: React
                   type="button"
                   className={activeProject?.id === proj.id ? "rail-proj-btn active" : "rail-proj-btn"}
                   aria-pressed={activeProject?.id === proj.id}
-                  onClick={() => selectProject(proj.id)}
+                  onClick={() => selectProject(projectUser, proj.id)}
                 >
                   <span className="rail-proj-name">{proj.name}</span>
                   {proj.repo && <span className="rail-proj-repo mono">{proj.repo.split("/").pop()}</span>}
@@ -305,7 +320,7 @@ export function Shell({ session, children }: { session: Session; children: React
                       type="button"
                       className={mode === m.id ? "active" : ""}
                       aria-pressed={mode === m.id}
-                      onClick={() => switchModeAndSyncProject(m.id)}
+                      onClick={() => switchModeAndSyncProject(projectUser, m.id)}
                     >
                       {m.label}
                     </button>

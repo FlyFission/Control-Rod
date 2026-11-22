@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, explain } from "../api/client.js";
-import type { DataLane } from "../api/types.js";
+import type { DataLane, WorkspaceProject } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
-import { useActiveProject, type WorkspaceProject } from "../lib/projects.js";
+import { useActiveProject } from "../lib/projects.js";
 import {
   CLI_ECOSYSTEMS,
+  defaultAuthorSelection,
+  defaultCheckerSelection,
   ecosystemById,
   formatModelLabel,
   isIndependentCustody,
@@ -24,6 +26,7 @@ import {
   loadWorkDefaults,
   resetWorkDefaults,
   saveWorkDefaults,
+  sanitizeRuntimeSelection,
   type RepoOutfallStrategy,
   type WorkDefaults,
 } from "../lib/workDefaults.js";
@@ -126,8 +129,12 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setRepoStrategy(preferences.repoStrategy);
     setWorkspaceRoot(preferences.workspaceRoot || defaultRoot);
     setLane(preferences.lane);
-    setAuthor(laneRuntimeSelection(preferences.author, preferences.laneAgents?.drafting));
-    setChecker(laneRuntimeSelection(preferences.checker, preferences.laneAgents?.["agent-check"]));
+    setAuthor(laneRuntimeSelection(
+      sanitizeRuntimeSelection(preferences.author, defaultAuthorSelection()), preferences.laneAgents?.drafting,
+    ));
+    setChecker(laneRuntimeSelection(
+      sanitizeRuntimeSelection(preferences.checker, defaultCheckerSelection()), preferences.laneAgents?.["agent-check"],
+    ));
   }
 
   // Load saved defaults whenever Engineering Mode toggles (skip redundant mount run).

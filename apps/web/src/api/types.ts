@@ -118,7 +118,11 @@ export interface OfficeFloor {
 export type CrEvent = S["ControlRod.Records.Event"];
 export type Metrics = S["Metrics"];
 export type ApiErrorBody = S["ApiError"];
-export type RuntimeStatus = S["Runner.RuntimeStatus"] & { models?: string[] };
+export type RuntimeStatus = S["Runner.RuntimeStatus"];
+export type WorkspaceProject = S["WorkspaceProjects.WorkspaceProject"];
+export type WorkspaceProjectCreatePayload = S["WorkspaceProjects.CreateProjectPayload"];
+export type WorkspaceProjectUpdate = S["WorkspaceProjects.UpdateProject"];
+export type WorkspaceProjectArchive = S["WorkspaceProjects.ArchivedProject"];
 export type SubscriptionView = S["SubscriptionView"];
 export type PreparationView = S["ControlRod.Preparation.PreparationView"];
 export type PreparationContent = S["ControlRod.Preparation.PreparationContent"];

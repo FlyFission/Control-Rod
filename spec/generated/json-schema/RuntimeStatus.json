@@ -23,6 +23,14 @@
         "artifact": {
             "$ref": "RuntimeArtifact.json",
             "description": "The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this."
+        },
+        "models": {
+            "type": "array",
+            "items": {
+                "$ref": "RuntimeModel.json"
+            },
+            "maxItems": 50,
+            "description": "Model names or aliases the daemon discovered for the CLI."
         }
     },
     "required": [

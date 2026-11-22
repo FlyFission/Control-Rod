@@ -85,6 +85,75 @@ namespace Auth {
   @route("/logout") @post op logout(): Session;
 }
 
+/** Audited workspace projects and their default outfall, data lane and runtime settings. */
+@route("/workspace/projects")
+namespace WorkspaceProjects {
+  alias EngineeringMode = "software" | "capital-projects" | "nuclear-grade";
+  alias RepoStrategy = "worktree" | "fresh-clone" | "branch";
+
+  model RuntimeSelection {
+    ecosystem: string;
+    `model`: string;
+    reasoning: string;
+  }
+
+  model WorkspaceProject {
+    id: string;
+    name: string;
+    mode: EngineeringMode;
+    status: string;
+    repo: string;
+    repoStrategy: RepoStrategy;
+    workspaceRoot: string;
+    lane: ControlRod.Records.DataLane;
+    author: RuntimeSelection;
+    checker: RuntimeSelection;
+    laneAgents?: Record<string>;
+    createdAt: utcDateTime;
+  }
+
+  model UpdateProject {
+    repo?: string;
+    repoStrategy?: RepoStrategy;
+    workspaceRoot?: string;
+    lane?: ControlRod.Records.DataLane;
+    author?: RuntimeSelection;
+    checker?: RuntimeSelection;
+
+    /** Null clears the configured lane overrides. */
+    laneAgents?: Record<string> | null;
+  }
+
+  model CreateProjectPayload {
+    @minLength(1)
+    @maxLength(120)
+    name: string;
+
+    mode?: EngineeringMode;
+    ...OmitProperties<UpdateProject, "laneAgents">;
+    laneAgents?: Record<string>;
+  }
+
+  /** The passkey challenge binds the payload through the project.workspace-create admin command. */
+  model CreateProject {
+    payload: CreateProjectPayload;
+    assertion: Record<unknown>;
+  }
+
+  model ArchivedProject {
+    id: string;
+    status: "archived";
+  }
+
+  @get op list(): WorkspaceProject[] | Refused;
+  @post op create(@body body: CreateProject): {
+    @statusCode _: 201;
+    @body project: WorkspaceProject;
+  } | Refused;
+  @route("/{id}") @patch op update(@path id: string, @body body: UpdateProject): WorkspaceProject | Refused;
+  @route("/{id}/archive") @post op archive(@path id: string): ArchivedProject | Refused;
+}
+
 @route("/captures")
 namespace Captures {
   model NewCapture {
@@ -126,6 +195,9 @@ namespace Captures {
     @body capture: Capture;
   } | Refused;
   @route("/{id}/classify") @post op classify(@path id: string, @body body: Classification): Capture | Refused;
+
+  /** Dismiss a pending capture and stop its queued intake work. The capture record is retained. */
+  @route("/{id}/dismiss") @post op dismiss(@path id: string): Capture | Refused;
 }
 
 /** What the web app shows for one package: the revision, its runs, output and decisions. */
@@ -1277,7 +1349,16 @@ namespace Runner {
 
     /** The executable the probe checked: its resolved path and SHA-256. Runs launch exactly this. */
     artifact?: RuntimeArtifact;
+
+    /** Model names or aliases the daemon discovered for the CLI. */
+    @maxItems(50)
+    models?: RuntimeModel[];
   }
+
+  @minLength(1)
+  @maxLength(100)
+  @pattern("^[a-zA-Z0-9._:/@-]+$")
+  scalar RuntimeModel extends string;
 
   /**
    * A runtime's native executable and its SHA-256. A runtime whose npm launcher wraps a platform

@@ -9,7 +9,6 @@ import { pkg, view } from "../../test/fixtures.js";
 import type { ActionDescriptor, WorkPackage } from "../../api/types.js";
 import { resetLiveStatus, useLiveEvents, useLiveStatus } from "../../lib/live.js";
 import { saveMode } from "../../lib/mode.js";
-import { selectProject } from "../../lib/projects.js";
 import { BoardView } from "./BoardView.js";
 
 /** The board as home (redesign task 4; spec 6.2). */
@@ -70,7 +69,6 @@ beforeEach(() => {
   FakeSource.count = 0;
   resetLiveStatus();
   saveMode("software");
-  selectProject(null);
 });
 afterEach(() => {
   vi.unstubAllGlobals();

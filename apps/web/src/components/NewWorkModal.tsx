@@ -11,6 +11,7 @@ import {
   ecosystemById,
   formatModelLabel,
   isIndependentCustody,
+  laneRuntimeSelection,
   modelsForEcosystem,
   reasoningLevelsFor,
   resolveReasoningForModel,
@@ -149,8 +150,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setRepoStrategy(activeProject.repoStrategy);
     if (activeProject.workspaceRoot) setWorkspaceRoot(activeProject.workspaceRoot);
     setLane(activeProject.lane);
-    setAuthor(activeProject.author);
-    setChecker(activeProject.checker);
+    setAuthor(laneRuntimeSelection(activeProject.author, activeProject.laneAgents?.drafting));
+    setChecker(laneRuntimeSelection(activeProject.checker, activeProject.laneAgents?.["agent-check"]));
     invalidatePrepared();
   }, [open, activeProject]);
 

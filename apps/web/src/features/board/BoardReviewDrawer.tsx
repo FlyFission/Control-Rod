@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
 import type { WorkPackage } from "../../api/types.js";
 import { AgentPanel, pickRun } from "../../components/AgentPanel.js";
@@ -25,7 +25,6 @@ interface BoardReviewDrawerProps {
  * while offering full evidence summary, custody chain, direct Full case link, and kernel-gated DecisionBar.
  */
 export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: BoardReviewDrawerProps) {
-  const qc = useQueryClient();
   const copy = MODE_COPY[mode];
   const asideRef = useRef<HTMLElement>(null);
   const [tab, setTab] = useState<"overview" | "runs" | "deliverables">("overview");
@@ -34,20 +33,10 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
     queryFn: () => api.packageView(packageId),
   });
   const admin = useQuery({ queryKey: ["admin"], queryFn: api.admin });
-  const closePkg = useMutation({
-    mutationFn: () => api.closePackage(packageId),
-    onSuccess: () => {
-      for (const key of ["packages", "office", "inbox"]) void qc.invalidateQueries({ queryKey: [key] });
-      onClose();
-    },
-  });
-  const resetClosePkg = closePkg.reset;
-
   useEffect(() => {
     setTab("overview");
-    resetClosePkg();
     asideRef.current?.focus();
-  }, [packageId, resetClosePkg]);
+  }, [packageId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -91,14 +80,6 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
           {pkg && <span className="bd-chip">{STATUS_LABEL[pkg.status]}</span>}
         </div>
         <div className="bd-drawer-actions">
-          <button
-            type="button"
-            className="btn small danger"
-            disabled={closePkg.isPending}
-            onClick={() => closePkg.mutate()}
-          >
-            {closePkg.isPending ? "Closing…" : "Remove"}
-          </button>
           <Link to="/packages/$id" params={{ id: packageId }} className="btn small">
             Full case ↗
           </Link>
@@ -112,11 +93,6 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
       </div>
 
       <div className="bd-drawer-body">
-        {closePkg.isError && (
-          <p role="alert" className="bd-alert small">
-            {explain(closePkg.error, "Could not remove card.")}
-          </p>
-        )}
         {pkg ? (
           <>
             <h2 className="bd-drawer-title">{pkg.title}</h2>

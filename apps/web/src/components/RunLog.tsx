@@ -164,7 +164,7 @@ export function RunActions({ packageId, run }: { packageId: string; run: Run }) 
   );
 }
 
-export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packageId: string; run: Run; passkeys?: Passkeys }) {
+export function RunCard({ packageId, run, passkeys = browserPasskeys, readOnly = false }: { packageId: string; run: Run; passkeys?: Passkeys; readOnly?: boolean }) {
   const live = run.status === "running" || run.status === "queued";
   const log = useQuery({
     queryKey: ["runlog", packageId, run.id],
@@ -200,19 +200,19 @@ export function RunCard({ packageId, run, passkeys = browserPasskeys }: { packag
         )}
         {run.requeued_as !== undefined && <p className="muted small">Requeued as {run.requeued_as}</p>}
         {run.reconciliation !== undefined && <p className="muted small">Reconciled ({run.reconciliation.disposition}): {run.reconciliation.evidence}</p>}
-        <Reconcile packageId={packageId} run={run} passkeys={passkeys} />
+        {!readOnly && <Reconcile packageId={packageId} run={run} passkeys={passkeys} />}
         {run.independence_override !== undefined && (
           <p className="muted small">
             Owner override by {run.independence_override.by}: {run.independence_override.reason}
           </p>
         )}
-        <IndependenceOverride packageId={packageId} run={run} passkeys={passkeys} />
+        {!readOnly && <IndependenceOverride packageId={packageId} run={run} passkeys={passkeys} />}
         {run.status === "queued" && (run.waiting_reason !== undefined || run.waiting_cause !== undefined) && !isIndependenceHold(run) && (
           <div className="run-hold">
             <p className="error">{run.waiting_reason ?? `Held: ${run.waiting_cause}`}</p>
           </div>
         )}
-        <RunActions packageId={packageId} run={run} />
+        {!readOnly && <RunActions packageId={packageId} run={run} />}
         {(live || frozen !== null) && (
           <div className="log-bar">
             <button type="button" className="btn ghost small" onClick={() => {

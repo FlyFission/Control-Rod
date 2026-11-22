@@ -23,7 +23,14 @@ export function PackagePage({ id }: { id: string }) {
 
   const hash = useRouterState({ select: (st) => st.location.hash });
   const focusedRunId = hash.startsWith("run-") ? hash.slice(4) : null;
-  const focusedRun = focusedRunId ? q.data?.runs.find((run) => run.id === focusedRunId) : undefined;
+  const exact = useQuery({
+    queryKey: ["run", id, focusedRunId],
+    queryFn: () => api.runDetail(id, focusedRunId!),
+    enabled: focusedRunId !== null,
+    retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 1,
+    refetchInterval: ({ state }) => state.data?.status === "running" || state.data?.status === "queued" ? 2000 : false,
+  });
+  const focusedRun = exact.data;
   const hasPackage = q.data !== undefined && !q.isError;
   useEffect(() => {
     if (!hasPackage || !hash) return;
@@ -101,7 +108,7 @@ export function PackagePage({ id }: { id: string }) {
           <section id="runs" className="panel" aria-labelledby="runs-title">
             <h2 id="runs-title">Runs</h2>
             <DaemonNotice running={view.runs.filter((r) => r.status === "running").length} />
-            {view.runs.length === 0 && <p className="muted">No runs yet.</p>}
+            {!focusedRunId && view.runs.length === 0 && <p className="muted">No runs yet.</p>}
             {focusedRunId ? (
               <div id={hash} tabIndex={-1} className="focused-run">
                 <p className="focused-run-head">
@@ -111,9 +118,20 @@ export function PackagePage({ id }: { id: string }) {
                 {focusedRun ? (
                   <Fragment key={focusedRun.id}>
                     <RunTranscript packageId={pkg.id} run={focusedRun} showStop={false} />
-                    <RunCard packageId={pkg.id} run={focusedRun} />
+                    {focusedRun.package_revision !== pkg.revision && (
+                      <p className="muted small">Historical attempt from revision {focusedRun.package_revision}.</p>
+                    )}
+                    <RunCard packageId={pkg.id} run={focusedRun} readOnly={focusedRun.package_revision !== pkg.revision || q.isFetching} />
                   </Fragment>
-                ) : <p className="muted">This run is unavailable for this package.</p>}
+                ) : exact.isPending ? <p role="status" className="muted">Loading run…</p>
+                  : exact.error instanceof ApiError && exact.error.status === 404
+                    ? <p className="muted">This run is unavailable for this package.</p>
+                    : (
+                      <p role="alert" className="muted">
+                        Could not load this run.{" "}
+                        <button type="button" className="btn small" onClick={() => void exact.refetch()}>Retry</button>
+                      </p>
+                    )}
               </div>
             ) : view.runs.map((run) => (
               <RunCard key={run.id} packageId={pkg.id} run={run} />

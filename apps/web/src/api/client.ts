@@ -168,6 +168,8 @@ export const api = {
   /** Saves a draft the caller loaded with `etag`; a stale tag is refused so no edit is lost. */
   updatePackage: (pkg: WorkPackage, etag: string) => callTagged<WorkPackage>("PUT", `/packages/${enc(pkg.id)}`, pkg, { "if-match": etag }),
   activeRuns: () => call<Run[]>("GET", "/runs"),
+  runDetail: (id: string, runId: string) =>
+    call<Run>("GET", `/packages/${enc(id)}/runs/${enc(runId)}`),
   runEvents: (id: string, runId: string, after = 0) =>
     call<{ events: { seq: number; event: NormalizedEvent }[] }>("GET", `/packages/${enc(id)}/runs/${enc(runId)}/events${after > 0 ? `?after=${after}` : ""}`),
   runLog: (id: string, runId: string) =>

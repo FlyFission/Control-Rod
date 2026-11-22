@@ -215,6 +215,7 @@ test("switches directly between active attempts and keeps finished history addre
   const first = makeRun("R-first", "claude", "running");
   const second = makeRun("R-second", "codex", "queued");
   let running = [first, second];
+  let currentRevision = 0;
   let failRefresh = false;
   let runReads = 0;
   await page.route("**/runs", (r) => {
@@ -222,14 +223,19 @@ test("switches directly between active attempts and keeps finished history addre
     return failRefresh ? r.fulfill({ status: 500, json: { message: "Offline" } }) : r.fulfill({ json: running });
   });
   await page.route("**/runtimes", (r) => r.fulfill({ json: { runtimes: [], reported_at: "2026-11-21T10:00:00Z" } }));
-  await page.route("**/packages/WP-3", (r) => r.fulfill({ json: {
-    package: packages.find((pkg) => pkg.id === "WP-3"),
-    runs: [{ ...first, status: running.includes(first) ? "running" : "succeeded" }, second],
+  await page.route("**/packages/WP-3", (r) => r.request().isNavigationRequest() ? r.continue() : r.fulfill({ json: {
+    package: { ...packages.find((pkg) => pkg.id === "WP-3"), revision: currentRevision },
+    runs: currentRevision === 0 ? [{ ...first, status: running.includes(first) ? "running" : "succeeded" }, second] : [],
     outputs: [],
     decisions: [],
     subject_digest: { algorithm: "sha256", value: "0".repeat(64) },
     originators: ["ben"],
   } }));
+  await page.route(/\/packages\/WP-3\/runs\/[^/?]+$/, (r) => {
+    const id = new URL(r.request().url()).pathname.split("/").at(-1);
+    const run = id === first.id ? { ...first, status: running.includes(first) ? "running" : "succeeded" } : id === second.id ? second : undefined;
+    return r.fulfill(run ? { json: run } : { status: 404, json: { message: "No such run" } });
+  });
   await page.route("**/packages/WP-3/runs/*/events**", (r) => {
     const id = new URL(r.request().url()).pathname.split("/")[4];
     return r.fulfill({ json: { events: [{ seq: 1, event: { kind: "message", at: first.started_at, text: `Transcript for ${id}` } }] } });
@@ -254,8 +260,12 @@ test("switches directly between active attempts and keeps finished history addre
   await expect(page.getByText("Transcript for R-first")).toHaveCount(0);
 
   running = [second];
+  currentRevision = 1;
+  await page.reload();
   await page.goto("/packages/WP-3#run-R-first");
   await expect(page.getByRole("log", { name: "Author transcript" })).toContainText("Transcript for R-first");
+  await expect(page.getByText("Historical attempt from revision 0.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Stop this run" })).toHaveCount(0);
   await page.goto("/packages/WP-3#run-missing");
   await expect(page.getByText("This run is unavailable for this package.")).toBeVisible();
   await expect(page.getByRole("log", { name: "Author transcript" })).toHaveCount(0);

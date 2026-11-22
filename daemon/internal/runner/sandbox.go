@@ -468,7 +468,7 @@ func codexPolicyArgsFor(ws *Workspace, p *SandboxPolicy, at SandboxPaths) ([]str
 		args = append(args, "-c", `permissions.control-rod.extends=":workspace"`)
 	}
 	args = append(args,
-		"-c", "permissions.control-rod.filesystem={" + strings.Join(inline, ",") + "}",
+		"-c", "permissions.control-rod.filesystem={"+strings.Join(inline, ",")+"}",
 		"-c", "permissions.control-rod.network.enabled=false",
 		"-c", `approval_policy="never"`,
 		// Hosted web search is a provider-side tool outside the command sandbox (ADR 0021: off).

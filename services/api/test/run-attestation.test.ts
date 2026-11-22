@@ -140,7 +140,8 @@ describe("spoofed checks", () => {
   it("accepts a statement that matches the registry", () => {
     const v = judgeAttestation(facts(baseBody()));
     expect(v).toMatchObject({ verified: true, code: "ok" });
-    expect(loadModelRegistry().models.map((m) => m.id).sort()).toEqual(["claude-sonnet-4-5", "gpt-5-codex"]);
+    const registered = JSON.parse(readFileSync(new URL("../../../daemon/internal/runner/models.json", import.meta.url), "utf8"));
+    expect(loadModelRegistry()).toEqual(registered);
   });
 });
 

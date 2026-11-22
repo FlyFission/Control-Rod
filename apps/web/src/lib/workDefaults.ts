@@ -61,7 +61,7 @@ export function factoryDefaults(mode: EngineeringMode): WorkDefaults {
 }
 
 /** Validates a persisted runtime selection against currently runnable ecosystems, models, and reasoning levels. */
-function sanitizeSelection(
+export function sanitizeRuntimeSelection(
   sel: unknown,
   fallback: AgentRuntimeSelection,
 ): AgentRuntimeSelection {
@@ -111,8 +111,8 @@ export function loadWorkDefaults(mode: EngineeringMode): WorkDefaults {
       discipline: pickString(obj.discipline, base.discipline),
       lane: pickEnum(obj.lane, VALID_LANES, base.lane),
       grade: pickEnum(obj.grade, VALID_GRADES, base.grade),
-      author: sanitizeSelection(obj.author, base.author),
-      checker: sanitizeSelection(obj.checker, base.checker),
+      author: sanitizeRuntimeSelection(obj.author, base.author),
+      checker: sanitizeRuntimeSelection(obj.checker, base.checker),
       detailLevel: pickEnum(obj.detailLevel, VALID_DETAIL_LEVELS, base.detailLevel),
       workspaceRoot: pickString(obj.workspaceRoot, base.workspaceRoot),
       repo: pickString(obj.repo, base.repo),

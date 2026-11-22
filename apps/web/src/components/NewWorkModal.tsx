@@ -8,6 +8,8 @@ import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
 import { useActiveProject } from "../lib/projects.js";
 import {
   CLI_ECOSYSTEMS,
+  defaultAuthorSelection,
+  defaultCheckerSelection,
   ecosystemById,
   formatModelLabel,
   isIndependentCustody,
@@ -24,6 +26,7 @@ import {
   loadWorkDefaults,
   resetWorkDefaults,
   saveWorkDefaults,
+  sanitizeRuntimeSelection,
   type ModalDetailLevel,
   type RepoOutfallStrategy,
   type WorkDefaults,
@@ -150,8 +153,8 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     setRepoStrategy(activeProject.repoStrategy);
     if (activeProject.workspaceRoot) setWorkspaceRoot(activeProject.workspaceRoot);
     setLane(activeProject.lane);
-    setAuthor(laneRuntimeSelection(activeProject.author, activeProject.laneAgents?.drafting));
-    setChecker(laneRuntimeSelection(activeProject.checker, activeProject.laneAgents?.["agent-check"]));
+    setAuthor(laneRuntimeSelection(sanitizeRuntimeSelection(activeProject.author, defaultAuthorSelection()), activeProject.laneAgents?.drafting));
+    setChecker(laneRuntimeSelection(sanitizeRuntimeSelection(activeProject.checker, defaultCheckerSelection()), activeProject.laneAgents?.["agent-check"]));
     invalidatePrepared();
   }, [open, activeProject]);
 

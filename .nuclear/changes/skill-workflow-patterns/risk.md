@@ -11,7 +11,7 @@
 | R-02 | A port runs sub-agents inside a counted run. | Conflict C1 in the note and build step 5 put dispatch in the control plane. | A design that spawns sub-agents inside a run. |
 | R-03 | An upstream bump changes agent instructions without a person reading it. | The sync plan opens a pull request per bump and forbids automatic merge. | A bump merged without review. |
 | R-04 | A shipped label implies an endorsement by the upstream authors. | The note keeps "Pocock Superpowers" a working name until both authors are asked. | The name in shipped UI without that check. |
-| R-05 | A step that needs a gate is built without it. | Each gated step names its gate (contract signature, package dependencies, G-04). | A step merged without its record or gate. |
+| R-05 | A step that needs a gate is built without it. | Each gated step names its gate (contract signature, G-04). | A step merged without its record or gate. |
 
 ## Selected mode
 

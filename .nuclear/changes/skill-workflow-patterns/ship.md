@@ -4,7 +4,8 @@ Release decision: **pattern note for owner review; no implementation authorized 
 
 - **Proposed:** merge the note and this packet as documentation only.
 - **Not claimed:** that either workflow runs in Control Rod; any brief size (not measured); a person's read for copied wording (a script ran, E-01); that the shipped name may use the authors' names.
-- **Depends on open work:** #117 rewires the composer and roles this plan builds on; build step 5 waits for it. Package dependencies (build step 6) belong with issue #126.
+- **Depends on open work:** #117 rewires the composer and roles this plan builds on; whichever merges second rebases onto the other.
+- **Corrected before review:** the first draft said packages had no dependency field. They do (`depends_on`, cleared only on acceptance), so tasks and tickets need no contract or control-plane change.
 - **Owner decisions requested:**
   1. Accept the note or return it with changes; confirm D5 (two packs plus a hybrid that references them).
   2. Give the signed yes for the contract step when it comes (a per-card workflow field beside `context_profile`).

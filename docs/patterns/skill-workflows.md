@@ -43,7 +43,7 @@ Roles are those of `packs/software/roles/` and `packs/general/roles/`. Pull requ
 |---|---|---|---|
 | S1 Design | brainstorming | Guided preparation (a person answers); output is the confirmed requirements, then a signed Release | none |
 | S2 Plan | writing-plans | Intake role: the plan is the package's first deliverable, in the format two of Control Rod's own plans already use (the board redesign and overlay themes plans: Global Constraints, Review Focus, tasks with files and tests) | none |
-| S3 Build | subagent-driven-development (implementer template), test-driven-development, systematic-debugging, verification-before-completion | Author role, one run per plan task; the four statuses (DONE, DONE_WITH_CONCERNS, BLOCKED, NEEDS_CONTEXT) become the run's report; BLOCKED and NEEDS_CONTEXT become records for a person | per-task runs inside one package need the control plane to run a plan's tasks in order (C1) |
+| S3 Build | subagent-driven-development (implementer template), test-driven-development, systematic-debugging, verification-before-completion | Author role; each plan task is its own package, chained by `depends_on` where order matters, so each task gets its own author run; the four statuses (DONE, DONE_WITH_CONCERNS, BLOCKED, NEEDS_CONTEXT) become the run's report; BLOCKED and NEEDS_CONTEXT become records for a person | none: intake already writes one package per draft with `depends_on`, and a package starts only once its dependencies are accepted |
 | S4 Task review | subagent-driven-development (task reviewer template), requesting-code-review | Pre-check role per task, independent runtime | none |
 | S5 Branch review | subagent-driven-development (final review) | Pre-check over the whole revision | none |
 | S6 Finish | finishing-a-development-branch | Accept, then "Open pull request" | G-04 |
@@ -55,7 +55,7 @@ Roles are those of `packs/software/roles/` and `packs/general/roles/`. Pull requ
 |---|---|---|---|
 | P1 Interview | grill-with-docs (grilling plus domain-modeling) | Guided preparation; the glossary and ADR entries it settles become proposed deliverables | none |
 | P2 Spec | to-spec | Intake role: the spec is the first deliverable | none |
-| P3 Tickets | to-tickets | Intake role proposes several packages, each naming what blocks it | **spec addition**: packages have no dependency field today; see open issue #126 |
+| P3 Tickets | to-tickets | Intake role proposes several packages, each naming what blocks it in `depends_on` | none: `depends_on` exists, and a dependency clears only on acceptance |
 | P4 Build | implement, tdd, diagnosing-bugs (bugfix playbook) | Author role, one run per ticket-package | none |
 | P5 Review | code-review | Pre-check role with two axes: Standards (the repo's written standards and the smell baseline) and Spec (the package's criteria) | none |
 | P6 PR body | pr | The "Open pull request" run's body | G-04 |
@@ -69,7 +69,7 @@ The hybrid takes the Pocock stages at both ends and the Superpowers stages in th
 | Stage | Taken from | Why this one |
 |---|---|---|
 | H1 Interview | Pocock P1 | It leaves a glossary and ADRs behind, which Control Rod keeps anyway; brainstorming leaves only a design document. |
-| H2 Slice | Pocock P3 (P2 until package dependencies exist) | Thin end-to-end packages with named blockers match one-package-per-deliverable. |
+| H2 Slice | Pocock P3 | Thin end-to-end packages with named blockers match one-package-per-deliverable. |
 | H3 Plan | Superpowers S2 | Exact files, signatures and tests per task make one-shot author runs reliable; two of the repo's own plans already use this shape. |
 | H4 Build | Superpowers S3 with Pocock's `tdd` card | Superpowers' report statuses give the control plane something to act on; Pocock's vertical-slice test rule is the clearer of the two test rules. One test card only: the two disagree on throwing away code written before its test. |
 | H5 Review | Pocock P5 per task, Superpowers S5 at the end | The Spec axis maps directly onto the package's acceptance criteria; a whole-revision pass still catches what per-task reviews miss. |
@@ -92,8 +92,8 @@ Each step is its own change record. Steps 2 to 4 can run in parallel, one worker
 2. **Superpowers pack**: generator, manifest, `--check`, stage mapping, cards per role, budgets.
 3. **Pocock pack**: the same.
 4. **Interview stage in guided preparation**: grilling-style questions and a glossary or ADR proposal as the output, shared by the Superpowers, Pocock and hybrid workflows.
-5. **Control plane**: run a plan's tasks in order inside one package (S3 and H3 to H5). Wait for #117, which reworks the same composer and roles.
-6. **Package dependencies** (spec addition, with #126): P3 and H2 at full strength.
+5. **Composer wiring**: each workflow's stage cards go into the intake, author and pre-check briefs, and the upstream skills a stage names ship as inputs. Tasks and tickets need no control-plane change: each is its own package, chained by `depends_on`. #117 reworks the same composer, so whichever merges second rebases onto the other.
+6. **Board and project settings**: a per-card workflow switch beside the context switch, a project default, and the choice in New work.
 7. **Hybrid**: a stage table that references the two packs' cards; it holds no copies of its own, so it follows both upstreams with no extra sync work.
 8. **Biweekly sync script** and its routine.
 

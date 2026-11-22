@@ -130,6 +130,30 @@ test("check aggregates manifest, reference and stage problems", (t) => {
   ]) assert.match(problems, pattern);
 });
 
+test("generation ships the pinned commit, never local edits or untracked files in the checkout", (t) => {
+  const { from, localPack, cli, args } = setup(t);
+  // The checkout's HEAD still matches the pin, but its working tree has changed since.
+  put(join(from, "skills/engineering/keep/SKILL.md"), "an uncommitted instruction\n");
+  put(join(from, "skills/engineering/keep/untracked.md"), "untracked\n");
+  put(join(from, "skills/engineering/brand-new/SKILL.md"), "untracked skill\n");
+  put(join(from, "LICENSE"), "edited licence\n");
+  cli(generator, args);
+  assert.equal(readFileSync(join(localPack, "reference/keep/SKILL.md"), "utf8"), "before\ncommon\n");
+  assert.equal(readFileSync(join(localPack, "LICENSE"), "utf8"), "MIT fixture\n");
+  assert.equal(existsSync(join(localPack, "reference/keep/untracked.md")), false);
+  assert.equal(existsSync(join(localPack, "reference/brand-new")), false);
+  const manifest = JSON.parse(readFileSync(join(localPack, "manifest.json"), "utf8"));
+  assert.equal(Object.hasOwn(manifest.skills, "brand-new"), false);
+});
+
+test("generation refuses a symlink committed under a skill", (t) => {
+  const { from, cli, args, pins, pinsPath, commit } = setup(t);
+  run("ln", ["-s", "../../../LICENSE", join(from, "skills/engineering/keep/link.md")]);
+  pins[pack].commit = commit();
+  put(pinsPath, JSON.stringify(pins));
+  assert.match(cli(generator, args, 1), /link\.md: not a regular file .*mode 120000/);
+});
+
 test("check refuses a skill list without digests and a pinned pack without a manifest", (t) => {
   const { out, localPack, cli, args, pins, pinsPath } = setup(t);
   cli(generator, args);

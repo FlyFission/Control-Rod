@@ -30,12 +30,6 @@ function listFiles(dir, prefix = "") {
   }).sort();
 }
 
-function readLf(path) {
-  if (!lstatSync(path).isFile()) throw new Error(`${path}: expected a regular file`);
-  // Latin-1 preserves all byte values while normalizing line endings.
-  return Buffer.from(readFileSync(path).toString("latin1").replace(/\r\n?/g, "\n"), "latin1");
-}
-
 function localPath(path) {
   return typeof path === "string" && !path.includes("\\") && !path.includes("\0") &&
     path.split("/").every((part) => part && part !== "." && part !== "..");
@@ -45,6 +39,31 @@ export function packPin(pins, pack) {
   const pin = pins[pack];
   if (!PACKS.has(pack) || !pin) throw new Error(`unknown pack: ${pack ?? "(missing --pack)"}`);
   return pin;
+}
+
+/**
+ * The pinned commit's tree, read through Git rather than the working tree, so local edits and
+ * untracked files in the checkout can never ship under the pin's name. Returns regular files only;
+ * a symlink or submodule under a source path stops the run.
+ */
+function treeFiles(from, commit, path) {
+  const out = execFileSync("git", ["-C", from, "ls-tree", "-r", "-z", commit, "--", path], { encoding: "utf8" });
+  const files = [];
+  for (const entry of out.split("\0").filter(Boolean)) {
+    const tab = entry.indexOf("\t");
+    const [mode, type] = entry.slice(0, tab).split(" ");
+    const name = entry.slice(tab + 1);
+    if (type !== "blob" || (mode !== "100644" && mode !== "100755")) throw new Error(`${name}: not a regular file in ${commit} (mode ${mode})`);
+    files.push(name);
+  }
+  return files.sort();
+}
+
+/** One file's bytes at the commit, with line endings normalized as for every pack file. */
+function blobLf(from, commit, name) {
+  const bytes = execFileSync("git", ["-C", from, "cat-file", "blob", `${commit}:${name}`], { maxBuffer: 64 * 1024 * 1024 });
+  // Latin-1 preserves all byte values while normalizing line endings.
+  return Buffer.from(bytes.toString("latin1").replace(/\r\n?/g, "\n"), "latin1");
 }
 
 export function checkoutHead(from) {
@@ -60,21 +79,31 @@ export function generate({ pack, from, out = DEFAULT_OUT, pins = readJson(join(o
   const repo = upstream.match(/^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)$/);
   if (!repo) throw new Error(`${pack}: invalid upstream URL ${upstream}`);
   const evidence = join(LICENSES, `${repo[1]}__${repo[2]}`);
-  const files = new Map([["LICENSE", readLf(join(from, "LICENSE"))]]);
+  if (!treeFiles(from, commit, "LICENSE").includes("LICENSE")) throw new Error(`${pack}: no LICENSE at ${commit}`);
+  const files = new Map([["LICENSE", blobLf(from, commit, "LICENSE")]]);
   const inventory = new Map([["LICENSE", "LICENSE"]]);
   const skills = new Map();
 
   // Read all inputs before removing any generated files.
   for (const source of sources) {
     if (!localPath(source)) throw new Error(`${pack}: invalid source path ${source}`);
-    for (const skill of listDirectories(join(from, source))) {
+    // Skill folders and their files, as the pinned commit has them.
+    const bySkill = new Map();
+    for (const name of treeFiles(from, commit, source)) {
+      const rest = name.slice(source.length + 1);
+      const slash = rest.indexOf("/");
+      if (slash < 0) continue; // a file directly under the source folder is not a skill
+      const skill = rest.slice(0, slash);
+      bySkill.set(skill, [...(bySkill.get(skill) ?? []), rest.slice(slash + 1)]);
+    }
+    for (const skill of [...bySkill.keys()].sort()) {
       if (skills.has(skill)) throw new Error(`${pack}: duplicate skill ${skill}`);
-      const base = join(from, source, skill);
-      const markdown = listFiles(base).filter((path) => path.endsWith(".md"));
+      const markdown = bySkill.get(skill).filter((path) => path.endsWith(".md")).sort();
       if (!markdown.includes("SKILL.md")) throw new Error(`${source}/${skill}: missing SKILL.md`);
       const paths = markdown.map((path) => {
+        if (!localPath(path)) throw new Error(`${source}/${skill}/${path}: invalid path`);
         const destination = `reference/${skill}/${path}`;
-        files.set(destination, readLf(join(base, path)));
+        files.set(destination, blobLf(from, commit, `${source}/${skill}/${path}`));
         inventory.set(destination, `${source}/${skill}/${path}`);
         return destination;
       });

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, explain } from "../../api/client.js";
+import { projectDisplayName, useProjects } from "../../lib/projects.js";
 import type { WorkPackage } from "../../api/types.js";
 import { AgentPanel, pickRun } from "../../components/AgentPanel.js";
 import { DecisionBar } from "../../components/DecisionBar.js";
@@ -25,6 +26,7 @@ interface BoardReviewDrawerProps {
  * while offering full evidence summary, custody chain, direct Full case link, and kernel-gated DecisionBar.
  */
 export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: BoardReviewDrawerProps) {
+  const projects = useProjects();
   const copy = MODE_COPY[mode];
   const asideRef = useRef<HTMLElement>(null);
   const [tab, setTab] = useState<"overview" | "runs" | "deliverables">("overview");
@@ -97,7 +99,7 @@ export function BoardReviewDrawer({ packageId, initialPkg, mode, onClose }: Boar
           <>
             <h2 className="bd-drawer-title">{pkg.title}</h2>
             <div className="bd-drawer-tags">
-              {pkg.project && <span className="bd-chip">{pkg.project}</span>}
+              {pkg.project && <span className="bd-chip">{projectDisplayName(pkg.project, projects)}</span>}
               <span className="bd-chip">{pkg.grade ?? "general-service"}</span>
               <span className="bd-chip">Lane: {view?.effective_lane ?? pkg.data_lane}</span>
               {pkg.discipline && <span className="bd-chip">{pkg.discipline}</span>}

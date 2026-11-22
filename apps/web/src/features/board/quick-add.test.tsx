@@ -8,6 +8,7 @@ import { renderPage } from "../../test/render.js";
 import { pkg, view } from "../../test/fixtures.js";
 import type { CaptureView, WorkPackage } from "../../api/types.js";
 import { resetLiveStatus, useLiveEvents } from "../../lib/live.js";
+import { hydrateServerProjects, selectProject, WorkspaceProjectUser } from "../../lib/projects.js";
 import { saveMode } from "../../lib/mode.js";
 import { BoardView } from "./BoardView.js";
 import { CAPTURE_LIMIT } from "../../components/CaptureBox.js";
@@ -129,6 +130,30 @@ describe("QuickAdd on the board", () => {
     // The new capture shows at the top of Ready, asking for its lane.
     const card = (await screen.findByText("Fix the login redirect")).closest("article")!;
     expect(within(card).getByText("Classify the data lane")).toBeTruthy();
+  });
+
+  it("captures against the selected project ID when projects share a name", async () => {
+    const { posted } = api();
+    const principal = "project-fixture";
+    const project = {
+      name: "Same project name", mode: "capital-projects", status: "active", repo: "", repoStrategy: "worktree",
+      workspaceRoot: "", lane: "internal", createdAt: "2026-11-22T00:00:00Z",
+      author: { ecosystem: "claude", model: "default", reasoning: "default" },
+      checker: { ecosystem: "codex", model: "default", reasoning: "default" },
+    } as const;
+    hydrateServerProjects(principal, [{ ...project, id: "prj_one" }, { ...project, id: "prj_two" }]);
+    selectProject(principal, "prj_two");
+    try {
+      await renderPage(<WorkspaceProjectUser.Provider value={principal}><Page /></WorkspaceProjectUser.Provider>);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("button", { name: "+ Add a card" }));
+      await user.type(screen.getByLabelText("Card title"), "Draft the fixture{Enter}");
+      await waitFor(() => expect(posted).toEqual([
+        { text: "[mode:capital-projects] [project-id:prj_two]\n\nDraft the fixture", source: "web" },
+      ]));
+    } finally {
+      for (const key of ["cr.projects.v1", "cr.active-project"]) localStorage.removeItem(`${key}:${principal}`);
+    }
   });
 
   it("closes on Escape and returns focus to the opener; a typed draft survives losing focus", async () => {

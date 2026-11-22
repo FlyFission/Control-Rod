@@ -13,6 +13,7 @@ import { RunOutputs } from "../components/RunOutputs.js";
 import { RunCard } from "../components/RunLog.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../lib/format.js";
 import { DECISION_LABEL } from "../lib/decide.js";
+import { projectDisplayName, useProjects } from "../lib/projects.js";
 import { sessionGeneration, sessionIdentity } from "../lib/session.js";
 import { PackageLoadError } from "../components/PackageLoadError.js";
 import { recentRuns, rememberRun } from "../lib/runPreferences.js";
@@ -22,6 +23,7 @@ import { DaemonNotice } from "../components/DaemonNotice.js";
 const RUNGS: WorkPackage["status"][] = ["draft", "released", "in-work", "in-verification", "accepted"];
 
 export function PackagePage({ id }: { id: string }) {
+  const projects = useProjects();
   const q = useQuery({ queryKey: ["package", id], queryFn: () => api.packageView(id) });
 
   const hash = useRouterState({ select: (st) => st.location.hash });
@@ -115,7 +117,7 @@ export function PackagePage({ id }: { id: string }) {
     <div className="package">
       <header className="panel pkg-head">
         <p className="mono small muted">
-          {pkg.id} · rev {pkg.revision} · {pkg.project}
+          {pkg.id} · rev {pkg.revision} · {projectDisplayName(pkg.project, projects)}
         </p>
         <h1>{pkg.title}</h1>
         <p className="small">

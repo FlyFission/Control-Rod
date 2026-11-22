@@ -5,7 +5,7 @@ import type { DataLane, WorkspaceProject } from "../api/types.js";
 import { CAPTURE_LIMIT } from "./CaptureBox.js";
 import { LanePicker } from "./LanePicker.js";
 import { MODE_COPY, type EngineeringMode } from "../lib/mode.js";
-import { useActiveProject } from "../lib/projects.js";
+import { projectCaptureTag, useActiveProject } from "../lib/projects.js";
 import {
   CLI_ECOSYSTEMS,
   defaultAuthorSelection,
@@ -347,7 +347,7 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
     }
     const header = [
       `[mode:${mode}]`,
-      project.trim() ? `[project:${project.trim()}]` : null,
+      projectCaptureTag(project, activeProject),
       repo ? `[repo:${repo}]` : null,
       repo ? `[branch:${captureBranch}]` : null,
       repo ? `[outfall:${repoStrategy}]` : null,

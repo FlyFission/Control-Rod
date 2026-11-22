@@ -876,6 +876,31 @@ describe("capture provenance", () => {
     });
   });
 
+  it("keeps an intake draft in the selected workspace when two projects share a display name", async () => {
+    const payload = { name: "Shared workspace name" };
+    const projects = [];
+    for (let index = 0; index < 2; index++) {
+      const options = await asOwner("POST", "/admin/commands/project.workspace-create/options", { payload });
+      expect(options.statusCode, options.body).toBe(200);
+      const create = await asOwner("POST", "/workspace/projects", { payload, assertion: passkey.assert(options.json().options) });
+      expect(create.statusCode, create.body).toBe(201);
+      projects.push(create.json().id as string);
+    }
+    const capture = await asOwner("POST", "/captures", {
+      lane: "internal", text: `[mode:software] [project-id:${projects[1]}]\n\nWrite an intake fixture.`,
+    });
+    expect(capture.statusCode, capture.body).toBe(201);
+    const intake = await claim();
+    expect(intake?.run.package_id).toBe(capture.json().id);
+    const pkg = { ...draft("PROJECTBINDING"), mode: "software", project: payload.name };
+    const completed = await asDaemon(`/runner/runs/${intake!.run.id}/complete`, {
+      status: "succeeded", outputs: [{ name: "package.json", content_base64: b64(JSON.stringify(pkg)) }],
+    });
+    expect(completed.json().status, completed.body).toBe("succeeded");
+    const packages = (await asOwner("GET", "/packages")).json() as { id: string; project: string }[];
+    expect(packages.find((p) => p.id.endsWith("-PROJECTBINDING"))?.project).toBe(projects[1]);
+  });
+
   it("keeps captures with the same four-character prefix in distinct package namespaces", async () => {
     for (const captureId of ["C-abcd1111", "C-abcd2222"]) {
       const created = await asOwner("POST", "/captures", { lane: "internal", text: "Same local package name" });

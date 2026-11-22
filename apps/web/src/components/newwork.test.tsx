@@ -274,7 +274,7 @@ describe("engineering mode toggle and NewWorkModal", () => {
     await user.click(screen.getByRole("button", { name: "Capture change" }));
     await waitFor(() => expect(captures).toHaveLength(1));
     expect(captures[0]!.lane).toBe("client-confidential");
-    expect(captures[0]!.text).toContain("[project:Release tools]");
+    expect(captures[0]!.text).toContain("[project-id:proj-launcher]");
     expect(captures[0]!.text).toContain("[repo:FlyFission/Release]");
     expect(captures[0]!.text).toContain("[author:codex/default@default]");
     expect(captures[0]!.text).not.toContain("[workspace:");

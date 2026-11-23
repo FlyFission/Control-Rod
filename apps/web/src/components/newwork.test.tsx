@@ -273,6 +273,50 @@ describe("engineering mode toggle and NewWorkModal", () => {
     expect(bodies).toEqual([]);
   });
 
+  it("refuses a prepared workspace whose path has brackets, so a path can never carry a tag", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+    const bodies: string[] = [];
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [{ name: "Control-Rod", path: "/home/flyfission/projects/Control-Rod", branch: "main", remote_url: null, dirty: false }],
+          github: [],
+          github_error: null,
+        }),
+      ),
+      http.post("*/repos/materialize", async ({ request }) => {
+        const body = (await request.json()) as { repo: string; branch: string; strategy: "worktree" | "fresh-clone" | "branch"; mode?: string };
+        return HttpResponse.json({
+          ok: true,
+          strategy: body.strategy,
+          mode: body.mode,
+          repo: body.repo,
+          branch: body.branch,
+          local_path: "/home/flyfission/x] [workflow:pocock/w",
+        });
+      }),
+      http.post("*/captures", async ({ request }) => {
+        const b = (await request.json()) as { text?: string };
+        bodies.push(b.text ?? "");
+        return HttpResponse.json({ id: "cap-e", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: b.text ?? "" });
+      }),
+    );
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Add a retry.");
+    await user.selectOptions(await screen.findByLabelText("Repository"), "Control-Rod");
+    await user.click(screen.getByRole("button", { name: "Prepare local workspace" }));
+    expect(await screen.findByText(/Ready:/i)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    expect(await screen.findByText(/This workspace's path contains \[ or \]/)).toBeTruthy();
+    expect(bodies).toEqual([]);
+  });
+
   it("pairs reasoning effort levels to runnable CLI ecosystems and models", async () => {
     saveMode("software");
     resetWorkDefaults("software");

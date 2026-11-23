@@ -5,7 +5,7 @@ import { AgentList } from "../components/AgentList.js";
 import { CHECK_IN_CHOICES, CHECK_IN_LATER, readBack } from "../lib/agents.js";
 import { SETUP_SKIPPED_KEY } from "../lib/firstRun.js";
 import { writeSession } from "../lib/storage.js";
-import { seatsOf, setupRequest, useAgents } from "../lib/useAgents.js";
+import { setupRequest, useAgents } from "../lib/useAgents.js";
 
 /**
  * First-run setup (docs/patterns/onboarding.md): state what was found, let the person confirm, bench
@@ -14,17 +14,18 @@ import { seatsOf, setupRequest, useAgents } from "../lib/useAgents.js";
 export function Setup() {
   const navigate = useNavigate();
   const agents = useAgents();
-  const [seats, setSeats] = useState<Record<string, boolean> | null>(null);
+  // Only the switches the person flipped on this page. Saving sends just these, so a switch made
+  // elsewhere since this page loaded is kept, not overwritten by a stale copy.
+  const [changed, setChanged] = useState<Record<string, boolean>>({});
   const [checkIn, setCheckIn] = useState<CheckIn | null>(null);
   const top = useRef<HTMLHeadingElement>(null);
 
-  const chosenSeats = seats ?? seatsOf(agents.rows);
   const chosenCheckIn: CheckIn = checkIn ?? agents.setup?.check_in ?? "start-and-merge";
-  const rows = agents.rows.map((r) => (r.info.runnable ? { ...r, seated: chosenSeats[r.info.id] ?? r.seated } : r));
+  const rows = agents.rows.map((r) => (r.info.runnable ? { ...r, seated: changed[r.info.id] ?? r.seated } : r));
   const choice = CHECK_IN_CHOICES.find((c) => c.id === chosenCheckIn)!;
 
   const confirm = () =>
-    agents.save.mutate(setupRequest(chosenSeats, chosenCheckIn), {
+    agents.save.mutate(setupRequest(changed, chosenCheckIn), {
       onSuccess: () => void navigate({ to: "/" }),
     });
 
@@ -51,7 +52,7 @@ export function Setup() {
             The agent checks could not be loaded. Is Control Rod still running?
           </p>
         )}
-        {!agents.loading && <AgentList rows={rows} onToggle={(id, seated) => setSeats({ ...chosenSeats, [id]: seated })} />}
+        {!agents.loading && <AgentList rows={rows} onToggle={(id, seated) => setChanged({ ...changed, [id]: seated })} />}
       </section>
 
       <section className="panel" aria-labelledby="setup-checkin-title">

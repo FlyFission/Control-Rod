@@ -747,6 +747,7 @@ model AgentSeat {
 
 @extension("unevaluatedProperties", false)
 model AgentSetupRequest {
+  /** Only the seats the person changed. A seat not named keeps its saved value. */
   @maxItems(20)
   seats: AgentSeat[];
 

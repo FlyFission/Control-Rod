@@ -5,6 +5,7 @@ import { type Harness, ORIGIN, VirtualAuthenticator, claims, daemonHeaders, regi
 /** First-run setup: the person's confirmed seats and check-in answer, and benched agents left out of claims. */
 let h: Harness;
 let cookie: string;
+let alice2: string;
 const passkey = new VirtualAuthenticator();
 
 beforeAll(async () => {
@@ -48,6 +49,14 @@ describe("first-run setup", () => {
     expect((await get()).json().confirmed).toBe(false);
   });
 
+  it("a roster switch on a fresh install changes that seat and leaves setup unconfirmed", async () => {
+    const r = await h.app.inject({ method: "PUT", url: "/setup/seats/codex", headers: { cookie, origin: ORIGIN }, payload: { seated: false } });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json()).toEqual({ confirmed: false, seats: [{ runtime: "codex", seated: false }], check_in: "start-and-merge" });
+    const back = await h.app.inject({ method: "PUT", url: "/setup/seats/codex", headers: { cookie, origin: ORIGIN }, payload: { seated: true } });
+    expect(back.json()).toMatchObject({ confirmed: false });
+  });
+
   it("records the confirmed setup, puts only the seat change on the chain, and keeps the check-in answer off it", async () => {
     const r = await put({ seats: [{ runtime: "claude", seated: true }, { runtime: "codex", seated: false }], check_in: "every-step" });
     expect(r.statusCode, r.body).toBe(200);
@@ -58,8 +67,9 @@ describe("first-run setup", () => {
     const ev = await h.db.query<{ actor: { kind: string }; data: Record<string, unknown> }>(
       "select body->'actor' as actor, body->'data' as data from events where body->>'type' = 'setup.seats-changed'",
     );
-    expect(ev.rows).toHaveLength(1);
-    expect(ev.rows[0]).toEqual({ actor: expect.objectContaining({ kind: "human" }), data: { seated: [], benched: ["codex"] } });
+    // The fresh-install switch above benched and re-seated Codex; this confirm benches it again.
+    expect(ev.rows).toHaveLength(3);
+    expect(ev.rows[2]).toEqual({ actor: expect.objectContaining({ kind: "human" }), data: { seated: [], benched: ["codex"] } });
     const all = await h.db.query<{ body: unknown }>("select body from events where body->>'subject' = 'setup'");
     expect(JSON.stringify(all.rows)).not.toContain("every-step");
   });
@@ -74,6 +84,15 @@ describe("first-run setup", () => {
       const bad = await h.app.inject({ method: "PUT", url, headers: { cookie, origin: ORIGIN }, payload });
       expect(bad.statusCode).toBe(400);
     }
+  });
+
+  it("confirming keeps a seat the request does not name, so a stale page cannot undo another page's switch", async () => {
+    const other = await h.app.inject({ method: "PUT", url: "/setup/seats/claude", headers: { cookie, origin: ORIGIN }, payload: { seated: false } });
+    expect(other.statusCode, other.body).toBe(200);
+    const r = await put({ seats: [], check_in: "every-step" });
+    expect(r.statusCode, r.body).toBe(200);
+    expect(r.json().seats).toEqual([{ runtime: "claude", seated: false }, { runtime: "codex", seated: false }]);
+    await h.app.inject({ method: "PUT", url: "/setup/seats/claude", headers: { cookie, origin: ORIGIN }, payload: { seated: true } });
   });
 
   it("leaves a benched agent out of every claim, and offers it again once it is seated", async () => {
@@ -99,5 +118,19 @@ describe("first-run setup", () => {
     const all = await h.app.inject({ method: "PUT", url: "/setup", headers: { cookie: alice, origin: ORIGIN }, payload: { seats: [], check_in: "start" } });
     expect(all.statusCode).toBe(403);
     expect((await get()).json()).toEqual(before);
+    alice2 = alice;
+  });
+
+  it("before any qualification exists, only the first Member may change seats", async () => {
+    // As a backfilled install can be: Members, and no qualification at all.
+    await h.admin.query("alter table signer_qualifications disable trigger user");
+    await h.admin.query("delete from signer_qualifications");
+    await h.admin.query("alter table signer_qualifications enable trigger user");
+    const before = (await get()).json();
+    const second = await h.app.inject({ method: "PUT", url: "/setup/seats/codex", headers: { cookie: alice2, origin: ORIGIN }, payload: { seated: false } });
+    expect(second.statusCode, second.body).toBe(403);
+    expect((await get()).json()).toEqual(before);
+    const first = await h.app.inject({ method: "PUT", url: "/setup/seats/codex", headers: { cookie, origin: ORIGIN }, payload: { seated: false } });
+    expect(first.statusCode, first.body).toBe(200);
   });
 });

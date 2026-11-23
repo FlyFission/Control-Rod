@@ -84,14 +84,18 @@ export function parseSetupRequest(body: unknown): { seats: AgentSeat[]; check_in
   return { seats, check_in: b.check_in as CheckIn };
 }
 
-/** Records the confirmed setup (the setup page's Looks right). Seat changes go on the event chain. */
+/**
+ * Records the confirmed setup (the setup page's Looks right). The request names only the seats the
+ * person changed on that page; every other seat keeps its saved value, so a page loaded before a
+ * switch elsewhere cannot silently undo it. Seat changes go on the event chain.
+ */
 export async function recordSetup(db: Db, caller: Caller, body: unknown): Promise<AgentSetupView> {
   const req = parseSetupRequest(body);
   return command(db, "setup.record", async (c) => {
     await authorizeInstallSetting(c, caller);
     await c.query(DISPATCH_LOCK);
     const before = await setupView(c);
-    const view: AgentSetupView = { confirmed: true, confirmed_at: new Date().toISOString(), seats: req.seats, check_in: req.check_in };
+    const view: AgentSetupView = { confirmed: true, confirmed_at: new Date().toISOString(), seats: merge(before.seats, req.seats), check_in: req.check_in };
     await write(c, view);
     await seatEvent(c, caller, before, view);
     return view;
@@ -107,14 +111,19 @@ export async function recordSeat(db: Db, caller: Caller, runtime: string, body: 
     await authorizeInstallSetting(c, caller);
     await c.query(DISPATCH_LOCK);
     const before = await setupView(c);
-    const seats = [...before.seats.filter((s) => s.runtime !== runtime), { runtime, seated }].sort(
-      (a, b) => SEATABLE.indexOf(a.runtime as never) - SEATABLE.indexOf(b.runtime as never),
-    );
-    const view: AgentSetupView = { ...before, seats };
+    const view: AgentSetupView = { ...before, seats: merge(before.seats, [{ runtime, seated }]) };
     await write(c, view);
     await seatEvent(c, caller, before, view);
     return view;
   });
+}
+
+/** Saved seats with these changes applied, in the dispatcher's order. */
+function merge(saved: AgentSeat[], changes: AgentSeat[]): AgentSeat[] {
+  const named = new Set(changes.map((s) => s.runtime));
+  return [...saved.filter((s) => !named.has(s.runtime)), ...changes].sort(
+    (a, b) => SEATABLE.indexOf(a.runtime as never) - SEATABLE.indexOf(b.runtime as never),
+  );
 }
 
 async function write(c: Tx, view: AgentSetupView) {

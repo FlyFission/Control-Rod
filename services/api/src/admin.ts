@@ -124,12 +124,13 @@ async function authorize(c: Tx, caller: Caller, need: Need, bootstrap: boolean):
 /**
  * Who may change an install-wide setting such as which agents are seated (setup.ts): an active
  * Member holding administrator authority, or, before any qualification exists on an install with one
- * organization, its bootstrap Member. A Member of one organization never changes another's dispatch
+ * organization, its first (bootstrap) Member and nobody else. A Member of one organization never changes another's dispatch
  * by bootstrap alone.
  */
 export async function authorizeInstallSetting(c: Tx, caller: Caller): Promise<void> {
   const orgs = await c.query("select 1 from organizations limit 2");
-  const bootstrap = (orgs.rowCount ?? 0) === 1 && (await needsBootstrap(c, caller.orgId));
+  const bootstrap = (orgs.rowCount ?? 0) === 1 && (await needsBootstrap(c, caller.orgId))
+    && (await firstMemberOf(c, caller.orgId)) === caller.memberId;
   await authorize(c, caller, "administrator", bootstrap);
 }
 

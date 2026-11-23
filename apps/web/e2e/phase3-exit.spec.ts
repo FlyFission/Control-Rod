@@ -137,6 +137,7 @@ test("keyboard: skip link, every place, palette open, choose and return", async 
   await page.waitForURL("**/agents");
   console.log("PALETTE navigated to " + new URL(page.url()).pathname);
   expect(new URL(page.url()).pathname).toBe("/agents");
+  await expect(page.getByRole("heading", { level: 1, name: "Agents roster" })).toBeVisible();
 });
 
 test("reflow at 320 CSS px: no horizontal scrolling on any place", async ({ page, browserName }) => {

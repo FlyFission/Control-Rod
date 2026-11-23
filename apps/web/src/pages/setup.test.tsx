@@ -117,7 +117,8 @@ describe("first-run setup", () => {
 
     await user.click(screen.getByRole("button", { name: "Looks right" }));
     await vi.waitFor(() => expect(sent).toHaveLength(1));
-    expect(sent[0]).toEqual({ seats: [{ runtime: "claude", seated: false }, { runtime: "codex", seated: true }], check_in: "start" });
+    // Only the switch this page changed is sent, so a stale page cannot undo a switch made elsewhere.
+    expect(sent[0]).toEqual({ seats: [{ runtime: "claude", seated: false }], check_in: "start" });
   });
 
   it("gives each copy button its command as its name, and says so when copying is not possible", async () => {

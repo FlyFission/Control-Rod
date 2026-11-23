@@ -7363,7 +7363,8 @@
             "items": {
               "$ref": "#/components/schemas/AgentSeat"
             },
-            "maxItems": 20
+            "maxItems": 20,
+            "description": "Only the seats the person changed. A seat not named keeps its saved value."
           },
           "check_in": {
             "$ref": "#/components/schemas/CheckIn"

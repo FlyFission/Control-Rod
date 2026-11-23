@@ -33,10 +33,13 @@ export function useAgents() {
   };
 }
 
-/** The request for these seats and this answer. Only agents Control Rod can run carry a seat. */
-export function setupRequest(seats: Record<string, boolean>, checkIn: CheckIn): AgentSetupRequest {
+/**
+ * The request for the seats the person changed and this answer. Seats not named keep their saved
+ * value on the server. Only agents Control Rod can run carry a seat.
+ */
+export function setupRequest(changed: Record<string, boolean>, checkIn: CheckIn): AgentSetupRequest {
   return {
-    seats: AGENTS.filter((a) => a.runnable).map((a) => ({ runtime: a.id, seated: seats[a.id] ?? true })),
+    seats: AGENTS.filter((a) => a.runnable && changed[a.id] !== undefined).map((a) => ({ runtime: a.id, seated: changed[a.id]! })),
     check_in: checkIn,
   };
 }

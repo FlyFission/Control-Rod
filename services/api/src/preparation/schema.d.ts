@@ -1374,6 +1374,7 @@ export interface components {
             seated: boolean;
         };
         AgentSetupRequest: {
+            /** @description Only the seats the person changed. A seat not named keeps its saved value. */
             seats: components["schemas"]["AgentSeat"][];
             check_in: components["schemas"]["CheckIn"];
         };

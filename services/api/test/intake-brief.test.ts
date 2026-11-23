@@ -19,10 +19,12 @@ const STAMPED = new Set(["schema_version"]);
 /** The brief's bullet for a field, so a nested record's fields are looked for where that record is described. */
 const bullet = (field: string) => brief.split("\n").find((l) => l.startsWith(`- \`${field}\``)) ?? "";
 const named = (text: string, f: string) => new RegExp("`" + f + "[`:]").test(text);
+/** A top-level field opens a bullet, or follows a comma in one (`revision`: 0, `status`: ...). */
+const topLevel = (f: string) => brief.split("\n").some((l) => new RegExp("^- (.*, )?`" + f + "`:").test(l));
 
 describe("intake brief", () => {
   it("names every field WorkPackage requires", () => {
-    const missing = (schema("WorkPackage").required ?? []).filter((f) => !STAMPED.has(f) && !named(brief, f));
+    const missing = (schema("WorkPackage").required ?? []).filter((f) => !STAMPED.has(f) && !topLevel(f));
     expect(missing, `the intake brief does not mention ${missing.join(", ")}`).toEqual([]);
   });
   for (const [name, field] of [["DesignInput", "design_inputs"], ["Assumption", "assumptions"], ["Deliverable", "deliverables"]] as const) {

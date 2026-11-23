@@ -50,6 +50,10 @@ func ExecRunner(ctx context.Context, name string, args ...string) (string, int, 
 	// for it shortly after the deadline, so a probe never hangs past its timeout.
 	cmd.WaitDelay = probeWaitDelay
 	out, err := cmd.CombinedOutput()
+	// The CLI itself exited and only a helper held the pipe: its own exit code is the answer.
+	if errors.Is(err, exec.ErrWaitDelay) && cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+		return string(out), cmd.ProcessState.ExitCode(), nil
+	}
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
 		return string(out), exit.ExitCode(), nil

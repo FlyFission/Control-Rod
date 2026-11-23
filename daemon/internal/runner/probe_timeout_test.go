@@ -272,7 +272,7 @@ func TestANewExecutableIsNotHeldThroughATimeout(t *testing.T) {
 
 func TestAProbeCommandReturnsSoonAfterItsDeadlineEvenIfAHelperKeepsItsOutputOpen(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "stuck"), []byte("#!/bin/sh\nsleep 30 &\nsleep 30\n"), 0o755)
+	writeFile(t, filepath.Join(dir, "stuck"), []byte("#!/bin/sh\necho started\nsleep 30 &\nsleep 30\n"), 0o755)
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+"/usr/bin:/bin")
 	old := probeWaitDelay
 	probeWaitDelay = 100 * time.Millisecond
@@ -280,8 +280,25 @@ func TestAProbeCommandReturnsSoonAfterItsDeadlineEvenIfAHelperKeepsItsOutputOpen
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	_, _, _ = ExecRunner(ctx, "stuck")
+	out, code, err := ExecRunner(ctx, "stuck")
 	if took := time.Since(start); took > 5*time.Second {
 		t.Fatalf("ExecRunner waited %v for a helper's open pipe; it must return soon after the deadline", took)
+	}
+	// The script started (it printed) and was killed, not refused before it ran.
+	if !strings.Contains(out, "started") || code >= 0 || err != nil {
+		t.Fatalf("want the started script killed at its deadline: out %q, code %d, err %v", out, code, err)
+	}
+}
+
+func TestACLIThatExitsWhileAHelperHoldsItsOutputKeepsItsExitCode(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "signedin"), []byte("#!/bin/sh\necho Logged in\nsleep 30 &\nexit 0\n"), 0o755)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+"/usr/bin:/bin")
+	old := probeWaitDelay
+	probeWaitDelay = 100 * time.Millisecond
+	t.Cleanup(func() { probeWaitDelay = old })
+	out, code, err := ExecRunner(context.Background(), "signedin")
+	if code != 0 || err != nil || !strings.Contains(out, "Logged in") {
+		t.Fatalf("a CLI that exited 0 must read as exit 0: out %q, code %d, err %v", out, code, err)
 	}
 }

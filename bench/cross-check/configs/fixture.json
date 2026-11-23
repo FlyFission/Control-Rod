@@ -1,0 +1,7 @@
+{
+  "name": "fixture",
+  "source": {"kind": "fixture", "path": "fixtures"},
+  "selection": {"seed": 20261123, "n": 4},
+  "authors": ["stub-a", "stub-b"],
+  "budget": {"max_calls": 100, "timeout_s": 60}
+}

@@ -1,0 +1,8 @@
+{
+  "name": "v1",
+  "source": {"kind": "huggingface", "dataset": "princeton-nlp/SWE-bench_Verified", "split": "test"},
+  "selection": {"seed": 20261123, "n": 20, "difficulty": ["<15 min fix", "15 min - 1 hour"], "max_per_repo": 3},
+  "authors": ["claude", "codex"],
+  "budget": {"max_calls": 120, "max_reported_usd": 100, "timeout_s": 1800},
+  "evaluation": {"harness": "swebench", "max_workers": 2}
+}

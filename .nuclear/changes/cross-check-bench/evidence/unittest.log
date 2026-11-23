@@ -1,0 +1,12 @@
+test_end_to_end (bench.cross-check.test_bench.FixtureRun.test_end_to_end) ... ok
+test_paid_run_needs_yes (bench.cross-check.test_bench.FixtureRun.test_paid_run_needs_yes) ... ok
+test_excluded_never_selected (bench.cross-check.test_bench.Selection.test_excluded_never_selected) ... ok
+test_same_seed_same_tasks (bench.cross-check.test_bench.Selection.test_same_seed_same_tasks) ... ok
+test_mcnemar (bench.cross-check.test_bench.Stats.test_mcnemar) ... ok
+test_verdict_parsing (bench.cross-check.test_bench.Stats.test_verdict_parsing) ... ok
+test_wilson_known_value (bench.cross-check.test_bench.Stats.test_wilson_known_value) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 3.561s
+
+OK

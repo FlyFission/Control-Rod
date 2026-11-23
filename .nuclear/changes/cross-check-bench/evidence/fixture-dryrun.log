@@ -1,0 +1,28 @@
+4 tasks -> <run>/tasks.md
+4 tasks x 2 authors: 24 agent calls (cap 100, reported-cost cap None). Timeout 60 s per call.
+fixture__t1 author stub-a: 0.0 s
+fixture__t1 checker stub-a on stub-a: 0.0 s pass
+fixture__t1 checker stub-b on stub-a: 0.0 s pass
+fixture__t1 author stub-b: 0.0 s
+fixture__t1 checker stub-a on stub-b: 0.0 s pass
+fixture__t1 checker stub-b on stub-b: 0.0 s pass
+fixture__t2 author stub-a: 0.0 s
+fixture__t2 checker stub-a on stub-a: 0.0 s fail
+fixture__t2 checker stub-b on stub-a: 0.0 s fail
+fixture__t2 author stub-b: 0.0 s
+fixture__t2 checker stub-a on stub-b: 0.0 s fail
+fixture__t2 checker stub-b on stub-b: 0.0 s fail
+fixture__t3 author stub-a: 0.0 s
+fixture__t3 checker stub-a on stub-a: 0.0 s fail
+fixture__t3 checker stub-b on stub-a: 0.0 s fail
+fixture__t3 author stub-b: 0.0 s
+fixture__t3 checker stub-a on stub-b: 0.0 s fail
+fixture__t3 checker stub-b on stub-b: 0.0 s fail
+fixture__t4 author stub-a: 0.0 s
+fixture__t4 checker stub-a on stub-a: 0.0 s pass
+fixture__t4 checker stub-b on stub-a: 0.0 s fail
+fixture__t4 author stub-b: 0.0 s
+fixture__t4 checker stub-a on stub-b: 0.0 s pass
+fixture__t4 checker stub-b on stub-b: 0.0 s fail
+hidden tests -> <run>/evaluation.json
+-> <run>/results.json, report.md, share.md

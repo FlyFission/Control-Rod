@@ -1,0 +1,11 @@
+{
+  "instance_id": "fixture__t3",
+  "repo": "fixture/lists",
+  "base_commit": "",
+  "difficulty": "fixture",
+  "problem_statement": "`last_n(items, 0)` returns every item instead of an empty list. It should return `[]` for 0, and a negative `n` should raise `ValueError` instead of silently slicing from the front.",
+  "fixture_dir": "fixtures/t3",
+  "test_patch": "diff --git a/test_hidden.py b/test_hidden.py\nnew file mode 100644\nindex 0000000..4dca7f4\n--- /dev/null\n+++ b/test_hidden.py\n@@ -0,0 +1,10 @@\n+import unittest\n+from lists import last_n\n+\n+class Hidden(unittest.TestCase):\n+    def test_zero(self):\n+        self.assertEqual(last_n([1, 2, 3], 0), [])\n+\n+    def test_negative(self):\n+        with self.assertRaises(ValueError):\n+            last_n([1, 2, 3], -1)\n",
+  "pass_to_pass_cmd": "python3 -m unittest -q test_existing",
+  "fail_to_pass_cmd": "python3 -m unittest -q test_hidden"
+}

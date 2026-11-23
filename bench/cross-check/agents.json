@@ -1,0 +1,18 @@
+{
+  "claude": {
+    "kind": "claude",
+    "vendor": "anthropic",
+    "bin": "claude",
+    "model": "claude-sonnet-5-5",
+    "author_tools": "Read,Edit,Write,Grep,Glob",
+    "checker_tools": "Read,Grep,Glob"
+  },
+  "codex": {
+    "kind": "codex",
+    "vendor": "openai",
+    "bin": "codex",
+    "model": "gpt-6.2-sol"
+  },
+  "stub-a": {"kind": "stub", "vendor": "stub-a", "model": "stub"},
+  "stub-b": {"kind": "stub", "vendor": "stub-b", "model": "stub", "strict": true}
+}

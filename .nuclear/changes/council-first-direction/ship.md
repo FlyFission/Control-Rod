@@ -13,7 +13,7 @@
 
 ## Scope and exclusions
 
-- **Included:** ADR 0024, the research folder, the herdr pattern note, two index lines.
+- **Included:** ADR 0024, the research folder, the herdr and onboarding pattern notes, index lines.
 - **Excluded:** `README.md`, `docs/status.md`, `docs/plan/`, any code. Reordering the plan to match ADR 0024 is a follow-up.
 
 ## Evidence status summary

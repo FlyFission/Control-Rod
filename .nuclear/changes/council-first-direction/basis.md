@@ -25,6 +25,7 @@ The owner asked, in his Claude project thread "Find where Control Rod stands apa
 - `docs/research/user-demand-2026-11/` (new): README, persona model, issue pull and classification scripts, outputs, digests.
 - `docs/patterns/herdr.md` (new) and one line in `docs/patterns/README.md`.
 - One line in `docs/README.md`.
+- `docs/patterns/onboarding.md` (new) and its counts (`repos/onboarding_*`), after the owner asked at 15:24 UTC to "make onboarding best-in-class" from the same repositories.
 
 ## Assumptions and invalidation triggers
 

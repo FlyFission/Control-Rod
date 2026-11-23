@@ -11,7 +11,7 @@ Evidence is in `evidence/`; `evidence/SHA256SUMS` holds each file's digest from 
 
 | Evidence | File | What it shows |
 |---|---|---|
-| E-001 | `reproduce.log` | `score.py` and `classify_all.py` outputs are identical to the committed ones. |
+| E-001 | `reproduce.log` | `score.py`, `classify_all.py` and `onboarding_count.py` outputs are identical to the committed ones. |
 | E-002 | `public-claims.log` | The public-claims check passed. |
 | E-003 | `originality.log` | The originality check passed. |
 | E-004 | Owner read on the pull request | The owner checks ADR 0024 against his messages and the evidence. |

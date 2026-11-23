@@ -20,6 +20,7 @@ Paradev, Kandev, Orchestrator, Multica, Vibe Kanban, Paperclip, emdash, Nimbalys
 | `repos/pull.py`, `repos/pull_all.sh` | Pull every issue and pull request title for a repository through `gh api search/issues` |
 | `repos/rules.json`, `repos/classify.py`, `repos/counts.json` | Keyword themes for oh-my-openagent and herdr |
 | `repos/rules_all.json`, `repos/classify_all.py`, `repos/counts_all.json` | The same with six orchestrator themes, across all 15 repositories, each weighted equally. `counts_all.json` records the SHA-256 of every raw pull |
+| `repos/onboarding_rules.json`, `repos/onboarding_count.py`, `repos/onboarding_counts.json` | Install, sign-in, detection and first-run themes across all 15 repositories (used by `docs/patterns/onboarding.md`) |
 | `repos/top60.json`, `repos/top60_codes.json`, `repos/top60_counts.txt` | The 60 most-reacted issues, the hand coding, and the counts |
 | `SHA256SUMS` | Digests of every file here |
 

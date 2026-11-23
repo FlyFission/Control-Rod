@@ -15,7 +15,7 @@
 
 ## Affected files
 
-`docs/adr/0024-council-first.md`, `docs/research/user-demand-2026-11/`, `docs/patterns/herdr.md`, `docs/patterns/README.md`, `docs/README.md`, this record.
+`docs/adr/0024-council-first.md`, `docs/research/user-demand-2026-11/`, `docs/patterns/herdr.md`, `docs/patterns/onboarding.md`, `docs/patterns/README.md`, `docs/README.md`, this record.
 
 ## Not touched
 

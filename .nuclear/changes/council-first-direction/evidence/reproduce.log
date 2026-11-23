@@ -2,3 +2,5 @@ $ python3 -I score.py inputs.json | cmp - outputs.json
 identical
 $ (raw pulls in repos/repos/) python3 -I classify_all.py | cmp - counts_all.json
 identical (run 2026-11-23 against the 15 raw pulls whose SHA-256 values are in counts_all.json)
+$ python3 -I onboarding_count.py | cmp - onboarding_counts.json
+identical (run 2026-11-23 against the same 15 raw pulls)

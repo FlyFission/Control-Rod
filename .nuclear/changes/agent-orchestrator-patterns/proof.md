@@ -64,11 +64,12 @@ Claim: four statements, one per bullet.
 - Blind check (Codex, read-only) at `5f7d5413`: FIX FIRST, 1 P1 and 3 P2, all reasoned. Fixed in the next commit: the overlap listing was claimed complete on evidence that cannot show it (the claim is withdrawn; the script now finds runs per source); the workbench record's validation log predates its packet (now stated; CI is the current result); AW11 had two gates (one now). Open, and only a person can close it: the wording check, the P1.
 - Blind check (Codex, read-only) at `84c191a6`: FIX FIRST, 2 P1 and 2 P2, all reasoned. Fixed in the next commits: the packet paraphrased the public-claims output and deferred strict custody without a result (output now verbatim; the CI failure it hid is fixed); the workbench summary said all four products share every pattern (now: each row names its tools); the overlap script ran with no sources (it now refuses). Open: the wording check (P1), which only a person can close.
 - Blind check (Codex, read-only) at `35347e7e`: FIX FIRST, 1 P1 and 3 P2, all reasoned. Fixed in the next commit: the scanner could join separate passages into one item (each run now exists whole in one source); E-03 was marked decisive (now partial, not decisive); AW9 said four tools and named three (now three). Open: the wording check, the P1, which only a person can close.
+- Blind check (Codex, read-only) at `268ae5df`: HOLD, 1 P1, 3 P2 and 1 P3 that count, all reasoned. Fixed in the next commit: three workbench rows (AW6, AW10, AW12) stayed close to source wording (reworded); AO-2 recommended `(*os.Root).Chmod` without saying it needs a newer Go than the `go 1.24.7` minimum and claimed its protection unconditionally (both stated now); E-03 read as a current pass (marked historical, not rerun, with the generator revision); AO issue numbers were bare (each now links to the issue); the Quick-mode scope left out the workbench packet and its helper (added). Open: the wording check, the P1, which only a person can close.
 
 ## Reviewer note
 
 - Reviewer: pending owner review.
-- Is Quick mode still valid after proof? yes/no: yes; only `docs/patterns/` and `.nuclear/changes/agent-orchestrator-patterns/` changed.
+- Is Quick mode still valid after proof? yes/no: yes; only `docs/patterns/`, `.nuclear/changes/agent-orchestrator-patterns/` and `.nuclear/changes/agent-workbench-patterns/` changed, the last with its Python helper `evidence/ngram.py`, which runs only by hand and is not shipped.
 
 ## Required links
 

@@ -22,7 +22,7 @@
 |---|---|---|
 | Claims against `main` | pass (author read) | `verification.md` E-004 |
 | Public claims and originality | pass | E-002, E-003 |
-| Pictures | pass | E-001 |
+| Pictures | pass; the `readme-shots` workflow retook them on the branch (5cb64d1) | E-001 |
 | Trust surfaces | none edited | E-005 |
 
 ## Residual risks and gaps
@@ -48,6 +48,7 @@ Revert the commit.
 - **Decision:** merge after the owner reads it and CI is green.
 - **Decision maker:** Ben Huffer.
 - **Rationale:** documentation only, reversible, no trust surface edited.
+- **Owner read (E-004):** Ben Huffer read the README on the pull request and approved working toward merge on 2026-11-23 ("I love it. Work towards a merge."). Merge follows a clean Codex review of the final head and green CI.
 
 ## Required links
 

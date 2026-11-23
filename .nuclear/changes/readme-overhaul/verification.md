@@ -32,10 +32,10 @@ Evidence is in `evidence/`; `evidence/SHA256SUMS` holds each file's digest from 
 | E-001 | coupled: implementing agent | coupled: implementation session | separated: Playwright and the release build | partially separated: owner decides the merge | coupled: local machine | self-check | Fixtures are agent-written [Ship limits](ship.md) |
 | E-002 | coupled: implementing agent | coupled: implementation session | separated: repository script | partially separated: owner decides the merge | coupled: local machine | self-check | Pattern-based only [Ship limits](ship.md) |
 | E-003 | coupled: implementing agent | coupled: implementation session | separated: repository script | partially separated: owner decides the merge | coupled: local machine | self-check | Denylist only [Ship limits](ship.md) |
-| E-004 | separated: the owner | separated: their own review | separated: their own reading | separated: the owner decides | separated: their own machine | independent reproduction | Not yet supplied, and merge waits on it [Ship limits](ship.md) |
+| E-004 | separated: the owner | separated: their own review | separated: their own reading | separated: the owner decides | separated: their own machine | independent reproduction | Supplied 2026-11-23 (owner approved working toward merge) [Ship limits](ship.md) |
 | E-005 | coupled: implementing agent | coupled: implementation session | separated: git | partially separated: owner decides the merge | coupled: local machine | self-check | Scope only [Ship limits](ship.md) |
 
-No independent review was done by an agent. The independent check is the owner's read (E-004), which is open.
+No independent review was done by an agent. The independent check is the owner's read (E-004), supplied on 2026-11-23.
 
 ## Claim status
 

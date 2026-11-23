@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import type { Session } from "../api/types.js";
-import { adoptSession, sessionGeneration, stillCurrent } from "./session.js";
+import { adoptSession, sessionGeneration, sessionIdentity, stillCurrent } from "./session.js";
+import { recentRuns, rememberRun } from "./runPreferences.js";
 
 function Who() {
   const s = useQuery<Session>({ queryKey: ["session"], queryFn: async () => ({ registered: true, signed_in: false }), staleTime: Infinity });
@@ -46,6 +47,20 @@ describe("adopting a new session", () => {
     await adoptSession(qc, { registered: true, signed_in: false } as Session);
     expect(stillCurrent(startedUnder)).toBe(false);
     expect(stillCurrent(sessionGeneration())).toBe(true);
+  });
+
+  it("keeps exact run preferences scoped to the signed-in session and clears them on transition", async () => {
+    const qc = new QueryClient();
+    const earlier = sessionIdentity({ registered: true, signed_in: true, user: "ben" });
+    const next = { registered: true, signed_in: true, user: "reviewer" } as const;
+    rememberRun(earlier, "WP-3", "R-first", { scroll: 12, anchorSeq: 42, outputIndex: 1 });
+    expect(recentRuns(earlier)).toEqual([
+      { packageId: "WP-3", runId: "R-first", scroll: 12, anchorSeq: 42, outputIndex: 1 },
+    ]);
+    expect(recentRuns(sessionIdentity(next))).toEqual([]);
+
+    await adoptSession(qc, next);
+    expect(recentRuns(earlier)).toEqual([]);
   });
 
   it("stops any query in flight, so its answer cannot land in the next session", async () => {

@@ -31,6 +31,27 @@
             ],
             "description": "The context profile packages carry when they name none. Absent means light."
         },
+        "default_workflow": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "const": "playbook"
+                },
+                {
+                    "type": "string",
+                    "const": "superpowers"
+                },
+                {
+                    "type": "string",
+                    "const": "pocock"
+                },
+                {
+                    "type": "string",
+                    "const": "pocock-superpowers"
+                }
+            ],
+            "description": "The workflow packages carry when they name none. Absent means the playbook."
+        },
         "lanes": {
             "type": "array",
             "items": {

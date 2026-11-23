@@ -744,6 +744,77 @@ func TestCheckerMountRestoresTheStagedRuntimeAndSkipsAnEmptyVerifiedPath(t *test
 	}
 }
 
+// The login directory stays read-only; the credential file is bound writable, so a sign-in a
+// checker refreshes reaches the host (main's custody; see four-cli-workspace landing-review L3).
+func TestCheckerMountKeepsTheLoginDirectoryReadOnlyAndSavesARefreshedCredential(t *testing.T) {
+	for _, tc := range []struct {
+		runtime, env, name string
+	}{
+		{RuntimeClaude, "CLAUDE_CONFIG_DIR", ".credentials.json"},
+		{RuntimeCodex, "CODEX_HOME", "auth.json"},
+	} {
+		t.Run(tc.runtime, func(t *testing.T) {
+			root := t.TempDir()
+			t.Setenv(tc.env, root)
+			credential := filepath.Join(root, tc.name)
+			if err := os.WriteFile(credential, []byte("fixture"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			ws, _ := prepareCheckerFixture(t)
+			ws.CheckerRuntime = tc.runtime
+			script := `test "$(cat "$CLAUDE_CONFIG_DIR/.credentials.json")" = fixture && printf refreshed > "$CLAUDE_CONFIG_DIR/.credentials.json"`
+			if tc.runtime == RuntimeCodex {
+				// A refreshed sign-in is saved through to the host file.
+				script = `test "$(cat "$CODEX_HOME/auth.json")" = fixture && printf refreshed > "$CODEX_HOME/auth.json" && touch "$CODEX_HOME/checker-state"`
+			}
+			cmd := exec.Command("/bin/sh", "-c", script)
+			cmd.Dir = ws.Dir
+			cmd.Env = os.Environ()
+			t.Cleanup(func() {
+				if ws.Seccomp != nil {
+					_ = ws.Seccomp.Close()
+				}
+				if ws.LoginDisposable != "" {
+					_ = os.RemoveAll(ws.LoginDisposable)
+				}
+			})
+			if err := applyCheckerMount(cmd, ws); err != nil {
+				t.Fatal(err)
+			}
+			joined := strings.Join(cmd.Args, "\n")
+			if !strings.Contains(joined, "--ro-bind\n"+root+"\n"+root+"\n") {
+				t.Fatal("host login directory lacks a read-only bind")
+			}
+			if strings.Contains("\n"+joined, "\n--bind\n"+root+"\n") || strings.Contains("\n"+joined, "\n--bind-try\n"+root+"\n") {
+				t.Fatal("host login directory has a writable bind that would override its read-only one")
+			}
+			if !strings.Contains("\n"+joined, "\n--bind\n"+credential+"\n"+credential+"\n") {
+				t.Fatal("host credential lacks its writable bind")
+			}
+			home := envAny(cmd, tc.env)
+			if tc.runtime == RuntimeCodex {
+				if home == root || !strings.Contains(joined, "\n--bind\n"+home+"\n"+home+"\n") {
+					t.Fatal("isolated login state lacks a writable bind")
+				}
+				if !strings.Contains(joined, "\n--bind\n"+credential+"\n"+filepath.Join(home, tc.name)+"\n") {
+					t.Fatal("isolated login home lacks the writable credential bind")
+				}
+			}
+			if output, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("reading the fixture credential or creating disposable state failed: %v\n%s", err, output)
+			}
+			if tc.runtime == RuntimeCodex {
+				if _, err := os.Stat(filepath.Join(home, "checker-state")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if b, err := os.ReadFile(credential); err != nil || string(b) != "refreshed" {
+				t.Fatalf("refreshed credential did not reach the host: %q %v", b, err)
+			}
+		})
+	}
+}
+
 func TestCheckerCannotRewriteLoginInstructions(t *testing.T) {
 	if _, err := exec.LookPath("bwrap"); err != nil {
 		t.Fatal(err)

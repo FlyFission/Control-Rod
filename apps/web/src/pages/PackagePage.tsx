@@ -8,23 +8,49 @@ import { CriterionCoverage } from "../components/preparation/CriterionCoverage.j
 import { PreparationPanel } from "../components/preparation/PreparationPanel.js";
 import { DecisionBar } from "../components/DecisionBar.js";
 import { OutputItem } from "../components/OutputPreview.js";
+import { RunTranscript } from "../components/AgentPanel.js";
+import { RunOutputs } from "../components/RunOutputs.js";
 import { RunCard } from "../components/RunLog.js";
 import { STATUS_LABEL, independenceText, shortDigest, time } from "../lib/format.js";
 import { DECISION_LABEL } from "../lib/decide.js";
-import { sessionGeneration } from "../lib/session.js";
+import { projectDisplayName, useProjects } from "../lib/projects.js";
+import { sessionGeneration, sessionIdentity } from "../lib/session.js";
 import { PackageLoadError } from "../components/PackageLoadError.js";
+import { recentRuns, rememberRun } from "../lib/runPreferences.js";
+import { isVisible } from "../lib/live.js";
 import { DaemonNotice } from "../components/DaemonNotice.js";
 
 const RUNGS: WorkPackage["status"][] = ["draft", "released", "in-work", "in-verification", "accepted"];
 
 export function PackagePage({ id }: { id: string }) {
+  const projects = useProjects();
   const q = useQuery({ queryKey: ["package", id], queryFn: () => api.packageView(id) });
 
   const hash = useRouterState({ select: (st) => st.location.hash });
+  const focusedRunId = hash.startsWith("run-") ? hash.slice(4) : null;
+  const exact = useQuery({
+    queryKey: ["run", id, focusedRunId],
+    queryFn: () => api.exactRun(id, focusedRunId!),
+    enabled: Boolean(focusedRunId),
+    retry: (count, err) => !(err instanceof ApiError && err.status === 404) && count < 2,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return isVisible() && (status === "running" || status === "queued") ? 5000 : false;
+    },
+  });
+  const session = useQuery({ queryKey: ["session"], queryFn: api.session, enabled: false });
+  const viewer = sessionIdentity(session.data);
+  const runAvailable = exact.isSuccess && q.isSuccess;
   useEffect(() => {
-    // Links and the command palette land on a section (#decide, #criteria), also when only the hash changes.
-    if (q.data !== undefined && hash) document.getElementById(hash)?.scrollIntoView({ block: "start" });
-  }, [q.data, hash]);
+    if (runAvailable && focusedRunId) rememberRun(viewer, id, focusedRunId);
+  }, [runAvailable, viewer, id, focusedRunId]);
+  const hasPackage = q.data !== undefined && !q.isError;
+  useEffect(() => {
+    if (!hasPackage || !hash) return;
+    const target = document.getElementById(hash);
+    target?.scrollIntoView?.({ block: "start" });
+    if (focusedRunId) target?.focus({ preventScroll: true });
+  }, [id, hasPackage, hash, focusedRunId]);
 
   if (q.isLoading) return <p className="muted">Loading</p>;
   if (q.isError || q.data === undefined) {
@@ -32,11 +58,66 @@ export function PackagePage({ id }: { id: string }) {
   }
   const view = q.data;
   const pkg = view.package;
+  if (focusedRunId) {
+    const run = exact.data;
+    const historical = run !== undefined && run.package_revision !== pkg.revision;
+    const remembered = recentRuns(viewer).find((entry) => entry.packageId === id && entry.runId === focusedRunId);
+    return (
+      <div className="package">
+        <header className="panel pkg-head">
+          <p className="mono small muted">{pkg.id} · {focusedRunId}</p>
+          <h1>{pkg.title}</h1>
+          <nav className="focused-run-head" aria-label="Run navigation">
+            <Link to="/packages/$id" params={{ id }} hash="runs">All runs</Link>
+            <Link to="/packages/$id" params={{ id }} hash="decide">Review current revision</Link>
+          </nav>
+        </header>
+        <section id={hash} tabIndex={-1} className="panel focused-run" aria-label="Selected run">
+          {exact.isPending ? <p className="muted" role="status">Loading run…</p> : exact.isError ? (
+            <p className="muted" role="alert">
+              {exact.error instanceof ApiError && exact.error.status === 404
+                ? "This run is unavailable for this package."
+                : "Could not refresh this run."}
+              {!(exact.error instanceof ApiError && exact.error.status === 404) && (
+                <button type="button" className="btn small" onClick={() => void exact.refetch()}>Retry</button>
+              )}
+            </p>
+          ) : run && (
+            <div key={run.id}>
+              <p className="mono small muted">Run revision {run.package_revision}</p>
+              {historical && <p className="small muted">Historical run. Current package revision is {pkg.revision}.</p>}
+              <div className="run-workbench">
+                <RunTranscript
+                  packageId={pkg.id}
+                  run={run}
+                  showStop={!historical && !q.isFetching}
+                  bounded
+                  initialScroll={remembered?.scroll ?? 0}
+                  initialAnchor={remembered?.anchorSeq}
+                  onScroll={(scroll, anchorSeq) => rememberRun(viewer, pkg.id, run.id, { scroll, anchorSeq })}
+                />
+                {run.role === "author" && (
+                  <RunOutputs
+                    packageId={pkg.id}
+                    runId={run.id}
+                    succeeded={run.status === "succeeded"}
+                    initialOutput={remembered?.outputIndex}
+                    onSelect={(outputIndex) => rememberRun(viewer, pkg.id, run.id, { outputIndex })}
+                  />
+                )}
+              </div>
+              <RunCard packageId={pkg.id} run={run} readOnly={historical || q.isFetching} focused />
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  }
   return (
     <div className="package">
       <header className="panel pkg-head">
         <p className="mono small muted">
-          {pkg.id} · rev {pkg.revision} · {pkg.project}
+          {pkg.id} · rev {pkg.revision} · {projectDisplayName(pkg.project, projects)}
         </p>
         <h1>{pkg.title}</h1>
         <p className="small">
@@ -96,8 +177,8 @@ export function PackagePage({ id }: { id: string }) {
             <h2 id="runs-title">Runs</h2>
             <DaemonNotice running={view.runs.filter((r) => r.status === "running").length} />
             {view.runs.length === 0 && <p className="muted">No runs yet.</p>}
-            {view.runs.map((r) => (
-              <RunCard key={r.id} packageId={pkg.id} run={r} />
+            {view.runs.map((run) => (
+              <RunCard key={run.id} packageId={pkg.id} run={run} />
             ))}
           </section>
         </div>

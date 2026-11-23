@@ -22,11 +22,11 @@ import { Packages } from "./pages/Packages.js";
 import { Policies } from "./pages/Policies.js";
 import { Records } from "./pages/Records.js";
 import { Registers } from "./pages/Registers.js";
-import { Roster } from "./pages/Roster.js";
+import { AgentsRoster } from "./pages/AgentsRoster.js";
 import { SignIn } from "./pages/SignIn.js";
 import { Today } from "./pages/Today.js";
 import { Usage } from "./pages/Usage.js";
-import { Subscriptions } from "./pages/Subscriptions.js";
+import { Setup } from "./pages/Setup.js";
 
 /**
  * Decides between the sign-in page and the app from the session query. Exported so tests can drive
@@ -81,14 +81,18 @@ const routes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/board", beforeLoad: () => { throw redirect({ to: "/" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/packages", component: Packages }),
   createRoute({ getParentRoute: () => rootRoute, path: "/registers", component: Registers }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/explore", component: Explore }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/snapshots", component: Explore }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/explore", beforeLoad: () => { throw redirect({ to: "/snapshots" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/compare", component: Compare }),
   createRoute({ getParentRoute: () => rootRoute, path: "/today", component: Today }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/roster", component: Roster }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/setup", component: Setup }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/agents", component: AgentsRoster }),
+  // The Roster and Provider CLIs became one Agents roster; their details sit under its Advanced section.
+  createRoute({ getParentRoute: () => rootRoute, path: "/roster", beforeLoad: () => { throw redirect({ to: "/agents" }); } }),
   createRoute({ getParentRoute: () => rootRoute, path: "/usage", component: Usage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/records", component: Records }),
   createRoute({ getParentRoute: () => rootRoute, path: "/policies", component: Policies }),
-  createRoute({ getParentRoute: () => rootRoute, path: "/settings/subscriptions", component: Subscriptions }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/settings/subscriptions", beforeLoad: () => { throw redirect({ to: "/agents" }); } }),
 ];
 
 const packageRoute = createRoute({

@@ -36,7 +36,7 @@ type agentUpdates struct {
 }
 
 // set replaces the report with what a check found. An agent the check could not finish (no answer
-// from the registry, no version from the CLI, or a version too long to report) is listed as
+// from the registry, or no strict SemVer version from the CLI or the registry) is listed as
 // unchecked and keeps any entry this daemon already had; the control plane keeps its own too.
 func (u *agentUpdates) set(sts []agentupdate.Status) {
 	u.mu.Lock()
@@ -48,7 +48,7 @@ func (u *agentUpdates) set(sts []agentupdate.Status) {
 		switch {
 		case s.Agent.Package == "":
 			// Not checked at all (no known package): nothing to report.
-		case s.Incomplete() || len(s.Installed) > 64:
+		case s.Incomplete() || !agentupdate.StrictVersion(s.Installed) || !agentupdate.StrictVersion(s.Latest):
 			unchecked = append(unchecked, s.Agent.ID)
 			for _, p := range prev {
 				if p.Agent == s.Agent.ID {

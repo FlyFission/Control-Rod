@@ -14,17 +14,22 @@ const brew = { agent: "codex", name: "Codex CLI", installed: "0.170.0", latest: 
 
 describe("Agent updates", () => {
   let updates: object[] = [];
+  let served = 0;
   const posts: string[] = [];
   beforeEach(() => {
     updates = [grok, opencode, brew];
     posts.length = 0;
+    served = 0;
     try {
       localStorage.clear();
     } catch {
       /* none */
     }
     server.use(
-      http.get("*/runtimes", () => HttpResponse.json({ runtimes: [], pins: [], agent_updates: updates })),
+      http.get("*/runtimes", () => {
+        served++;
+        return HttpResponse.json({ runtimes: [], pins: [], agent_updates: updates });
+      }),
       http.post("*", ({ request }) => {
         posts.push(new URL(request.url).pathname);
         return HttpResponse.json({});
@@ -64,11 +69,13 @@ describe("Agent updates", () => {
     await user.click(screen.getByRole("button", { name: "Dismiss agent updates" }));
     await waitFor(() => expect(screen.queryByRole("region")).toBeNull());
     unmount();
-    // The same dismissed version stays hidden after the panel mounts again.
-    updates = [grok];
+    // The same dismissed version stays hidden after the panel mounts again: the response's other,
+    // newer entry shows, so the fetch has landed, and Grok's row is still absent.
+    updates = [grok, { ...opencode, latest: "1.19.7" }];
     const again = await renderPage(<AgentUpdates />);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(screen.queryByRole("region")).toBeNull();
+    const remounted = await screen.findByRole("region", { name: "1 agent update" });
+    expect(within(remounted).getByText("OpenCode")).toBeTruthy();
+    expect(within(remounted).queryByText("Grok CLI")).toBeNull();
     again.unmount();
     // A newer version of a dismissed agent shows again.
     updates = [{ ...grok, latest: "1.0.93" }];
@@ -84,8 +91,10 @@ describe("Agent updates", () => {
       { agent: "agy", name: "Antigravity CLI", installed: "1.0.0", latest: "1.1.0", npm_global: true },
     ];
     await renderPage(<AgentUpdates />);
-    // The entry with a version that is not SemVer is not shown at all.
+    // The entry with a version that is not SemVer is not shown at all; the two others are, so the
+    // response has landed before anything is asserted absent.
     const panel = await screen.findByRole("region", { name: "2 agent updates" });
+    expect(within(panel).getByText("Antigravity CLI")).toBeTruthy();
     expect(panel.textContent).not.toContain("curl evil");
     expect(panel.textContent).not.toContain("rm -rf");
     const g = within(panel).getByText("Grok CLI").closest("li")!;
@@ -96,10 +105,27 @@ describe("Agent updates", () => {
     expect(within(within(panel).getByText("Antigravity CLI").closest("li")!).queryByRole("button", { name: "Copy command" })).toBeNull();
   });
 
+  it("shows one row per agent and version, and copies the one clicked", async () => {
+    const user = userEvent.setup();
+    updates = [grok, grok, { ...grok, latest: "1.0.93" }];
+    await renderPage(<AgentUpdates />);
+    const panel = await screen.findByRole("region", { name: "2 agent updates" });
+    const rows = within(panel)
+      .getAllByText("Grok CLI")
+      .map((n) => n.closest("li")!);
+    await user.click(within(rows[1]!).getByRole("button", { name: "Copy command" }));
+    expect(await within(rows[1]!).findByRole("button", { name: "Copied" })).toBeTruthy();
+    expect(within(rows[0]!).getByRole("button", { name: "Copy command" })).toBeTruthy();
+    expect(await navigator.clipboard.readText()).toBe("npm install --global @xai-official/grok@1.0.93");
+  });
+
   it("shows nothing when every agent is current", async () => {
     updates = [];
-    await renderPage(<AgentUpdates />);
-    await new Promise((r) => setTimeout(r, 20));
+    const { container } = await renderPage(<AgentUpdates />);
+    // The response has been served and rendered before the absence is checked.
+    await waitFor(() => expect(served).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(container.querySelector(".agent-updates")).toBeNull();
     expect(screen.queryByRole("region")).toBeNull();
   });
 });

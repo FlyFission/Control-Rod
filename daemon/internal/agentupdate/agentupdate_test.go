@@ -226,3 +226,21 @@ func TestPrereleaseEdgesFollowSemVer(t *testing.T) {
 		t.Fatal("numeric below alphanumeric, and by value")
 	}
 }
+
+// A version that is not strict SemVer is not read at all, so the agent counts as unchecked.
+func TestParseVersionReadsOnlyStrictSemVer(t *testing.T) {
+	for in, want := range map[string]string{
+		"1.2.3-":               "",
+		"tool 1.2.3+build.5":   "",
+		"1.2.3-rc.01":          "",
+		"1.2.3-rc.1 (abc)":     "1.2.3-rc.1",
+		"codex-cli 0.171.0":    "0.171.0",
+		"v1.2.3":               "",
+		"1.2.3\n":              "1.2.3",
+		"Grok CLI, 1.0.92 x64": "1.0.92",
+	} {
+		if got := ParseVersion(in); got != want {
+			t.Errorf("ParseVersion(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

@@ -121,7 +121,8 @@ func TestAnIncompleteCheckKeepsAKnownUpdate(t *testing.T) {
 }
 
 // A fresh daemon (nothing kept) whose check cannot finish reports the agent as unchecked rather
-// than as current; a version too long to report counts as unchecked too; agy is never reported.
+// than as current; an installed version that is not strict SemVer (too long, or with build
+// metadata) counts as unchecked too; agy is never reported.
 func TestAFreshDaemonsIncompleteCheckIsUnchecked(t *testing.T) {
 	claude, agy, grok := agentupdate.Catalog[0], agentupdate.Catalog[2], agentupdate.Catalog[4]
 	var u agentUpdates
@@ -129,13 +130,14 @@ func TestAFreshDaemonsIncompleteCheckIsUnchecked(t *testing.T) {
 		{Agent: grok, Installed: "1.0.77", Note: "latest version unavailable: timeout"},
 		{Agent: claude, Installed: "1.0." + strings.Repeat("9", 70), Latest: "2.0.0", Command: []string{"npm"}},
 		{Agent: agy, Installed: "1.0.0"},
+		{Agent: agentupdate.Catalog[1], Installed: "0.170.0+build", Latest: "0.171.0", Command: []string{"npm"}},
 	})
 	r := u.report()
-	if len(r) != 1 || len(r[0].List) != 0 || strings.Join(r[0].Unchecked, ",") != "grok,claude" {
+	if len(r) != 1 || len(r[0].List) != 0 || strings.Join(r[0].Unchecked, ",") != "grok,claude,codex" {
 		t.Fatalf("fresh incomplete check: %#v", r)
 	}
 	b, _ := json.Marshal(ClaimRequest{AgentUpdates: &r[0].List, AgentUpdatesUnchecked: r[0].Unchecked})
-	if !strings.Contains(string(b), `"agent_updates":[]`) || !strings.Contains(string(b), `"agent_updates_unchecked":["grok","claude"]`) {
+	if !strings.Contains(string(b), `"agent_updates":[]`) || !strings.Contains(string(b), `"agent_updates_unchecked":["grok","claude","codex"]`) {
 		t.Fatalf("claim body: %s", b)
 	}
 }

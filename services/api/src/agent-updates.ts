@@ -24,7 +24,8 @@ export async function recordAgentUpdates(db: Db, raw: unknown, rawUnchecked?: un
   for (const u of raw.slice(0, 10)) {
     try {
       checkSchema("AgentUpdate.json", u);
-      list.push(u);
+      // One row per agent: a repeated agent is left out.
+      if (!list.some((x) => x.agent === u.agent)) list.push(u);
     } catch {
       /* a malformed entry is left out */
     }

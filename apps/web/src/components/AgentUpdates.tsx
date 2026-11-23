@@ -59,8 +59,9 @@ export function AgentUpdates() {
   const [dismissed, setDismissed] = useState<string[]>(readDismissed);
   const [copied, setCopied] = useState<string | null>(null);
 
-  // An entry whose version is not strict SemVer is not shown at all.
-  const shown = (q.data?.agent_updates ?? []).filter((u) => validVersion(u.latest) && !dismissed.includes(keyOf(u)));
+  // An entry whose version is not strict SemVer is not shown at all, and one agent at one version
+  // is shown once.
+  const shown = (q.data?.agent_updates ?? []).filter((u, i, all) => validVersion(u.latest) && !dismissed.includes(keyOf(u)) && all.findIndex((o) => keyOf(o) === keyOf(u)) === i);
   if (shown.length === 0) return null;
 
   const dismiss = (keys: string[]) => {
@@ -71,7 +72,7 @@ export function AgentUpdates() {
   const copy = async (u: AgentUpdate) => {
     try {
       await navigator.clipboard.writeText(npmCommand(u)!);
-      setCopied(u.agent);
+      setCopied(keyOf(u));
     } catch {
       setCopied(null); /* the command stays on screen to copy by hand */
     }
@@ -93,7 +94,7 @@ export function AgentUpdates() {
       </header>
       <ul className="au-list">
         {shown.map((u) => (
-          <li key={u.agent} className="au-item">
+          <li key={keyOf(u)} className="au-item">
             <div className="au-row">
               <strong>{u.name}</strong>
               <button type="button" className="au-close" aria-label={`Dismiss ${u.name} update`} onClick={() => dismiss([keyOf(u)])}>
@@ -106,7 +107,7 @@ export function AgentUpdates() {
               </span>
               {npmCommand(u) ? (
                 <button type="button" className="btn small" onClick={() => void copy(u)}>
-                  {copied === u.agent ? "Copied" : "Copy command"}
+                  {copied === keyOf(u) ? "Copied" : "Copy command"}
                 </button>
               ) : null}
             </div>

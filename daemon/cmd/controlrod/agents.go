@@ -109,6 +109,10 @@ func update(w io.Writer, in io.Reader, sts []agentupdate.Status, names []string,
 			fmt.Fprintf(w, "No update found, but %s could not be checked (run `controlrod agents` to see why).\n", strings.Join(unknown, ", "))
 			return 1
 		}
+		if skipped := notChecked(sts); len(skipped) > 0 {
+			fmt.Fprintf(w, "Every agent checked is up to date; %s was not checked.\n", strings.Join(skipped, ", "))
+			return 0
+		}
 		fmt.Fprintln(w, "Every agent is up to date.")
 		return 0
 	}
@@ -178,6 +182,8 @@ func printStatuses(w io.Writer, sts []agentupdate.Status) {
 		fmt.Fprintln(w, noneCheckable)
 	case n == 0 && len(unknown) > 0:
 		fmt.Fprintf(w, "No update found, but %s could not be checked.\n", strings.Join(unknown, ", "))
+	case n == 0 && len(notChecked(sts)) > 0:
+		fmt.Fprintf(w, "Every agent checked is up to date; %s was not checked.\n", strings.Join(notChecked(sts), ", "))
 	case n == 0:
 		fmt.Fprintln(w, "Every agent found is up to date.")
 	case n == 1:
@@ -223,6 +229,17 @@ func anyCheckable(sts []agentupdate.Status) bool {
 		}
 	}
 	return false
+}
+
+// notChecked names the agents found that have no package to look up (Antigravity).
+func notChecked(sts []agentupdate.Status) []string {
+	var out []string
+	for _, s := range sts {
+		if s.Agent.Package == "" {
+			out = append(out, s.Agent.Name)
+		}
+	}
+	return out
 }
 
 // incomplete names the agents whose check could not compare versions.

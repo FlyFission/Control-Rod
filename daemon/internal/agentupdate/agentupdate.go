@@ -94,10 +94,25 @@ var strictVersion = regexp.MustCompile(`^(0|[1-9]\d{0,8})\.(0|[1-9]\d{0,8})\.(0|
 // StrictVersion reports whether v may be put into an install command.
 func StrictVersion(v string) bool { return len(v) <= 64 && strictVersion.MatchString(v) }
 
-// ParseVersion returns the first x.y.z[-pre] in s, or "".
+// ParseVersion returns the first version in s, or "" when that version is not strict SemVer
+// (64 bytes at most, no build metadata): "1.2.3-" or "1.2.3+build" is not read as 1.2.3. The
+// version runs from the first x.y.z to the end of the word.
 func ParseVersion(s string) string {
-	return semverRe.FindString(s)
+	loc := semverRe.FindStringIndex(s)
+	if loc == nil {
+		return ""
+	}
+	end := loc[1]
+	for end < len(s) && strings.IndexByte(versionChars, s[end]) >= 0 {
+		end++
+	}
+	if v := s[loc[0]:end]; StrictVersion(v) {
+		return v
+	}
+	return ""
 }
+
+const versionChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.+-"
 
 // Newer reports whether version a has higher SemVer 2.0 precedence than b (section 11): major,
 // minor and patch numerically; a prerelease is lower than its release; two prereleases compare

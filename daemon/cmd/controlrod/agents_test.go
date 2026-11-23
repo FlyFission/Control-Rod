@@ -122,3 +122,18 @@ func TestNoCheckableAgentIsNotUpToDate(t *testing.T) {
 		}
 	}
 }
+
+// With a checked agent current and Antigravity found, the summary says Antigravity was not checked.
+func TestMixedCaseSaysAntigravityWasNotChecked(t *testing.T) {
+	agy, grok := agentupdate.Catalog[2], agentupdate.Catalog[4]
+	sts := []agentupdate.Status{{Agent: grok, Installed: "1.0.92", Latest: "1.0.92"}, {Agent: agy, Installed: "1.4.0"}}
+	var out bytes.Buffer
+	printStatuses(&out, sts)
+	if !strings.Contains(out.String(), "Every agent checked is up to date; Antigravity CLI was not checked.") {
+		t.Fatalf("agents:\n%s", out.String())
+	}
+	out.Reset()
+	if code := update(&out, strings.NewReader(""), sts, nil, true, true, false, (&recorder{}).run); code != 0 || !strings.Contains(out.String(), "Antigravity CLI was not checked") {
+		t.Fatalf("agents update: code %d:\n%s", code, out.String())
+	}
+}

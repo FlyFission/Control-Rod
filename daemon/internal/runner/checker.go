@@ -1015,6 +1015,22 @@ func loginSessionDirs(runtime string) []string {
 	return keep.LoginSessionDirs()
 }
 
+type isolatedLoginHomer interface {
+	IsolatedLoginHomeEnv() string
+}
+
+func isolatedLoginHomeEnv(runtime string) string {
+	a, ok := AdapterFor(runtime)
+	if !ok {
+		return ""
+	}
+	h, ok := a.(isolatedLoginHomer)
+	if !ok {
+		return ""
+	}
+	return h.IsolatedLoginHomeEnv()
+}
+
 // loginPlan is how a checker sees the active login directory. The real directory
 // stays read-only. Credential is the host credential file when it is a regular
 // file owned by this user and contained in the login directory. Each overlay is
@@ -1171,8 +1187,8 @@ func checkerSeatbeltPaths(plan loginPlan) ([]string, error) {
 // hashProtected covers the login directory and the instruction and settings
 // paths inside it. A missing directory is "absent", so creating it changes the
 // hash. A missing name is part of the hash too. Each existing name records its
-// kind, mode, and contents. File contents go through readCapped, so a file over
-// the output cap fails the hash instead of being truncated.
+// kind, mode, and contents. One budget spans the protected paths and their
+// descendants. Exceeding a file, total byte, or entry limit fails the hash.
 func hashProtected(root string) (string, error) {
 	if root == "" {
 		return "", nil
@@ -1197,15 +1213,39 @@ func hashProtected(root string) (string, error) {
 	if err := writePrefixed(h, []byte(modeOctal(st.Mode()))); err != nil {
 		return "", err
 	}
+	budget := protectedHashBudget{bytesLeft: MaxOutputTotal, entriesLeft: checkerMaxEntries()}
 	for _, name := range protectedLoginNames {
-		if err := hashOneProtected(h, name, filepath.Join(root, name)); err != nil {
+		if err := budget.hashOne(h, name, filepath.Join(root, name)); err != nil {
 			return "", err
 		}
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func hashOneProtected(h io.Writer, name, path string) error {
+type protectedHashBudget struct {
+	bytesLeft   int64
+	entriesLeft int
+}
+
+func (b *protectedHashBudget) chargeEntries(n int) error {
+	if n > b.entriesLeft {
+		return fmt.Errorf("protected login tree has more than %d entries, so the check cannot count", checkerMaxEntries())
+	}
+	b.entriesLeft -= n
+	return nil
+}
+
+func (b *protectedHashBudget) checkBytes(path string, n int64) error {
+	if n > MaxOutputFile {
+		return fmt.Errorf("protected login entry %q is over the %d byte limit, so the check cannot count", path, MaxOutputFile)
+	}
+	if n > b.bytesLeft {
+		return fmt.Errorf("protected login tree exceeds the %d byte total limit, so the check cannot count", MaxOutputTotal)
+	}
+	return nil
+}
+
+func (b *protectedHashBudget) hashOne(h io.Writer, name, path string) error {
 	if err := writePrefixed(h, []byte(name)); err != nil {
 		return err
 	}
@@ -1216,31 +1256,25 @@ func hashOneProtected(h io.Writer, name, path string) error {
 	if err != nil {
 		return err
 	}
+	if err := b.chargeEntries(1); err != nil {
+		return err
+	}
 	kind := "file"
 	var payload string
 	switch {
 	case st.Mode()&os.ModeSymlink != 0:
 		kind = "link"
-		target, err := os.Readlink(path)
-		if err != nil {
-			return err
-		}
-		sum := sha256.Sum256([]byte(target))
-		payload = hex.EncodeToString(sum[:])
+		payload, err = b.hashLink(path)
 	case st.IsDir():
 		kind = "dir"
-		payload, err = TreeDigest(path)
-		if err != nil {
-			return err
-		}
+		payload, err = b.hashDir(path)
 	case st.Mode().IsRegular():
-		b, err := readCapped(path)
-		if err != nil {
-			return err
-		}
-		payload = sha256Hex(b)
+		payload, err = b.hashFile(path)
 	default:
 		return fmt.Errorf("%s is not a file or directory", path)
+	}
+	if err != nil {
+		return err
 	}
 	if err := writePrefixed(h, []byte(kind)); err != nil {
 		return err
@@ -1249,6 +1283,124 @@ func hashOneProtected(h io.Writer, name, path string) error {
 		return err
 	}
 	return writePrefixed(h, []byte(payload))
+}
+
+func (b *protectedHashBudget) hashLink(path string) (string, error) {
+	target, err := os.Readlink(path)
+	if err != nil {
+		return "", err
+	}
+	size := int64(len(target))
+	if err := b.checkBytes(path, size); err != nil {
+		return "", err
+	}
+	b.bytesLeft -= size
+	return sha256Hex([]byte(target)), nil
+}
+
+func (b *protectedHashBudget) hashFile(path string) (string, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY|syscallNoFollow|syscallNonblock, 0)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !st.Mode().IsRegular() {
+		return "", fmt.Errorf("%s is not a regular file", path)
+	}
+	if err := b.checkBytes(path, st.Size()); err != nil {
+		return "", err
+	}
+	fh := sha256.New()
+	// Recheck the bytes actually read so file growth cannot exhaust the budget.
+	n, err := io.Copy(fh, io.LimitReader(f, min(MaxOutputFile, b.bytesLeft)+1))
+	if err != nil {
+		return "", err
+	}
+	if err := b.checkBytes(path, n); err != nil {
+		return "", err
+	}
+	b.bytesLeft -= n
+	return hex.EncodeToString(fh.Sum(nil)), nil
+}
+
+// hashDir preserves the deterministic order and bounded streaming of file bytes.
+func (b *protectedHashBudget) hashDir(root string) (string, error) {
+	h := sha256.New()
+	var walk func(rel string) error
+	walk = func(rel string) error {
+		dir := root
+		if rel != "" {
+			dir = filepath.Join(root, rel)
+		}
+		f, err := os.OpenFile(dir, os.O_RDONLY|syscallNoFollow|syscallNonblock, 0)
+		if err != nil {
+			return err
+		}
+		// Charge each directory listing before recursing, including siblings
+		// retained in memory while descendants are visited.
+		entries, err := f.ReadDir(b.entriesLeft + 1)
+		_ = f.Close()
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		if err := b.chargeEntries(len(entries)); err != nil {
+			return err
+		}
+		sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+		for _, e := range entries {
+			childRel := e.Name()
+			if rel != "" {
+				childRel = rel + "/" + e.Name()
+			}
+			full := filepath.Join(dir, e.Name())
+			st, err := os.Lstat(full)
+			if err != nil {
+				return err
+			}
+			if err := writePrefixed(h, []byte(childRel)); err != nil {
+				return err
+			}
+			if err := writePrefixed(h, []byte(modeOctal(st.Mode()))); err != nil {
+				return err
+			}
+			switch {
+			case st.Mode()&os.ModeSymlink != 0:
+				sum, err := b.hashLink(full)
+				if err != nil {
+					return err
+				}
+				if err := writePrefixed(h, []byte("link:"+sum)); err != nil {
+					return err
+				}
+			case st.IsDir():
+				if err := writePrefixed(h, []byte("dir")); err != nil {
+					return err
+				}
+				if err := walk(childRel); err != nil {
+					return err
+				}
+			case st.Mode().IsRegular():
+				sum, err := b.hashFile(full)
+				if err != nil {
+					return err
+				}
+				if err := writePrefixed(h, []byte("file:"+sum)); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("%s is not a file or directory", childRel)
+			}
+		}
+		return nil
+	}
+	if err := walk(""); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func modeOctal(m os.FileMode) string {

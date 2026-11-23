@@ -15,7 +15,7 @@
     },
     {
       "path": "services/api/src/brief.ts",
-      "sha256": "554a0dfbededf2c1d3a3d0dcfc6964d87b30ef2a30adf69c71dce0f744f4993c"
+      "sha256": "1924c056249dc322df4fd3b537cd9736535ca54cec91f115def37c9bf87b6cb8"
     },
     {
       "path": "services/api/src/context-profile.ts",
@@ -34,7 +34,7 @@
       "sha256": "7a9a1ced17dcb7af5c834dac471db423ac0ee3ceceae82ec507a0e911050e3cf"
     }
   ],
-  "inputs_sha256": "c0cbe6f2426d3cb81b68275446169ace6e0a78ea1ffc0abc7283c96ae3f1efdd",
+  "inputs_sha256": "13286300b16f8abaeb57988d8877b05f37cb8433ca591236bc13a5eaf315a3fe",
   "briefs": [
     {
       "fixture": "general-service-quick",

@@ -92,14 +92,18 @@ export function captureNamesWorkflow(text: unknown): boolean {
 }
 
 /**
- * The project a capture's header names (`[project:<code or name>]`, written by the New work form),
+ * The project a capture's header names (`[project:<code or name>]`, or `[project-id:<id>]` for a
+ * workspace project, both written by the New work form),
  * or undefined. The value may contain spaces and brackets; two different project tags are no
  * project at all. Only the first line is read.
  */
 export function captureProject(text: unknown): string | undefined {
   const tags = captureTags(text);
   if (!tags) return undefined;
-  const found = new Set(tags.filter((t) => t.key === "project").map((t) => t.value.trim()).filter(Boolean));
+  // A workspace id wins over a name, because promotion files the drafts under that id.
+  const values = (key: string) => new Set(tags.filter((t) => t.key === key).map((t) => t.value.trim()).filter(Boolean));
+  const ids = values("project-id");
+  const found = ids.size ? ids : values("project");
   return found.size === 1 ? [...found][0] : undefined;
 }
 

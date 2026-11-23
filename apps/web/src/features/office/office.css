@@ -69,11 +69,11 @@
 .office-plate-name {
   font-size: 12px;
   font-weight: 600;
-  color: var(--text, #e8f0f8);
+  color: #e8f0f8;
 }
 .office-plate-label {
   font-size: 11px;
-  color: var(--text-2, #c5d0dc);
+  color: #c5d0dc;
 }
 .office-figure {
   position: absolute;
@@ -159,7 +159,7 @@
   font-size: 10px;
   font-weight: 600;
   line-height: 10px;
-  color: var(--text, #e8f0f8);
+  color: #e8f0f8;
 }
 .office-figure-code {
   /* Tucked up over the outline's foot, so a figure stays within its seat clearance (layout.ts),
@@ -174,7 +174,7 @@
   line-height: 1;
   padding: 2px 3px;
   border-radius: 4px;
-  color: var(--text, #e8f0f8);
+  color: #e8f0f8;
   background: var(--office-plate);
   box-shadow: 0 0 0 2px var(--office-ring);
   white-space: nowrap;

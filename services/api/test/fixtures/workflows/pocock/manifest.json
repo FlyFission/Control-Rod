@@ -1,0 +1,34 @@
+{
+  "workflow": "pocock",
+  "upstream": "https://example.test/pocock",
+  "commit": "7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c",
+  "license": "MIT",
+  "generated_by": "fixture generate.mjs",
+  "skills": {
+    "grilling": [
+      "reference/grilling/SKILL.md"
+    ],
+    "to-tickets": [
+      "reference/to-tickets/SKILL.md"
+    ],
+    "tdd": [
+      "reference/tdd/SKILL.md",
+      "reference/tdd/deep-modules.md"
+    ],
+    "retro": [
+      "reference/retro/SKILL.md"
+    ],
+    "code-review": [
+      "reference/code-review/SKILL.md"
+    ]
+  },
+  "files": {
+    "LICENSE": "sha256:4b76dfe2672e6a131cc05a8ce600a5b75ab049a1088707ae297f622301d577ba",
+    "reference/grilling/SKILL.md": "sha256:895e8dd112660a2c15d3b4f0c8d40cafffb5ee53663fd424bf70276b1a74a2cb",
+    "reference/to-tickets/SKILL.md": "sha256:32b141c77d6b53fb4d01aed45c2bba7856fd6e02d232dc715faeff755d467248",
+    "reference/tdd/SKILL.md": "sha256:903c681382761aa4fcd6e015a9d00ded10f1d34059b910dccd9071227f1a7d72",
+    "reference/tdd/deep-modules.md": "sha256:d4f8c1bcc03a4fbefbdbedd5369517c4cf02f6756a95ce68d973ac01e378bdf4",
+    "reference/retro/SKILL.md": "sha256:9dee5ae9dc3ad285c625f00d09b1de57e90a2dc8fd0c25216de1f1c34477d4bf",
+    "reference/code-review/SKILL.md": "sha256:556699037a0206b17bfc4911b75b0aee09b35f237063f33a5f4092be0ac44db3"
+  }
+}

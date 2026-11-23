@@ -56,7 +56,7 @@ Watch your agents across one facility drawn in plan. Each figure's state comes f
 ### And the rest
 
 - **Today** gathers what needs you and what is running.
-- **Compare** puts two candidate packages side by side before you decide, and **Explore** saves checkpoints of a repository you're working in.
+- **Compare** puts two candidate packages side by side before you decide, and **Snapshots** saves checkpoints of a repository you're working in.
 - **Usage** shows whether agents are earning their place: acceptance, findings caught before review, and time to done.
 - **Records** keep who did, checked and approved what, and `pnpm cr verify` checks an exported record offline.
 - **Software** and **Capital Projects** modes run the same discipline on a code change or an engineering deliverable such as a calculation package.

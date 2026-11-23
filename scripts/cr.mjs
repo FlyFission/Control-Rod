@@ -101,7 +101,7 @@ function agentRunProblems() {
   return problems;
 }
 
-function doctor() {
+function doctor({ agents = false } = {}) {
   // The bundled PostgreSQL refuses to run as root, and it fails with a stack trace well after setup has
   // built everything. Catch it first, unless the caller brings their own database.
   if (typeof process.getuid === "function" && process.getuid() === 0 && !process.env.CONTROLROD_DATABASE_URL) {
@@ -135,6 +135,7 @@ function doctor() {
         "\nagent until the sandbox can hold, and it says why.",
     );
   }
+  if (agents && which("go")) agentChecks();
   if (!which("claude")) console.log("\nInstall Claude Code and sign in so agents can run on your subscription.");
   if (!which("codex")) {
     console.log(
@@ -145,6 +146,26 @@ function doctor() {
     );
   }
   return ok;
+}
+
+/**
+ * Runs the daemon's own startup checks for each agent CLI (`controlrod runtimes`): sign-in, the
+ * sandbox preflight and, for Codex, whether this version turns on anything Control Rod has not
+ * qualified. So doctor says what the daemon will refuse before anything starts. Uses the built
+ * daemon when there is one; otherwise compiles it once with `go run`.
+ */
+function agentChecks() {
+  const built = join(bin, "controlrod");
+  const r = existsSync(built)
+    ? spawnSync(built, ["runtimes"], { encoding: "utf8", timeout: 120000 })
+    : spawnSync("go", ["run", "./cmd/controlrod", "runtimes"], { cwd: join(root, "daemon"), encoding: "utf8", timeout: 300000 });
+  const out = (r.stdout ?? "").trim();
+  if (r.status !== 0 || !out) {
+    console.log("--    agents: the daemon's checks could not run here; `pnpm cr start` reports each agent when it starts");
+    return;
+  }
+  console.log("\nAgents, as the daemon will find them:");
+  console.log(out);
 }
 
 function newer(src, out) {
@@ -239,7 +260,7 @@ function verify(files) {
 }
 
 const cmd = process.argv[2] ?? "start";
-if (cmd === "doctor") process.exit(doctor() ? 0 : 1);
+if (cmd === "doctor") process.exit(doctor({ agents: true }) ? 0 : 1);
 else if (cmd === "setup") setup();
 else if (cmd === "start") await start();
 else if (cmd === "verify") verify(process.argv.slice(3).map((f) => resolve(process.env.INIT_CWD ?? process.cwd(), f)));

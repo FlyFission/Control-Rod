@@ -1,0 +1,233 @@
+{
+ "input_sha256": "e1e4c00be697df5ca1114e2bcc7a38a16a6592595a0607dc39e60a4739e9a089",
+ "ranked": [
+  {
+   "id": "N2",
+   "name": "Know the result is actually right before I merge",
+   "top3": 46,
+   "any": 57,
+   "weighted": 51.5,
+   "weakness": 2,
+   "effort": 1,
+   "score": 103.0
+  },
+  {
+   "id": "N9",
+   "name": "A record I can show a client, auditor or boss",
+   "top3": 27,
+   "any": 30,
+   "weighted": 28.5,
+   "weakness": 2,
+   "effort": 1,
+   "score": 57.0
+  },
+  {
+   "id": "N5",
+   "name": "Use the subscriptions I already pay for, see limits and cost",
+   "top3": 42,
+   "any": 71,
+   "weighted": 56.5,
+   "weakness": 2,
+   "effort": 2,
+   "score": 56.5
+  },
+  {
+   "id": "N8",
+   "name": "Plain language; works for people who do not live in git",
+   "top3": 30,
+   "any": 30,
+   "weighted": 30.0,
+   "weakness": 2,
+   "effort": 2,
+   "score": 30.0
+  },
+  {
+   "id": "N6",
+   "name": "Keep context across sessions, crashes and handoffs",
+   "top3": 17,
+   "any": 37,
+   "weighted": 27.0,
+   "weakness": 1,
+   "effort": 2,
+   "score": 13.5
+  },
+  {
+   "id": "N14",
+   "name": "Local, private, no telemetry, local models",
+   "top3": 5,
+   "any": 21,
+   "weighted": 13.0,
+   "weakness": 1,
+   "effort": 1,
+   "score": 13.0
+  },
+  {
+   "id": "N1",
+   "name": "See what needs me now across many agents",
+   "top3": 20,
+   "any": 31,
+   "weighted": 25.5,
+   "weakness": 1,
+   "effort": 2,
+   "score": 12.75
+  },
+  {
+   "id": "N12",
+   "name": "Turn a goal into tasks on the board for me",
+   "top3": 10,
+   "any": 38,
+   "weighted": 24.0,
+   "weakness": 1,
+   "effort": 2,
+   "score": 12.0
+  },
+  {
+   "id": "N4",
+   "name": "Install in a minute on my OS (Windows, Linux, Mac)",
+   "top3": 28,
+   "any": 43,
+   "weighted": 35.5,
+   "weakness": 1,
+   "effort": 3,
+   "score": 11.83
+  },
+  {
+   "id": "N3",
+   "name": "Review diffs fast without drowning",
+   "top3": 32,
+   "any": 32,
+   "weighted": 32.0,
+   "weakness": 1,
+   "effort": 3,
+   "score": 10.67
+  },
+  {
+   "id": "N13",
+   "name": "Team visibility and handoff",
+   "top3": 20,
+   "any": 26,
+   "weighted": 23.0,
+   "weakness": 1,
+   "effort": 3,
+   "score": 7.67
+  },
+  {
+   "id": "N10",
+   "name": "Any agent CLI, no vendor lock-in",
+   "top3": 11,
+   "any": 20,
+   "weighted": 15.5,
+   "weakness": 0,
+   "effort": 2,
+   "score": 0.0
+  },
+  {
+   "id": "N7",
+   "name": "Parallel work without collisions (worktrees, ports)",
+   "top3": 8,
+   "any": 24,
+   "weighted": 16.0,
+   "weakness": 0,
+   "effort": 2,
+   "score": 0.0
+  },
+  {
+   "id": "N11",
+   "name": "Drop into the terminal and steer when it goes wrong",
+   "top3": 4,
+   "any": 21,
+   "weighted": 12.5,
+   "weakness": 0,
+   "effort": 3,
+   "score": 0.0
+  }
+ ],
+ "by_coverage": [
+  {
+   "id": "N2",
+   "top3": 46,
+   "any": 57
+  },
+  {
+   "id": "N5",
+   "top3": 42,
+   "any": 71
+  },
+  {
+   "id": "N3",
+   "top3": 32,
+   "any": 32
+  },
+  {
+   "id": "N8",
+   "top3": 30,
+   "any": 30
+  },
+  {
+   "id": "N4",
+   "top3": 28,
+   "any": 43
+  },
+  {
+   "id": "N9",
+   "top3": 27,
+   "any": 30
+  },
+  {
+   "id": "N1",
+   "top3": 20,
+   "any": 31
+  },
+  {
+   "id": "N13",
+   "top3": 20,
+   "any": 26
+  },
+  {
+   "id": "N6",
+   "top3": 17,
+   "any": 37
+  },
+  {
+   "id": "N10",
+   "top3": 11,
+   "any": 20
+  },
+  {
+   "id": "N12",
+   "top3": 10,
+   "any": 38
+  },
+  {
+   "id": "N7",
+   "top3": 8,
+   "any": 24
+  },
+  {
+   "id": "N14",
+   "top3": 5,
+   "any": 21
+  },
+  {
+   "id": "N11",
+   "top3": 4,
+   "any": 21
+  }
+ ],
+ "top5_stability": {
+  "N2": "28/28",
+  "N5": "28/28",
+  "N8": "28/28",
+  "N9": "28/28",
+  "N6": "21/28",
+  "N14": "2/28",
+  "N1": "1/28",
+  "N3": "1/28",
+  "N4": "1/28",
+  "N12": "1/28",
+  "N13": "1/28",
+  "N7": "0/28",
+  "N10": "0/28",
+  "N11": "0/28"
+ }
+}

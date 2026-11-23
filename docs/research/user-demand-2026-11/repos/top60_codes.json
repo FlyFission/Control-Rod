@@ -1,0 +1,17 @@
+{"note":"Hand coding of the 60 most-reacted issues across 15 repos (index into top60.json). Judgment, recorded so it can be challenged.",
+"codes":{
+"Bring any model or agent to the table (adapters, providers, fallback)":[0,2,5,8,9,20,23,38,50],
+"Reach the same agents from anywhere (phone, SSH, other windows, chat apps)":[4,11,15,35,51,58],
+"Simpler, out of the way, an off switch":[1,14,22,33,49,53],
+"Enterprise plumbing (SSO, self-hosted Git, Jira, issue sync)":[19,28,29,31,45,59],
+"Terminal polish and performance":[12,43,52,54,56,57],
+"Workflows, specs, loops, shared knowledge":[10,27,36,42,55],
+"Linux and Windows parity":[6,17,32,47],
+"Upstream API breakage":[24,25,34],
+"Worktrees and multi-repo":[30,37,46],
+"Resume sessions after reboot":[7,16],
+"Chat with agents":[3],
+"Notifications when an agent needs you":[40],
+"Clear usage limits":[39],
+"Safety hook before tool runs":[18],
+"Other (roadmap posts, licence, jokes, plugin system, stuck)":[13,21,26,41,44,48]}}

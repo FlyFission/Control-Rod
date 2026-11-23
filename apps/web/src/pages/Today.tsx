@@ -46,12 +46,12 @@ export function Today() {
             {awaitingHuman.length === 0 ? (
               <p className="muted">Nothing awaiting a decision right now.</p>
             ) : (
-              <ul style={{ paddingLeft: "1.2rem" }}>
+              <ul className="today-list">
                 {awaitingHuman.map((p) => (
-                  <li key={p.id}>
-                    <Link to="/packages/$id" params={{ id: p.id }}>
+                  <li key={p.id} className="today-row">
+                    <Link to="/packages/$id" params={{ id: p.id }} className="today-link">
                       {p.title || p.id}
-                    </Link>{" "}
+                    </Link>
                     <span className="pill">{p.status}</span>
                   </li>
                 ))}

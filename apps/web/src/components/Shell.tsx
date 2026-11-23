@@ -84,6 +84,13 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
     enabled: Boolean(projectUser),
     retry: false,
   });
+  const scramsQuery = useQuery({
+    queryKey: ["scrams", false],
+    queryFn: () => api.scrams(false),
+    retry: false,
+    staleTime: 10_000,
+  });
+  const scramActive = (scramsQuery.data?.scrams.length ?? 0) > 0;
   useEffect(() => {
     if (serverProjects.data) {
       hydrateServerProjects(projectUser, serverProjects.data);
@@ -168,7 +175,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
   }
 
   return (
-    <div className="shell" data-look={look} data-mode={mode}>
+    <div className="shell" data-look={look} data-mode={mode} data-scram={scramActive ? "active" : undefined}>
       <a className="skip" href="#main">
         Skip to content
       </a>
@@ -297,6 +304,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
         <AgentUpdates />
         <header className="topbar">
           <div className="top-left">
+            <span className="console-live-dot" aria-hidden="true" />
             <span className="crumb">{activePlace?.label ?? "Control Rod"}</span>
             <details
               className="workspace-options"
@@ -365,7 +373,7 @@ function WorkspaceShell({ session, children }: { session: Session; children: Rea
               <kbd>{shortcut}</kbd>
             </button>
 
-            <Link to="/office" className="btn small danger">
+            <Link to="/office" className="btn small danger topbar-scram">
               SCRAM
             </Link>
           </div>

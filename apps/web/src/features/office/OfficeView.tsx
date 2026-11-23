@@ -149,7 +149,7 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
   const open = floor?.figures.find((f) => f.id === selected);
 
   return (
-    <section className="office-view" aria-labelledby="office-title">
+    <section className="office-view" aria-labelledby="office-title" data-scram-active={scrams.data?.scrams.length ? "" : undefined}>
       <header className="office-head">
         <div className="plant-title">
           <h1 id="office-title">Plant</h1>

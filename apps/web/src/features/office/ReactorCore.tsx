@@ -83,30 +83,45 @@ export function ReactorCore({ core, rods }: { core: CoreState; rods: RodState })
   const lit = core.lit === true;
   const state = core.lit === null ? "unknown" : lit ? "lit" : "dark";
   const ticks: string[] = [];
+  const cardinalTicks: string[] = [];
   for (let a = 0; a < 360; a += 10) {
     const t = (a * Math.PI) / 180;
-    const long = a % 30 === 0;
+    const cardinal = a % 90 === 0;
+    const major = a % 30 === 0;
     const r0 = CONTAINMENT + 3;
-    const r1 = CONTAINMENT + (long ? 9 : 6);
-    ticks.push(`M${(CX + Math.cos(t) * r0).toFixed(1)} ${(CY + Math.sin(t) * r0).toFixed(1)}L${(CX + Math.cos(t) * r1).toFixed(1)} ${(CY + Math.sin(t) * r1).toFixed(1)}`);
+    const r1 = CONTAINMENT + (cardinal ? 12 : major ? 8.5 : 5.5);
+    const seg = `M${(CX + Math.cos(t) * r0).toFixed(1)} ${(CY + Math.sin(t) * r0).toFixed(1)}L${(CX + Math.cos(t) * r1).toFixed(1)} ${(CY + Math.sin(t) * r1).toFixed(1)}`;
+    if (cardinal) cardinalTicks.push(seg);
+    else ticks.push(seg);
+  }
+  const bolts: { x: number; y: number }[] = [];
+  for (let a = 0; a < 360; a += 15) {
+    const t = (a * Math.PI) / 180;
+    bolts.push({
+      x: CX + Math.cos(t) * (VESSEL + 2.2),
+      y: CY + Math.sin(t) * (VESSEL + 2.2),
+    });
   }
   return (
     <svg className="plant-core-svg" viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" data-lit={state} data-rods={rods.position}>
       <defs>
         <radialGradient id={`${id}-cherenkov`} cx="50%" cy="50%" r="50%">
-          <stop offset="0" stopColor="#7fd0ff" stopOpacity="0.85" />
-          <stop offset="0.45" stopColor="#2f8cff" stopOpacity="0.38" />
-          <stop offset="1" stopColor="#1a4fbf" stopOpacity="0" />
+          <stop offset="0" stopColor="#b8eeff" stopOpacity="0.92" />
+          <stop offset="0.32" stopColor="#5cc4ff" stopOpacity="0.62" />
+          <stop offset="0.62" stopColor="#1e74e6" stopOpacity="0.28" />
+          <stop offset="0.86" stopColor="#0d3588" stopOpacity="0.09" />
+          <stop offset="1" stopColor="#091f5c" stopOpacity="0" />
         </radialGradient>
         <radialGradient id={`${id}-concrete`} cx="50%" cy="50%" r="50%">
-          <stop offset="0.82" stopColor="#0c131c" />
-          <stop offset="0.9" stopColor="#2a3a4c" />
-          <stop offset="0.97" stopColor="#1a2532" />
-          <stop offset="1" stopColor="#0b1119" />
+          <stop offset="0.8" stopColor="#0a111a" />
+          <stop offset="0.88" stopColor="#2c3e52" />
+          <stop offset="0.95" stopColor="#1b2736" />
+          <stop offset="1" stopColor="#091018" />
         </radialGradient>
-        <radialGradient id={`${id}-pool`} cx="50%" cy="45%" r="55%">
-          <stop offset="0" stopColor="#0d2338" />
-          <stop offset="1" stopColor="#060d16" />
+        <radialGradient id={`${id}-pool`} cx="50%" cy="44%" r="56%">
+          <stop offset="0" stopColor="#102a44" />
+          <stop offset="0.65" stopColor="#091726" />
+          <stop offset="1" stopColor="#050b13" />
         </radialGradient>
         <filter id={`${id}-bloom`} x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur stdDeviation="5" />
@@ -115,24 +130,43 @@ export function ReactorCore({ core, rods }: { core: CoreState; rods: RodState })
           <feGaussianBlur stdDeviation="1.4" />
         </filter>
       </defs>
-      {/* Containment: the concrete shell with its buttresses and graduation ring. */}
-      <circle cx={CX} cy={CY} r={CONTAINMENT} fill={`url(#${id}-concrete)`} stroke="#4a6580" strokeWidth="1.2" />
+      {/* Containment: the concrete shell with its buttresses and azimuth graduation ring. */}
+      <circle cx={CX} cy={CY} r={CONTAINMENT} fill={`url(#${id}-concrete)`} stroke="#526f8c" strokeWidth="1.2" />
       {[45, 135, 225, 315].map((a) => (
         <rect key={a} className="plant-core-buttress" x={CX + CONTAINMENT - 4} y={CY - 5} width="9" height="10" rx="1.5" transform={`rotate(${a} ${CX} ${CY})`} />
       ))}
       <path className="plant-core-ticks" d={ticks.join("")} />
-      <circle cx={CX} cy={CY} r={CONTAINMENT - 9} fill={`url(#${id}-pool)`} stroke="#5b7a99" strokeWidth="0.8" />
+      <path className="plant-core-ticks-cardinal" d={cardinalTicks.join("")} />
+      <circle cx={CX} cy={CY} r={CONTAINMENT - 9} fill={`url(#${id}-pool)`} stroke="#5d7fa0" strokeWidth="0.9" />
+      {/* Four primary coolant loop nozzles linking the pressure vessel to the biological shield. */}
+      {[45, 135, 225, 315].map((a) => (
+        <g key={`nozzle-${a}`} className="plant-core-nozzle" transform={`rotate(${a} ${CX} ${CY})`}>
+          <rect className="plant-core-nozzle-body" x={CX + VESSEL - 1} y={CY - 5.5} width="16.5" height="11" rx="1.4" />
+          <rect className="plant-core-nozzle-flange" x={CX + VESSEL + 3.2} y={CY - 6.8} width="3" height="13.6" rx="0.8" />
+          <rect className="plant-core-coolant" x={CX + VESSEL - 2} y={CY - 1.9} width="17.5" height="3.8" rx="1.2" />
+        </g>
+      ))}
       {/* The polar crane: a ring rail and its bridge, turning slowly while the core is lit. */}
       <g className="plant-core-crane">
         <circle cx={CX} cy={CY} r={CONTAINMENT - 14} fill="none" stroke="#33485f" strokeWidth="2" strokeDasharray="3 4" />
         <rect x={CX - CONTAINMENT + 14} y={CY - 3} width={(CONTAINMENT - 14) * 2} height="6" fill="#1b2837" stroke="#4a6580" strokeWidth="0.8" opacity="0.85" />
         <rect x={CX + 18} y={CY - 6} width="12" height="12" rx="1.5" fill="#2a3b4f" stroke="#6f8ba8" strokeWidth="0.8" />
       </g>
-      {/* The glow in the water around the core. */}
-      <circle className="plant-core-glow" cx={CX} cy={CY} r={VESSEL + 22} fill={`url(#${id}-cherenkov)`} />
-      {/* The vessel. */}
+      {/* The glow and subtle caustic ring in the pool water around the core. */}
+      <circle className="plant-core-glow" cx={CX} cy={CY} r={VESSEL + 24} fill={`url(#${id}-cherenkov)`} />
+      <circle className="plant-core-caustic" cx={CX} cy={CY} r={VESSEL + 11} fill="none" />
+      {/* Dramatic double-ringed crimson trip halo, visible only when rods are inserted. */}
+      <circle className="plant-core-trip-ring" cx={CX} cy={CY} r={VESSEL + 7.5} fill="none" />
+      {/* Pressure vessel flange, bolt circle, vessel wall and thermal shield barrel. */}
+      <circle className="plant-core-flange" cx={CX} cy={CY} r={VESSEL + 4.4} />
+      <g className="plant-core-bolts">
+        {bolts.map((b, i) => (
+          <circle key={i} className="plant-core-stud" cx={b.x.toFixed(1)} cy={b.y.toFixed(1)} r="0.95" />
+        ))}
+      </g>
       <circle className="plant-core-vessel" cx={CX} cy={CY} r={VESSEL} />
-      <circle cx={CX} cy={CY} r={VESSEL - 4} fill="#050b13" stroke="#24364a" strokeWidth="1" />
+      <circle className="plant-core-trip-ring-inner" cx={CX} cy={CY} r={VESSEL - 2.2} fill="none" />
+      <circle cx={CX} cy={CY} r={VESSEL - 4} fill="#050b13" stroke="#283d54" strokeWidth="1" />
       {/* Bloom: a blurred copy of the lit assemblies under the sharp ones. */}
       <g className="plant-core-bloom" filter={`url(#${id}-bloom)`}>
         {LATTICE.map((c) => (
@@ -143,6 +177,9 @@ export function ReactorCore({ core, rods }: { core: CoreState; rods: RodState })
         {LATTICE.map((c) => (
           <polygon key={`${c.q},${c.r}`} className="plant-core-cell" points={hexPath(c.x, c.y, HEX)} style={lit ? { fill: litColour(c.heat) } : undefined} />
         ))}
+        {LATTICE.filter((c) => c.ring <= 2).map((c) => (
+          <circle key={`g${c.q},${c.r}`} className="plant-core-glint" cx={c.x} cy={c.y} r={c.ring === 0 ? 1.9 : 1.15} />
+        ))}
       </g>
       {rods.position !== "unknown" && (
         <g className="plant-core-rods">
@@ -150,7 +187,7 @@ export function ReactorCore({ core, rods }: { core: CoreState; rods: RodState })
             const inserted = rodInserted(rods.position, c.rod as "a" | "b");
             return (
               <g key={`rod-${c.q},${c.r}`}>
-                {inserted && <circle className="plant-core-rod-halo" cx={c.x} cy={c.y} r={4.2} filter={`url(#${id}-soft)`} />}
+                {inserted && <circle className="plant-core-rod-halo" cx={c.x} cy={c.y} r={4.8} filter={`url(#${id}-soft)`} />}
                 <circle
                   className="plant-core-rod"
                   data-inserted={inserted ? "" : undefined}
@@ -159,6 +196,7 @@ export function ReactorCore({ core, rods }: { core: CoreState; rods: RodState })
                   cy={c.y}
                   r={2.6}
                 />
+                {inserted && <circle className="plant-core-rod-core" cx={c.x} cy={c.y} r={1.1} />}
               </g>
             );
           })}

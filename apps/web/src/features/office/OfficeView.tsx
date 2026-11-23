@@ -278,7 +278,16 @@ export function OfficeView({ drafts = draftBuild() }: { drafts?: boolean } = {})
         ))}
       </ul>
 
-      {q.isError ? (
+      {q.isError && floor && (
+        // A failed refresh keeps the last reading on screen, marked "as of", never a blank error.
+        <div className="office-error" role="status">
+          <p>The last refresh failed. Showing the reading {coreState(floorRead).asOf ?? "from before"}.</p>
+          <button type="button" className="btn small" onClick={() => void q.refetch()}>
+            Try again
+          </button>
+        </div>
+      )}
+      {q.isError && !floor ? (
         <div className="office-error" role="alert">
           <p>The office floor could not be loaded, so nothing here is shown as empty.</p>
           <button type="button" className="btn small" onClick={() => void q.refetch()}>

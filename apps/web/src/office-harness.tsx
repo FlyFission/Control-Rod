@@ -123,7 +123,7 @@ function Harness() {
       </div>
       {layoutOf(theme).id === "plant" && (
         <div style={{ marginBottom: 12 }}>
-          <Annunciator windows={windows} linkInbox={false} />
+          <Annunciator windows={windows} linkInbox={false} {...(params.get("flash") ? { flashMs: Number(params.get("flash")) } : {})} />
         </div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 260px", gap: 16, alignItems: "start" }}>

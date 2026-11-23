@@ -65,4 +65,22 @@ describe("the annunciator's announcements and flash", () => {
     act(() => setState("unavailable"));
     expect(flashing()).toBe(false);
   });
+
+  it("never arms a flash for a change that lands while the tab is hidden", async () => {
+    await renderPage(<Driven />);
+    const hide = (hidden: boolean) => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => (hidden ? "hidden" : "visible") });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+    try {
+      act(() => hide(true));
+      act(() => setState("lit"));
+      expect(status()).toBe("Stuck lit");
+      expect(flashing()).toBe(false);
+      act(() => hide(false));
+      expect(flashing()).toBe(false);
+    } finally {
+      delete (document as { visibilityState?: unknown }).visibilityState;
+    }
+  });
 });

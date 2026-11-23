@@ -38,9 +38,10 @@ const FLASH_MS = 2400;
 /**
  * `scope` names which agents the windows count (presenting hides restricted work); when it changes the
  * next reading is a new first reading, not news, so hiding work is never announced as "clear".
- * `linkInbox` is false only where no router exists (the theme harness page).
+ * `linkInbox` is false only where no router exists (the theme harness page). `flashMs` is set only by
+ * the harness, so its test can prove a flash ends with the tab hidden and not by its timer.
  */
-export function Annunciator({ windows, scope = "", linkInbox = true }: { windows: readonly AnnunciatorWindow[]; scope?: string; linkInbox?: boolean }) {
+export function Annunciator({ windows, scope = "", linkInbox = true, flashMs = FLASH_MS }: { windows: readonly AnnunciatorWindow[]; scope?: string; linkInbox?: boolean; flashMs?: number }) {
   const visible = useVisible();
   // The last confirmed reading of each window: lit or dark. Loading and unavailable confirm nothing,
   // so a window that loses its read is never announced as clear, nor flashes when the read returns.
@@ -65,9 +66,11 @@ export function Annunciator({ windows, scope = "", linkInbox = true }: { windows
     const off = windows.filter((w) => w.state === "dark" && before.get(w.id) === "lit");
     if (on.length + off.length === 0) return;
     setAnnouncement([...on.map((w) => `${w.label} lit`), ...off.map((w) => `${w.label} clear`)].join(". "));
-    if (on.length === 0) return;
+    // A change that lands while the tab is hidden is announced and becomes the baseline, but never
+    // arms a flash: nobody sees it, and it must not play when the tab comes back.
+    if (on.length === 0 || document.visibilityState === "hidden") return;
     setFlashing(new Set(on.map((w) => w.id)));
-    const t = setTimeout(() => setFlashing(new Set()), FLASH_MS);
+    const t = setTimeout(() => setFlashing(new Set()), flashMs);
     // A newer change cancels this flash outright, so it can never play again when motion resumes.
     return () => {
       clearTimeout(t);

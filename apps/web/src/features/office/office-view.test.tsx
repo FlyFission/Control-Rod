@@ -181,6 +181,30 @@ describe("office view", () => {
   });
 });
 
+describe("a failed refresh", () => {
+  beforeEach(() => server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] }))));
+  it("keeps the last reading on screen, marked as of when it was read, and offers to try again", async () => {
+    let calls = 0;
+    server.use(
+      http.get("*/office/figures", () =>
+        calls++ === 0
+          ? HttpResponse.json({ figures: [figure()], needs_me: 0, inbox_items: 0, hidden: 0, generated_at: new Date().toISOString() })
+          : HttpResponse.json({ code: "boom", message: "down" }, { status: 500 }),
+      ),
+    );
+    const { qc } = await renderPage(<OfficeView />);
+    expect(await screen.findByText("1 agent in the plant")).toBeTruthy();
+    await qc.refetchQueries({ queryKey: ["office-figures"] });
+    const note = await screen.findByText(/^The last refresh failed\. Showing the reading as of /);
+    expect(note).toBeTruthy();
+    // The floor stays drawn, its figure still there, and the core says the reading is not current.
+    expect(screen.getByRole("button", { name: /^WP-0001: / })).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "Reactor building" })).getByText(/^1 agent working, as of /)).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+});
+
 describe("exceptions overlay and portfolio (OV-26)", () => {
   beforeEach(() => server.use(http.get("*/scrams", () => HttpResponse.json({ scrams: [] }))));
   const many = () => [

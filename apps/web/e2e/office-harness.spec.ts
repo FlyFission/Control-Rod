@@ -378,7 +378,10 @@ test.describe("office theme quality harness", () => {
         await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(moving);
         if (OFFICE_THEMES.find((t) => t.id === theme)?.layout === "plant") {
           // A window that comes on flashes; hiding the tab ends the flash at once, so showing it again
-          // well inside the flash's 2.4 s never restarts it.
+          // never restarts it. The flash's timer is set to ten minutes here, so the flash can only have
+          // ended because the tab hid.
+          await open(page, `theme=${theme}&agents=40&flash=600000`);
+          await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBe(moving);
           await page.locator('[data-harness="scram"]').click();
           await expect(page.locator('.plant-window[data-window="scram"][data-flash]')).toHaveCount(1);
           await expect.poll(() => page.evaluate(() => document.getAnimations().length)).toBeGreaterThan(moving);

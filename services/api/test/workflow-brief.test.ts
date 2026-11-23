@@ -355,6 +355,25 @@ describe("workflows at intake", () => {
     expect((await bodyOf(await idEnding("PROJA"))).workflow).toBe("pocock");
   });
 
+  it("runs the playbook for an ambiguous workflow tag, never the named project's default", async () => {
+    const text = "[mode:software] [project:Ambiguous Works] [workflow:pocock] [workflow:unknown]\n\nBuild";
+    const cap = await asOwner("POST", "/captures", { lane: "internal", text });
+    expect(cap.statusCode, cap.body).toBe(201);
+    const capId = (cap.json() as { id: string }).id;
+    const org = (await h.admin.query<{ org_id: string }>("select org_id from object_owners where object_kind = 'capture' and object_id = $1", [capId])).rows[0]!.org_id;
+    await h.admin.query("insert into projects (body) values ($1)", [{ id: "prj_wf_ambiguous", org_id: org, name: "Ambiguous Works", default_workflow: "superpowers" }]);
+    const job = await claim();
+    expect(job).toBeTruthy();
+    expect(input(job!, "BRIEF.md")).not.toContain("Workflow:");
+    expect(await workflowEvents(job!.run.id)).toEqual([]);
+    const r = await asDaemon(`/runner/runs/${job!.run.id}/complete`, {
+      status: "succeeded",
+      outputs: [{ name: "packages/a.json", content_base64: b64(JSON.stringify(draft("AMBIG", "standard", { workflow: "superpowers" }))) }],
+    });
+    expect(r.statusCode, r.body).toBeLessThan(300);
+    expect((await bodyOf(await idEnding("AMBIG"))).workflow).toBe("playbook");
+  });
+
   it("runs the playbook when the named project is not one of the request's organization's", async () => {
     // A real project of another organization, with a default, carries that name.
     await h.admin.query("insert into organizations (body) values ($1) on conflict do nothing", [{ id: "org_wf_other", name: "Other" }]);

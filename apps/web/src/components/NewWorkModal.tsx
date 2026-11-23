@@ -309,17 +309,24 @@ export function NewWorkModal({ open, mode, onClose }: NewWorkModalProps) {
       setError("Enter an objective or scope before capturing.");
       return;
     }
-    // Header values sit inside [key:value] tags, so a bracket in one would end its tag early and
-    // could smuggle in another (the API reads only top-level tags).
-    if (/[[\]]/.test(project)) {
-      setError("A project name can't contain [ or ].");
-      return;
-    }
-    if (preparedPath && /[[\]]/.test(preparedPath)) {
-      setError("This workspace's path contains [ or ], which a request can't carry. Prepare it in a folder without brackets.");
-      return;
-    }
+    // Header values sit inside [key:value] tags, so a bracket in any value would end its tag early
+    // and could smuggle in another (the API reads only top-level tags). Every free value is checked:
+    // what the person typed, the clone's folder name, the branch and the prepared path.
     const submittedBranch = preparedBranch ?? effectiveBranch;
+    const bracketed = (v: string | null | undefined) => !!v && /[[\]]/.test(v);
+    const refused = bracketed(project)
+      ? "A project name can't contain [ or ]."
+      : repo && bracketed(repo)
+        ? "This repository's name contains [ or ], which a request can't carry. Rename the folder or pick another."
+        : repo && bracketed(submittedBranch)
+          ? "A branch name can't contain [ or ]."
+          : bracketed(preparedPath)
+            ? "This workspace's path contains [ or ], which a request can't carry. Prepare it in a folder without brackets."
+            : null;
+    if (refused) {
+      setError(refused);
+      return;
+    }
     const header = [
       `[mode:${mode}]`,
       project.trim() ? `[project:${project.trim()}]` : null,

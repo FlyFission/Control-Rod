@@ -19,7 +19,7 @@ import { budgetOfHold, minutesUp, noteBudgetCrossings, reserveForRun, settleEnde
 import { bindingSentence } from "./binding.js";
 import { RULES, briefHeader, composeBrief } from "./brief.js";
 import { loadNuclearPack, nuclearBriefSections, resolveContextProfile, selectClusters } from "./context-profile.js";
-import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureProject, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
+import { type PackWorkflow, type Workflow, type WorkflowPacks, WORKFLOWS, captureNamesWorkflow, captureProject, captureWorkflow, loadWorkflowPacks, resolveWorkflow, workflowBriefSections, workflowPackCommits } from "./workflow.js";
 import { Refusal } from "./refusal.js";
 import { ACTION_ROLES, type SignerAction, highConsequence, holdsHardwareKey, lockSigner, needsOf, requireAuthority, requireHardwareKey, signingGaps } from "./authority.js";
 import { teach } from "./refusals.js";
@@ -971,6 +971,8 @@ type WorkflowResolution = {
 async function intakeWorkflow(c: Tx, captureId: string, text: unknown): Promise<ReturnType<typeof resolveWorkflow>> {
   const tagged = captureWorkflow(text);
   if (tagged) return { workflow: tagged, reason: `The request is tagged [workflow:${tagged}]` };
+  // An unknown or conflicting workflow tag is ambiguous: the playbook, never a project default.
+  if (captureNamesWorkflow(text)) return { workflow: "playbook" };
   const named = captureProject(text);
   if (!named) return { workflow: "playbook" };
   const rows = (await c.query<{ body: Json }>(

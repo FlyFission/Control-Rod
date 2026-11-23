@@ -43,4 +43,18 @@ Codex re-reviewed `bbaa385` and named the root cause behind rows 6 to 10: New wo
 | 12 | P2 | The stray-bracket parser case fails outright rather than testing a shifted boundary. | Accepted as is: with brackets refused at the source, a shifted boundary cannot come from the form. |
 | 13 | P2 | The "ambiguous tags run the playbook" test checks only the parser, not intake. | Accepted: the intake path is covered by the cross-organization and project-default tests in `test/workflow-brief.test.ts`. |
 
+## Round 4 (Codex, `bbaa385..7873210`)
+
+Round 3's row 11 was too narrow: it said other header values could not hold brackets, but a typed branch is not checked by Git until a workspace is prepared, and a local clone's folder name is free text.
+
+| # | Severity | Finding | Disposition |
+|---|---|---|---|
+| 14 | P1 | A typed branch, submitted without preparing a workspace, reaches the header before Git checks it. | Fixed: New work refuses `[` or `]` in every free header value (project, repository name, branch, prepared path). Test "refuses a branch name with brackets before any workspace is prepared, so a branch can never carry a tag". |
+| 15 | P1 | A local clone's folder name reaches the header unchecked. | Fixed by the same guard. Test "refuses a local clone whose folder name has brackets, so a folder name can never carry a tag". |
+| 16 | P1 | Quick add and the capture box pass the person's own text through, so a first line of tags routes the request. | Accepted, by design: the tag line is the documented way to route a request, the person writing it is the person whose request it routes, and a workflow grants no authority (it changes how work is sequenced, not who may do what or which checks run). The guard above exists so that values the person did not write as tags (names, branches, paths) can never become tags. Sending routing as structured fields is a contract change and is left for a later change with its own spec/ signature. |
+| 17 | P2 | The project-name test used a fixture the parser already rejects. | Fixed: the fixture now types `Plant] [workflow:pocock`, which without the guard would yield a well-formed workflow tag. |
+| 18 | P2 | An ambiguous workflow tag fell through to the named project's default at intake. | Fixed: `intakeWorkflow` runs the playbook whenever the header carries any workflow tag it cannot resolve (`captureNamesWorkflow`). Test "runs the playbook for an ambiguous workflow tag, never the named project's default" in `test/workflow-brief.test.ts`. |
+
+Local run after round 4: `test/workflow.test.ts`, `test/workflow-brief.test.ts`: 45 passed; `apps/web` `newwork.test.tsx`: 20 passed; both typechecks exit 0. Workflow budgets remeasured with `node scripts/measure-workflow-briefs.mjs`.
+
 Local run after both rounds (PostgreSQL 16, Linux container): `test/workflow.test.ts`, `test/workflow-brief.test.ts`, `test/workflow-real-pack.test.ts`: 56 passed. API typecheck exits 0.

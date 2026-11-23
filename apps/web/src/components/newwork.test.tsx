@@ -201,10 +201,75 @@ describe("engineering mode toggle and NewWorkModal", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /\+ New change/i }));
     await user.click(screen.getByRole("button", { name: "Advanced" }));
-    await user.type(screen.getByLabelText("Project / Workstream"), "Plant ]] [[workflow:pocock");
+    await user.type(screen.getByLabelText("Project / Workstream"), "Plant] [[workflow:pocock");
     await user.type(screen.getByLabelText(/Acceptance criteria|Design basis/i), "Add a retry.");
     await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
     expect(await screen.findByText("A project name can't contain [ or ].")).toBeTruthy();
+    expect(bodies).toEqual([]);
+  });
+
+  it("refuses a branch name with brackets before any workspace is prepared, so a branch can never carry a tag", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+    const bodies: string[] = [];
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [{ name: "Control-Rod", path: "/home/flyfission/projects/Control-Rod", branch: "main", remote_url: null, dirty: false }],
+          github: [],
+          github_error: null,
+        }),
+      ),
+      http.post("*/captures", async ({ request }) => {
+        const b = (await request.json()) as { text?: string };
+        bodies.push(b.text ?? "");
+        return HttpResponse.json({ id: "cap-c", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: b.text ?? "" });
+      }),
+    );
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Add a retry.");
+    await user.selectOptions(await screen.findByLabelText("Repository"), "Control-Rod");
+    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    await user.type(screen.getByLabelText("Branch name"), "cr/x] [[workflow:pocock");
+    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    expect(await screen.findByText("A branch name can't contain [ or ].")).toBeTruthy();
+    expect(bodies).toEqual([]);
+  });
+
+  it("refuses a local clone whose folder name has brackets, so a folder name can never carry a tag", async () => {
+    saveMode("software");
+    resetWorkDefaults("software");
+    mockDialogMethods();
+    const bodies: string[] = [];
+    const name = "CR] [workflow:pocock";
+    server.use(
+      http.get("*/inbox", () => HttpResponse.json({ items: [] })),
+      http.get("*/repos", () =>
+        HttpResponse.json({
+          workspace_root: "/home/flyfission/projects",
+          local: [{ name, path: `/home/flyfission/projects/${name}`, branch: "main", remote_url: null, dirty: false }],
+          github: [],
+          github_error: null,
+        }),
+      ),
+      http.post("*/captures", async ({ request }) => {
+        const b = (await request.json()) as { text?: string };
+        bodies.push(b.text ?? "");
+        return HttpResponse.json({ id: "cap-d", received_at: "2026-11-15T12:00:00Z", lane: "internal", source: "web", text: b.text ?? "" });
+      }),
+    );
+    await renderPage(<Shell session={ben}><p>app</p></Shell>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /\+ New change/i }));
+    await user.type(screen.getByLabelText("Scope & acceptance criteria"), "Add a retry.");
+    await user.selectOptions(await screen.findByLabelText("Repository"), name);
+    await user.click(screen.getByRole("button", { name: /^Capture (change|deliverable|packet)$/ }));
+    expect(await screen.findByText(/This repository's name contains \[ or \]/)).toBeTruthy();
     expect(bodies).toEqual([]);
   });
 

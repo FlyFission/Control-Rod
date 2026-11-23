@@ -86,6 +86,11 @@ export function captureWorkflow(text: unknown): Workflow | undefined {
   return found.size === 1 ? [...found][0] : undefined;
 }
 
+/** Whether the header carries any `[workflow:...]` tag, known, unknown or conflicting. */
+export function captureNamesWorkflow(text: unknown): boolean {
+  return (captureTags(text) ?? []).some((t) => t.key === "workflow");
+}
+
 /**
  * The project a capture's header names (`[project:<code or name>]`, written by the New work form),
  * or undefined. The value may contain spaces and brackets; two different project tags are no

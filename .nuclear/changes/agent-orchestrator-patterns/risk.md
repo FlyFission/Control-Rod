@@ -14,7 +14,7 @@
 - Owner: Ben Huffer (decision owner); drafted from the pinned `agent-orchestrator` review for Slice 1
 - Date: 2026-11-22
 - Summary: two documentation edits.
-  - Add `docs/patterns/agent-orchestrator.md` capturing ideas only from `OrchestratorInc/agent-orchestrator` (Apache-2.0, commit `7c65ce3cfc0fc0cd9c71d00ad94391d7bf2bc771`, snapshot `2026-11-22`), mapping `AO-1`–`AO-16` to `#118`–`#133` and `M5`–`M8`, listing explicit trust-model and UI exclusions, and recording battle-scar hardening test targets from `#7402`–`#8887`.
+  - Add `docs/patterns/agent-orchestrator.md` capturing ideas only from `OrchestratorInc/agent-orchestrator` (Apache-2.0, commit `7c65ce3cfc0fc0cd9c71d00ad94391d7bf2bc771`, snapshot `2026-11-22`), mapping `AO-1`–`AO-16` to `#118`–`#133` and `M5`–`M8`, listing explicit trust-model and UI exclusions, and recording battle-scar hardening test targets drawn from `agent-orchestrator` issues and PRs, each linked in the note.
   - List `agent-orchestrator.md` in `docs/patterns/README.md`.
 
 ## Scope

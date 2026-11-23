@@ -1,6 +1,6 @@
 # Verification: agent workbench pattern note
 
-Evidence status: **pass** for the checks below. The web evidence that was E-01 moved to #159 (`board-attention`).
+Evidence status: **pass** for E-02. E-03 is historical and not rerun (see its row); it is not counted as a pass for the current note, and the person's wording check is the gate. The web evidence that was E-01 moved to #159 (`board-attention`).
 
 | Evidence ID | Status | Claim and limit | Artifact |
 |---|---|---|---|

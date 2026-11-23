@@ -225,6 +225,38 @@ describe("launch inputs", () => {
     }
   });
 
+  it("binds a revision round to the commit the previous author round ended on", async () => {
+    const root = mkdtempSync(join(realpathSync(homedir()), "cr-bound-round-"));
+    const base = join(root, "demo");
+    const path = join(root, ".worktrees", "demo", "topic");
+    const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-c", "user.name=Test", "-c", "user.email=test@example.test", ...args], { cwd, encoding: "utf8" }).trim();
+    try {
+      mkdirSync(base);
+      git(base, "init", "-b", "main");
+      git(base, "commit", "--allow-empty", "-m", "Initial commit");
+      mkdirSync(dirname(path), { recursive: true });
+      git(base, "worktree", "add", "-b", "topic", path);
+      const id = await releasedPackage("ROUNDS", "general-author", { repo: "demo", branch: "topic", local_path: path, workspace_root: root });
+      const one = (await claim(["fake"], true)) as Job;
+      const frozen = (one.run as unknown as { checkout: Record<string, string> }).checkout;
+      const a = frozen.head;
+      git(path, "commit", "--allow-empty", "-m", "Round one work");
+      const b = git(path, "rev-parse", "HEAD");
+      expect(b).not.toBe(a);
+      const done = await complete(one, { status: "succeeded", trace: trace(one, { checkout: frozen, checkout_final: { branch: "topic", head: b } }), outputs: [{ name: "p.md", content_base64: b64("# P") }] });
+      expect(done.statusCode, done.body).toBeLessThan(300);
+      const check = (await claim(["codex"], true)) as Job;
+      expect(check.run.role).toBe("pre-check");
+      const failed = await complete(check, { status: "succeeded", outputs: [], verification: { outcome: "fail", findings: [{ id: "F-001", severity: "major", text: "Needs more" }] } });
+      expect(failed.statusCode, failed.body).toBeLessThan(300);
+      const two = (await claim(["fake"], true)) as Job;
+      expect(two.run).toMatchObject({ role: "author", round: 2, package_id: id });
+      expect((two.run as unknown as { checkout: Record<string, string> }).checkout).toEqual({ ...frozen, head: b });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("refuses a trace that claims a checkout for a run that had none", async () => {
     await releasedPackage("TRACENONE");
     const job = (await claim()) as Job;

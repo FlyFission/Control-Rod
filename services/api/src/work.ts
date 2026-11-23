@@ -567,10 +567,25 @@ async function queueRun(c: Tx, cfg: WorkConfig, packageId: string, revision: num
   }
   const manifest=(await c.query<{digest:string}>("select digest from preparation_release_manifests where package_id=$1 and package_revision=$2",[packageId,revision])).rows[0];
   // Only author runs inherit explicit checkout authority. Capture text is untrusted context.
-  const checkout = role === "author" ? (await c.query<{ checkout: Json | null }>(
+  let checkout = role === "author" ? (await c.query<{ checkout: Json | null }>(
     "select c.body->'checkout' as checkout from captures c join packages p on p.capture_id=c.id where p.id=$1 and p.revision=$2",
     [packageId, revision],
   )).rows[0]?.checkout : undefined;
+  // A later author round starts from where the last successful one left the checkout: the daemon
+  // accepts a descendant commit at the end of a run but requires an exact match at launch, so the
+  // binding's head advances to that run's recorded checkout_final.head (same branch and identity).
+  if (checkout && role === "author") {
+    const prior = (await c.query<{ body: Json }>(
+      `select body from runs where package_id = $1 and role = 'author' and status = 'succeeded'
+         and body->'trace'->'checkout_final'->>'head' is not null order by created_at desc, id desc limit 1`,
+      [packageId],
+    )).rows[0]?.body;
+    const final = prior?.trace?.checkout_final;
+    const was = prior?.checkout;
+    if (final && was && final.branch === checkout.branch && was.path === checkout.path && was.git_dir === checkout.git_dir && was.common_dir === checkout.common_dir && was.repo === checkout.repo) {
+      checkout = { ...checkout, head: final.head };
+    }
+  }
   // The generation fence: each attempt at this revision, role and round is numbered.
   const attempts = await c.query<{ n: number }>(
     "select count(*)::int as n from runs where package_id = $1 and package_revision = $2 and role = $3 and round = $4",

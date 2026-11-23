@@ -78,6 +78,10 @@ Cleanup compares the held run handle with the entry at the run directory's name 
 
 The overlap check compares each protected path as configured and as it resolves, and the sandbox deny list names the resolved daemon home (`TestCheckoutRefusedWhenDaemonHomeIsALinkIntoTheRoot`). The cleanup claim in `risk.md` was corrected to match the code, and the cleanup swap window was added to the accepted residual risk. Results: `go test ./...` in `daemon/` had only the known failure (231 top-level tests passed, 14 skipped, 1 failed); `go vet` and `GOOS=windows go vet` passed. No API or spec code changed this round, so the API suite was not rerun.
 
+### Seventh fix round
+
+A later author round is queued with the binding head advanced to the previous successful author round's `checkout_final.head` (`runs.test.ts`, "binds a revision round to the commit the previous author round ended on"; it fails with the advance removed). The fake adapter being test-only and unsandboxed is noted in `risk.md`. API suite: 70 files, 848 tests passed; typecheck passed; no daemon or spec code changed.
+
 ## Required links
 
 [Basis](basis.md), [plan](plan.md), [risk](risk.md), [trace](trace.md), [verification](verification.md), [ship](ship.md).

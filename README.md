@@ -24,7 +24,7 @@ Control Rod is a free, open-source workspace that runs on your own machine. You 
 
 Control Rod's three core moves, locked work, an independent check and your sign-off, each answer a failure that published research keeps measuring.
 
-**When GPT-4 checked its own graph-coloring answers, it solved 2% of them, down from 16% with no check at all. With a checker outside the model, it solved 38%.**
+**When GPT-4 checked its own graph-coloring answers, it solved 2% of them, down from 16% with no check at all. With a checker outside the model, it solved 38%.** Self-checking is not always harmful: on Blocksworld planning in the same study it rose from 40% to 55%, though the outside checker still did better at 60%.
 
 ![Bar chart from Stechly et al. 2024, Table 1. Graph coloring: answers alone 16%, GPT-4 checks itself 2%, outside checker 38%. Game of 24: 5%, 3% and 36%.](docs/assets/readme/second-checker.svg)
 
@@ -35,10 +35,10 @@ Control Rod's three core moves, locked work, an independent check and your sign-
 
 **Why a different model checks, without seeing the author's reasoning**
 
-- **Checking itself can make a model worse.** Asked to review its own answers with no outside feedback, GPT-4 went from **95.5%** to **89.0%** on grade-school math, and GPT-3.5 went from **75.8%** to **38.1%** on common-sense questions ([Huang et al., 2024](https://arxiv.org/abs/2310.01798), Table 3). A survey of the field found self-correction "works well in tasks that can use reliable external feedback" ([Kamoi et al., 2024](https://arxiv.org/abs/2406.01297)).
-- **Models recognize their own work and go easy on it.** GPT-4 picked out its own writing from other models' and people's **73.5%** of the time, and models that recognize themselves better also favor themselves more ([Panickssery et al., 2024](https://arxiv.org/abs/2404.13076)).
+- **Checking itself can make a model worse.** Asked to review its own answers with no outside feedback, GPT-4 went from **95.5%** to **89.0%** on grade-school math after two rounds, and GPT-3.5 went from **75.8%** to **38.1%** on common-sense questions after one ([Huang et al., 2024](https://arxiv.org/abs/2310.01798), Table 3). A survey of the field found self-correction "works well in tasks that can use reliable external feedback" ([Kamoi et al., 2024](https://arxiv.org/abs/2406.01297)).
+- **Models recognize their own work and go easy on it.** Asked to tell its own news summaries apart from other models' and people's, GPT-4 was right **73.5%** of the time, and models that recognize their own writing better also rate it higher ([Panickssery et al., 2024](https://arxiv.org/abs/2404.13076)).
 - **Models bend to whoever is talking to them.** Challenged on a correct answer, Claude 1.3 wrongly admitted a mistake on **98%** of questions, and a user suggesting a wrong answer cut accuracy by up to **27%** (LLaMA 2) ([Sharma et al., 2023](https://arxiv.org/abs/2310.13548)). The checker never sees the author's pitch, only the work and the evidence.
-- **Look-alike models share blind spots.** AI judges gave higher scores to models more similar to themselves, measured by how often they make the same mistakes (average Pearson **r = 0.84**), and mistakes are getting more alike as models get more capable ([Goel et al., 2025](https://arxiv.org/abs/2502.04313)).
+- **Look-alike models share blind spots.** AI judges gave higher scores to models more similar to themselves, measured by chance-adjusted overlap in their mistakes (average Pearson **r = 0.84**), and across today's models the more capable ones make more similar mistakes ([Goel et al., 2025](https://arxiv.org/abs/2502.04313)).
 
 **Why a person signs off**
 

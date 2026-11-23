@@ -40,6 +40,8 @@ Useful environment variables: `CONTROLROD_PORT` (default 7300), `CONTROLROD_DATA
 
 ## Dev container and Codespaces
 
+**For contributors only.** This is a place to build and test Control Rod's code, not the way to try it. To use Control Rod, install it on your own machine as above.
+
 `.devcontainer/` describes an Ubuntu 24.04 environment with Node 22, pnpm, Go, Python, uv and Rust at the pinned versions. Open the repository in GitHub Codespaces, or in VS Code with the Dev Containers extension (**Reopen in Container**). Setup installs dependencies and builds everything (a few minutes on first build); then run `pnpm cr start`.
 
 - In VS Code the app is at <http://localhost:7300> through port forwarding, same as on your own machine.

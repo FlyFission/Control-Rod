@@ -1,5 +1,5 @@
 {
-  "inputs_sha256": "240bb4630befb67bfb2d1a227cf3edaee6b22d5e59ceeecb5b83a784d11700c1",
+  "inputs_sha256": "4c11d062b9a2d31bda7e382754c7d1916241781a1057a46aff1dbc20415e7a43",
   "svg": "docs/assets/readme/second-checker.svg",
   "svg_sha256": "38f54b68b8697360a6fb1735cf7931183e63c9313064e541d757a4ad80cfefe4",
   "chart_values": {
@@ -66,6 +66,13 @@
       "source": "sharma2023",
       "value": 27,
       "unit": "% maximum accuracy reduction"
+    },
+    "stechly_blocksworld": {
+      "source": "stechly2024",
+      "standard": 40,
+      "self_check": 55,
+      "outside_checker_binary": 60,
+      "unit": "% of 100 problems solved"
     }
   }
 }

@@ -24,7 +24,7 @@
       "url": "https://arxiv.org/abs/2404.13076",
       "where": "Introduction, finding 2: 'GPT-4 is 73.5% accurate distinguishing itself from two other LLMs and humans.'",
       "license": "CC BY 4.0",
-      "conditions": "Summarization (XSUM, CNN/DailyMail), out of the box, no fine-tuning."
+      "conditions": "Summarization (XSUM, CNN/DailyMail), out of the box, no fine-tuning. Measures recognizing its own authorship, not review accuracy."
     },
     "goel2025": {
       "title": "Great Models Think Alike and this Undermines AI Oversight",
@@ -32,7 +32,7 @@
       "url": "https://arxiv.org/abs/2502.04313",
       "where": "Section 3.2: 'a significant (p < 0.01) positive correlation (average Pearson r=0.84) between LLM-as-a-judge scores and model similarity'. Figure 6 caption: 'LM mistakes are getting more correlated with increasing capabilities'.",
       "license": "arXiv.org perpetual non-exclusive license",
-      "conditions": "Similarity measured by CAPA (overlap in mistakes). The capability trend has no single published coefficient."
+      "conditions": "Similarity measured by CAPA (overlap in mistakes). The capability trend has no single published coefficient. Cross-sectional across current models, not a trend over time; CAPA adjusts for chance agreement."
     },
     "metr2026": {
       "title": "Many SWE-bench-Passing PRs Would Not Be Merged into Main",
@@ -160,6 +160,13 @@
       "source": "sharma2023",
       "value": 27,
       "unit": "% maximum accuracy reduction"
+    },
+    "stechly_blocksworld": {
+      "source": "stechly2024",
+      "standard": 40,
+      "self_check": 55,
+      "outside_checker_binary": 60,
+      "unit": "% of 100 problems solved"
     }
   }
 }

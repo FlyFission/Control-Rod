@@ -141,6 +141,12 @@ func probeInstalled(ctx context.Context, id, binary string, run CommandRunner, l
 	if login != nil && login(call, &st) {
 		return st
 	}
+	// A login check that ran out of time said nothing about the login: never ready on it.
+	if timedOut {
+		st.LoginChecked = false
+		st.Reason = fmt.Sprintf("%s is installed but its login check did not answer in time", binary)
+		return st
+	}
 	st.Ready = true
 	return st
 }

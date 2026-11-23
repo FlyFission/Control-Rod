@@ -10,13 +10,15 @@
 ## Claim proven
 
 - A second `LockHome` on a held home refuses and names the holder's PID, and does not erase it; a new holder replaces a stale PID; a home that cannot lock refuses to start.
+- A symlinked `daemon.lock` is refused and the link's target is left unchanged; a clean release empties the file; a recorded PID with no live process is not named.
 - A probe whose command ran past its own deadline is marked timed out; one that answered, or whose parent context was cancelled, is not.
-- Across probe passes: a ready runtime stays offered through one timeout, not through a second in a row; an answer resets the grace; an answer that says not ready takes it away at once; a timeout after not ready is not held.
+- Across probe passes: a ready runtime stays offered through one timeout, not through a second in a row; an answer resets the grace; an answer that says not ready takes it away at once; a timeout after not ready is not held; an answer while held resets the grace without the runtime ever leaving.
+- A Codex login check that times out is not ready; a Codex sign-out (`codex login status` fails) takes it away on the next pass; a launch withdrawal during a slow pass is not undone by the grace.
 
 ## Method
 
 - Commands: the four in [risk](risk.md#required-proof).
-- Environment: Linux (cloud container, no bubblewrap), Go from `daemon/go.mod`, branch `feat/ao-s2-daemon-worktrees` with `origin/main` at `69c7f0bf` merged in.
+- Environment: Linux (cloud container, no bubblewrap), Go from `daemon/go.mod`, branch `feat/ao-s2-daemon-worktrees` with `origin/main` at `48742b9d` merged in.
 - Inputs/fixtures: temporary homes (`t.TempDir()`), a stand-in CLI (`slowCLI`) that answers, refuses or hangs, and `probeTimeout` shortened to 30 ms in tests.
 - Self-check used? yes: scope checked against `git diff --stat origin/main`.
 - Reproducible by the reviewer? yes: rerun the commands on the branch.
@@ -32,7 +34,9 @@
 ### Gaps
 
 - Not run on macOS. `flock` and the PID file behave the same there by POSIX, but no macOS run is recorded.
-- The independent blind check by a different vendor than the author is recorded here before merge.
+- Blind checks by a different vendor than the author (Codex, read-only):
+  - At `a87f19a5`: FIX FIRST, 3 P1 and 2 P2, all reasoned. Fixed in the next commit: the PID write followed a symlinked `daemon.lock` (now `O_NOFOLLOW`); the grace could restore a runtime a launch withdrew during the pass (the withdrawal now stands); a timed-out `codex login --help` skipped the login check and read as ready (now not ready); a contender could name a previous holder's PID (a clean release empties the file and a dead PID is not named); the sign-out and grace-reset tests did not exercise those paths (new tests above).
+  - The next check is recorded here before merge.
 
 ## Reviewer note
 

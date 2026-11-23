@@ -46,6 +46,52 @@ func TestANewHolderReplacesAStalePID(t *testing.T) {
 	}
 }
 
+func TestASymlinkedLockFileIsRefusedAndItsTargetLeftAlone(t *testing.T) {
+	home := t.TempDir()
+	target := filepath.Join(t.TempDir(), "precious")
+	if err := os.WriteFile(target, []byte("keep me\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(home, "daemon.lock")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LockHome(home); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Fatalf("a symlinked daemon.lock must be refused: %v", err)
+	}
+	if b, _ := os.ReadFile(target); string(b) != "keep me\n" {
+		t.Fatalf("the link's target was changed: %q", b)
+	}
+}
+
+func TestACleanReleaseLeavesNoPIDAndADeadPIDIsNotNamed(t *testing.T) {
+	home := t.TempDir()
+	unlock, err := LockHome(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unlock()
+	if b, _ := os.ReadFile(filepath.Join(home, "daemon.lock")); len(b) != 0 {
+		t.Fatalf("a clean release must empty daemon.lock: %q", b)
+	}
+	if processExists(99999999) {
+		t.Skip("a process with that PID exists here")
+	}
+	// A holder whose recorded PID is not a live process (the window before a new holder writes its
+	// own): the refusal must not name it.
+	unlock, err = LockHome(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+	if err := os.WriteFile(filepath.Join(home, "daemon.lock"), []byte("99999999\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = LockHome(home)
+	if err == nil || strings.Contains(err.Error(), "pid") || !strings.Contains(err.Error(), "already running") {
+		t.Fatalf("a dead PID must not be named: %v", err)
+	}
+}
+
 func TestAHomeThatCannotLockFailsClosed(t *testing.T) {
 	orig := flockHome
 	flockHome = func(int, int) error { return syscall.EOPNOTSUPP }

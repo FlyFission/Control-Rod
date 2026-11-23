@@ -368,10 +368,12 @@ func (d *Daemon) probe(ctx context.Context) {
 	}
 	d.probeMu.Unlock()
 	next := make([]RuntimeStatus, 0, len(d.cfg.Runtimes))
+	held := map[string]bool{}
 	for _, rt := range d.cfg.Runtimes {
 		st := Probe(ctx, rt, d.cfg.Version, d.cfg.Probe)
-		if held, ok := d.holdThroughTimeout(rt, st, last[rt]); ok {
-			next = append(next, held)
+		if h, ok := d.holdThroughTimeout(rt, st, last[rt]); ok {
+			next = append(next, h)
+			held[rt] = true
 			continue
 		}
 		// A runtime whose sandbox this host cannot hold is not offered: the reason says what to fix.
@@ -382,13 +384,22 @@ func (d *Daemon) probe(ctx context.Context) {
 		}
 		next = append(next, st)
 	}
-	report := SubscriptionFromStatuses(next, CurrentPlatform())
 	d.probeMu.Lock()
 	prev := map[string]bool{}
 	for _, s := range d.status {
 		prev[s.Runtime] = s.Ready
+		// A held status is the one read before this pass. If a launch withdrew the runtime since
+		// (markNotReady), the withdrawal stands until a probe answers.
+		if held[s.Runtime] && !s.Ready {
+			for i := range next {
+				if next[i].Runtime == s.Runtime {
+					next[i] = s
+				}
+			}
+		}
 	}
 	d.status = next
+	report := SubscriptionFromStatuses(next, CurrentPlatform())
 	d.subscriptions = &report
 	d.probeMu.Unlock()
 	var notYet []string

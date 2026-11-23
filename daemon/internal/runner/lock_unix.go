@@ -20,16 +20,32 @@ import (
 // PID when it refuses to start, so "already running" says which process to stop. The file is
 // opened without O_TRUNC, so a daemon that loses never erases the holder's PID. A filesystem that
 // cannot lock fails closed: two daemons on one home would share receipts.
+//
+// daemon.lock must be a regular file in the home itself: it is opened with O_NOFOLLOW, so the PID
+// write can never truncate a file a symlink points at. A clean release empties it again, so a
+// recorded PID belongs to a live holder or to one that crashed, and a PID whose process no longer
+// exists is never named.
 func LockHome(home string) (func(), error) {
 	if err := os.MkdirAll(home, 0o700); err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(filepath.Join(home, "daemon.lock"), os.O_RDWR|os.O_CREATE, 0o600)
+	path := filepath.Join(home, "daemon.lock")
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW, 0o600)
 	if err != nil {
+		if errors.Is(err, syscall.ELOOP) {
+			return nil, fmt.Errorf("%s is a symbolic link; Control Rod will not start until it is a plain file in the home (remove the link)", path)
+		}
 		return nil, err
+	}
+	if fi, serr := f.Stat(); serr != nil || !fi.Mode().IsRegular() {
+		f.Close()
+		return nil, fmt.Errorf("%s is not a plain file; Control Rod will not start until it is (remove it)", path)
 	}
 	if err := flockHome(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		holder := readHolderPID(f)
+		if holder > 0 && !processExists(holder) {
+			holder = 0
+		}
 		f.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) || errors.Is(err, syscall.EAGAIN) {
 			if holder > 0 {
@@ -44,7 +60,12 @@ func LockHome(home string) (func(), error) {
 		f.Close()
 		return nil, fmt.Errorf("record the daemon PID in %s: %w", f.Name(), err)
 	}
-	return func() { _ = flockHome(int(f.Fd()), syscall.LOCK_UN); f.Close() }, nil
+	return func() {
+		// Empty the file while still holding the lock, so the next contender never names this PID.
+		_ = f.Truncate(0)
+		_ = flockHome(int(f.Fd()), syscall.LOCK_UN)
+		f.Close()
+	}, nil
 }
 
 // flockHome is syscall.Flock; tests replace it to reach the unsupported-filesystem path.

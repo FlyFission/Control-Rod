@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -101,4 +102,99 @@ func TestOneSlowProbeKeepsARuntimeOfferedButASecondOrASignOutDoesNot(t *testing.
 	step("a sign-out takes it away at once", false)
 	cli.set(true, false)
 	step("a timeout after not ready is not held", false)
+
+	// Grace resets on an answer while the runtime stays offered the whole time.
+	cli.set(false, false)
+	step("ready again", true)
+	cli.set(true, false)
+	step("timeout held", true)
+	cli.set(false, false)
+	step("answer while held", true)
+	cli.set(true, false)
+	step("a timeout after that answer is held again", true)
+	step("and a second one in a row is not", false)
+}
+
+// hangsOnLogin answers codex --version and blocks on every login command until its context ends.
+func hangsOnLogin(onHang func()) CommandRunner {
+	return func(ctx context.Context, _ string, args ...string) (string, int, error) {
+		if len(args) > 0 && args[0] == "login" {
+			if onHang != nil {
+				onHang()
+			}
+			<-ctx.Done()
+			return "", -1, nil
+		}
+		return "codex-cli 0.163.0", 0, nil
+	}
+}
+
+func TestACodexLoginCheckThatTimesOutIsNeverReady(t *testing.T) {
+	stubArtifact(t)
+	shortProbes(t)
+	st := Probe(context.Background(), RuntimeCodex, "", hangsOnLogin(nil))
+	if st.Ready || !st.timedOut || st.LoginChecked {
+		t.Fatalf("a login check that ran out of time must not read as ready: %+v", st)
+	}
+}
+
+func TestACodexSignOutTakesItAwayAtOnce(t *testing.T) {
+	stubArtifact(t)
+	signedIn := true
+	var mu sync.Mutex
+	run := func(_ context.Context, _ string, args ...string) (string, int, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch strings.Join(args, " ") {
+		case "--version":
+			return "codex-cli 0.163.0", 0, nil
+		case "login --help":
+			return "Usage: codex login\n\nCommands:\n  status  Show login status\n", 0, nil
+		case "login status":
+			if signedIn {
+				return "Logged in using ChatGPT", 0, nil
+			}
+			return "Not logged in", 1, nil
+		}
+		return "", 1, nil
+	}
+	d := New(Config{Home: t.TempDir(), Runtimes: []string{RuntimeCodex}, Version: "test", Probe: run,
+		LookPath: func(string) (string, error) { return "/bin/true", nil },
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil))})
+	d.probe(context.Background())
+	first, _ := readyOf(d, RuntimeCodex)
+	mu.Lock()
+	signedIn = false
+	mu.Unlock()
+	d.probe(context.Background())
+	if got, _ := readyOf(d, RuntimeCodex); got {
+		t.Fatalf("a sign-out must take Codex away at once (ready before: %v)", first)
+	}
+}
+
+func TestAWithdrawalDuringASlowProbeIsNotUndoneByTheGrace(t *testing.T) {
+	stubArtifact(t)
+	shortProbes(t)
+	cli := &slowCLI{}
+	var d *Daemon
+	withdraw := false
+	run := func(ctx context.Context, name string, args ...string) (string, int, error) {
+		if withdraw {
+			d.markNotReady("mycli", "mycli no longer matches the version that was probed")
+		}
+		return cli.run(ctx, name, args...)
+	}
+	d = New(Config{Home: t.TempDir(), Runtimes: []string{"mycli"}, Version: "test", Probe: run,
+		LookPath: func(string) (string, error) { return "/bin/true", nil },
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil))})
+	d.probe(context.Background())
+	if got, _ := readyOf(d, "mycli"); !got {
+		t.Fatal("setup: mycli should be ready")
+	}
+	withdraw = true
+	cli.set(true, false)
+	d.probe(context.Background())
+	if got, _ := readyOf(d, "mycli"); got {
+		t.Fatal("a launch withdrew mycli during the pass; the timeout grace must not offer it again")
+	}
 }

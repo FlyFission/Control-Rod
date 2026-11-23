@@ -1,0 +1,9 @@
+# EXPLAIN of the Inbox ended-at query (services/api/src/work.ts), test harness PostgreSQL, 2026-11-23
+# Runs only when a latest run is stopped or lost without finished_at; one pass over events for all such runs.
+server_version 17.10
+GroupAggregate  (cost=25.61..25.64 rows=1 width=40)
+  Group Key: ((body ->> 'subject'::text))
+  ->  Sort  (cost=25.61..25.62 rows=1 width=40)
+        Sort Key: ((body ->> 'subject'::text))
+        ->  Seq Scan on events e  (cost=0.00..25.60 rows=1 width=40)
+              Filter: (((body ->> 'type'::text) = ANY ('{run.stopped,run.lost}'::text[])) AND ((body ->> 'subject'::text) = ANY ('{R-a,R-b}'::text[])))

@@ -581,7 +581,18 @@ export function parseReceiptBinding(text: string): ReceiptBindingExpectation | n
   return null;
 }
 
-const CLAIM_LINE = /^(?:- \*\*(?:Package|Written by|Checked blind by|Checked by|Accepted by):\*\*|> \*\*(?:UNAUTHENTICATED|UNVERIFIED SEAL KEY))/;
+const STANDALONE_HEADING = "### Control Rod check summary (standalone, unaccepted)";
+const STANDALONE_ACCEPTED = "- **Accepted by:** not accepted in Control Rod (standalone check)";
+
+/** A standalone `controlrod check` summary: its own heading, no bundle claims, and no accepting person. */
+function isStandaloneSummary(md: string): boolean {
+  const lines = md.split(/\r?\n/).map((l) => l.trimEnd());
+  if (!lines.includes(STANDALONE_HEADING)) return false;
+  if (lines.some((l) => /^- \*\*(?:Package|Written by):\*\*/.test(l) || l === "### Control Rod receipt")) return false;
+  return lines.filter((l) => l.startsWith("- **Accepted by:**")).every((l) => l === STANDALONE_ACCEPTED);
+}
+
+const CLAIM_LINE = /^(?:### Control Rod receipt$|- \*\*(?:Package|Written by|Checked blind by|Checked by|Accepted by):\*\*|> \*\*(?:UNAUTHENTICATED|UNVERIFIED SEAL KEY))/;
 
 function receiptClaimLines(md: string): string[] {
   return md.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => CLAIM_LINE.test(l));
@@ -642,7 +653,11 @@ export function checkBundleReceiptBinding(
     return { problem: "the bundle has no active authenticated human acceptance matching its current pre-check and revision" };
   }
 
-  if (expect.receiptText !== undefined && /^### Control Rod receipt\s*$/m.test(expect.receiptText)) {
+  if (
+    expect.receiptText !== undefined &&
+    /<!--\s*controlrod-check-binding:/.test(expect.receiptText) &&
+    !isStandaloneSummary(expect.receiptText)
+  ) {
     // A Control Rod bundle receipt is regenerated from the bundle; its claim block must match exactly,
     // so an edited verdict, checker or accepting person cannot verify.
     const trusted = isSealKeyTrusted(bundle, authenticated, resolved.trustedSealKeys ? { trustedSealKeys: resolved.trustedSealKeys } : undefined);

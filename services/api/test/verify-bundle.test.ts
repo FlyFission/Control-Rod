@@ -30,6 +30,9 @@ const bundle = {
   witnessed: false, statement: "Local chain, not witnessed",
 };
 
+// Hand-written receipts below are standalone summaries (binding marker, no bundle claims).
+const SA = "### Control Rod check summary (standalone, unaccepted)\n- **Accepted by:** not accepted in Control Rod (standalone check)\n";
+
 describe("pnpm cr verify", () => {
   it("passes an untouched unsealed bundle and says nothing authenticates it", async () => {
     const r = await verifyBundleText(JSON.stringify(bundle));
@@ -189,9 +192,9 @@ describe("pnpm cr verify", () => {
     const proofNoHead = build(mkSpecs(false));
     const segment = proofA.segment;
 
-    const receiptA = `<!-- controlrod-pr-receipt:v1 -->\n<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"head_sha":"${headA}","diff_sha256":"${diffA}","outcome":"pass"} -->\n`;
-    const receiptB = `<!-- controlrod-pr-receipt:v1 -->\n<!-- controlrod-check-binding: {"package_id":"PR-42","revision":2,"head_sha":"${headB}","diff_sha256":"${diffB}","outcome":"pass"} -->\n`;
-    const receiptSameRevNewDiff = `<!-- controlrod-pr-receipt:v1 -->\n<!-- controlrod-check-binding: {"package_id":"PR-42","head_sha":"${headB}","diff_sha256":"${diffB}","outcome":"pass"} -->\n`;
+    const receiptA = `<!-- controlrod-pr-receipt:v1 -->\n<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"head_sha":"${headA}","diff_sha256":"${diffA}","outcome":"pass"} -->\n${SA}`;
+    const receiptB = `<!-- controlrod-pr-receipt:v1 -->\n<!-- controlrod-check-binding: {"package_id":"PR-42","revision":2,"head_sha":"${headB}","diff_sha256":"${diffB}","outcome":"pass"} -->\n${SA}`;
+    const receiptSameRevNewDiff = `<!-- controlrod-pr-receipt:v1 -->\n<!-- controlrod-check-binding: {"package_id":"PR-42","head_sha":"${headB}","diff_sha256":"${diffB}","outcome":"pass"} -->\n${SA}`;
 
     // Matching revision A receipt passes.
     const okA = await verifyBundleText(JSON.stringify(proofA), { receiptText: receiptA });
@@ -209,16 +212,16 @@ describe("pnpm cr verify", () => {
     expect(badDiff.lines[0]).toContain("do not cover receipt diff");
 
     // Finding 1: a receipt without a valid diff digest cannot be verified.
-    const noDiff = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"head_sha":"${headA}"} -->\n`;
+    const noDiff = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"head_sha":"${headA}"} -->\n${SA}`;
     const noDiffR = await verifyBundleText(JSON.stringify(proofA), { receiptText: noDiff });
     expect(noDiffR.code).toBe(1);
     expect(noDiffR.lines[0]).toContain("no valid diff digest");
-    const badDigest = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"diff_sha256":"not-a-digest"} -->\n`;
+    const badDigest = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"diff_sha256":"not-a-digest"} -->\n${SA}`;
     expect((await verifyBundleText(JSON.stringify(proofA), { receiptText: badDigest })).code).toBe(1);
     expect((await verifyBundleText(JSON.stringify(proofA), { expectedRevision: 1 })).code).toBe(1);
 
     // Revision 0 is a real revision: a receipt for revision 0 must not verify against revision 1.
-    const rev0 = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":0,"diff_sha256":"${diffA}"} -->\n`;
+    const rev0 = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":0,"diff_sha256":"${diffA}"} -->\n${SA}`;
     const rev0R = await verifyBundleText(JSON.stringify(proofA), { receiptText: rev0 });
     expect(rev0R.code).toBe(1);
     expect(rev0R.lines[0]).toContain("not expected revision 0");
@@ -226,7 +229,7 @@ describe("pnpm cr verify", () => {
     expect(parseVerifyCliArgs(["--revision", "-1", "p.json"]).error).toBeDefined();
 
     // A recorded head commit that differs still fails.
-    const wrongHead = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"head_sha":"${headB}","diff_sha256":"${diffA}"} -->\n`;
+    const wrongHead = `<!-- controlrod-check-binding: {"package_id":"PR-42","revision":1,"head_sha":"${headB}","diff_sha256":"${diffA}"} -->\n${SA}`;
     const wrongHeadR = await verifyBundleText(JSON.stringify(proofA), { receiptText: wrongHead });
     expect(wrongHeadR.code).toBe(1);
     expect(wrongHeadR.lines[0]).toContain("does not match head commit");
@@ -239,11 +242,11 @@ describe("pnpm cr verify", () => {
     expect(headNone.lines.join("\n")).not.toContain(`head ${headA}`);
 
     // A receipt for another package cannot verify against this bundle's acceptance.
-    const otherPkg = `<!-- controlrod-check-binding: {"package_id":"PR-99","revision":1,"head_sha":"${headA}","diff_sha256":"${diffA}"} -->\n`;
+    const otherPkg = `<!-- controlrod-check-binding: {"package_id":"PR-99","revision":1,"head_sha":"${headA}","diff_sha256":"${diffA}"} -->\n${SA}`;
     const otherPkgR = await verifyBundleText(JSON.stringify(proofA), { receiptText: otherPkg });
     expect(otherPkgR.code).toBe(1);
     expect(otherPkgR.lines[0]).toContain("not this bundle's package");
-    const noPkg = `<!-- controlrod-check-binding: {"revision":1,"diff_sha256":"${diffA}"} -->\n`;
+    const noPkg = `<!-- controlrod-check-binding: {"revision":1,"diff_sha256":"${diffA}"} -->\n${SA}`;
     expect((await verifyBundleText(JSON.stringify(proofA), { receiptText: noPkg })).code).toBe(1);
 
     // Unsealed bundle cannot claim acceptance against any receipt.

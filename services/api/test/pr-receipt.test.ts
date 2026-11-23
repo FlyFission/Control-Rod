@@ -242,6 +242,15 @@ describe("PR receipt", () => {
       expect(edited.code, `${from} -> ${to}`).toBe(1);
       expect(edited.lines[0]).toContain("claims");
     }
+    // Editing the heading must not bypass the claim check: the marker alone makes the compare mandatory.
+    const noHeading = await verifyBundleText(JSON.stringify(sealed), { receiptText: md.replace("### Control Rod receipt", "## Control Rod receipt").replace("mem_owner", "mem_other") });
+    expect(noHeading.code).toBe(1);
+    expect(noHeading.lines[0]).toContain("claims");
+    const headingOnly = await verifyBundleText(JSON.stringify(sealed), { receiptText: md.replace("### Control Rod receipt", "## Control Rod receipt") });
+    expect(headingOnly.code).toBe(1);
+    // A platform receipt relabelled as a standalone summary still fails while it names a person.
+    const relabelled = md.replace("### Control Rod receipt", "### Control Rod check summary (standalone, unaccepted)").replace("mem_owner", "mem_other");
+    expect((await verifyBundleText(JSON.stringify(sealed), { receiptText: relabelled })).code).toBe(1);
     // Explicit options that disagree with the receipt's binding fail instead of overriding it.
     const conflict = await verifyBundleText(JSON.stringify(sealed), { receiptText: md, expectedDiffSha256: "f".repeat(64) });
     expect(conflict.code).toBe(1);
